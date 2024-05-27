@@ -50,6 +50,7 @@ import org.apache.ignite.internal.cluster.management.raft.commands.JoinRequestCo
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.service.CommandClosure;
@@ -86,14 +87,14 @@ public class CmgRaftGroupListenerTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void setUp() {
-        assertThat(storage.startAsync(), willCompleteSuccessfully());
+        assertThat(storage.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         listener = new CmgRaftGroupListener(storage, logicalTopology, onLogicalTopologyChanged);
     }
 
     @AfterEach
     void tearDown() {
-        assertThat(storage.stopAsync(), willCompleteSuccessfully());
+        assertThat(storage.stopAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     /**

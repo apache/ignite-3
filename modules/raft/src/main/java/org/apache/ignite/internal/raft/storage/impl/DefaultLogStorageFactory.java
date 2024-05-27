@@ -33,6 +33,7 @@ import java.util.concurrent.Executors;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -114,7 +115,7 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
     }
 
     @Override
-    public CompletableFuture<Void> startAsync() {
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         // This is effectively a sync implementation.
         try {
             start();
@@ -167,7 +168,7 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
     }
 
     @Override
-    public CompletableFuture<Void> stopAsync() {
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         ExecutorServiceHelper.shutdownAndAwaitTermination(executorService);
 
         try {

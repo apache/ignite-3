@@ -84,6 +84,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NodeFinder;
 import org.apache.ignite.internal.network.StaticNodeFinder;
@@ -403,7 +404,7 @@ public class ItTxTestCluster {
                     clock
             );
 
-            assertThat(raftSrv.startAsync(), willCompleteSuccessfully());
+            assertThat(raftSrv.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
             raftServers.put(nodeName, raftSrv);
 
@@ -438,7 +439,7 @@ public class ItTxTestCluster {
                     new VolatileLogStorageFactoryCreator(nodeName, workDir.resolve("volatile-log-spillout"))
             );
 
-            assertThat(replicaMgr.startAsync(), willCompleteSuccessfully());
+            assertThat(replicaMgr.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
             replicaManagers.put(nodeName, replicaMgr);
 
@@ -483,10 +484,10 @@ public class ItTxTestCluster {
                     txMgr
             );
 
-            assertThat(txMgr.startAsync(), willCompleteSuccessfully());
+            assertThat(txMgr.startAsync(new ComponentContext()), willCompleteSuccessfully());
             txManagers.put(nodeName, txMgr);
 
-            assertThat(resourceVacuumManager.startAsync(), willCompleteSuccessfully());
+            assertThat(resourceVacuumManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
             resourceCleanupManagers.put(nodeName, resourceVacuumManager);
 
             txStateStorages.put(nodeName, new TestTxStateStorage());
@@ -900,10 +901,10 @@ public class ItTxTestCluster {
      *
      */
     public void shutdownCluster() {
-        assertThat(stopAsync(cluster), willCompleteSuccessfully());
+        assertThat(stopAsync(new ComponentContext(), cluster), willCompleteSuccessfully());
 
         if (client != null) {
-            assertThat(client.stopAsync(), willCompleteSuccessfully());
+            assertThat(client.stopAsync(new ComponentContext()), willCompleteSuccessfully());
         }
 
         if (executor != null) {
@@ -944,29 +945,29 @@ public class ItTxTestCluster {
                     }
                 });
 
-                assertThat(replicaMgr.stopAsync(), willCompleteSuccessfully());
-                assertThat(rs.stopAsync(), willCompleteSuccessfully());
+                assertThat(replicaMgr.stopAsync(new ComponentContext()), willCompleteSuccessfully());
+                assertThat(rs.stopAsync(new ComponentContext()), willCompleteSuccessfully());
             }
         }
 
         if (resourceCleanupManagers != null) {
             for (ResourceVacuumManager resourceVacuumManager : resourceCleanupManagers.values()) {
-                assertThat(resourceVacuumManager.stopAsync(), willCompleteSuccessfully());
+                assertThat(resourceVacuumManager.stopAsync(new ComponentContext()), willCompleteSuccessfully());
             }
         }
 
         if (clientResourceVacuumManager != null) {
-            assertThat(clientResourceVacuumManager.stopAsync(), willCompleteSuccessfully());
+            assertThat(clientResourceVacuumManager.stopAsync(new ComponentContext()), willCompleteSuccessfully());
         }
 
         if (txManagers != null) {
             for (TxManager txMgr : txManagers.values()) {
-                assertThat(txMgr.stopAsync(), willCompleteSuccessfully());
+                assertThat(txMgr.stopAsync(new ComponentContext()), willCompleteSuccessfully());
             }
         }
 
         if (clientTxManager != null) {
-            assertThat(clientTxManager.stopAsync(), willCompleteSuccessfully());
+            assertThat(clientTxManager.stopAsync(new ComponentContext()), willCompleteSuccessfully());
         }
 
         for (Map.Entry<String, List<RaftGroupService>> e : raftClients.entrySet()) {
@@ -988,7 +989,7 @@ public class ItTxTestCluster {
             NodeFinder nodeFinder) {
         var network = ClusterServiceTestUtils.clusterService(testInfo, port, nodeFinder);
 
-        assertThat(network.startAsync(), willCompleteSuccessfully());
+        assertThat(network.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         return network;
     }
@@ -1062,7 +1063,7 @@ public class ItTxTestCluster {
         );
 
         clientTxStateResolver.start();
-        assertThat(startAsync(clientTxManager, clientResourceVacuumManager), willCompleteSuccessfully());
+        assertThat(startAsync(new ComponentContext(), clientTxManager, clientResourceVacuumManager), willCompleteSuccessfully());
     }
 
     public Map<String, Loza> raftServers() {

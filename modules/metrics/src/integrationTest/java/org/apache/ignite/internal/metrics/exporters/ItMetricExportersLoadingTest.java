@@ -27,6 +27,7 @@ import java.io.OutputStream;
 import java.util.concurrent.locks.LockSupport;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
@@ -73,7 +74,7 @@ public class ItMetricExportersLoadingTest extends BaseIgniteAbstractTest {
 
             assertEquals(0, pushOutputStream.toString().length());
 
-            assertThat(metricManager.startAsync(), willCompleteSuccessfully());
+            assertThat(metricManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
             src.inc();
 
@@ -85,7 +86,7 @@ public class ItMetricExportersLoadingTest extends BaseIgniteAbstractTest {
             waitForOutput(pullOutputStream, "TestMetricsSource:\nMetric:1");
             assertTrue(pullOutputStream.toString().contains("TestMetricsSource:\nMetric:1"));
 
-            assertThat(metricManager.stopAsync(), willCompleteSuccessfully());
+            assertThat(metricManager.stopAsync(new ComponentContext()), willCompleteSuccessfully());
         }
     }
 

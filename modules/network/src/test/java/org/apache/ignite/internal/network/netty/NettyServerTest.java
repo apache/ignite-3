@@ -50,6 +50,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
@@ -91,7 +92,8 @@ public class NettyServerTest extends BaseIgniteAbstractTest {
     final void tearDown() throws Exception {
         closeAll(
                 server == null ? null : () -> server.stop().join(),
-                bootstrapFactory == null ? null : () -> assertThat(bootstrapFactory.stopAsync(), willCompleteSuccessfully())
+                bootstrapFactory == null ? null :
+                        () -> assertThat(bootstrapFactory.stopAsync(new ComponentContext()), willCompleteSuccessfully())
         );
     }
 
@@ -220,7 +222,7 @@ public class NettyServerTest extends BaseIgniteAbstractTest {
                 });
 
         bootstrapFactory = new NettyBootstrapFactory(serverCfg, "");
-        assertThat(bootstrapFactory.startAsync(), willCompleteSuccessfully());
+        assertThat(bootstrapFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         server = new NettyServer(
                 serverCfg.value(),
@@ -293,7 +295,7 @@ public class NettyServerTest extends BaseIgniteAbstractTest {
      */
     private NettyServer getServer(boolean shouldStart) {
         bootstrapFactory = new NettyBootstrapFactory(serverCfg, "");
-        assertThat(bootstrapFactory.startAsync(), willCompleteSuccessfully());
+        assertThat(bootstrapFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         MessageSerializationRegistry registry = mock(MessageSerializationRegistry.class);
 

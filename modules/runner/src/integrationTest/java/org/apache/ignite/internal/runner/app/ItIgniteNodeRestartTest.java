@@ -124,6 +124,7 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.lowwatermark.LowWatermarkImpl;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -672,10 +673,10 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         // Start.
 
-        assertThat(vault.startAsync(), willCompleteSuccessfully());
+        assertThat(vault.startAsync(new ComponentContext()), willCompleteSuccessfully());
         vault.putName(name);
 
-        assertThat(nodeCfgMgr.startAsync(), willCompleteSuccessfully());
+        assertThat(nodeCfgMgr.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         // Start the remaining components.
         List<IgniteComponent> otherComponents = List.of(
@@ -707,7 +708,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         for (IgniteComponent component : otherComponents) {
             // TODO: IGNITE-22119 required to be able to wait on this future.
-            component.startAsync();
+            component.startAsync(new ComponentContext());
 
             components.add(component);
         }

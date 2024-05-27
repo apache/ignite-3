@@ -34,6 +34,7 @@ import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.failure.FailureType;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.worker.CriticalWorker;
 import org.apache.ignite.internal.worker.CriticalWorkerRegistry;
@@ -92,7 +93,7 @@ public class NettyWorkersRegistrar implements IgniteComponent {
     }
 
     @Override
-    public CompletableFuture<Void> startAsync() {
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         List<NettyWorker> nettyWorkers = new ArrayList<>();
         for (EventLoopGroup group : bootstrapFactory.eventLoopGroups()) {
             registerWorkersFor(group, nettyWorkers);
@@ -140,7 +141,7 @@ public class NettyWorkersRegistrar implements IgniteComponent {
     }
 
     @Override
-    public CompletableFuture<Void> stopAsync() {
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         Future<?> heartBeatsTaskFuture = sendHearbeatsTaskFuture;
         if (heartBeatsTaskFuture != null) {
             heartBeatsTaskFuture.cancel(false);

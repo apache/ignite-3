@@ -64,6 +64,7 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.EntryEvent;
@@ -218,7 +219,7 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
                     metaStorageManager
             );
 
-            assertThat(startAsync(components), willCompleteSuccessfully());
+            assertThat(startAsync(new ComponentContext(), components), willCompleteSuccessfully());
         }
 
         /**
@@ -245,7 +246,7 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
 
             closeAll(Stream.concat(
                     components.stream().map(c -> c::beforeNodeStop),
-                    Stream.of(() -> assertThat(stopAsync(components), willCompleteSuccessfully()))
+                    Stream.of(() -> assertThat(stopAsync(new ComponentContext(), components), willCompleteSuccessfully()))
             ));
         }
 

@@ -36,6 +36,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.PeersAndLearners;
@@ -150,12 +151,12 @@ public abstract class JraftAbstractTest extends RaftServerAbstractTest {
 
             server.beforeNodeStop();
 
-            assertThat(server.stopAsync(), willCompleteSuccessfully());
+            assertThat(server.stopAsync(new ComponentContext()), willCompleteSuccessfully());
         }
 
         servers.clear();
 
-        assertThat(IgniteUtils.stopAsync(serverServices), willCompleteSuccessfully());
+        assertThat(IgniteUtils.stopAsync(new ComponentContext(), serverServices), willCompleteSuccessfully());
         serverServices.clear();
     }
 
@@ -178,7 +179,7 @@ public abstract class JraftAbstractTest extends RaftServerAbstractTest {
 
         JraftServerImpl server = jraftServer(idx, service, opts);
 
-        assertThat(server.startAsync(), willCompleteSuccessfully());
+        assertThat(server.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         clo.accept(server);
 

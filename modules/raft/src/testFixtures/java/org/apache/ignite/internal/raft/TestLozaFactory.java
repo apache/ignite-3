@@ -20,6 +20,7 @@ package org.apache.ignite.internal.raft;
 import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
@@ -79,13 +80,13 @@ public class TestLozaFactory {
                 raftGroupEventsClientListener,
                 logStorageFactory) {
             @Override
-            public CompletableFuture<Void> startAsync() {
-                return logStorageFactory.startAsync().thenCompose(none -> super.startAsync());
+            public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
+                return logStorageFactory.startAsync(componentContext).thenCompose(none -> super.startAsync(componentContext));
             }
 
             @Override
-            public CompletableFuture<Void> stopAsync() {
-                return super.stopAsync().thenCompose(none -> logStorageFactory.stopAsync());
+            public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
+                return super.stopAsync(componentContext).thenCompose(none -> logStorageFactory.stopAsync(componentContext));
             }
         };
     }

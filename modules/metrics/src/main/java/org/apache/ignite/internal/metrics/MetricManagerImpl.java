@@ -33,6 +33,7 @@ import org.apache.ignite.configuration.notifications.ConfigurationNotificationEv
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
 import org.apache.ignite.internal.metrics.configuration.MetricView;
 import org.apache.ignite.internal.metrics.exporters.MetricExporter;
@@ -85,7 +86,7 @@ public class MetricManagerImpl implements MetricManager {
     }
 
     @Override
-    public CompletableFuture<Void> startAsync() {
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         start(loadExporters());
 
         return nullCompletedFuture();
@@ -117,7 +118,7 @@ public class MetricManagerImpl implements MetricManager {
         }
     }
 
-    @Override public CompletableFuture<Void> stopAsync() {
+    @Override public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         for (MetricExporter metricExporter : enabledMetricExporters.values()) {
             metricExporter.stop();
         }

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.raft.server;
 
 import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
@@ -79,13 +80,13 @@ public class TestJraftServerFactory {
         LogStorageFactory defaultLogStorageFactory = SharedLogStorageFactoryUtils.create(service.nodeName(), dataPath, raftConfiguration);
         return new JraftServerImpl(service, dataPath, opts, raftGroupEventsClientListener, defaultLogStorageFactory) {
             @Override
-            public CompletableFuture<Void> startAsync() {
-                return defaultLogStorageFactory.startAsync().thenCompose(none -> super.startAsync());
+            public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
+                return defaultLogStorageFactory.startAsync(componentContext).thenCompose(none -> super.startAsync(componentContext));
             }
 
             @Override
-            public CompletableFuture<Void> stopAsync() {
-                return super.stopAsync().thenCompose(none -> defaultLogStorageFactory.stopAsync());
+            public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
+                return super.stopAsync(componentContext).thenCompose(none -> defaultLogStorageFactory.stopAsync(componentContext));
             }
         };
     }

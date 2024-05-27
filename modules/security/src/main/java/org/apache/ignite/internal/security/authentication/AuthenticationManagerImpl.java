@@ -37,6 +37,7 @@ import org.apache.ignite.internal.eventlog.api.IgniteEvents;
 import org.apache.ignite.internal.eventlog.event.EventUser;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderConfiguration;
 import org.apache.ignite.internal.security.authentication.configuration.AuthenticationProviderView;
 import org.apache.ignite.internal.security.authentication.configuration.AuthenticationView;
@@ -129,7 +130,7 @@ public class AuthenticationManagerImpl
     }
 
     @Override
-    public CompletableFuture<Void> startAsync() {
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         securityConfiguration.listen(securityConfigurationListener);
         securityConfiguration.enabled().listen(securityEnabledDisabledEventFactory);
         securityConfiguration.authentication().providers().listenElements(providerEventFactory);
@@ -143,7 +144,7 @@ public class AuthenticationManagerImpl
     }
 
     @Override
-    public CompletableFuture<Void> stopAsync() {
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         securityConfiguration.stopListen(securityConfigurationListener);
         securityConfiguration.enabled().stopListen(securityEnabledDisabledEventFactory);
         securityConfiguration.authentication().providers().stopListenElements(providerEventFactory);

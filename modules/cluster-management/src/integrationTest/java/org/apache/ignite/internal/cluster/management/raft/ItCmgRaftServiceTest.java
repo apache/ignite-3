@@ -56,6 +56,7 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NodeFinder;
 import org.apache.ignite.internal.network.StaticNodeFinder;
@@ -109,14 +110,14 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
         }
 
         void start() {
-            assertThat(startAsync(clusterService, raftManager), willCompleteSuccessfully());
+            assertThat(startAsync(new ComponentContext(), clusterService, raftManager), willCompleteSuccessfully());
         }
 
         void afterNodeStart() {
             try {
                 assertTrue(waitForCondition(() -> clusterService.topologyService().allMembers().size() == cluster.size(), 1000));
 
-                assertThat(raftStorage.startAsync(), willCompleteSuccessfully());
+                assertThat(raftStorage.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
                 PeersAndLearners configuration = clusterService.topologyService().allMembers().stream()
                         .map(ClusterNode::name)
@@ -157,7 +158,7 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
         }
 
         void stop() {
-            assertThat(stopAsync(raftManager, raftStorage, clusterService), willCompleteSuccessfully());
+            assertThat(stopAsync(new ComponentContext(), raftManager, raftStorage, clusterService), willCompleteSuccessfully());
         }
 
         ClusterNode localMember() {

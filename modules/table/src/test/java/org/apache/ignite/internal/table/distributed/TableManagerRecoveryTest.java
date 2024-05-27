@@ -73,6 +73,7 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
@@ -359,10 +360,11 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
             }
         };
 
+        ComponentContext componentContext = new ComponentContext();
         assertThat(
-                metaStorageManager.startAsync()
+                metaStorageManager.startAsync(componentContext)
                         .thenCompose(unused -> metaStorageManager.recoveryFinishedFuture())
-                        .thenCompose(unused -> startAsync(catalogManager, sm, tableManager))
+                        .thenCompose(unused -> startAsync(componentContext, catalogManager, sm, tableManager))
                         .thenCompose(unused -> ((MetaStorageManagerImpl) metaStorageManager).notifyRevisionUpdateListenerOnStart())
                         .thenCompose(unused -> metaStorageManager.deployWatches()),
                 willCompleteSuccessfully()
@@ -373,16 +375,19 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
      * Stops TableManager and dependencies.
      */
     private void stopComponents() throws Exception {
+        ComponentContext componentContext = new ComponentContext();
         if (tableManager != null) {
             tableManager.beforeNodeStop();
-            assertThat(tableManager.stopAsync(), willCompleteSuccessfully());
+            assertThat(tableManager.stopAsync(componentContext), willCompleteSuccessfully());
         }
 
         closeAll(
-                dsm == null ? null : () -> assertThat(dsm.stopAsync(), willCompleteSuccessfully()),
-                sm == null ? null : () -> assertThat(sm.stopAsync(), willCompleteSuccessfully()),
-                catalogManager == null ? null : () -> assertThat(catalogManager.stopAsync(), willCompleteSuccessfully()),
-                metaStorageManager == null ? null : () -> assertThat(metaStorageManager.stopAsync(), willCompleteSuccessfully()),
+                dsm == null ? null : () -> assertThat(dsm.stopAsync(componentContext), willCompleteSuccessfully()),
+                sm == null ? null : () -> assertThat(sm.stopAsync(componentContext), willCompleteSuccessfully()),
+                catalogManager == null ? null :
+                        () -> assertThat(catalogManager.stopAsync(componentContext), willCompleteSuccessfully()),
+                metaStorageManager == null ? null :
+                        () -> assertThat(metaStorageManager.stopAsync(componentContext), willCompleteSuccessfully()),
                 partitionOperationsExecutor == null ? null
                         : () -> IgniteUtils.shutdownAndAwaitTermination(partitionOperationsExecutor, 10, TimeUnit.SECONDS)
         );
@@ -410,7 +415,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 config
         );
 
-        assertThat(manager.startAsync(), willCompleteSuccessfully());
+        assertThat(manager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         return manager;
     }

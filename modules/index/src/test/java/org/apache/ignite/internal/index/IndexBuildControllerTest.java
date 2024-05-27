@@ -59,6 +59,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
@@ -110,7 +111,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
         ClusterService clusterService = mock(ClusterService.class, invocation -> mock(TopologyService.class, invocation1 -> LOCAL_NODE));
 
         catalogManager = createCatalogManagerWithTestUpdateLog(NODE_NAME, clock);
-        assertThat(catalogManager.startAsync(), willCompleteSuccessfully());
+        assertThat(catalogManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         indexBuildController = new IndexBuildController(
                 indexBuilder,
@@ -127,7 +128,8 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
     @AfterEach
     void tearDown() throws Exception {
         closeAll(
-                catalogManager == null ? null : () -> assertThat(catalogManager.stopAsync(), willCompleteSuccessfully()),
+                catalogManager == null ? null :
+                        () -> assertThat(catalogManager.stopAsync(new ComponentContext()), willCompleteSuccessfully()),
                 indexBuildController == null ? null : indexBuildController::close
         );
     }

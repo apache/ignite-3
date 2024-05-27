@@ -58,6 +58,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
@@ -208,7 +209,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                 view -> new LocalLogStorageFactory()
         );
 
-        assertThat(replicaManager.startAsync(), willCompleteSuccessfully());
+        assertThat(replicaManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     @AfterEach
@@ -216,7 +217,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
         IgniteUtils.shutdownAndAwaitTermination(requestsExecutor, 10, TimeUnit.SECONDS);
         IgniteUtils.shutdownAndAwaitTermination(rebalanceScheduler, 10, TimeUnit.SECONDS);
 
-        assertThat(clusterService.stopAsync(), willCompleteSuccessfully());
+        assertThat(clusterService.stopAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     public ReplicaUnavailableTest(TestInfo testInfo) {

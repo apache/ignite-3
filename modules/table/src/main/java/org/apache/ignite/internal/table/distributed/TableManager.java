@@ -126,6 +126,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.lowwatermark.event.ChangeLowWatermarkEventParameters;
 import org.apache.ignite.internal.lowwatermark.event.LowWatermarkEvent;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.marshaller.ReflectionMarshallersProvider;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -363,7 +364,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     /** Versioned value used only at manager startup to correctly fire table creation events. */
     private final IncrementalVersionedValue<Void> startVv;
 
-    /** Ends at the {@link #stopAsync()} with an {@link NodeStoppingException}. */
+    /** Ends at the {@link IgniteComponent#stopAsync(ComponentContext)} with an {@link NodeStoppingException}. */
     private final CompletableFuture<Void> stopManagerFuture = new CompletableFuture<>();
 
     /** Configuration for {@link StorageUpdateHandler}. */
@@ -551,7 +552,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     @Override
-    public CompletableFuture<Void> startAsync() {
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         return inBusyLockAsync(busyLock, () -> {
             mvGc.start();
 
@@ -1096,7 +1097,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     @Override
-    public CompletableFuture<Void> stopAsync() {
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         assert beforeStopGuard.get() : "'stop' called before 'beforeNodeStop'";
 
         if (!stopGuard.compareAndSet(false, true)) {
@@ -2405,8 +2406,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     /**
      * Returns the future that will complete when, either the future from the argument or {@link #stopManagerFuture} will complete,
-     * successfully or exceptionally. Allows to protect from getting stuck at {@link #stopAsync()} when someone is blocked (by using
-     * {@link #busyLock}) for a long time.
+     * successfully or exceptionally. Allows to protect from getting stuck at {@link IgniteComponent#stopAsync(ComponentContext)}
+     * when someone is blocked (by using {@link #busyLock}) for a long time.
      *
      * @param future Future.
      */

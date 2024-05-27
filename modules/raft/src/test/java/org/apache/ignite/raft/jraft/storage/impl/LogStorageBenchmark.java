@@ -25,6 +25,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.storage.logit.LogitLogStorageFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -154,7 +155,7 @@ public class LogStorageBenchmark {
 
 //        LogStorageFactory logStorageFactory = new DefaultLogStorageFactory(testPath);
         LogStorageFactory logStorageFactory = new LogitLogStorageFactory("test", new StoreOptions(), () -> testPath);
-        assertThat(logStorageFactory.startAsync(), willCompleteSuccessfully());
+        assertThat(logStorageFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         try {
             RaftOptions raftOptions = new RaftOptions();
@@ -171,7 +172,7 @@ public class LogStorageBenchmark {
                 new LogStorageBenchmark(logStorage, logSize, totalLogs, batchSize).doTest();
             }
         } finally {
-            assertThat(logStorageFactory.stopAsync(), willCompleteSuccessfully());
+            assertThat(logStorageFactory.stopAsync(new ComponentContext()), willCompleteSuccessfully());
         }
     }
 }

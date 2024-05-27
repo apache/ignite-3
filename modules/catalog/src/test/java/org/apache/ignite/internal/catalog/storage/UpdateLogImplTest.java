@@ -47,6 +47,7 @@ import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntr
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.catalog.storage.serialization.UpdateLogMarshallerImpl;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
@@ -76,13 +77,13 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
         metastore = StandaloneMetaStorageManager.create(keyValueStorage);
 
         keyValueStorage.start();
-        assertThat(metastore.startAsync(), willCompleteSuccessfully());
+        assertThat(metastore.startAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     @AfterEach
     public void tearDown() throws Exception {
         closeAll(
-                metastore == null ? null : () -> assertThat(metastore.stopAsync(), willCompleteSuccessfully()),
+                metastore == null ? null : () -> assertThat(metastore.stopAsync(new ComponentContext()), willCompleteSuccessfully()),
                 keyValueStorage == null ? null : keyValueStorage::close
         );
     }
@@ -99,7 +100,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
         appendUpdates(updateLogImpl, expectedUpdates);
 
         // Let's restart the log and metastore with recovery.
-        assertThat(updateLogImpl.stopAsync(), willCompleteSuccessfully());
+        assertThat(updateLogImpl.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
         restartMetastore();
 
@@ -132,7 +133,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
         compactCatalog(updateLogImpl, snapshotEntryOfVersion(2));
 
         // Let's restart the log and metastore with recovery.
-        assertThat(updateLogImpl.stopAsync(), willCompleteSuccessfully());
+        assertThat(updateLogImpl.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
         restartMetastore();
 
@@ -170,7 +171,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
         UpdateLogImpl updateLogImpl = createUpdateLogImpl();
 
         updateLogImpl.registerUpdateHandler(onUpdateHandler);
-        assertThat(updateLogImpl.startAsync(), willCompleteSuccessfully());
+        assertThat(updateLogImpl.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         return updateLogImpl;
     }
@@ -189,10 +190,12 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
     private void restartMetastore() {
         long recoverRevision = metastore.appliedRevision();
 
-        assertThat(metastore.stopAsync(), willCompleteSuccessfully());
+        ComponentContext componentContext = new ComponentContext();
+
+        assertThat(metastore.stopAsync(componentContext), willCompleteSuccessfully());
 
         metastore = StandaloneMetaStorageManager.create(keyValueStorage);
-        assertThat(metastore.startAsync(), willCompleteSuccessfully());
+        assertThat(metastore.startAsync(componentContext), willCompleteSuccessfully());
 
         assertThat(metastore.recoveryFinishedFuture(), willBe(recoverRevision));
     }
@@ -203,7 +206,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
 
         IgniteInternalException ex = assertThrows(
                 IgniteInternalException.class,
-                updateLog::startAsync
+                () -> updateLog.startAsync(new ComponentContext())
         );
 
         assertThat(
@@ -229,7 +232,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
 
         long revisionBefore = metastore.appliedRevision();
 
-        assertThat(updateLog.startAsync(), willCompleteSuccessfully());
+        assertThat(updateLog.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         assertThat("Watches were not deployed", metastore.deployWatches(), willCompleteSuccessfully());
 

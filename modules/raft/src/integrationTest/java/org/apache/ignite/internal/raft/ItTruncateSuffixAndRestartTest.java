@@ -50,6 +50,7 @@ import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
@@ -170,8 +171,8 @@ public class ItTruncateSuffixAndRestartTest extends BaseIgniteAbstractTest {
 
             var nettyBootstrapFactory = new NettyBootstrapFactory(networkConfiguration, nodeName);
 
-            assertThat(nettyBootstrapFactory.startAsync(), willCompleteSuccessfully());
-            cleanup.add(() -> assertThat(nettyBootstrapFactory.stopAsync(), willCompleteSuccessfully()));
+            assertThat(nettyBootstrapFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
+            cleanup.add(() -> assertThat(nettyBootstrapFactory.stopAsync(new ComponentContext()), willCompleteSuccessfully()));
 
             clusterSvc = new TestScaleCubeClusterServiceFactory().createClusterService(
                     nodeName,
@@ -182,13 +183,13 @@ public class ItTruncateSuffixAndRestartTest extends BaseIgniteAbstractTest {
                     new NoOpCriticalWorkerRegistry(),
                     mock(FailureProcessor.class));
 
-            assertThat(clusterSvc.startAsync(), willCompleteSuccessfully());
-            cleanup.add(() -> assertThat(clusterSvc.stopAsync(), willCompleteSuccessfully()));
+            assertThat(clusterSvc.startAsync(new ComponentContext()), willCompleteSuccessfully());
+            cleanup.add(() -> assertThat(clusterSvc.stopAsync(new ComponentContext()), willCompleteSuccessfully()));
 
             raftMgr = TestLozaFactory.create(clusterSvc, raftConfiguration, nodeDir, hybridClock);
 
-            assertThat(raftMgr.startAsync(), willCompleteSuccessfully());
-            cleanup.add(() -> assertThat(raftMgr.stopAsync(), willCompleteSuccessfully()));
+            assertThat(raftMgr.startAsync(new ComponentContext()), willCompleteSuccessfully());
+            cleanup.add(() -> assertThat(raftMgr.stopAsync(new ComponentContext()), willCompleteSuccessfully()));
 
             cleanup.add(this::stopService);
         }
@@ -379,12 +380,12 @@ public class ItTruncateSuffixAndRestartTest extends BaseIgniteAbstractTest {
         }
 
         @Override
-        public CompletableFuture<Void> startAsync() {
+        public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
             return nullCompletedFuture();
         }
 
         @Override
-        public CompletableFuture<Void> stopAsync() {
+        public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
             return nullCompletedFuture();
         }
 
