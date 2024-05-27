@@ -22,6 +22,7 @@ using System.Buffers;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -62,14 +63,14 @@ internal static class DataStreamerWithReceiver
     /// <typeparam name="TPayload">Payload type.</typeparam>
     /// <typeparam name="TResult">Result type.</typeparam>
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
-    internal static async Task StreamDataAsync<TSource, TKey, TPayload, TResult>(
+    internal static async IAsyncEnumerable<TResult> StreamDataAsync<TSource, TKey, TPayload, TResult>(
         IAsyncEnumerable<TSource> data,
         Table table,
         Func<TSource, TKey> keyFunc,
         Func<TSource, TPayload> payloadFunc,
         IRecordSerializerHandler<TKey> keyWriter,
         DataStreamerOptions options,
-        CancellationToken cancellationToken)
+        [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         IgniteArgumentCheck.NotNull(data);
 
@@ -140,7 +141,8 @@ internal static class DataStreamerWithReceiver
             }
         }
 
-        return;
+        // TODO: Ticket for results handling.
+        yield break;
 
         Batch<TPayload> Add(TSource item)
         {
