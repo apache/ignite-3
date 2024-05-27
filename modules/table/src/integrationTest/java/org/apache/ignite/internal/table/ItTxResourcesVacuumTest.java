@@ -461,6 +461,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
      * </ul>
      */
     @RepeatedTest(50)
+    //@Test
     public void testCommitPartitionPrimaryChangesBeforeVacuum() throws InterruptedException {
         // We can't leave TTL as 0 here, because the primary replica is changed during cleanup, and this means
         // WriteIntentSwitchReplicaRequest will be processed not on the primary. Removing tx state instantly will cause incorrect
