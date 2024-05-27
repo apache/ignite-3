@@ -35,6 +35,8 @@ using NUnit.Framework;
 /// </summary>
 public class DataStreamerTests : IgniteTestsBase
 {
+    private const string TestReceiverClassName = "org.apache.ignite.internal.runner.app.PlatformTestNodeRunner$TestReceiver";
+
     private const int Count = 100;
 
     private const int UpdatedKey = Count / 2;
@@ -262,7 +264,7 @@ public class DataStreamerTests : IgniteTestsBase
             keySelector: x => GetTuple(x),
             payloadSelector: x => "t-" + x,
             units: Array.Empty<DeploymentUnit>(),
-            receiverClassName: "receiver",
+            receiverClassName: TestReceiverClassName,
             receiverArgs: new object[] { Table.Name, "arg1", 22 });
     }
 
