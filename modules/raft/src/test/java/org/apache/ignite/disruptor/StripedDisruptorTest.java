@@ -83,6 +83,8 @@ public class StripedDisruptorTest extends IgniteAbstractTest {
             int finalInt = i;
 
             taskQueue1.tryPublishEvent((event, sequence) -> {
+                event.reset();
+
                 event.nodeId = nodeId1;
                 event.handler = null;
                 event.evtType = DisruptorEventType.REGULAR;
@@ -90,6 +92,8 @@ public class StripedDisruptorTest extends IgniteAbstractTest {
             });
 
             taskQueue2.tryPublishEvent((event, sequence) -> {
+                event.reset();
+
                 event.nodeId = nodeId2;
                 event.handler = null;
                 event.evtType = DisruptorEventType.REGULAR;
@@ -134,9 +138,9 @@ public class StripedDisruptorTest extends IgniteAbstractTest {
             int finalInt = i;
 
             taskQueue.publishEvent((event, sequence) -> {
+                event.reset();
+
                 event.nodeId = nodeId;
-                event.handler = null;
-                event.evtType = DisruptorEventType.REGULAR;
                 event.num = finalInt;
             });
         }
@@ -230,9 +234,9 @@ public class StripedDisruptorTest extends IgniteAbstractTest {
                 int finalI = i;
 
                 eventTranslators[i] = (event, sequence) -> {
+                    event.reset();
+
                     event.nodeId = nodeId;
-                    event.handler = null;
-                    event.evtType = DisruptorEventType.REGULAR;
                     event.num = finalI;
                 };
             }
@@ -292,9 +296,9 @@ public class StripedDisruptorTest extends IgniteAbstractTest {
             int finalI = i;
 
             eventTranslators[i] = (event, sequence) -> {
+                event.reset();
+
                 event.nodeId = nodesIds[finalI % totalHandlers];
-                event.handler = null;
-                event.evtType = DisruptorEventType.REGULAR;
                 event.num = finalI;
             };
         }
@@ -392,9 +396,9 @@ public class StripedDisruptorTest extends IgniteAbstractTest {
                 });
 
                 return (EventTranslator<NodeIdAwareTestObj>) (event, sequence) -> {
+                    event.reset();
+
                     event.nodeId = nodesIds[value];
-                    event.handler = null;
-                    event.evtType = DisruptorEventType.REGULAR;
                     event.num = value;
                 };
             }).collect(Collectors.toList());
@@ -450,44 +454,8 @@ public class StripedDisruptorTest extends IgniteAbstractTest {
     /**
      * Group aware object implementation to test the striped disruptor.
      */
-    private static class NodeIdAwareTestObj implements NodeIdAware {
-        /** Node id. */
-        NodeId nodeId;
-        EventHandler<NodeIdAware> handler;
-        DisruptorEventType evtType;
-
+    private static class NodeIdAwareTestObj extends NodeIdAware {
         /** Any integer number. */
         int num;
-
-        @Override
-        public NodeId nodeId() {
-            return nodeId;
-        }
-
-        @Override
-        public void nodeId(NodeId nodeId) {
-            this.nodeId = nodeId;
-
-        }
-
-        @Override
-        public void handler(EventHandler<NodeIdAware> handler) {
-            this.handler = handler;
-        }
-
-        @Override
-        public EventHandler<NodeIdAware> handler() {
-            return handler;
-        }
-
-        @Override
-        public void type(DisruptorEventType type) {
-            this.evtType = type;
-        }
-
-        @Override
-        public DisruptorEventType type() {
-            return evtType;
-        }
     }
 }

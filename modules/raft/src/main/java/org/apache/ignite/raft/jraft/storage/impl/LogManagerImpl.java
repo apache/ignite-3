@@ -104,50 +104,14 @@ public class LogManagerImpl implements LogManager {
         LAST_LOG_ID // get last log id
     }
 
-    public static class StableClosureEvent implements NodeIdAware {
-        /** Raft node id. */
-        NodeId nodeId;
-        EventHandler<NodeIdAware> handler;
-        DisruptorEventType evtType;
-
+    public static class StableClosureEvent extends NodeIdAware {
         StableClosure done;
         EventType type;
 
         @Override
-        public NodeId nodeId() {
-            return nodeId;
-        }
+        public void reset() {
+            super.reset();
 
-        @Override
-        public void nodeId(NodeId nodeId) {
-            this.nodeId = nodeId;
-
-        }
-
-        @Override
-        public void handler(EventHandler<NodeIdAware> handler) {
-            this.handler = handler;
-        }
-
-        @Override
-        public EventHandler<NodeIdAware> handler() {
-            return handler;
-        }
-
-        @Override
-        public void type(DisruptorEventType type) {
-            this.evtType = type;
-        }
-
-        @Override
-        public DisruptorEventType type() {
-            return evtType;
-        }
-
-        void reset() {
-            this.nodeId = null;
-            this.handler = null;
-            this.evtType = null;
             this.done = null;
             this.type = null;
         }
@@ -250,9 +214,8 @@ public class LogManagerImpl implements LogManager {
         this.shutDownLatch = new CountDownLatch(1);
         Utils.runInThread(nodeOptions.getCommonExecutor(), () -> this.diskQueue.publishEvent((event, sequence) -> {
             event.reset();
+
             event.nodeId = this.nodeId;
-            event.handler = null;
-            event.evtType = DisruptorEventType.REGULAR;
             event.type = EventType.SHUTDOWN;
         }));
     }
@@ -369,9 +332,8 @@ public class LogManagerImpl implements LogManager {
             // publish event out of lock
             this.diskQueue.publishEvent((event, sequence) -> {
               event.reset();
+
               event.nodeId = this.nodeId;
-              event.handler = null;
-              event.evtType = DisruptorEventType.REGULAR;
               event.type = EventType.OTHER;
               event.done = done;
             });
@@ -397,9 +359,8 @@ public class LogManagerImpl implements LogManager {
         }
         this.diskQueue.publishEvent((event, sequence) -> {
             event.reset();
+
             event.nodeId = this.nodeId;
-            event.handler = null;
-            event.evtType = DisruptorEventType.REGULAR;
             event.type = type;
             event.done = done;
         });

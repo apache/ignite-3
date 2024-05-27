@@ -260,52 +260,16 @@ public class NodeImpl implements Node, RaftServerService {
     /**
      * Node service event.
      */
-    public static class LogEntryAndClosure implements NodeIdAware {
-        /** Raft node id. */
-        NodeId nodeId;
-        EventHandler<NodeIdAware> handler;
-        DisruptorEventType evtType;
-
+    public static class LogEntryAndClosure extends NodeIdAware {
         LogEntry entry;
         Closure done;
         long expectedTerm;
         CountDownLatch shutdownLatch;
 
         @Override
-        public NodeId nodeId() {
-            return nodeId;
-        }
-
-        @Override
-        public void nodeId(NodeId nodeId) {
-            this.nodeId = nodeId;
-
-        }
-
-        @Override
-        public void handler(EventHandler<NodeIdAware> handler) {
-            this.handler = handler;
-        }
-
-        @Override
-        public EventHandler<NodeIdAware> handler() {
-            return handler;
-        }
-
-        @Override
-        public void type(DisruptorEventType type) {
-            this.evtType = type;
-        }
-
-        @Override
-        public DisruptorEventType type() {
-            return evtType;
-        }
-
         public void reset() {
-            this.nodeId = null;
-            this.handler = null;
-            this.evtType = null;
+            super.reset();
+
             this.entry = null;
             this.done = null;
             this.expectedTerm = 0;
@@ -1880,9 +1844,8 @@ public class NodeImpl implements Node, RaftServerService {
 
         final EventTranslator<LogEntryAndClosure> translator = (event, sequence) -> {
             event.reset();
+
             event.nodeId = getNodeId();
-            event.handler = null;
-            event.evtType = DisruptorEventType.REGULAR;
             event.done = task.getDone();
             event.entry = entry;
             event.expectedTerm = task.getExpectedTerm();

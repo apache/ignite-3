@@ -87,56 +87,20 @@ public class ReadOnlyServiceImpl implements ReadOnlyService, LastAppliedLogIndex
 
     private static final IgniteLogger LOG = Loggers.forClass(ReadOnlyServiceImpl.class);
 
-    public static class ReadIndexEvent implements NodeIdAware {
-        /** Raft node id. */
-        NodeId nodeId;
-        EventHandler<NodeIdAware> handler;
-        DisruptorEventType evtType;
-
+    public static class ReadIndexEvent extends NodeIdAware {
         Bytes requestContext;
         ReadIndexClosure done;
         CountDownLatch shutdownLatch;
         long startTime;
 
-        private void reset() {
-            this.nodeId = null;
-            this.handler = null;
-            this.evtType = null;
+        @Override
+        public void reset() {
+            super.reset();
+
             this.requestContext = null;
             this.done = null;
             this.shutdownLatch = null;
             this.startTime = 0L;
-        }
-
-        @Override
-        public NodeId nodeId() {
-            return nodeId;
-        }
-
-        @Override
-        public void nodeId(NodeId nodeId) {
-            this.nodeId = nodeId;
-
-        }
-
-        @Override
-        public void handler(EventHandler<NodeIdAware> handler) {
-            this.handler = handler;
-        }
-
-        @Override
-        public EventHandler<NodeIdAware> handler() {
-            return handler;
-        }
-
-        @Override
-        public void type(DisruptorEventType type) {
-            this.evtType = type;
-        }
-
-        @Override
-        public DisruptorEventType type() {
-            return evtType;
         }
     }
 

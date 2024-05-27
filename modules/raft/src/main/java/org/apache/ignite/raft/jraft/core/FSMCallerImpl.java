@@ -98,12 +98,7 @@ public class FSMCallerImpl implements FSMCaller {
     /**
      * Apply task for disruptor.
      */
-    public static class ApplyTask implements NodeIdAware {
-        /** Raft node id. */
-        NodeId nodeId;
-        EventHandler<NodeIdAware> handler;
-        DisruptorEventType evtType;
-
+    public static class ApplyTask extends NodeIdAware {
         public TaskType type;
         // union fields
         public long committedIndex;
@@ -114,37 +109,9 @@ public class FSMCallerImpl implements FSMCaller {
         public CountDownLatch shutdownLatch;
 
         @Override
-        public NodeId nodeId() {
-            return nodeId;
-        }
-
-        @Override
-        public void nodeId(NodeId nodeId) {
-            this.nodeId = nodeId;
-
-        }
-
-        @Override
-        public void handler(EventHandler<NodeIdAware> handler) {
-            this.handler = handler;
-        }
-
-        @Override
-        public EventHandler<NodeIdAware> handler() {
-            return handler;
-        }
-
-        @Override
-        public void type(DisruptorEventType type) {
-            this.evtType = type;
-        }
-
-        @Override
-        public DisruptorEventType type() {
-            return evtType;
-        }
-
         public void reset() {
+            super.reset();
+
             this.type = null;
             this.committedIndex = 0;
             this.term = 0;
@@ -152,9 +119,6 @@ public class FSMCallerImpl implements FSMCaller {
             this.leaderChangeCtx = null;
             this.done = null;
             this.shutdownLatch = null;
-            this.nodeId = null;
-            this.handler = null;
-            this.evtType = null;
         }
     }
 
@@ -236,9 +200,8 @@ public class FSMCallerImpl implements FSMCaller {
 
             Utils.runInThread(this.node.getOptions().getCommonExecutor(), () -> this.taskQueue.publishEvent((task, sequence) -> {
                 task.reset();
+
                 task.nodeId = this.nodeId;
-                task.handler = null;
-                task.evtType = DisruptorEventType.REGULAR;
                 task.type = TaskType.SHUTDOWN;
                 task.shutdownLatch = latch;
             }));
@@ -269,9 +232,9 @@ public class FSMCallerImpl implements FSMCaller {
     @Override
     public boolean onCommitted(final long committedIndex) {
         return enqueueTask((task, sequence) -> {
+            task.reset();
+
             task.nodeId = this.nodeId;
-            task.handler = null;
-            task.evtType = DisruptorEventType.REGULAR;
             task.type = TaskType.COMMITTED;
             task.committedIndex = committedIndex;
         });

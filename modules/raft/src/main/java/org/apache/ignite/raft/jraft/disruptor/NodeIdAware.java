@@ -17,28 +17,35 @@
 
 package org.apache.ignite.raft.jraft.disruptor;
 
+import static org.apache.ignite.raft.jraft.disruptor.DisruptorEventType.REGULAR;
 import com.lmax.disruptor.EventHandler;
 import org.apache.ignite.raft.jraft.entity.NodeId;
 
 /**
  * Interface provides Raft node id. It allows to determine a stripe in Striped disruptor.
  */
-public interface NodeIdAware {
+public abstract class NodeIdAware {
+    /** Raft node id. */
+    public NodeId nodeId;
 
-    void nodeId(NodeId nodeId);
+    /** The event handler is used to {@link DisruptorEventType#SUBSCRIBE} in other cases, it should be {@code null}. */
+    public EventHandler<NodeIdAware> handler;
+
+    /** Disruptor event type. */
+    public DisruptorEventType evtType;
 
     /**
      * Gets a Raft node id.
      *
      * @return Raft node id.
      */
-    NodeId nodeId();
+    NodeId nodeId() {
+        return nodeId;
+    }
 
-    void handler(EventHandler<NodeIdAware> handler);
-
-    EventHandler<NodeIdAware> handler();
-
-    void type(DisruptorEventType type);
-
-    DisruptorEventType type();
+    public void reset() {
+        nodeId = null;
+        handler = null;
+        evtType = REGULAR;
+    }
 }

@@ -51,10 +51,11 @@ import org.jetbrains.annotations.Nullable;
  */
 public class StripedDisruptor<T extends NodeIdAware> {
     /**
-     * It is an id that does not represent any node. It is used to collect events in the disruptor implementation,
-     * where the particular node does not mean.
+     * It is an id that does not represent any node to batch events in one stripe although {@link NodeId} may vary.
+     * This is a cached event in case the disruptor supports batching,
+     * because the {@link DisruptorEventType#SUBSCRIBE} event might be a finale one and have to be handled.
      */
-    private final NodeId NOT_NODE_ID = new NodeId(null, null);
+    private final NodeId FAKE_NODE_ID = new NodeId(null, null);
 
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(StripedDisruptor.class);
@@ -224,9 +225,11 @@ public class StripedDisruptor<T extends NodeIdAware> {
         stripeMapper.put(nodeId, stripeId);
 
         queues[stripeId].publishEvent((event, sequence) -> {
-            event.type(SUBSCRIBE);
-            event.nodeId(nodeId);
-            event.handler((EventHandler<NodeIdAware>) handler);
+            event.reset();
+
+            event.evtType = SUBSCRIBE;
+            event.nodeId = nodeId;
+            event.handler = (EventHandler<NodeIdAware>) handler;
         });
 
         if (exceptionHandler != null) {
@@ -249,9 +252,11 @@ public class StripedDisruptor<T extends NodeIdAware> {
         stripeMapper.remove(nodeId);
 
         queues[stripeId].publishEvent((event, sequence) -> {
-            event.type(SUBSCRIBE);
-            event.nodeId(nodeId);
-            event.handler(null);
+            event.reset();
+
+            event.evtType = SUBSCRIBE;
+            event.nodeId = nodeId;
+            event.handler = null;
         });
 
         exceptionHandlers.get(stripeId).unsubscribe(nodeId);
@@ -278,7 +283,7 @@ public class StripedDisruptor<T extends NodeIdAware> {
     }
 
     /**
-     * Event handler for stripe of the Striped disruptor. It routs an event to the event handler for a group.
+     * Event handler for stripe of the Striped disruptor. It routes an event to the event handler for a group.
      */
     private class StripeEntryHandler implements EventHandler<T> {
         private final Map<NodeId, EventHandler<T>> subscribers = new HashMap<>();
@@ -302,11 +307,11 @@ public class StripedDisruptor<T extends NodeIdAware> {
         /** {@inheritDoc} */
         @Override
         public void onEvent(T event, long sequence, boolean endOfBatch) throws Exception {
-            if (event.type() == SUBSCRIBE) {
-                if (event.handler() == null) {
+            if (event.evtType == SUBSCRIBE) {
+                if (event.handler == null) {
                     subscribers.remove(event.nodeId());
                 } else {
-                    subscribers.put(event.nodeId(), (EventHandler<T>) event.handler());
+                    subscribers.put(event.nodeId(), (EventHandler<T>) event.handler);
                 }
             } else {
                 internalBatching(event, sequence);
@@ -340,7 +345,7 @@ public class StripedDisruptor<T extends NodeIdAware> {
          * @throws Exception Throw when some handler fails.
          */
         private void internalBatching(T event, long sequence) throws Exception {
-            NodeId pushNodeId = supportsBatches ? NOT_NODE_ID : event.nodeId();
+            NodeId pushNodeId = supportsBatches ? FAKE_NODE_ID : event.nodeId();
 
             T prevEvent = eventCache.put(pushNodeId, event);
 
