@@ -22,17 +22,19 @@ using System.Buffers;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Buffers;
 using Common;
+using Compute;
 using Ignite.Compute;
+using Ignite.Sql;
 using Ignite.Table;
 using Proto;
 using Proto.BinaryTuple;
-using Proto.MsgPack;
 using Serialization;
 
 /// <summary>
@@ -108,6 +110,7 @@ internal static class DataStreamerWithReceiver
         // However, locking for batches is required due to auto-flush background task.
         var batches = new Dictionary<int, Batch<TPayload>>();
         var retryPolicy = new RetryLimitPolicy { RetryLimit = options.RetryLimit };
+        var units0 = units as ICollection<DeploymentUnit> ?? units.ToList(); // Avoid multiple enumeration.
 
         var schema = await table.GetSchemaAsync(null).ConfigureAwait(false);
 
@@ -293,15 +296,59 @@ internal static class DataStreamerWithReceiver
                 await batch.Task.ConfigureAwait(false);
             }
         }
+
+        void SerializeBatch<T>(
+            PooledArrayBuffer buf,
+            T[] items,
+            int count,
+            int partitionId)
+        {
+            // T is one of the supported types (numbers, strings, etc).
+            var w = buf.MessageWriter;
+
+            w.Write(table.Id);
+            w.Write(partitionId);
+
+            Compute.WriteUnits(units0, buf);
+
+            w.Write(expectResults);
+            WriteReceiverPayload(buf, receiverClassName, receiverArgs ?? Array.Empty<object>(), items, count);
+        }
     }
 
-    private static void SerializeBatch<T>(
-        PooledArrayBuffer buf,
-        T[] items,
-        int count,
-        int partitionId)
+    private static void WriteReceiverPayload<T>(PooledArrayBuffer buf, string className, object[] args, T[] items, int count)
     {
-        // T is one of the supported types (numbers, strings, etc).
+        Debug.Assert(items.Length > 0, "items.Length > 0");
+        Debug.Assert(count > 0, "count > 0");
+        Debug.Assert(count <= items.Length, "count <= items.Length");
+
+        // className + args size + args + items size + item type + items.
+        int binaryTupleSize = 1 + 1 + args.Length * 3 + 1 + 1 + count;
+        using var builder = new BinaryTupleBuilder(binaryTupleSize);
+
+        builder.AppendString(className);
+        builder.AppendInt(args.Length);
+
+        foreach (var arg in args)
+        {
+            builder.AppendObjectWithType(arg);
+        }
+
+        // TODO: Support all types.
+        builder.AppendInt((int)ColumnType.String);
+        builder.AppendInt(count);
+
+        for (var index = 0; index < count; index++)
+        {
+            var item = items[index];
+            IgniteArgumentCheck.NotNull(item);
+
+            builder.AppendString((string)(object)item);
+        }
+
+        var w = buf.MessageWriter;
+        w.Write(binaryTupleSize);
+        w.Write(builder.Build().Span);
     }
 
     private static async Task SendBatchAsync(
