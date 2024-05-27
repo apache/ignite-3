@@ -147,8 +147,7 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
                 NODE_0_NAME,
                 metaStorageManager,
                 pdClusterService.topologyService(),
-                new TestClockService(new HybridClockImpl()),
-                grpId -> ZONE_PARTITION_ID
+                new TestClockService(new HybridClockImpl())
         );
 
         leaseTracker.startTrack(0L);

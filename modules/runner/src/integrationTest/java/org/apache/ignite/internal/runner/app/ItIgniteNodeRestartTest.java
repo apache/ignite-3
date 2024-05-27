@@ -484,8 +484,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 logicalTopologyService,
                 raftMgr,
                 topologyAwareRaftGroupServiceFactory,
-                clockService,
-                grp -> ZONE_GROUP_ID
+                clockService
         );
 
         ReplicaManager replicaMgr = new ReplicaManager(

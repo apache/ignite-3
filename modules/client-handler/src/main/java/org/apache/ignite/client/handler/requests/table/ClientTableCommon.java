@@ -47,6 +47,7 @@ import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NumberNativeType;
 import org.apache.ignite.internal.type.TemporalNativeType;
+import org.apache.ignite.lang.DistributionZoneNotFoundException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.sql.ColumnType;
@@ -380,6 +381,16 @@ public class ClientTableCommon {
      */
     public static TableNotFoundException tableIdNotFoundException(Integer tableId) {
         return new TableNotFoundException(UUID.randomUUID(), TABLE_ID_NOT_FOUND_ERR, "Table does not exist: " + tableId, null);
+    }
+
+    /**
+     * Returns a new zone id not found exception.
+     *
+     * @param zoneId Zone id.
+     * @return Exception.
+     */
+    public static DistributionZoneNotFoundException zoneIdNotFoundException(Integer zoneId) {
+        return new DistributionZoneNotFoundException(zoneId);
     }
 
     /**
