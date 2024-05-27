@@ -30,7 +30,6 @@ using Common;
 using Ignite.Table;
 using Proto;
 using Proto.BinaryTuple;
-using Proto.MsgPack;
 using Serialization;
 
 /// <summary>
@@ -92,7 +91,7 @@ internal static class DataStreamerWithReceiver
 
         // ConcurrentDictionary is not necessary because we consume the source sequentially.
         // However, locking for batches is required due to auto-flush background task.
-        var batches = new Dictionary<int, Batch>();
+        var batches = new Dictionary<int, Batch<TPayload>>();
         var retryPolicy = new RetryLimitPolicy { RetryLimit = options.RetryLimit };
 
         var schema = await table.GetSchemaAsync(null).ConfigureAwait(false);
@@ -135,7 +134,7 @@ internal static class DataStreamerWithReceiver
             flushCts.Cancel();
             foreach (var batch in batches.Values)
             {
-                batch.Buffer.Dispose();
+                GetPool<TPayload>().Return(batch.Items);
 
                 Metrics.StreamerItemsQueuedDecrement(batch.Count);
                 Metrics.StreamerBatchesActiveDecrement();
@@ -144,13 +143,13 @@ internal static class DataStreamerWithReceiver
 
         return;
 
-        Batch Add(TSource item)
+        Batch<TPayload> Add(TSource item)
         {
             var tupleBuilder = new BinaryTupleBuilder(schema.KeyColumns.Length, hashedColumnsPredicate: schema.HashedColumnIndexProvider);
 
             try
             {
-                return Add0(item, ref tupleBuilder, schema);
+                return Add0(item, ref tupleBuilder);
             }
             finally
             {
@@ -158,13 +157,11 @@ internal static class DataStreamerWithReceiver
             }
         }
 
-        Batch Add0(TSource item, ref BinaryTupleBuilder tupleBuilder, Schema schema0)
+        Batch<TPayload> Add0(TSource item, ref BinaryTupleBuilder tupleBuilder)
         {
-            var columnCount = schema0.Columns.Length;
-
             // Write key to compute hash.
             var key = keyFunc(item);
-            keyWriter.Write(ref tupleBuilder, key, schema0, keyOnly: true, Span<byte>.Empty);
+            keyWriter.Write(ref tupleBuilder, key, schema, keyOnly: true, Span<byte>.Empty);
 
             var partitionId = Math.Abs(tupleBuilder.GetHash() % partitionCount);
             var batch = GetOrCreateBatch(partitionId);
@@ -180,22 +177,20 @@ internal static class DataStreamerWithReceiver
             return batch;
         }
 
-        Batch<T> GetOrCreateBatch(int partitionId)
+        Batch<TPayload> GetOrCreateBatch(int partitionId)
         {
             ref var batchRef = ref CollectionsMarshal.GetValueRefOrAddDefault(batches, partitionId, out _);
 
             if (batchRef == null)
             {
-                batchRef = new Batch<T>(options.PageSize, schema, partitionId);
-                InitBuffer(batchRef, schema);
-
+                batchRef = new Batch<TPayload>(options.PageSize, partitionId);
                 Metrics.StreamerBatchesActiveIncrement();
             }
 
             return batchRef;
         }
 
-        async Task SendAsync(Batch<T> batch)
+        async Task SendAsync(Batch<TPayload> batch)
         {
             var expectedSize = batch.Count;
 
@@ -210,83 +205,34 @@ internal static class DataStreamerWithReceiver
                     return;
                 }
 
-                FinalizeBatchHeader(batch);
-                batch.Task = SendAndDisposeBufAsync(
-                    batch.Buffer, batch.PartitionId, batch.Task, batch.Items, batch.Count, batch.SchemaOutdated);
+                batch.Task = SendAndDisposeBufAsync(batch.PartitionId, batch.Task, batch.Items, batch.Count);
 
-                batch.Items = GetPool<T>().Rent(options.PageSize);
+                batch.Items = GetPool<TPayload>().Rent(options.PageSize);
                 batch.Count = 0;
-                batch.Buffer = ProtoCommon.GetMessageWriter(); // Prev buf will be disposed in SendAndDisposeBufAsync.
-                InitBuffer(batch, schema);
                 batch.LastFlush = Stopwatch.GetTimestamp();
-                batch.Schema = schema;
-                batch.SchemaOutdated = false;
 
                 Metrics.StreamerBatchesActiveIncrement();
             }
         }
 
         async Task SendAndDisposeBufAsync(
-            PooledArrayBuffer buf,
             int partitionId,
             Task oldTask,
-            DataStreamerItem<T>[] items,
-            int count,
-            bool batchSchemaOutdated)
+            TPayload[] items,
+            int count)
         {
-            Debug.Assert(items.Length > 0, "items.Length > 0");
+            // Release the thread that holds the batch lock.
+            await Task.Yield();
 
-            if (batchSchemaOutdated)
-            {
-                // Schema update was detected while the batch was being filled.
-                // Re-serialize the whole batch.
-                ReWriteBatch(buf, partitionId, schema, items.AsSpan(0, count), writer);
-            }
-
-            // ReSharper disable once AccessToModifiedClosure
             var preferredNode = PreferredNode.FromName(partitionAssignment[partitionId] ?? string.Empty);
 
             try
             {
-                int? schemaVersion = null;
-                while (true)
-                {
-                    try
-                    {
-                        if (schemaVersion != null)
-                        {
-                            // Might be updated by another batch.
-                            if (schema.Version != schemaVersion)
-                            {
-                                schema = await table.GetSchemaAsync(schemaVersion).ConfigureAwait(false);
-                            }
-
-                            // Serialize again with the new schema.
-                            ReWriteBatch(buf, partitionId, schema, items.AsSpan(0, count), writer);
-                        }
-
-                        // Wait for the previous batch for this node to preserve item order.
-                        await oldTask.ConfigureAwait(false);
-                        await SendBatchAsync(table, buf, count, preferredNode, retryPolicy).ConfigureAwait(false);
-
-                        return;
-                    }
-                    catch (IgniteException e) when (e.Code == ErrorGroups.Table.SchemaVersionMismatch &&
-                                                    schemaVersion != e.GetExpectedSchemaVersion())
-                    {
-                        // Schema update detected after the batch was serialized.
-                        schemaVersion = e.GetExpectedSchemaVersion();
-                    }
-                    catch (Exception e) when (e.CausedByUnmappedColumns() && schemaVersion == null)
-                    {
-                        schemaVersion = Table.SchemaVersionForceLatest;
-                    }
-                }
+                // TODO: Serialize and send.
             }
             finally
             {
-                buf.Dispose();
-                GetPool<T>().Return(items);
+                GetPool<TPayload>().Return(items);
 
                 Metrics.StreamerItemsQueuedDecrement(count);
                 Metrics.StreamerBatchesActiveDecrement();
@@ -322,127 +268,6 @@ internal static class DataStreamerWithReceiver
                 await batch.Task.ConfigureAwait(false);
             }
         }
-    }
-
-    private static void InitBuffer<T>(Batch<T> batch, Schema schema)
-    {
-        var buf = batch.Buffer;
-
-        WriteBatchHeader(buf, batch.PartitionId, schema, deletedSetReserveSize: batch.Items.Length);
-
-        batch.CountPos = buf.Position;
-        buf.Advance(5); // Reserve count.
-    }
-
-    private static void WriteBatchHeader(PooledArrayBuffer buf, int partitionId, Schema schema, int deletedSetReserveSize)
-    {
-        var w = buf.MessageWriter;
-
-        // Reserve space for deleted set - we don't know if we need it or not, and which size.
-        w.WriteBitSet(deletedSetReserveSize);
-        buf.Offset = buf.Position;
-
-        // Write header.
-        w.Write(schema.TableId);
-        w.Write(partitionId);
-        w.WriteNil(); // Deleted set. We assume there are no deleted items by default. The header will be rewritten if needed.
-        w.Write(schema.Version);
-    }
-
-    private static void FinalizeBatchHeader<T>(Batch<T> batch)
-    {
-        var buf = batch.Buffer;
-
-        if (HasDeletedItems<T>(batch.Items.AsSpan(0, batch.Count)))
-        {
-            // Re-write the entire header with the deleted set of actual size.
-            var reservedBitSetSize = buf.Offset;
-            var oldPos = buf.Position;
-
-            buf.Position = 0;
-            buf.MessageWriter.WriteBitSet(batch.Count);
-            var actualBitSetSize = buf.Position;
-
-            buf.Offset = 1 + reservedBitSetSize - actualBitSetSize; // 1 byte for null bit set used before.
-            buf.Position = buf.Offset;
-
-            var w = buf.MessageWriter;
-            w.Write(batch.Schema.TableId);
-            w.Write(batch.PartitionId);
-
-            var deletedSet = w.WriteBitSet(batch.Count);
-
-            for (var i = 0; i < batch.Count; i++)
-            {
-                if (batch.Items[i].OperationType == DataStreamerOperationType.Remove)
-                {
-                    deletedSet.SetBit(i);
-                }
-            }
-
-            w.Write(batch.Schema.Version);
-
-            // Count position should not change - we only rearrange the header above it.
-            Debug.Assert(buf.Position == batch.CountPos, $"buf.Position = {buf.Position}, batch.CountPos = {batch.CountPos}");
-            buf.Position = oldPos;
-        }
-
-        // Update count.
-        buf.WriteByte(MsgPackCode.Int32, batch.CountPos);
-        buf.WriteIntBigEndian(batch.Count, batch.CountPos + 1);
-    }
-
-    private static void ReWriteBatch<T>(
-        PooledArrayBuffer buf,
-        int partitionId,
-        Schema schema,
-        ReadOnlySpan<DataStreamerItem<T>> items,
-        IRecordSerializerHandler<T> writer)
-    {
-        buf.Reset();
-
-        var w = buf.MessageWriter;
-        w.Write(schema.TableId);
-        w.Write(partitionId);
-
-        if (HasDeletedItems(items))
-        {
-            var deletedSet = w.WriteBitSet(items.Length);
-
-            for (var i = 0; i < items.Length; i++)
-            {
-                if (items[i].OperationType == DataStreamerOperationType.Remove)
-                {
-                    deletedSet.SetBit(i);
-                }
-            }
-        }
-        else
-        {
-            w.WriteNil();
-        }
-
-        w.Write(schema.Version);
-        w.Write(items.Length);
-
-        foreach (var item in items)
-        {
-            var remove = item.OperationType == DataStreamerOperationType.Remove;
-            writer.Write(ref w, schema, item.Data, keyOnly: remove, computeHash: false);
-        }
-    }
-
-    private static bool HasDeletedItems<T>(ReadOnlySpan<DataStreamerItem<T>> items)
-    {
-        foreach (var t in items)
-        {
-            if (t.OperationType == DataStreamerOperationType.Remove)
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     private static async Task SendBatchAsync(
