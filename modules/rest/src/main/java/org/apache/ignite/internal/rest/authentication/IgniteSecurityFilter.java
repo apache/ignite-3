@@ -28,6 +28,7 @@ import io.micronaut.security.filters.AuthenticationFetcher;
 import io.micronaut.security.filters.SecurityFilter;
 import io.micronaut.security.rules.SecurityRule;
 import java.util.Collection;
+import org.apache.ignite.internal.rest.ResourceHolder;
 import org.reactivestreams.Publisher;
 
 /**
@@ -35,10 +36,10 @@ import org.reactivestreams.Publisher;
  */
 @Replaces(SecurityFilter.class)
 @Filter(Filter.MATCH_ALL_PATTERN)
-public class IgniteSecurityFilter implements HttpServerFilter {
+public class IgniteSecurityFilter implements HttpServerFilter, ResourceHolder {
     private final SecurityFilter securityFilter;
 
-    private final IgniteAuthenticationProvider igniteAuthenticationProvider;
+    private IgniteAuthenticationProvider igniteAuthenticationProvider;
 
     /**
      * Constructor.
@@ -70,5 +71,10 @@ public class IgniteSecurityFilter implements HttpServerFilter {
     @Override
     public int getOrder() {
         return securityFilter.getOrder();
+    }
+
+    @Override
+    public void cleanResources() {
+        igniteAuthenticationProvider = null;
     }
 }

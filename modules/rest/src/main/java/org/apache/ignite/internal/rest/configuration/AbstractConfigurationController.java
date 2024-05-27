@@ -21,15 +21,16 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.internal.configuration.presentation.ConfigurationPresentation;
+import org.apache.ignite.internal.rest.ResourceHolder;
 import org.apache.ignite.lang.IgniteException;
 
 /**
  * Base configuration controller.
  */
-public abstract class AbstractConfigurationController {
+public abstract class AbstractConfigurationController implements ResourceHolder {
 
     /** Presentation of the configuration. */
-    private final ConfigurationPresentation<String> cfgPresentation;
+    private ConfigurationPresentation<String> cfgPresentation;
 
     public AbstractConfigurationController(ConfigurationPresentation<String> cfgPresentation) {
         this.cfgPresentation = cfgPresentation;
@@ -75,5 +76,10 @@ public abstract class AbstractConfigurationController {
                     }
                     throw new IgniteException(ex);
                 });
+    }
+
+    @Override
+    public void cleanResources() {
+        cfgPresentation = null;
     }
 }
