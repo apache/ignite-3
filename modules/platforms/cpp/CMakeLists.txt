@@ -23,7 +23,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(CMAKE_PROJECT_VERSION ${PROJECT_VERSION})
 
-option(ENABLE_CONAN "Use Conan package manager to get dependencies" ON)
 option(ENABLE_CLIENT "Build Ignite.C++ Client module" ON)
 option(ENABLE_ODBC "Build Ignite ODBC driver module" OFF)
 option(ENABLE_TESTS "Build Ignite.C++ tests" OFF)
@@ -38,49 +37,23 @@ list(APPEND CMAKE_PREFIX_PATH ${CMAKE_BINARY_DIR})
 
 get_property(is_multi_config GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
 
-set(conan_packages
-    msgpack-c/4.0.0
+include(FetchContent)
+FetchContent_Declare(
+        msgpack-c
+        GIT_REPOSITORY git@github.com:msgpack/msgpack-c.git
+        GIT_TAG        cpp-4.0.0
 )
 
+FetchContent_MakeAvailable(msgpack-c)
+
 if (${ENABLE_TESTS})
-    list(APPEND conan_packages
-        gtest/1.12.1
+    FetchContent_Declare(
+            googletest
+            GIT_REPOSITORY git@github.com:google/googletest.git
+            GIT_TAG        release-1.12.1
     )
-endif()
 
-# Install required libraries.
-if (${ENABLE_CONAN})
-    include(conan)
-
-    if (is_multi_config)
-        # These settings are for multi-config generators like Visual Studio.
-        message(STATUS "Using a multi-config generator")
-
-        conan_cmake_configure(REQUIRES ${conan_packages}
-                              GENERATORS cmake_find_package_multi)
-
-        foreach(TYPE ${CMAKE_CONFIGURATION_TYPES})
-            conan_cmake_autodetect(conan_settings BUILD_TYPE ${TYPE})
-
-            conan_cmake_install(PATH_OR_REFERENCE .
-                                BUILD missing
-                                REMOTE conancenter
-                                SETTINGS ${conan_settings})
-        endforeach()
-    else()
-        # These settings are for single-config generators like makefiles, ninja.
-        message(STATUS "Using a single-config generator")
-
-        conan_cmake_configure(REQUIRES ${conan_packages}
-                              GENERATORS cmake_find_package)
-
-        conan_cmake_autodetect(conan_settings)
-
-        conan_cmake_install(PATH_OR_REFERENCE .
-                            BUILD missing
-                            REMOTE conancenter
-                            SETTINGS ${conan_settings})
-    endif()
+    FetchContent_MakeAvailable(googletest)
 endif()
 
 # Configure build paths.

@@ -2,51 +2,12 @@
 
 ### Prerequisites
 
-
 * C++ compiler supporting C++ 17
 * One of the build systems: make, ninja, MS Visual Studio, etc.
-* Conan C/C++ package manager 1.X (optional)
 * CMake 3.10+
 
 To build the ODBC driver, it is required to have an ODBC driver manager with headers on your system. On Windows, it 
 comes with your OS. On Unix-like systems, you may need to install one; for example, unixODBC.
-
-### Installing Conan Package Manager
-
-The Conan package manager can be obtained from [its website](https://conan.io).
-
-Currently, we support Conan versions 1.X. The 2.0+ versions are **not** supported yet.
-
-One way to install Conan is as follows (need Python on your system):
-
-```shell
-pip install conan==1.59.0
-```
-
-Before use, you might need to configure the default Conan profile:
-
-```
-conan profile new --detect default
-conan profile update settings.compiler.libcxx=libstdc++11 default
-```
-
-### Avoiding Conan Package Manager
-
-It is possible to build the project without Conan if all the dependencies are installed on the system manually.
-The project dependencies include:
-
-* msgpack-c 4.0.0
-* gtest 1.12.1
-
-When the project is configured with `-DENABLE_CONAN=OFF`, the Conan machinery is turned off, and the dependencies are resolved using the standard means of the build platform. For example, the project can be configured like this:
-
-```shell
-...
-cmake .. -DENABLE_CONAN=OFF -DCMAKE_BUILD_TYPE=Release
-...
-```
-
-Conan is enabled by default. All the build examples below use Conan.
 
 ### CMake Options and Typical Build Configurations
 
@@ -54,7 +15,6 @@ The CMake project supports multiple configuration options that can be used to de
 built. You can check the list of available CMake options with the `cmake -LAH` command. 
 Following are the project-specific options:
 
-* ENABLE_CONAN={ON|OFF} - ON by default. The effect of this option is described in the section above.
 * ENABLE_CLIENT={ON|OFF} - ON by default. Indicates whether the C++ client should be built.
 * ENABLE_ODBC={ON|OFF} - OFF by default. Indicates whether the ODBC driver should be built.
 * ENABLE_TESTS={ON|OFF} - OFF by default. Indicates whether the tests for the selected components should be built.
@@ -99,14 +59,6 @@ cmake .. -DCMAKE_CONFIGURATION_TYPES=Release
 ```
 
 In the following sections, you can find more detailed line-by-line instructions and configurations for the different platforms and use cases.
-
-### Linux and macOS Builds
-
-When using Conan on macOS, it is typically required to specify the C++ standard library from the LLVM project:
-
-```
-conan profile update settings.compiler.libcxx=libc++11 default
-```
 
 #### Building in the Debug Mode with Tests and ODBC
 
