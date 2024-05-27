@@ -166,16 +166,21 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
 
     /// <inheritdoc/>
     public IAsyncEnumerable<TResult> StreamDataAsync<TSource, TPayload, TResult>(
-        IAsyncEnumerable<DataStreamerItem<KeyValuePair<TK, TV>>> data,
+        IAsyncEnumerable<TSource> data,
         DataStreamerOptions? options,
         Func<TSource, KeyValuePair<TK, TV>> keySelector,
         Func<TSource, TPayload> payloadSelector,
         IEnumerable<DeploymentUnit> units,
         string receiverClassName,
-        CancellationToken cancellationToken = default)
-    {
-        throw new NotImplementedException();
-    }
+        CancellationToken cancellationToken = default) =>
+        _recordView.StreamDataAsync<TSource, TPayload, TResult>(
+            data,
+            options,
+            src => ToKv(keySelector(src)),
+            payloadSelector,
+            units,
+            receiverClassName,
+            cancellationToken);
 
     /// <inheritdoc/>
     public override string ToString() =>
@@ -210,6 +215,15 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
         await foreach (var pair in pairs)
         {
             yield return DataStreamerItem.Create(ToKv(pair.Data), pair.OperationType);
+        }
+    }
+
+    private static async IAsyncEnumerable<KvPair<TK, TV>> ToKv(
+        IAsyncEnumerable<KeyValuePair<TK, TV>> pairs)
+    {
+        await foreach (var pair in pairs)
+        {
+            yield return ToKv(pair);
         }
     }
 }
