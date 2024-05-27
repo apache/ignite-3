@@ -30,6 +30,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.rest.ResourceHolder;
 import org.apache.ignite.internal.rest.api.recovery.DisasterRecoveryApi;
 import org.apache.ignite.internal.rest.api.recovery.GlobalPartitionStateResponse;
 import org.apache.ignite.internal.rest.api.recovery.GlobalPartitionStatesResponse;
@@ -47,8 +48,8 @@ import org.apache.ignite.internal.table.distributed.disaster.LocalPartitionState
  */
 @Controller("/management/v1/recovery/")
 @Requires(classes = IgniteInternalExceptionHandler.class)
-public class DisasterRecoveryController implements DisasterRecoveryApi {
-    private final DisasterRecoveryManager disasterRecoveryManager;
+public class DisasterRecoveryController implements DisasterRecoveryApi, ResourceHolder {
+    private DisasterRecoveryManager disasterRecoveryManager;
 
     public DisasterRecoveryController(DisasterRecoveryManager disasterRecoveryManager) {
         this.disasterRecoveryManager = disasterRecoveryManager;
@@ -132,5 +133,10 @@ public class DisasterRecoveryController implements DisasterRecoveryApi {
                 .thenComparingInt(GlobalPartitionStateResponse::partitionId));
 
         return new GlobalPartitionStatesResponse(states);
+    }
+
+    @Override
+    public void cleanResources() {
+        disasterRecoveryManager = null;
     }
 }

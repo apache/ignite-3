@@ -21,7 +21,8 @@ import io.micronaut.runtime.Micronaut;
 
 /**
  * A resource holder. Implement this interface in the bean class if it has a chain of references to the {@link org.apache.ignite.Ignite}
- * instance.
+ * instance. In general, all REST controllers that use a {@link RestFactory} to get the internal objects should implement this and clean up
+ * references and objects created by the {@link RestFactory} should also implement this.
  */
 public interface ResourceHolder {
     /**
