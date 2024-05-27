@@ -109,6 +109,7 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.jraft.storage.impl.VolatileRaftMetaStorage;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -507,25 +508,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 mvTableStorage,
                 snapshotStorageFactory);
 
-
-        PartitionMover partitionMover = new PartitionMover(busyLock, () -> {
-            CompletableFuture<Replica> relicaFut = replica(replicaGrpId);
-            if (relicaFut != null) {
-                return relicaFut.join()
-                        .raftClient();
-            }
-            throw new IgniteInternalException("No such replica for partition " + replicaGrpId.partitionId()
-                    + " in table " + replicaGrpId.tableId());
-        });
-
-        RaftGroupEventsListener raftGroupEventsListener = new RebalanceRaftGroupEventsListener(
-                metaStorageMgr,
-                replicaGrpId,
-                busyLock,
-                partitionMover,
-                rebalanceScheduler,
-                zoneId
-        );
+        RaftGroupEventsListener raftGroupEventsListener = createRaftGroupEventsListener(metaStorageMgr, zoneId,
+                replicaGrpId);
 
         // TODO: use RaftManager interface, see https://issues.apache.org/jira/browse/IGNITE-18273
         CompletableFuture<TopologyAwareRaftGroupService> newRaftClientFut = ((Loza) raftManager).startRaftGroupNode(
@@ -690,6 +674,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @return Future that returns started RAFT-client.
      * @throws NodeStoppingException In case if node was stopping.
      */
+    @Deprecated
     public CompletableFuture<TopologyAwareRaftGroupService> startRaftClient(
             ReplicationGroupId replicaGrpId,
             PeersAndLearners newConfiguration,
@@ -700,6 +685,30 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 ? CompletableFuture.completedFuture((TopologyAwareRaftGroupService) cachedRaftClient)
                 // TODO IGNITE-19614 This procedure takes 10 seconds if there's no majority online.
                 : raftManager.startRaftGroupService(replicaGrpId, newConfiguration, raftGroupServiceFactory, raftCommandsMarshaller);
+    }
+
+    @NotNull
+    private RaftGroupEventsListener createRaftGroupEventsListener(MetaStorageManager metaStorageMgr, int zoneId,
+            TablePartitionId replicaGrpId) {
+        PartitionMover partitionMover = new PartitionMover(busyLock, () -> {
+            CompletableFuture<Replica> replicaFut = replica(replicaGrpId);
+            if (replicaFut != null) {
+                // TODO: do async
+                return replicaFut.join()
+                        .raftClient();
+            }
+            throw new IgniteInternalException("No such replica for partition " + replicaGrpId.partitionId()
+                    + " in table " + replicaGrpId.tableId());
+        });
+
+        return new RebalanceRaftGroupEventsListener(
+                metaStorageMgr,
+                replicaGrpId,
+                busyLock,
+                partitionMover,
+                rebalanceScheduler,
+                zoneId
+        );
     }
 
     /**
