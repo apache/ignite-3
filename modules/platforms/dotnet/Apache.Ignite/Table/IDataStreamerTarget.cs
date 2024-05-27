@@ -69,7 +69,7 @@ public interface IDataStreamerTarget<T>
     }
 
     /// <summary>
-    /// Streams data into the underlying table.
+    /// Streams data into the underlying table with receiver that returns results.
     /// </summary>
     /// <param name="data">Data.</param>
     /// <param name="options">Streamer options.</param>
@@ -83,6 +83,28 @@ public interface IDataStreamerTarget<T>
     /// <typeparam name="TPayload">Payload type.</typeparam>
     /// <typeparam name="TResult">Result type.</typeparam>
     IAsyncEnumerable<TResult> StreamDataAsync<TSource, TPayload, TResult>(
+        IAsyncEnumerable<TSource> data,
+        DataStreamerOptions? options,
+        Func<TSource, T> keySelector,
+        Func<TSource, TPayload> payloadSelector,
+        IEnumerable<DeploymentUnit> units,
+        string receiverClassName,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Streams data into the underlying table with receiver, ignoring receiver results (if any).
+    /// </summary>
+    /// <param name="data">Data.</param>
+    /// <param name="options">Streamer options.</param>
+    /// <param name="keySelector">Key selector.</param>
+    /// <param name="payloadSelector">Payload selector.</param>
+    /// <param name="units">Deployment units. Can be empty.</param>
+    /// <param name="receiverClassName">Java class name of the streamer receiver to execute on the server.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
+    /// <typeparam name="TSource">Source item type.</typeparam>
+    /// <typeparam name="TPayload">Payload type.</typeparam>
+    Task StreamDataAsync<TSource, TPayload>(
         IAsyncEnumerable<TSource> data,
         DataStreamerOptions? options,
         Func<TSource, T> keySelector,

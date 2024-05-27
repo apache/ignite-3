@@ -57,6 +57,7 @@ internal static class DataStreamerWithReceiver
     /// <param name="payloadFunc">Payload func.</param>
     /// <param name="keyWriter">Key writer.</param>
     /// <param name="options">Options.</param>
+    /// <param name="expectResults">Whether to expect results from the receiver.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <typeparam name="TSource">Source type.</typeparam>
     /// <typeparam name="TKey">Key type.</typeparam>
@@ -70,8 +71,10 @@ internal static class DataStreamerWithReceiver
         Func<TSource, TPayload> payloadFunc,
         IRecordSerializerHandler<TKey> keyWriter,
         DataStreamerOptions options,
+        bool expectResults,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
+        // TODO: Deduplicate validation.
         IgniteArgumentCheck.NotNull(data);
 
         IgniteArgumentCheck.Ensure(
@@ -88,6 +91,11 @@ internal static class DataStreamerWithReceiver
             options.RetryLimit >= 0,
             nameof(options.RetryLimit),
             $"{nameof(options.RetryLimit)} should be non-negative.");
+
+        if (expectResults)
+        {
+            throw new NotSupportedException("TODO: Ticket number");
+        }
 
         // ConcurrentDictionary is not necessary because we consume the source sequentially.
         // However, locking for batches is required due to auto-flush background task.

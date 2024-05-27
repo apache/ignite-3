@@ -19,6 +19,7 @@ namespace Apache.Ignite.Internal.Table
 {
     using System;
     using System.Collections.Generic;
+    using System.Diagnostics;
     using System.Diagnostics.CodeAnalysis;
     using System.Linq;
     using System.Threading;
@@ -321,7 +322,35 @@ namespace Apache.Ignite.Internal.Table
                 payloadSelector,
                 keyWriter: _ser.Handler,
                 options ?? DataStreamerOptions.Default,
+                expectResults: true,
                 cancellationToken);
+
+        /// <inheritdoc/>
+        public async Task StreamDataAsync<TSource, TPayload>(
+            IAsyncEnumerable<TSource> data,
+            DataStreamerOptions? options,
+            Func<TSource, T> keySelector,
+            Func<TSource, TPayload> payloadSelector,
+            IEnumerable<DeploymentUnit> units,
+            string receiverClassName,
+            CancellationToken cancellationToken = default)
+        {
+            IAsyncEnumerable<object> results = DataStreamerWithReceiver.StreamDataAsync<TSource, T, TPayload, object>(
+                data,
+                _table,
+                keySelector,
+                payloadSelector,
+                keyWriter: _ser.Handler,
+                options ?? DataStreamerOptions.Default,
+                expectResults: false,
+                cancellationToken);
+
+            // Await streaming completion.
+            await foreach (var unused in results)
+            {
+                Debug.Fail("Got results with expectResults=false: " + unused);
+            }
+        }
 
         /// <inheritdoc/>
         public override string ToString() =>
