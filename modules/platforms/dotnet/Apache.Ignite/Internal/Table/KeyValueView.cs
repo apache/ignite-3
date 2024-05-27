@@ -183,6 +183,24 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
             cancellationToken);
 
     /// <inheritdoc/>
+    public Task StreamDataAsync<TSource, TPayload>(
+        IAsyncEnumerable<TSource> data,
+        DataStreamerOptions? options,
+        Func<TSource, KeyValuePair<TK, TV>> keySelector,
+        Func<TSource, TPayload> payloadSelector,
+        IEnumerable<DeploymentUnit> units,
+        string receiverClassName,
+        CancellationToken cancellationToken = default) =>
+        _recordView.StreamDataAsync(
+            data,
+            options,
+            src => ToKv(keySelector(src)),
+            payloadSelector,
+            units,
+            receiverClassName,
+            cancellationToken);
+
+    /// <inheritdoc/>
     public override string ToString() =>
         new IgniteToStringBuilder(GetType())
             .Append(_recordView.Table, "Table")
