@@ -39,7 +39,7 @@ public abstract class NodeIdAware {
      *
      * @return Raft node id.
      */
-    NodeId nodeId() {
+    public NodeId nodeId() {
         return nodeId;
     }
 
