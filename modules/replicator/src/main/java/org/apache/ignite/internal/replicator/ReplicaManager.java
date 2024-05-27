@@ -109,7 +109,6 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.jraft.storage.impl.VolatileRaftMetaStorage;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -181,7 +180,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     /** Executor for scheduling rebalance routine. */
     private final ScheduledExecutorService rebalanceScheduler;
 
-    /** Executor for scheduling rebalance routine. */
+    /** Failure processor. */
     private final FailureProcessor failureProcessor;
 
     /** Set of message groups to handler as replica requests. */
@@ -207,9 +206,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param requestsExecutor Executor that will be used to execute requests by replicas.
      * @param rebalanceScheduler Executor for scheduling rebalance routine.
      * @param idleSafeTimePropagationPeriodMsSupplier Used to get idle safe time propagation period in ms.
-     * @param failureProcessor TODO.
-     * @param raftCommandsMarshaller  TODO.
-     * @param raftGroupServiceFactory TODO.
+     * @param failureProcessor Failure processor.
+     * @param raftCommandsMarshaller Command marshaller for raft groups creation.
+     * @param raftGroupServiceFactory A factory for raft-clients creation.
      * @param raftManager The manager made up of songs and words to spite all my troubles is not so bad at all.
      * @param volatileLogStorageFactoryCreator Creator for {@link org.apache.ignite.internal.raft.storage.LogStorageFactory} for
      *      volatile tables.
@@ -534,15 +533,17 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * Creates and starts a new replica.
      *
      * @param metaStorageMgr Metastore manager.
-     * @param raftGroupListener TODO.
+     * @param raftGroupListener Raft group listener for raft group starting.
      * @param mvTableStorage Multi-version table storage.
-     * @param snapshotStorageFactory TODO.
-     * @param updateTableRaftService TODO.
-     * @param createListener TODO.
+     * @param snapshotStorageFactory Snapshot storage factory for raft group option's parameterization.
+     * @param updateTableRaftService Temporal consumer while TableRaftService wouldn't be removed in
+     *      TODO: https://issues.apache.org/jira/browse/IGNITE-22218.
+     * @param createListener Due to creation of ReplicaListener in TableManager, the function returns desired listener by created
+     *      raft-client inside {@link #startReplica} method.
      * @param zoneId Distribution zone ID.
      * @param replicaGrpId Replication group id.
      * @param storageIndexTracker Storage index tracker.
-     * @param newConfiguration TODO.
+     * @param newConfiguration A configuration for new raft group.
      * @return Future that promises ready new replica when done.
      */
     public CompletableFuture<Boolean> startReplica(
@@ -602,7 +603,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         CompletableFuture<Boolean> resultFuture = newRaftClientFut.thenAccept(updateTableRaftService)
                 .thenApply((v) -> true);
 
-        // TODO: chain it all together
         CompletableFuture<ReplicaListener> newReplicaListenerFut = newRaftClientFut.thenApply(createListener);
 
         startReplica(replicaGrpId, storageIndexTracker, newReplicaListenerFut);
@@ -687,19 +687,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 : raftManager.startRaftGroupService(replicaGrpId, newConfiguration, raftGroupServiceFactory, raftCommandsMarshaller);
     }
 
-    @NotNull
     private RaftGroupEventsListener createRaftGroupEventsListener(MetaStorageManager metaStorageMgr, int zoneId,
             TablePartitionId replicaGrpId) {
-        PartitionMover partitionMover = new PartitionMover(busyLock, () -> {
-            CompletableFuture<Replica> replicaFut = replica(replicaGrpId);
-            if (replicaFut != null) {
-                // TODO: do async
-                return replicaFut.join()
-                        .raftClient();
-            }
-            throw new IgniteInternalException("No such replica for partition " + replicaGrpId.partitionId()
-                    + " in table " + replicaGrpId.tableId());
-        });
+        PartitionMover partitionMover = createPartitionMover(replicaGrpId);
 
         return new RebalanceRaftGroupEventsListener(
                 metaStorageMgr,
@@ -709,6 +699,17 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 rebalanceScheduler,
                 zoneId
         );
+    }
+
+    private PartitionMover createPartitionMover(TablePartitionId replicaGrpId) {
+        return new PartitionMover(busyLock, () -> {
+            CompletableFuture<Replica> replicaFut = replica(replicaGrpId);
+            if (replicaFut == null) {
+                throw new IgniteInternalException("No such replica for partition " + replicaGrpId.partitionId()
+                        + " in table " + replicaGrpId.tableId());
+            }
+            return replicaFut.thenApply(Replica::raftClient);
+        });
     }
 
     /**
