@@ -23,6 +23,7 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
+using Ignite.Compute;
 using Ignite.Table;
 using Internal.Proto;
 using NUnit.Framework;
@@ -248,6 +249,20 @@ public class DataStreamerTests : IgniteTestsBase
 
             yield return DataStreamerItem.Create(GetPoco(minKey + 3, "created"));
         }
+    }
+
+    [Test]
+    public async Task TestWithReceiver()
+    {
+        var data = Enumerable.Range(0, Count).ToList();
+
+        await Table.RecordBinaryView.StreamDataAsync<int, string>(
+            data.ToAsyncEnumerable(),
+            DataStreamerOptions.Default,
+            keySelector: x => GetTuple(x),
+            payloadSelector: x => "t" + x,
+            units: Array.Empty<DeploymentUnit>(),
+            receiverClassName: "receiver");
     }
 
     private static async IAsyncEnumerable<IIgniteTuple> GetFakeServerData(int count)
