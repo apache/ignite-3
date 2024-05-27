@@ -30,6 +30,7 @@ using Common;
 using Ignite.Table;
 using Proto;
 using Proto.BinaryTuple;
+using Proto.MsgPack;
 using Serialization;
 
 /// <summary>
@@ -54,7 +55,6 @@ internal static class DataStreamerWithReceiver
     /// <param name="keyFunc">Key func.</param>
     /// <param name="payloadFunc">Payload func.</param>
     /// <param name="keyWriter">Key writer.</param>
-    /// <param name="writer">Item writer.</param>
     /// <param name="options">Options.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <typeparam name="TSource">Source type.</typeparam>
@@ -68,7 +68,6 @@ internal static class DataStreamerWithReceiver
         Func<TSource, TKey> keyFunc,
         Func<TSource, TPayload> payloadFunc,
         IRecordSerializerHandler<TKey> keyWriter,
-        IRecordSerializerHandler<TPayload> writer,
         DataStreamerOptions options,
         CancellationToken cancellationToken)
     {
@@ -166,10 +165,11 @@ internal static class DataStreamerWithReceiver
             var partitionId = Math.Abs(tupleBuilder.GetHash() % partitionCount);
             var batch = GetOrCreateBatch(partitionId);
 
+            var payload = payloadFunc(item);
+
             lock (batch)
             {
-                // TODO: Add payload to batch. We'll serialize it later.
-                var payload = payloadFunc(item);
+                batch.Items[batch.Count++] = payload;
             }
 
             Metrics.StreamerItemsQueuedIncrement();
@@ -224,14 +224,22 @@ internal static class DataStreamerWithReceiver
             // Release the thread that holds the batch lock.
             await Task.Yield();
 
-            var preferredNode = PreferredNode.FromName(partitionAssignment[partitionId] ?? string.Empty);
+            var buf = new PooledArrayBuffer();
 
             try
             {
-                // TODO: Serialize and send.
+                SerializeBatch(buf, items, count, partitionId);
+
+                // ReSharper disable once AccessToModifiedClosure
+                var preferredNode = PreferredNode.FromName(partitionAssignment[partitionId] ?? string.Empty);
+
+                // Wait for the previous batch for this node to preserve item order.
+                await oldTask.ConfigureAwait(false);
+                await SendBatchAsync(table, buf, count, preferredNode, retryPolicy).ConfigureAwait(false);
             }
             finally
             {
+                buf.Dispose();
                 GetPool<TPayload>().Return(items);
 
                 Metrics.StreamerItemsQueuedDecrement(count);
@@ -270,6 +278,15 @@ internal static class DataStreamerWithReceiver
         }
     }
 
+    private static void SerializeBatch<T>(
+        PooledArrayBuffer buf,
+        T[] items,
+        int count,
+        int partitionId)
+    {
+        // T is one of the supported types (numbers, strings, etc).
+    }
+
     private static async Task SendBatchAsync(
         Table table,
         PooledArrayBuffer buf,
@@ -278,7 +295,7 @@ internal static class DataStreamerWithReceiver
         IRetryPolicy retryPolicy)
     {
         var (resBuf, socket) = await table.Socket.DoOutInOpAndGetSocketAsync(
-                ClientOp.StreamerBatchSend,
+                ClientOp.StreamerWithReceiverBatchSend,
                 tx: null,
                 buf,
                 preferredNode,
