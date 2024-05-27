@@ -53,11 +53,12 @@ internal static class DataStreamerWithReceiver
     /// </summary>
     /// <param name="data">Data.</param>
     /// <param name="table">Table.</param>
-    /// <param name="keyFunc">Key func.</param>
-    /// <param name="payloadFunc">Payload func.</param>
+    /// <param name="keySelector">Key func.</param>
+    /// <param name="payloadSelector">Payload func.</param>
     /// <param name="keyWriter">Key writer.</param>
     /// <param name="options">Options.</param>
     /// <param name="expectResults">Whether to expect results from the receiver.</param>
+    /// <param name="receiverArgs">Receiver args.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <typeparam name="TSource">Source type.</typeparam>
     /// <typeparam name="TKey">Key type.</typeparam>
@@ -67,11 +68,12 @@ internal static class DataStreamerWithReceiver
     internal static async IAsyncEnumerable<TResult> StreamDataAsync<TSource, TKey, TPayload, TResult>(
         IAsyncEnumerable<TSource> data,
         Table table,
-        Func<TSource, TKey> keyFunc,
-        Func<TSource, TPayload> payloadFunc,
+        Func<TSource, TKey> keySelector,
+        Func<TSource, TPayload> payloadSelector,
         IRecordSerializerHandler<TKey> keyWriter,
         DataStreamerOptions options,
         bool expectResults,
+        object[]? receiverArgs,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         // TODO: Deduplicate validation.
@@ -169,13 +171,13 @@ internal static class DataStreamerWithReceiver
         Batch<TPayload> Add0(TSource item, ref BinaryTupleBuilder tupleBuilder)
         {
             // Write key to compute hash.
-            var key = keyFunc(item);
+            var key = keySelector(item);
             keyWriter.Write(ref tupleBuilder, key, schema, keyOnly: true, Span<byte>.Empty);
 
             var partitionId = Math.Abs(tupleBuilder.GetHash() % partitionCount);
             var batch = GetOrCreateBatch(partitionId);
 
-            var payload = payloadFunc(item);
+            var payload = payloadSelector(item);
 
             lock (batch)
             {

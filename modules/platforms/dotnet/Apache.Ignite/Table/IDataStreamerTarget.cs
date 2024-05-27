@@ -77,6 +77,7 @@ public interface IDataStreamerTarget<T>
     /// <param name="payloadSelector">Payload selector.</param>
     /// <param name="units">Deployment units. Can be empty.</param>
     /// <param name="receiverClassName">Java class name of the streamer receiver to execute on the server.</param>
+    /// <param name="receiverArgs">Receiver args.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
     /// <typeparam name="TSource">Source item type.</typeparam>
@@ -89,6 +90,7 @@ public interface IDataStreamerTarget<T>
         Func<TSource, TPayload> payloadSelector,
         IEnumerable<DeploymentUnit> units,
         string receiverClassName,
+        object[]? receiverArgs,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -100,6 +102,7 @@ public interface IDataStreamerTarget<T>
     /// <param name="payloadSelector">Payload selector.</param>
     /// <param name="units">Deployment units. Can be empty.</param>
     /// <param name="receiverClassName">Java class name of the streamer receiver to execute on the server.</param>
+    /// <param name="receiverArgs">Receiver args.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
     /// <typeparam name="TSource">Source item type.</typeparam>
@@ -111,5 +114,6 @@ public interface IDataStreamerTarget<T>
         Func<TSource, TPayload> payloadSelector,
         IEnumerable<DeploymentUnit> units,
         string receiverClassName,
+        object[] receiverArgs,
         CancellationToken cancellationToken = default);
 }

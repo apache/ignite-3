@@ -314,6 +314,7 @@ namespace Apache.Ignite.Internal.Table
             Func<TSource, TPayload> payloadSelector,
             IEnumerable<DeploymentUnit> units,
             string receiverClassName,
+            object[]? receiverArgs,
             CancellationToken cancellationToken = default) =>
             DataStreamerWithReceiver.StreamDataAsync<TSource, T, TPayload, TResult>(
                 data,
@@ -323,6 +324,7 @@ namespace Apache.Ignite.Internal.Table
                 keyWriter: _ser.Handler,
                 options ?? DataStreamerOptions.Default,
                 expectResults: true,
+                receiverArgs,
                 cancellationToken);
 
         /// <inheritdoc/>
@@ -333,6 +335,7 @@ namespace Apache.Ignite.Internal.Table
             Func<TSource, TPayload> payloadSelector,
             IEnumerable<DeploymentUnit> units,
             string receiverClassName,
+            object[]? receiverArgs,
             CancellationToken cancellationToken = default)
         {
             IAsyncEnumerable<object> results = DataStreamerWithReceiver.StreamDataAsync<TSource, T, TPayload, object>(
@@ -343,6 +346,7 @@ namespace Apache.Ignite.Internal.Table
                 keyWriter: _ser.Handler,
                 options ?? DataStreamerOptions.Default,
                 expectResults: false,
+                receiverArgs,
                 cancellationToken);
 
             // Await streaming completion.

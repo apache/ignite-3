@@ -260,9 +260,10 @@ public class DataStreamerTests : IgniteTestsBase
             data.ToAsyncEnumerable(),
             DataStreamerOptions.Default,
             keySelector: x => GetTuple(x),
-            payloadSelector: x => "t" + x,
+            payloadSelector: x => "t-" + x,
             units: Array.Empty<DeploymentUnit>(),
-            receiverClassName: "receiver");
+            receiverClassName: "receiver",
+            receiverArgs: new object[] { "arg1", 2 });
     }
 
     private static async IAsyncEnumerable<IIgniteTuple> GetFakeServerData(int count)

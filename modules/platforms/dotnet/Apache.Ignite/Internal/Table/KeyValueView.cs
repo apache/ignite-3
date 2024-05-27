@@ -172,6 +172,7 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
         Func<TSource, TPayload> payloadSelector,
         IEnumerable<DeploymentUnit> units,
         string receiverClassName,
+        object[]? receiverArgs,
         CancellationToken cancellationToken = default) =>
         _recordView.StreamDataAsync<TSource, TPayload, TResult>(
             data,
@@ -180,6 +181,7 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
             payloadSelector,
             units,
             receiverClassName,
+            receiverArgs,
             cancellationToken);
 
     /// <inheritdoc/>
@@ -190,6 +192,7 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
         Func<TSource, TPayload> payloadSelector,
         IEnumerable<DeploymentUnit> units,
         string receiverClassName,
+        object[]? receiverArgs,
         CancellationToken cancellationToken = default) =>
         _recordView.StreamDataAsync(
             data,
@@ -198,6 +201,7 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
             payloadSelector,
             units,
             receiverClassName,
+            receiverArgs,
             cancellationToken);
 
     /// <inheritdoc/>
@@ -233,15 +237,6 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
         await foreach (var pair in pairs)
         {
             yield return DataStreamerItem.Create(ToKv(pair.Data), pair.OperationType);
-        }
-    }
-
-    private static async IAsyncEnumerable<KvPair<TK, TV>> ToKv(
-        IAsyncEnumerable<KeyValuePair<TK, TV>> pairs)
-    {
-        await foreach (var pair in pairs)
-        {
-            yield return ToKv(pair);
         }
     }
 }
