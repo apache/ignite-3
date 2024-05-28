@@ -402,7 +402,7 @@ public class DataStreamerTests : IgniteTestsBase
             Enumerable.Range(0, 1).ToAsyncEnumerable(),
             DataStreamerOptions.Default,
             keySelector: x => GetPoco(x),
-            payloadSelector: x => $"{x}-value{x * 10}",
+            payloadSelector: x => string.Empty,
             units: Array.Empty<DeploymentUnit>(),
             receiverClassName: TestReceiverClassName,
             receiverArgs: new object[] { "throw" });

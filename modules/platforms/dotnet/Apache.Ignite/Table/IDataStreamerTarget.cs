@@ -90,7 +90,7 @@ public interface IDataStreamerTarget<T>
         Func<TSource, TPayload> payloadSelector,
         IEnumerable<DeploymentUnit> units,
         string receiverClassName,
-        object[]? receiverArgs,
+        ICollection<object>? receiverArgs,
         CancellationToken cancellationToken = default)
         where TPayload : notnull;
 
@@ -115,7 +115,7 @@ public interface IDataStreamerTarget<T>
         Func<TSource, TPayload> payloadSelector,
         IEnumerable<DeploymentUnit> units,
         string receiverClassName,
-        object[]? receiverArgs,
+        ICollection<object>? receiverArgs,
         CancellationToken cancellationToken = default)
         where TPayload : notnull;
 }

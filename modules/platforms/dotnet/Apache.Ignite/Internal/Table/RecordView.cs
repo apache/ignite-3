@@ -314,7 +314,7 @@ namespace Apache.Ignite.Internal.Table
             Func<TSource, TPayload> payloadSelector,
             IEnumerable<DeploymentUnit> units,
             string receiverClassName,
-            object[]? receiverArgs,
+            ICollection<object>? receiverArgs,
             CancellationToken cancellationToken = default)
             where TPayload : notnull =>
             DataStreamerWithReceiver.StreamDataAsync<TSource, T, TPayload, TResult>(
@@ -338,7 +338,7 @@ namespace Apache.Ignite.Internal.Table
             Func<TSource, TPayload> payloadSelector,
             IEnumerable<DeploymentUnit> units,
             string receiverClassName,
-            object[]? receiverArgs,
+            ICollection<object>? receiverArgs,
             CancellationToken cancellationToken = default)
             where TPayload : notnull
         {

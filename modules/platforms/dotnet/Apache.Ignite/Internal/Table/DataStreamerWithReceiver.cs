@@ -81,7 +81,7 @@ internal static class DataStreamerWithReceiver
         bool expectResults,
         IEnumerable<DeploymentUnit> units,
         string receiverClassName,
-        object[]? receiverArgs,
+        ICollection<object>? receiverArgs,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         // TODO: Deduplicate validation.
@@ -317,18 +317,18 @@ internal static class DataStreamerWithReceiver
         }
     }
 
-    private static void WriteReceiverPayload<T>(ref MsgPackWriter w, string className, object[] args, T[] items, int count)
+    private static void WriteReceiverPayload<T>(ref MsgPackWriter w, string className, ICollection<object> args, T[] items, int count)
     {
         Debug.Assert(items.Length > 0, "items.Length > 0");
         Debug.Assert(count > 0, "count > 0");
         Debug.Assert(count <= items.Length, "count <= items.Length");
 
         // className + args size + args + items size + item type + items.
-        int binaryTupleSize = 1 + 1 + args.Length * 3 + 1 + 1 + count;
+        int binaryTupleSize = 1 + 1 + args.Count * 3 + 1 + 1 + count;
         using var builder = new BinaryTupleBuilder(binaryTupleSize);
 
         builder.AppendString(className);
-        builder.AppendInt(args.Length);
+        builder.AppendInt(args.Count);
 
         foreach (var arg in args)
         {
