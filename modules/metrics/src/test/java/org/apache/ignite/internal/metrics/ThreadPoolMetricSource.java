@@ -19,81 +19,100 @@ package org.apache.ignite.internal.metrics;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
+import java.util.List;
 import java.util.concurrent.ThreadPoolExecutor;
 
-/**
- * Metric source for {@link ThreadPoolMetricTest}.
- */
+/** Metric source for {@link ThreadPoolMetricTest}. */
 public class ThreadPoolMetricSource extends AbstractMetricSource<ThreadPoolMetricSource.Holder> {
     private final ThreadPoolExecutor exec;
 
     /**
      * Constructor.
      *
-     * @param name Name.
+     * @param name Metric source name.
      * @param exec Executor.
      */
-    public ThreadPoolMetricSource(String name, ThreadPoolExecutor exec) {
+    ThreadPoolMetricSource(String name, ThreadPoolExecutor exec) {
         super(name);
 
         this.exec = exec;
     }
 
-    /** {@inheritDoc} */
-    @Override protected Holder createHolder() {
+    @Override
+    protected Holder createHolder() {
         return new Holder();
     }
 
-    /** {@inheritDoc} */
-    @Override protected void init(MetricSetBuilder bldr, Holder holder) {
-        bldr.intGauge(
+    /** Holder class. */
+    protected class Holder implements AbstractMetricSource.Holder<Holder> {
+        private final IntGauge activeCount = new IntGauge(
                 "ActiveCount",
                 "Approximate number of threads that are actively executing tasks.",
                 exec::getActiveCount
         );
 
-        bldr.longGauge(
+        private final LongGauge completedTaskCount = new LongGauge(
                 "CompletedTaskCount",
                 "Approximate total number of tasks that have completed execution.",
                 exec::getCompletedTaskCount
         );
 
-        bldr.intGauge("CorePoolSize", "The core number of threads.", exec::getCorePoolSize);
+        private final IntGauge corePoolSize = new IntGauge(
+                "CorePoolSize",
+                "The core number of threads.",
+                exec::getCorePoolSize
+        );
 
-        bldr.intGauge(
+        private final IntGauge largestPoolSize = new IntGauge(
                 "LargestPoolSize",
                 "Largest number of threads that have ever simultaneously been in the pool.",
                 exec::getLargestPoolSize
         );
 
-        bldr.intGauge(
+        private final IntGauge maximumPoolSize = new IntGauge(
                 "MaximumPoolSize",
                 "The maximum allowed number of threads.",
                 exec::getMaximumPoolSize
         );
 
-        bldr.intGauge("PoolSize", "Current number of threads in the pool.", exec::getPoolSize);
+        private final IntGauge poolSize = new IntGauge(
+                "PoolSize",
+                "Current number of threads in the pool.",
+                exec::getPoolSize
+        );
 
-        bldr.longGauge(
+        private final LongGauge taskCount = new LongGauge(
                 "TaskCount",
                 "Approximate total number of tasks that have been scheduled for execution.",
                 exec::getTaskCount
         );
 
-        bldr.intGauge("QueueSize", "Current size of the execution queue.", () -> exec.getQueue().size());
+        private final IntGauge queueSize = new IntGauge(
+                "QueueSize",
+                "Current size of the execution queue.",
+                () -> exec.getQueue().size()
+        );
 
-        bldr.longGauge(
+        private final LongGauge keepAliveTime = new LongGauge(
                 "KeepAliveTime",
                 "Thread keep-alive time, which is the amount of time which threads in excess of "
                         + "the core pool size may remain idle before being terminated.",
                 () -> exec.getKeepAliveTime(MILLISECONDS)
         );
-    }
 
-    /**
-     * Holder class.
-     */
-    protected static class Holder implements AbstractMetricSource.Holder<Holder> {
-        // No-op.
+        @Override
+        public Iterable<Metric> metrics() {
+            return List.of(
+                    activeCount,
+                    completedTaskCount,
+                    corePoolSize,
+                    largestPoolSize,
+                    maximumPoolSize,
+                    poolSize,
+                    taskCount,
+                    queueSize,
+                    keepAliveTime
+            );
+        }
     }
 }

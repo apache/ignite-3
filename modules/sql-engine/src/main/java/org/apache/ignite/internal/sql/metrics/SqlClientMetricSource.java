@@ -17,46 +17,46 @@
 
 package org.apache.ignite.internal.sql.metrics;
 
+import java.util.List;
 import java.util.Objects;
 import java.util.function.IntSupplier;
 import org.apache.ignite.internal.metrics.AbstractMetricSource;
-import org.apache.ignite.internal.metrics.MetricSetBuilder;
+import org.apache.ignite.internal.metrics.IntGauge;
+import org.apache.ignite.internal.metrics.Metric;
 
-/**
- * Source of SQL client metrics.
- */
+/** Source of SQL client metrics. */
 public class SqlClientMetricSource extends AbstractMetricSource<SqlClientMetricSource.Holder> {
     public static final String NAME = "sql.client";
     public static final String METRIC_OPEN_CURSORS = "OpenCursors";
-    private final IntSupplier numberOfOpenCursors;
+    private final IntSupplier numberOfOpenCursorsSupplier;
 
     /**
      * Constructor.
      *
-     * @param numberOfOpenCursors Integer supplier provides current number of open cursors.
+     * @param numberOfOpenCursorsSupplier Integer supplier provides current number of open cursors.
      */
-    public SqlClientMetricSource(IntSupplier numberOfOpenCursors) {
+    public SqlClientMetricSource(IntSupplier numberOfOpenCursorsSupplier) {
         super(NAME);
 
-        assert Objects.nonNull(numberOfOpenCursors);
-        this.numberOfOpenCursors = numberOfOpenCursors;
+        this.numberOfOpenCursorsSupplier = Objects.requireNonNull(numberOfOpenCursorsSupplier);
     }
 
-    /** {@inheritDoc} */
-    @Override
-    protected void init(MetricSetBuilder bldr, Holder holder) {
-        bldr.intGauge(METRIC_OPEN_CURSORS, "Number of current open cursors", numberOfOpenCursors);
-    }
-
-    /** {@inheritDoc} */
     @Override
     protected Holder createHolder() {
         return new Holder();
     }
 
-    /**
-     * Holder.
-     */
-    protected static class Holder implements AbstractMetricSource.Holder<Holder> {
+    /** Holder. */
+    protected class Holder implements AbstractMetricSource.Holder<Holder> {
+        private final IntGauge numberOfOpenCursors = new IntGauge(
+                METRIC_OPEN_CURSORS,
+                "Number of current open cursors",
+                numberOfOpenCursorsSupplier
+        );
+
+        @Override
+        public Iterable<Metric> metrics() {
+            return List.of(numberOfOpenCursors);
+        }
     }
 }

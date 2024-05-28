@@ -82,7 +82,7 @@ public abstract class AbstractMetricSource<T extends AbstractMetricSource.Holder
         if (HOLDER_FIELD_UPD.compareAndSet(this, null, newHolder)) {
             var metricSetBuilder = new MetricSetBuilder(name);
 
-            init(metricSetBuilder, newHolder);
+            newHolder.metrics().forEach(metricSetBuilder::register);
 
             return metricSetBuilder.build();
         }
@@ -92,41 +92,16 @@ public abstract class AbstractMetricSource<T extends AbstractMetricSource.Holder
 
     @Override
     public final void disable() {
-        T holder0 = holder;
-
-        if (HOLDER_FIELD_UPD.compareAndSet(this, holder0, null)) {
-            cleanup(holder0);
-        }
+        HOLDER_FIELD_UPD.compareAndSet(this, holder, null);
     }
 
     /**
-     * Method is responsible for:
-     * <ol>
-     *     <li>Creation of {@link MetricSet} instance using provided {@link MetricSetBuilder}.</li>
-     *     <li>Creation of metric instances in given holder.</li>
-     *     <li>Other initialization if needed.</li>
-     * </ol>.
-     *
-     * @param bldr Metric registry builder.
-     * @param holder Metric instances' holder.
-     */
-    protected abstract void init(MetricSetBuilder bldr, T holder);
-
-    /**
-     * Method is responsible for cleanup and release of all resources initialized or created during {@link #init} method
-     * execution. Note that {@link MetricSet} and {@link Holder} instances will be released automatically.
-     *
-     * @param holder Metric instances holder.
-     */
-    protected void cleanup(T holder) {
-        // No-op.
-    }
-
-    /**
-     * Marker interface for metric instances holder.
+     * Metric instances holder.
      *
      * @param <T> Holder type subclass.
      */
     protected interface Holder<T extends Holder<T>> {
+        /** Returns the holder metrics. */
+        Iterable<Metric> metrics();
     }
 }

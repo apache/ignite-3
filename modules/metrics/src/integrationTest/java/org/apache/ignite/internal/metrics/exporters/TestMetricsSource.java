@@ -17,44 +17,39 @@
 
 package org.apache.ignite.internal.metrics.exporters;
 
+import java.util.List;
 import org.apache.ignite.internal.metrics.AbstractMetricSource;
 import org.apache.ignite.internal.metrics.AtomicIntMetric;
-import org.apache.ignite.internal.metrics.MetricSetBuilder;
+import org.apache.ignite.internal.metrics.Metric;
 import org.apache.ignite.internal.metrics.exporters.TestMetricsSource.Holder;
 
-/**
- * Metric source for {@link ThreadPoolMetricTest}.
- */
+/** Simple test metric source. */
 public class TestMetricsSource extends AbstractMetricSource<Holder> {
-    private AtomicIntMetric atomicIntMetric;
-
-    /**
-     * Constructor.
-     *
-     * @param name Name.
-     */
-    public TestMetricsSource(String name) {
+    /** Constructor. */
+    TestMetricsSource(String name) {
         super(name);
     }
 
-    /** {@inheritDoc} */
-    @Override protected Holder createHolder() {
+    @Override
+    protected Holder createHolder() {
         return new Holder();
     }
 
-    /** {@inheritDoc} */
-    @Override protected void init(MetricSetBuilder bldr, Holder holder) {
-        atomicIntMetric = bldr.atomicInt("Metric", "Metric");
+    void inc() {
+        Holder holder = holder();
+
+        assert holder != null;
+
+        holder.atomicIntMetric.increment();
     }
 
-    public void inc() {
-        atomicIntMetric.increment();
-    }
-
-    /**
-     * Holder class.
-     */
+    /** Holder class. */
     protected static class Holder implements AbstractMetricSource.Holder<Holder> {
-        // No-op.
+        private final AtomicIntMetric atomicIntMetric = new AtomicIntMetric("Metric", "Metric");
+
+        @Override
+        public Iterable<Metric> metrics() {
+            return List.of(atomicIntMetric);
+        }
     }
 }

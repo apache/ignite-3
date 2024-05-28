@@ -17,12 +17,10 @@
 
 package org.apache.ignite.internal.client;
 
-import java.util.Arrays;
 import java.util.List;
 import org.apache.ignite.internal.metrics.AbstractMetricSource;
 import org.apache.ignite.internal.metrics.AtomicLongMetric;
 import org.apache.ignite.internal.metrics.Metric;
-import org.apache.ignite.internal.metrics.MetricSetBuilder;
 import org.apache.ignite.internal.streamer.StreamerMetricSink;
 
 /**
@@ -445,14 +443,7 @@ public class ClientMetricSource extends AbstractMetricSource<ClientMetricSource.
         return new Holder();
     }
 
-    @Override
-    protected void init(MetricSetBuilder bldr, Holder holder) {
-        holder.register(bldr);
-    }
-
-    /**
-     * Metrics holder.
-     */
+    /** Metrics holder. */
     protected static class Holder implements AbstractMetricSource.Holder<Holder> {
         private final AtomicLongMetric connectionsActive =
                 new AtomicLongMetric("ConnectionsActive", "Currently active connections");
@@ -504,7 +495,7 @@ public class ClientMetricSource extends AbstractMetricSource<ClientMetricSource.
         private final AtomicLongMetric streamerItemsQueued = new AtomicLongMetric(
                 "StreamerItemsQueued", "Total number of queued data streamer items (rows)");
 
-        final List<Metric> metrics = Arrays.asList(
+        final List<Metric> metrics = List.of(
                 connectionsActive,
                 connectionsEstablished,
                 connectionsLost,
@@ -524,10 +515,9 @@ public class ClientMetricSource extends AbstractMetricSource<ClientMetricSource.
                 streamerItemsQueued
         );
 
-        void register(MetricSetBuilder bldr) {
-            for (var metric : metrics) {
-                bldr.register(metric);
-            }
+        @Override
+        public Iterable<Metric> metrics() {
+            return metrics;
         }
     }
 }
