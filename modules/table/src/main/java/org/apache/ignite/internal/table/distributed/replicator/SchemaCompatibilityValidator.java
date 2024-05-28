@@ -146,14 +146,14 @@ class SchemaCompatibilityValidator {
             FullTableSchema oldSchema = tableSchemas.get(i);
             FullTableSchema newSchema = tableSchemas.get(i + 1);
 
-            String failedValidationDetails = getFailedValidationDetails(oldSchema, newSchema);
+            ValidationResult validationResult = validateForwardSchemaCompatibility(oldSchema, newSchema);
 
-            if (!failedValidationDetails.isEmpty()) {
+            if (validationResult.verdict == ValidatorVerdict.INCOMPATIBLE) {
                 return CompatValidationResult.incompatibleChange(
                         oldSchema.tableName(),
                         oldSchema.schemaVersion(),
                         newSchema.schemaVersion(),
-                        String.join("; ", failedValidationDetails)
+                        validationResult.details()
                 );
             }
         }
@@ -161,7 +161,7 @@ class SchemaCompatibilityValidator {
         return CompatValidationResult.success();
     }
 
-    private String getFailedValidationDetails(FullTableSchema prevSchema, FullTableSchema nextSchema) {
+    private ValidationResult validateForwardSchemaCompatibility(FullTableSchema prevSchema, FullTableSchema nextSchema) {
         TableDefinitionDiff diff = diffCache.computeIfAbsent(
                 new TableDefinitionDiffKey(prevSchema.tableId(), prevSchema.schemaVersion(), nextSchema.schemaVersion()),
                 key -> nextSchema.diffFrom(prevSchema)
@@ -176,7 +176,7 @@ class SchemaCompatibilityValidator {
                     accepted = true;
                     break;
                 case INCOMPATIBLE:
-                    return validationResult.details();
+                    return validationResult;
                 default:
                     break;
             }
@@ -186,7 +186,7 @@ class SchemaCompatibilityValidator {
                 + " to " + nextSchema.schemaVersion()
                 + ", but no schema change validator voted for any change. Some schema validator is missing.";
 
-        return "";
+        return ValidationResult.COMPATIBLE;
     }
 
     /**

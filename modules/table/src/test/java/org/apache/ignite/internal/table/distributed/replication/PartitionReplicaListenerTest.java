@@ -1779,7 +1779,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         MismatchingTransactionOutcomeException ex = assertWillThrowFast(future,
                 MismatchingTransactionOutcomeException.class);
 
-        assertThat(ex.getMessage(), containsString("Commit failed because schema 1 is not forward-compatible with 2"));
+        assertThat(ex.getMessage(), containsString("Commit failed because schema is not forward-compatible [fromSchemaVersion=1, "
+                + "toSchemaVersion=2, table=test, details=Column default value changed]"));
 
         assertThat(committed.get(), is(false));
     }
