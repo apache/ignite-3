@@ -231,7 +231,9 @@ public class IgniteSqlFunctions {
         return SqlFunctions.substring(c, s);
     }
 
-    /** SQL SUBSTRING(string FROM ...) function. */
+    /** 
+     * SQL SUBSTRING(string FROM ...) function with BIGINT arguments.
+     */
     public static String substring(String c, BigDecimal s) {
         if (s.compareTo(BigDecimal.ONE) <= 0) {
             return c;
@@ -246,7 +248,9 @@ public class IgniteSqlFunctions {
         return SqlFunctions.substring(c, s, l);
     }
 
-    /** SQL SUBSTRING(string FROM ...) function. */
+    /**
+     * SQL SUBSTRING(string FROM ...) function with BIGINT arguments.
+     */
     public static String substring(String c, int s, BigDecimal l) {
         if (s < 0) {
             if (l.signum() > 0) {
@@ -258,7 +262,9 @@ public class IgniteSqlFunctions {
         return SqlFunctions.substring(c, s, l0);
     }
 
-    /** SQL SUBSTRING(string FROM ...) function. */
+    /** 
+     * SQL SUBSTRING(string FROM ...) function with BIGINT arguments. 
+     */
     public static String substring(String c, BigDecimal s, BigDecimal l) {
         if (s.signum() < 0) {
             if (l.signum() > 0) {

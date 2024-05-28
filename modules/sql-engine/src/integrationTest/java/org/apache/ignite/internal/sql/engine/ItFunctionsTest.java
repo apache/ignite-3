@@ -59,6 +59,11 @@ import org.junit.jupiter.params.provider.ValueSource;
 public class ItFunctionsTest extends BaseSqlIntegrationTest {
     private static final Object[] NULL_RESULT = { null };
 
+    @Override
+    protected int initialNodes() {
+        return 1;
+    }
+
     @Test
     public void testTimestampDiffWithFractionsOfSecond() {
         assertQuery("SELECT TIMESTAMPDIFF(MICROSECOND, TIMESTAMP '2022-02-01 10:30:28.000', "
@@ -375,16 +380,26 @@ public class ItFunctionsTest extends BaseSqlIntegrationTest {
         assertQuery("SELECT SUBSTRING('1234567', -1)").returns("1234567").check();
         assertQuery("SELECT SUBSTRING(1000, 1, 3)").returns("100").check();
 
+        assertQuery("SELECT SUBSTRING('1234567', 2::BIGINT)").returns("234567").check();
+        assertQuery("SELECT SUBSTRING('1234567', 2::BIGINT, 3::BIGINT)").returns("234").check();
+
         assertQuery("SELECT SUBSTRING(NULL FROM 1 FOR 2)").returns(null).check();
         assertQuery("SELECT SUBSTRING('text' FROM 1 FOR null)").returns(null).check();
         assertQuery("SELECT SUBSTRING('test' FROM null FOR 2)").returns(null).check();
 
         assertQuery("SELECT SUBSTRING(s from i for l) from (values ('abc', null, 2)) as t (s, i, l);").returns(null).check();
 
-        assertQuery("SELECT SUBSTRING('1234567', 2.1, 3.1);").returns("234").check();
-        assertQuery("SELECT SUBSTRING('1234567', 2.1, 3);").returns("234").check();
-        assertQuery("SELECT SUBSTRING('1234567', 2, 3.1);").returns("234").check();
-        assertQuery("SELECT SUBSTRING('1234567', 2.1);").returns("234567").check();
+        assertThrowsSqlException(Sql.STMT_VALIDATION_ERR,
+                "Cannot apply 'SUBSTRING' to arguments of type 'SUBSTRING(<CHAR(7)>, <REAL>)'", 
+                () -> sql("SELECT SUBSTRING('1234567', 1.1::REAL)"));
+
+        assertThrowsSqlException(Sql.STMT_VALIDATION_ERR,
+                "Cannot apply 'SUBSTRING' to arguments of type 'SUBSTRING(<CHAR(7)>, <DECIMAL(2, 0)>)'",
+                () -> sql("SELECT SUBSTRING('1234567', 1::DECIMAL(2))"));
+        
+        assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, 
+                "Cannot apply 'SUBSTRING' to arguments of type 'SUBSTRING(<CHAR(7)>, <INTEGER>, <DECIMAL(2, 0)>)'",
+                () -> sql("SELECT SUBSTRING('1234567', 1, 3::DECIMAL(2))"));
 
         // type coercion
         assertQuery("SELECT SUBSTRING('1234567', 2, '1');").returns("2").check();
