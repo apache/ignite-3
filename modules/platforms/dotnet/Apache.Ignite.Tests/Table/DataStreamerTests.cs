@@ -212,22 +212,39 @@ public class DataStreamerTests : IgniteTestsBase
     }
 
     [Test]
-    public async Task TestManyItemsWithDisconnectAndRetry()
+    public async Task TestManyItemsWithDisconnectAndRetry([Values(true, false)] bool withReceiver)
     {
         const int count = 100_000;
         int upsertIdx = 0;
 
         using var server = new FakeServer(
-            shouldDropConnection: ctx => ctx.OpCode == ClientOp.StreamerBatchSend && Interlocked.Increment(ref upsertIdx) % 2 == 1);
+            shouldDropConnection: ctx => ctx.OpCode is ClientOp.StreamerBatchSend or ClientOp.StreamerWithReceiverBatchSend
+                                         && Interlocked.Increment(ref upsertIdx) % 2 == 1);
 
-        // Streamer has it's own retry policy, so we can disable retries on the client.
+        // Streamer has its own retry policy, so we can disable retries on the client.
         using var client = await server.ConnectClientAsync(new IgniteClientConfiguration
         {
             RetryPolicy = new RetryNonePolicy()
         });
 
         var table = await client.Tables.GetTableAsync(FakeServer.ExistingTableName);
-        await table!.RecordBinaryView.StreamDataAsync(GetFakeServerData(count));
+
+        if (withReceiver)
+        {
+            await table!.RecordBinaryView.StreamDataAsync<IIgniteTuple, string>(
+                GetFakeServerData(count),
+                DataStreamerOptions.Default,
+                keySelector: t => t,
+                payloadSelector: t => t[0]!.ToString()!,
+                Array.Empty<DeploymentUnit>(),
+                TestReceiverClassName,
+                null,
+                CancellationToken.None);
+        }
+        else
+        {
+            await table!.RecordBinaryView.StreamDataAsync(GetFakeServerData(count));
+        }
 
         Assert.AreEqual(count, server.StreamerRowCount);
         Assert.That(server.DroppedConnectionCount, Is.GreaterThanOrEqualTo(count / DataStreamerOptions.Default.PageSize));
