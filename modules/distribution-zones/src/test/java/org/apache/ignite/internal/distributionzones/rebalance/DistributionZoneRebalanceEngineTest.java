@@ -184,7 +184,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
         MetaStorageListener metaStorageListener = new MetaStorageListener(
                 keyValueStorage,
                 mock(ClusterTimeImpl.class),
-                completedFuture(TEST_MAX_CLOCK_SKEW_MILLIS),
+                completedFuture(() -> TEST_MAX_CLOCK_SKEW_MILLIS),
                 () -> Long.MAX_VALUE
         );
 
