@@ -118,7 +118,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
      * Constructor.
      */
     public HeapLockManager() {
-        this(new WaitDieDeadlockPreventionPolicy(), SLOTS, SLOTS, new HeapUnboundedLockManager());
+        this(new TimeoutWaitDeadlockPreventionPolicy(), SLOTS, SLOTS, new HeapUnboundedLockManager());
     }
 
     /**
@@ -195,7 +195,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
 
     @Override
     public void release(UUID txId, LockKey lockKey, LockMode lockMode) {
-        // TODO: Delegation to parentLockManager might change after https://issues.apache.org/jira/browse/IGNITE-20895 
+        // TODO: Delegation to parentLockManager might change after https://issues.apache.org/jira/browse/IGNITE-20895
         if (lockKey.contextId() == null) { // Treat this lock as a hierarchy lock.
             parentLockManager.release(txId, lockKey, lockMode);
 

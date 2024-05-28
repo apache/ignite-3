@@ -69,7 +69,7 @@ public class HeapUnboundedLockManager extends AbstractEventProducer<LockEvent, L
      * Constructor.
      */
     public HeapUnboundedLockManager() {
-        this(new WaitDieDeadlockPreventionPolicy());
+        this(new TimeoutWaitDeadlockPreventionPolicy());
     }
 
     /**

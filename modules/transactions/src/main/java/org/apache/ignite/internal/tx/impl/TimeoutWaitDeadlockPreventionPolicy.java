@@ -15,22 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.tx;
+package org.apache.ignite.internal.tx.impl;
 
-import org.apache.ignite.internal.tx.impl.HeapUnboundedLockManager;
-import org.apache.ignite.internal.tx.impl.TimeoutWaitDeadlockPreventionPolicy;
+import java.util.Comparator;
+import java.util.UUID;
+import org.apache.ignite.internal.tx.DeadlockPreventionPolicy;
 
 /**
- * Test class for {@link HeapUnboundedLockManager}.
+ * Same as {@link WaitDieDeadlockPreventionPolicy} but with timeout.
  */
-public class HeapUnboundedLockManagerTest extends AbstractLockManagerTest {
+public class TimeoutWaitDeadlockPreventionPolicy implements DeadlockPreventionPolicy {
+    private static final TxIdPriorityComparator TX_ID_PRIORITY_COMPARATOR = new TxIdPriorityComparator();
+
+    /** {@inheritDoc} */
     @Override
-    protected LockManager newInstance() {
-        return new HeapUnboundedLockManager(new TimeoutWaitDeadlockPreventionPolicy());
+    public Comparator<UUID> txIdComparator() {
+        return TX_ID_PRIORITY_COMPARATOR;
     }
 
     @Override
-    protected LockKey lockKey() {
-        return new LockKey("test");
+    public long waitTimeout() {
+        return 200;
     }
 }
