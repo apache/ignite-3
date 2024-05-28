@@ -144,7 +144,12 @@ public class PartitionAwarenessTests
         using var client = await GetClient();
         var recordView = (await client.Tables.GetTableAsync(FakeServer.ExistingTableName))!.GetRecordView<int>();
 
-        var streamerTask = recordView.StreamDataAsync(producer.Reader.ReadAllAsync(), new DataStreamerOptions { PageSize = 1 });
+        var options = new DataStreamerOptions { PageSize = 1 };
+        var data = producer.Reader.ReadAllAsync();
+        var streamerTask = withReceiver
+            ? recordView.StreamDataAsync(data, options, x => x, x => x.ToString(), Array.Empty<DeploymentUnit>(), "x")
+            : recordView.StreamDataAsync(data, options);
+
         Func<ITransaction?, Task> action = async _ =>
         {
              await producer.Writer.WriteAsync(1);
