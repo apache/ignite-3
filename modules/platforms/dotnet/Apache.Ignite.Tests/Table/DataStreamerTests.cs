@@ -380,10 +380,19 @@ public class DataStreamerTests : IgniteTestsBase
     }
 
     [Test]
-    public async Task TestUnknownReceiverClass()
+    public void TestUnknownReceiverClass()
     {
-        // TODO
-        await Task.Yield();
+        var ex = Assert.ThrowsAsync<IgniteException>(async () =>
+            await TupleView.StreamDataAsync<int, string>(
+                Enumerable.Range(0, Count).ToList().ToAsyncEnumerable(),
+                DataStreamerOptions.Default,
+                keySelector: x => GetTuple(x),
+                payloadSelector: x => string.Empty,
+                units: Array.Empty<DeploymentUnit>(),
+                receiverClassName: "_unknown_",
+                receiverArgs: null));
+
+        Assert.AreEqual("Streamer receiver failed: Cannot load receiver class by name '_unknown_'", ex.Message);
     }
 
     [Test]
@@ -391,6 +400,7 @@ public class DataStreamerTests : IgniteTestsBase
     {
         // TODO
         await Task.Yield();
+        Assert.Fail();
     }
 
     [Test]
@@ -398,6 +408,7 @@ public class DataStreamerTests : IgniteTestsBase
     {
         // TODO
         await Task.Yield();
+        Assert.Fail();
     }
 
     private static async IAsyncEnumerable<IIgniteTuple> GetFakeServerData(int count)
