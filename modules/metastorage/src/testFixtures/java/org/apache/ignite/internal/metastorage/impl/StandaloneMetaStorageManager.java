@@ -19,6 +19,7 @@ package org.apache.ignite.internal.metastorage.impl;
 
 import static java.util.Collections.singleton;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.hlc.TestClockService.TEST_MAX_CLOCK_SKEW_MILLIS;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -105,7 +106,8 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
                 keyValueStorage,
                 mock(TopologyAwareRaftGroupServiceFactory.class),
                 mockConfiguration(),
-                clock
+                clock,
+                completedFuture(TEST_MAX_CLOCK_SKEW_MILLIS)
         );
     }
 
@@ -126,7 +128,8 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
             KeyValueStorage storage,
             TopologyAwareRaftGroupServiceFactory raftServiceFactory,
             MetaStorageConfiguration configuration,
-            HybridClock clock
+            HybridClock clock,
+            CompletableFuture<Long> maxClockSkewMillisFuture
     ) {
         super(
                 clusterService,
@@ -137,7 +140,7 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
                 clock,
                 raftServiceFactory,
                 new NoOpMetricManager(),
-                configuration
+                maxClockSkewMillisFuture
         );
     }
 
