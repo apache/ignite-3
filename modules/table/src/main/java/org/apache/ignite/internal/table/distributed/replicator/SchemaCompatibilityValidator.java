@@ -19,11 +19,9 @@ package org.apache.ignite.internal.table.distributed.replicator;
 
 import static java.util.stream.Collectors.toSet;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
-import java.util.StringJoiner;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -148,7 +146,7 @@ class SchemaCompatibilityValidator {
             FullTableSchema oldSchema = tableSchemas.get(i);
             FullTableSchema newSchema = tableSchemas.get(i + 1);
 
-            List<String> failedValidationDetails = getFailedValidationDetails(oldSchema, newSchema);
+            String failedValidationDetails = getFailedValidationDetails(oldSchema, newSchema);
 
             if (!failedValidationDetails.isEmpty()) {
                 return CompatValidationResult.incompatibleChange(
@@ -163,40 +161,32 @@ class SchemaCompatibilityValidator {
         return CompatValidationResult.success();
     }
 
-    private List<String> getFailedValidationDetails(FullTableSchema prevSchema, FullTableSchema nextSchema) {
+    private String getFailedValidationDetails(FullTableSchema prevSchema, FullTableSchema nextSchema) {
         TableDefinitionDiff diff = diffCache.computeIfAbsent(
                 new TableDefinitionDiffKey(prevSchema.tableId(), prevSchema.schemaVersion(), nextSchema.schemaVersion()),
                 key -> nextSchema.diffFrom(prevSchema)
         );
 
-        boolean failed = false;
-        ValidatorResult result = ValidatorResult.DONT_CARE;
-        List<String> failedMessages = new ArrayList<>();
+        boolean accepted = false;
 
         for (ForwardCompatibilityValidator validator : FORWARD_COMPATIBILITY_VALIDATORS) {
-            ValidatorResult validatorResult = validator.compatible(diff);
-            switch (validatorResult.verdict) {
+            ValidationResult validationResult = validator.compatible(diff);
+            switch (validationResult.verdict) {
                 case COMPATIBLE:
-                    result = ValidatorResult.COMPATIBLE;
+                    accepted = true;
                     break;
                 case INCOMPATIBLE:
-                    failed = true;
-                    failedMessages.add(validatorResult.details);
-                    break;
+                    return validationResult.details();
                 default:
                     break;
             }
         }
 
-        if (failed) {
-            return failedMessages;
-        }
-
-        assert result == ValidatorResult.COMPATIBLE : "Table schema changed from " + prevSchema.schemaVersion()
-                + " and " + nextSchema.schemaVersion()
+        assert accepted : "Table schema changed from " + prevSchema.schemaVersion()
+                + " to " + nextSchema.schemaVersion()
                 + ", but no schema change validator voted for any change. Some schema validator is missing.";
 
-        return List.of();
+        return "";
     }
 
     /**
@@ -295,14 +285,14 @@ class SchemaCompatibilityValidator {
         }
     }
 
-    private static class ValidatorResult {
-        private static final ValidatorResult COMPATIBLE = new ValidatorResult(ValidatorVerdict.COMPATIBLE, null);
-        private static final ValidatorResult DONT_CARE = new ValidatorResult(ValidatorVerdict.DONT_CARE, null);
+    private static class ValidationResult {
+        private static final ValidationResult COMPATIBLE = new ValidationResult(ValidatorVerdict.COMPATIBLE, null);
+        private static final ValidationResult DONT_CARE = new ValidationResult(ValidatorVerdict.DONT_CARE, null);
 
         private final ValidatorVerdict verdict;
         private final String details;
 
-        ValidatorResult(ValidatorVerdict verdict, @Nullable String details) {
+        ValidationResult(ValidatorVerdict verdict, @Nullable String details) {
             this.verdict = verdict;
             this.details = details;
         }
@@ -333,61 +323,54 @@ class SchemaCompatibilityValidator {
 
     @SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
     private interface ForwardCompatibilityValidator {
-        ValidatorResult compatible(TableDefinitionDiff diff);
+        ValidationResult compatible(TableDefinitionDiff diff);
     }
 
     private static class RenameTableValidator implements ForwardCompatibilityValidator {
-        private static final ValidatorResult INCOMPATIBLE = new ValidatorResult(
+        private static final ValidationResult INCOMPATIBLE = new ValidationResult(
                 ValidatorVerdict.INCOMPATIBLE,
                 "Name of the table has been changed"
         );
 
         @Override
-        public ValidatorResult compatible(TableDefinitionDiff diff) {
-            return diff.nameDiffers() ? INCOMPATIBLE : ValidatorResult.DONT_CARE;
+        public ValidationResult compatible(TableDefinitionDiff diff) {
+            return diff.nameDiffers() ? INCOMPATIBLE : ValidationResult.DONT_CARE;
         }
     }
 
     private static class AddColumnsValidator implements ForwardCompatibilityValidator {
 
         @Override
-        public ValidatorResult compatible(TableDefinitionDiff diff) {
+        public ValidationResult compatible(TableDefinitionDiff diff) {
             if (diff.addedColumns().isEmpty()) {
-                return ValidatorResult.DONT_CARE;
+                return ValidationResult.DONT_CARE;
             }
 
-            boolean failed = false;
-
-            StringJoiner failedDetails = new StringJoiner(",", "Added nonnull columns without default value: [", "]");
             for (CatalogTableColumnDescriptor column : diff.addedColumns()) {
                 if (!column.nullable() && column.defaultValue() == null) {
-                    failed = true;
-                    failedDetails.add(column.name());
+                    return new ValidationResult(ValidatorVerdict.INCOMPATIBLE, "Not null column added without default value");
                 }
             }
 
-            if (failed) {
-                return new ValidatorResult(ValidatorVerdict.INCOMPATIBLE, failedDetails.toString());
-            }
-            return ValidatorResult.COMPATIBLE;
+            return ValidationResult.COMPATIBLE;
         }
     }
 
     private static class DropColumnsValidator implements ForwardCompatibilityValidator {
-        private static final ValidatorResult INCOMPATIBLE = new ValidatorResult(
+        private static final ValidationResult INCOMPATIBLE = new ValidationResult(
                 ValidatorVerdict.INCOMPATIBLE,
                 "Columns were dropped"
         );
 
         @Override
-        public ValidatorResult compatible(TableDefinitionDiff diff) {
-            return diff.removedColumns().isEmpty() ? ValidatorResult.DONT_CARE : INCOMPATIBLE;
+        public ValidationResult compatible(TableDefinitionDiff diff) {
+            return diff.removedColumns().isEmpty() ? ValidationResult.DONT_CARE : INCOMPATIBLE;
         }
     }
 
     @SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
     private interface ColumnChangeCompatibilityValidator {
-        ValidatorResult compatible(ColumnDefinitionDiff diff);
+        ValidationResult compatible(ColumnDefinitionDiff diff);
     }
 
     private static class ChangeColumnsValidator implements ForwardCompatibilityValidator {
@@ -399,103 +382,89 @@ class SchemaCompatibilityValidator {
         );
 
         @Override
-        public ValidatorResult compatible(TableDefinitionDiff diff) {
-            ValidatorResult result = ValidatorResult.DONT_CARE;
-
+        public ValidationResult compatible(TableDefinitionDiff diff) {
             if (diff.changedColumns().isEmpty()) {
-                return result;
+                return ValidationResult.DONT_CARE;
             }
 
-            boolean failed = false;
-            StringJoiner failedString = new StringJoiner("; ", "Columns change validation failed: [", "]");
+            boolean accepted = false;
 
             for (ColumnDefinitionDiff columnDiff : diff.changedColumns()) {
-                ValidatorResult validatorResult = compatible(columnDiff);
-                switch (validatorResult.verdict()) {
+                ValidationResult validationResult = compatible(columnDiff);
+                switch (validationResult.verdict()) {
                     case COMPATIBLE:
-                        result = ValidatorResult.COMPATIBLE;
+                        accepted = true;
                         break;
                     case INCOMPATIBLE:
-                        failed = true;
-                        failedString.add(validatorResult.details());
-                        break;
+                        return validationResult;
                     default:
                         break;
                 }
             }
 
-            if (failed) {
-                return new ValidatorResult(ValidatorVerdict.INCOMPATIBLE, failedString.toString());
-            }
-
-            assert result == ValidatorResult.COMPATIBLE : "Table schema changed from " + diff.oldSchemaVersion() + " and "
+            assert accepted : "Table schema changed from " + diff.oldSchemaVersion() + " to "
                     + diff.newSchemaVersion() + ", but no column change validator voted for any change. Some schema validator is missing.";
 
-            return result;
+            return ValidationResult.COMPATIBLE;
         }
 
-        private static ValidatorResult compatible(ColumnDefinitionDiff columnDiff) {
-            StringJoiner columnVerdict = new StringJoiner(", ", columnDiff.oldName() + ": ", "");
-            boolean failed = false;
-
-            ValidatorResult result = ValidatorResult.DONT_CARE;
+        private static ValidationResult compatible(ColumnDefinitionDiff columnDiff) {
+            boolean accepted = false;
 
             for (ColumnChangeCompatibilityValidator validator : validators) {
-                ValidatorResult validatorResult = validator.compatible(columnDiff);
+                ValidationResult validationResult = validator.compatible(columnDiff);
 
-                switch (validatorResult.verdict()) {
+                switch (validationResult.verdict()) {
                     case COMPATIBLE:
-                        result = ValidatorResult.COMPATIBLE;
+                        accepted = true;
                         break;
                     case INCOMPATIBLE:
-                        failed = true;
-                        columnVerdict.add(validatorResult.details());
-                        break;
+                        return validationResult;
                     default:
                         break;
                 }
             }
 
-            return failed ? new ValidatorResult(ValidatorVerdict.INCOMPATIBLE, columnVerdict.toString()) : result;
+            return accepted ? ValidationResult.COMPATIBLE : ValidationResult.DONT_CARE;
         }
     }
 
     private static class ChangeDefaultValueValidator implements ColumnChangeCompatibilityValidator {
         @Override
-        public ValidatorResult compatible(ColumnDefinitionDiff diff) {
+        public ValidationResult compatible(ColumnDefinitionDiff diff) {
             return diff.defaultChanged()
-                    ? new ValidatorResult(ValidatorVerdict.INCOMPATIBLE, "Default value changed")
-                    : ValidatorResult.DONT_CARE;
+                    ? new ValidationResult(ValidatorVerdict.INCOMPATIBLE, "Column default value changed")
+                    : ValidationResult.DONT_CARE;
         }
     }
 
     private static class ChangeNullabilityValidator implements ColumnChangeCompatibilityValidator {
         @Override
-        public ValidatorResult compatible(ColumnDefinitionDiff diff) {
+        public ValidationResult compatible(ColumnDefinitionDiff diff) {
             if (diff.notNullAdded()) {
-                return new ValidatorResult(ValidatorVerdict.INCOMPATIBLE, "Not null added");
+                return new ValidationResult(ValidatorVerdict.INCOMPATIBLE, "Not null added");
             }
 
             if (diff.notNullDropped()) {
-                return ValidatorResult.COMPATIBLE;
+                return ValidationResult.COMPATIBLE;
             }
 
             assert !diff.nullabilityChanged() : diff;
 
-            return ValidatorResult.DONT_CARE;
+            return ValidationResult.DONT_CARE;
         }
     }
 
     private static class ChangeColumnTypeValidator implements ColumnChangeCompatibilityValidator {
         @Override
-        public ValidatorResult compatible(ColumnDefinitionDiff diff) {
+        public ValidationResult compatible(ColumnDefinitionDiff diff) {
             if (!diff.typeChanged()) {
-                return ValidatorResult.DONT_CARE;
+                return ValidationResult.DONT_CARE;
             }
 
             return diff.typeChangeIsSupported()
-                    ? ValidatorResult.COMPATIBLE
-                    : new ValidatorResult(ValidatorVerdict.INCOMPATIBLE, "Type changed");
+                    ? ValidationResult.COMPATIBLE
+                    : new ValidationResult(ValidatorVerdict.INCOMPATIBLE, "Column type changed incompatibly");
         }
     }
 }

@@ -40,10 +40,6 @@ public class IncompatibleSchemaException extends TransactionException implements
         super(Transactions.TX_INCOMPATIBLE_SCHEMA_ERR, message);
     }
 
-    public static IncompatibleSchemaException backwardsIncompatible(int fromSchemaVersion, int toSchemaVersion, String failedTableName) {
-        return new IncompatibleSchemaException(String.format(BACKWARDS_INCOMPATIBLE, failedTableName, fromSchemaVersion, toSchemaVersion));
-    }
-
     /**
      * Returns new IncompatibleSchemaException for a case when schema was updated after the beginning of the transaction.
      *
@@ -60,7 +56,7 @@ public class IncompatibleSchemaException extends TransactionException implements
     }
 
     /**
-     * Returns new IncompatibleSchemaException for a case when was dropped at the moment of operation.
+     * Returns new IncompatibleSchemaException for a case when the table was dropped at the moment of operation.
      *
      * @param tableName Name of the table.
      * @return Exception with formatted message.
@@ -76,7 +72,6 @@ public class IncompatibleSchemaException extends TransactionException implements
      * @return Exception with formatted message.
      */
     // TODO https://issues.apache.org/jira/browse/IGNITE-22309 use tableName instead
-    @Deprecated
     public static IncompatibleSchemaException tableDropped(int tableId) {
         return new IncompatibleSchemaException(String.format(TABLE_DROPPED_ID_MESSAGE, tableId));
     }

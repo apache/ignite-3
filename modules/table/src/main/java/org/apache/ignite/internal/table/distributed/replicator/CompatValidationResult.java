@@ -144,9 +144,9 @@ public class CompatValidationResult {
     }
 
     /**
-     * For failed validation returns details why the transition failed.
+     * For failed validation returns details why the operation failed.
      *
-     * @return Details why the transition failed.
+     * @return Details why the operation failed.
      */
     public String details() {
         assert !isSuccessful() : "Should not be called on a successful result";
