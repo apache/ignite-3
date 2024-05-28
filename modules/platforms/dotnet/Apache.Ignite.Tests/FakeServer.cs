@@ -364,12 +364,14 @@ namespace Apache.Ignite.Tests
                         var unitCount = reader.ReadInt32();
                         reader.Skip(unitCount);
                         reader.ReadBoolean(); // returnResults.
-                        var payloadSize = reader.ReadInt32();
-                        StreamerRowCount += payloadSize;
+
+                        var payloadTupleSize = reader.ReadInt32();
+                        var payloadItemCount = payloadTupleSize - 4; // NOTE: Ignores args.
+                        StreamerRowCount += payloadItemCount;
 
                         if (MultiRowOperationDelayPerRow > TimeSpan.Zero)
                         {
-                            Thread.Sleep(MultiRowOperationDelayPerRow * payloadSize);
+                            Thread.Sleep(MultiRowOperationDelayPerRow * payloadItemCount);
                         }
 
                         Send(handler, requestId, Array.Empty<byte>());
