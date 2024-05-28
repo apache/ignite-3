@@ -26,6 +26,7 @@ using System.Threading.Tasks;
 using Ignite.Compute;
 using Ignite.Table;
 using Internal.Proto;
+using Microsoft.Extensions.Logging;
 using NUnit.Framework;
 
 /// <summary>
@@ -224,7 +225,8 @@ public class DataStreamerTests : IgniteTestsBase
         // Streamer has its own retry policy, so we can disable retries on the client.
         using var client = await server.ConnectClientAsync(new IgniteClientConfiguration
         {
-            RetryPolicy = new RetryNonePolicy()
+            RetryPolicy = new RetryNonePolicy(),
+            LoggerFactory = new ConsoleLogger(LogLevel.Trace)
         });
 
         var table = await client.Tables.GetTableAsync(FakeServer.ExistingTableName);

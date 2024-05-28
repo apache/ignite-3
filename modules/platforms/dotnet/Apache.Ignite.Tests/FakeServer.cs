@@ -359,6 +359,7 @@ namespace Apache.Ignite.Tests
 
                     case ClientOp.StreamerWithReceiverBatchSend:
                     {
+                        reader.ReadInt32(); // table
                         reader.ReadInt32(); // partition
                         var unitCount = reader.ReadInt32();
                         reader.Skip(unitCount);
