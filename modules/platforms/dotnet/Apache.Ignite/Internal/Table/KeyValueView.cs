@@ -173,7 +173,8 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
         IEnumerable<DeploymentUnit> units,
         string receiverClassName,
         object[]? receiverArgs,
-        CancellationToken cancellationToken = default) =>
+        CancellationToken cancellationToken = default)
+        where TPayload : notnull =>
         _recordView.StreamDataAsync<TSource, TPayload, TResult>(
             data,
             options,
@@ -193,7 +194,8 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
         IEnumerable<DeploymentUnit> units,
         string receiverClassName,
         object[]? receiverArgs,
-        CancellationToken cancellationToken = default) =>
+        CancellationToken cancellationToken = default)
+        where TPayload : notnull =>
         _recordView.StreamDataAsync(
             data,
             options,

@@ -91,7 +91,8 @@ public interface IDataStreamerTarget<T>
         IEnumerable<DeploymentUnit> units,
         string receiverClassName,
         object[]? receiverArgs,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default)
+        where TPayload : notnull;
 
     /// <summary>
     /// Streams data into the underlying table with receiver, ignoring receiver results (if any).
@@ -114,6 +115,7 @@ public interface IDataStreamerTarget<T>
         Func<TSource, TPayload> payloadSelector,
         IEnumerable<DeploymentUnit> units,
         string receiverClassName,
-        object[] receiverArgs,
-        CancellationToken cancellationToken = default);
+        object[]? receiverArgs,
+        CancellationToken cancellationToken = default)
+        where TPayload : notnull;
 }

@@ -189,6 +189,29 @@ public class DataStreamerTests : IgniteTestsBase
     }
 
     [Test]
+    public async Task TestRetryLimitExhaustedWithReceiver()
+    {
+        using var server = new FakeServer(
+            shouldDropConnection: ctx => ctx is { OpCode: ClientOp.StreamerWithReceiverBatchSend, RequestCount: > 7 });
+
+        using var client = await server.ConnectClientAsync();
+        var table = await client.Tables.GetTableAsync(FakeServer.ExistingTableName);
+
+        var ex = Assert.ThrowsAsync<IgniteClientConnectionException>(
+            async () => await table!.RecordBinaryView.StreamDataAsync<IIgniteTuple, string>(
+                GetFakeServerData(10_000),
+                DataStreamerOptions.Default,
+                keySelector: t => t,
+                payloadSelector: t => t[0]!.ToString()!,
+                Array.Empty<DeploymentUnit>(),
+                TestReceiverClassName,
+                null,
+                CancellationToken.None));
+
+        StringAssert.StartsWith("Operation StreamerWithReceiverBatchSend failed after 16 retries", ex!.Message);
+    }
+
+    [Test]
     public async Task TestManyItemsWithDisconnectAndRetry()
     {
         const int count = 100_000;
