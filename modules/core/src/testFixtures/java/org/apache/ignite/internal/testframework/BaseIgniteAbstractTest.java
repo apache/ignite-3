@@ -64,6 +64,13 @@ public abstract class BaseIgniteAbstractTest {
         Mockito.framework().clearInlineMocks();
     }
 
+    /** For tests with active leak detection forces GC to detect buffer leaks. */
+    @AfterAll
+    static void forceGcForNettyBufferLeaksDetection() {
+        //noinspection CallToSystemGC
+        System.gc();
+    }
+
     @BeforeEach
     void printStartMessage(TestInfo testInfo) {
         log.info(">>> Starting test: {}#{}, displayName: {}",

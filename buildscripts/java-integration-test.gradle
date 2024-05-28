@@ -55,8 +55,8 @@ testing {
                 configureEach {
                     testTask.configure {
                         shouldRunAfter(test)
-                        jvmArgs "-XX:+HeapDumpOnOutOfMemoryError",
-                                "-XX:MaxDirectMemorySize=256m", "-XX:MaxMetaspaceSize=2g", "-Dio.netty.leakDetectionLevel=paranoid"
+                        jvmArgs "-XX:+HeapDumpOnOutOfMemoryError", "-XX:MaxDirectMemorySize=256m", "-XX:MaxMetaspaceSize=2g",
+                                "-Dio.netty.leakDetectionLevel=paranoid"
                         maxHeapSize = '4g'
 
                         // Define default test timeouts to avoid everhanging tests.
