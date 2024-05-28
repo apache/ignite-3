@@ -82,6 +82,11 @@ public class ItFunctionsTest extends BaseSqlIntegrationTest {
         assertQuery("SELECT OCTET_LENGTH(NULL)").returns(NULL_RESULT).check();
     }
 
+    /**
+     * SQL F051-06 feature. Basic date and time. CURRENT_DATE.
+     * SQL F051-07 feature. Basic date and time. LOCALTIME.
+     * SQL F051-08 feature. Basic date and time. LOCALTIMESTAMP.
+     */
     @ParameterizedTest(name = "use default time zone: {0}")
     @ValueSource(booleans = {true, false})
     public void testCurrentDateTimeTimeStamp(boolean useDefaultTimeZone) {
