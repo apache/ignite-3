@@ -29,9 +29,6 @@ public class IncompatibleSchemaException extends TransactionException implements
     private static final String SCHEMA_CHANGED_MESSAGE = "Table schema was updated after the transaction was started "
             + "[table=%s, startSchema=%d, operationSchema=%d]";
 
-    private static final String BACKWARDS_INCOMPATIBLE = "Schema is not backward-compatible for table "
-            + "[table=%s, startSchema=%d, operationSchema=%d]";
-
     private static final String TABLE_DROPPED_NAME_MESSAGE = "Table was dropped [table=%s]";
 
     private static final String TABLE_DROPPED_ID_MESSAGE = "Table was dropped [tableId=%d]";

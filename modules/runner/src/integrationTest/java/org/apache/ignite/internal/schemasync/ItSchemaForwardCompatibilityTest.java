@@ -108,7 +108,7 @@ class ItSchemaForwardCompatibilityTest extends ClusterPerTestIntegrationTest {
                 ex.getMessage(),
                 containsString(String.format(
                         "Commit failed because schema is not forward-compatible [fromSchemaVersion=1, toSchemaVersion=2, table=%s, "
-                                + "details=%s",
+                                + "details=%s]",
                         table.name(),
                         ddl.expectedDetails
                 ))
