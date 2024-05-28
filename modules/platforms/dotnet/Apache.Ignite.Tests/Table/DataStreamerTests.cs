@@ -298,10 +298,8 @@ public class DataStreamerTests : IgniteTestsBase
     [Test]
     public async Task TestWithReceiverRecordBinaryView()
     {
-        var data = Enumerable.Range(0, Count).ToList();
-
         await TupleView.StreamDataAsync<int, string>(
-            data.ToAsyncEnumerable(),
+            Enumerable.Range(0, Count).ToList().ToAsyncEnumerable(),
             DataStreamerOptions.Default,
             keySelector: x => GetTuple(x),
             payloadSelector: x => $"{x}-value{x * 10}",
@@ -321,12 +319,31 @@ public class DataStreamerTests : IgniteTestsBase
     [Test]
     public async Task TestWithReceiverRecordView()
     {
-        var data = Enumerable.Range(0, Count).ToList();
-
         await PocoView.StreamDataAsync<int, string>(
-            data.ToAsyncEnumerable(),
+            Enumerable.Range(0, Count).ToList().ToAsyncEnumerable(),
             DataStreamerOptions.Default,
             keySelector: x => GetPoco(x),
+            payloadSelector: x => $"{x}-value{x * 10}",
+            units: Array.Empty<DeploymentUnit>(),
+            receiverClassName: TestReceiverClassName,
+            receiverArgs: new object[] { Table.Name, "arg1", 22 });
+
+        for (int i = 0; i < Count; i++)
+        {
+            var res = await TupleView.GetAsync(null, GetTuple(i));
+
+            Assert.IsTrue(res.HasValue);
+            Assert.AreEqual($"value{i * 10}_arg1_22", res.Value[ValCol]);
+        }
+    }
+
+    [Test]
+    public async Task TestWithReceiverKeyValueBinaryView()
+    {
+        await Table.KeyValueBinaryView.StreamDataAsync<int, string>(
+            Enumerable.Range(0, Count).ToList().ToAsyncEnumerable(),
+            DataStreamerOptions.Default,
+            keySelector: x => new KeyValuePair<IIgniteTuple, IIgniteTuple>(GetTuple(x), new IgniteTuple()),
             payloadSelector: x => $"{x}-value{x * 10}",
             units: Array.Empty<DeploymentUnit>(),
             receiverClassName: TestReceiverClassName,
