@@ -982,8 +982,16 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             startGroupFut = falseCompletedFuture();
         }
 
+        // boolean inStablePendingUnion = union(
+        //        assignments.nodes().stream().map(Assignment::consistentId).collect(toSet()),
+        //        newConfiguration.peers().stream().map(Peer::consistentId).collect(toSet()))
+        //        .contains(localNode().name());
         startGroupFut
-                .thenComposeAsync(v -> inBusyLock(busyLock, () -> {
+                .thenComposeAsync(shouldStartGroup -> inBusyLock(busyLock, () -> {
+                    if (!shouldStartGroup) {
+                        return nullCompletedFuture();
+                    }
+
                     TableRaftService tableRaftService = table.internalTable().tableRaftService();
 
                     try {
@@ -1003,6 +1011,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     }
                 }), ioExecutor)
                 .thenAcceptAsync(updatedRaftGroupService -> inBusyLock(busyLock, () -> {
+                    if (updatedRaftGroupService == null) {
+                        return;
+                    }
+
                     ((InternalTableImpl) internalTbl).tableRaftService()
                             .updateInternalTableRaftGroupService(partId, updatedRaftGroupService);
 
@@ -1428,11 +1440,14 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     tableAssignmentsGetLocally(metaStorageMgr, tableId, zoneDescriptor.partitions(), causalityToken));
         } else {
             assignmentsFuture = distributionZoneManager.dataNodes(causalityToken, catalogVersion, zoneDescriptor.id())
-                    .thenApply(dataNodes -> AffinityUtils.calculateAssignments(
-                            dataNodes,
-                            zoneDescriptor.partitions(),
-                            zoneDescriptor.replicas()
-                    ).stream().map(Assignments::of).collect(toList()));
+                    .thenApply(dataNodes -> {
+                        var assignemtsList = AffinityUtils.calculateAssignments(
+                                dataNodes,
+                                zoneDescriptor.partitions(),
+                                zoneDescriptor.replicas());
+                        System.out.println("!!! " + assignemtsList);
+                        return assignemtsList.stream().map(Assignments::of).collect(toList());
+                    });
 
             assignmentsFuture.thenAccept(assignmentsList -> LOG.info(
                     "Assignments calculated from data nodes [table={}, tableId={}, assignments={}, revision={}]",
