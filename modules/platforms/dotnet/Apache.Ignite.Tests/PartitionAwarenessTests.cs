@@ -123,8 +123,15 @@ public class PartitionAwarenessTests
             ClientOp.StreamerBatchSend);
 
     [Test]
-    public async Task TestDataStreamerReceivesPartitionAssignmentUpdatesWhileStreaming()
+    public async Task TestDataStreamerWithReceiverReceivesPartitionAssignmentUpdates() =>
+        await TestClientReceivesPartitionAssignmentUpdates(
+            (view, _) => view.StreamDataAsync(new[] { 1 }.ToAsyncEnumerable()),
+            ClientOp.StreamerWithReceiverBatchSend);
+
+    [Test]
+    public async Task TestDataStreamerReceivesPartitionAssignmentUpdatesWhileStreaming([Values(true, false)] bool withReceiver)
     {
+        var clientOp = withReceiver ? ClientOp.StreamerWithReceiverBatchSend : ClientOp.StreamerBatchSend;
         var producer = Channel.CreateUnbounded<int>();
 
         using var client = await GetClient();
@@ -135,19 +142,19 @@ public class PartitionAwarenessTests
         {
              await producer.Writer.WriteAsync(1);
              TestUtils.WaitForCondition(
-                 () => new[] { _server1, _server2 }.SelectMany(x => x.ClientOps).Contains(ClientOp.StreamerBatchSend));
+                 () => new[] { _server1, _server2 }.SelectMany(x => x.ClientOps).Contains(clientOp));
         };
 
         // Check default assignment.
         await recordView.UpsertAsync(null, 1);
-        await AssertOpOnNode(action, ClientOp.StreamerBatchSend, _server2);
+        await AssertOpOnNode(action, clientOp, _server2);
 
         // Update assignment - first request receives update flag.
         ReversePartitionAssignment();
         await client.Tables.GetTablesAsync();
 
         // Second request loads and uses new assignment.
-        await AssertOpOnNode(action, ClientOp.StreamerBatchSend, _server1, allowExtraOps: true);
+        await AssertOpOnNode(action, clientOp, _server1, allowExtraOps: true);
 
         // End streaming.
         producer.Writer.Complete();
