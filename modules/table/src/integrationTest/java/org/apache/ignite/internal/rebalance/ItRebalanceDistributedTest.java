@@ -699,15 +699,9 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         // Check that raft clients on all nodes were updated with the new list of peers.
         assertTrue(waitForCondition(
-                () -> nodes.stream().allMatch(n ->
-                        n.tableManager
-                                .startedTables()
-                                .get(getTableId(node, TABLE_NAME))
-                                .internalTable()
-                                .tableRaftService()
-                                .partitionRaftGroupService(0)
-                                .peers()
-                                .equals(List.of(new Peer(newNodeNameForAssignment)))),
+                () -> nodes.stream()
+                        .filter(n -> isNodeInAssignments(n, newAssignment))
+                        .allMatch(n -> isNodeUpdatesPeersOnGroupService(node, assignmentsToPeersSet(newAssignment))),
                 (long) AWAIT_TIMEOUT_MILLIS * nodes.size()
         ));
 
