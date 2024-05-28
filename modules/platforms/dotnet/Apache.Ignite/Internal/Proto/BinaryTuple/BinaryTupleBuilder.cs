@@ -20,7 +20,6 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
     using System;
     using System.Buffers.Binary;
     using System.Collections;
-    using System.Collections.Generic;
     using System.Diagnostics;
     using System.Numerics;
     using System.Runtime.InteropServices;
@@ -1088,17 +1087,17 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
                 case LocalTime localTime:
                     AppendTypeAndScale(ColumnType.Time);
-                    AppendTime(localTime, timePrecision);
+                    AppendTime(localTime, TemporalTypes.MaxTimePrecision);
                     break;
 
                 case LocalDateTime localDateTime:
                     AppendTypeAndScale(ColumnType.Datetime);
-                    AppendDateTime(localDateTime, timePrecision);
+                    AppendDateTime(localDateTime, TemporalTypes.MaxTimePrecision);
                     break;
 
                 case Instant instant:
                     AppendTypeAndScale(ColumnType.Timestamp);
-                    AppendTimestamp(instant, timestampPrecision);
+                    AppendTimestamp(instant, TemporalTypes.MaxTimePrecision);
                     break;
 
                 case BitArray bitArray:
@@ -1107,7 +1106,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                     break;
 
                 default:
-                    throw new IgniteClientException(ErrorGroups.Client.Protocol, "Unsupported type: " + value.GetType());
+                    throw new IgniteClientException(ErrorGroups.Client.Protocol, "Unsupported type: " + firstValue?.GetType());
             }
         }
 
