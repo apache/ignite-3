@@ -37,6 +37,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.apache.ignite.internal.util.CollectionUtils.first;
+import static org.apache.ignite.internal.util.CollectionUtils.intersect;
 import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.apache.ignite.sql.ColumnType.INT64;
@@ -116,6 +117,7 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
+import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.failure.NoOpFailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -164,6 +166,7 @@ import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.rest.configuration.RestConfiguration;
@@ -207,6 +210,8 @@ import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateTableStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
+import org.apache.ignite.internal.util.CollectionUtils;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
 import org.apache.ignite.network.ClusterNode;
@@ -698,13 +703,23 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         ));
 
         // Check that raft clients on all nodes were updated with the new list of peers.
+        Predicate<Node> isNodeInReplicationGroup = n -> isNodeInAssignments(n, newAssignment);
         assertTrue(waitForCondition(
                 () -> nodes.stream()
-                        .filter(n -> isNodeInAssignments(n, newAssignment))
+                        .filter(isNodeInReplicationGroup)
                         .allMatch(n -> isNodeUpdatesPeersOnGroupService(node, assignmentsToPeersSet(newAssignment))),
                 (long) AWAIT_TIMEOUT_MILLIS * nodes.size()
         ));
 
+        // Checks that there no any replicas outside replication group
+        var replGrpId = new TablePartitionId(getTableId(node, TABLE_NAME), 0);
+        Predicate<Node> isNodeOutsideReplicationGroup = n -> !isNodeInAssignments(n, newAssignment);
+        assertTrue(waitForCondition(
+                () -> nodes.stream()
+                        .filter(isNodeOutsideReplicationGroup)
+                        .noneMatch(n -> hasNodeStartedGroupService(n, replGrpId)),
+                (long) AWAIT_TIMEOUT_MILLIS * nodes.size()
+        ));
     }
 
 
@@ -718,13 +733,14 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         waitPartitionAssignmentsSyncedToExpected(0, 1);
 
-        String assignmentsBeforeRebalance = getPartitionClusterNodes(node, 0).stream()
+        var assignmentsBeforeRebalance = getPartitionClusterNodes(node, 0);
+        String nodeNameAssignedBeforeRebalance = assignmentsBeforeRebalance.stream()
                 .findFirst()
                 .orElseThrow()
                 .consistentId();
 
         String newNodeNameForAssignment = nodes.stream()
-                .filter(n -> !assignmentsBeforeRebalance.equals(n.clusterService.nodeName()))
+                .filter(n -> !nodeNameAssignedBeforeRebalance.equals(n.clusterService.nodeName()))
                 .findFirst()
                 .orElseThrow()
                 .name;
@@ -747,13 +763,23 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         node.metaStorageManager.put(partAssignmentsPendingKey, bytesPendingAssignments).get(AWAIT_TIMEOUT_MILLIS, MILLISECONDS);
 
-        Set<Peer> union = Set.of(new Peer(newNodeNameForAssignment), new Peer(assignmentsBeforeRebalance));
+        Set<Assignment> union = RebalanceUtil.union(assignmentsBeforeRebalance, newAssignment);
 
         // Check that raft clients on all nodes were updated with the new list of peers.
+        Predicate<Node> isNodeInReplicationGroup = n -> isNodeInAssignments(n, union);
         assertTrue(waitForCondition(
                 () -> nodes.stream()
-                        .filter(n -> isNodeInPeersSet(n, union))
-                        .allMatch(n -> isNodeUpdatesPeersOnGroupService(node, union)),
+                        .filter(isNodeInReplicationGroup)
+                        .allMatch(n -> isNodeUpdatesPeersOnGroupService(node, assignmentsToPeersSet(union))),
+                (long) AWAIT_TIMEOUT_MILLIS * nodes.size()
+        ));
+
+        // Checks that there no any replicas outside replication group
+        Predicate<Node> isNodeOutsideReplicationGroup = n -> !isNodeInAssignments(n, union);
+        assertTrue(waitForCondition(
+                () -> nodes.stream()
+                        .filter(isNodeOutsideReplicationGroup)
+                        .noneMatch(n -> hasNodeStartedGroupService(n, partId)),
                 (long) AWAIT_TIMEOUT_MILLIS * nodes.size()
         ));
 
@@ -775,6 +801,10 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         return assignedPeers.stream()
                 .map(Peer::consistentId)
                 .anyMatch(id -> id.equals(node.clusterService.nodeName()));
+    }
+
+    private static boolean hasNodeStartedGroupService(Node node, ReplicationGroupId replicationGroupId) {
+        return node.replicaManager.isReplicaTouched(replicationGroupId);
     }
 
     private static boolean isNodeUpdatesPeersOnGroupService(Node node, Set<Peer> desiredPeers) {
@@ -867,14 +897,21 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                 () -> {
                     try {
                         return nodes.stream()
-                                .filter(n -> assignments.stream()
-                                        .anyMatch(a -> a.consistentId().equals(n.name)))
-                                .allMatch(n -> n.tableManager
-                                        .cachedTable(getTableId(n, tableName))
-                                        .internalTable()
-                                        .tableRaftService()
-                                        .partitionRaftGroupService(partNum) != null
-                        );
+                                .filter(n -> isNodeInAssignments(n, assignments))
+                                .allMatch(n -> {
+                                    // TODO: will be replaced with replica usage in https://issues.apache.org/jira/browse/IGNITE-22218
+                                    TableRaftService trs = n.tableManager
+                                            .cachedTable(getTableId(n, tableName))
+                                            .internalTable()
+                                            .tableRaftService();
+                                    RaftGroupService raftClient;
+                                    try {
+                                        raftClient = trs.partitionRaftGroupService(partNum);
+                                    } catch (IgniteInternalException e) {
+                                        return false;
+                                    }
+                                    return raftClient != null;
+                                });
                     } catch (IgniteInternalException e) {
                         // Raft group service not found.
                         return false;
