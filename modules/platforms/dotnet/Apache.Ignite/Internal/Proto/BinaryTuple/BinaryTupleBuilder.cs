@@ -20,6 +20,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
     using System;
     using System.Buffers.Binary;
     using System.Collections;
+    using System.Collections.Generic;
     using System.Diagnostics;
     using System.Numerics;
     using System.Runtime.InteropServices;
@@ -1006,6 +1007,111 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         }
 
         /// <summary>
+        /// Appends an object.
+        /// </summary>
+        /// <param name="collection">Value.</param>
+        /// <typeparam name="T">Element type.</typeparam>
+        public void AppendObjectCollectionWithType<T>(Span<T> collection)
+        {
+            var firstValue = collection[0];
+
+            switch (firstValue)
+            {
+                case int:
+                    AppendTypeAndSize(ColumnType.Int32, collection.Length);
+                    foreach (var item in collection)
+                    {
+                        AppendInt((int)(object)item!);
+                    }
+
+                    break;
+
+                case long:
+                    AppendTypeAndSize(ColumnType.Int64, collection.Length);
+                    foreach (var item in collection)
+                    {
+                        AppendLong((long)(object)item!);
+                    }
+
+                    break;
+
+                case string str:
+                    AppendTypeAndScale(ColumnType.String);
+                    AppendString(str);
+                    break;
+
+                case Guid uuid:
+                    AppendTypeAndScale(ColumnType.Uuid);
+                    AppendGuid(uuid);
+                    break;
+
+                case sbyte i8:
+                    AppendTypeAndScale(ColumnType.Int8);
+                    AppendByte(i8);
+                    break;
+
+                case short i16:
+                    AppendTypeAndScale(ColumnType.Int16);
+                    AppendShort(i16);
+                    break;
+
+                case float f32:
+                    AppendTypeAndScale(ColumnType.Float);
+                    AppendFloat(f32);
+                    break;
+
+                case double f64:
+                    AppendTypeAndScale(ColumnType.Double);
+                    AppendDouble(f64);
+                    break;
+
+                case byte[] bytes:
+                    AppendTypeAndScale(ColumnType.ByteArray);
+                    AppendBytes(bytes);
+                    break;
+
+                case decimal dec:
+                    var scale = GetDecimalScale(dec);
+                    AppendTypeAndScale(ColumnType.Decimal, scale);
+                    AppendDecimal(dec, scale);
+                    break;
+
+                case BigInteger bigInt:
+                    AppendTypeAndScale(ColumnType.Number);
+                    AppendNumber(bigInt);
+                    break;
+
+                case LocalDate localDate:
+                    AppendTypeAndScale(ColumnType.Date);
+                    AppendDate(localDate);
+                    break;
+
+                case LocalTime localTime:
+                    AppendTypeAndScale(ColumnType.Time);
+                    AppendTime(localTime, timePrecision);
+                    break;
+
+                case LocalDateTime localDateTime:
+                    AppendTypeAndScale(ColumnType.Datetime);
+                    AppendDateTime(localDateTime, timePrecision);
+                    break;
+
+                case Instant instant:
+                    AppendTypeAndScale(ColumnType.Timestamp);
+                    AppendTimestamp(instant, timestampPrecision);
+                    break;
+
+                case BitArray bitArray:
+                    AppendTypeAndScale(ColumnType.Bitmask);
+                    AppendBitmask(bitArray);
+                    break;
+
+                default:
+                    throw new IgniteClientException(ErrorGroups.Client.Protocol, "Unsupported type: " + value.GetType());
+            }
+        }
+
+        /// <summary>
         /// Builds the tuple.
         /// <para />
         /// NOTE: This should be called only once as it messes up with accumulated internal data.
@@ -1260,6 +1366,12 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         {
             AppendInt((int)type);
             AppendInt(scale);
+        }
+
+        private void AppendTypeAndSize(ColumnType type, int size)
+        {
+            AppendInt((int)type);
+            AppendInt(size);
         }
 
         private void OnWrite()

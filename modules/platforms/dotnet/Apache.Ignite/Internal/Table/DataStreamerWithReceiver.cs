@@ -83,6 +83,8 @@ internal static class DataStreamerWithReceiver
         string receiverClassName,
         ICollection<object>? receiverArgs,
         [EnumeratorCancellation] CancellationToken cancellationToken)
+        where TKey : notnull
+        where TPayload : notnull
     {
         IgniteArgumentCheck.NotNull(data);
         DataStreamer.ValidateOptions(options);
@@ -172,6 +174,7 @@ internal static class DataStreamerWithReceiver
             var batch = GetOrCreateBatch(partitionId);
 
             var payload = payloadSelector(item);
+            IgniteArgumentCheck.NotNull(payload);
 
             lock (batch)
             {
@@ -318,14 +321,7 @@ internal static class DataStreamerWithReceiver
             builder.AppendObjectWithType(arg);
         }
 
-        // TODO: Support all types.
-        builder.AppendInt((int)ColumnType.String);
-        builder.AppendInt(items.Length);
-
-        foreach (var item in items)
-        {
-            builder.AppendString((string)(object)IgniteArgumentCheck.NotNull2(item)!);
-        }
+        builder.AppendObjectCollectionWithType(items);
 
         w.Write(binaryTupleSize);
         w.Write(builder.Build().Span);
