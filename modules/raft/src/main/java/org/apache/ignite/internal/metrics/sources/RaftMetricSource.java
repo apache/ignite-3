@@ -17,7 +17,10 @@
 
 package org.apache.ignite.internal.metrics.sources;
 
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
 import java.util.HashMap;
+import java.util.Map;
 import java.util.stream.LongStream;
 import org.apache.ignite.internal.metrics.DistributionMetric;
 import org.apache.ignite.internal.metrics.Metric;
@@ -29,10 +32,19 @@ import org.jetbrains.annotations.Nullable;
  * Metrics of striped disruptor.
  */
 public class RaftMetricSource implements MetricSource {
-    public static final String SOURCE_NAME = "raft";
+    private static final String SOURCE_NAME = "raft";
 
-    /** True, if source is enabled, false otherwise. */
-    private boolean enabled;
+    private static final VarHandle ENABLED;
+
+    static {
+        try {
+            ENABLED = MethodHandles.lookup().findVarHandle(RaftMetricSource.class, "enabled", boolean.class);
+        } catch (ReflectiveOperationException e) {
+            throw new ExceptionInInitializerError(e);
+        }
+    }
+
+    private volatile boolean enabled;
 
     /** Disruptor stripe count. */
     private final int stripeCount;
@@ -41,7 +53,7 @@ public class RaftMetricSource implements MetricSource {
     private final int logStripeCount;
 
     /** Metric set. */
-    HashMap<String, Metric> metrics = new HashMap<>();
+    private final Map<String, Metric> metrics;
 
     /**
      * Constructor.
@@ -53,7 +65,7 @@ public class RaftMetricSource implements MetricSource {
         this.stripeCount = stripeCount;
         this.logStripeCount = logStripeCount;
 
-        initMetrics();
+        this.metrics = createMetrics();
     }
 
     @Override
@@ -63,13 +75,17 @@ public class RaftMetricSource implements MetricSource {
 
     @Override
     public @Nullable MetricSet enable() {
-        enabled = true;
+        if (ENABLED.compareAndSet(this, false, true)) {
+            return new MetricSet(SOURCE_NAME, metrics);
+        }
 
-        return new MetricSet(SOURCE_NAME, metrics);
+        return null;
     }
 
-    private void initMetrics() {
-        long[] bounds = new long[]{10L, 20L, 30L, 40L, 50L};
+    private Map<String, Metric> createMetrics() {
+        long[] bounds = {10L, 20L, 30L, 40L, 50L};
+
+        var metrics = new HashMap<String, Metric>();
 
         // jraft-fsmcaller-disruptor
         metrics.put("raft.fsmcaller.disruptor.Batch",
@@ -126,6 +142,8 @@ public class RaftMetricSource implements MetricSource {
                         "The histogram of distribution data by stripes in the log for partitions",
                         LongStream.range(0, logStripeCount).toArray()
                 ));
+
+        return metrics;
     }
 
     /**
@@ -143,7 +161,7 @@ public class RaftMetricSource implements MetricSource {
 
     @Override
     public void disable() {
-        enabled = false;
+        ENABLED.compareAndSet(this, false, true);
     }
 
     @Override
@@ -155,10 +173,10 @@ public class RaftMetricSource implements MetricSource {
      * Striped disruptor metrics.
      */
     public class DisruptorMetrics {
-        private DistributionMetric batchSizeHistogramMetric;
-        private DistributionMetric stripeHistogramMetric;
+        private final DistributionMetric batchSizeHistogramMetric;
+        private final DistributionMetric stripeHistogramMetric;
 
-        public DisruptorMetrics(DistributionMetric averageBatchSizeMetric, DistributionMetric stripeHistogramMetric) {
+        DisruptorMetrics(DistributionMetric averageBatchSizeMetric, DistributionMetric stripeHistogramMetric) {
             this.batchSizeHistogramMetric = averageBatchSizeMetric;
             this.stripeHistogramMetric = stripeHistogramMetric;
         }
