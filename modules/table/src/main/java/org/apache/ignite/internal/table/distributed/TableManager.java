@@ -1952,7 +1952,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     ? pendingAssignmentsNodes
                     : union(pendingAssignmentsNodes, stableAssignments);
 
-            LOG.warn("Node {} updates for config {}", localNode().name(), cfg);
             tbl.internalTable()
                     .tableRaftService()
                     .partitionRaftGroupService(partitionId)
@@ -2334,6 +2333,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             Set<Assignment> stableAssignments,
             long revision
     ) {
+        if (!replicaMgr.isReplicaStarted(tablePartitionId)) {
+            return nullCompletedFuture();
+        }
         // Update raft client peers and learners according to the actual assignments.
         return tablesById(revision).thenAccept(t -> {
             t.get(tablePartitionId.tableId()).internalTable()
