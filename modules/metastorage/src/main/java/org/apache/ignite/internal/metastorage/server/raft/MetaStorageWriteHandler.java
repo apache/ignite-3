@@ -18,11 +18,14 @@
 package org.apache.ignite.internal.metastorage.server.raft;
 
 import static java.util.Arrays.copyOfRange;
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.util.ByteUtils.byteToBoolean;
 
 import java.io.Serializable;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -61,6 +64,7 @@ import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
+import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
@@ -81,9 +85,20 @@ public class MetaStorageWriteHandler {
 
     private final Map<CommandId, IdempotentCommandCachedResult> idempotentCommandCache = new ConcurrentHashMap<>();
 
-    MetaStorageWriteHandler(KeyValueStorage storage, ClusterTimeImpl clusterTime) {
+    private final Long idempotentCacheTtl;
+
+    private final CompletableFuture<Long> maxClockSkewMillisFuture;
+
+    MetaStorageWriteHandler(
+            KeyValueStorage storage,
+            ClusterTimeImpl clusterTime,
+            Long idempotentCacheTtl,
+            CompletableFuture<Long> maxClockSkewMillisFuture
+    ) {
         this.storage = storage;
         this.clusterTime = clusterTime;
+        this.idempotentCacheTtl = idempotentCacheTtl;
+        this.maxClockSkewMillisFuture = maxClockSkewMillisFuture;
     }
 
     /**
@@ -186,10 +201,14 @@ public class MetaStorageWriteHandler {
             InvokeCommand cmd = (InvokeCommand) command;
 
             clo.result(storage.invoke(toCondition(cmd.condition()), cmd.success(), cmd.failure(), opTime, cmd.id()));
+
+            removeObsoleteRecordsFromIdempotentCommandsCache();
         } else if (command instanceof MultiInvokeCommand) {
             MultiInvokeCommand cmd = (MultiInvokeCommand) command;
 
             clo.result(storage.invoke(toIf(cmd.iif()), opTime, cmd.id()));
+
+            removeObsoleteRecordsFromIdempotentCommandsCache();
         } else if (command instanceof SyncTimeCommand) {
             storage.advanceSafeTime(command.safeTime());
 
@@ -350,6 +369,28 @@ public class MetaStorageWriteHandler {
                 }
             }
         }
+    }
+
+    public void removeObsoleteRecordsFromIdempotentCommandsCache() {
+        maxClockSkewMillisFuture.thenApply(maxClockSkewMillis -> {
+            HybridTimestamp cleanupTimestamp = clusterTime.now();
+
+            List<CommandId> commandIdsToRemove = idempotentCommandCache.entrySet().stream()
+                    .filter(entry -> entry.getValue().commandStartTime.longValue() >
+                            cleanupTimestamp.longValue() - (idempotentCacheTtl + maxClockSkewMillis))
+                    .map(entry -> entry.getKey())
+                    .collect(toList());
+
+            List<byte[]> commandIdStorageKeys = commandIdsToRemove.stream()
+                    .map(commandId -> ArrayUtils.concat(IDEMPOTENT_COMMAND_PREFIX_BYTES, ByteUtils.toBytes(commandId)))
+                    .collect(toList());
+
+            storage.removeAll(commandIdStorageKeys, cleanupTimestamp);
+
+            commandIdsToRemove.forEach(idempotentCommandCache.keySet()::remove);
+
+            return null;
+        });
     }
 
     private static class IdempotentCommandCachedResult {

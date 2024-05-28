@@ -130,6 +130,10 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
 
     private volatile MetaStorageConfiguration metaStorageConfiguration;
 
+    private final long idempotentCacheTtl;
+
+    private final CompletableFuture<Long> maxClockSkewMillisFuture;
+
     /**
      * The constructor.
      *
@@ -140,6 +144,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
      * @param storage Storage. This component owns this resource and will manage its lifecycle.
      * @param clock A hybrid logical clock.
      * @param metricManager Metric manager.
+     * @param maxClockSkewMillisFuture Future with maximum clock skew in milliseconds.
      */
     public MetaStorageManagerImpl(
             ClusterService clusterService,
@@ -149,7 +154,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
             KeyValueStorage storage,
             HybridClock clock,
             TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory,
-            MetricManager metricManager
+            MetricManager metricManager,
+            CompletableFuture<Long> maxClockSkewMillisFuture
     ) {
         this.clusterService = clusterService;
         this.raftMgr = raftMgr;
@@ -160,6 +166,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         metaStorageMetricSource = new MetaStorageMetricSource(clusterTime);
         this.topologyAwareRaftGroupServiceFactory = topologyAwareRaftGroupServiceFactory;
         this.metricManager = metricManager;
+        this.idempotentCacheTtl = raftMgr.raftConfiguration().responseTimeout().value();
+        this.maxClockSkewMillisFuture = maxClockSkewMillisFuture;
     }
 
     /**
@@ -175,9 +183,20 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
             HybridClock clock,
             TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory,
             MetricManager metricManager,
-            MetaStorageConfiguration configuration
+            MetaStorageConfiguration configuration,
+            CompletableFuture<Long> maxClockSkewMillisFuture
     ) {
-        this(clusterService, cmgMgr, logicalTopologyService, raftMgr, storage, clock, topologyAwareRaftGroupServiceFactory, metricManager);
+        this(
+                clusterService,
+                cmgMgr,
+                logicalTopologyService,
+                raftMgr,
+                storage,
+                clock,
+                topologyAwareRaftGroupServiceFactory,
+                metricManager,
+                maxClockSkewMillisFuture
+        );
 
         configure(configuration);
     }
@@ -296,7 +315,12 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         CompletableFuture<TopologyAwareRaftGroupService> raftServiceFuture = raftMgr.startRaftGroupNodeAndWaitNodeReadyFuture(
                 new RaftNodeId(MetastorageGroupId.INSTANCE, localPeer),
                 configuration,
-                new MetaStorageListener(storage, clusterTime),
+                new MetaStorageListener(
+                        storage,
+                        clusterTime,
+                        maxClockSkewMillisFuture,
+                        idempotentCacheTtl
+                ),
                 RaftGroupEventsListener.noopLsnr,
                 disruptorConfig,
                 topologyAwareRaftGroupServiceFactory
@@ -337,7 +361,12 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         return raftMgr.startRaftGroupNodeAndWaitNodeReadyFuture(
                 new RaftNodeId(MetastorageGroupId.INSTANCE, localPeer),
                 configuration,
-                new MetaStorageListener(storage, clusterTime),
+                new MetaStorageListener(
+                        storage,
+                        clusterTime,
+                        maxClockSkewMillisFuture,
+                        idempotentCacheTtl
+                ),
                 RaftGroupEventsListener.noopLsnr,
                 disruptorConfig
         );

@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.metastorage.impl;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.hlc.TestClockService.TEST_MAX_CLOCK_SKEW_MILLIS;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
@@ -78,7 +80,9 @@ public class IdempotentCommandCacheTest {
         storage = new SimpleInMemoryKeyValueStorage(NODE_NAME);
         metaStorageListener = new MetaStorageListener(
                 storage,
-                new ClusterTimeImpl(NODE_NAME, new IgniteSpinBusyLock(), clock)
+                new ClusterTimeImpl(NODE_NAME, new IgniteSpinBusyLock(), clock),
+                completedFuture(TEST_MAX_CLOCK_SKEW_MILLIS),
+                Long.MAX_VALUE
         );
     }
 

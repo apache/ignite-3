@@ -24,6 +24,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -60,9 +61,19 @@ public class MetaStorageListener implements RaftGroupListener, BeforeApplyHandle
      *
      * @param storage Storage.
      */
-    public MetaStorageListener(KeyValueStorage storage, ClusterTimeImpl clusterTime) {
+    public MetaStorageListener(
+            KeyValueStorage storage,
+            ClusterTimeImpl clusterTime,
+            CompletableFuture<Long> maxClockSkewMillisFuture,
+            long idempotentCacheTtl
+    ) {
         this.storage = storage;
-        this.writeHandler = new MetaStorageWriteHandler(storage, clusterTime);
+        this.writeHandler = new MetaStorageWriteHandler(
+                storage,
+                clusterTime,
+                idempotentCacheTtl,
+                maxClockSkewMillisFuture
+        );
     }
 
     @Override
