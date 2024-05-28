@@ -81,8 +81,8 @@ public class IdempotentCommandCacheTest {
         metaStorageListener = new MetaStorageListener(
                 storage,
                 new ClusterTimeImpl(NODE_NAME, new IgniteSpinBusyLock(), clock),
-                completedFuture(TEST_MAX_CLOCK_SKEW_MILLIS),
-                Long.MAX_VALUE
+                completedFuture(() -> TEST_MAX_CLOCK_SKEW_MILLIS),
+                () -> Long.MAX_VALUE
         );
     }
 

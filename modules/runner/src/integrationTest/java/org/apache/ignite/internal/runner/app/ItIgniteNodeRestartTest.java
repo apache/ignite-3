@@ -416,7 +416,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         InvokeInterceptor metaStorageInvokeInterceptor = metaStorageInvokeInterceptorByNode.get(idx);
 
-        CompletableFuture<Long> maxClockSkewFuture = new CompletableFuture<>();
+        CompletableFuture<LongSupplier> maxClockSkewFuture = new CompletableFuture<>();
 
         var metaStorageMgr = new MetaStorageManagerImpl(
                 clusterSvc,
@@ -473,7 +473,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 () -> schemaSyncConfiguration.maxClockSkew().value()
         );
 
-        maxClockSkewFuture.complete(clockService.maxClockSkewMillis());
+        maxClockSkewFuture.complete(clockService::maxClockSkewMillis);
 
         var placementDriverManager = new PlacementDriverManager(
                 name,

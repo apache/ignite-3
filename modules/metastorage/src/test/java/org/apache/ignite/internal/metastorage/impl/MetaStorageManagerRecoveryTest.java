@@ -91,7 +91,7 @@ public class MetaStorageManagerRecoveryTest extends BaseIgniteAbstractTest {
                 mock(TopologyAwareRaftGroupServiceFactory.class),
                 new NoOpMetricManager(),
                 metaStorageConfiguration,
-                completedFuture(TEST_MAX_CLOCK_SKEW_MILLIS)
+                completedFuture(() -> TEST_MAX_CLOCK_SKEW_MILLIS)
         );
     }
 

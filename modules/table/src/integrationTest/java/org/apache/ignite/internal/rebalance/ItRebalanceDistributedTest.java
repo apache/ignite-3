@@ -1103,7 +1103,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     topologyAwareRaftGroupServiceFactory,
                     metricManager,
                     metaStorageConfiguration,
-                    completedFuture(DEFAULT_MAX_CLOCK_SKEW_MS)
+                    completedFuture(() -> DEFAULT_MAX_CLOCK_SKEW_MS)
             );
 
             var placementDriver = new TestPlacementDriver(() -> PRIMARY_FILTER.apply(clusterService.topologyService().allMembers()));

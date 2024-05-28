@@ -185,7 +185,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
                 keyValueStorage,
                 mock(ClusterTimeImpl.class),
                 completedFuture(TEST_MAX_CLOCK_SKEW_MILLIS),
-                Long.MAX_VALUE
+                () -> Long.MAX_VALUE
         );
 
         RaftGroupService metaStorageService = mock(RaftGroupService.class);

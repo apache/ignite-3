@@ -212,7 +212,7 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
                     topologyAwareRaftGroupServiceFactory,
                     new NoOpMetricManager(),
                     metaStorageConfiguration,
-                    completedFuture(TEST_MAX_CLOCK_SKEW_MILLIS)
+                    completedFuture(() -> TEST_MAX_CLOCK_SKEW_MILLIS)
             );
 
             deployWatchesFut = metaStorageManager.deployWatches();

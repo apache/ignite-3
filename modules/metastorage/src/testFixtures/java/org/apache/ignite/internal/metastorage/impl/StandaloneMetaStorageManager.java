@@ -29,6 +29,7 @@ import java.io.Serializable;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.LongSupplier;
 import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
@@ -107,7 +108,7 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
                 mock(TopologyAwareRaftGroupServiceFactory.class),
                 mockConfiguration(),
                 clock,
-                completedFuture(TEST_MAX_CLOCK_SKEW_MILLIS)
+                completedFuture(() -> TEST_MAX_CLOCK_SKEW_MILLIS)
         );
     }
 
@@ -129,7 +130,7 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
             TopologyAwareRaftGroupServiceFactory raftServiceFactory,
             MetaStorageConfiguration configuration,
             HybridClock clock,
-            CompletableFuture<Long> maxClockSkewMillisFuture
+            CompletableFuture<LongSupplier> maxClockSkewMillisFuture
     ) {
         super(
                 clusterService,

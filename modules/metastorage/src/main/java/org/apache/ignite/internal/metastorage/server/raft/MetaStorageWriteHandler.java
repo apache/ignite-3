@@ -28,6 +28,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.LongSupplier;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -85,19 +86,19 @@ public class MetaStorageWriteHandler {
 
     private final Map<CommandId, IdempotentCommandCachedResult> idempotentCommandCache = new ConcurrentHashMap<>();
 
-    private final Long idempotentCacheTtl;
+    private final LongSupplier idempotentCacheTtlSupplier;
 
-    private final CompletableFuture<Long> maxClockSkewMillisFuture;
+    private final CompletableFuture<LongSupplier> maxClockSkewMillisFuture;
 
     MetaStorageWriteHandler(
             KeyValueStorage storage,
             ClusterTimeImpl clusterTime,
-            Long idempotentCacheTtl,
-            CompletableFuture<Long> maxClockSkewMillisFuture
+            LongSupplier idempotentCacheTtlSupplier,
+            CompletableFuture<LongSupplier> maxClockSkewMillisFuture
     ) {
         this.storage = storage;
         this.clusterTime = clusterTime;
-        this.idempotentCacheTtl = idempotentCacheTtl;
+        this.idempotentCacheTtlSupplier = idempotentCacheTtlSupplier;
         this.maxClockSkewMillisFuture = maxClockSkewMillisFuture;
     }
 
@@ -372,12 +373,14 @@ public class MetaStorageWriteHandler {
     }
 
     public void removeObsoleteRecordsFromIdempotentCommandsCache() {
+        assert maxClockSkewMillisFuture.isDone();
+
         maxClockSkewMillisFuture.thenApply(maxClockSkewMillis -> {
             HybridTimestamp cleanupTimestamp = clusterTime.now();
 
             List<CommandId> commandIdsToRemove = idempotentCommandCache.entrySet().stream()
                     .filter(entry -> entry.getValue().commandStartTime.longValue() >
-                            cleanupTimestamp.longValue() - (idempotentCacheTtl + maxClockSkewMillis))
+                            cleanupTimestamp.longValue() - (idempotentCacheTtlSupplier.getAsLong() + maxClockSkewMillis.getAsLong()))
                     .map(entry -> entry.getKey())
                     .collect(toList());
 

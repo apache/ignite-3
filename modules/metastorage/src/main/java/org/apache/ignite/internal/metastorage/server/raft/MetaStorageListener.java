@@ -26,6 +26,7 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
+import java.util.function.LongSupplier;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.command.GetAllCommand;
@@ -64,14 +65,14 @@ public class MetaStorageListener implements RaftGroupListener, BeforeApplyHandle
     public MetaStorageListener(
             KeyValueStorage storage,
             ClusterTimeImpl clusterTime,
-            CompletableFuture<Long> maxClockSkewMillisFuture,
-            long idempotentCacheTtl
+            CompletableFuture<LongSupplier> maxClockSkewMillisFuture,
+            LongSupplier idempotentCacheTtlSupplier
     ) {
         this.storage = storage;
         this.writeHandler = new MetaStorageWriteHandler(
                 storage,
                 clusterTime,
-                idempotentCacheTtl,
+                idempotentCacheTtlSupplier,
                 maxClockSkewMillisFuture
         );
     }

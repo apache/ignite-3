@@ -30,6 +30,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.LongSupplier;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -130,9 +131,9 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
 
     private volatile MetaStorageConfiguration metaStorageConfiguration;
 
-    private final long idempotentCacheTtl;
+    private final LongSupplier idempotentCacheTtlSupplier;
 
-    private final CompletableFuture<Long> maxClockSkewMillisFuture;
+    private final CompletableFuture<LongSupplier> maxClockSkewMillisFuture;
 
     /**
      * The constructor.
@@ -155,7 +156,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
             HybridClock clock,
             TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory,
             MetricManager metricManager,
-            CompletableFuture<Long> maxClockSkewMillisFuture
+            CompletableFuture<LongSupplier> maxClockSkewMillisFuture
     ) {
         this.clusterService = clusterService;
         this.raftMgr = raftMgr;
@@ -166,7 +167,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         metaStorageMetricSource = new MetaStorageMetricSource(clusterTime);
         this.topologyAwareRaftGroupServiceFactory = topologyAwareRaftGroupServiceFactory;
         this.metricManager = metricManager;
-        this.idempotentCacheTtl = raftMgr.raftConfiguration().responseTimeout().value();
+        this.idempotentCacheTtlSupplier = () -> raftMgr.raftConfiguration().responseTimeout().value();
         this.maxClockSkewMillisFuture = maxClockSkewMillisFuture;
     }
 
@@ -184,7 +185,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
             TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory,
             MetricManager metricManager,
             MetaStorageConfiguration configuration,
-            CompletableFuture<Long> maxClockSkewMillisFuture
+            CompletableFuture<LongSupplier> maxClockSkewMillisFuture
     ) {
         this(
                 clusterService,
@@ -319,7 +320,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
                         storage,
                         clusterTime,
                         maxClockSkewMillisFuture,
-                        idempotentCacheTtl
+                        idempotentCacheTtlSupplier
                 ),
                 RaftGroupEventsListener.noopLsnr,
                 disruptorConfig,
@@ -365,7 +366,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
                         storage,
                         clusterTime,
                         maxClockSkewMillisFuture,
-                        idempotentCacheTtl
+                        idempotentCacheTtlSupplier
                 ),
                 RaftGroupEventsListener.noopLsnr,
                 disruptorConfig
