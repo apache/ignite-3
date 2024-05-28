@@ -65,6 +65,7 @@ import org.apache.ignite.distributed.ItTxTestCluster;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NodeFinder;
@@ -521,12 +522,17 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     private void printDebugInfo() {
         logger().info("Primary node for accounts table is [nodeName={}]", primaryNode(accounts));
         logger().info("Cluster times:");
-        logger().info("Client clock : {}", txTestCluster.clientClock());
-        txTestCluster.clocks().forEach((name, hybridClock) ->
-                logger().info(
-                        "Cluster clock [cluster_name={}, last_time={}]",
-                        name,
-                        IgniteTestUtils.getFieldValue(hybridClock, HybridClockImpl.class, "latestTime"))
+        long latestTime = IgniteTestUtils.getFieldValue(txTestCluster.clientClock(), HybridClockImpl.class, "latestTime");
+        logger().info("Client clock [time={}]", HybridTimestamp.hybridTimestamp(latestTime));
+
+        txTestCluster.clocks().forEach((name, hybridClock) -> {
+                    long time = IgniteTestUtils.getFieldValue(hybridClock, HybridClockImpl.class, "latestTime");
+                    logger().info(
+                            "Cluster clock [cluster_name={}, time={}]",
+                            name,
+                            HybridTimestamp.hybridTimestamp(time)
+                    );
+                }
         );
         logger().info("Replica info:");
         txTestCluster.replicaManagers().forEach((name, replicaManager) -> {
