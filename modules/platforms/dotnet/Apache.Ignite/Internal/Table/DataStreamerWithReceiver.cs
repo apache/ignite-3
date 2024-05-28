@@ -234,7 +234,7 @@ internal static class DataStreamerWithReceiver
 
             try
             {
-                SerializeBatch(buf, items, count, partitionId);
+                SerializeBatch(buf, items.AsSpan(0, count), partitionId);
 
                 // ReSharper disable once AccessToModifiedClosure
                 var preferredNode = PreferredNode.FromName(partitionAssignment[partitionId] ?? string.Empty);
@@ -285,8 +285,7 @@ internal static class DataStreamerWithReceiver
 
         void SerializeBatch<T>(
             PooledArrayBuffer buf,
-            T[] items,
-            int count,
+            Span<T> items,
             int partitionId)
         {
             // T is one of the supported types (numbers, strings, etc).
@@ -298,18 +297,17 @@ internal static class DataStreamerWithReceiver
             Compute.WriteUnits(units0, buf);
 
             w.Write(expectResults);
-            WriteReceiverPayload(ref w, receiverClassName, receiverArgs ?? Array.Empty<object>(), items, count);
+            WriteReceiverPayload(ref w, receiverClassName, receiverArgs ?? Array.Empty<object>(), items);
         }
     }
 
-    private static void WriteReceiverPayload<T>(ref MsgPackWriter w, string className, ICollection<object> args, T[] items, int count)
+    private static void WriteReceiverPayload<T>(ref MsgPackWriter w, string className, ICollection<object> args, Span<T> items)
     {
         Debug.Assert(items.Length > 0, "items.Length > 0");
-        Debug.Assert(count > 0, "count > 0");
-        Debug.Assert(count <= items.Length, "count <= items.Length");
+        Debug.Assert(!items.IsEmpty, "!items.IsEmpty");
 
         // className + args size + args + items size + item type + items.
-        int binaryTupleSize = 1 + 1 + args.Count * 3 + 1 + 1 + count;
+        int binaryTupleSize = 1 + 1 + args.Count * 3 + 1 + 1 + items.Length;
         using var builder = new BinaryTupleBuilder(binaryTupleSize);
 
         builder.AppendString(className);
@@ -322,14 +320,11 @@ internal static class DataStreamerWithReceiver
 
         // TODO: Support all types.
         builder.AppendInt((int)ColumnType.String);
-        builder.AppendInt(count);
+        builder.AppendInt(items.Length);
 
-        for (var index = 0; index < count; index++)
+        foreach (var item in items)
         {
-            var item = items[index];
-            IgniteArgumentCheck.NotNull(item);
-
-            builder.AppendString((string)(object)item);
+            builder.AppendString((string)(object)IgniteArgumentCheck.NotNull2(item)!);
         }
 
         w.Write(binaryTupleSize);
