@@ -1440,14 +1440,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     tableAssignmentsGetLocally(metaStorageMgr, tableId, zoneDescriptor.partitions(), causalityToken));
         } else {
             assignmentsFuture = distributionZoneManager.dataNodes(causalityToken, catalogVersion, zoneDescriptor.id())
-                    .thenApply(dataNodes -> {
-                        var assignemtsList = AffinityUtils.calculateAssignments(
-                                dataNodes,
-                                zoneDescriptor.partitions(),
-                                zoneDescriptor.replicas());
-                        System.out.println("!!! " + assignemtsList);
-                        return assignemtsList.stream().map(Assignments::of).collect(toList());
-                    });
+                    .thenApply(dataNodes -> AffinityUtils.calculateAssignments(
+                            dataNodes,
+                            zoneDescriptor.partitions(),
+                            zoneDescriptor.replicas()
+                    ).stream().map(Assignments::of).collect(toList()));
 
             assignmentsFuture.thenAccept(assignmentsList -> LOG.info(
                     "Assignments calculated from data nodes [table={}, tableId={}, assignments={}, revision={}]",
@@ -1955,6 +1952,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     ? pendingAssignmentsNodes
                     : union(pendingAssignmentsNodes, stableAssignments);
 
+            LOG.warn("Node {} updates for config {}", localNode().name(), cfg);
             tbl.internalTable()
                     .tableRaftService()
                     .partitionRaftGroupService(partitionId)

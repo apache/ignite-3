@@ -157,6 +157,7 @@ import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFacto
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
+import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
@@ -756,24 +757,49 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         // Check that raft clients on all nodes were updated with the new list of peers.
         assertTrue(waitForCondition(
-                () -> nodes.stream().filter(n -> union
-                                .stream()
-                                .map(Peer::consistentId)
-                                .anyMatch(id -> id.equals(n.clusterService.nodeName())))
-                        .allMatch(n -> n.tableManager
-                                .startedTables()
-                                .get(getTableId(node, TABLE_NAME))
-                                .internalTable()
-                                .tableRaftService()
-                                .partitionRaftGroupService(0)
-                                .peers()
-                                .stream()
-                                .collect(toSet())
-                                .equals(union)),
+                () -> nodes.stream()
+                        .filter(n -> isNodeInPeersSet(n, union))
+                        .allMatch(n -> isNodeUpdatesPeersOnGroupService(node, union)),
                 (long) AWAIT_TIMEOUT_MILLIS * nodes.size()
         ));
 
         dropMessages.set(false);
+    }
+
+    private static Set<Peer> assignmentsToPeersSet(Set<Assignment> assignments) {
+        return assignments.stream()
+                .map(Assignment::consistentId)
+                .map(Peer::new)
+                .collect(toSet());
+    }
+
+    private static boolean isNodeInAssignments(Node node, Set<Assignment> assignments) {
+        return isNodeInPeersSet(node, assignmentsToPeersSet(assignments));
+    }
+
+    private static boolean isNodeInPeersSet(Node node, Set<Peer> assignedPeers) {
+        return assignedPeers.stream()
+                .map(Peer::consistentId)
+                .anyMatch(id -> id.equals(node.clusterService.nodeName()));
+    }
+
+    private static boolean isNodeUpdatesPeersOnGroupService(Node node, Set<Peer> desiredPeers) {
+        // TODO: will be replaced with replica usage in https://issues.apache.org/jira/browse/IGNITE-22218
+        TableRaftService tblRaftSvc = node.tableManager.startedTables()
+                .get(getTableId(node, TABLE_NAME))
+                .internalTable()
+                .tableRaftService();
+        RaftGroupService groupService;
+        try {
+            groupService = tblRaftSvc.partitionRaftGroupService(0);
+        } catch (IgniteInternalException e) {
+            return false;
+        }
+        List<Peer> peersList = groupService.peers();
+        boolean isUpdated = peersList.stream()
+                .collect(toSet())
+                .equals(desiredPeers);
+        return isUpdated;
     }
 
     private void clearSpyInvocations() {
@@ -841,11 +867,15 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                 (long) AWAIT_TIMEOUT_MILLIS * nodes.size()
         ));
 
+        Node aNode = nodes.get(0);
+        Set<Assignment> assignments = getPartitionClusterNodes(aNode, tableName, replicasNum);
         assertTrue(waitForCondition(
                 () -> {
                     try {
-                        return nodes.stream().allMatch(n ->
-                                n.tableManager
+                        return nodes.stream()
+                                .filter(n -> assignments.stream()
+                                        .anyMatch(a -> a.consistentId().equals(n.name)))
+                                .allMatch(n -> n.tableManager
                                         .cachedTable(getTableId(n, tableName))
                                         .internalTable()
                                         .tableRaftService()
