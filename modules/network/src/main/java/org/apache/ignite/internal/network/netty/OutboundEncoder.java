@@ -41,6 +41,8 @@ public class OutboundEncoder extends MessageToMessageEncoder<OutNetworkObject> {
     /** Handler name. */
     public static final String NAME = "outbound-encoder";
 
+    private static final int IO_BUFFER_CAPACITY = 100 * 1024;
+
     private static final NetworkMessagesFactory MSG_FACTORY = new NetworkMessagesFactory();
 
     /** Serialization registry. */
@@ -136,8 +138,8 @@ public class OutboundEncoder extends MessageToMessageEncoder<OutNetworkObject> {
 
         /** {@inheritDoc} */
         @Override
-        public ByteBuf readChunk(ByteBufAllocator allocator) throws Exception {
-            ByteBuf buffer = allocator.ioBuffer();
+        public ByteBuf readChunk(ByteBufAllocator allocator) {
+            ByteBuf buffer = allocator.ioBuffer(IO_BUFFER_CAPACITY);
             int capacity = buffer.capacity();
 
             ByteBuffer byteBuffer = buffer.internalNioBuffer(0, capacity);
