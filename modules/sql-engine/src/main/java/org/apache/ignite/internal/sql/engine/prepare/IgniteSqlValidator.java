@@ -744,6 +744,16 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         }
     }
 
+    @Override
+    protected void validateJoin(SqlJoin join, SqlValidatorScope scope) {
+        super.validateJoin(join, scope);
+
+        if (join.isNatural() || join.getConditionType() == JoinConditionType.USING) {
+            // TODO Remove this method after https://issues.apache.org/jira/browse/IGNITE-22295
+            validateJoinCondition(join);
+        }
+    }
+
     /** {@inheritDoc} */
     @Override
     protected SqlNode performUnconditionalRewrites(SqlNode node, boolean underFrom) {
@@ -806,6 +816,43 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             return SqlValidatorUtil.addAlias(expandedQry, alias);
         } else {
             return from;
+        }
+    }
+
+    /** Rewrite NATURAL join condition into a predicate. */
+    private void validateJoinCondition(SqlJoin join) {
+        SqlValidatorNamespace leftNs = getNamespace(join.getLeft());
+        requireNonNull(leftNs, "leftNs");
+
+        SqlValidatorNamespace rightNs = getNamespace(join.getRight());
+        requireNonNull(leftNs, "rightNs");
+
+        List<String> joinColumnList = SqlValidatorUtil.deriveNaturalJoinColumnList(
+                getCatalogReader().nameMatcher(),
+                leftNs.getRowType(),
+                rightNs.getRowType());
+
+        // Natural join between relations with a disjoint set of common columns
+        if (joinColumnList.isEmpty()) {
+            return;
+        }
+
+        for (int i = 0; i < joinColumnList.size(); i++) {
+            String col = joinColumnList.get(i);
+            RelDataTypeField leftField = leftNs.getRowType().getField(col, true, false);
+            RelDataTypeField rightField = rightNs.getRowType().getField(col, true, false);
+
+            assert leftField != null;
+            assert rightField != null;
+
+            RelDataType leftType = leftField.getType();
+            RelDataType rightType = rightField.getType();
+
+            if (!TypeUtils.typesRepresentTheSameColumnTypes(leftType, rightType)) {
+                throw newValidationError(join, IgniteResource.INSTANCE.naturalOrUsingColumnNotCompatible(
+                        i, leftType.toString(), rightType.toString())
+                );
+            }
         }
     }
 

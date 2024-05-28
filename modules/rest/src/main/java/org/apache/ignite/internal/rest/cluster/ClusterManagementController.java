@@ -26,6 +26,7 @@ import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManag
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.rest.ResourceHolder;
 import org.apache.ignite.internal.rest.api.cluster.ClusterManagementApi;
 import org.apache.ignite.internal.rest.api.cluster.ClusterState;
 import org.apache.ignite.internal.rest.api.cluster.ClusterTag;
@@ -38,12 +39,12 @@ import org.apache.ignite.lang.IgniteException;
  * Cluster management controller implementation.
  */
 @Controller("/management/v1/cluster")
-public class ClusterManagementController implements ClusterManagementApi {
+public class ClusterManagementController implements ClusterManagementApi, ResourceHolder {
     private static final IgniteLogger LOG = Loggers.forClass(ClusterManagementController.class);
 
-    private final ClusterInitializer clusterInitializer;
+    private ClusterInitializer clusterInitializer;
 
-    private final ClusterManagementGroupManager clusterManagementGroupManager;
+    private ClusterManagementGroupManager clusterManagementGroupManager;
 
     /**
      * Cluster management controller constructor.
@@ -103,5 +104,11 @@ public class ClusterManagementController implements ClusterManagementApi {
         } else {
             return new IgniteException(cause);
         }
+    }
+
+    @Override
+    public void cleanResources() {
+        clusterInitializer = null;
+        clusterManagementGroupManager = null;
     }
 }
