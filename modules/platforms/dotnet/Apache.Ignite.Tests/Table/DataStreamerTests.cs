@@ -359,6 +359,27 @@ public class DataStreamerTests : IgniteTestsBase
     }
 
     [Test]
+    public async Task TestWithReceiverKeyValueView()
+    {
+        await Table.GetKeyValueView<long, Poco>().StreamDataAsync<int, string>(
+            Enumerable.Range(0, Count).ToList().ToAsyncEnumerable(),
+            DataStreamerOptions.Default,
+            keySelector: x => new KeyValuePair<long, Poco>(x, null!),
+            payloadSelector: x => $"{x}-value{x * 10}",
+            units: Array.Empty<DeploymentUnit>(),
+            receiverClassName: TestReceiverClassName,
+            receiverArgs: new object[] { Table.Name, "arg11", 55});
+
+        for (int i = 0; i < Count; i++)
+        {
+            var res = await TupleView.GetAsync(null, GetTuple(i));
+
+            Assert.IsTrue(res.HasValue);
+            Assert.AreEqual($"value{i * 10}_arg11_55", res.Value[ValCol]);
+        }
+    }
+
+    [Test]
     public async Task TestUnknownReceiverClass()
     {
         // TODO
