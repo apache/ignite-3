@@ -65,21 +65,7 @@ internal static class DataStreamer
         CancellationToken cancellationToken)
     {
         IgniteArgumentCheck.NotNull(data);
-
-        IgniteArgumentCheck.Ensure(
-            options.PageSize > 0,
-            nameof(options.PageSize),
-            $"{nameof(options.PageSize)} should be positive.");
-
-        IgniteArgumentCheck.Ensure(
-            options.AutoFlushFrequency > TimeSpan.Zero,
-            nameof(options.AutoFlushFrequency),
-            $"{nameof(options.AutoFlushFrequency)} should be positive.");
-
-        IgniteArgumentCheck.Ensure(
-            options.RetryLimit >= 0,
-            nameof(options.RetryLimit),
-            $"{nameof(options.RetryLimit)} should be non-negative.");
+        ValidateOptions(options);
 
         // ConcurrentDictionary is not necessary because we consume the source sequentially.
         // However, locking for batches is required due to auto-flush background task.
@@ -352,6 +338,28 @@ internal static class DataStreamer
                 await batch.Task.ConfigureAwait(false);
             }
         }
+    }
+
+    /// <summary>
+    /// Validates the options.
+    /// </summary>
+    /// <param name="options">Streamer options.</param>
+    internal static void ValidateOptions(DataStreamerOptions options)
+    {
+        IgniteArgumentCheck.Ensure(
+            options.PageSize > 0,
+            nameof(options.PageSize),
+            $"{nameof(options.PageSize)} should be positive.");
+
+        IgniteArgumentCheck.Ensure(
+            options.AutoFlushFrequency > TimeSpan.Zero,
+            nameof(options.AutoFlushFrequency),
+            $"{nameof(options.AutoFlushFrequency)} should be positive.");
+
+        IgniteArgumentCheck.Ensure(
+            options.RetryLimit >= 0,
+            nameof(options.RetryLimit),
+            $"{nameof(options.RetryLimit)} should be non-negative.");
     }
 
     private static void InitBuffer<T>(Batch<T> batch, Schema schema)

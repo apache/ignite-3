@@ -84,23 +84,8 @@ internal static class DataStreamerWithReceiver
         ICollection<object>? receiverArgs,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        // TODO: Deduplicate validation.
         IgniteArgumentCheck.NotNull(data);
-
-        IgniteArgumentCheck.Ensure(
-            options.PageSize > 0,
-            nameof(options.PageSize),
-            $"{nameof(options.PageSize)} should be positive.");
-
-        IgniteArgumentCheck.Ensure(
-            options.AutoFlushFrequency > TimeSpan.Zero,
-            nameof(options.AutoFlushFrequency),
-            $"{nameof(options.AutoFlushFrequency)} should be positive.");
-
-        IgniteArgumentCheck.Ensure(
-            options.RetryLimit >= 0,
-            nameof(options.RetryLimit),
-            $"{nameof(options.RetryLimit)} should be non-negative.");
+        DataStreamer.ValidateOptions(options);
 
         if (expectResults)
         {
