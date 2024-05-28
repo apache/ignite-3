@@ -48,6 +48,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
@@ -128,7 +129,7 @@ class IgniteSqlImplTest extends BaseIgniteAbstractTest {
         assertThat(rs, notNullValue());
         assertThat(igniteSql.openedCursors(), hasSize(1));
 
-        assertThat(igniteSql.stopAsync(), willCompleteSuccessfully());
+        assertThat(igniteSql.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
         verify(result).closeAsync();
     }
@@ -148,7 +149,7 @@ class IgniteSqlImplTest extends BaseIgniteAbstractTest {
 
         assertThat(executeQueryLatch.await(5, TimeUnit.SECONDS), is(true));
 
-        assertThat(igniteSql.stopAsync(), willCompleteSuccessfully());
+        assertThat(igniteSql.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
         AsyncSqlCursor<InternalSqlRow> cursor = mock(AsyncSqlCursor.class);
         cursorFuture.complete(cursor);
@@ -194,7 +195,7 @@ class IgniteSqlImplTest extends BaseIgniteAbstractTest {
 
         assertThat(executeQueryLatch.await(5, TimeUnit.SECONDS), is(true));
 
-        assertThat(igniteSql.stopAsync(), willCompleteSuccessfully());
+        assertThat(igniteSql.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
         AsyncSqlCursor<InternalSqlRow> cursor = mock(AsyncSqlCursor.class);
         cursorFuture.complete(cursor);
@@ -340,7 +341,7 @@ class IgniteSqlImplTest extends BaseIgniteAbstractTest {
 
         Thread thread = new Thread(() -> {
             try {
-                assertThat(igniteSql.stopAsync(), willCompleteSuccessfully());
+                assertThat(igniteSql.stopAsync(new ComponentContext()), willCompleteSuccessfully());
             } finally {
                 cursor2Fut.complete(cursor2);
             }

@@ -754,4 +754,28 @@ public class TypeUtils {
 
         return bldr;
     }
+
+    /**
+     * Checks whether or not the given types represent the same column types.
+     *
+     * @param lhs Left type.
+     * @param rhs Right type.
+     * @return {@code true} if types represent the same {@link ColumnType} after conversion.
+     */
+    // TODO this method can be removed after https://issues.apache.org/jira/browse/IGNITE-22295
+    public static boolean typesRepresentTheSameColumnTypes(RelDataType lhs, RelDataType rhs) {
+        // IgniteCustomType: check for custom data type, otherwise this expression can fail when type is converted into column type.
+        if (isCustomType(lhs) && isCustomType(rhs) || SqlTypeUtil.isAtomic(lhs) && SqlTypeUtil.isAtomic(rhs)) {
+            ColumnType col1 = columnType(lhs);
+            ColumnType col2 = columnType(rhs);
+
+            return col1 == col2;
+        } else {
+            return false;
+        }
+    }
+
+    private static boolean isCustomType(RelDataType type) {
+        return type instanceof IgniteCustomType;
+    }
 }

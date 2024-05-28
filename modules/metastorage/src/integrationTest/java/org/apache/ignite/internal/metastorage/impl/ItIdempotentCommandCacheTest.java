@@ -55,6 +55,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -192,7 +193,7 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
                 when(cmgManager.metaStorageNodes()).thenReturn(metaStorageNodesFut);
             }
 
-            assertThat(startAsync(clusterService, raftManager, metaStorageManager), willCompleteSuccessfully());
+            assertThat(startAsync(new ComponentContext(), clusterService, raftManager, metaStorageManager), willCompleteSuccessfully());
         }
 
         void deployWatches() {
@@ -204,7 +205,7 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
 
             closeAll(Stream.concat(
                     components.stream().map(c -> c::beforeNodeStop),
-                    Stream.of(() -> assertThat(stopAsync(components), willCompleteSuccessfully()))
+                    Stream.of(() -> assertThat(stopAsync(new ComponentContext(), components), willCompleteSuccessfully()))
             ));
         }
 

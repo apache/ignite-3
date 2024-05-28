@@ -53,6 +53,7 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.ReadCommand;
@@ -784,8 +785,10 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
 
         toStop.beforeNodeStop();
 
-        assertThat(toStop.stopAsync(), willCompleteSuccessfully());
-        assertThat(serverServices.get(stopIdx).stopAsync(), willCompleteSuccessfully());
+        ComponentContext componentContext = new ComponentContext();
+
+        assertThat(toStop.stopAsync(componentContext), willCompleteSuccessfully());
+        assertThat(serverServices.get(stopIdx).stopAsync(componentContext), willCompleteSuccessfully());
         servers.remove(stopIdx);
         serverServices.remove(stopIdx);
 
@@ -820,8 +823,8 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
         svc2.beforeNodeStop();
 
         int sv2Idx = servers.size() - 1;
-        assertThat(svc2.stopAsync(), willCompleteSuccessfully());
-        assertThat(serverServices.get(sv2Idx).stopAsync(), willCompleteSuccessfully());
+        assertThat(svc2.stopAsync(componentContext), willCompleteSuccessfully());
+        assertThat(serverServices.get(sv2Idx).stopAsync(componentContext), willCompleteSuccessfully());
         servers.remove(sv2Idx);
         serverServices.remove(sv2Idx);
 

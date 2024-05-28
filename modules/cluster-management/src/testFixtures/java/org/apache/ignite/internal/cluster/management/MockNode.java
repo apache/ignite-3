@@ -40,6 +40,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NodeFinder;
@@ -129,7 +130,7 @@ public class MockNode {
      * Start fake node.
      */
     public CompletableFuture<Void> startAsync() {
-        return IgniteUtils.startAsync(components);
+        return IgniteUtils.startAsync(new ComponentContext(), components);
     }
 
     /**
@@ -158,7 +159,7 @@ public class MockNode {
 
         reverse(componentsToStop);
 
-        assertThat(stopAsync(componentsToStop), willCompleteSuccessfully());
+        assertThat(stopAsync(new ComponentContext(), componentsToStop), willCompleteSuccessfully());
     }
 
     public ClusterNode localMember() {

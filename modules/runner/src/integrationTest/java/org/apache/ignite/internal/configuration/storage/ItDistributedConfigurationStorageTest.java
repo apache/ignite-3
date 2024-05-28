@@ -46,6 +46,7 @@ import org.apache.ignite.internal.configuration.validation.TestConfigurationVali
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
@@ -193,7 +194,8 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
          */
         void start() {
             assertThat(
-                    startAsync(vaultManager, clusterService, raftManager, failureProcessor, cmgManager, metaStorageManager),
+                    startAsync(new ComponentContext(),
+                            vaultManager, clusterService, raftManager, failureProcessor, cmgManager, metaStorageManager),
                     willCompleteSuccessfully()
             );
 
@@ -219,7 +221,7 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
                 igniteComponent.beforeNodeStop();
             }
 
-            assertThat(stopAsync(components), willCompleteSuccessfully());
+            assertThat(stopAsync(new ComponentContext(), components), willCompleteSuccessfully());
         }
 
         String name() {

@@ -17,14 +17,32 @@
 
 package org.apache.ignite.internal.sql.engine.planner;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.runtime.CalciteContextException;
+import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Join with USING syntax tests.
@@ -154,5 +172,83 @@ public class JoinWithUsingPlannerTest extends AbstractPlannerTest {
         // TODO https://issues.apache.org/jira/browse/CALCITE-4923
         // assertPlan("SELECT *, T2._KEY FROM T1 NATURAL JOIN T2", schemas,
         //    hasColumns("DEPTID", "NAME", "EMPID", "PARENTID", "_KEY"));
+    }
+
+    @ParameterizedTest
+    @MethodSource("nativeTypesMatrix")
+    public void testNaturalOrUsingJoinWithDifferentTypes(boolean natural, TypeArg type1, TypeArg type2) throws Exception {
+
+        NativeType left = type1.nativeType;
+        NativeType right = type2.nativeType;
+
+        IgniteSchema publicSchema = createSchema("PUBLIC",
+                TestBuilders.table().name("T1")
+                        .addColumn("A", left)
+                        .addColumn("B", NativeTypes.INT32)
+                        .distribution(IgniteDistributions.random())
+                        .build(),
+                TestBuilders.table().name("T2")
+                        .addColumn("C", NativeTypes.STRING)
+                        .addColumn("A", right)
+                        .distribution(IgniteDistributions.random())
+                        .build()
+        );
+
+        String query = natural 
+                ? "SELECT * FROM T1 NATURAL JOIN T2" 
+                : "SELECT * FROM T1 JOIN T2 USING (A)";
+
+        if (left.mismatch(right)) {
+            assertThrows(CalciteContextException.class,
+                    () -> physicalPlan(query, publicSchema),
+                    "NATURAL keyword or USING clause has incompatible types"
+            );
+        } else {
+            RelDataType rowType = physicalPlan(query, publicSchema).getRowType();
+            assertEquals(List.of("A", "B", "C"), rowType.getFieldNames());
+
+            SqlTypeName joinColType = rowType.getFieldList().get(0).getType().getSqlTypeName();
+            SqlTypeName expectedNativeType = TypeUtils.native2relationalType(Commons.typeFactory(), left).getSqlTypeName();
+
+            assertEquals(joinColType, expectedNativeType);
+        }
+    }
+
+    private static Stream<Arguments> nativeTypesMatrix() {
+        Set<ColumnType> unsupportedTypes = Set.of(
+                ColumnType.NULL,
+                ColumnType.NUMBER,
+                // TODO Exclude interval types after https://issues.apache.org/jira/browse/IGNITE-15200
+                ColumnType.PERIOD,
+                ColumnType.DURATION,
+                // TODO Exclude BitMask type after https://issues.apache.org/jira/browse/IGNITE-18431
+                ColumnType.BITMASK
+        );
+
+        List<TypeArg> types1 = Arrays.stream(ColumnType.values())
+                .filter(c -> !unsupportedTypes.contains(c))
+                .map(c -> TypeUtils.columnType2NativeType(c, 5, 2, 5))
+                .map(TypeArg::new)
+                .collect(Collectors.toList());
+
+        List<Boolean> naturalJoinCondition = List.of(true, false);
+
+        return types1.stream().flatMap(t1 -> naturalJoinCondition.stream()
+                .flatMap(b -> types1.stream().map(t2 -> Arguments.of(b, t1, t2))
+                ));
+    }
+
+    static class TypeArg {
+
+        final NativeType nativeType;
+
+        TypeArg(NativeType nativeType) {
+            this.nativeType = nativeType;
+        }
+
+        @Override
+        public String toString() {
+            return nativeType.spec().name();
+        }
     }
 }

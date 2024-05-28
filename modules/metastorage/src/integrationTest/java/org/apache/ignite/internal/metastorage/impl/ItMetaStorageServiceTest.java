@@ -75,6 +75,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Conditions;
@@ -204,7 +205,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
 
         void start(PeersAndLearners configuration) {
             CompletableFuture<RaftGroupService> raftService =
-                    startAsync(clusterService, raftManager)
+                    startAsync(new ComponentContext(), clusterService, raftManager)
                             .thenCompose(unused -> startRaftService(configuration));
 
             assertThat(raftService, willCompleteSuccessfully());
@@ -255,7 +256,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
             Stream<AutoCloseable> beforeNodeStop = Stream.of(raftManager, clusterService).map(c -> c::beforeNodeStop);
 
             Stream<AutoCloseable> nodeStop = Stream.of(
-                    () -> assertThat(stopAsync(raftManager, clusterService), willCompleteSuccessfully())
+                    () -> assertThat(stopAsync(new ComponentContext(), raftManager, clusterService), willCompleteSuccessfully())
             );
 
             IgniteUtils.closeAll(Stream.of(raftStop, beforeNodeStop, nodeStop).flatMap(Function.identity()));

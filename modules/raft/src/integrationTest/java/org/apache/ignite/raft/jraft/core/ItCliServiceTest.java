@@ -49,6 +49,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -143,13 +144,13 @@ public class ItCliServiceTest extends BaseIgniteAbstractTest {
                 new StaticNodeFinder(addressList)
         );
 
-        assertThat(clientSvc.startAsync(), willCompleteSuccessfully());
+        assertThat(clientSvc.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         IgniteRpcClient rpcClient = new IgniteRpcClient(clientSvc) {
             @Override public void shutdown() {
                 super.shutdown();
 
-                assertThat(clientSvc.stopAsync(), willCompleteSuccessfully());
+                assertThat(clientSvc.stopAsync(new ComponentContext()), willCompleteSuccessfully());
             }
         };
 

@@ -25,6 +25,7 @@ import java.util.HashMap;
 import java.util.Map;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
@@ -64,7 +65,7 @@ class ItOsMetricSourceTest extends BaseIgniteAbstractTest {
 
         assertPositiveDoubleValue(osMetrics.get("LoadAverage"));
 
-        assertThat(metricManager.stopAsync(), willCompleteSuccessfully());
+        assertThat(metricManager.stopAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     private static void assertPositiveDoubleValue(String metric) {

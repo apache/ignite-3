@@ -128,6 +128,7 @@ import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.lowwatermark.LowWatermarkImpl;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
@@ -1034,23 +1035,24 @@ public class IgniteImpl implements Ignite {
         ExecutorService startupExecutor = Executors.newSingleThreadExecutor(
                 IgniteThreadFactory.create(name, "start", LOG, STORAGE_READ, STORAGE_WRITE)
         );
+        ComponentContext componentContext = new ComponentContext(startupExecutor);
 
         try {
             metricManager.registerSource(new JvmMetricSource());
             metricManager.registerSource(new OsMetricSource());
 
-            lifecycleManager.startComponent(longJvmPauseDetector);
+            lifecycleManager.startComponent(longJvmPauseDetector, componentContext);
 
-            lifecycleManager.startComponent(vaultMgr);
+            lifecycleManager.startComponent(vaultMgr, componentContext);
 
             vaultMgr.putName(name);
 
             // Node configuration manager startup.
-            lifecycleManager.startComponent(nodeCfgMgr);
+            lifecycleManager.startComponent(nodeCfgMgr, componentContext);
 
             // Start the components that are required to join the cluster.
             lifecycleManager.startComponents(
-                    threadPoolsManager,
+                    componentContext, threadPoolsManager,
                     clockWaiter,
                     failureProcessor,
                     criticalWorkerRegistry,
@@ -1078,7 +1080,7 @@ public class IgniteImpl implements Ignite {
                         LOG.info("Join complete, starting MetaStorage");
 
                         try {
-                            lifecycleManager.startComponent(metaStorageMgr);
+                            lifecycleManager.startComponent(metaStorageMgr, componentContext);
                         } catch (NodeStoppingException e) {
                             throw new CompletionException(e);
                         }
@@ -1092,7 +1094,7 @@ public class IgniteImpl implements Ignite {
                         // Start all other components after the join request has completed and the node has been validated.
                         try {
                             lifecycleManager.startComponents(
-                                    catalogManager,
+                                    componentContext, catalogManager,
                                     clusterCfgMgr,
                                     authenticationManager,
                                     placementDriverMgr,
@@ -1120,7 +1122,7 @@ public class IgniteImpl implements Ignite {
 
                             // The system view manager comes last because other components
                             // must register system views before it starts.
-                            lifecycleManager.startComponent(systemViewManager);
+                            lifecycleManager.startComponent(systemViewManager, componentContext);
                         } catch (NodeStoppingException e) {
                             throw new CompletionException(e);
                         }
@@ -1210,10 +1212,14 @@ public class IgniteImpl implements Ignite {
 
         IgniteException igniteException = new IgniteException(errMsg, e);
 
+        ExecutorService lifecycleExecutor = stopExecutor();
+
         try {
-            lifecycleManager.stopNode().get();
+            lifecycleManager.stopNode(new ComponentContext(lifecycleExecutor)).get();
         } catch (Exception ex) {
             igniteException.addSuppressed(ex);
+        } finally {
+            lifecycleExecutor.shutdownNow();
         }
 
         return igniteException;
@@ -1230,8 +1236,18 @@ public class IgniteImpl implements Ignite {
      * Asynchronously stops ignite node.
      */
     public CompletableFuture<Void> stopAsync() {
-        return lifecycleManager.stopNode()
-                .whenComplete((unused, throwable) -> restAddressReporter.removeReport());
+        ExecutorService lifecycleExecutor = stopExecutor();
+
+        return lifecycleManager.stopNode(new ComponentContext(lifecycleExecutor))
+                .whenCompleteAsync((unused, throwable) -> restAddressReporter.removeReport())
+                // Moving to the common pool on purpose to close the stop pool and proceed user's code in the common pool.
+                .whenCompleteAsync((res, ex) -> lifecycleExecutor.shutdownNow());
+    }
+
+    private ExecutorService stopExecutor() {
+        return Executors.newSingleThreadExecutor(
+                IgniteThreadFactory.create(name, "stop", LOG, STORAGE_READ, STORAGE_WRITE)
+        );
     }
 
     /** {@inheritDoc} */

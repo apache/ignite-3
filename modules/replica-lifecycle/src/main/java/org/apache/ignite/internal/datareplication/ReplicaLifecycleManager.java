@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.lang.IgniteSystemProperties.getBoolean;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 
 /**
@@ -36,7 +37,7 @@ public class ReplicaLifecycleManager implements IgniteComponent {
     private static final boolean ENABLED = getBoolean("IGNITE_ZONE_BASED_REPLICATION", false);
 
     @Override
-    public CompletableFuture<Void> startAsync() {
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         if (!ENABLED) {
             return nullCompletedFuture();
         }
@@ -46,7 +47,7 @@ public class ReplicaLifecycleManager implements IgniteComponent {
     }
 
     @Override
-    public CompletableFuture<Void> stopAsync() {
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         if (!ENABLED) {
             return nullCompletedFuture();
         }

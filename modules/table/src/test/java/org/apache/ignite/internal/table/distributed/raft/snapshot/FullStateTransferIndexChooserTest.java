@@ -54,6 +54,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -89,7 +90,7 @@ public class FullStateTransferIndexChooserTest extends BaseIgniteAbstractTest {
 
         indexChooser = new FullStateTransferIndexChooser(catalogManager, lowWatermark);
 
-        assertThat(catalogManager.startAsync(), willCompleteSuccessfully());
+        assertThat(catalogManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         indexChooser.start();
 
@@ -101,7 +102,7 @@ public class FullStateTransferIndexChooserTest extends BaseIgniteAbstractTest {
         closeAllManually(
                 indexChooser,
                 catalogManager::beforeNodeStop,
-                () -> assertThat(catalogManager.stopAsync(), willCompleteSuccessfully())
+                () -> assertThat(catalogManager.stopAsync(new ComponentContext()), willCompleteSuccessfully())
         );
     }
 
