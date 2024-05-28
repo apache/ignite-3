@@ -125,7 +125,14 @@ public class PartitionAwarenessTests
     [Test]
     public async Task TestDataStreamerWithReceiverReceivesPartitionAssignmentUpdates() =>
         await TestClientReceivesPartitionAssignmentUpdates(
-            (view, _) => view.StreamDataAsync(new[] { 1 }.ToAsyncEnumerable()),
+            (view, _) => view.StreamDataAsync(
+                new[] { 1 }.ToAsyncEnumerable(),
+                DataStreamerOptions.Default,
+                keySelector: x => x,
+                payloadSelector: x => x.ToString(),
+                units: Array.Empty<DeploymentUnit>(),
+                receiverClassName: "x",
+                receiverArgs: null),
             ClientOp.StreamerWithReceiverBatchSend);
 
     [Test]
@@ -415,7 +422,7 @@ public class PartitionAwarenessTests
     {
         await AssertOpOnNodeInner(action, op, node, node2, allowExtraOps, withTx: false);
 
-        if (op != ClientOp.StreamerBatchSend && op != ClientOp.ComputeExecuteColocated)
+        if (op != ClientOp.StreamerBatchSend && op != ClientOp.ComputeExecuteColocated && op != ClientOp.StreamerWithReceiverBatchSend)
         {
             await AssertOpOnNodeInner(action, op, node, node2, allowExtraOps, withTx: true);
         }
