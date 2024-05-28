@@ -396,16 +396,19 @@ public class DataStreamerTests : IgniteTestsBase
     }
 
     [Test]
-    public async Task TestReceiverException()
+    public void TestReceiverException()
     {
-        await PocoView.StreamDataAsync<int, string>(
-            Enumerable.Range(0, 1).ToAsyncEnumerable(),
-            DataStreamerOptions.Default,
-            keySelector: x => GetPoco(x),
-            payloadSelector: x => string.Empty,
-            units: Array.Empty<DeploymentUnit>(),
-            receiverClassName: TestReceiverClassName,
-            receiverArgs: new object[] { "throw" });
+        var ex = Assert.ThrowsAsync<IgniteException>(async () =>
+            await PocoView.StreamDataAsync<int, string>(
+                Enumerable.Range(0, 1).ToAsyncEnumerable(),
+                DataStreamerOptions.Default,
+                keySelector: x => GetPoco(x),
+                payloadSelector: x => string.Empty,
+                units: Array.Empty<DeploymentUnit>(),
+                receiverClassName: TestReceiverClassName,
+                receiverArgs: new object[] { "throw", "throw", 1 }));
+
+        Assert.AreEqual("Streamer receiver failed: Job execution failed: java.lang.ArithmeticException: Test exception: 1", ex.Message);
     }
 
     [Test]
