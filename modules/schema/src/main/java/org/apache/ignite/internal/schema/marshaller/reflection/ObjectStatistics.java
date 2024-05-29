@@ -19,12 +19,15 @@ package org.apache.ignite.internal.schema.marshaller.reflection;
 
 import static org.apache.ignite.internal.schema.marshaller.MarshallerUtil.getValueSize;
 
+import java.math.BigDecimal;
 import java.util.List;
+import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
 import org.apache.ignite.internal.marshaller.Marshaller;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -32,18 +35,33 @@ import org.jetbrains.annotations.Nullable;
  */
 class ObjectStatistics {
     /** Cached zero statistics. */
-    private static final ObjectStatistics ZERO_STATISTICS = new ObjectStatistics(-1);
+    private static final ObjectStatistics ZERO_STATISTICS = new ObjectStatistics(-1, false);
+
+    /**
+     * The average size of a decimal number is taken from the air. This value is used to avoid unnecessary
+     * buffer reallocation when building a binary row. The exact size of the decimal value can be determined
+     * after compaction (see {@link BinaryTupleCommon#shrinkDecimal(BigDecimal, int)}.
+     */
+    private static final int DECIMAL_VALUE_SIZE = 32;
 
     /** Estimated total size of the object. */
     private final int estimatedValueSize;
 
+    /** flag indicating that the size is calculated exactly or approximately. */
+    private final boolean exactEstimation;
+
     /** Constructor. */
-    private ObjectStatistics(int estimatedValueSize) {
+    private ObjectStatistics(int estimatedValueSize, boolean exactEstimation) {
         this.estimatedValueSize = estimatedValueSize;
+        this.exactEstimation = exactEstimation;
     }
 
-    private int getEstimatedValueSize() {
+    private int estimatedValueSize() {
         return estimatedValueSize;
+    }
+
+    private boolean exactEstimation() {
+        return exactEstimation;
     }
 
     /**
@@ -55,6 +73,7 @@ class ObjectStatistics {
         }
 
         int estimatedValueSize = 0;
+        boolean exactEstimation = true;
 
         for (int i = 0; i < cols.size(); i++) {
             Object val = marsh.value(obj, i);
@@ -70,19 +89,23 @@ class ObjectStatistics {
             if (colType.spec().fixedLength()) {
                 estimatedValueSize += colType.sizeInBytes();
             } else {
-                estimatedValueSize += getValueSize(val, colType);
+                int valueSize = colType.spec() == NativeTypeSpec.DECIMAL ? DECIMAL_VALUE_SIZE : getValueSize(val, colType);
+
+                exactEstimation = false;
+
+                estimatedValueSize += valueSize;
             }
         }
 
-        return new ObjectStatistics(estimatedValueSize);
+        return new ObjectStatistics(estimatedValueSize, exactEstimation);
     }
 
     static RowAssembler createAssembler(SchemaDescriptor schema, Marshaller keyMarsh, Object key) {
         ObjectStatistics keyStat = collectObjectStats(schema.keyColumns(), keyMarsh, key);
 
-        int totalValueSize = keyStat.getEstimatedValueSize();
+        int totalValueSize = keyStat.estimatedValueSize();
 
-        return new RowAssembler(schema.version(), schema.keyColumns(), totalValueSize);
+        return new RowAssembler(schema.version(), schema.keyColumns(), totalValueSize, keyStat.exactEstimation());
     }
 
     static RowAssembler createAssembler(
@@ -91,12 +114,12 @@ class ObjectStatistics {
         ObjectStatistics valStat = collectObjectStats(schema.valueColumns(), valMarsh, val);
 
         int totalValueSize;
-        if (keyStat.getEstimatedValueSize() < 0 || valStat.getEstimatedValueSize() < 0) {
+        if (keyStat.estimatedValueSize() < 0 || valStat.estimatedValueSize() < 0) {
             totalValueSize = -1;
         } else {
-            totalValueSize = keyStat.getEstimatedValueSize() + valStat.getEstimatedValueSize();
+            totalValueSize = keyStat.estimatedValueSize() + valStat.estimatedValueSize();
         }
 
-        return new RowAssembler(schema, totalValueSize);
+        return new RowAssembler(schema.version(), schema.columns(), totalValueSize, keyStat.exactEstimation() && valStat.exactEstimation());
     }
 }
