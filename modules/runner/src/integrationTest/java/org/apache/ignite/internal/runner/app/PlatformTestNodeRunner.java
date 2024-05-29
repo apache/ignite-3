@@ -50,6 +50,7 @@ import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -817,8 +818,15 @@ public class PlatformTestNodeRunner {
             RecordView<Tuple> recordView = table.recordView();
 
             for (Object item : page) {
-                Tuple classNameRec = Tuple.create().set("key", id1).set("val", item.getClass().getName());
-                Tuple valStrRec = Tuple.create().set("key", id2).set("val", item.toString());
+                Tuple classNameRec = Tuple.create()
+                        .set("key", id1)
+                        .set("val", item.getClass().getName());
+
+                Tuple valStrRec = Tuple.create()
+                        .set("key", id2)
+                        .set("val", item instanceof byte[]
+                                ? Arrays.toString((byte[]) item)
+                                : item.toString());
 
                 recordView.upsertAll(null, List.of(classNameRec, valStrRec));
             }
