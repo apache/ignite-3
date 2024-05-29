@@ -23,7 +23,6 @@ import org.apache.ignite.internal.replicator.ReplicaResult;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 
 /** Replica listener. */
-// @FunctionalInterface
 public interface ReplicaListener {
     /**
      * Invokes a replica listener to process request.

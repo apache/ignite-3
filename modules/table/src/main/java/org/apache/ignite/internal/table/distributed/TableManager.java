@@ -893,6 +893,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             mvGc.addStorage(replicaGrpId, partitionUpdateHandlers.gcUpdateHandler);
         }
 
+        // TODO: will be removed in https://issues.apache.org/jira/browse/IGNITE-22315
         Supplier<RaftGroupService> getCachedRaftClient = () -> {
             try {
                 // Return existing service if it's already started.
@@ -905,6 +906,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             }
         };
 
+        // TODO: will be removed in https://issues.apache.org/jira/browse/IGNITE-22218
         Consumer<RaftGroupService> updateTableRaftService = (raftClient) -> ((InternalTableImpl) internalTbl)
                 .tableRaftService()
                 .updateInternalTableRaftGroupService(partId, raftClient);
@@ -1718,9 +1720,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         Assignments pendingAssignments = Assignments.fromBytes(pendingAssignmentsEntry.value());
 
-        // boolean isLocalNodeAssigned = union(stableAssignments, pendingAssignments.nodes()).stream()
-        //        .anyMatch(assignment -> localNode().name().equals(assignment.consistentId()));
-
         return tablesVv.get(revision)
                 .thenApply(ignore -> {
                     if (!busyLock.enterBusy()) {
@@ -1777,7 +1776,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     ) {
         ClusterNode localMember = localNode();
 
-        boolean pendingAssignmentsAreForced = pendingAssignments != null && pendingAssignments.force();
+        boolean pendingAssignmentsAreForced = pendingAssignments.force();
         Set<Assignment> pendingAssignmentsNodes = pendingAssignments.nodes();
 
         // Start a new Raft node and Replica if this node has appeared in the new assignments.
@@ -1854,7 +1853,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     ? pendingAssignmentsNodes
                     : union(pendingAssignmentsNodes, stableAssignments);
 
-            // var isReplicaWasStarted = replicaMgr.isReplicaStarted(new TablePartitionId(tableId, partitionId));
             tbl.internalTable()
                     .tableRaftService()
                     .partitionRaftGroupService(partitionId)
