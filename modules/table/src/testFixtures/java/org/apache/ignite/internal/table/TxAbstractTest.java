@@ -112,6 +112,9 @@ import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
+import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.internal.tx.impl.VolatileTxStateMetaStorage;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.Lazy;
@@ -291,7 +294,11 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
     /** {@inheritDoc} */
     protected TxManager txManager(TableViewInternal t) {
-        TxManager manager = txTestCluster.txManagers().get(primaryNode(t));
+        String leaseHolder = primaryNode(t);
+
+        assertNotNull(leaseHolder, "Table primary node should not be null");
+
+        TxManager manager = txTestCluster.txManagers().get(leaseHolder);
 
         assertNotNull(manager);
 
@@ -460,9 +467,17 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         deleteUpsertAll().rollback();
 
         var res1 = accounts.recordView().get(null, makeKey(1));
+
+        // Here we try to catch the flaky NPE problem.
+        checkIfNull(res1, transaction -> accounts.recordView().get(transaction, makeKey(1)));
+
         assertEquals(100., res1.doubleValue("balance"), "tuple =[" + res1 + "]");
 
         var res2 = accounts.recordView().get(null, makeKey(2));
+
+        // Here we try to catch the flaky NPE problem.
+        checkIfNull(res2, transaction -> accounts.recordView().get(transaction, makeKey(2)));
+
         assertEquals(100., res2.doubleValue("balance"), "tuple =[" + res2 + "]");
     }
 
@@ -520,28 +535,33 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     private void printDebugInfo() {
-        logger().info("Primary node for accounts table is [nodeName={}]", primaryNode(accounts));
+        logger().info("Primary node for accounts table is [node={}]", primaryNode(accounts));
         logger().info("Cluster times:");
         long latestTime = IgniteTestUtils.getFieldValue(txTestCluster.clientClock(), HybridClockImpl.class, "latestTime");
         logger().info("Client clock [time={}]", HybridTimestamp.hybridTimestamp(latestTime));
 
         txTestCluster.clocks().forEach((name, hybridClock) -> {
-                    long time = IgniteTestUtils.getFieldValue(hybridClock, HybridClockImpl.class, "latestTime");
-                    logger().info(
-                            "Cluster clock [cluster_name={}, time={}]",
-                            name,
-                            HybridTimestamp.hybridTimestamp(time)
-                    );
-                }
-        );
+            long time = IgniteTestUtils.getFieldValue(hybridClock, HybridClockImpl.class, "latestTime");
+
+            logger().info("Cluster clock [node={}, time={}]", name, HybridTimestamp.hybridTimestamp(time));
+        });
+
         logger().info("Replica info:");
         txTestCluster.replicaManagers().forEach((name, replicaManager) -> {
-
             ConcurrentHashMap<ReplicationGroupId, CompletableFuture<Replica>> replicas =
                     IgniteTestUtils.getFieldValue(replicaManager, ReplicaManager.class, "replicas");
+
             replicas.forEach((replicationGroupId, replicaCompletableFuture) ->
                     printReplicaInfo(name, replicationGroupId, replicaCompletableFuture)
             );
+
+            TxManager txManager = txTestCluster.txManagers().get(name);
+            VolatileTxStateMetaStorage volatileTxState =
+                    IgniteTestUtils.getFieldValue(txManager, TxManagerImpl.class, "txStateVolatileStorage");
+
+            ConcurrentHashMap<UUID, TxStateMeta> txStateMap =
+                    IgniteTestUtils.getFieldValue(volatileTxState, VolatileTxStateMetaStorage.class, "txStateMap");
+            logger().info("Volatile tx state data [node={}, data={}]", name, txStateMap);
         });
     }
 
@@ -557,14 +577,18 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         TestMvPartitionStorage storage = IgniteTestUtils.getFieldValue(listener, PartitionReplicaListener.class, "mvDataStorage");
         Map<RowId, ?> map = IgniteTestUtils.getFieldValue(storage, TestMvPartitionStorage.class, "map");
 
-        logger().info("Partition data [node = {}, replication_group_id={}, data={}]", name, replicationGroupId, map);
+        logger().info("Partition data [node={}, groupId={}, data={}]", name, replicationGroupId, map);
 
         Lazy<TableSchemaAwareIndexStorage> indexStorageLazy =
                 IgniteTestUtils.getFieldValue(listener, PartitionReplicaListener.class, "pkIndexStorage");
         IndexStorage indexStorage = indexStorageLazy.get().storage();
         Map<RowId, ?> indexMap = IgniteTestUtils.getFieldValue(indexStorage, TestHashIndexStorage.class, "index");
 
-        logger().info("Index data [node = {}, replication_group_id={}, data={}]", name, replicationGroupId, indexMap);
+        logger().info("Index data [node={}, groupId={}, data={}]", name, replicationGroupId, indexMap);
+
+        TxStateStorage stateStorage = IgniteTestUtils.getFieldValue(listener, PartitionReplicaListener.class, "txStateStorage");
+
+        logger().info("Tx state data [node={}, groupId={}, data={}]", name, replicationGroupId, stateStorage);
     }
 
     @Test
