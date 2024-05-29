@@ -1061,6 +1061,35 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
                     break;
 
+                case short:
+                    AppendTypeAndSize(ColumnType.Int16, collection.Length);
+                    foreach (var item in collection)
+                    {
+                        AppendShort((short)(object)item!);
+                    }
+
+                    break;
+
+                case float:
+                    AppendTypeAndSize(ColumnType.Float, collection.Length);
+                    foreach (var item in collection)
+                    {
+                        AppendFloat((float)(object)item!);
+                    }
+
+                    break;
+
+                case double:
+                    AppendTypeAndSize(ColumnType.Double, collection.Length);
+                    foreach (var item in collection)
+                    {
+                        AppendDouble((double)(object)item!);
+                    }
+
+                    break;
+
+
+
                 default:
                     throw new IgniteClientException(ErrorGroups.Client.Protocol, "Unsupported type: " + firstValue?.GetType());
             }
