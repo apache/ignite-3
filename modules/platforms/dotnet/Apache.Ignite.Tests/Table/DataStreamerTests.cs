@@ -20,6 +20,7 @@ namespace Apache.Ignite.Tests.Table;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
@@ -430,6 +431,22 @@ public class DataStreamerTests : IgniteTestsBase
                 receiverArgs: new object[] { "throw", "throw", 1 }));
 
         Assert.AreEqual("Streamer receiver failed: Job execution failed: java.lang.ArithmeticException: Test exception: 1", ex.Message);
+    }
+
+    [Test]
+    public void TestReceiverSelectorException([Values(true, false)] bool keySelector)
+    {
+        var ex = Assert.ThrowsAsync<DataException>(async () =>
+            await PocoView.StreamDataAsync<int, string>(
+                Enumerable.Range(0, 1).ToAsyncEnumerable(),
+                DataStreamerOptions.Default,
+                keySelector: x => keySelector ? throw new DataException("key") : GetPoco(x),
+                payloadSelector: x => throw new DataException("payload"),
+                units: Array.Empty<DeploymentUnit>(),
+                receiverClassName: TestReceiverClassName,
+                receiverArgs: new object[] { "throw", "throw", 1 }));
+
+        Assert.AreEqual(keySelector ? "key" : "payload", ex.Message);
     }
 
     [Test]
