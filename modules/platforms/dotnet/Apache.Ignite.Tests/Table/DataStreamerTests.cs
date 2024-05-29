@@ -441,6 +441,9 @@ public class DataStreamerTests : IgniteTestsBase
         await CheckValue(Guid.Empty, "java.util.UUID", "00000000-0000-0000-0000-000000000000");
         await CheckValue(new byte[] { 1, 2, 3 }, "[B", "[1, 2, 3]");
 
+        await CheckValue(Period.FromDays(999), "java.time.Period", "P999D");
+        await CheckValue(Duration.FromSeconds(12345), "java.time.Duration", "PT3H25M45S");
+
         async Task CheckValue(object value, string expectedClassName, string expectedValue)
         {
             var key1 = 1L;

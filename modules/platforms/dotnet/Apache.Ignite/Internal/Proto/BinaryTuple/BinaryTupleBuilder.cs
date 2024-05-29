@@ -1169,6 +1169,24 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
                     break;
 
+                case Period:
+                    AppendTypeAndSize(ColumnType.Period, collection.Length);
+                    foreach (var item in collection)
+                    {
+                        AppendPeriod((Period)(object)item!);
+                    }
+
+                    break;
+
+                case Duration:
+                    AppendTypeAndSize(ColumnType.Duration, collection.Length);
+                    foreach (var item in collection)
+                    {
+                        AppendDuration((Duration)(object)item!);
+                    }
+
+                    break;
+
                 default:
                     throw new IgniteClientException(ErrorGroups.Client.Protocol, "Unsupported type: " + firstValue?.GetType());
             }
