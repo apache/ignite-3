@@ -203,13 +203,13 @@ public class MetaStorageWriteHandler {
 
             clo.result(storage.invoke(toCondition(cmd.condition()), cmd.success(), cmd.failure(), opTime, cmd.id()));
 
-            removeObsoleteRecordsFromIdempotentCommandsCache();
+//            removeObsoleteRecordsFromIdempotentCommandsCache();
         } else if (command instanceof MultiInvokeCommand) {
             MultiInvokeCommand cmd = (MultiInvokeCommand) command;
 
             clo.result(storage.invoke(toIf(cmd.iif()), opTime, cmd.id()));
 
-            removeObsoleteRecordsFromIdempotentCommandsCache();
+//            removeObsoleteRecordsFromIdempotentCommandsCache();
         } else if (command instanceof SyncTimeCommand) {
             storage.advanceSafeTime(command.safeTime());
 
