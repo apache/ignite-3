@@ -28,7 +28,6 @@ import org.apache.ignite.internal.rest.api.Problem;
 import org.apache.ignite.internal.rest.constants.HttpCode;
 import org.apache.ignite.internal.rest.problem.HttpProblemResponse;
 import org.apache.ignite.lang.ErrorGroups.DisasterRecovery;
-import org.apache.ignite.lang.ErrorGroups.DistributionZones;
 
 /**
  * Handles {@link IgniteInternalException} and represents it as a rest response.
@@ -38,7 +37,6 @@ import org.apache.ignite.lang.ErrorGroups.DistributionZones;
 public class IgniteInternalExceptionHandler implements ExceptionHandler<IgniteInternalException, HttpResponse<? extends Problem>> {
 
     private static final Set<Integer> BAD_REQUEST_CODES = Set.of(
-            DistributionZones.ZONE_NOT_FOUND_ERR,
             DisasterRecovery.ILLEGAL_PARTITION_ID_ERR,
             DisasterRecovery.NODES_NOT_FOUND_ERR
     );

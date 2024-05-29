@@ -31,6 +31,7 @@ import org.apache.ignite.internal.rest.api.Problem;
 import org.apache.ignite.internal.rest.constants.HttpCode;
 import org.apache.ignite.internal.rest.problem.HttpProblemResponse;
 import org.apache.ignite.lang.ErrorGroup;
+import org.apache.ignite.lang.ErrorGroups.DistributionZones;
 import org.apache.ignite.lang.ErrorGroups.Table;
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
@@ -41,7 +42,10 @@ import org.jetbrains.annotations.Nullable;
 @Singleton
 @Requires(classes = {IgniteException.class, ExceptionHandler.class})
 public class IgniteExceptionHandler implements ExceptionHandler<IgniteException, HttpResponse<? extends Problem>> {
-    private static final Set<Integer> BAD_REQUEST_CODES = Set.of(Table.TABLE_NOT_FOUND_ERR);
+    private static final Set<Integer> BAD_REQUEST_CODES = Set.of(
+            DistributionZones.ZONE_NOT_FOUND_ERR,
+            Table.TABLE_NOT_FOUND_ERR
+    );
 
     @Override
     public HttpResponse<? extends Problem> handle(HttpRequest request, IgniteException exception) {
