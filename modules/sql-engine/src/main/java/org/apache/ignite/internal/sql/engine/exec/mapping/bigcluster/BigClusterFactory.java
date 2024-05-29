@@ -15,11 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.exec.mapping.smallcluster;
+package org.apache.ignite.internal.sql.engine.exec.mapping.bigcluster;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
-import it.unimi.dsi.fastutil.objects.Object2LongMap;
-import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
+import it.unimi.dsi.fastutil.objects.Object2IntMap;
+import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
+import java.util.BitSet;
 import java.util.List;
 import org.apache.ignite.internal.sql.engine.exec.NodeWithConsistencyToken;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTarget;
@@ -28,23 +29,21 @@ import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTargetFactory
 /**
  * A factory that able to create targets for cluster with up to 64 nodes.
  */
-public class SmallClusterFactory implements ExecutionTargetFactory {
+public class BigClusterFactory implements ExecutionTargetFactory {
     private final List<String> nodes;
-    private final Object2LongMap<String> nodeNameToId;
+    private final Object2IntMap<String> nodeNameToId;
 
     /** Constructor. */
-    public SmallClusterFactory(List<String> nodes) {
-        if (nodes.size() > 63) {
-            throw new IllegalArgumentException("Supported up to 63 nodes, but was " + nodes.size());
-        }
-
+    public BigClusterFactory(List<String> nodes) {
         this.nodes = nodes;
 
-        nodeNameToId = new Object2LongOpenHashMap<>(nodes.size());
+        nodeNameToId = new Object2IntOpenHashMap<>(nodes.size());
+        nodeNameToId.defaultReturnValue(-1);
 
         int idx = 0;
-        for (String name : nodes) {
-            nodeNameToId.putIfAbsent(name, 1L << idx++);
+        for (String node : nodes) {
+            int ret = nodeNameToId.putIfAbsent(node, idx++);
+            assert ret == -1;
         }
     }
 
@@ -64,24 +63,25 @@ public class SmallClusterFactory implements ExecutionTargetFactory {
     }
 
     @Override
-    public ExecutionTarget partitioned(List<NodeWithConsistencyToken> nodes) {
-        long[] partitionNodes = new long[nodes.size()];
-        long[] enlistmentConsistencyTokens = new long[nodes.size()];
+    public ExecutionTarget partitioned(List<NodeWithConsistencyToken> incNodes) {
+        int[] partitionNodes = new int[incNodes.size()];
+        long[] enlistmentConsistencyTokens = new long[incNodes.size()];
 
         int idx = 0;
-        for (NodeWithConsistencyToken e : nodes) {
-            partitionNodes[idx] = nodeNameToId.getOrDefault(e.name(), 0);
+        for (NodeWithConsistencyToken e : incNodes) {
+            int nodeIdx = nodeNameToId.getInt(e.name());
+            assert nodeIdx >= 0;
+            partitionNodes[idx] = nodeIdx;
+
             enlistmentConsistencyTokens[idx++] = e.enlistmentConsistencyToken();
         }
 
-        return new PartitionedTarget(true, partitionNodes, enlistmentConsistencyTokens);
+        return new PartitionedTarget(partitionNodes, enlistmentConsistencyTokens);
     }
 
     @Override
     public List<String> resolveNodes(ExecutionTarget target) {
         assert target instanceof AbstractTarget : target == null ? "<null>" : target.getClass().getCanonicalName();
-
-        target = ((AbstractTarget) target).finalise();
 
         return ((AbstractTarget) target).nodes(nodes);
     }
@@ -90,16 +90,16 @@ public class SmallClusterFactory implements ExecutionTargetFactory {
     public Int2ObjectMap<NodeWithConsistencyToken> resolveAssignments(ExecutionTarget target) {
         assert target instanceof AbstractTarget : target == null ? "<null>" : target.getClass().getCanonicalName();
 
-        target = ((AbstractTarget) target).finalise();
-
         return ((AbstractTarget) target).assignments(nodes);
     }
 
-    private long nodeListToMap(List<String> nodes) {
-        long nodesMap = 0;
+    private BitSet nodeListToMap(List<String> incNodes) {
+        BitSet nodesMap = new BitSet(nodes.size());
 
-        for (String name : nodes) {
-            nodesMap |= nodeNameToId.getOrDefault(name, 0);
+        for (String nodeName : incNodes) {
+            int idx = nodeNameToId.getInt(nodeName);
+            assert idx != -1;
+            nodesMap.set(idx);
         }
 
         return nodesMap;

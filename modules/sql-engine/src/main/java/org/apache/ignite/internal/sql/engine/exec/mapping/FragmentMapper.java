@@ -30,6 +30,7 @@ import org.apache.calcite.rel.SingleRel;
 import org.apache.calcite.rel.core.SetOp;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.ignite.internal.sql.engine.exec.NodeWithConsistencyToken;
+import org.apache.ignite.internal.sql.engine.exec.mapping.smallcluster.AbstractTarget;
 import org.apache.ignite.internal.sql.engine.metadata.RelMetadataQueryEx;
 import org.apache.ignite.internal.sql.engine.prepare.Fragment;
 import org.apache.ignite.internal.sql.engine.rel.IgniteCorrelatedNestedLoopJoin;
@@ -559,7 +560,11 @@ class FragmentMapper {
 
         @Override
         public List<ColocationGroup> createColocationGroups() {
-            ExecutionTarget finalised = target.finalise();
+            ExecutionTarget finalised = target;
+
+            if (target instanceof AbstractTarget) {
+                finalised = ((AbstractTarget) target).finalise();
+            }
 
             List<String> nodes = context.targetFactory().resolveNodes(finalised);
             Int2ObjectMap<NodeWithConsistencyToken> assignments = context.targetFactory().resolveAssignments(finalised);

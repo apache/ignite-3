@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.exec.mapping;
 
 import java.util.List;
 import org.apache.calcite.plan.RelOptCluster;
+import org.apache.ignite.internal.sql.engine.exec.mapping.bigcluster.BigClusterFactory;
 import org.apache.ignite.internal.sql.engine.exec.mapping.smallcluster.SmallClusterFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 
@@ -37,11 +38,11 @@ class MappingContext {
         this.localNode = localNode;
         this.nodes = nodes;
 
-        if (nodes.size() > 64) {
-            throw new UnsupportedOperationException("https://issues.apache.org/jira/browse/IGNITE-20503");
+        if (nodes.size() > 63) {
+            this.targetFactory = new BigClusterFactory(nodes);
+        } else {
+            this.targetFactory = new SmallClusterFactory(nodes);
         }
-
-        this.targetFactory = new SmallClusterFactory(nodes);
     }
 
     public RelOptCluster cluster() {

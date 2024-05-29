@@ -44,15 +44,4 @@ public interface ExecutionTarget {
      * @throws ColocationMappingException In case these targets can't be colocated.
      */
     ExecutionTarget colocateWith(ExecutionTarget other) throws ColocationMappingException;
-
-    /**
-     * Finalises target by choosing exactly one node for targets with multiple options.
-     *
-     * <p>Some targets may have several options, so we have to pick one in order to get
-     * correct results. Call to this methods resolves this ambiguity by truncating all
-     * but one option. Which exactly option will be left is implementation defined.
-     *
-     * @return Finalised target.
-     */
-    ExecutionTarget finalise();
 }
