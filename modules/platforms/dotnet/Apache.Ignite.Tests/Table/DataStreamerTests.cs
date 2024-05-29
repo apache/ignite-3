@@ -467,12 +467,24 @@ public class DataStreamerTests : IgniteTestsBase
     }
 
     [Test]
-    public void TestWithReceiverUnsupportedDataType()
+    public void TestWithReceiverUnsupportedDataTypeThrows()
     {
         var ex = Assert.ThrowsAsync<IgniteClientException>(
             async () => await CheckReceiverValue(GetPoco(1), "java.lang.Boolean", "true"));
 
         Assert.AreEqual("Unsupported type: Apache.Ignite.Tests.Table.Poco", ex.Message);
+    }
+
+    [Test]
+    public void TestWithReceiverDifferentDataTypesThrows()
+    {
+        Assert.Fail("TODO");
+    }
+
+    [Test]
+    public void TestWithReceiverNullItemThrows()
+    {
+        Assert.Fail("TODO");
     }
 
     private static async IAsyncEnumerable<IIgniteTuple> GetFakeServerData(int count)
