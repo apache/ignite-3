@@ -810,17 +810,17 @@ public class PlatformTestNodeRunner {
         @Override
         public @Nullable CompletableFuture<List<Object>> receive(List<Object> page, DataStreamerReceiverContext ctx, Object... args) {
             String tableName = (String) args[0];
-            long id = (Long) args[1];
+            long id1 = (Long) args[1];
+            long id2 = (Long) args[2];
 
             Table table = ctx.ignite().tables().table(tableName);
             RecordView<Tuple> recordView = table.recordView();
 
             for (Object item : page) {
-                Tuple rec = Tuple.create()
-                        .set("key", id)
-                        .set("val", item.getClass().getName());
+                Tuple classNameRec = Tuple.create().set("key", id1).set("val", item.getClass().getName());
+                Tuple valStrRec = Tuple.create().set("key", id2).set("val", item.toString());
 
-                recordView.upsert(null, rec);
+                recordView.upsertAll(null, List.of(classNameRec, valStrRec));
             }
 
             return null;
