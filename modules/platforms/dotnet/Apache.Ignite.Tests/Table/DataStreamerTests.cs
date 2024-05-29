@@ -28,6 +28,7 @@ using Ignite.Compute;
 using Ignite.Table;
 using Internal.Proto;
 using Microsoft.Extensions.Logging;
+using NodaTime;
 using NUnit.Framework;
 
 /// <summary>
@@ -417,7 +418,21 @@ public class DataStreamerTests : IgniteTestsBase
     [Test]
     public async Task TestWithReceiverAllDataTypes()
     {
+        // Invoke receiver with all supported element types and check resulting Java class and string representation.
         await CheckValue(true, "java.lang.Boolean", "true");
+        await CheckValue((sbyte)-3, "java.lang.Byte", "-3");
+        await CheckValue(short.MinValue, "java.lang.Short", "-32768");
+        await CheckValue(int.MinValue, "java.lang.Integer", "-2147483648");
+        await CheckValue(long.MinValue, "java.lang.Long", "-9223372036854775808");
+        await CheckValue(float.MinValue, "java.lang.Float", "-3.4028235E38");
+        await CheckValue(double.MinValue, "java.lang.Double", "-1.7976931348623157E308");
+
+        await CheckValue(decimal.One, "java.math.BigDecimal", "1");
+        await CheckValue(decimal.MinValue, "java.math.BigDecimal", "-79228162514264337593543950335");
+
+        await CheckValue(new LocalDate(1234, 5, 6), "java.time.LocalDate", "1234-05-06");
+        await CheckValue(new LocalTime(12, 3, 4), "java.time.LocalTime", "12:03:04");
+
         await CheckValue("str1", "java.lang.String", "str1");
         await CheckValue(Guid.Empty, "java.util.UUID", "00000000-0000-0000-0000-000000000000");
 
