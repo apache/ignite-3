@@ -439,6 +439,7 @@ public class DataStreamerTests : IgniteTestsBase
         await CheckValue("str1", "java.lang.String", "str1");
         await CheckValue(new BitArray(new[] { false, true, false, true }), "java.util.BitSet", "{1, 3}");
         await CheckValue(Guid.Empty, "java.util.UUID", "00000000-0000-0000-0000-000000000000");
+        await CheckValue(new byte[] { 1, 2, 3 }, "[B", "[1, 2, 3]");
 
         async Task CheckValue(object value, string expectedClassName, string expectedValue)
         {
