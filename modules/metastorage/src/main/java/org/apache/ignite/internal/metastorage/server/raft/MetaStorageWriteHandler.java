@@ -205,13 +205,17 @@ public class MetaStorageWriteHandler {
 
             clo.result(storage.invoke(toCondition(cmd.condition()), cmd.success(), cmd.failure(), opTime, cmd.id()));
 
-             removeObsoleteRecordsFromIdempotentCommandsCache();
+            if (System.currentTimeMillis() % 100 == 0) {
+                removeObsoleteRecordsFromIdempotentCommandsCache();
+            }
         } else if (command instanceof MultiInvokeCommand) {
             MultiInvokeCommand cmd = (MultiInvokeCommand) command;
 
             clo.result(storage.invoke(toIf(cmd.iif()), opTime, cmd.id()));
 
-             removeObsoleteRecordsFromIdempotentCommandsCache();
+            if (System.currentTimeMillis() % 100 == 0) {
+                removeObsoleteRecordsFromIdempotentCommandsCache();
+            }
         } else if (command instanceof SyncTimeCommand) {
             storage.advanceSafeTime(command.safeTime());
 
@@ -380,7 +384,6 @@ public class MetaStorageWriteHandler {
     // TODO: https://issues.apache.org/jira/browse/IGNITE-19417 Call on meta storage compaction.
     public void removeObsoleteRecordsFromIdempotentCommandsCache() {
         UUID token = UUID.randomUUID();
-
         HybridTimestamp triggeredTime = clusterTime.now();
 
         LOG.info("Idempotent command cache cleanup triggered [token={}, triggerTimestamp={}].", token, triggeredTime);
@@ -408,9 +411,6 @@ public class MetaStorageWriteHandler {
             LOG.info("Idempotent command cache cleanup finished [token={}, cleanupTimestamp={}, cleanupCompletionTimestamp={},"
                     + " removedEntriesCount={}, cacheSize={}].", token, cleanupTimestamp, clusterTime.now(), commandIdsToRemove.size(),
                     idempotentCommandCache.size());
-
-            long duration = (clusterTime.now().longValue() - triggeredTime.longValue());
-            LOG.info("!!! Duration: " + duration);
             return null;
         });
     }
