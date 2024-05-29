@@ -119,18 +119,33 @@ public class DataStreamerTests : IgniteTestsBase
     }
 
     [Test]
-    public async Task TestAutoFlushFrequency([Values(true, false)] bool enabled)
+    public async Task TestAutoFlushFrequency(
+        [Values(true, false)] bool enabled,
+        [Values(true, false)] bool withReceiver)
     {
         using var cts = new CancellationTokenSource();
 
-        _ = TupleView.StreamDataAsync(
-            GetTuplesWithDelay(cts.Token),
-            new()
-            {
-                AutoFlushFrequency = enabled
-                    ? TimeSpan.FromMilliseconds(50)
-                    : TimeSpan.MaxValue
-            });
+        var options = new DataStreamerOptions
+        {
+            AutoFlushFrequency = enabled
+                ? TimeSpan.FromMilliseconds(50)
+                : TimeSpan.MaxValue
+        };
+
+        if (withReceiver)
+        {
+            _ = TupleView.StreamDataAsync<IIgniteTuple, string>(
+                GetTuplesWithDelay(cts.Token),
+                options,
+                x => x,
+                x => $"{x[0]}-value",
+                Array.Empty<DeploymentUnit>(),
+                TestReceiverClassName);
+        }
+        else
+        {
+            _ = TupleView.StreamDataAsync(GetTuplesWithDelay(cts.Token), options);
+        }
 
         if (enabled)
         {
