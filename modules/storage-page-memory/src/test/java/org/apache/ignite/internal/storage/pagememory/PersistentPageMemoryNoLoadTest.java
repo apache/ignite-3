@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory.persistence;
+package org.apache.ignite.internal.storage.pagememory;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.configuration.ConfigurationTestUtils.fixConfiguration;
@@ -23,7 +23,6 @@ import static org.apache.ignite.internal.pagememory.persistence.CheckpointUrgenc
 import static org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency.NOT_REQUIRED;
 import static org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency.SHOULD_TRIGGER;
 import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory.PAGE_OVERHEAD;
-import static org.apache.ignite.internal.pagememory.persistence.TestPartitionMeta.FACTORY;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.FINISHED;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.PAGES_SORTED;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTestUtils.mockCheckpointTimeoutLock;
@@ -67,8 +66,12 @@ import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPage
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfigurationSchema;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
+import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMeta.PartitionMetaSnapshot;
-import org.apache.ignite.internal.pagememory.persistence.TestPartitionMeta.TestPartitionMetaIo;
+import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
+import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
+import org.apache.ignite.internal.pagememory.persistence.TestPageReadWriteManager;
+import org.apache.ignite.internal.pagememory.persistence.WriteDirtyPage;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointProgress;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
@@ -139,8 +142,9 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
     ) throws Exception {
         FilePageStoreManager filePageStoreManager = createFilePageStoreManager(workDir);
 
-        PartitionMetaManager<TestPartitionMeta, TestPartitionMetaIo> partitionMetaManager =
-                new PartitionMetaManager<>(ioRegistry, PAGE_SIZE, FACTORY, TestPartitionMetaIo.VERSIONS);
+        PartitionMetaManager<StoragePartitionMeta, StoragePartitionMetaIo> partitionMetaManager =
+                new PartitionMetaManager<>(ioRegistry, PAGE_SIZE,
+                        StoragePartitionMeta.FACTORY, StoragePartitionMetaIo.VERSIONS);
 
         Collection<DataRegion<PersistentPageMemory>> dataRegions = new ArrayList<>();
 
@@ -202,8 +206,9 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
     ) throws Exception {
         FilePageStoreManager filePageStoreManager = createFilePageStoreManager(workDir);
 
-        PartitionMetaManager<TestPartitionMeta, TestPartitionMetaIo> partitionMetaManager =
-                new PartitionMetaManager<>(ioRegistry, PAGE_SIZE, FACTORY, TestPartitionMetaIo.VERSIONS);
+        PartitionMetaManager<StoragePartitionMeta, StoragePartitionMetaIo> partitionMetaManager =
+                new PartitionMetaManager<>(ioRegistry, PAGE_SIZE,
+                        StoragePartitionMeta.FACTORY, StoragePartitionMetaIo.VERSIONS);
 
         Collection<DataRegion<PersistentPageMemory>> dataRegions = new ArrayList<>();
 
@@ -293,8 +298,9 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
     ) throws Exception {
         FilePageStoreManager filePageStoreManager = spy(createFilePageStoreManager(workDir));
 
-        PartitionMetaManager<TestPartitionMeta, TestPartitionMetaIo> partitionMetaManager =
-                new PartitionMetaManager<>(ioRegistry, PAGE_SIZE, FACTORY, TestPartitionMetaIo.VERSIONS);
+        PartitionMetaManager<StoragePartitionMeta, StoragePartitionMetaIo> partitionMetaManager =
+                new PartitionMetaManager<>(ioRegistry, PAGE_SIZE,
+                        StoragePartitionMeta.FACTORY, StoragePartitionMetaIo.VERSIONS);
 
         Collection<DataRegion<PersistentPageMemory>> dataRegions = new ArrayList<>();
 
@@ -358,8 +364,9 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
     ) throws Exception {
         FilePageStoreManager filePageStoreManager = createFilePageStoreManager(workDir);
 
-        PartitionMetaManager<TestPartitionMeta, TestPartitionMetaIo> partitionMetaManager =
-                new PartitionMetaManager<>(ioRegistry, PAGE_SIZE, FACTORY, TestPartitionMetaIo.VERSIONS);
+        PartitionMetaManager<StoragePartitionMeta, StoragePartitionMetaIo> partitionMetaManager =
+                new PartitionMetaManager<>(ioRegistry, PAGE_SIZE,
+                        StoragePartitionMeta.FACTORY, StoragePartitionMetaIo.VERSIONS);
         partitionMetaManager = spy(partitionMetaManager);
 
         Collection<DataRegion<PersistentPageMemory>> dataRegions = new ArrayList<>();
@@ -528,7 +535,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
 
     private static void initGroupFilePageStores(
             FilePageStoreManager filePageStoreManager,
-            PartitionMetaManager<TestPartitionMeta, TestPartitionMetaIo> partitionMetaManager,
+            PartitionMetaManager<StoragePartitionMeta, StoragePartitionMetaIo> partitionMetaManager,
             CheckpointManager checkpointManager
     ) throws Exception {
         int partitions = PARTITION_ID + 1;
@@ -549,7 +556,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
 
                 CheckpointProgress lastCheckpointProgress = checkpointManager.lastCheckpointProgress();
 
-                TestPartitionMeta partitionMeta = partitionMetaManager.readOrCreateMeta(
+                StoragePartitionMeta partitionMeta = partitionMetaManager.readOrCreateMeta(
                         lastCheckpointProgress == null ? null : lastCheckpointProgress.id(),
                         groupPartitionId,
                         filePageStore,

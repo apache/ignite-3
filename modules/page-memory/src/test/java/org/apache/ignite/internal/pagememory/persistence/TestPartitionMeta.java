@@ -32,8 +32,6 @@ public class TestPartitionMeta extends PartitionMeta<TestPartitionMetaSnapshot> 
     public static final PartitionMetaFactory<TestPartitionMeta, TestPartitionMetaIo> FACTORY =
             (checkpointId, metaIo, pageAddr) -> new TestPartitionMeta(checkpointId);
 
-    private final AtomicInteger pageCount = new AtomicInteger(0);
-
     /**
      * Constructor.
      *
@@ -46,14 +44,6 @@ public class TestPartitionMeta extends PartitionMeta<TestPartitionMetaSnapshot> 
     @Override
     protected TestPartitionMetaSnapshot buildSnapshot(@Nullable UUID checkpointId) {
         return new TestPartitionMetaSnapshot(checkpointId);
-    }
-
-    public void incrementPageCount(@Nullable UUID ignored) {
-        pageCount.incrementAndGet();
-    }
-
-    public int pageCount() {
-        return pageCount.get();
     }
 
     /**
