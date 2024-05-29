@@ -621,9 +621,11 @@ public class IgniteImpl implements Ignite {
                 topologyAwareRaftGroupServiceFactory,
                 clockService,
                 tablePartId -> {
-                    CatalogTableDescriptor tbl = catalogManager.table(tablePartId.tableId(), catalogManager.latestCatalogVersion());
+                    int catalogVer = catalogManager.latestCatalogVersion();
 
-                    int zoneId = tbl == null ? 2 : tbl.zoneId();
+                    CatalogTableDescriptor tbl = catalogManager.table(tablePartId.tableId(), catalogVer);
+
+                    int zoneId = tbl == null ? catalogManager.catalog(catalogVer).defaultZone().id() : tbl.zoneId();
 
                     return new ZonePartitionId(
                             zoneId,
