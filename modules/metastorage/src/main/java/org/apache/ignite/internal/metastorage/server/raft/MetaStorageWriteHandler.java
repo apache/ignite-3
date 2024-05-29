@@ -203,13 +203,13 @@ public class MetaStorageWriteHandler {
 
             clo.result(storage.invoke(toCondition(cmd.condition()), cmd.success(), cmd.failure(), opTime, cmd.id()));
 
-//            removeObsoleteRecordsFromIdempotentCommandsCache();
+            // removeObsoleteRecordsFromIdempotentCommandsCache();
         } else if (command instanceof MultiInvokeCommand) {
             MultiInvokeCommand cmd = (MultiInvokeCommand) command;
 
             clo.result(storage.invoke(toIf(cmd.iif()), opTime, cmd.id()));
 
-//            removeObsoleteRecordsFromIdempotentCommandsCache();
+            // removeObsoleteRecordsFromIdempotentCommandsCache();
         } else if (command instanceof SyncTimeCommand) {
             storage.advanceSafeTime(command.safeTime());
 
@@ -372,6 +372,9 @@ public class MetaStorageWriteHandler {
         }
     }
 
+    /**
+     * Removes obsolete entries from both volatile and persistent idempotent command cache.
+     */
     public void removeObsoleteRecordsFromIdempotentCommandsCache() {
         assert maxClockSkewMillisFuture.isDone();
 
@@ -379,8 +382,8 @@ public class MetaStorageWriteHandler {
             HybridTimestamp cleanupTimestamp = clusterTime.now();
 
             List<CommandId> commandIdsToRemove = idempotentCommandCache.entrySet().stream()
-                    .filter(entry -> entry.getValue().commandStartTime.longValue() >
-                            cleanupTimestamp.longValue() - (idempotentCacheTtlSupplier.getAsLong() + maxClockSkewMillis.getAsLong()))
+                    .filter(entry -> entry.getValue().commandStartTime.longValue()
+                            > cleanupTimestamp.longValue() - (idempotentCacheTtlSupplier.getAsLong() + maxClockSkewMillis.getAsLong()))
                     .map(entry -> entry.getKey())
                     .collect(toList());
 
