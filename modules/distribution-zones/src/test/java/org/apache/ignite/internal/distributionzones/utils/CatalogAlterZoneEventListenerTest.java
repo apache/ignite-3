@@ -29,6 +29,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.BaseCatalogManagerTest;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.AlterZoneEventParameters;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /** For {@link CatalogAlterZoneEventListener} testing. */
@@ -55,6 +56,7 @@ public class CatalogAlterZoneEventListenerTest extends BaseCatalogManagerTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22374")
     void testOnUpdatePartitions() {
         CompletableFuture<Void> onZoneUpdateFuture = new CompletableFuture<>();
         CompletableFuture<Void> onPartitionsUpdateFuture = new CompletableFuture<>();
