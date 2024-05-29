@@ -381,7 +381,9 @@ public class MetaStorageWriteHandler {
     public void removeObsoleteRecordsFromIdempotentCommandsCache() {
         UUID token = UUID.randomUUID();
 
-        LOG.info("Idempotent command cache cleanup triggered [token={}, triggerTimestamp={}].", token, clusterTime.now());
+        HybridTimestamp triggeredTime = clusterTime.now();
+
+        LOG.info("Idempotent command cache cleanup triggered [token={}, triggerTimestamp={}].", token, triggeredTime);
 
         assert maxClockSkewMillisFuture.isDone();
 
@@ -406,6 +408,9 @@ public class MetaStorageWriteHandler {
             LOG.info("Idempotent command cache cleanup finished [token={}, cleanupTimestamp={}, cleanupCompletionTimestamp={},"
                     + " removedEntriesCount={}, cacheSize={}].", token, cleanupTimestamp, clusterTime.now(), commandIdsToRemove.size(),
                     idempotentCommandCache.size());
+
+            long duration = (clusterTime.now().longValue() - triggeredTime.longValue());
+            LOG.info("!!! Duration: " + duration);
             return null;
         });
     }
