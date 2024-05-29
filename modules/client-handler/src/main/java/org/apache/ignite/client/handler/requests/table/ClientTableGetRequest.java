@@ -46,6 +46,7 @@ public class ClientTableGetRequest {
             if (table == null) {
                 out.packNil();
             } else {
+                out.packInt(((TableViewInternal) table).internalTable().zoneId());
                 out.packInt(((TableViewInternal) table).tableId());
             }
         });

@@ -51,7 +51,7 @@ import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
@@ -102,7 +102,7 @@ public class IndexManagementUtilsTest extends BaseIgniteAbstractTest {
 
     @Test
     void testIsPrimaryReplicaTrue() {
-        TablePartitionId replicaGroupId = new TablePartitionId(1, 0);
+        ZonePartitionId replicaGroupId = new ZonePartitionId(0, 1, 0);
 
         HybridTimestamp startTime = clock.now();
         long dayInMillis = TimeUnit.DAYS.toMillis(1);
@@ -114,7 +114,7 @@ public class IndexManagementUtilsTest extends BaseIgniteAbstractTest {
 
     @Test
     void testIsPrimaryReplicaFalse() {
-        TablePartitionId replicaGroupId = new TablePartitionId(1, 0);
+        ZonePartitionId replicaGroupId = new ZonePartitionId(0, 1, 0);
 
         ClusterNode otherNode = new ClusterNodeImpl(NODE_ID + "-other", NODE_NAME + "-other", mock(NetworkAddress.class));
 

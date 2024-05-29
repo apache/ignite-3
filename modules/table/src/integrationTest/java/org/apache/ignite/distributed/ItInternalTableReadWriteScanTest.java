@@ -23,6 +23,7 @@ import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.RollbackTxOnErrorPublisher;
@@ -48,13 +49,13 @@ public class ItInternalTableReadWriteScanTest extends ItAbstractInternalTableSca
         }
 
         IgniteBiTuple<ClusterNode, Long> leaderWithConsistencyToken =
-                tx.enlistedNodeAndConsistencyToken(new TablePartitionId(internalTbl.tableId(), part));
+                tx.enlistedNodeAndConsistencyToken(new ZonePartitionId(internalTbl.zoneId(), internalTbl.tableId(), part));
 
         PrimaryReplica recipient = new PrimaryReplica(leaderWithConsistencyToken.get1(), leaderWithConsistencyToken.get2());
 
         return new RollbackTxOnErrorPublisher<>(
                 tx,
-                internalTbl.scan(part, tx.id(), tx.commitPartition(), tx.coordinatorId(), recipient, null, null, null, 0, null)
+                internalTbl.scan(part, tx.id(), tx.zoneCommitPartition(), tx.coordinatorId(), recipient, null, null, null, 0, null)
         );
     }
 
@@ -75,12 +76,13 @@ public class ItInternalTableReadWriteScanTest extends ItAbstractInternalTableSca
     protected InternalTransaction startTx() {
         InternalTransaction tx = internalTbl.txManager().begin(HYBRID_TIMESTAMP_TRACKER);
 
-        TablePartitionId tblPartId = new TablePartitionId(internalTbl.tableId(), ((TablePartitionId) internalTbl.groupId()).partitionId());
-        RaftGroupService raftSvc = internalTbl.tableRaftService().partitionRaftGroupService(tblPartId.partitionId());
+        ZonePartitionId zonePartId = new ZonePartitionId(internalTbl.zoneId(),
+                internalTbl.tableId(), ((TablePartitionId) internalTbl.groupId()).partitionId());
+        RaftGroupService raftSvc = internalTbl.tableRaftService().partitionRaftGroupService(zonePartId.partitionId());
         long term = IgniteTestUtils.await(raftSvc.refreshAndGetLeaderWithTerm()).term();
 
-        tx.assignCommitPartition(tblPartId);
-        tx.enlist(tblPartId, new IgniteBiTuple<>(internalTbl.tableRaftService().leaderAssignment(tblPartId.partitionId()), term));
+        tx.assignCommitPartition(zonePartId);
+        tx.enlist(zonePartId, new IgniteBiTuple<>(internalTbl.tableRaftService().leaderAssignment(zonePartId.partitionId()), term));
 
         return tx;
     }

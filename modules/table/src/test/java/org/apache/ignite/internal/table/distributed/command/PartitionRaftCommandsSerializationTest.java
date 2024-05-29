@@ -80,7 +80,8 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
     @Test
     public void testUpdateCommand() throws Exception {
         UpdateCommand cmd = msgFactory.updateCommand()
-                .tablePartitionId(msgFactory.tablePartitionIdMessage()
+                .zonePartitionId(msgFactory.zonePartitionIdMessage()
+                        .zoneId(11)
                         .tableId(1)
                         .partitionId(1)
                         .build()
@@ -101,7 +102,8 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
     @Test
     public void testRemoveCommand() throws Exception {
         UpdateCommand cmd = msgFactory.updateCommand()
-                .tablePartitionId(msgFactory.tablePartitionIdMessage()
+                .zonePartitionId(msgFactory.zonePartitionIdMessage()
+                        .zoneId(11)
                         .tableId(1)
                         .partitionId(1)
                         .build()
@@ -133,7 +135,8 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
         }
 
         var cmd = msgFactory.updateAllCommand()
-                .tablePartitionId(msgFactory.tablePartitionIdMessage()
+                .zonePartitionId(msgFactory.zonePartitionIdMessage()
+                        .zoneId(11)
                         .tableId(1)
                         .partitionId(1)
                         .build()
@@ -172,7 +175,8 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
         }
 
         var cmd = msgFactory.updateAllCommand()
-                .tablePartitionId(msgFactory.tablePartitionIdMessage()
+                .zonePartitionId(msgFactory.zonePartitionIdMessage()
+                        .zoneId(11)
                         .tableId(1)
                         .partitionId(1)
                         .build()
@@ -212,10 +216,11 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
     @Test
     public void testFinishTxCommand() throws Exception {
         HybridClock clock = new HybridClockImpl();
-        ArrayList<TablePartitionIdMessage> grps = new ArrayList<>(10);
+        ArrayList<ZonePartitionIdMessage> grps = new ArrayList<>(10);
 
         for (int i = 0; i < 10; i++) {
-            grps.add(msgFactory.tablePartitionIdMessage()
+            grps.add(msgFactory.zonePartitionIdMessage()
+                    .zoneId(11)
                     .tableId(1)
                     .partitionId(i)
                     .build());
@@ -261,7 +266,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
             return (T) msgFactory.updateCommand()
                     .txId(updateCommand.txId())
                     .rowUuid(updateCommand.rowUuid())
-                    .tablePartitionId(updateCommand.tablePartitionId())
+                    .zonePartitionId(updateCommand.zonePartitionId())
                     .messageRowToUpdate(updateCommand.messageRowToUpdate())
                     .txCoordinatorId(updateCommand.txCoordinatorId())
                     .build();
@@ -271,7 +276,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
             return (T) msgFactory.updateAllCommand()
                     .txId(updateCommand.txId())
                     .messageRowsToUpdate(updateCommand.messageRowsToUpdate())
-                    .tablePartitionId(updateCommand.tablePartitionId())
+                    .zonePartitionId(updateCommand.zonePartitionId())
                     .txCoordinatorId(updateCommand.txCoordinatorId())
                     .build();
         } else {

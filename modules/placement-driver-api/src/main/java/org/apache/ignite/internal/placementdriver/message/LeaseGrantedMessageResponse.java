@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.placementdriver.message;
 
+import java.util.Set;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.jetbrains.annotations.Nullable;
 
@@ -29,4 +30,8 @@ public interface LeaseGrantedMessageResponse extends PlacementDriverMessage {
 
     @Nullable
     String redirectProposal();
+
+    /** List of applied groups. */
+    @Nullable
+    Set<Integer> appliedGroups();
 }

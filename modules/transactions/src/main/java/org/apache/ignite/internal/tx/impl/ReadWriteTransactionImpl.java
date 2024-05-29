@@ -28,7 +28,7 @@ import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TxManager;
@@ -40,17 +40,17 @@ import org.apache.ignite.tx.TransactionException;
  */
 public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     /** Commit partition updater. */
-    private static final AtomicReferenceFieldUpdater<ReadWriteTransactionImpl, TablePartitionId> COMMIT_PART_UPDATER =
-            AtomicReferenceFieldUpdater.newUpdater(ReadWriteTransactionImpl.class, TablePartitionId.class, "commitPart");
+    private static final AtomicReferenceFieldUpdater<ReadWriteTransactionImpl, ZonePartitionId> ZONE_COMMIT_PART_UPDATER =
+            AtomicReferenceFieldUpdater.newUpdater(ReadWriteTransactionImpl.class, ZonePartitionId.class, "zoneCommitPart");
 
     /** Enlisted partitions: partition id -> (primary replica node, enlistment consistency token). */
-    private final Map<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> enlisted = new ConcurrentHashMap<>();
+    private final Map<ZonePartitionId, IgniteBiTuple<ClusterNode, Long>> enlisted = new ConcurrentHashMap<>();
 
     /** The tracker is used to track an observable timestamp. */
     private final HybridTimestampTracker observableTsTracker;
 
     /** A partition which stores the transaction state. */
-    private volatile TablePartitionId commitPart;
+    private volatile ZonePartitionId zoneCommitPart;
 
     /** The lock protects the transaction topology from concurrent modification during finishing. */
     private final ReentrantReadWriteLock enlistPartitionLock = new ReentrantReadWriteLock();
@@ -79,26 +79,26 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
 
     /** {@inheritDoc} */
     @Override
-    public boolean assignCommitPartition(TablePartitionId tablePartitionId) {
-        return COMMIT_PART_UPDATER.compareAndSet(this, null, tablePartitionId);
+    public boolean assignCommitPartition(ZonePartitionId zonePartitionId) {
+        return ZONE_COMMIT_PART_UPDATER.compareAndSet(this, null, zonePartitionId);
     }
 
     /** {@inheritDoc} */
     @Override
-    public TablePartitionId commitPartition() {
-        return commitPart;
+    public ZonePartitionId zoneCommitPartition() {
+        return zoneCommitPart;
     }
 
     /** {@inheritDoc} */
     @Override
-    public IgniteBiTuple<ClusterNode, Long> enlistedNodeAndConsistencyToken(TablePartitionId partGroupId) {
+    public IgniteBiTuple<ClusterNode, Long> enlistedNodeAndConsistencyToken(ZonePartitionId partGroupId) {
         return enlisted.get(partGroupId);
     }
 
     /** {@inheritDoc} */
     @Override
     public IgniteBiTuple<ClusterNode, Long> enlist(
-            TablePartitionId tablePartitionId,
+            ZonePartitionId zonePartitionId,
             IgniteBiTuple<ClusterNode, Long> nodeAndConsistencyToken
     ) {
         checkEnlistPossibility();
@@ -108,7 +108,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
         try {
             checkEnlistPossibility();
 
-            return enlisted.computeIfAbsent(tablePartitionId, k -> nodeAndConsistencyToken);
+            return enlisted.computeIfAbsent(zonePartitionId, k -> nodeAndConsistencyToken);
         } finally {
             enlistPartitionLock.readLock().unlock();
         }
@@ -158,7 +158,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
      * @return The future of transaction completion.
      */
     private CompletableFuture<Void> finishInternal(boolean commit) {
-        return txManager.finish(observableTsTracker, commitPart, commit, enlisted, id());
+        return txManager.finish(observableTsTracker, zoneCommitPart, commit, enlisted, id());
     }
 
     /** {@inheritDoc} */

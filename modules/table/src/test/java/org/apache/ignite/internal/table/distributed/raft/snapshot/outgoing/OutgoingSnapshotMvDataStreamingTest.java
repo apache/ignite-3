@@ -79,9 +79,10 @@ class OutgoingSnapshotMvDataStreamingTest extends BaseIgniteAbstractTest {
     private final HybridClock clock = new HybridClockImpl();
 
     private final UUID transactionId = UUID.randomUUID();
+    private final int commitZoneId = 9999;
     private final int commitTableId = 999;
 
-    private final PartitionKey partitionKey = new PartitionKey(1, 1);
+    private final PartitionKey partitionKey = new PartitionKey(11, 1, 1);
 
     @BeforeEach
     void createTestInstance() {
@@ -108,6 +109,7 @@ class OutgoingSnapshotMvDataStreamingTest extends BaseIgniteAbstractTest {
                 rowId1,
                 ROW_2,
                 transactionId,
+                commitZoneId,
                 commitTableId,
                 42,
                 clock.now()
@@ -122,6 +124,7 @@ class OutgoingSnapshotMvDataStreamingTest extends BaseIgniteAbstractTest {
 
         assertThat(responseRow.rowId(), is(rowId1.uuid()));
         assertThat(responseRow.txId(), is(transactionId));
+        assertThat(responseRow.commitZoneId(), is(commitZoneId));
         assertThat(responseRow.commitTableId(), is(commitTableId));
         assertThat(responseRow.commitPartitionId(), is(42));
         //noinspection ConstantConditions
@@ -224,6 +227,7 @@ class OutgoingSnapshotMvDataStreamingTest extends BaseIgniteAbstractTest {
                 rowIdOutOfOrder,
                 ROW_2,
                 transactionId,
+                commitZoneId,
                 commitTableId,
                 42,
                 clock.now()
@@ -248,6 +252,7 @@ class OutgoingSnapshotMvDataStreamingTest extends BaseIgniteAbstractTest {
 
         assertThat(responseRow.rowId(), is(rowIdOutOfOrder.uuid()));
         assertThat(responseRow.txId(), is(transactionId));
+        assertThat(responseRow.commitZoneId(), is(commitZoneId));
         assertThat(responseRow.commitTableId(), is(commitTableId));
         assertThat(responseRow.commitPartitionId(), is(42));
         //noinspection ConstantConditions
@@ -321,6 +326,7 @@ class OutgoingSnapshotMvDataStreamingTest extends BaseIgniteAbstractTest {
                 rowId1,
                 ROW_1,
                 transactionId,
+                commitZoneId,
                 commitTableId,
                 42,
                 clock.now()

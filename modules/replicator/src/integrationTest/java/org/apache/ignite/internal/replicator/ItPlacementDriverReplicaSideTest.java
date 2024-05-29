@@ -109,7 +109,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
     private static final int BASE_PORT = 1234;
 
-    private static final TestReplicationGroupId GROUP_ID = new TestReplicationGroupId("group_1");
+    private static final TablePartitionId GROUP_ID = new TablePartitionId(1, 0);
+    private static final ZonePartitionId ZONE_TABLE_PARTITION_ID = new ZonePartitionId(11, 1, 0);
 
     private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
 
@@ -285,7 +286,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
 
         log.info("Replication group is based on {}", grpNodes);
 
-        var raftClientFut = createReplicationGroup(GROUP_ID, grpNodes);
+        var raftClientFut = createReplicationGroup(GROUP_ID, ZONE_TABLE_PARTITION_ID, grpNodes);
 
         var raftClient = raftClientFut.get();
 
@@ -315,7 +316,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
                 clusterService.topologyService().getByConsistentId(leaderNodeName),
                 TEST_REPLICA_MESSAGES_FACTORY.primaryReplicaTestRequest()
                         .enlistmentConsistencyToken(1L)
-                        .groupId(GROUP_ID)
+                        .groupId(ZONE_TABLE_PARTITION_ID)
                         .build()
         );
 
@@ -327,7 +328,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
             assertTrue(placementDriverNodeNames.contains(nodeName));
         }
 
-        stopReplicationGroup(GROUP_ID, grpNodes);
+        stopReplicationGroup(GROUP_ID, ZONE_TABLE_PARTITION_ID, grpNodes);
     }
 
     @Test
@@ -336,7 +337,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
 
         log.info("Replication group is based on {}", grpNodes);
 
-        var raftClientFut = createReplicationGroup(GROUP_ID, grpNodes);
+        var raftClientFut = createReplicationGroup(GROUP_ID, ZONE_TABLE_PARTITION_ID, grpNodes);
 
         var raftClient = raftClientFut.get();
 
@@ -379,7 +380,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
                 clusterService.topologyService().getByConsistentId(leaderNodeName),
                 TEST_REPLICA_MESSAGES_FACTORY.primaryReplicaTestRequest()
                         .enlistmentConsistencyToken(1L)
-                        .groupId(GROUP_ID)
+                        .groupId(ZONE_TABLE_PARTITION_ID)
                         .build()
         );
 
@@ -395,7 +396,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
             assertTrue(placementDriverNodeNames.contains(nodeName));
         }
 
-        stopReplicationGroup(GROUP_ID, grpNodes);
+        stopReplicationGroup(GROUP_ID, ZONE_TABLE_PARTITION_ID, grpNodes);
     }
 
     /**
@@ -437,7 +438,8 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
      * @param grpNodes Participants on the replication group.
      * @throws NodeStoppingException If failed.
      */
-    private void stopReplicationGroup(ReplicationGroupId testGrpId, Set<String> grpNodes) throws NodeStoppingException {
+    private void stopReplicationGroup(ReplicationGroupId testGrpId, ZonePartitionId zonePartitionId, Set<String> grpNodes
+    ) throws NodeStoppingException {
         for (String nodeName : grpNodes) {
             var raftManager = raftManagers.get(nodeName);
             var replicaManager = replicaManagers.get(nodeName);
@@ -445,7 +447,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
             assertNotNull(raftManager);
             assertNotNull(replicaManager);
 
-            replicaManager.stopReplica(testGrpId).join();
+            replicaManager.stopReplica(zonePartitionId).join();
             raftManager.stopRaftNodes(testGrpId);
         }
     }
@@ -460,6 +462,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
      */
     private CompletableFuture<TopologyAwareRaftGroupService> createReplicationGroup(
             ReplicationGroupId groupId,
+            ZonePartitionId zoneTablePartitionId,
             Set<String> nodes
     ) throws Exception {
         var res = new CompletableFuture<TopologyAwareRaftGroupService>();
@@ -490,7 +493,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
             CompletableFuture<Replica> replicaFuture = raftClientFut.thenCompose(raftClient -> {
                 try {
                     return replicaManager.startReplica(
-                            groupId,
+                            zoneTablePartitionId,
                             (request, senderId) -> {
                                 log.info("Handle request [type={}]", request.getClass().getSimpleName());
 

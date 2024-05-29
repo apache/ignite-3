@@ -88,7 +88,7 @@ import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -105,6 +105,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(ConfigurationExtension.class)
 public class PlacementDriverManagerTest extends BasePlacementDriverTest {
     public static final int PORT = 1234;
+
+    protected static final Integer TABLE_ID = 1;
+
+    protected static final ZonePartitionId ZONE_GROUP_ID = new ZonePartitionId(11, 0);
 
     private static final PlacementDriverMessagesFactory PLACEMENT_DRIVER_MESSAGES_FACTORY = new PlacementDriverMessagesFactory();
 
@@ -248,6 +252,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
 
             if (resp == null) {
                 resp = PLACEMENT_DRIVER_MESSAGES_FACTORY.leaseGrantedMessageResponse()
+                        .appliedGroups(Set.of(TABLE_ID))
                         .accepted(true)
                         .build();
             }
@@ -278,7 +283,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
 
     @Test
     public void testLeaseCreate() throws Exception {
-        TablePartitionId grpPart0 = createTableAssignment();
+        ZonePartitionId grpPart0 = createZoneAssignment();
 
         checkLeaseCreated(grpPart0, false);
     }
@@ -286,7 +291,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
     @Test
     @WithSystemProperty(key = "IGNITE_LONG_LEASE", value = "200")
     public void testLeaseRenew() throws Exception {
-        TablePartitionId grpPart0 = createTableAssignment();
+        ZonePartitionId grpPart0 = createZoneAssignment();
 
         checkLeaseCreated(grpPart0, false);
 
@@ -309,7 +314,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
     @Test
     @WithSystemProperty(key = "IGNITE_LONG_LEASE", value = "200")
     public void testLeaseholderUpdate() throws Exception {
-        TablePartitionId grpPart0 = createTableAssignment();
+        ZonePartitionId grpPart0 = createZoneAssignment();
 
         checkLeaseCreated(grpPart0, false);
 
@@ -341,7 +346,10 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
 
     @Test
     public void testPrimaryReplicaEvents() throws Exception {
-        TablePartitionId grpPart0 = createTableAssignment(metaStorageManager, nextTableId.incrementAndGet(), List.of(nodeName));
+        int zoneId = nextTableId.incrementAndGet();
+
+        ZonePartitionId grpPart0 = createZoneAssignment(metaStorageManager, zoneId, List.of(nodeName));
+        ZonePartitionId replicationGroupId = new ZonePartitionId(zoneId, 1, 0);
 
         Lease lease1 = checkLeaseCreated(grpPart0, true);
 
@@ -370,7 +378,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
 
         assertTrue(waitForCondition(() -> {
             CompletableFuture<ReplicaMeta> fut = placementDriverManager.placementDriver()
-                    .getPrimaryReplica(grpPart0, lease1.getExpirationTime());
+                    .getPrimaryReplicaForTable(replicationGroupId, lease1.getExpirationTime());
 
             ReplicaMeta meta = fut.join();
 
@@ -392,7 +400,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
 
         assertTrue(waitForCondition(() -> {
             CompletableFuture<ReplicaMeta> fut = placementDriverManager.placementDriver()
-                    .getPrimaryReplica(grpPart0, lease2.getExpirationTime());
+                    .getPrimaryReplicaForTable(replicationGroupId, lease2.getExpirationTime());
 
             ReplicaMeta meta = fut.join();
 
@@ -460,12 +468,12 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
 
     @Test
     public void testLeaseRemovedAfterExpirationAndAssignmetnsRemoval() throws Exception {
-        List<TablePartitionId> groupIds = List.of(
-                createTableAssignment(metaStorageManager, nextTableId.incrementAndGet(), List.of(nodeName)),
-                createTableAssignment(metaStorageManager, nextTableId.incrementAndGet(), List.of(nodeName))
+        List<ZonePartitionId> groupIds = List.of(
+                createZoneAssignment(metaStorageManager, nextTableId.incrementAndGet(), List.of(nodeName)),
+                createZoneAssignment(metaStorageManager, nextTableId.incrementAndGet(), List.of(nodeName))
         );
 
-        Map<TablePartitionId, AtomicBoolean> leaseExpirationMap =
+        Map<ZonePartitionId, AtomicBoolean> leaseExpirationMap =
                 groupIds.stream().collect(Collectors.toMap(id -> id, id -> new AtomicBoolean()));
 
         groupIds.forEach(groupId -> {
@@ -498,7 +506,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
 
     @Test
     public void testLeaseAccepted() throws Exception {
-        TablePartitionId grpPart0 = createTableAssignment();
+        ZonePartitionId grpPart0 = createZoneAssignment();
 
         checkLeaseCreated(grpPart0, true);
     }
@@ -508,10 +516,11 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
         leaseGrantHandler = (req, handler) ->
                 PLACEMENT_DRIVER_MESSAGES_FACTORY
                         .leaseGrantedMessageResponse()
+                        .appliedGroups(Set.of(TABLE_ID))
                         .accepted(req.force())
                         .build();
 
-        TablePartitionId grpPart0 = createTableAssignment();
+        ZonePartitionId grpPart0 = createZoneAssignment();
 
         checkLeaseCreated(grpPart0, true);
     }
@@ -526,7 +535,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
             throw new RuntimeException("test");
         };
 
-        TablePartitionId grpPart0 = createTableAssignment();
+        ZonePartitionId grpPart0 = createZoneAssignment();
 
         checkLeaseCreated(grpPart0, false);
 
@@ -547,25 +556,27 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
 
                 return PLACEMENT_DRIVER_MESSAGES_FACTORY
                         .leaseGrantedMessageResponse()
+                        .appliedGroups(Set.of(TABLE_ID))
                         .accepted(false)
                         .redirectProposal(redirect.get())
                         .build();
             } else {
                 return PLACEMENT_DRIVER_MESSAGES_FACTORY
                         .leaseGrantedMessageResponse()
+                        .appliedGroups(Set.of(TABLE_ID))
                         .accepted(redirect.get().equals(handler))
                         .build();
             }
         };
 
-        TablePartitionId grpPart0 = createTableAssignment();
+        ZonePartitionId grpPart0 = createZoneAssignment();
 
         checkLeaseCreated(grpPart0, true);
     }
 
     @Test
     public void testLeaseRestore() throws Exception {
-        TablePartitionId grpPart0 = createTableAssignment();
+        ZonePartitionId grpPart0 = createZoneAssignment();
 
         checkLeaseCreated(grpPart0, false);
 
@@ -585,7 +596,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
             return null;
         };
 
-        TablePartitionId grpPart0 = createTableAssignment();
+        ZonePartitionId grpPart0 = createZoneAssignment();
 
         Lease lease = checkLeaseCreated(grpPart0, false);
 
@@ -603,7 +614,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
      * @return A lease that is read from Meta storage.
      * @throws InterruptedException If the waiting is interrupted.
      */
-    private Lease checkLeaseCreated(TablePartitionId grpPartId, boolean waitAccept) throws InterruptedException {
+    private Lease checkLeaseCreated(ZonePartitionId grpPartId, boolean waitAccept) throws InterruptedException {
         AtomicReference<Lease> leaseRef = new AtomicReference<>();
 
         assertTrue(waitForCondition(() -> {
@@ -636,8 +647,8 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
      *
      * @return Replication group id.
      */
-    private TablePartitionId createTableAssignment() {
-        return createTableAssignment(metaStorageManager, nextTableId.incrementAndGet(), List.of(nodeName, anotherNodeName));
+    private ZonePartitionId createZoneAssignment() {
+        return createZoneAssignment(metaStorageManager, nextTableId.incrementAndGet(), List.of(nodeName, anotherNodeName));
     }
 
     /**

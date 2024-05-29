@@ -186,7 +186,7 @@ class ExecutorInclinedPlacementDriverTest extends BaseIgniteAbstractTest {
         AWAIT_PRIMARY_REPLICA {
             @Override
             CompletableFuture<?> execute(PlacementDriver placementDriver, Context context) {
-                return placementDriver.awaitPrimaryReplica(context.groupId, context.timestamp, 1, SECONDS);
+                return placementDriver.awaitPrimaryReplicaForTable(context.groupId, context.timestamp, 1, SECONDS);
             }
         },
         GET_PRIMARY_REPLICA {

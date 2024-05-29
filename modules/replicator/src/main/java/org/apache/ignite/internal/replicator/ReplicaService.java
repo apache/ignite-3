@@ -178,7 +178,7 @@ public class ReplicaService {
                                 }
                         );
 
-                        awaitReplicaFut.handle((response0, throwable0) -> {
+                        awaitReplicaFut.handleAsync((response0, throwable0) -> {
                             pendingInvokes.remove(targetNodeConsistentId, awaitReplicaFut);
 
                             if (throwable0 != null) {
@@ -223,7 +223,7 @@ public class ReplicaService {
                             }
 
                             return null;
-                        });
+                        }, partitionOperationsExecutor);
                     } else {
                         if (retryExecutor != null && matchAny(unwrapCause(errResp.throwable()), ACQUIRE_LOCK_ERR, REPLICA_MISS_ERR)) {
                             retryExecutor.schedule(
@@ -288,5 +288,16 @@ public class ReplicaService {
 
     public MessagingService messagingService() {
         return messagingService;
+    }
+
+    /**
+     * Gets a replica operation executor.
+     * This method is used by ReplicaAwareLeaseTracker and have do be removed with it.
+     * TODO: https://issues.apache.org/jira/browse/IGNITE-20362
+     *
+     * @return Executor.
+     */
+    public Executor getPartitionOperationsExecutor() {
+        return partitionOperationsExecutor;
     }
 }

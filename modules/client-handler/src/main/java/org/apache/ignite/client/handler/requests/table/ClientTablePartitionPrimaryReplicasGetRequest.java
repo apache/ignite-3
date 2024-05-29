@@ -44,10 +44,10 @@ public class ClientTablePartitionPrimaryReplicasGetRequest {
             ClientMessagePacker out,
             ClientPrimaryReplicaTracker tracker
     ) throws NodeStoppingException {
-        int tableId = in.unpackInt();
+        int zoneId = in.unpackInt();
         long timestamp = in.unpackLong();
 
-        return tracker.primaryReplicasAsync(tableId, timestamp).thenAccept(primaryReplicas -> {
+        return tracker.primaryReplicasAsync(zoneId, timestamp).thenAccept(primaryReplicas -> {
             assert primaryReplicas != null : "Primary replicas == null";
 
             List<String> nodeNames = primaryReplicas.nodeNames();

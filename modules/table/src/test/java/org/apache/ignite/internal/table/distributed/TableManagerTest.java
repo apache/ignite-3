@@ -360,8 +360,8 @@ public class TableManagerTest extends IgniteAbstractTest {
      */
     @Test
     public void testWriteTableAssignmentsToMetastoreExceptionally() throws Exception {
-        TableViewInternal table = mockManagersAndCreateTable(DYNAMIC_TABLE_NAME, tblManagerFut);
-        int tableId = table.tableId();
+        mockManagersAndCreateTable(DYNAMIC_TABLE_NAME, tblManagerFut);
+        int zoneId = 2;
         TableManager tableManager = tblManagerFut.join();
         List<Assignments> assignmentsList = List.of(Assignments.of(Assignment.forPeer(node.id())));
 
@@ -370,7 +370,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         var outerExceptionMsg = "Outer future is interrupted";
         assignmentsFuture.completeExceptionally(new TimeoutException(outerExceptionMsg));
         CompletableFuture<List<Assignments>> writtenAssignmentsFuture = tableManager
-                .writeTableAssignmentsToMetastore(tableId, assignmentsFuture);
+                .writeZoneAssignmentsToMetastore(zoneId, assignmentsFuture);
         assertTrue(writtenAssignmentsFuture.isCompletedExceptionally());
         assertThrowsWithCause(writtenAssignmentsFuture::get, TimeoutException.class, outerExceptionMsg);
 
@@ -380,7 +380,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         var innerExceptionMsg = "Inner future is interrupted";
         invokeTimeoutFuture.completeExceptionally(new TimeoutException(innerExceptionMsg));
         when(msm.invoke(any(), any(List.class), any(List.class))).thenReturn(invokeTimeoutFuture);
-        writtenAssignmentsFuture = tableManager.writeTableAssignmentsToMetastore(tableId, assignmentsFuture);
+        writtenAssignmentsFuture = tableManager.writeZoneAssignmentsToMetastore(zoneId, assignmentsFuture);
         assertTrue(writtenAssignmentsFuture.isCompletedExceptionally());
         assertThrowsWithCause(writtenAssignmentsFuture::get, TimeoutException.class, innerExceptionMsg);
     }

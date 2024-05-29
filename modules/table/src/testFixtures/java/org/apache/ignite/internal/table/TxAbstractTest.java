@@ -81,6 +81,7 @@ import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
@@ -306,8 +307,8 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     private @Nullable String primaryNode(TableViewInternal t) {
-        CompletableFuture<ReplicaMeta> primaryReplicaFuture = txTestCluster.placementDriver().getPrimaryReplica(
-                new TablePartitionId(t.tableId(), 0),
+        CompletableFuture<ReplicaMeta> primaryReplicaFuture = txTestCluster.placementDriver().getPrimaryReplicaForTable(
+                new ZonePartitionId(t.internalTable().zoneId(), t.tableId(), 0),
                 txTestCluster.clocks().get(txTestCluster.localNodeName()).now());
 
         assertThat(primaryReplicaFuture, willCompleteSuccessfully());

@@ -69,6 +69,8 @@ public class FakeIgniteTables implements IgniteTablesInternal {
 
     private final AtomicInteger nextTableId = new AtomicInteger(1);
 
+    private final int zoneId = 1234;
+
     /**
      * Creates a table.
      *
@@ -76,7 +78,7 @@ public class FakeIgniteTables implements IgniteTablesInternal {
      * @return Table.
      */
     public Table createTable(String name) {
-        return createTable(name, nextTableId.getAndIncrement());
+        return createTable(name, zoneId, nextTableId.getAndIncrement());
     }
 
     /**
@@ -86,8 +88,8 @@ public class FakeIgniteTables implements IgniteTablesInternal {
      * @param id Table id.
      * @return Table.
      */
-    public TableViewInternal createTable(String name, int id) {
-        var newTable = getNewTable(name, id);
+    public TableViewInternal createTable(String name, int zoneId, int id) {
+        var newTable = getNewTable(name, zoneId, id);
 
         var oldTable = tables.putIfAbsent(name, newTable);
 
@@ -170,7 +172,7 @@ public class FakeIgniteTables implements IgniteTablesInternal {
         return table(tableId);
     }
 
-    private TableViewInternal getNewTable(String name, int id) {
+    private TableViewInternal getNewTable(String name, int zoneId, int id) {
         Function<Integer, SchemaDescriptor> history;
 
         switch (name) {
@@ -208,7 +210,7 @@ public class FakeIgniteTables implements IgniteTablesInternal {
         };
 
         return new TableImpl(
-                new FakeInternalTable(name, id, keyExtractor),
+                new FakeInternalTable(name, zoneId, id, keyExtractor),
                 schemaReg,
                 new HeapLockManager(),
                 new SchemaVersions() {

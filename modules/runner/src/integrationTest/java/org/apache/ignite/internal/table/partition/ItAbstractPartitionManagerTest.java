@@ -32,7 +32,6 @@ import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.table.InternalTable;
@@ -98,8 +97,7 @@ public abstract class ItAbstractPartitionManagerTest extends ClusterPerTestInteg
         InternalTable internalTable = tableViewInternal.internalTable();
 
         for (int i = 0; i < partitions; i++) {
-            CompletableFuture<ClusterNode> clusterNodeCompletableFuture = internalTable.partitionLocation(
-                    new TablePartitionId(internalTable.tableId(), i));
+            CompletableFuture<ClusterNode> clusterNodeCompletableFuture = internalTable.partitionLocation(i);
 
             CompletableFuture<ClusterNode> clusterNodeCompletableFuture1 = partitionManager().primaryReplicaAsync(new HashPartition(i));
 

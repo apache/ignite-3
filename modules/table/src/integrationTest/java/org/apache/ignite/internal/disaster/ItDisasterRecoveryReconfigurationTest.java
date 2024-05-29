@@ -58,6 +58,7 @@ import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.disaster.LocalPartitionStateByNode;
@@ -300,7 +301,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
     private void awaitPrimaryReplica(IgniteImpl node0, int partId) {
         CompletableFuture<ReplicaMeta> awaitPrimaryReplicaFuture = node0.placementDriver()
-                .awaitPrimaryReplica(new TablePartitionId(tableId, partId), node0.clock().now(), 60, SECONDS);
+                .awaitPrimaryReplicaForTable(new ZonePartitionId(zoneId, tableId, partId), node0.clock().now(), 60, SECONDS);
 
         assertThat(awaitPrimaryReplicaFuture, willCompleteSuccessfully());
     }
@@ -374,8 +375,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         assertTrue(IgniteTestUtils.waitForCondition(() -> {
             long causalityToken = node.metaStorageManager().appliedRevision();
 
-            long msSafeTime = node.metaStorageManager().timestampByRevision(causalityToken).longValue();
-            int catalogVersion = node.catalogManager().activeCatalogVersion(msSafeTime);
+            int catalogVersion = node.catalogManager().latestCatalogVersion();
 
             CompletableFuture<Set<String>> dataNodes = dzManager.dataNodes(causalityToken, catalogVersion, zoneId);
 

@@ -62,6 +62,8 @@ import org.jetbrains.annotations.Nullable;
  * Client table API implementation.
  */
 public class ClientTable implements Table {
+    private final int zoneId;
+
     private final int id;
 
     // TODO: table name can change, this approach should probably be reworked, see https://issues.apache.org/jira/browse/IGNITE-21237.
@@ -94,12 +96,14 @@ public class ClientTable implements Table {
      *
      * @param ch Channel.
      * @param marshallers Marshallers provider.
+     * @param zoneId Zone id of the table.
      * @param id Table id.
      * @param name Table name.
      */
     public ClientTable(
             ReliableChannel ch,
             MarshallersProvider marshallers,
+            int zoneId,
             int id,
             String name
     ) {
@@ -109,6 +113,7 @@ public class ClientTable implements Table {
 
         this.ch = ch;
         this.marshallers = marshallers;
+        this.zoneId = zoneId;
         this.id = id;
         this.name = name;
         this.log = ClientUtils.logger(ch.configuration(), ClientTable.class);
@@ -614,7 +619,7 @@ public class ClientTable implements Table {
             newAssignment.timestamp = timestamp;
             newAssignment.partitionsFut = ch.serviceAsync(ClientOp.PARTITION_ASSIGNMENT_GET,
                     w -> {
-                        w.out().packInt(id);
+                        w.out().packInt(zoneId);
                         w.out().packLong(timestamp);
                     },
                     r -> {

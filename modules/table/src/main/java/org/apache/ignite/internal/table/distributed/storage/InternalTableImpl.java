@@ -74,7 +74,7 @@ import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
@@ -83,7 +83,7 @@ import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
-import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMessage;
+import org.apache.ignite.internal.table.distributed.command.ZonePartitionIdMessage;
 import org.apache.ignite.internal.table.distributed.replication.request.BinaryTupleMessage;
 import org.apache.ignite.internal.table.distributed.replication.request.MultipleRowPkReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.MultipleRowReplicaRequest;
@@ -137,6 +137,9 @@ public class InternalTableImpl implements InternalTable {
     /** Table identifier. */
     private final int tableId;
 
+    /** Zone identifier where table is presented. */
+    private final int zoneId;
+
     /** Resolver that resolves a node consistent ID to cluster node. */
     private final ClusterNodeResolver clusterNodeResolver;
 
@@ -189,6 +192,7 @@ public class InternalTableImpl implements InternalTable {
      *
      * @param tableName Table name.
      * @param tableId Table id.
+     * @param zoneId Zone id.
      * @param partitions Partitions.
      * @param clusterNodeResolver Cluster node resolver.
      * @param txManager Transaction manager.
@@ -205,6 +209,7 @@ public class InternalTableImpl implements InternalTable {
     public InternalTableImpl(
             String tableName,
             int tableId,
+            int zoneId,
             int partitions,
             ClusterNodeResolver clusterNodeResolver,
             TxManager txManager,
@@ -222,6 +227,7 @@ public class InternalTableImpl implements InternalTable {
     ) {
         this.tableName = tableName;
         this.tableId = tableId;
+        this.zoneId = zoneId;
         this.partitions = partitions;
         this.clusterNodeResolver = clusterNodeResolver;
         this.txManager = txManager;
@@ -255,6 +261,12 @@ public class InternalTableImpl implements InternalTable {
     @Override
     public int tableId() {
         return tableId;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int zoneId() {
+        return zoneId;
     }
 
     /** {@inheritDoc} */
@@ -327,7 +339,7 @@ public class InternalTableImpl implements InternalTable {
 
         int partId = partitionId(row);
 
-        TablePartitionId partGroupId = new TablePartitionId(tableId, partId);
+        ZonePartitionId partGroupId = new ZonePartitionId(zoneId, tableId, partId);
 
         IgniteBiTuple<ClusterNode, Long> primaryReplicaAndConsistencyToken = actualTx.enlistedNodeAndConsistencyToken(partGroupId);
 
@@ -439,7 +451,7 @@ public class InternalTableImpl implements InternalTable {
             int partitionId = partitionRowBatch.getIntKey();
             RowBatch rowBatch = partitionRowBatch.getValue();
 
-            TablePartitionId partGroupId = new TablePartitionId(tableId, partitionId);
+            ZonePartitionId partGroupId = new ZonePartitionId(zoneId, tableId, partitionId);
 
             IgniteBiTuple<ClusterNode, Long> primaryReplicaAndConsistencyToken = actualTx.enlistedNodeAndConsistencyToken(partGroupId);
 
@@ -523,7 +535,7 @@ public class InternalTableImpl implements InternalTable {
             @Nullable BitSet columnsToInclude,
             boolean implicit
     ) {
-        TablePartitionId partGroupId = new TablePartitionId(tableId, partId);
+        ZonePartitionId partGroupId = new ZonePartitionId(zoneId, tableId, partId);
 
         IgniteBiTuple<ClusterNode, Long> primaryReplicaAndConsistencyToken = tx.enlistedNodeAndConsistencyToken(partGroupId);
 
@@ -544,7 +556,7 @@ public class InternalTableImpl implements InternalTable {
                         .full(implicit) // Intent for one phase commit.
                         .batchSize(batchSize)
                         .enlistmentConsistencyToken(enlistmentConsistencyToken)
-                        .commitPartitionId(serializeTablePartitionId(tx.commitPartition()))
+                        .zoneCommitPartitionId(serializeZonePartitionId(tx.zoneCommitPartition()))
                         .coordinatorId(tx.coordinatorId())
                         .build();
 
@@ -743,10 +755,10 @@ public class InternalTableImpl implements InternalTable {
 
         int partId = partitionId(row);
 
-        TablePartitionId tablePartitionId = new TablePartitionId(tableId, partId);
+        ZonePartitionId zonePartitionId = new ZonePartitionId(zoneId, tableId, partId);
 
-        CompletableFuture<ReplicaMeta> primaryReplicaFuture = placementDriver.awaitPrimaryReplica(
-                tablePartitionId,
+        CompletableFuture<ReplicaMeta> primaryReplicaFuture = placementDriver.awaitPrimaryReplicaForTable(
+                zonePartitionId,
                 tx.startTimestamp(),
                 AWAIT_PRIMARY_REPLICA_TIMEOUT,
                 SECONDS
@@ -756,7 +768,7 @@ public class InternalTableImpl implements InternalTable {
             try {
                 ClusterNode node = getClusterNode(primaryReplica.getLeaseholder());
 
-                return replicaSvc.invoke(node, op.apply(tablePartitionId, primaryReplica.getStartTime().longValue()));
+                return replicaSvc.invoke(node, op.apply(zonePartitionId, primaryReplica.getStartTime().longValue()));
             } catch (Throwable e) {
                 throw new TransactionException(
                         INTERNAL_ERR,
@@ -789,10 +801,10 @@ public class InternalTableImpl implements InternalTable {
 
         int partId = partitionId(rows.iterator().next());
 
-        TablePartitionId tablePartitionId = new TablePartitionId(tableId, partId);
+        ZonePartitionId zonePartitionId = new ZonePartitionId(zoneId, tableId, partId);
 
-        CompletableFuture<ReplicaMeta> primaryReplicaFuture = placementDriver.awaitPrimaryReplica(
-                tablePartitionId,
+        CompletableFuture<ReplicaMeta> primaryReplicaFuture = placementDriver.awaitPrimaryReplicaForTable(
+                zonePartitionId,
                 tx.startTimestamp(),
                 AWAIT_PRIMARY_REPLICA_TIMEOUT,
                 SECONDS
@@ -802,7 +814,7 @@ public class InternalTableImpl implements InternalTable {
             try {
                 ClusterNode node = getClusterNode(primaryReplica.getLeaseholder());
 
-                return replicaSvc.invoke(node, op.apply(tablePartitionId, primaryReplica.getStartTime().longValue()));
+                return replicaSvc.invoke(node, op.apply(zonePartitionId, primaryReplica.getStartTime().longValue()));
             } catch (Throwable e) {
                 throw new TransactionException(
                         INTERNAL_ERR,
@@ -873,7 +885,7 @@ public class InternalTableImpl implements InternalTable {
                         .groupId(groupId)
                         .schemaVersion(keyRow.schemaVersion())
                         .primaryKey(keyRow.tupleSlice())
-                        .commitPartitionId(serializeTablePartitionId(txo.commitPartition()))
+                        .zoneCommitPartitionId(serializeZonePartitionId(txo.zoneCommitPartition()))
                         .transactionId(txo.id())
                         .enlistmentConsistencyToken(enlistmentConsistencyToken)
                         .requestType(RW_GET)
@@ -892,10 +904,10 @@ public class InternalTableImpl implements InternalTable {
             ClusterNode recipientNode
     ) {
         int partId = partitionId(keyRow);
-        TablePartitionId tablePartitionId = new TablePartitionId(tableId, partId);
+        ZonePartitionId zonePartitionId = new ZonePartitionId(zoneId, tableId, partId);
 
         return replicaSvc.invoke(recipientNode, tableMessagesFactory.readOnlySingleRowPkReplicaRequest()
-                .groupId(tablePartitionId)
+                .groupId(zonePartitionId)
                 .schemaVersion(keyRow.schemaVersion())
                 .primaryKey(keyRow.tupleSlice())
                 .requestType(RequestType.RO_GET)
@@ -973,10 +985,10 @@ public class InternalTableImpl implements InternalTable {
         Int2ObjectMap<RowBatch> rowBatchByPartitionId = toRowBatchByPartitionId(keyRows);
 
         for (Int2ObjectMap.Entry<RowBatch> partitionRowBatch : rowBatchByPartitionId.int2ObjectEntrySet()) {
-            TablePartitionId tablePartitionId = new TablePartitionId(tableId, partitionRowBatch.getIntKey());
+            ZonePartitionId zonePartitionId = new ZonePartitionId(zoneId, tableId, partitionRowBatch.getIntKey());
 
             ReadOnlyMultiRowPkReplicaRequest request = tableMessagesFactory.readOnlyMultiRowPkReplicaRequest()
-                    .groupId(tablePartitionId)
+                    .groupId(zonePartitionId)
                     .schemaVersion(partitionRowBatch.getValue().requestedRows.get(0).schemaVersion())
                     .primaryKeys(serializeBinaryTuples(partitionRowBatch.getValue().requestedRows))
                     .requestType(RequestType.RO_GET_ALL)
@@ -1001,7 +1013,7 @@ public class InternalTableImpl implements InternalTable {
 
         return tableMessagesFactory.readWriteMultiRowPkReplicaRequest()
                 .groupId(groupId)
-                .commitPartitionId(serializeTablePartitionId(tx.commitPartition()))
+                .zoneCommitPartitionId(serializeZonePartitionId(tx.zoneCommitPartition()))
                 .schemaVersion(rows.iterator().next().schemaVersion())
                 .primaryKeys(serializeBinaryTuples(rows))
                 .transactionId(tx.id())
@@ -1057,10 +1069,11 @@ public class InternalTableImpl implements InternalTable {
         return result;
     }
 
-    private TablePartitionIdMessage serializeTablePartitionId(TablePartitionId id) {
-        return tableMessagesFactory.tablePartitionIdMessage()
-                .partitionId(id.partitionId())
+    private ZonePartitionIdMessage serializeZonePartitionId(ZonePartitionId id) {
+        return tableMessagesFactory.zonePartitionIdMessage()
+                .zoneId(id.zoneId())
                 .tableId(id.tableId())
+                .partitionId(id.partitionId())
                 .build();
     }
 
@@ -1072,7 +1085,7 @@ public class InternalTableImpl implements InternalTable {
                 tx,
                 (txo, groupId, enlistmentConsistencyToken) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
                         .groupId(groupId)
-                        .commitPartitionId(serializeTablePartitionId(txo.commitPartition()))
+                        .zoneCommitPartitionId(serializeZonePartitionId(txo.zoneCommitPartition()))
                         .schemaVersion(row.schemaVersion())
                         .binaryTuple(row.tupleSlice())
                         .transactionId(txo.id())
@@ -1120,7 +1133,7 @@ public class InternalTableImpl implements InternalTable {
             @Nullable Long txStartTs
     ) {
         InternalTransaction tx = txManager.begin(observableTimestampTracker);
-        TablePartitionId partGroupId = new TablePartitionId(tableId, partition);
+        ZonePartitionId partGroupId = new ZonePartitionId(zoneId, tableId, partition);
 
         assert rows.stream().allMatch(row -> partitionId(row) == partition) : "Invalid batch for partition " + partition;
 
@@ -1156,7 +1169,7 @@ public class InternalTableImpl implements InternalTable {
                 tx,
                 (txo, groupId, enlistmentConsistencyToken) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
                         .groupId(groupId)
-                        .commitPartitionId(serializeTablePartitionId(txo.commitPartition()))
+                        .zoneCommitPartitionId(serializeZonePartitionId(txo.zoneCommitPartition()))
                         .schemaVersion(row.schemaVersion())
                         .binaryTuple(row.tupleSlice())
                         .transactionId(txo.id())
@@ -1178,7 +1191,7 @@ public class InternalTableImpl implements InternalTable {
                 tx,
                 (txo, groupId, enlistmentConsistencyToken) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
                         .groupId(groupId)
-                        .commitPartitionId(serializeTablePartitionId(txo.commitPartition()))
+                        .zoneCommitPartitionId(serializeZonePartitionId(txo.zoneCommitPartition()))
                         .schemaVersion(row.schemaVersion())
                         .binaryTuple(row.tupleSlice())
                         .transactionId(txo.id())
@@ -1234,7 +1247,7 @@ public class InternalTableImpl implements InternalTable {
 
         return tableMessagesFactory.readWriteMultiRowReplicaRequest()
                 .groupId(groupId)
-                .commitPartitionId(serializeTablePartitionId(tx.commitPartition()))
+                .zoneCommitPartitionId(serializeZonePartitionId(tx.zoneCommitPartition()))
                 .schemaVersion(rows.iterator().next().schemaVersion())
                 .binaryTuples(serializeBinaryTuples(rows))
                 .deleted(deleted)
@@ -1255,7 +1268,7 @@ public class InternalTableImpl implements InternalTable {
                 tx,
                 (txo, groupId, enlistmentConsistencyToken) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
                         .groupId(groupId)
-                        .commitPartitionId(serializeTablePartitionId(txo.commitPartition()))
+                        .zoneCommitPartitionId(serializeZonePartitionId(txo.zoneCommitPartition()))
                         .schemaVersion(row.schemaVersion())
                         .binaryTuple(row.tupleSlice())
                         .transactionId(txo.id())
@@ -1280,7 +1293,7 @@ public class InternalTableImpl implements InternalTable {
                 tx,
                 (txo, groupId, enlistmentConsistencyToken) -> tableMessagesFactory.readWriteSwapRowReplicaRequest()
                         .groupId(groupId)
-                        .commitPartitionId(serializeTablePartitionId(txo.commitPartition()))
+                        .zoneCommitPartitionId(serializeZonePartitionId(txo.zoneCommitPartition()))
                         .schemaVersion(oldRow.schemaVersion())
                         .oldBinaryTuple(oldRow.tupleSlice())
                         .newBinaryTuple(newRow.tupleSlice())
@@ -1303,7 +1316,7 @@ public class InternalTableImpl implements InternalTable {
                 tx,
                 (txo, groupId, enlistmentConsistencyToken) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
                         .groupId(groupId)
-                        .commitPartitionId(serializeTablePartitionId(txo.commitPartition()))
+                        .zoneCommitPartitionId(serializeZonePartitionId(txo.zoneCommitPartition()))
                         .schemaVersion(row.schemaVersion())
                         .binaryTuple(row.tupleSlice())
                         .transactionId(txo.id())
@@ -1325,7 +1338,7 @@ public class InternalTableImpl implements InternalTable {
                 tx,
                 (txo, groupId, enlistmentConsistencyToken) -> tableMessagesFactory.readWriteSingleRowPkReplicaRequest()
                         .groupId(groupId)
-                        .commitPartitionId(serializeTablePartitionId(txo.commitPartition()))
+                        .zoneCommitPartitionId(serializeZonePartitionId(txo.zoneCommitPartition()))
                         .schemaVersion(keyRow.schemaVersion())
                         .primaryKey(keyRow.tupleSlice())
                         .transactionId(txo.id())
@@ -1347,7 +1360,7 @@ public class InternalTableImpl implements InternalTable {
                 tx,
                 (txo, groupId, enlistmentConsistencyToken) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
                         .groupId(groupId)
-                        .commitPartitionId(serializeTablePartitionId(txo.commitPartition()))
+                        .zoneCommitPartitionId(serializeZonePartitionId(txo.zoneCommitPartition()))
                         .schemaVersion(oldRow.schemaVersion())
                         .binaryTuple(oldRow.tupleSlice())
                         .transactionId(txo.id())
@@ -1369,7 +1382,7 @@ public class InternalTableImpl implements InternalTable {
                 tx,
                 (txo, groupId, enlistmentConsistencyToken) -> tableMessagesFactory.readWriteSingleRowPkReplicaRequest()
                         .groupId(groupId)
-                        .commitPartitionId(serializeTablePartitionId(txo.commitPartition()))
+                        .zoneCommitPartitionId(serializeZonePartitionId(txo.zoneCommitPartition()))
                         .schemaVersion(row.schemaVersion())
                         .primaryKey(row.tupleSlice())
                         .transactionId(txo.id())
@@ -1456,7 +1469,7 @@ public class InternalTableImpl implements InternalTable {
     public Publisher<BinaryRow> lookup(
             int partId,
             UUID txId,
-            TablePartitionId commitPartition,
+            ZonePartitionId commitPartition,
             String coordinatorId,
             PrimaryReplica recipient,
             int indexId,
@@ -1519,11 +1532,12 @@ public class InternalTableImpl implements InternalTable {
         return readWriteScan(partId, tx, indexId, null, lowerBound, upperBound, flags, columnsToInclude);
     }
 
+    // TODO: commitPartition -> Zone
     @Override
     public Publisher<BinaryRow> scan(
             int partId,
             UUID txId,
-            TablePartitionId commitPartition,
+            ZonePartitionId commitPartition,
             String coordinatorId,
             PrimaryReplica recipient,
             @Nullable Integer indexId,
@@ -1562,12 +1576,12 @@ public class InternalTableImpl implements InternalTable {
     ) {
         validatePartitionIndex(partId);
 
-        TablePartitionId tablePartitionId = new TablePartitionId(tableId, partId);
+        ZonePartitionId zonePartitionId = new ZonePartitionId(zoneId, tableId, partId);
 
         return new PartitionScanPublisher(
                 (scanId, batchSize) -> {
                     ReadOnlyScanRetrieveBatchReplicaRequest request = tableMessagesFactory.readOnlyScanRetrieveBatchReplicaRequest()
-                            .groupId(tablePartitionId)
+                            .groupId(zonePartitionId)
                             .readTimestampLong(readTimestamp.longValue())
                             .transactionId(txId)
                             .scanId(scanId)
@@ -1585,7 +1599,7 @@ public class InternalTableImpl implements InternalTable {
                 },
                 (intentionallyClose, scanId, th) -> completeScan(
                         txId,
-                        tablePartitionId,
+                        zonePartitionId,
                         scanId,
                         th,
                         recipientNode,
@@ -1640,7 +1654,7 @@ public class InternalTableImpl implements InternalTable {
                     if (implicit) {
                         opFut = completedOrFailedFuture(null, th);
                     } else {
-                        var replicationGrpId = new TablePartitionId(tableId, partId);
+                        var replicationGrpId = new ZonePartitionId(zoneId, tableId, partId);
 
                         opFut = tx.enlistedNodeAndConsistencyToken(replicationGrpId) != null ? completeScan(
                                 tx.id(),
@@ -1661,7 +1675,7 @@ public class InternalTableImpl implements InternalTable {
     private Publisher<BinaryRow> readWriteScan(
             int partId,
             UUID txId,
-            TablePartitionId commitPartition,
+            ZonePartitionId commitPartition,
             String coordinatorId,
             PrimaryReplica recipient,
             @Nullable Integer indexId,
@@ -1671,12 +1685,12 @@ public class InternalTableImpl implements InternalTable {
             int flags,
             @Nullable BitSet columnsToInclude
     ) {
-        TablePartitionId tablePartitionId = new TablePartitionId(tableId, partId);
+        ZonePartitionId zonePartitionId = new ZonePartitionId(zoneId, tableId, partId);
 
         return new PartitionScanPublisher(
                 (scanId, batchSize) -> {
                     ReadWriteScanRetrieveBatchReplicaRequest request = tableMessagesFactory.readWriteScanRetrieveBatchReplicaRequest()
-                            .groupId(tablePartitionId)
+                            .groupId(zonePartitionId)
                             .timestampLong(clock.nowLong())
                             .transactionId(txId)
                             .scanId(scanId)
@@ -1689,13 +1703,13 @@ public class InternalTableImpl implements InternalTable {
                             .batchSize(batchSize)
                             .enlistmentConsistencyToken(recipient.enlistmentConsistencyToken())
                             .full(false) // Set explicitly.
-                            .commitPartitionId(serializeTablePartitionId(commitPartition))
+                            .zoneCommitPartitionId(serializeZonePartitionId(commitPartition))
                             .coordinatorId(coordinatorId)
                             .build();
 
                     return replicaSvc.invoke(recipient.node(), request);
                 },
-                (intentionallyClose, scanId, th) -> completeScan(txId, tablePartitionId, scanId, th, recipient.node(), intentionallyClose),
+                (intentionallyClose, scanId, th) -> completeScan(txId, zonePartitionId, scanId, th, recipient.node(), intentionallyClose),
                 READ_WRITE_INFLIGHT_BATCH_REQUEST_TRACKER
         );
     }
@@ -1897,29 +1911,27 @@ public class InternalTableImpl implements InternalTable {
      * @return The enlist future (then will a leader become known).
      */
     protected CompletableFuture<IgniteBiTuple<ClusterNode, Long>> enlist(int partId, InternalTransaction tx) {
-        TablePartitionId tablePartitionId = new TablePartitionId(tableId, partId);
-        tx.assignCommitPartition(tablePartitionId);
+        ZonePartitionId zonePartitionId = new ZonePartitionId(zoneId, tableId, partId);
 
-        return partitionMeta(tablePartitionId).thenApply(meta -> {
-            TablePartitionId partGroupId = new TablePartitionId(tableId, partId);
+        tx.assignCommitPartition(zonePartitionId);
 
-            return tx.enlist(partGroupId, new IgniteBiTuple<>(
-                    getClusterNode(meta.getLeaseholder()),
-                    meta.getStartTime().longValue())
-            );
-        });
+        return partitionMeta(partId).thenApply(meta ->
+                tx.enlist(zonePartitionId, new IgniteBiTuple<>(getClusterNode(meta.getLeaseholder()), meta.getStartTime().longValue()))
+        );
     }
 
     @Override
-    public CompletableFuture<ClusterNode> partitionLocation(ReplicationGroupId tablePartitionId) {
-        return partitionMeta(tablePartitionId).thenApply(meta -> getClusterNode(meta.getLeaseholder()));
+    public CompletableFuture<ClusterNode> partitionLocation(int partitionId) {
+        return partitionMeta(partitionId).thenApply(meta -> getClusterNode(meta.getLeaseholder()));
     }
 
-    private CompletableFuture<ReplicaMeta> partitionMeta(ReplicationGroupId tablePartitionId) {
+    private CompletableFuture<ReplicaMeta> partitionMeta(int partitionId) {
         HybridTimestamp now = clock.now();
 
-        CompletableFuture<ReplicaMeta> primaryReplicaFuture = placementDriver.awaitPrimaryReplica(
-                tablePartitionId,
+        var zonePartitionId = new ZonePartitionId(zoneId, tableId, partitionId);
+
+        CompletableFuture<ReplicaMeta> primaryReplicaFuture = placementDriver.awaitPrimaryReplicaForTable(
+                zonePartitionId,
                 now,
                 AWAIT_PRIMARY_REPLICA_TIMEOUT,
                 SECONDS
@@ -1928,7 +1940,7 @@ public class InternalTableImpl implements InternalTable {
         return primaryReplicaFuture.handle((primaryReplica, e) -> {
             if (e != null) {
                 throw withCause(TransactionException::new, REPLICA_UNAVAILABLE_ERR, "Failed to get the primary replica"
-                        + " [tablePartitionId=" + tablePartitionId + ", awaitTimestamp=" + now + ']', e);
+                        + " [zonePartitionId=" + zonePartitionId + ", awaitTimestamp=" + now + ']', e);
             }
 
             return primaryReplica;
@@ -2186,9 +2198,9 @@ public class InternalTableImpl implements InternalTable {
      * @return Cluster node to evalute read-only request.
      */
     protected CompletableFuture<ClusterNode> evaluateReadOnlyRecipientNode(int partId) {
-        TablePartitionId tablePartitionId = new TablePartitionId(tableId, partId);
+        ZonePartitionId zonePartitionId = new ZonePartitionId(zoneId, tableId, partId);
 
-        return placementDriver.awaitPrimaryReplica(tablePartitionId, clock.now(), AWAIT_PRIMARY_REPLICA_TIMEOUT, SECONDS)
+        return placementDriver.awaitPrimaryReplicaForTable(zonePartitionId, clock.now(), AWAIT_PRIMARY_REPLICA_TIMEOUT, SECONDS)
                 .handle((res, e) -> {
                     if (e != null) {
                         throw withCause(TransactionException::new, REPLICA_UNAVAILABLE_ERR, e);
@@ -2263,7 +2275,7 @@ public class InternalTableImpl implements InternalTable {
             Long enlistmentConsistencyToken,
             boolean full
     ) {
-        assert serializeTablePartitionId(txo.commitPartition()) != null;
+        assert serializeZonePartitionId(txo.zoneCommitPartition()) != null;
 
         return readWriteMultiRowReplicaRequest(RequestType.RW_UPSERT_ALL, keyRows0, null, txo, groupId, enlistmentConsistencyToken, full);
     }
@@ -2276,7 +2288,7 @@ public class InternalTableImpl implements InternalTable {
             Long enlistmentConsistencyToken,
             boolean full
     ) {
-        assert serializeTablePartitionId(txo.commitPartition()) != null;
+        assert serializeZonePartitionId(txo.zoneCommitPartition()) != null;
 
         return readWriteMultiRowReplicaRequest(
                 RequestType.RW_UPSERT_ALL, keyRows0, deleted, txo, groupId, enlistmentConsistencyToken, full);
