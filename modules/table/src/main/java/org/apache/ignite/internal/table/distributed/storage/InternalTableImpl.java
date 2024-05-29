@@ -76,8 +76,6 @@ import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
-import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
-import org.apache.ignite.internal.replicator.exception.ReplicationException;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
@@ -1926,15 +1924,15 @@ public class InternalTableImpl implements InternalTable {
     }
 
     @Override
-    public CompletableFuture<ClusterNode> partitionLocation(ReplicationGroupId tablePartitionId) {
+    public CompletableFuture<ClusterNode> partitionLocation(TablePartitionId tablePartitionId) {
         return partitionMeta(tablePartitionId).thenApply(meta -> getClusterNode(meta.getLeaseholder()));
     }
 
-    private CompletableFuture<ReplicaMeta> partitionMeta(ReplicationGroupId tablePartitionId) {
+    private CompletableFuture<ReplicaMeta> partitionMeta(TablePartitionId tablePartitionId) {
         HybridTimestamp now = clock.now();
 
         CompletableFuture<ReplicaMeta> primaryReplicaFuture = placementDriver.awaitPrimaryReplicaForTable(
-                new ZonePartitionId(zoneId, tableId, partId),
+                new ZonePartitionId(zoneId, tableId, tablePartitionId.partitionId()),
                 now,
                 AWAIT_PRIMARY_REPLICA_TIMEOUT,
                 SECONDS
