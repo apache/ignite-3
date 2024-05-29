@@ -25,6 +25,7 @@ import java.io.Serializable;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -62,6 +63,7 @@ import org.apache.ignite.internal.metastorage.server.Statement;
 import org.apache.ignite.internal.metastorage.server.TombstoneCondition;
 import org.apache.ignite.internal.metastorage.server.ValueCondition;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
+import org.apache.ignite.internal.metrics.AtomicDoubleMetric;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
@@ -375,15 +377,18 @@ public class MetaStorageWriteHandler {
     /**
      * Removes obsolete entries from both volatile and persistent idempotent command cache.
      */
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-19417 Call on meta storage compaction.
     public void removeObsoleteRecordsFromIdempotentCommandsCache() {
-        LOG.info("Idempotent command cache cleanup triggered [triggerTimestamp={}].", clusterTime.now());
+        UUID token = UUID.randomUUID();
+
+        LOG.info("Idempotent command cache cleanup triggered [token={}, triggerTimestamp={}].", token, clusterTime.now());
 
         assert maxClockSkewMillisFuture.isDone();
 
         maxClockSkewMillisFuture.thenApply(maxClockSkewMillis -> {
             HybridTimestamp cleanupTimestamp = clusterTime.now();
 
-            LOG.info("Idempotent command cache cleanup started [cleanupTimestamp={}].", cleanupTimestamp);
+            LOG.info("Idempotent command cache cleanup started [token={}, cleanupTimestamp={}].", token, cleanupTimestamp);
             List<CommandId> commandIdsToRemove = idempotentCommandCache.entrySet().stream()
                     .filter(entry -> entry.getValue().commandStartTime.longValue()
                             > cleanupTimestamp.longValue() - (idempotentCacheTtlSupplier.getAsLong() + maxClockSkewMillis.getAsLong()))
@@ -398,8 +403,8 @@ public class MetaStorageWriteHandler {
 
             commandIdsToRemove.forEach(idempotentCommandCache.keySet()::remove);
 
-            LOG.info("Idempotent command cache cleanup started [cleanupTimestamp={}, cleanupCompletionTimestamp={},"
-                    + " removedEntriesCount={}, cacheSize={}].", cleanupTimestamp, clusterTime.now(), commandIdsToRemove.size(),
+            LOG.info("Idempotent command cache cleanup finished [token={}, cleanupTimestamp={}, cleanupCompletionTimestamp={},"
+                    + " removedEntriesCount={}, cacheSize={}].", token, cleanupTimestamp, clusterTime.now(), commandIdsToRemove.size(),
                     idempotentCommandCache.size());
             return null;
         });
