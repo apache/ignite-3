@@ -47,8 +47,6 @@ using Serialization;
 /// </summary>
 internal static class DataStreamer
 {
-    private static readonly TimeSpan PartitionAssignmentUpdateFrequency = TimeSpan.FromSeconds(15);
-
     /// <summary>
     /// Streams the data.
     /// </summary>
@@ -93,7 +91,6 @@ internal static class DataStreamer
         var partitionAssignment = await table.GetPartitionAssignmentAsync().ConfigureAwait(false);
         var partitionCount = partitionAssignment.Length; // Can't be changed.
         Debug.Assert(partitionCount > 0, "partitionCount > 0");
-        var lastPartitionsAssignmentCheck = Stopwatch.StartNew();
 
         using var flushCts = new CancellationTokenSource();
 
@@ -107,24 +104,18 @@ internal static class DataStreamer
                 // However, not all producers support cancellation, so we need to check it here as well.
                 cancellationToken.ThrowIfCancellationRequested();
 
+                var newAssignment = await table.GetPartitionAssignmentAsync().ConfigureAwait(false);
+                if (newAssignment != partitionAssignment)
+                {
+                    // Drain all batches to preserve order when partition assignment changes.
+                    await Drain().ConfigureAwait(false);
+                    partitionAssignment = newAssignment;
+                }
+
                 var batch = await AddWithRetryUnmapped(item).ConfigureAwait(false);
                 if (batch.Count >= options.PageSize)
                 {
                     await SendAsync(batch).ConfigureAwait(false);
-                }
-
-                if (lastPartitionsAssignmentCheck.Elapsed > PartitionAssignmentUpdateFrequency)
-                {
-                    var newAssignment = await table.GetPartitionAssignmentAsync().ConfigureAwait(false);
-
-                    if (newAssignment != partitionAssignment)
-                    {
-                        // Drain all batches to preserve order when partition assignment changes.
-                        await Drain().ConfigureAwait(false);
-                        partitionAssignment = newAssignment;
-                    }
-
-                    lastPartitionsAssignmentCheck.Restart();
                 }
             }
 

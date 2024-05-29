@@ -45,8 +45,10 @@ import org.jetbrains.annotations.Nullable;
  * <p>TBD: events
  */
 public interface CatalogService extends EventProducer<CatalogEvent, CatalogEventParameters> {
+    /** Default schema name. */
     String DEFAULT_SCHEMA_NAME = "PUBLIC";
 
+    /** System schema name. */
     String SYSTEM_SCHEMA_NAME = "SYSTEM";
 
     /** Default storage profile. */
@@ -110,4 +112,9 @@ public interface CatalogService extends EventProducer<CatalogEvent, CatalogEvent
      * @param version Catalog version to wait for.
      */
     CompletableFuture<Void> catalogReadyFuture(int version);
+
+    /**
+     * Returns a future, which completes when empty catalog is initialised. Otherwise this future completes upon startup.
+     */
+    CompletableFuture<Void> catalogInitializationFuture();
 }

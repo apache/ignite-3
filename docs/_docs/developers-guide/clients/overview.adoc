@@ -1,0 +1,114 @@
+// Licensed to the Apache Software Foundation (ASF) under one or more
+// contributor license agreements.  See the NOTICE file distributed with
+// this work for additional information regarding copyright ownership.
+// The ASF licenses this file to You under the Apache License, Version 2.0
+// (the "License"); you may not use this file except in compliance with
+// the License.  You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+= Ignite Clients
+
+Ignite 3 clients connect to the cluster via a standard socket connection. Unlike Ignite 2.x, there is no separate Thin and Thick clients in Ignite 3. All clients are 'thin'.
+
+Clients do not become a part of the cluster topology, never hold any data, and are not used as a destination for compute calculations.
+
+== Client Connector Configuration
+
+Client connection parameters are controlled by the client connector configuration. By default, Ignite accepts client connections on port 10800. You can change the configuration for the node by using the link:ignite-cli-tool[CLI tool] at any time.
+
+Here is how the client connector configuration looks like:
+
+[source, json]
+----
+"clientConnector": {
+  "port": 10800,
+  "idleTimeout":3000,
+  "sendServerExceptionStackTraceToClient":true,
+  "ssl": {
+    enabled: true,
+    clientAuth: "require",
+    keyStore: {
+      path: "KEYSTORE_PATH",
+      password: "SSL_STORE_PASS"
+    },
+    trustStore: {
+      path: "TRUSTSTORE_PATH",
+      password: "SSL_STORE_PASS"
+    }
+  }
+}
+
+----
+
+//NOTE: Replace with link to javadoc once it is published.
+
+The table below covers the configuration for client connector:
+
+[cols="1,1,3",opts="header", stripes=none]
+|======
+|Property|Default|Description
+
+|connectTimeout|5000| Connection attempt timeout, in milliseconds.
+|idleTimeout|0|How long the client can be idle before the connection is dropped,in milliseconds. By default, there is no limit.
+|metricsEnabled|`false`|Defines if client metrics are collected.
+|port|10800|The port the client connector will be listening to.
+|sendServerExceptionStackTraceToClient|`false` a| 
+By default, only the exception message and code are sent back to the client. 
+
+Set this property to `true` to include the full stack trace, which will appear as part of the client-side exception. 
+
+NOTE: Not recommended for production: stack trace disclosure is a link:https://owasp.org/www-community/Improper_Error_Handling[security weakness].  
+|ssl.ciphers||The cipher used for SSL communication.
+|ssl.clientAuth||Type of client authentication used by clients. For more information, see link:security/ssl-tls[SSL/TLS].
+|ssl.enabled||Defines if SSL is enabled.
+|ssl.keyStore.password||SSL keystore password.
+|ssl.keyStore.path||Path to the SSL keystore.
+|ssl.keyStore.type|`PKCS12`|The type of SSL keystore used.
+|ssl.trustStore.password||SSL keystore password.
+|ssl.trustStore.path||Path to the SSL keystore.
+|ssl.trustStore.type|`PKCS12`|The type of SSL keystore used.
+|======
+
+Here is how you can change the parameters:
+
+
+----
+node config update clientConnector.port=10469
+----
+
+=== Limitations
+
+There are limitations to user types that can be used for such a mapping. Some limitations are common, and others are platform-specific due to the programming language used.
+
+- Only flat field structure is supported, meaning no nesting user objects. This is because Ignite tables, and therefore tuples have flat structure themselves;
+- Fields should be mapped to Ignite types;
+- All fields in user type should either be mapped to Table column or explicitly excluded;
+- All columns from Table should be mapped to some field in the user type;
+- *Java only*: Users should implement Mapper classes for user types for more flexibility;
+
+== Partition Awareness
+
+In Ignite 3, partition awareness is enabled automatically for all clients.
+
+Data in the cluster is distributed between the nodes in a balanced manner for scalability and performance reasons. Each cluster node maintains a subset of the data, and the partition distribution map, which is used to determine the node that keeps the primary/backup copy of requested entries.
+
+Partition awareness allows the client to send query requests directly to the node that owns the queried data.
+
+Without partition awareness, an application that is connected to the cluster via a client would execute all queries and operations via a single server node that acts as a proxy for the incoming requests.
+These operations would then be re-routed to the node that stores the data that is being requested.
+This would result in a bottleneck that could prevent the application from scaling linearly.
+
+image::images/partitionawareness01.png[Without Partition Awareness]
+
+Notice how queries must pass through the proxy server node, where they are routed to the correct node.
+
+With partition awareness in place, the client can directly route queries and operations to the primary nodes that own the data required for the queries.
+This eliminates the bottleneck, allowing the application to scale more easily.
+
+image::images/partitionawareness02.png[With Partition Awareness]

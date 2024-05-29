@@ -1,7 +1,7 @@
 # name: test/sql/set/test_except_all.test
 # description: EXCEPT ALL table operator
 # feature: F304
-# [group] Set operations
+# group: [set]
 
 query II
 select x, count(*) from

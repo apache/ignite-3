@@ -61,14 +61,14 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
 
     private static final String TABLE_NAME = "table1";
 
-    @Language("JSON")
-    private static final String NODE_ATTRIBUTES = "{region:{attribute:\"US\"},storage:{attribute:\"SSD\"}}";
+    @Language("HOCON")
+    private static final String NODE_ATTRIBUTES = "{region.attribute = US, storage.attribute = SSD}";
 
     private static final String STORAGE_PROFILES = String.format("'%s, %s'", DEFAULT_ROCKSDB_PROFILE_NAME, DEFAULT_AIPERSIST_PROFILE_NAME);
 
-    @Language("JSON")
+    @Language("HOCON")
     private static final String STORAGE_PROFILES_CONFIGS = String.format(
-            "{%s:{engine:\"rocksDb\"}, %s:{engine:\"aipersist\"}}",
+            "{%s.engine = rocksdb, %s.engine = aipersist}",
             DEFAULT_ROCKSDB_PROFILE_NAME,
             DEFAULT_AIPERSIST_PROFILE_NAME
     );
@@ -79,22 +79,16 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
 
     private static final int TIMEOUT_MILLIS = 10_000;
 
-    @Language("JSON")
-    private static String createStartConfig(@Language("JSON") String nodeAttributes, @Language("JSON") String storageProfiles) {
+    @Language("HOCON")
+    private static String createStartConfig(@Language("HOCON") String nodeAttributes, @Language("HOCON") String storageProfiles) {
         return "{\n"
                 + "  network: {\n"
                 + "    port: {},\n"
-                + "    nodeFinder: {\n"
-                + "      netClusterNodes: [ {} ]\n"
-                + "    }\n"
+                + "    nodeFinder.netClusterNodes: [ {} ]\n"
                 + "  },"
-                + "  nodeAttributes: {\n"
-                + "    nodeAttributes: " + nodeAttributes
-                + "  },\n"
-                + "  storage: {\n"
-                + "    profiles: " + storageProfiles
-                + "  },\n"
-                + "  clientConnector: { port:{} },\n"
+                + "  nodeAttributes.nodeAttributes: " + nodeAttributes + ",\n"
+                + "  storage.profiles: " + storageProfiles + ",\n"
+                + "  clientConnector.port: {},\n"
                 + "  rest.port: {}\n"
                 + "}";
     }
@@ -119,7 +113,7 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
         String filter = "$[?(@.region == \"US\" && @.storage == \"SSD\")]";
 
         // This node do not pass the filter
-        @Language("JSON") String firstNodeAttributes = "{region:{attribute:\"EU\"},storage:{attribute:\"SSD\"}}";
+        @Language("HOCON") String firstNodeAttributes = "{region:{attribute:\"EU\"},storage:{attribute:\"SSD\"}}";
 
         IgniteImpl node = startNode(1, createStartConfig(firstNodeAttributes, STORAGE_PROFILES_CONFIGS));
 
@@ -140,12 +134,12 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
                 TIMEOUT_MILLIS
         );
 
-        @Language("JSON") String secondNodeAttributes = "{region:{attribute:\"US\"},storage:{attribute:\"SSD\"}}";
+        @Language("HOCON") String secondNodeAttributes = "{region:{attribute:\"US\"},storage:{attribute:\"SSD\"}}";
 
         // This node pass the filter but storage profiles of a node do not match zone's storage profiles.
         // TODO: https://issues.apache.org/jira/browse/IGNITE-21387 recovery of this node is failing,
         // TODO: because there are no appropriate storage profile on the node
-        @Language("JSON") String notMatchingProfiles = "{dummy:{engine:\"dummy\"},another_dummy:{engine:\"dummy\"}}";
+        @Language("HOCON") String notMatchingProfiles = "{dummy:{engine:\"dummy\"},another_dummy:{engine:\"dummy\"}}";
         startNode(2, createStartConfig(secondNodeAttributes, notMatchingProfiles));
 
         // This node pass the filter and storage profiles of a node match zone's storage profiles.
@@ -206,7 +200,7 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
                 TIMEOUT_MILLIS
         );
 
-        @Language("JSON") String firstNodeAttributes = "{region:{attribute:\"US\"},storage:{attribute:\"SSD\"}}";
+        @Language("HOCON") String firstNodeAttributes = "{region:{attribute:\"US\"},storage:{attribute:\"SSD\"}}";
 
         // This node pass the filter
         startNode(1, createStartConfig(firstNodeAttributes, STORAGE_PROFILES_CONFIGS));
@@ -257,7 +251,7 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
                 TIMEOUT_MILLIS
         );
 
-        @Language("JSON") String firstNodeAttributes = "{region:{attribute:\"US\"},storage:{attribute:\"SSD\"}}";
+        @Language("HOCON") String firstNodeAttributes = "{region:{attribute:\"US\"},storage:{attribute:\"SSD\"}}";
 
         // This node pass the filter
         startNode(1, createStartConfig(firstNodeAttributes, STORAGE_PROFILES_CONFIGS));
@@ -298,7 +292,7 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
         IgniteImpl node0 = node(0);
 
         // This node passes the filter
-        @Language("JSON") String firstNodeAttributes = "{region:{attribute:\"EU\"},storage:{attribute:\"HDD\"}}";
+        @Language("HOCON") String firstNodeAttributes = "{region:{attribute:\"EU\"},storage:{attribute:\"HDD\"}}";
 
         IgniteImpl node1 = startNode(1, createStartConfig(firstNodeAttributes, STORAGE_PROFILES_CONFIGS));
 
@@ -342,7 +336,7 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
         IgniteImpl node0 = node(0);
 
         // This node passes the filter
-        @Language("JSON") String firstNodeAttributes = "{region:{attribute:\"EU\"},storage:{attribute:\"HDD\"}}";
+        @Language("HOCON") String firstNodeAttributes = "{region:{attribute:\"EU\"},storage:{attribute:\"HDD\"}}";
 
         startNode(1, createStartConfig(firstNodeAttributes, STORAGE_PROFILES_CONFIGS));
 

@@ -108,12 +108,13 @@ public abstract class CatalogIndexDescriptor extends CatalogObjectDescriptor {
 
         /** Returns catalog index descriptor type by identifier. */
         public static CatalogIndexDescriptorType forId(int id) {
-            assert id == HASH.typeId || id == SORTED.typeId : "Unknown index descriptor type ID: " + id;
-
-            if (id == HASH.typeId) {
-                return HASH;
-            } else {
-                return SORTED;
+            switch (id) {
+                case 0:
+                    return HASH;
+                case 1:
+                    return SORTED;
+                default:
+                    throw new IllegalArgumentException("Unknown index descriptor type id: " + id);
             }
         }
     }

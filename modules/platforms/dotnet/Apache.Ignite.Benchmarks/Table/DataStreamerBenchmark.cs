@@ -33,20 +33,20 @@ using Tests;
 /// inserts everything in one batch, and streamer sends multiple batches. With multiple servers, streamer scales linearly because
 /// it sends batches to different nodes in parallel.
 /// <para />
-/// Results on i9-12900H, .NET SDK 6.0.408, Ubuntu 22.04:
+/// Results on i9-12900H, .NET SDK 6.0.421, Ubuntu 22.04:
 /// |           Method | ServerCount |      Mean |    Error |   StdDev | Ratio | RatioSD | Allocated |
 /// |----------------- |------------ |----------:|---------:|---------:|------:|--------:|----------:|
-/// |     DataStreamer |           1 | 141.56 ms | 2.725 ms | 3.244 ms |  1.00 |    0.00 |      4 MB |
-/// |        UpsertAll |           1 | 112.99 ms | 1.203 ms | 1.125 ms |  0.80 |    0.02 |      4 MB |
-/// | UpsertAllBatched |           1 | 159.11 ms | 3.175 ms | 4.451 ms |  1.12 |    0.04 |      4 MB |
+/// |     DataStreamer |           1 | 109.33 ms | 0.805 ms | 0.753 ms |  1.00 |    0.00 |      4 MB |
+/// |        UpsertAll |           1 | 112.34 ms | 1.060 ms | 0.991 ms |  1.03 |    0.01 |      4 MB |
+/// | UpsertAllBatched |           1 | 158.85 ms | 3.115 ms | 5.374 ms |  1.44 |    0.06 |      4 MB |
 /// |                  |             |           |          |          |       |         |           |
-/// |     DataStreamer |           2 |  67.29 ms | 1.331 ms | 3.058 ms |  1.00 |    0.00 |      4 MB |
-/// |        UpsertAll |           2 | 113.68 ms | 0.915 ms | 0.856 ms |  1.64 |    0.05 |      4 MB |
-/// | UpsertAllBatched |           2 | 162.47 ms | 3.169 ms | 5.118 ms |  2.42 |    0.14 |      4 MB |
+/// |     DataStreamer |           2 |  56.03 ms | 0.619 ms | 0.579 ms |  1.00 |    0.00 |      4 MB |
+/// |        UpsertAll |           2 | 112.38 ms | 1.527 ms | 1.428 ms |  2.01 |    0.03 |      4 MB |
+/// | UpsertAllBatched |           2 | 162.67 ms | 2.833 ms | 3.149 ms |  2.91 |    0.07 |      4 MB |
 /// |                  |             |           |          |          |       |         |           |
-/// |     DataStreamer |           4 |  32.64 ms | 0.507 ms | 0.475 ms |  1.00 |    0.00 |      4 MB |
-/// |        UpsertAll |           4 | 113.84 ms | 1.276 ms | 1.193 ms |  3.49 |    0.05 |      4 MB |
-/// | UpsertAllBatched |           4 | 159.17 ms | 3.148 ms | 5.172 ms |  4.79 |    0.17 |      4 MB |.
+/// |     DataStreamer |           4 |  43.86 ms | 0.528 ms | 0.494 ms |  1.00 |    0.00 |      4 MB |
+/// |        UpsertAll |           4 | 113.32 ms | 0.880 ms | 0.823 ms |  2.58 |    0.04 |      4 MB |
+/// | UpsertAllBatched |           4 | 164.51 ms | 3.220 ms | 3.446 ms |  3.76 |    0.10 |      4 MB |.
 /// </summary>
 [MemoryDiagnoser]
 public class DataStreamerBenchmark

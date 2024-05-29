@@ -1808,7 +1808,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         var zonePartitionId = new ZonePartitionId(zoneId, partId);
 
         // Stable assignments from the meta store, which revision is bounded by the current pending event.
-        Entry stableAssignmentsEntry = metaStorageMgr.getLocally(stablePartAssignmentsKey(zonePartitionId), revision);
+        Assignments stableAssignments = stableAssignments(zonePartitionId, revision);
 
         Assignments pendingAssignments = Assignments.fromBytes(pendingAssignmentsEntry.value());
 
@@ -1827,10 +1827,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     }
 
                     try {
-                        Set<Assignment> stableAssignments = stableAssignmentsEntry.value() == null
-                                ? emptySet()
-                                : Assignments.fromBytes(stableAssignmentsEntry.value()).nodes();
-
                         return setTablesPartitionCountersForRebalance(zonePartitionId, revision, pendingAssignments.force())
                                 .thenCompose(r -> {
                                     List<CompletableFuture<?>> tableFutures = new ArrayList<>(tables.size());
@@ -1852,7 +1848,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                                         zonePartitionId,
                                                         table,
                                                         pendingAssignments,
-                                                        stableAssignments,
+                                                        stableAssignments == null ? emptySet() : stableAssignments.nodes(),
                                                         revision,
                                                         isRecovery
                                                 ).thenCompose(
@@ -2221,11 +2217,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         MvPartitionStorage mvPartition = internalTable.storage().getMvPartition(partitionId);
 
-        assert mvPartition != null;
+        assert mvPartition != null : "tableId=" + table.tableId() + ", partitionId=" + partitionId;
 
         TxStateStorage txStateStorage = internalTable.txStateStorage().getTxStateStorage(partitionId);
 
-        assert txStateStorage != null;
+        assert txStateStorage != null : "tableId=" + table.tableId() + ", partitionId=" + partitionId;
 
         return new PartitionStorages(mvPartition, txStateStorage);
     }
@@ -2618,5 +2614,35 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         } finally {
             busyLock.leaveBusy();
         }
+    }
+
+    /**
+     * Restarts the table partition including the replica and raft node.
+     *
+     * @param tablePartitionId Table partition that needs to be restarted.
+     * @param revision Metastore revision.
+     * @return Operation future.
+     */
+    public CompletableFuture<Void> restartPartition(TablePartitionId tablePartitionId, long revision) {
+        return inBusyLockAsync(busyLock, () -> tablesVv.get(revision).thenComposeAsync(unused -> inBusyLockAsync(busyLock, () -> {
+            TableImpl table = tables.get(tablePartitionId.tableId());
+            ZonePartitionId zonePartitionId = new ZonePartitionId(table.internalTable().zoneId(), tablePartitionId.partitionId());
+
+            return stopPartition(tablePartitionId, table).thenComposeAsync(unused1 -> {
+                Assignments stableAssignments = stableAssignments(zonePartitionId, revision);
+
+                assert stableAssignments != null : "tablePartitionId=" + tablePartitionId + ", revision=" + revision;
+
+                int zoneId = zonePartitionId.zoneId();
+
+                return startPartitionAndStartClient(table, tablePartitionId.partitionId(), stableAssignments, null, zoneId, false);
+            }, ioExecutor);
+        }), ioExecutor));
+    }
+
+    private @Nullable Assignments stableAssignments(ZonePartitionId zonePartitionId, long revision) {
+        Entry entry = metaStorageMgr.getLocally(stablePartAssignmentsKey(zonePartitionId), revision);
+
+        return Assignments.fromBytes(entry.value());
     }
 }

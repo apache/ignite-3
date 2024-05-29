@@ -25,4 +25,6 @@ package org.apache.ignite.internal.catalog.commands;
  * side effects on builder's state or any object created by the same builder.
  */
 public interface DropIndexCommandBuilder extends AbstractIndexCommandBuilder<DropIndexCommandBuilder> {
+    /** Sets a flag indicating whether the {@code IF EXISTS} was specified. */
+    DropIndexCommandBuilder ifExists(boolean ifExists);
 }
