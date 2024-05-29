@@ -77,11 +77,11 @@ public final class MarshallerUtil {
      * @param type Mapped type.
      * @return Value in a more compact form, or the original value if it cannot be compacted.
      */
-    public static Object shrinkValue(Object value, NativeType type) {
+    public static <T> T shrinkValue(T value, NativeType type) {
         if (type.spec() == NativeTypeSpec.DECIMAL) {
             assert type instanceof DecimalNativeType;
 
-            return BinaryTupleCommon.shrinkDecimal((BigDecimal) value, ((DecimalNativeType) type).scale());
+            return (T) BinaryTupleCommon.shrinkDecimal((BigDecimal) value, ((DecimalNativeType) type).scale());
         }
 
         return value;

@@ -155,7 +155,7 @@ public class KvMarshallerImpl<K, V> implements KvMarshaller<K, V> {
      */
     private MarshallerRowBuilder createRowBuilder(Object key) throws MarshallerException {
         try {
-            return ObjectStatistics.createRowBuilder(schema, keyMarsh, key);
+            return MarshallerRowBuilder.createRowBuilder(schema, keyMarsh, key);
         } catch (Throwable e) {
             throw new MarshallerException(e.getMessage(), e);
         }
@@ -171,7 +171,7 @@ public class KvMarshallerImpl<K, V> implements KvMarshaller<K, V> {
      */
     private MarshallerRowBuilder createRowBuilder(Object key, @Nullable Object val) throws MarshallerException {
         try {
-            return ObjectStatistics.createRowBuilder(schema, keyMarsh, valMarsh, key, val);
+            return MarshallerRowBuilder.createRowBuilder(schema, keyMarsh, valMarsh, key, val);
         } catch (Throwable e) {
             throw new MarshallerException(e.getMessage(), e);
         }

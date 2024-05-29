@@ -132,7 +132,7 @@ public class RecordMarshallerImpl<R> implements RecordMarshaller<R> {
      */
     private MarshallerRowBuilder createRowBuilder(Object key) throws MarshallerException {
         try {
-            return ObjectStatistics.createRowBuilder(schema, keyMarsh, key);
+            return MarshallerRowBuilder.createRowBuilder(schema, keyMarsh, key);
         } catch (Throwable e) {
             throw new MarshallerException(e.getMessage(), e);
         }
@@ -148,7 +148,7 @@ public class RecordMarshallerImpl<R> implements RecordMarshaller<R> {
      */
     private MarshallerRowBuilder createRowBuilder(Object key, Object val) throws MarshallerException {
         try {
-            return ObjectStatistics.createRowBuilder(schema, keyMarsh, valMarsh, key, val);
+            return MarshallerRowBuilder.createRowBuilder(schema, keyMarsh, valMarsh, key, val);
         } catch (Throwable e) {
             throw new MarshallerException(e.getMessage(), e);
         }

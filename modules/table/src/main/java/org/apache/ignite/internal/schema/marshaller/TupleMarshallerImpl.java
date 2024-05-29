@@ -190,11 +190,11 @@ public class TupleMarshallerImpl implements TupleMarshaller {
             col.validate(val);
 
             if (val != null) {
-                val = MarshallerUtil.shrinkValue(val, col.type());
-
                 if (colType.spec().fixedLength()) {
                     estimatedValueSize += colType.sizeInBytes();
                 } else {
+                    val = MarshallerUtil.shrinkValue(val, col.type());
+
                     estimatedValueSize += getValueSize(val, colType);
                 }
             }

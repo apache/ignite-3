@@ -24,10 +24,8 @@ import org.apache.ignite.internal.marshaller.Marshaller;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.MarshallerUtil;
-import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.type.NativeType;
 import org.jetbrains.annotations.Nullable;
-import org.jetbrains.annotations.TestOnly;
 
 /**
  * Object statistic.
@@ -48,46 +46,12 @@ class ObjectStatistics {
         return estimatedValueSize;
     }
 
-    @TestOnly
+    Object[] values() {
+        return values;
+    }
+
     <T> T value(int index) {
         return (T) values[index];
-    }
-
-    static MarshallerRowBuilder createRowBuilder(SchemaDescriptor schema, Marshaller keyMarsh, Object key) {
-        ObjectStatistics statistics = collectObjectStats(schema, schema.keyColumns(), keyMarsh, key);
-
-        RowAssembler assembler = new RowAssembler(schema.version(), schema.keyColumns(), statistics.estimatedValueSize);
-
-        return MarshallerRowBuilder.forKey(assembler, keyMarsh, statistics.values);
-    }
-
-    static MarshallerRowBuilder createRowBuilder(SchemaDescriptor schema, Marshaller keyMarsh, Marshaller valMarsh, Object key,
-            @Nullable Object val) {
-        ObjectStatistics keyStat = collectObjectStats(schema, schema.keyColumns(), keyMarsh, key);
-        int keyLen = schema.keyColumns().size();
-
-        Object[] values = new Object[schema.columns().size()];
-
-        for (int i = 0; i < keyLen; i++) {
-            values[schema.keyColumns().get(i).positionInRow()] = keyStat.values[i];
-        }
-
-        ObjectStatistics valStat = collectObjectStats(schema, schema.valueColumns(), valMarsh, val);
-
-        for (int i = 0; i < schema.valueColumns().size(); i++) {
-            values[schema.valueColumns().get(i).positionInRow()] = valStat.values[i];
-        }
-
-        int totalValueSize;
-        if (keyStat.estimatedValueSize() < 0 || valStat.estimatedValueSize() < 0) {
-            totalValueSize = -1;
-        } else {
-            totalValueSize = keyStat.estimatedValueSize() + valStat.estimatedValueSize();
-        }
-
-        RowAssembler assembler = new RowAssembler(schema, totalValueSize);
-
-        return MarshallerRowBuilder.forRow(schema, assembler, keyMarsh, valMarsh, values);
     }
 
     /**
@@ -113,11 +77,11 @@ class ObjectStatistics {
 
             col.validate(val);
 
-            vals[i] = MarshallerUtil.shrinkValue(val, col.type());
-
             if (colType.spec().fixedLength()) {
                 estimatedValueSize += colType.sizeInBytes();
             } else {
+                vals[i] = MarshallerUtil.shrinkValue(val, col.type());
+
                 estimatedValueSize += getValueSize(vals[i], colType);
             }
         }

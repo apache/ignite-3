@@ -24,6 +24,7 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.RowAssembler;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Helper to build a binary row.
@@ -32,22 +33,43 @@ abstract class MarshallerRowBuilder {
     /** Build binary row. */
     abstract BinaryRow build() throws MarshallerException;
 
-    static MarshallerRowBuilder forKey(
-            RowAssembler asm,
-            Marshaller keyMarsh,
-            Object[] values
-    ) {
-        return new KeyOnlyBuilder(asm, keyMarsh, values);
+    /** Creates binary row builder for key only. */
+    static MarshallerRowBuilder createRowBuilder(SchemaDescriptor schema, Marshaller keyMarsh, Object key) {
+        ObjectStatistics statistics = ObjectStatistics.collectObjectStats(schema, schema.keyColumns(), keyMarsh, key);
+
+        RowAssembler assembler = new RowAssembler(schema.version(), schema.keyColumns(), statistics.estimatedValueSize());
+
+        return new KeyOnlyBuilder(assembler, keyMarsh, statistics.values());
     }
 
-    static MarshallerRowBuilder forRow(
-            SchemaDescriptor schema,
-            RowAssembler asm,
-            Marshaller keyMarsh,
-            Marshaller valMarsh,
-            Object[] values
-    ) {
-        return new KeyValueBuilder(schema, asm, keyMarsh, valMarsh, values);
+    /** Creates binary row builder. */
+    static MarshallerRowBuilder createRowBuilder(SchemaDescriptor schema, Marshaller keyMarsh, Marshaller valMarsh, Object key,
+            @Nullable Object val) {
+        ObjectStatistics keyStat = ObjectStatistics.collectObjectStats(schema, schema.keyColumns(), keyMarsh, key);
+        int keyLen = schema.keyColumns().size();
+
+        Object[] values = new Object[schema.columns().size()];
+
+        for (int i = 0; i < keyLen; i++) {
+            values[schema.keyColumns().get(i).positionInRow()] = keyStat.value(i);
+        }
+
+        ObjectStatistics valStat = ObjectStatistics.collectObjectStats(schema, schema.valueColumns(), valMarsh, val);
+
+        for (int i = 0; i < schema.valueColumns().size(); i++) {
+            values[schema.valueColumns().get(i).positionInRow()] = valStat.value(i);
+        }
+
+        int totalValueSize;
+        if (keyStat.estimatedValueSize() < 0 || valStat.estimatedValueSize() < 0) {
+            totalValueSize = -1;
+        } else {
+            totalValueSize = keyStat.estimatedValueSize() + valStat.estimatedValueSize();
+        }
+
+        RowAssembler assembler = new RowAssembler(schema, totalValueSize);
+
+        return new KeyValueBuilder(schema, assembler, keyMarsh, valMarsh, values);
     }
 
     static class KeyOnlyBuilder extends MarshallerRowBuilder {
