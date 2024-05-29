@@ -106,6 +106,7 @@ internal static class DataStreamerWithReceiver
         var partitionCount = partitionAssignment.Length; // Can't be changed.
         Debug.Assert(partitionCount > 0, "partitionCount > 0");
 
+        Type? payloadType = null;
         using var flushCts = new CancellationTokenSource();
 
         try
@@ -175,6 +176,17 @@ internal static class DataStreamerWithReceiver
 
             var payload = payloadSelector(item);
             IgniteArgumentCheck.NotNull(payload);
+
+            if (payloadType == null)
+            {
+                payloadType = payload.GetType();
+            }
+            else if (payloadType != payload.GetType())
+            {
+                throw new InvalidOperationException(
+                    $"All streamer items returned by payloadSelector must be of the same type. " +
+                    $"Expected: {payloadType}, actual: {payload.GetType()}.");
+            }
 
             lock (batch)
             {

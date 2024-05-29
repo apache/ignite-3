@@ -478,7 +478,18 @@ public class DataStreamerTests : IgniteTestsBase
     [Test]
     public void TestWithReceiverDifferentDataTypesThrows()
     {
-        Assert.Fail("TODO");
+        var ex = Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            await PocoView.StreamDataAsync<object, object>(
+                new object[] { 1, "2" }.ToAsyncEnumerable(),
+                keySelector: x => new Poco(),
+                payloadSelector: x => x,
+                units: Array.Empty<DeploymentUnit>(),
+                receiverClassName: TestReceiverClassName,
+                receiverArgs: new object[] { TableName, "1", 2 }));
+
+        Assert.AreEqual(
+            "All streamer items returned by payloadSelector must be of the same type. Expected: System.Int32, actual: System.String.",
+            ex.Message);
     }
 
     [Test]
