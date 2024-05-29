@@ -137,10 +137,11 @@ public class DataStreamerTests : IgniteTestsBase
             _ = TupleView.StreamDataAsync<IIgniteTuple, string>(
                 GetTuplesWithDelay(cts.Token),
                 options,
-                x => x,
+                x => GetTuple((long)x[0]!),
                 x => $"{x[0]}-value",
                 Array.Empty<DeploymentUnit>(),
-                TestReceiverClassName);
+                TestReceiverClassName,
+                receiverArgs: new object[] { Table.Name, "arg1", 22 });
         }
         else
         {
