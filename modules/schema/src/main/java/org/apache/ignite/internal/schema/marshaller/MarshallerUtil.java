@@ -79,6 +79,8 @@ public final class MarshallerUtil {
      */
     public static Object shrinkValue(Object value, NativeType type) {
         if (type.spec() == NativeTypeSpec.DECIMAL) {
+            assert type instanceof DecimalNativeType;
+
             return BinaryTupleCommon.shrinkDecimal((BigDecimal) value, ((DecimalNativeType) type).scale());
         }
 
