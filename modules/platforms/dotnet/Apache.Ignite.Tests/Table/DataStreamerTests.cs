@@ -495,7 +495,18 @@ public class DataStreamerTests : IgniteTestsBase
     [Test]
     public void TestWithReceiverNullItemThrows()
     {
-        Assert.Fail("TODO");
+        var ex = Assert.ThrowsAsync<ArgumentNullException>(async () =>
+            await PocoView.StreamDataAsync<object, object>(
+                new object[] { "2", null! }.ToAsyncEnumerable(),
+                keySelector: x => new Poco(),
+                payloadSelector: x => x,
+                units: Array.Empty<DeploymentUnit>(),
+                receiverClassName: TestReceiverClassName,
+                receiverArgs: new object[] { TableName, "1", 2 }));
+
+        Assert.AreEqual(
+            "Value cannot be null. (Parameter 'payload')",
+            ex.Message);
     }
 
     private static async IAsyncEnumerable<IIgniteTuple> GetFakeServerData(int count)
