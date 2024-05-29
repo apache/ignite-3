@@ -1928,7 +1928,7 @@ public class InternalTableImpl implements InternalTable {
     private CompletableFuture<ReplicaMeta> partitionMeta(int partitionId) {
         HybridTimestamp now = clock.now();
 
-        var zonePartitionId = new ZonePartitionId(zoneId, partitionId);
+        var zonePartitionId = new ZonePartitionId(zoneId, tableId, partitionId);
 
         CompletableFuture<ReplicaMeta> primaryReplicaFuture = placementDriver.awaitPrimaryReplicaForTable(
                 zonePartitionId,
