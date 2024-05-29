@@ -141,6 +141,7 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
                 clock,
                 raftServiceFactory,
                 new NoOpMetricManager(),
+                configuration,
                 maxClockSkewMillisFuture
         );
     }
