@@ -1016,6 +1016,15 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
             switch (firstValue)
             {
+                case bool:
+                    AppendTypeAndSize(ColumnType.Boolean, collection.Length);
+                    foreach (var item in collection)
+                    {
+                        AppendBool((bool)(object)item!);
+                    }
+
+                    break;
+
                 case int:
                     AppendTypeAndSize(ColumnType.Int32, collection.Length);
                     foreach (var item in collection)

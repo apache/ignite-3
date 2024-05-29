@@ -417,6 +417,8 @@ public class DataStreamerTests : IgniteTestsBase
     [Test]
     public async Task TestWithReceiverAllDataTypes()
     {
+        await CheckValue(true, "java.lang.Boolean", "true");
+        await CheckValue("str1", "java.lang.String", "str1");
         await CheckValue(Guid.Empty, "java.util.UUID", "00000000-0000-0000-0000-000000000000");
 
         async Task CheckValue(object value, string expectedClassName, string expectedValue)
