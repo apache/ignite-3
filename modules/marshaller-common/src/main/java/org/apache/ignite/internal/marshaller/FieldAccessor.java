@@ -403,6 +403,21 @@ abstract class FieldAccessor {
     }
 
     /**
+     * Write specified field value to row.
+     *
+     * @param writer Row writer.
+     * @param fieldValue Source field value.
+     * @throws MarshallerException If failed.
+     */
+    final void writeValue(MarshallerWriter writer, @Nullable Object fieldValue) throws MarshallerException {
+        try {
+            writeValue0(writer, fieldValue);
+        } catch (Exception ex) {
+            throw new MarshallerException(ex.getMessage(), ex);
+        }
+    }
+
+    /**
      * Write object field value to row.
      *
      * @param writer Row writer.
@@ -410,6 +425,15 @@ abstract class FieldAccessor {
      * @throws Exception If write failed.
      */
     abstract void write0(MarshallerWriter writer, @Nullable Object obj) throws Exception;
+
+    /**
+     * Write specified field value to row.
+     *
+     * @param writer Row writer.
+     * @param fieldValue Source field value.
+     * @throws MarshallerException If failed.
+     */
+    abstract void writeValue0(MarshallerWriter writer, @Nullable Object fieldValue) throws Exception;
 
     /**
      * Reads value fom row to object field.
@@ -471,6 +495,11 @@ abstract class FieldAccessor {
         }
 
         @Override
+        void writeValue0(MarshallerWriter writer, Object fieldValue) {
+            writer.writeAbsentValue();
+        }
+
+        @Override
         Object value(Object obj) {
             return col.defaultValue();
         }
@@ -504,6 +533,17 @@ abstract class FieldAccessor {
             }
 
             writeRefObject(obj, writer);
+        }
+
+        @Override
+        void writeValue0(MarshallerWriter writer, Object fieldValue) {
+            try {
+                fieldValue = converter == null ? fieldValue : converter.toColumnType(fieldValue);
+            } catch (Exception e) {
+                throw new IllegalArgumentException(e);
+            }
+
+            writeRefObject(fieldValue, writer);
         }
 
         @Override
@@ -560,6 +600,13 @@ abstract class FieldAccessor {
         Object value(Object obj) {
             return get(Objects.requireNonNull(obj));
         }
+
+        @Override
+        void write0(MarshallerWriter writer, @Nullable Object obj) throws Exception {
+            Object fieldValue = get(obj);
+
+            writeValue0(writer, fieldValue);
+        }
     }
 
     /**
@@ -577,10 +624,8 @@ abstract class FieldAccessor {
         }
 
         @Override
-        void write0(MarshallerWriter writer, Object obj) {
-            boolean val = get(obj);
-
-            writer.writeBoolean(val);
+        void writeValue0(MarshallerWriter writer, Object fieldValue) {
+            writer.writeBoolean((boolean) fieldValue);
         }
 
         @Override
@@ -606,10 +651,8 @@ abstract class FieldAccessor {
         }
 
         @Override
-        void write0(MarshallerWriter writer, Object obj) {
-            byte val = get(obj);
-
-            writer.writeByte(val);
+        void writeValue0(MarshallerWriter writer, Object fieldValue) throws Exception {
+            writer.writeByte((byte) fieldValue);
         }
 
         @Override
@@ -635,10 +678,8 @@ abstract class FieldAccessor {
         }
 
         @Override
-        void write0(MarshallerWriter writer, Object obj) {
-            short val = get(obj);
-
-            writer.writeShort(val);
+        void writeValue0(MarshallerWriter writer, Object fieldValue) {
+            writer.writeShort((short) fieldValue);
         }
 
         @Override
@@ -664,10 +705,8 @@ abstract class FieldAccessor {
         }
 
         @Override
-        void write0(MarshallerWriter writer, Object obj) {
-            int val = get(obj);
-
-            writer.writeInt(val);
+        void writeValue0(MarshallerWriter writer, Object fieldValue) {
+            writer.writeInt((int) fieldValue);
         }
 
         @Override
@@ -693,10 +732,8 @@ abstract class FieldAccessor {
         }
 
         @Override
-        void write0(MarshallerWriter writer, Object obj) {
-            long val = get(obj);
-
-            writer.writeLong(val);
+        void writeValue0(MarshallerWriter writer, Object fieldValue) {
+            writer.writeLong((long) fieldValue);
         }
 
         @Override
@@ -722,10 +759,8 @@ abstract class FieldAccessor {
         }
 
         @Override
-        void write0(MarshallerWriter writer, Object obj) {
-            float val = get(obj);
-
-            writer.writeFloat(val);
+        void writeValue0(MarshallerWriter writer, Object fieldValue) {
+            writer.writeFloat((float) fieldValue);
         }
 
         @Override
@@ -751,10 +786,8 @@ abstract class FieldAccessor {
         }
 
         @Override
-        void write0(MarshallerWriter writer, Object obj) {
-            double val = get(obj);
-
-            writer.writeDouble(val);
+        void writeValue0(MarshallerWriter writer, Object fieldValue) {
+            writer.writeDouble((double) fieldValue);
         }
 
         @Override
@@ -795,16 +828,19 @@ abstract class FieldAccessor {
                 return;
             }
 
-            Object val = get(obj);
+            writeValue0(writer, get(obj));
+        }
 
-            if (val == null) {
+        @Override
+        void writeValue0(MarshallerWriter writer, @Nullable Object fieldValue) {
+            if (fieldValue == null) {
                 writer.writeNull();
 
                 return;
             }
 
             try {
-                writeRefObject(typeConverter == null ? val : typeConverter.toColumnType(val), writer);
+                writeRefObject(typeConverter == null ? fieldValue : typeConverter.toColumnType(fieldValue), writer);
             } catch (Exception e) {
                 throw new IllegalArgumentException(e);
             }

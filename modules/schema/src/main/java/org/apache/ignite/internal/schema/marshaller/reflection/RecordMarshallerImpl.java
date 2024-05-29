@@ -26,7 +26,6 @@ import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.RecordMarshaller;
 import org.apache.ignite.internal.schema.row.Row;
-import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.table.mapper.PojoMapper;
 import org.jetbrains.annotations.Nullable;
@@ -88,11 +87,9 @@ public class RecordMarshallerImpl<R> implements RecordMarshaller<R> {
     public Row marshal(R rec) throws MarshallerException {
         assert recClass.isInstance(rec);
 
-        final RowAssembler asm = createAssembler(Objects.requireNonNull(rec), rec);
+        MarshallerRowBuilder rowBuilder = createRowBuilder(Objects.requireNonNull(rec), rec);
 
-        recMarsh.writeObject(rec, new RowWriter(asm));
-
-        return Row.wrapBinaryRow(schema, asm.build());
+        return Row.wrapBinaryRow(schema, rowBuilder.build());
     }
 
     /** {@inheritDoc} */
@@ -100,11 +97,9 @@ public class RecordMarshallerImpl<R> implements RecordMarshaller<R> {
     public Row marshalKey(R rec) throws MarshallerException {
         assert recClass.isInstance(rec);
 
-        final RowAssembler asm = createAssembler(Objects.requireNonNull(rec));
+        MarshallerRowBuilder rowBuilder = createRowBuilder(Objects.requireNonNull(rec));
 
-        keyMarsh.writeObject(rec, new RowWriter(asm));
-
-        return Row.wrapKeyOnlyBinaryRow(schema, asm.build());
+        return Row.wrapKeyOnlyBinaryRow(schema, rowBuilder.build());
     }
 
     /** {@inheritDoc} */
@@ -129,31 +124,31 @@ public class RecordMarshallerImpl<R> implements RecordMarshaller<R> {
     }
 
     /**
-     * Creates {@link RowAssembler} for key.
+     * Creates {@link MarshallerRowBuilder} for key.
      *
      * @param key Key object.
-     * @return Row assembler.
+     * @return Binary row.
      * @throws MarshallerException If failed to read key object content.
      */
-    private RowAssembler createAssembler(Object key) throws MarshallerException {
+    private MarshallerRowBuilder createRowBuilder(Object key) throws MarshallerException {
         try {
-            return ObjectStatistics.createAssembler(schema, keyMarsh, key);
+            return ObjectStatistics.createRowBuilder(schema, keyMarsh, key);
         } catch (Throwable e) {
             throw new MarshallerException(e.getMessage(), e);
         }
     }
 
     /**
-     * Creates {@link RowAssembler} for key-value pair.
+     * Creates {@link MarshallerRowBuilder} for key-value pair.
      *
      * @param key Key object.
      * @param val Value object.
-     * @return Row assembler.
+     * @return Binary row.
      * @throws MarshallerException If failed to read key or value object content.
      */
-    private RowAssembler createAssembler(Object key, Object val) throws MarshallerException {
+    private MarshallerRowBuilder createRowBuilder(Object key, Object val) throws MarshallerException {
         try {
-            return ObjectStatistics.createAssembler(schema, keyMarsh, valMarsh, key, val);
+            return ObjectStatistics.createRowBuilder(schema, keyMarsh, valMarsh, key, val);
         } catch (Throwable e) {
             throw new MarshallerException(e.getMessage(), e);
         }

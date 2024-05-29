@@ -192,6 +192,15 @@ public abstract class Marshaller {
     public abstract void writeObject(@Nullable Object obj, MarshallerWriter writer) throws MarshallerException;
 
     /**
+     * Write field values to a row.
+     *
+     * @param values Object field values.
+     * @param writer Row writer.
+     * @throws MarshallerException If failed.
+     */
+    public abstract void writeFieldValues(Object[] values, MarshallerWriter writer) throws MarshallerException;
+
+    /**
      * Write the specified field of an object to a row.
      *
      * @param obj Object.
@@ -200,6 +209,16 @@ public abstract class Marshaller {
      * @throws MarshallerException If failed.
      */
     public abstract void writeField(@Nullable Object obj, MarshallerWriter writer, int fldIdx) throws MarshallerException;
+
+    /**
+     * Write the specified field value to a row.
+     *
+     * @param writer Row writer.
+     * @param fldIdx Field index.
+     * @param value Field value.
+     * @throws MarshallerException If failed.
+     */
+    public abstract void writeFieldValue(MarshallerWriter writer, int fldIdx, @Nullable Object value) throws MarshallerException;
 
     /**
      * Marshaller for objects of natively supported types.
@@ -240,10 +259,26 @@ public abstract class Marshaller {
 
         /** {@inheritDoc} */
         @Override
+        public void writeFieldValues(Object[] values, MarshallerWriter writer) throws MarshallerException {
+            assert values.length == 1 : values.length;
+
+            fieldAccessor.writeValue(writer, values[0]);
+        }
+
+        /** {@inheritDoc} */
+        @Override
         public void writeField(Object obj, MarshallerWriter writer, int fldIdx) throws MarshallerException {
             assert fldIdx == 0;
 
             fieldAccessor.write(writer, obj);
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public void writeFieldValue(MarshallerWriter writer, int fldIdx, @Nullable Object value) throws MarshallerException {
+            assert fldIdx == 0;
+
+            fieldAccessor.writeValue(writer, value);
         }
     }
 
@@ -296,8 +331,22 @@ public abstract class Marshaller {
 
         /** {@inheritDoc} */
         @Override
+        public void writeFieldValues(Object[] values, MarshallerWriter writer) throws MarshallerException {
+            for (int fldIdx = 0; fldIdx < fieldAccessors.length; fldIdx++) {
+                fieldAccessors[fldIdx].writeValue(writer, values[fldIdx]);
+            }
+        }
+
+        /** {@inheritDoc} */
+        @Override
         public void writeField(@Nullable Object obj, MarshallerWriter writer, int fldIdx) throws MarshallerException {
             fieldAccessors[fldIdx].write(writer, obj);
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public void writeFieldValue(MarshallerWriter writer, int fldIdx, @Nullable Object value) throws MarshallerException {
+            fieldAccessors[fldIdx].writeValue(writer, value);
         }
     }
 
@@ -318,7 +367,17 @@ public abstract class Marshaller {
         }
 
         @Override
-        public void writeField(Object obj, MarshallerWriter writer, int fldIdx) throws MarshallerException {
+        public void writeField(Object obj, MarshallerWriter writer, int fldIdx) {
+
+        }
+
+        @Override
+        public void writeFieldValue(MarshallerWriter writer, int fldIdx, @Nullable Object value) {
+
+        }
+
+        @Override
+        public void writeFieldValues(Object[] values, MarshallerWriter writer) {
 
         }
     }

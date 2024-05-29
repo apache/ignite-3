@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.schema.marshaller.reflection;
 
-import java.util.List;
 import org.apache.ignite.internal.marshaller.Marshaller;
 import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.internal.marshaller.MarshallerSchema;
@@ -26,7 +25,6 @@ import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.KvMarshaller;
 import org.apache.ignite.internal.schema.row.Row;
-import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.table.mapper.Mapper;
 import org.jetbrains.annotations.Nullable;
 
@@ -90,11 +88,9 @@ public class KvMarshallerImpl<K, V> implements KvMarshaller<K, V> {
     public Row marshal(K key) throws MarshallerException {
         assert keyClass.isInstance(key);
 
-        RowAssembler asm = createAssembler(key);
+        MarshallerRowBuilder rowBuilder = createRowBuilder(key);
 
-        keyMarsh.writeObject(key, new RowWriter(asm));
-
-        return Row.wrapKeyOnlyBinaryRow(schema, asm.build());
+        return Row.wrapKeyOnlyBinaryRow(schema, rowBuilder.build());
     }
 
     /** {@inheritDoc} */
@@ -103,20 +99,9 @@ public class KvMarshallerImpl<K, V> implements KvMarshaller<K, V> {
         assert keyClass.isInstance(key);
         assert val == null || valClass.isInstance(val);
 
-        List<Column> columns = schema.columns();
-        RowAssembler asm = createAssembler(key, val);
+        MarshallerRowBuilder rowBuilder = createRowBuilder(key, val);
 
-        var writer = new RowWriter(asm);
-
-        for (Column column : columns) {
-            if (column.positionInKey() >= 0) {
-                keyMarsh.writeField(key, writer, column.positionInKey());
-            } else {
-                valMarsh.writeField(val, writer, column.positionInValue());
-            }
-        }
-
-        return Row.wrapBinaryRow(schema, asm.build());
+        return Row.wrapBinaryRow(schema, rowBuilder.build());
     }
 
     /** {@inheritDoc} */
@@ -162,31 +147,31 @@ public class KvMarshallerImpl<K, V> implements KvMarshaller<K, V> {
     }
 
     /**
-     * Creates {@link RowAssembler} for key.
+     * Creates {@link MarshallerRowBuilder} for key.
      *
      * @param key Key object.
      * @return Row assembler.
      * @throws MarshallerException If failed to read key or value object content.
      */
-    private RowAssembler createAssembler(Object key) throws MarshallerException {
+    private MarshallerRowBuilder createRowBuilder(Object key) throws MarshallerException {
         try {
-            return ObjectStatistics.createAssembler(schema, keyMarsh, key);
+            return ObjectStatistics.createRowBuilder(schema, keyMarsh, key);
         } catch (Throwable e) {
             throw new MarshallerException(e.getMessage(), e);
         }
     }
 
     /**
-     * Creates {@link RowAssembler} for key-value pair.
+     * Creates {@link MarshallerRowBuilder} for key-value pair.
      *
      * @param key Key object.
      * @param val Value object.
      * @return Row assembler.
      * @throws MarshallerException If failed to read key or value object content.
      */
-    private RowAssembler createAssembler(Object key, @Nullable Object val) throws MarshallerException {
+    private MarshallerRowBuilder createRowBuilder(Object key, @Nullable Object val) throws MarshallerException {
         try {
-            return ObjectStatistics.createAssembler(schema, keyMarsh, valMarsh, key, val);
+            return ObjectStatistics.createRowBuilder(schema, keyMarsh, valMarsh, key, val);
         } catch (Throwable e) {
             throw new MarshallerException(e.getMessage(), e);
         }

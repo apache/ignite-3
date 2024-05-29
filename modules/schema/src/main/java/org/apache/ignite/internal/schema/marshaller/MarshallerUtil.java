@@ -27,6 +27,7 @@ import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.util.ObjectFactory;
 
 /**
@@ -67,6 +68,21 @@ public final class MarshallerUtil {
             default:
                 throw new InvalidTypeException("Unsupported variable-length type: " + type);
         }
+    }
+
+    /**
+     * Converts the passed value to a more compact form, if possible.
+     *
+     * @param value Field value.
+     * @param type Mapped type.
+     * @return Value in a more compact form, or the original value if it cannot be compacted.
+     */
+    public static Object shrinkValue(Object value, NativeType type) {
+        if (type.spec() == NativeTypeSpec.DECIMAL) {
+            return BinaryTupleCommon.shrinkDecimal((BigDecimal) value, ((DecimalNativeType) type).scale());
+        }
+
+        return value;
     }
 
     /**

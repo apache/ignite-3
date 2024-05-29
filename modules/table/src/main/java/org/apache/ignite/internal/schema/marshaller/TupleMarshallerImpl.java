@@ -37,6 +37,7 @@ import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Tuple marshaller implementation.
@@ -164,7 +165,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
                 : Row.wrapBinaryRow(schema, rowBuilder.build());
     }
 
-    private void gatherStatistics(
+    void gatherStatistics(
             List<Column> columns,
             Tuple tuple,
             ValuesWithStatistics targetTuple
@@ -187,15 +188,18 @@ public class TupleMarshallerImpl implements TupleMarshaller {
             }
 
             col.validate(val);
-            targetTuple.values.put(col.name(), val);
 
             if (val != null) {
+                val = MarshallerUtil.shrinkValue(val, col.type());
+
                 if (colType.spec().fixedLength()) {
                     estimatedValueSize += colType.sizeInBytes();
                 } else {
                     estimatedValueSize += getValueSize(val, colType);
                 }
             }
+
+            targetTuple.values.put(col.name(), val);
         }
 
         targetTuple.estimatedValueSize += estimatedValueSize;
@@ -277,7 +281,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
      * Container to keep columns values and related statistics which help
      * to build row with {@link RowAssembler}.
      */
-    private static class ValuesWithStatistics {
+    static class ValuesWithStatistics {
         private final Map<String, Object> values = new HashMap<>();
 
         private int estimatedValueSize;
@@ -285,6 +289,11 @@ public class TupleMarshallerImpl implements TupleMarshaller {
 
         @Nullable Object value(String columnName) {
             return values.get(columnName);
+        }
+
+        @TestOnly
+        int estimatedValueSize() {
+            return estimatedValueSize;
         }
     }
 }
