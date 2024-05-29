@@ -15,27 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.rest;
+package org.apache.ignite.raft.jraft.disruptor;
 
-import io.micronaut.context.event.BeanDestroyedEvent;
-import io.micronaut.context.event.BeanDestroyedEventListener;
-import jakarta.inject.Singleton;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
+import com.lmax.disruptor.EventHandler;
+import org.apache.ignite.raft.jraft.entity.NodeId;
 
 /**
- * Destroyer of any rest factory {@link RestFactory}.
+ * There are different types of striped disruptor events. The disruptor uses some events for technical purposes,
+  * so it is necessary to distinguish types.
  */
-@Singleton
-public class RestFactoriesDestroyer implements BeanDestroyedEventListener<RestFactory> {
-    private static final IgniteLogger LOG = Loggers.forClass(RestFactoriesDestroyer.class);
+public enum DisruptorEventType {
+    /**
+    * This event type matches the technical striped disruptor event, look at {@link StripedDisruptor#subscribe( NodeId, EventHandler)}.
+    */
+    SUBSCRIBE,
 
-    @Override
-    public void onDestroyed(BeanDestroyedEvent<RestFactory> event) {
-        RestFactory bean = event.getBean();
-        if (bean != null) {
-            LOG.debug("Destroy rest factory " + bean);
-            bean.cleanResources();
-        }
-    }
+    /**
+    * This event type matches the regular event in the striped disruptor.
+    */
+    REGULAR
 }

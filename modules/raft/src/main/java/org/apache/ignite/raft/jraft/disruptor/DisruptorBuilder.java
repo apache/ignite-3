@@ -14,14 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.disruptor;
 
-import java.util.concurrent.ThreadFactory;
 import com.lmax.disruptor.BlockingWaitStrategy;
 import com.lmax.disruptor.EventFactory;
 import com.lmax.disruptor.WaitStrategy;
 import com.lmax.disruptor.dsl.Disruptor;
 import com.lmax.disruptor.dsl.ProducerType;
+import java.util.concurrent.ThreadFactory;
 import org.apache.ignite.raft.jraft.util.Requires;
 
 /**
@@ -91,8 +92,6 @@ public class DisruptorBuilder<T> {
         Requires.requireNonNull(this.eventFactory, "Event factory not set");
         Requires.requireNonNull(this.threadFactory, "Thread factory not set");
 
-        return new Disruptor<>(this.eventFactory, this.ringBufferSize, this.threadFactory, this.producerType,
-            this.waitStrategy);
+        return new Disruptor<>(this.eventFactory, this.ringBufferSize, this.threadFactory, this.producerType, this.waitStrategy);
     }
-
 }

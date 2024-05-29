@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table.partition;
 
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.table.partition.PartitionManager;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 
 /**
@@ -33,6 +34,11 @@ public class ItThinClientPartitionManagerTest extends ItAbstractPartitionManager
                 .addresses("localhost")
                 .reconnectThrottlingPeriod(0)
                 .build();
+    }
+
+    @AfterEach
+    public void stopClient() throws Exception {
+        client.close();
     }
 
     @Override

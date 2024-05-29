@@ -34,7 +34,6 @@ import org.jetbrains.annotations.Nullable;
  * Metric source, which provides JVM metrics like memory usage, gc stats etc.
  */
 public class JvmMetricSource implements MetricSource {
-
     /** Source name. */
     private static final String SOURCE_NAME = "jvm";
 
@@ -46,7 +45,7 @@ public class JvmMetricSource implements MetricSource {
 
     private final List<GarbageCollectorMXBean> gcMxBeans;
 
-    /** True, if source is enabled, false otherwise. */
+    /** Enablement status. Accessed from different threads under synchronization on this object. */
     private boolean enabled;
 
     /**
@@ -68,15 +67,17 @@ public class JvmMetricSource implements MetricSource {
         gcMxBeans = ManagementFactory.getGarbageCollectorMXBeans();
     }
 
-    /** {@inheritDoc} */
     @Override
     public String name() {
         return SOURCE_NAME;
     }
 
-    /** {@inheritDoc} */
     @Override
     public synchronized @Nullable MetricSet enable() {
+        if (enabled) {
+            return null;
+        }
+
         var metrics = new HashMap<String, Metric>();
 
         CachedMemoryUsage heapMemoryUsage = new CachedMemoryUsage(memoryMxBean::getHeapMemoryUsage, MEMORY_USAGE_CACHE_TIMEOUT);
@@ -129,7 +130,7 @@ public class JvmMetricSource implements MetricSource {
                 new LongGauge(
                         "gc.CollectionTime",
                         "Approximate total time spent on garbage collection in milliseconds, summed across all collectors.",
-                        () -> totalCollectionTime()
+                        this::totalCollectionTime
                 )
         );
 
@@ -152,13 +153,11 @@ public class JvmMetricSource implements MetricSource {
         return total;
     }
 
-    /** {@inheritDoc} */
     @Override
     public synchronized void disable() {
         enabled = false;
     }
 
-    /** {@inheritDoc} */
     @Override
     public synchronized boolean enabled() {
         return enabled;
