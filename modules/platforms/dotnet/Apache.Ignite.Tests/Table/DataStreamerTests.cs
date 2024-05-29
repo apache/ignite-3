@@ -23,6 +23,7 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
+using Compute;
 using Ignite.Compute;
 using Ignite.Table;
 using Internal.Proto;
@@ -36,7 +37,9 @@ using NUnit.Framework;
 /// </summary>
 public class DataStreamerTests : IgniteTestsBase
 {
-    private const string TestReceiverClassName = "org.apache.ignite.internal.runner.app.PlatformTestNodeRunner$TestReceiver";
+    private const string TestReceiverClassName = ComputeTests.PlatformTestNodeRunner + "$TestReceiver";
+
+    private const string UpsertElementTypeNameReceiverClassName = ComputeTests.PlatformTestNodeRunner + "$UpsertElementTypeNameReceiver";
 
     private const int Count = 100;
 
@@ -414,9 +417,21 @@ public class DataStreamerTests : IgniteTestsBase
     [Test]
     public async Task TestWithReceiverAllDataTypes()
     {
-        // TODO
-        await Task.Yield();
-        Assert.Fail();
+        // TODO: Different types.
+        var key = 1L;
+
+        await PocoView.StreamDataAsync<int, object>(
+            Enumerable.Range(0, 1).ToAsyncEnumerable(),
+            DataStreamerOptions.Default,
+            keySelector: x => GetPoco(x),
+            payloadSelector: x => Guid.Empty,
+            units: Array.Empty<DeploymentUnit>(),
+            receiverClassName: UpsertElementTypeNameReceiverClassName,
+            receiverArgs: new object[] { TableName, key });
+
+        var res = await TupleView.GetAsync(null, GetTuple(key));
+        Assert.IsTrue(res.HasValue);
+        Assert.AreEqual("xx", res.Value[1]);
     }
 
     private static async IAsyncEnumerable<IIgniteTuple> GetFakeServerData(int count)
