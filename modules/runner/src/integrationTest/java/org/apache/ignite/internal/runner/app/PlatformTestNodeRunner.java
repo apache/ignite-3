@@ -803,4 +803,27 @@ public class PlatformTestNodeRunner {
             return null;
         }
     }
+
+    @SuppressWarnings("unused") // Used by platform tests.
+    private static class UpsertElementTypeNameReceiver implements DataStreamerReceiver<Object, Object> {
+        @SuppressWarnings("resource")
+        @Override
+        public @Nullable CompletableFuture<List<Object>> receive(List<Object> page, DataStreamerReceiverContext ctx, Object... args) {
+            String tableName = (String) args[0];
+            long id = (Long) args[1];
+
+            Table table = ctx.ignite().tables().table(tableName);
+            RecordView<Tuple> recordView = table.recordView();
+
+            for (Object item : page) {
+                Tuple rec = Tuple.create()
+                        .set("key", id)
+                        .set("val", item.getClass().getName());
+
+                recordView.upsert(null, rec);
+            }
+
+            return null;
+        }
+    }
 }
