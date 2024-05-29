@@ -26,7 +26,50 @@ import org.apache.ignite.tx.TransactionException;
  * because an incompatible schema change has happened.
  */
 public class IncompatibleSchemaException extends TransactionException implements ExpectedReplicationException {
+    private static final String SCHEMA_CHANGED_MESSAGE = "Table schema was updated after the transaction was started "
+            + "[table=%s, startSchema=%d, operationSchema=%d]";
+
+    private static final String TABLE_DROPPED_NAME_MESSAGE = "Table was dropped [table=%s]";
+
+    private static final String TABLE_DROPPED_ID_MESSAGE = "Table was dropped [tableId=%d]";
+
     public IncompatibleSchemaException(String message) {
         super(Transactions.TX_INCOMPATIBLE_SCHEMA_ERR, message);
+    }
+
+    /**
+     * Returns new IncompatibleSchemaException for a case when schema was updated after the beginning of the transaction.
+     *
+     * @param tableName Name of the table.
+     * @param startSchemaVersion Schema version at the beginning of the transaction.
+     * @param operationSchemaVersion Schema version at the moment of the operation.
+     * @return Exception with formatted message.
+     */
+    public static IncompatibleSchemaException schemaChanged(String tableName, int startSchemaVersion, int operationSchemaVersion) {
+        return new IncompatibleSchemaException(String.format(
+                SCHEMA_CHANGED_MESSAGE,
+                tableName, startSchemaVersion, operationSchemaVersion
+        ));
+    }
+
+    /**
+     * Returns new IncompatibleSchemaException for a case when the table was dropped at the moment of operation.
+     *
+     * @param tableName Name of the table.
+     * @return Exception with formatted message.
+     */
+    public static IncompatibleSchemaException tableDropped(String tableName) {
+        return new IncompatibleSchemaException(String.format(TABLE_DROPPED_NAME_MESSAGE, tableName));
+    }
+
+    /**
+     * Returns new IncompatibleSchemaException for a case when table was dropped at the moment of operation.
+     *
+     * @param tableId ID of the table.
+     * @return Exception with formatted message.
+     */
+    // TODO https://issues.apache.org/jira/browse/IGNITE-22309 use tableName instead
+    public static IncompatibleSchemaException tableDropped(int tableId) {
+        return new IncompatibleSchemaException(String.format(TABLE_DROPPED_ID_MESSAGE, tableId));
     }
 }

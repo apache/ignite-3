@@ -49,6 +49,10 @@ public class MetaStorageMetricSource implements MetricSource {
 
     @Override
     public synchronized @Nullable MetricSet enable() {
+        if (enabled) {
+            return null;
+        }
+
         var metrics = new HashMap<String, Metric>();
 
         metrics.put(
