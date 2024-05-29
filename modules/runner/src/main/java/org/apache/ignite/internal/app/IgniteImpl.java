@@ -808,7 +808,8 @@ public class IgniteImpl implements Ignite {
                 distributionZoneManager,
                 raftMgr,
                 clusterSvc.topologyService(),
-                distributedTblMgr
+                distributedTblMgr,
+                metricManager
         );
 
         systemViewManager.register(disasterRecoveryManager);

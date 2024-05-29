@@ -24,6 +24,9 @@ import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.catalog.events.CatalogEvent.TABLE_CREATE;
+import static org.apache.ignite.internal.catalog.events.CatalogEvent.TABLE_DROP;
+import static org.apache.ignite.internal.event.EventListener.fromConsumer;
 import static org.apache.ignite.internal.table.distributed.disaster.DisasterRecoverySystemViews.createGlobalPartitionStatesSystemView;
 import static org.apache.ignite.internal.table.distributed.disaster.DisasterRecoverySystemViews.createLocalPartitionStatesSystemView;
 import static org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionStateEnum.AVAILABLE;
@@ -34,6 +37,7 @@ import static org.apache.ignite.internal.table.distributed.disaster.LocalPartiti
 import static org.apache.ignite.internal.table.distributed.disaster.LocalPartitionStateEnum.HEALTHY;
 import static org.apache.ignite.internal.table.distributed.disaster.LocalPartitionStateEnum.INITIALIZING;
 import static org.apache.ignite.internal.table.distributed.disaster.LocalPartitionStateEnum.INSTALLING_SNAPSHOT;
+import static org.apache.ignite.internal.table.distributed.disaster.LocalPartitionStateEnum.UNAVAILABLE;
 import static org.apache.ignite.internal.util.CompletableFutures.copyStateTo;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.DisasterRecovery.PARTITION_STATE_ERR;
@@ -55,6 +59,8 @@ import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
+import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.NodeWithAttributes;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
@@ -68,6 +74,7 @@ import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.raft.Loza;
@@ -144,6 +151,9 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
     /** Table manager. */
     final TableManager tableManager;
 
+    /** Metric manager. */
+    private final MetricManager metricManager;
+
     /**
      * Map of operations, triggered by local node, that have not yet been processed by {@link #watchListener}. Values in the map are the
      * futures, returned from the {@link #processNewRequest(DisasterRecoveryRequest)}, they are completed by
@@ -151,6 +161,8 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
      * this event within a 30 seconds window).
      */
     private final Map<UUID, CompletableFuture<Void>> ongoingOperationsById = new ConcurrentHashMap<>();
+
+    private final Map<Integer, PartitionStatesMetricSource> metricSourceByTableId = new ConcurrentHashMap<>();
 
     /** Constructor. */
     public DisasterRecoveryManager(
@@ -161,7 +173,8 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             DistributionZoneManager dzManager,
             Loza raftManager,
             TopologyService topologyService,
-            TableManager tableManager
+            TableManager tableManager,
+            MetricManager metricManager
     ) {
         this.threadPool = threadPool;
         this.messagingService = messagingService;
@@ -171,6 +184,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         this.raftManager = raftManager;
         this.topologyService = topologyService;
         this.tableManager = tableManager;
+        this.metricManager = metricManager;
 
         watchListener = new WatchListener() {
             @Override
@@ -190,6 +204,12 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         messagingService.addMessageHandler(TableMessageGroup.class, this::handleMessage);
 
         metaStorageManager.registerExactWatch(RECOVERY_TRIGGER_KEY, watchListener);
+
+        catalogManager.listen(TABLE_CREATE, fromConsumer(this::onTableCreate));
+
+        catalogManager.listen(TABLE_DROP, fromConsumer(this::onTableDrop));
+
+        registerMetricSources();
 
         return nullCompletedFuture();
     }
@@ -575,10 +595,8 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         return collection.isEmpty() || collection.contains(item);
     }
 
-    /**
-     * Converts internal raft node state into public local partition state.
-     */
-    private static LocalPartitionStateEnum convertState(State nodeState) {
+    /** Converts internal raft node state into public local partition state. */
+    static LocalPartitionStateEnum convertState(State nodeState) {
         switch (nodeState) {
             case STATE_LEADER:
             case STATE_TRANSFERRING:
@@ -595,7 +613,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             case STATE_SHUTTING:
             case STATE_SHUTDOWN:
             case STATE_END:
-                return LocalPartitionStateEnum.UNAVAILABLE;
+                return UNAVAILABLE;
 
             default:
                 // Unrecognized state, better safe than sorry.
@@ -775,7 +793,55 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         return zoneDescriptor;
     }
 
+    private CatalogZoneDescriptor zoneDescriptor(int zoneId, int catalogVersion) {
+        CatalogZoneDescriptor zoneDescriptor = catalogManager.zone(zoneId, catalogVersion);
+
+        assert zoneDescriptor != null : "zoneId=" + zoneId + ", catalogVersion=" + catalogVersion;
+
+        return zoneDescriptor;
+    }
+
     ClusterNode localNode() {
         return topologyService.localMember();
+    }
+
+    private void onTableCreate(CreateTableEventParameters parameters) {
+        CatalogTableDescriptor tableDescriptor = parameters.tableDescriptor();
+
+        CatalogZoneDescriptor zoneDescriptor = zoneDescriptor(tableDescriptor.zoneId(), parameters.catalogVersion());
+
+        registerPartitionStatesMetricSource(zoneDescriptor, tableDescriptor);
+    }
+
+    private void onTableDrop(DropTableEventParameters parameters) {
+        unregisterPartitionStatesMetricSource(parameters.tableId());
+    }
+
+    private void registerMetricSources() {
+        int catalogVersion = catalogManager.latestCatalogVersion();
+
+        catalogManager.tables(catalogVersion).forEach(tableDescriptor -> {
+            CatalogZoneDescriptor zoneDescriptor = zoneDescriptor(tableDescriptor.zoneId(), catalogVersion);
+
+            registerPartitionStatesMetricSource(zoneDescriptor, tableDescriptor);
+        });
+    }
+
+    private void registerPartitionStatesMetricSource(CatalogZoneDescriptor zoneDescriptor, CatalogTableDescriptor tableDescriptor) {
+        var metricSource = new PartitionStatesMetricSource(zoneDescriptor, tableDescriptor, this);
+
+        PartitionStatesMetricSource previous = metricSourceByTableId.putIfAbsent(tableDescriptor.id(), metricSource);
+
+        assert previous == null : "tableId=" + tableDescriptor.id();
+
+        metricManager.registerSource(metricSource);
+    }
+
+    private void unregisterPartitionStatesMetricSource(int tableId) {
+        PartitionStatesMetricSource metricSource = metricSourceByTableId.get(tableId);
+
+        assert metricSource != null : "tableId=" + tableId;
+
+        metricManager.unregisterSource(metricSource);
     }
 }
