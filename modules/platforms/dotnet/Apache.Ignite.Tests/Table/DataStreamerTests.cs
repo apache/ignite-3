@@ -137,12 +137,12 @@ public class DataStreamerTests : IgniteTestsBase
         {
             _ = TupleView.StreamDataAsync<IIgniteTuple, string>(
                 GetTuplesWithDelay(cts.Token),
-                options,
                 x => GetTuple((long)x[0]!),
                 x => $"{x[0]}-value",
                 Array.Empty<DeploymentUnit>(),
                 TestReceiverClassName,
-                receiverArgs: new object[] { Table.Name, "arg1", 22 });
+                receiverArgs: new object[] { Table.Name, "arg1", 22 },
+                options: options);
         }
         else
         {
@@ -223,13 +223,10 @@ public class DataStreamerTests : IgniteTestsBase
         var ex = Assert.ThrowsAsync<IgniteClientConnectionException>(
             async () => await table!.RecordBinaryView.StreamDataAsync<IIgniteTuple, string>(
                 GetFakeServerData(10_000),
-                DataStreamerOptions.Default,
                 keySelector: t => t,
                 payloadSelector: t => t[0]!.ToString()!,
-                Array.Empty<DeploymentUnit>(),
-                TestReceiverClassName,
-                null,
-                CancellationToken.None));
+                units: Array.Empty<DeploymentUnit>(),
+                receiverClassName: TestReceiverClassName));
 
         StringAssert.StartsWith("Operation StreamerWithReceiverBatchSend failed after 16 retries", ex!.Message);
     }
@@ -257,13 +254,10 @@ public class DataStreamerTests : IgniteTestsBase
         {
             await table!.RecordBinaryView.StreamDataAsync<IIgniteTuple, string>(
                 GetFakeServerData(count),
-                DataStreamerOptions.Default,
                 keySelector: t => t,
                 payloadSelector: t => t[0]!.ToString()!,
-                Array.Empty<DeploymentUnit>(),
-                TestReceiverClassName,
-                null,
-                CancellationToken.None);
+                units: Array.Empty<DeploymentUnit>(),
+                receiverClassName: TestReceiverClassName);
         }
         else
         {
@@ -322,12 +316,12 @@ public class DataStreamerTests : IgniteTestsBase
     {
         await TupleView.StreamDataAsync<int, string>(
             Enumerable.Range(0, Count).ToAsyncEnumerable(),
-            DataStreamerOptions.Default,
             keySelector: x => GetTuple(x),
             payloadSelector: x => $"{x}-value{x * 10}",
             units: Array.Empty<DeploymentUnit>(),
             receiverClassName: TestReceiverClassName,
-            receiverArgs: new object[] { Table.Name, "arg1", 22 });
+            receiverArgs: new object[] { Table.Name, "arg1", 22 },
+            options: DataStreamerOptions.Default);
 
         for (int i = 0; i < Count; i++)
         {
@@ -343,12 +337,12 @@ public class DataStreamerTests : IgniteTestsBase
     {
         await PocoView.StreamDataAsync<int, string>(
             Enumerable.Range(0, Count).ToAsyncEnumerable(),
-            DataStreamerOptions.Default,
             keySelector: x => GetPoco(x),
             payloadSelector: x => $"{x}-value{x * 10}",
             units: Array.Empty<DeploymentUnit>(),
             receiverClassName: TestReceiverClassName,
-            receiverArgs: new object[] { Table.Name, "arg1", 22 });
+            receiverArgs: new object[] { Table.Name, "arg1", 22 },
+            options: DataStreamerOptions.Default);
 
         for (int i = 0; i < Count; i++)
         {
@@ -364,7 +358,6 @@ public class DataStreamerTests : IgniteTestsBase
     {
         await Table.KeyValueBinaryView.StreamDataAsync<int, string>(
             Enumerable.Range(0, Count).ToAsyncEnumerable(),
-            DataStreamerOptions.Default,
             keySelector: x => new KeyValuePair<IIgniteTuple, IIgniteTuple>(GetTuple(x), new IgniteTuple()),
             payloadSelector: x => $"{x}-value{x * 10}",
             units: Array.Empty<DeploymentUnit>(),
@@ -385,7 +378,6 @@ public class DataStreamerTests : IgniteTestsBase
     {
         await Table.GetKeyValueView<long, Poco>().StreamDataAsync<int, string>(
             Enumerable.Range(0, Count).ToAsyncEnumerable(),
-            DataStreamerOptions.Default,
             keySelector: x => new KeyValuePair<long, Poco>(x, null!),
             payloadSelector: x => $"{x}-value{x * 10}",
             units: Array.Empty<DeploymentUnit>(),
@@ -407,12 +399,10 @@ public class DataStreamerTests : IgniteTestsBase
         var ex = Assert.ThrowsAsync<IgniteException>(async () =>
             await TupleView.StreamDataAsync<int, string>(
                 Enumerable.Range(0, 1).ToAsyncEnumerable(),
-                DataStreamerOptions.Default,
                 keySelector: x => GetTuple(x),
-                payloadSelector: x => string.Empty,
+                payloadSelector: _ => string.Empty,
                 units: Array.Empty<DeploymentUnit>(),
-                receiverClassName: "_unknown_",
-                receiverArgs: null));
+                receiverClassName: "_unknown_"));
 
         Assert.AreEqual("Streamer receiver failed: Cannot load receiver class by name '_unknown_'", ex.Message);
     }
@@ -423,9 +413,8 @@ public class DataStreamerTests : IgniteTestsBase
         var ex = Assert.ThrowsAsync<IgniteException>(async () =>
             await PocoView.StreamDataAsync<int, string>(
                 Enumerable.Range(0, 1).ToAsyncEnumerable(),
-                DataStreamerOptions.Default,
                 keySelector: x => GetPoco(x),
-                payloadSelector: x => string.Empty,
+                payloadSelector: _ => string.Empty,
                 units: Array.Empty<DeploymentUnit>(),
                 receiverClassName: TestReceiverClassName,
                 receiverArgs: new object[] { "throw", "throw", 1 }));
@@ -439,9 +428,8 @@ public class DataStreamerTests : IgniteTestsBase
         var ex = Assert.ThrowsAsync<DataException>(async () =>
             await PocoView.StreamDataAsync<int, string>(
                 Enumerable.Range(0, 1).ToAsyncEnumerable(),
-                DataStreamerOptions.Default,
                 keySelector: x => keySelector ? throw new DataException("key") : GetPoco(x),
-                payloadSelector: x => throw new DataException("payload"),
+                payloadSelector: _ => throw new DataException("payload"),
                 units: Array.Empty<DeploymentUnit>(),
                 receiverClassName: TestReceiverClassName,
                 receiverArgs: new object[] { "throw", "throw", 1 }));
@@ -512,9 +500,8 @@ public class DataStreamerTests : IgniteTestsBase
 
         await PocoView.StreamDataAsync<int, object>(
             Enumerable.Range(0, 1).ToAsyncEnumerable(),
-            DataStreamerOptions.Default,
             keySelector: x => GetPoco(x),
-            payloadSelector: x => value,
+            payloadSelector: _ => value,
             units: Array.Empty<DeploymentUnit>(),
             receiverClassName: UpsertElementTypeNameReceiverClassName,
             receiverArgs: new object[] { TableName, key1, key2 });

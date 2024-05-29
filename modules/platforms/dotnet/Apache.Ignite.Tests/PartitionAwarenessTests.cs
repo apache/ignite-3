@@ -127,12 +127,10 @@ public class PartitionAwarenessTests
         await TestClientReceivesPartitionAssignmentUpdates(
             (view, _) => view.StreamDataAsync(
                 new[] { 1 }.ToAsyncEnumerable(),
-                DataStreamerOptions.Default,
                 keySelector: x => x,
                 payloadSelector: x => x.ToString(),
                 units: Array.Empty<DeploymentUnit>(),
-                receiverClassName: "x",
-                receiverArgs: null),
+                receiverClassName: "x"),
             ClientOp.StreamerWithReceiverBatchSend);
 
     [Test]
@@ -147,7 +145,7 @@ public class PartitionAwarenessTests
         var options = new DataStreamerOptions { PageSize = 1 };
         var data = producer.Reader.ReadAllAsync();
         var streamerTask = withReceiver
-            ? recordView.StreamDataAsync(data, options, x => x, x => x.ToString(), Array.Empty<DeploymentUnit>(), "x")
+            ? recordView.StreamDataAsync(data, x => x, x => x.ToString(), Array.Empty<DeploymentUnit>(), "x", null, options)
             : recordView.StreamDataAsync(data, options);
 
         Func<ITransaction?, Task> action = async _ =>

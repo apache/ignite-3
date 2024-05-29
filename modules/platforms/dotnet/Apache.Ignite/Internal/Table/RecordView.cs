@@ -309,12 +309,12 @@ namespace Apache.Ignite.Internal.Table
         /// <inheritdoc/>
         public IAsyncEnumerable<TResult> StreamDataAsync<TSource, TPayload, TResult>(
             IAsyncEnumerable<TSource> data,
-            DataStreamerOptions? options,
             Func<TSource, T> keySelector,
             Func<TSource, TPayload> payloadSelector,
             IEnumerable<DeploymentUnit> units,
             string receiverClassName,
             ICollection<object>? receiverArgs,
+            DataStreamerOptions? options,
             CancellationToken cancellationToken = default)
             where TPayload : notnull =>
             DataStreamerWithReceiver.StreamDataAsync<TSource, T, TPayload, TResult>(
@@ -333,12 +333,12 @@ namespace Apache.Ignite.Internal.Table
         /// <inheritdoc/>
         public async Task StreamDataAsync<TSource, TPayload>(
             IAsyncEnumerable<TSource> data,
-            DataStreamerOptions? options,
             Func<TSource, T> keySelector,
             Func<TSource, TPayload> payloadSelector,
             IEnumerable<DeploymentUnit> units,
             string receiverClassName,
             ICollection<object>? receiverArgs,
+            DataStreamerOptions? options,
             CancellationToken cancellationToken = default)
             where TPayload : notnull
         {
