@@ -75,6 +75,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Conditions;
@@ -95,16 +96,15 @@ import org.apache.ignite.internal.metastorage.server.ValueCondition.Type;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
-import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
-import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.RaftNodeId;
+import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -191,9 +191,8 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
 
             HybridClock clock = new HybridClockImpl();
 
-            this.raftManager = new Loza(
+            this.raftManager = TestLozaFactory.create(
                     clusterService,
-                    new NoOpMetricManager(),
                     raftConfiguration,
                     dataPath.resolve(name()),
                     clock
@@ -206,7 +205,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
 
         void start(PeersAndLearners configuration) {
             CompletableFuture<RaftGroupService> raftService =
-                    startAsync(clusterService, raftManager)
+                    startAsync(new ComponentContext(), clusterService, raftManager)
                             .thenCompose(unused -> startRaftService(configuration));
 
             assertThat(raftService, willCompleteSuccessfully());
@@ -257,7 +256,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
             Stream<AutoCloseable> beforeNodeStop = Stream.of(raftManager, clusterService).map(c -> c::beforeNodeStop);
 
             Stream<AutoCloseable> nodeStop = Stream.of(
-                    () -> assertThat(stopAsync(raftManager, clusterService), willCompleteSuccessfully())
+                    () -> assertThat(stopAsync(new ComponentContext(), raftManager, clusterService), willCompleteSuccessfully())
             );
 
             IgniteUtils.closeAll(Stream.of(raftStop, beforeNodeStop, nodeStop).flatMap(Function.identity()));
@@ -607,11 +606,11 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
 
         var ifCaptor = ArgumentCaptor.forClass(If.class);
 
-        when(node.mockStorage.invoke(any(), any())).thenReturn(ops().yield(true).result());
+        when(node.mockStorage.invoke(any(), any(), any())).thenReturn(ops().yield(true).result(), null, null);
 
         assertTrue(node.metaStorageService.invoke(iif).get().getAsBoolean());
 
-        verify(node.mockStorage).invoke(ifCaptor.capture(), any());
+        verify(node.mockStorage).invoke(ifCaptor.capture(), any(), any());
 
         var resultIf = ifCaptor.getValue();
 
@@ -656,7 +655,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
 
         byte[] expVal = {2};
 
-        when(node.mockStorage.invoke(any(), any(), any(), any())).thenReturn(true);
+        when(node.mockStorage.invoke(any(), any(), any(), any(), any())).thenReturn(true);
 
         Condition condition = Conditions.notExists(expKey);
 
@@ -672,7 +671,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
 
         ArgumentCaptor<Collection<Operation>> failureCaptor = ArgumentCaptor.forClass(Collection.class);
 
-        verify(node.mockStorage).invoke(conditionCaptor.capture(), successCaptor.capture(), failureCaptor.capture(), any());
+        verify(node.mockStorage).invoke(conditionCaptor.capture(), successCaptor.capture(), failureCaptor.capture(), any(), any());
 
         assertArrayEquals(expKey.bytes(), conditionCaptor.getValue().key());
 

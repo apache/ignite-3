@@ -1,0 +1,50 @@
+# name: test/sql/order/test_offset.test
+# description: offset clause tests
+# feature: SQL F861 (Top-level <result offset clause> in <query expression>)
+# group: [order]
+
+statement ok
+PRAGMA enable_verification
+
+statement ok
+CREATE TABLE test (b INTEGER)
+
+statement ok
+INSERT INTO test VALUES (22), (2), (7)
+
+query I
+SELECT b FROM test ORDER BY b DESC OFFSET 1
+----
+7
+2
+
+query I
+SELECT b FROM test ORDER BY b OFFSET 2
+----
+22
+
+query I
+SELECT b FROM test ORDER BY b OFFSET 10
+----
+
+query I
+SELECT * FROM (SELECT b FROM test UNION ALL SELECT b FROM (VALUES (4), (5), (6)) t(b) ORDER BY b) OFFSET 2
+----
+5
+6
+7
+22
+
+# ROW, ROWS
+
+query I
+SELECT b FROM test ORDER BY b DESC OFFSET 1 ROW
+----
+7
+2
+
+query I
+SELECT b FROM test ORDER BY b DESC OFFSET 1 ROWS
+----
+7
+2

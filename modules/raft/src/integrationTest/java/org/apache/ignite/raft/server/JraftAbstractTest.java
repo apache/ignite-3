@@ -36,6 +36,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.PeersAndLearners;
@@ -82,6 +83,8 @@ public abstract class JraftAbstractTest extends RaftServerAbstractTest {
      * Servers list.
      */
     protected final List<JraftServerImpl> servers = new ArrayList<>();
+
+    protected final List<ClusterService> serverServices = new ArrayList<>();
 
     /**
      * Clients list.
@@ -148,10 +151,13 @@ public abstract class JraftAbstractTest extends RaftServerAbstractTest {
 
             server.beforeNodeStop();
 
-            assertThat(server.stopAsync(), willCompleteSuccessfully());
+            assertThat(server.stopAsync(new ComponentContext()), willCompleteSuccessfully());
         }
 
         servers.clear();
+
+        assertThat(IgniteUtils.stopAsync(new ComponentContext(), serverServices), willCompleteSuccessfully());
+        serverServices.clear();
     }
 
     /**
@@ -171,13 +177,14 @@ public abstract class JraftAbstractTest extends RaftServerAbstractTest {
 
         optionsUpdater.accept(opts);
 
-        JraftServerImpl server = jraftServer(servers, idx, service, opts);
+        JraftServerImpl server = jraftServer(idx, service, opts);
 
-        assertThat(server.startAsync(), willCompleteSuccessfully());
+        assertThat(server.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         clo.accept(server);
 
         servers.add(server);
+        serverServices.add(service);
 
         assertTrue(waitForTopology(service, servers.size(), 15_000));
 

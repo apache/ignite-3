@@ -397,7 +397,10 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
         for (int i = 0; i < txIds.size(); i++) {
             TxState txState = i % 2 == 0 ? COMMITTED : ABORTED;
 
-            storage.put(txIds.get(i), new TxMeta(txState,  List.of(new ZonePartitionId(zoneId, tableId, PARTITION_ID)), CLOCK.now()));
+            storage.putForRebalance(
+                    txIds.get(i),
+                    new TxMeta(txState, List.of(new ZonePartitionId(zoneId, tableId, PARTITION_ID)), CLOCK.now())
+            );
         }
 
         storage.lastApplied(lastAppliedIndex, lastAppliedTerm);

@@ -45,6 +45,7 @@ import java.util.UUID;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionAccess;
@@ -94,7 +95,7 @@ class SnapshotMetaUtilsTest extends BaseIgniteAbstractTest {
         CatalogManager catalogManager = createCatalogManagerWithTestUpdateLog("test", clock);
 
         try {
-            assertThat(catalogManager.startAsync(), willCompleteSuccessfully());
+            assertThat(catalogManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
             String indexName0 = INDEX_NAME + 0;
             String indexName1 = INDEX_NAME + 1;
@@ -128,7 +129,10 @@ class SnapshotMetaUtilsTest extends BaseIgniteAbstractTest {
                     is(Map.of(indexId2, nextRowIdToBuildIndex2.uuid()))
             );
         } finally {
-            closeAll(catalogManager::beforeNodeStop, () -> assertThat(catalogManager.stopAsync(), willCompleteSuccessfully()));
+            closeAll(
+                    catalogManager::beforeNodeStop,
+                    () -> assertThat(catalogManager.stopAsync(new ComponentContext()), willCompleteSuccessfully())
+            );
         }
     }
 }

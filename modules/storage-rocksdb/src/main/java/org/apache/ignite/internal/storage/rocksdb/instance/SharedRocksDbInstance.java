@@ -52,8 +52,9 @@ import org.apache.ignite.internal.storage.rocksdb.IndexIdCursor.TableAndIndexId;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.jetbrains.annotations.Nullable;
 import org.rocksdb.ColumnFamilyDescriptor;
-import org.rocksdb.DBOptions;
+import org.rocksdb.ColumnFamilyOptions;
 import org.rocksdb.ReadOptions;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
@@ -105,8 +106,6 @@ public final class SharedRocksDbInstance {
     /** RocksDB flusher instance. */
     public final RocksDbFlusher flusher;
 
-    private final DBOptions dbOptions;
-
     /** Rocks DB instance. */
     public final RocksDB db;
 
@@ -131,31 +130,35 @@ public final class SharedRocksDbInstance {
     /** Prevents double stopping of the component. */
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
+    /** Tracks external resources that need to be closed. */
+    private final List<AutoCloseable> resources;
+
     SharedRocksDbInstance(
             RocksDbStorageEngine engine,
             Path path,
             IgniteSpinBusyLock busyLock,
             RocksDbFlusher flusher,
-            DBOptions dbOptions,
             RocksDB db,
             RocksDbMetaStorage meta,
             ColumnFamily partitionCf,
             ColumnFamily gcQueueCf,
             ColumnFamily hashIndexCf,
-            List<ColumnFamily> sortedIndexCfs
+            List<ColumnFamily> sortedIndexCfs,
+            List<AutoCloseable> resources
     ) {
         this.engine = engine;
         this.path = path;
         this.busyLock = busyLock;
 
         this.flusher = flusher;
-        this.dbOptions = dbOptions;
         this.db = db;
 
         this.meta = meta;
         this.partitionCf = partitionCf;
         this.gcQueueCf = gcQueueCf;
         this.hashIndexCf = hashIndexCf;
+
+        this.resources = new ArrayList<>(resources);
 
         recoverExistingSortedIndexes(sortedIndexCfs);
     }
@@ -200,16 +203,25 @@ public final class SharedRocksDbInstance {
 
         busyLock.block();
 
-        List<AutoCloseable> resources = new ArrayList<>();
+        // Add resources from sorted indexes.
+        {
+            int expectedSize = sortedIndexCfsByName.size();
+            List<AutoCloseable> sortedIndexOptions = new ArrayList<>(expectedSize);
+            List<AutoCloseable> sortedIndexHandles = new ArrayList<>(expectedSize);
+            for (SortedIndexColumnFamily sortedIndexCf : sortedIndexCfsByName.values()) {
+                ColumnFamily cf = sortedIndexCf.columnFamily;
+                sortedIndexHandles.add(cf.handle());
+                @Nullable ColumnFamilyOptions options = cf.privateOptions();
+                if (options != null) {
+                    sortedIndexOptions.add(cf.privateOptions());
+                }
+            }
 
-        resources.add(meta.columnFamily().handle());
-        resources.add(partitionCf.handle());
-        resources.add(gcQueueCf.handle());
-        resources.add(hashIndexCf.handle());
-        resources.addAll(sortedIndexCfsByName.values());
+            // Some of the CF handles/options might be repeated, it should not be a critical but it is not ideal.
+            resources.addAll(0, sortedIndexOptions);
+            resources.addAll(sortedIndexHandles);
+        }
 
-        resources.add(dbOptions);
-        resources.add(db);
         resources.add(flusher::stop);
 
         try {
@@ -395,11 +407,13 @@ public final class SharedRocksDbInstance {
     }
 
     private ColumnFamily createSortedIndexCf(byte[] cfName) {
-        ColumnFamilyDescriptor cfDescriptor = new ColumnFamilyDescriptor(cfName, sortedIndexCfOptions(cfName));
+        ColumnFamilyOptions cfOptions = sortedIndexCfOptions(cfName);
+        this.resources.add(0, cfOptions); // Added to the first position of the resources.
+        ColumnFamilyDescriptor cfDescriptor = new ColumnFamilyDescriptor(cfName, cfOptions);
 
         ColumnFamily columnFamily;
         try {
-            columnFamily = ColumnFamily.create(db, cfDescriptor);
+            columnFamily = ColumnFamily.withPrivateOptions(db, cfDescriptor);
         } catch (RocksDBException e) {
             throw new StorageException("Failed to create new RocksDB column family: " + toStringName(cfName), e);
         }

@@ -29,9 +29,9 @@ import java.util.ArrayList;
 import java.util.List;
 import org.apache.calcite.rex.RexNode;
 import org.apache.ignite.internal.catalog.CatalogCommand;
-import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.commands.DropTableCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestCluster;
 import org.apache.ignite.internal.sql.engine.framework.TestNode;
@@ -72,7 +72,7 @@ public class PrimaryKeyLookupPlannerTest extends AbstractPlannerTest {
         for (CatalogTableDescriptor table : CLUSTER.catalogManager().tables(version)) {
             commands.add(
                     DropTableCommand.builder()
-                            .schemaName(CatalogService.DEFAULT_SCHEMA_NAME)
+                            .schemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
                             .tableName(table.name())
                             .build()
             );

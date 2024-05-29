@@ -26,7 +26,6 @@ import java.time.ZoneId;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.sql.StatementBuilderImpl;
-import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.sql.Statement;
 import org.junit.jupiter.api.Test;
 
@@ -89,7 +88,7 @@ public class StatementBuilderImplTest {
     @Test
     public void checkDefaultParameters() throws Exception {
         try (Statement statement = builder.query(QUERY).build()) {
-            assertThat(statement.defaultSchema(), is(SqlQueryProcessor.DEFAULT_SCHEMA_NAME));
+            assertThat(statement.defaultSchema(), is(SqlCommon.DEFAULT_SCHEMA_NAME));
             assertThat(statement.query(), is(QUERY));
             assertThat(statement.timeZoneId(), is(ZoneId.systemDefault()));
             assertThat(statement.pageSize(), is(SqlCommon.DEFAULT_PAGE_SIZE));
@@ -161,13 +160,13 @@ public class StatementBuilderImplTest {
                 .build();
 
         assertThat(statement1.query(), is(QUERY));
-        assertThat(statement1.defaultSchema(), is(SqlQueryProcessor.DEFAULT_SCHEMA_NAME));
+        assertThat(statement1.defaultSchema(), is(SqlCommon.DEFAULT_SCHEMA_NAME));
         assertThat(statement1.queryTimeout(TimeUnit.SECONDS), is(timeout));
         assertThat(statement1.pageSize(), is(pageSize - 1));
         assertThat(statement1.timeZoneId(), is(ZoneId.systemDefault()));
 
         assertThat(statement2.query(), is(QUERY));
-        assertThat(statement2.defaultSchema(), is(SqlQueryProcessor.DEFAULT_SCHEMA_NAME));
+        assertThat(statement2.defaultSchema(), is(SqlCommon.DEFAULT_SCHEMA_NAME));
         assertThat(statement2.queryTimeout(TimeUnit.MINUTES), is(timeout));
         assertThat(statement2.pageSize(), is(pageSize + 1));
         assertThat(statement2.timeZoneId(), is(timeZone));
@@ -189,7 +188,7 @@ public class StatementBuilderImplTest {
         assertThat(statement1.query(), is(QUERY));
         assertThat(statement2.query(), is(QUERY));
 
-        assertThat(statement1.defaultSchema(), is(SqlQueryProcessor.DEFAULT_SCHEMA_NAME));
+        assertThat(statement1.defaultSchema(), is(SqlCommon.DEFAULT_SCHEMA_NAME));
         assertThat(statement2.defaultSchema(), is("SYSTEM"));
     }
 }

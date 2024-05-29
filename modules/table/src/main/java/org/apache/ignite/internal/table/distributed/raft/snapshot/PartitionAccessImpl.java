@@ -126,7 +126,7 @@ public class PartitionAccessImpl implements PartitionAccess {
 
     @Override
     public void addTxMeta(UUID txId, TxMeta txMeta) {
-        getTxStateStorage(partitionId()).put(txId, txMeta);
+        getTxStateStorage(partitionId()).putForRebalance(txId, txMeta);
     }
 
     @Override

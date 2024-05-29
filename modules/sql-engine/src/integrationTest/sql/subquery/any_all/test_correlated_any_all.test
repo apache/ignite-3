@@ -1,7 +1,6 @@
 # name: test/sql/subquery/any_all/test_correlated_any_all.test
 # description: Test correlated ANY/ALL subqueries
 # group: [any_all]
-# Ignore https://issues.apache.org/jira/browse/IGNITE-19401
 # Ignore https://issues.apache.org/jira/browse/IGNITE-19402
 
 statement ok
@@ -30,8 +29,6 @@ false
 true
 NULL
 
-# Ignore https://issues.apache.org/jira/browse/IGNITE-19401
-skipif ignite3
 query T
 SELECT i=ALL(SELECT i FROM integers WHERE i<>i1.i) FROM integers i1 ORDER BY i;
 ----
@@ -48,8 +45,6 @@ SELECT i FROM integers i1 WHERE i=ANY(SELECT i FROM integers WHERE i=i1.i) ORDER
 2
 3
 
-# Ignore https://issues.apache.org/jira/browse/IGNITE-19401
-skipif ignite3
 query I
 SELECT i FROM integers i1 WHERE i<>ANY(SELECT i FROM integers WHERE i=i1.i) ORDER BY i;
 ----
@@ -69,8 +64,6 @@ SELECT i FROM integers i1 WHERE i>ALL(SELECT (i+i1.i-1)/2 FROM integers WHERE i 
 ----
 3
 
-# Ignore https://issues.apache.org/jira/browse/IGNITE-19401
-skipif ignite3
 # if there is i=ANY() where the subquery returns an EMPTY result set and i=NULL, the result becomes FALSE instead
 # of NULL
 query T
@@ -97,8 +90,6 @@ false
 false
 true
 
-# Ignore https://issues.apache.org/jira/browse/IGNITE-19401
-skipif ignite3
 query T
 SELECT i<>ANY(SELECT i FROM integers WHERE i=i1.i) FROM integers i1 ORDER BY i;
 ----
@@ -107,8 +98,6 @@ false
 false
 false
 
-# Ignore https://issues.apache.org/jira/browse/IGNITE-19401
-skipif ignite3
 query T
 SELECT i=ALL(SELECT i FROM integers WHERE i<>i1.i) FROM integers i1 ORDER BY i;
 ----
@@ -157,7 +146,17 @@ true
 true
 NULL
 
-# Ignore https://issues.apache.org/jira/browse/IGNITE-19401
+#Ignore https://issues.apache.org/jira/browse/IGNITE-22314
+skipif ignite3
+query T
+SELECT i=ALL(SELECT i FROM (values(null), (1)) integers(i) WHERE i=i1.i OR i IS NULL) FROM integers i1 ORDER BY i;
+----
+NULL
+NULL
+NULL
+NULL
+
+#Ignore https://issues.apache.org/jira/browse/IGNITE-22314
 skipif ignite3
 query T
 SELECT i=ALL(SELECT i FROM integers WHERE i=i1.i OR i IS NULL) FROM integers i1 ORDER BY i;

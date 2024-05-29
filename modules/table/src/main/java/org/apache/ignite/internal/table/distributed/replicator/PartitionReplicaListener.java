@@ -1027,9 +1027,9 @@ public class PartitionReplicaListener implements ReplicaListener {
                 .thenAccept(validationResult -> {
                     if (!validationResult.isSuccessful()) {
                         throw new IncompatibleSchemaException(String.format(
-                                "Operation failed because it tried to access a row with newer schema version than transaction's [table=%d, "
+                                "Operation failed because it tried to access a row with newer schema version than transaction's [table=%s, "
                                         + "txSchemaVersion=%d, rowSchemaVersion=%d]",
-                                validationResult.failedTableId(), validationResult.fromSchemaVersion(), validationResult.toSchemaVersion()
+                                validationResult.failedTableName(), validationResult.fromSchemaVersion(), validationResult.toSchemaVersion()
                         ));
                     }
                 });
@@ -1621,17 +1621,20 @@ public class PartitionReplicaListener implements ReplicaListener {
     private static void throwIfSchemaValidationOnCommitFailed(CompatValidationResult validationResult, TransactionResult txResult) {
         if (!validationResult.isSuccessful()) {
             if (validationResult.isTableDropped()) {
-                // TODO: IGNITE-20966 - improve error message.
                 throw new MismatchingTransactionOutcomeException(
-                        format("Commit failed because a table was already dropped [tableId={}]", validationResult.failedTableId()),
+                        format("Commit failed because a table was already dropped [table={}]", validationResult.failedTableName()),
                         txResult
                 );
             } else {
-                // TODO: IGNITE-20966 - improve error message.
                 throw new MismatchingTransactionOutcomeException(
-                        "Commit failed because schema "
-                                + validationResult.fromSchemaVersion() + " is not forward-compatible with "
-                                + validationResult.toSchemaVersion() + " for table " + validationResult.failedTableId(),
+                        format(
+                                "Commit failed because schema is not forward-compatible "
+                                        + "[fromSchemaVersion={}, toSchemaVersion={}, table={}, details={}]",
+                                validationResult.fromSchemaVersion(),
+                                validationResult.toSchemaVersion(),
+                                validationResult.failedTableName(),
+                                validationResult.details()
+                        ),
                         txResult
                 );
             }
@@ -1803,7 +1806,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         return awaitCleanupReadyFutures(request.txId(), request.commit())
                 .thenCompose(res -> {
-                    if (res.hadUpdateFutures()) {
+                    if (res.hadUpdateFutures() || res.forceCleanup()) {
                         HybridTimestamp commandTimestamp = clockService.now();
 
                         return reliableCatalogVersionFor(commandTimestamp)
@@ -1831,10 +1834,21 @@ public class PartitionReplicaListener implements ReplicaListener {
         List<CompletableFuture<?>> txUpdateFutures = new ArrayList<>();
         List<CompletableFuture<?>> txReadFutures = new ArrayList<>();
 
+        AtomicBoolean forceCleanup = new AtomicBoolean(true);
+
         txCleanupReadyFutures.compute(txId, (id, txOps) -> {
             if (txOps == null) {
                 return null;
             }
+
+            // Cleanup futures (both read and update) are empty in two cases:
+            // - there were no actions in the transaction
+            // - write intent switch is being executed on the new primary (the primary has changed after write intent appeared)
+            // Both cases are expected to happen extremely rarely so we are fine to force the write intent switch.
+
+            // The reason for the forced switch is that otherwise write intents would not be switched (if there is no volatile state and
+            // FuturesCleanupResult.hadUpdateFutures() returns false).
+            forceCleanup.set(txOps.futures.isEmpty());
 
             txOps.futures.forEach((opType, futures) -> {
                 if (opType.isRwRead()) {
@@ -1851,7 +1865,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         return allOfFuturesExceptionIgnored(txUpdateFutures, commit, txId)
                 .thenCompose(v -> allOfFuturesExceptionIgnored(txReadFutures, commit, txId))
-                .thenApply(v -> new FuturesCleanupResult(!txReadFutures.isEmpty(), !txUpdateFutures.isEmpty()));
+                .thenApply(v -> new FuturesCleanupResult(!txReadFutures.isEmpty(), !txUpdateFutures.isEmpty(), forceCleanup.get()));
     }
 
     private CompletableFuture<WriteIntentSwitchReplicatedInfo> applyWriteIntentSwitchCommand(
@@ -3956,10 +3970,12 @@ public class PartitionReplicaListener implements ReplicaListener {
     private static class FuturesCleanupResult {
         private final boolean hadReadFutures;
         private final boolean hadUpdateFutures;
+        private final boolean forceCleanup;
 
-        public FuturesCleanupResult(boolean hadReadFutures, boolean hadUpdateFutures) {
+        public FuturesCleanupResult(boolean hadReadFutures, boolean hadUpdateFutures, boolean forceCleanup) {
             this.hadReadFutures = hadReadFutures;
             this.hadUpdateFutures = hadUpdateFutures;
+            this.forceCleanup = forceCleanup;
         }
 
         public boolean hadReadFutures() {
@@ -3968,6 +3984,10 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         public boolean hadUpdateFutures() {
             return hadUpdateFutures;
+        }
+
+        public boolean forceCleanup() {
+            return forceCleanup;
         }
     }
 

@@ -37,6 +37,7 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.command.GetCurrentRevisionCommand;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
@@ -138,13 +139,13 @@ public class MetaStorageManagerRecoveryTest extends BaseIgniteAbstractTest {
             }
 
             @Override
-            public CompletableFuture<Void> startAsync() {
+            public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
                 return nullCompletedFuture();
             }
         };
     }
 
-    private ClusterManagementGroupManager clusterManagementManager() {
+    private static ClusterManagementGroupManager clusterManagementManager() {
         ClusterManagementGroupManager mock = mock(ClusterManagementGroupManager.class);
 
         when(mock.metaStorageNodes())
@@ -159,7 +160,7 @@ public class MetaStorageManagerRecoveryTest extends BaseIgniteAbstractTest {
 
         createMetaStorage(targetRevision);
 
-        assertThat(metaStorageManager.startAsync(), willCompleteSuccessfully());
+        assertThat(metaStorageManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         CompletableFuture<Void> msDeployFut = metaStorageManager.deployWatches();
 
@@ -177,7 +178,7 @@ public class MetaStorageManagerRecoveryTest extends BaseIgniteAbstractTest {
     void testRecoverClean() throws Exception {
         createMetaStorage(0);
 
-        assertThat(metaStorageManager.startAsync(), willCompleteSuccessfully());
+        assertThat(metaStorageManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         CompletableFuture<Void> msDeployFut = metaStorageManager.deployWatches();
 

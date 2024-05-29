@@ -35,6 +35,7 @@ import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.sources.RaftMetricSource;
 import org.apache.ignite.internal.network.ClusterService;
@@ -47,6 +48,7 @@ import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -110,6 +112,7 @@ public class Loza implements RaftManager {
      * @param raftConfiguration Raft configuration.
      * @param dataPath Data path.
      * @param clock A hybrid logical clock.
+     * @param defaultLogStorageFactory The factory for default log storage.
      */
     public Loza(
             ClusterService clusterNetSvc,
@@ -117,7 +120,8 @@ public class Loza implements RaftManager {
             RaftConfiguration raftConfiguration,
             Path dataPath,
             HybridClock clock,
-            RaftGroupEventsClientListener raftGroupEventsClientListener
+            RaftGroupEventsClientListener raftGroupEventsClientListener,
+            LogStorageFactory defaultLogStorageFactory
     ) {
         this.clusterNetSvc = clusterNetSvc;
         this.raftConfiguration = raftConfiguration;
@@ -130,38 +134,11 @@ public class Loza implements RaftManager {
 
         this.opts = options;
 
-        this.raftServer = new JraftServerImpl(clusterNetSvc, dataPath, raftConfiguration, options, raftGroupEventsClientListener);
+        this.raftServer = new JraftServerImpl(clusterNetSvc, dataPath, options, raftGroupEventsClientListener, defaultLogStorageFactory);
 
         this.executor = new ScheduledThreadPoolExecutor(
                 CLIENT_POOL_SIZE,
                 NamedThreadFactory.create(clusterNetSvc.nodeName(), CLIENT_POOL_NAME, LOG)
-        );
-    }
-
-    /**
-     * The constructor.
-     *
-     * @param clusterNetSvc Cluster network service.
-     * @param metricManager Metric manager.
-     * @param raftConfiguration Raft configuration.
-     * @param dataPath Data path.
-     * @param clock A hybrid logical clock.
-     */
-    @TestOnly
-    public Loza(
-            ClusterService clusterNetSvc,
-            MetricManager metricManager,
-            RaftConfiguration raftConfiguration,
-            Path dataPath,
-            HybridClock clock
-    ) {
-        this(
-                clusterNetSvc,
-                metricManager,
-                raftConfiguration,
-                dataPath,
-                clock,
-                new RaftGroupEventsClientListener()
         );
     }
 
@@ -187,7 +164,7 @@ public class Loza implements RaftManager {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> startAsync() {
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         RaftView raftConfig = raftConfiguration.value();
 
         var stripeSource = new RaftMetricSource(raftConfiguration.value().stripes(), raftConfiguration.value().logStripesCount());
@@ -202,12 +179,12 @@ public class Loza implements RaftManager {
 
         opts.getRaftOptions().setSync(raftConfig.fsync());
 
-        return raftServer.startAsync();
+        return raftServer.startAsync(componentContext);
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> stopAsync() {
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         if (!stopGuard.compareAndSet(false, true)) {
             return nullCompletedFuture();
         }
@@ -216,7 +193,7 @@ public class Loza implements RaftManager {
 
         IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
 
-        return raftServer.stopAsync();
+        return raftServer.stopAsync(componentContext);
     }
 
     @Override

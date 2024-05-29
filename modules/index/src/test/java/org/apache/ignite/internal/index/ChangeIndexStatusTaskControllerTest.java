@@ -46,6 +46,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
@@ -82,7 +83,7 @@ public class ChangeIndexStatusTaskControllerTest extends BaseIgniteAbstractTest 
     void setUp() {
         catalogManager = createCatalogManagerWithTestUpdateLog(NODE_NAME, clock);
 
-        assertThat(catalogManager.startAsync(), willCompleteSuccessfully());
+        assertThat(catalogManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         createTable(catalogManager, TABLE_NAME, COLUMN_NAME);
 
@@ -95,7 +96,7 @@ public class ChangeIndexStatusTaskControllerTest extends BaseIgniteAbstractTest 
     void tearDown() throws Exception {
         closeAllManually(
                 catalogManager::beforeNodeStop,
-                () -> assertThat(catalogManager.stopAsync(), willCompleteSuccessfully()),
+                () -> assertThat(catalogManager.stopAsync(new ComponentContext()), willCompleteSuccessfully()),
                 taskController
         );
     }

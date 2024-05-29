@@ -75,6 +75,7 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.index.message.IndexMessagesFactory;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
@@ -133,7 +134,7 @@ public class ChangeIndexStatusTaskTest extends IgniteAbstractTest {
 
         catalogManager = createTestCatalogManager(NODE_NAME, clockWaiter, clock);
 
-        assertThat(startAsync(clockWaiter, catalogManager), willCompleteSuccessfully());
+        assertThat(startAsync(new ComponentContext(), clockWaiter, catalogManager), willCompleteSuccessfully());
 
         awaitDefaultZoneCreation(catalogManager);
 
@@ -173,11 +174,13 @@ public class ChangeIndexStatusTaskTest extends IgniteAbstractTest {
 
     @AfterEach
     void tearDown() throws Exception {
+        ComponentContext componentContext = new ComponentContext();
+
         closeAll(
                 catalogManager::beforeNodeStop,
                 clockWaiter::beforeNodeStop,
-                () -> assertThat(catalogManager.stopAsync(), willCompleteSuccessfully()),
-                () -> assertThat(clockWaiter.stopAsync(), willCompleteSuccessfully()),
+                () -> assertThat(catalogManager.stopAsync(componentContext), willCompleteSuccessfully()),
+                () -> assertThat(clockWaiter.stopAsync(componentContext), willCompleteSuccessfully()),
                 task == null ? null : task::stop,
                 () -> shutdownAndAwaitTermination(executor, 1, SECONDS)
         );

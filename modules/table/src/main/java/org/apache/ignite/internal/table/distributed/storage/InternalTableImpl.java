@@ -1915,18 +1915,20 @@ public class InternalTableImpl implements InternalTable {
 
         tx.assignCommitPartition(zonePartitionId);
 
-        return partitionMeta(zonePartitionId).thenApply(meta ->
+        return partitionMeta(partId).thenApply(meta ->
                 tx.enlist(zonePartitionId, new IgniteBiTuple<>(getClusterNode(meta.getLeaseholder()), meta.getStartTime().longValue()))
         );
     }
 
     @Override
-    public CompletableFuture<ClusterNode> partitionLocation(ZonePartitionId zonePartitionId) {
-        return partitionMeta(zonePartitionId).thenApply(meta -> getClusterNode(meta.getLeaseholder()));
+    public CompletableFuture<ClusterNode> partitionLocation(int partitionId) {
+        return partitionMeta(partitionId).thenApply(meta -> getClusterNode(meta.getLeaseholder()));
     }
 
-    private CompletableFuture<ReplicaMeta> partitionMeta(ZonePartitionId zonePartitionId) {
+    private CompletableFuture<ReplicaMeta> partitionMeta(int partitionId) {
         HybridTimestamp now = clock.now();
+
+        var zonePartitionId = new ZonePartitionId(zoneId, partitionId);
 
         CompletableFuture<ReplicaMeta> primaryReplicaFuture = placementDriver.awaitPrimaryReplicaForTable(
                 zonePartitionId,

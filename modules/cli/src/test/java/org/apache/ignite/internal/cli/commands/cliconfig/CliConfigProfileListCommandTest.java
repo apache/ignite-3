@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.cli.commands.cliconfig;
 
-import static org.junit.jupiter.api.Assertions.assertAll;
-
 import org.apache.ignite.internal.cli.commands.cliconfig.profile.CliConfigProfileListCommand;
 import org.junit.jupiter.api.Test;
 
@@ -32,12 +30,8 @@ class CliConfigProfileListCommandTest extends CliConfigCommandTestBase {
     public void testWithDefaultProfile() {
         execute();
 
-        String expectedResult = "owner" + System.lineSeparator()
-                + "database" + System.lineSeparator();
-        assertAll(
-                () -> assertOutputIs(expectedResult),
-                this::assertErrOutputIsEmpty
-        );
+        assertSuccessfulOutputIs("owner" + System.lineSeparator()
+                + "database" + System.lineSeparator());
     }
 
     @Test
@@ -45,11 +39,7 @@ class CliConfigProfileListCommandTest extends CliConfigCommandTestBase {
         configManagerProvider.setConfigFile(TestConfigManagerHelper.createOneSectionWithDefaultProfileConfig());
         execute();
 
-        String expectedResult = "default" + System.lineSeparator();
-        assertAll(
-                () -> assertOutputIs(expectedResult),
-                this::assertErrOutputIsEmpty
-        );
+        assertSuccessfulOutputIs("default" + System.lineSeparator());
     }
 
     @Test
@@ -57,10 +47,6 @@ class CliConfigProfileListCommandTest extends CliConfigCommandTestBase {
         configManagerProvider.setConfigFile(TestConfigManagerHelper.createEmptyConfig());
         execute();
 
-        String expectedResult = "default" + System.lineSeparator();
-        assertAll(
-                () -> assertOutputIs(expectedResult),
-                this::assertErrOutputIsEmpty
-        );
+        assertSuccessfulOutputIs("default" + System.lineSeparator());
     }
 }

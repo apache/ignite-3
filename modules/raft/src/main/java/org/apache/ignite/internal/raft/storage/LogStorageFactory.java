@@ -17,18 +17,13 @@
 
 package org.apache.ignite.internal.raft.storage;
 
-import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.components.LogSyncer;
+import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 
 /** Log storage factory interface. */
-public interface LogStorageFactory extends ManuallyCloseable, LogSyncer {
-    /**
-     * Starts the log storage factory.
-     */
-    void start();
-
+public interface LogStorageFactory extends LogSyncer, IgniteComponent {
     /**
      * Creates a log storage.
      *
@@ -37,10 +32,4 @@ public interface LogStorageFactory extends ManuallyCloseable, LogSyncer {
      * @return Log storage.
      */
     LogStorage createLogStorage(String uri, RaftOptions raftOptions);
-
-    /**
-     * Closes the factory.
-     */
-    @Override
-    void close();
 }

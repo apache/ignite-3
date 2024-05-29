@@ -30,8 +30,6 @@ import java.util.function.Supplier;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.pagememory.PageMemory;
-import org.apache.ignite.internal.pagememory.evict.PageEvictionTracker;
-import org.apache.ignite.internal.pagememory.evict.PageEvictionTrackerNoOp;
 import org.apache.ignite.internal.pagememory.freelist.FreeListImpl;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
@@ -66,7 +64,6 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
     private final PersistentPageMemoryDataRegion dataRegion;
 
     private final ExecutorService destructionExecutor;
-    private final PageEvictionTracker pageEvictionTracker = PageEvictionTrackerNoOp.INSTANCE;
 
     /**
      * Constructor.
@@ -134,7 +131,6 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
                     partitionId,
                     meta,
                     freeList,
-                    pageEvictionTracker,
                     versionChainTree,
                     indexMetaTree,
                     gcQueue,
@@ -186,7 +182,6 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
                     meta.freeListRootPageId(),
                     initNew,
                     dataRegion.pageListCacheLimit(),
-                    pageEvictionTracker,
                     IoStatisticsHolderNoOp.INSTANCE
             );
         } catch (IgniteInternalCheckedException e) {

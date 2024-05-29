@@ -7,7 +7,7 @@
 Non-interactive (or non-REPL) command is a command that executes under `ignite` top command. Example of non-interactive command:
 
 ```bash
-> ignite node status --node-url http://localhost:10300
+> ignite node status --url http://localhost:10300
 ```
 
 The non-REPL fronted is responsible for:
@@ -22,7 +22,7 @@ Interactive (or REPL, Read-Eval-Print-Loop) mode can be activated by `ignite` co
 
 ```bash
 > ignite
-[diconnected]> node status --node-url http://localhost:10300
+[diconnected]> node status --url http://localhost:10300
 ```
 
 The REPL frontend is responsible for:
@@ -57,9 +57,9 @@ Example [`SqlExceptionHandler`](src/main/java/org/apache/ignite/internal/cli/cor
 ### Flow
 
 For the interactive mode there is a common situation when a user is not connected to any node and executes some command.
-The user might forget to connect to the node and always type `--node-url` option instead of connecting to the node once and type only
+The user might forget to connect to the node and always type `--url` option instead of connecting to the node once and type only
 commands.
-So, it is useful to ask the user if he/she wants to connect to the node with the last `--node-url` value.
+So, it is useful to ask the user if he/she wants to connect to the node with the last `--url` value.
 
 It might be implemented as several checks and read-line operations in every interactive command.
 To avoid code duplication the [`Flow`](src/main/java/org/apache/ignite/internal/cli/core/flow/Flow.java) was introduced.

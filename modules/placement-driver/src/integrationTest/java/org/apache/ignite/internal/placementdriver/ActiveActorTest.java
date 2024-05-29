@@ -38,6 +38,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
@@ -83,7 +84,7 @@ public class ActiveActorTest extends AbstractTopologyAwareGroupServiceTest {
     public void tearDown() throws Exception {
         for (PlacementDriverManager pdMgr : placementDriverManagers.values()) {
             pdMgr.beforeNodeStop();
-            assertThat(pdMgr.stopAsync(), willCompleteSuccessfully());
+            assertThat(pdMgr.stopAsync(new ComponentContext()), willCompleteSuccessfully());
         }
 
         placementDriverManagers.clear();
@@ -137,7 +138,7 @@ public class ActiveActorTest extends AbstractTopologyAwareGroupServiceTest {
                 new TestClockService(new HybridClockImpl())
         );
 
-        assertThat(placementDriverManager.startAsync(), willCompleteSuccessfully());
+        assertThat(placementDriverManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         placementDriverManagers.put(nodeName, placementDriverManager);
     }
@@ -147,7 +148,7 @@ public class ActiveActorTest extends AbstractTopologyAwareGroupServiceTest {
         PlacementDriverManager placementDriverManager = placementDriverManagers.remove(nodeName);
 
         placementDriverManager.beforeNodeStop();
-        assertThat(placementDriverManager.stopAsync(), willCompleteSuccessfully());
+        assertThat(placementDriverManager.stopAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     private boolean checkSingleActiveActor(String leaderName) {

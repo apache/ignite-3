@@ -30,7 +30,7 @@ class ItClusterConfigCommandNotInitializedTest extends CliCommandTestNotInitiali
     @Test
     @DisplayName("Should print error message when run cluster config show on not initialized cluster")
     void printStatus() {
-        execute("cluster", "config", "show", "--cluster-endpoint-url", NODE_URL);
+        execute("cluster", "config", "show", "--url", NODE_URL);
 
         assertAll(
                 this::assertOutputIsEmpty,

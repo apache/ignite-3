@@ -51,7 +51,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public class TxCleanupRequestSender {
     /** Logger. */
-    private final IgniteLogger log = Loggers.forClass(TxCleanupRequestSender.class);
+    private static final IgniteLogger LOG = Loggers.forClass(TxCleanupRequestSender.class);
 
     /** Placement driver helper. */
     private final PlacementDriverHelper placementDriverHelper;
@@ -96,7 +96,7 @@ public class TxCleanupRequestSender {
                 if (msg instanceof TxCleanupMessageErrorResponse) {
                     TxCleanupMessageErrorResponse response = (TxCleanupMessageErrorResponse) msg;
 
-                    log.warn("Exception happened during transaction cleanup [txId={}].", response.throwable(), response.txId());
+                    LOG.warn("Exception happened during transaction cleanup [txId={}].", response.throwable(), response.txId());
                 }
             }
         });

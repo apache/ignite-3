@@ -221,7 +221,7 @@ public class DistributionZoneManagerAlterFilterTest extends BaseDistributionZone
                 topology.putNode(e);
             }
             return invocation.callRealMethod();
-        }).when(keyValueStorage).invoke(any(), any());
+        }).when(keyValueStorage).invoke(any(), any(), any());
 
         // Check that node E, that was added while filter's altering, is not propagated to data nodes.
         assertDataNodesFromManager(distributionZoneManager, metaStorageManager::appliedRevision, catalogManager::latestCatalogVersion,

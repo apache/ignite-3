@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.runner.app;
 
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.MAX_TIME_PRECISION;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZone;
 import static org.apache.ignite.internal.table.TableTestUtils.createTable;
@@ -75,6 +74,7 @@ import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderChange;
 import org.apache.ignite.internal.security.configuration.SecurityChange;
 import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.table.RecordBinaryViewImpl;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.type.NativeTypes;
@@ -290,7 +290,7 @@ public class PlatformTestNodeRunner {
 
         createTable(
                 ignite.catalogManager(),
-                DEFAULT_SCHEMA_NAME,
+                SqlCommon.DEFAULT_SCHEMA_NAME,
                 ZONE_NAME,
                 TABLE_NAME,
                 List.of(
@@ -304,7 +304,7 @@ public class PlatformTestNodeRunner {
 
         createTable(
                 ignite.catalogManager(),
-                DEFAULT_SCHEMA_NAME,
+                SqlCommon.DEFAULT_SCHEMA_NAME,
                 ZONE_NAME,
                 TABLE_NAME_ALL_COLUMNS,
                 List.of(
@@ -334,7 +334,7 @@ public class PlatformTestNodeRunner {
 
         createTable(
                 ignite.catalogManager(),
-                DEFAULT_SCHEMA_NAME,
+                SqlCommon.DEFAULT_SCHEMA_NAME,
                 ZONE_NAME,
                 TABLE_NAME_ALL_COLUMNS_NOT_NULL,
                 List.of(
@@ -364,7 +364,7 @@ public class PlatformTestNodeRunner {
         // TODO IGNITE-18431 remove extra table, use TABLE_NAME_ALL_COLUMNS for SQL tests.
         createTable(
                 ignite.catalogManager(),
-                DEFAULT_SCHEMA_NAME,
+                SqlCommon.DEFAULT_SCHEMA_NAME,
                 ZONE_NAME,
                 TABLE_NAME_ALL_COLUMNS_SQL,
                 List.of(
@@ -499,7 +499,7 @@ public class PlatformTestNodeRunner {
 
         createTable(
                 ignite.catalogManager(),
-                DEFAULT_SCHEMA_NAME,
+                SqlCommon.DEFAULT_SCHEMA_NAME,
                 ZONE_NAME,
                 ("tbl_" + keyColumnParams.type().name()).toUpperCase(),
                 List.of(keyColumnParams, valueColumnParams),

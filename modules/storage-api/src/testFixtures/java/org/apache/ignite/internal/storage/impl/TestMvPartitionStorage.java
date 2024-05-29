@@ -44,6 +44,7 @@ import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.storage.gc.GcEntry;
 import org.apache.ignite.internal.storage.util.LocalLocker;
 import org.apache.ignite.internal.storage.util.LockByRowId;
+import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 
@@ -92,13 +93,13 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     }
 
     private static class VersionChain implements GcEntry {
-        final RowId rowId;
-        final @Nullable BinaryRow row;
-        final @Nullable HybridTimestamp ts;
-        final @Nullable UUID txId;
-        final @Nullable Integer commitZoneId;
-        final @Nullable Integer commitTableId;
-        final int commitPartitionId;
+        private final RowId rowId;
+        private final @Nullable BinaryRow row;
+        private final @Nullable HybridTimestamp ts;
+        private final @Nullable UUID txId;
+        private final @Nullable Integer commitZoneId;
+        private final @Nullable Integer commitTableId;
+        private final int commitPartitionId;
         volatile @Nullable VersionChain next;
 
         VersionChain(
@@ -145,6 +146,11 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
             assert ts != null : "Method should only be invoked for instances with non-null timestamps.";
 
             return ts;
+        }
+
+        @Override
+        public String toString() {
+            return S.toString(VersionChain.class, this);
         }
     }
 

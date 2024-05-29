@@ -69,6 +69,10 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
 
     @AfterEach
     public void afterEach() throws Exception {
+        if (stmt != null) {
+            stmt.close();
+        }
+
         try (Statement statement = conn.createStatement()) {
             statement.executeUpdate("DELETE FROM TEST;");
         }

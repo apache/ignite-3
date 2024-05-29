@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.index;
 
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -49,6 +48,7 @@ import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -74,7 +74,7 @@ class TestIndexManagementUtils {
     static void createTable(CatalogManager catalogManager, String tableName, String columnName) {
         TableTestUtils.createTable(
                 catalogManager,
-                DEFAULT_SCHEMA_NAME,
+                SqlCommon.DEFAULT_SCHEMA_NAME,
                 null,
                 tableName,
                 List.of(ColumnParams.builder().name(columnName).type(INT32).build()),
@@ -83,11 +83,11 @@ class TestIndexManagementUtils {
     }
 
     static void createIndex(CatalogManager catalogManager, String tableName, String indexName, String columnName) {
-        TableTestUtils.createHashIndex(catalogManager, DEFAULT_SCHEMA_NAME, tableName, indexName, List.of(columnName), false);
+        TableTestUtils.createHashIndex(catalogManager, SqlCommon.DEFAULT_SCHEMA_NAME, tableName, indexName, List.of(columnName), false);
     }
 
     static void dropIndex(CatalogManager catalogManager, String indexName) {
-        TableTestUtils.dropIndex(catalogManager, DEFAULT_SCHEMA_NAME, indexName);
+        TableTestUtils.dropIndex(catalogManager, SqlCommon.DEFAULT_SCHEMA_NAME, indexName);
     }
 
     static int indexId(CatalogService catalogService, String indexName, HybridClock clock) {

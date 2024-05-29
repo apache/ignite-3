@@ -34,7 +34,6 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.PageIdAllocator;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.Storable;
-import org.apache.ignite.internal.pagememory.evict.PageEvictionTracker;
 import org.apache.ignite.internal.pagememory.io.DataPageIo;
 import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolder;
@@ -82,9 +81,6 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
 
     /** Page list cache limit. */
     private final @Nullable AtomicLong pageListCacheLimit;
-
-    /** Page eviction tracker. */
-    protected final PageEvictionTracker evictionTracker;
 
     /** Write a single row on a single page. */
     private final WriteRowHandler writeRowHnd = new WriteRowHandler();
@@ -143,10 +139,6 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
             // If the full row does not fit into this page write only a fragment.
             written = (written == 0 && oldFreeSpace >= rowSize) ? addRowFull(pageId, pageAddr, io, row, rowSize) :
                     addRowFragment(pageId, pageAddr, io, row, written, rowSize);
-
-            if (written == rowSize) {
-                evictionTracker.touchPage(pageId);
-            }
 
             // Avoid boxing with garbage generation for usual case.
             return written == rowSize ? COMPLETE : written;
@@ -240,7 +232,7 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
             DataPageIo io = (DataPageIo) iox;
 
             // Fill the page up to the end.
-            while (written != COMPLETE || (!evictionTracker.evictionRequired() && it.hasNext())) {
+            while (written != COMPLETE || it.hasNext()) {
                 Storable row = it.get();
 
                 if (written == COMPLETE) {
@@ -259,8 +251,6 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
                 written = writeRowHnd.addRow(pageId, pageAddr, io, row, written);
 
                 assert written == COMPLETE;
-
-                evictionTracker.touchPage(pageId);
             }
 
             writeRowHnd.putPage(io.getFreeSpace(pageAddr), pageId, pageAddr, statHolder);
@@ -321,8 +311,6 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
                 }
 
                 if (io.isEmpty(pageAddr)) {
-                    evictionTracker.forgetPage(pageId);
-
                     if (putIsNeeded) {
                         reuseBag.addFreePage(recyclePage(pageId, pageAddr));
                     }
@@ -347,7 +335,6 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
      * @param metaPageId Metadata page ID.
      * @param initNew {@code True} if new metadata should be initialized.
      * @param pageListCacheLimit Page list cache limit.
-     * @param evictionTracker Page eviction tracker.
      * @throws IgniteInternalCheckedException If failed.
      */
     public FreeListImpl(
@@ -360,7 +347,6 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
             long metaPageId,
             boolean initNew,
             @Nullable AtomicLong pageListCacheLimit,
-            PageEvictionTracker evictionTracker,
             IoStatisticsHolder statHolder
     ) throws IgniteInternalCheckedException {
         super(
@@ -374,7 +360,6 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
                 metaPageId
         );
 
-        this.evictionTracker = evictionTracker;
         this.pageListCacheLimit = pageListCacheLimit;
         this.statHolder = statHolder;
 
@@ -539,10 +524,6 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
             int written = COMPLETE;
 
             while (written != COMPLETE || it.hasNext()) {
-                // If eviction is required - free up memory before locking the next page.
-                while (evictionTracker.evictionRequired()) {
-                    evictionTracker.evictDataPage();
-                }
 
                 if (written == COMPLETE) {
                     written = writeWholePages(it.next(), statHolder);

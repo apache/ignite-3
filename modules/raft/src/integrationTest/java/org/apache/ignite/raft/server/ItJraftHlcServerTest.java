@@ -37,6 +37,7 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
@@ -109,7 +110,7 @@ class ItJraftHlcServerTest extends RaftServerAbstractTest {
 
             server.beforeNodeStop();
 
-            assertThat(server.stopAsync(), willCompleteSuccessfully());
+            assertThat(server.stopAsync(new ComponentContext()), willCompleteSuccessfully());
         }
 
         TestUtils.assertAllJraftThreadsStopped();
@@ -133,9 +134,9 @@ class ItJraftHlcServerTest extends RaftServerAbstractTest {
 
         cons.accept(opts);
 
-        JraftServerImpl server = jraftServer(servers, idx, service, opts);
+        JraftServerImpl server = jraftServer(idx, service, opts);
 
-        assertThat(server.startAsync(), willCompleteSuccessfully());
+        assertThat(server.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         clo.accept(server);
 

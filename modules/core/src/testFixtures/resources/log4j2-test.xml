@@ -51,7 +51,7 @@
     <RollingFile name="EVENTLOG_FILE"
       append="true"
       fileName="build/event.log"
-      filePattern="build/event.log">
+      filePattern="build/event.log.%i">
       <PatternLayout pattern="%m%n"/>
       <Policies>
         <OnStartupTriggeringPolicy/>

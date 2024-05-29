@@ -62,6 +62,8 @@ public class AbstractMultiNodeBenchmark {
 
     protected static final String FIELD_VAL = "a".repeat(100);
 
+    protected static final String FIELD_VAL_WITH_SPACES = FIELD_VAL + "   ";
+
     protected static final String TABLE_NAME = "USERTABLE";
 
     protected static final String ZONE_NAME = TABLE_NAME + "_ZONE";
@@ -87,7 +89,7 @@ public class AbstractMultiNodeBenchmark {
 
             getAllFromCursor(
                     await(queryEngine.queryAsync(
-                            SqlPropertiesHelper.emptyProperties(), clusterNode.transactions(), null, createZoneStatement
+                            SqlPropertiesHelper.emptyProperties(), clusterNode.observableTimeTracker(), null, createZoneStatement
                     ))
             );
 
@@ -133,7 +135,7 @@ public class AbstractMultiNodeBenchmark {
 
         getAllFromCursor(
                 await(clusterNode.queryEngine().queryAsync(
-                        SqlPropertiesHelper.emptyProperties(), clusterNode.transactions(), null, createTableStatement
+                        SqlPropertiesHelper.emptyProperties(), clusterNode.observableTimeTracker(), null, createTableStatement
                 ))
         );
     }

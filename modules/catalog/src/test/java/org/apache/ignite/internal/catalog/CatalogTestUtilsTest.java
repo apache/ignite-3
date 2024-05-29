@@ -32,6 +32,7 @@ import org.apache.ignite.internal.catalog.commands.CreateTableCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.TableHashPrimaryKey;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.sql.ColumnType;
 import org.hamcrest.BaseMatcher;
@@ -46,10 +47,11 @@ class CatalogTestUtilsTest extends BaseIgniteAbstractTest {
      * and returned instance follows the contract.
      */
     @Test
-    void testManagerWorksAsExpected() throws Exception {
+    void testManagerWorksAsExpected() {
         CatalogManager manager = createCatalogManagerWithTestUpdateLog("test", new HybridClockImpl());
 
-        assertThat(manager.startAsync(), willCompleteSuccessfully());
+        ComponentContext componentContext = new ComponentContext();
+        assertThat(manager.startAsync(componentContext), willCompleteSuccessfully());
 
         CreateTableCommandBuilder createTableTemplate = CreateTableCommand.builder()
                 .schemaName("PUBLIC")
@@ -80,7 +82,7 @@ class CatalogTestUtilsTest extends BaseIgniteAbstractTest {
         assertThat(tablesOfVersion2, hasItem(descriptorWithName("T1")));
         assertThat(tablesOfVersion2, hasItem(descriptorWithName("T2")));
 
-        assertThat(manager.stopAsync(), willCompleteSuccessfully());
+        assertThat(manager.stopAsync(componentContext), willCompleteSuccessfully());
     }
 
     private static Matcher<CatalogTableDescriptor> descriptorWithName(String name) {

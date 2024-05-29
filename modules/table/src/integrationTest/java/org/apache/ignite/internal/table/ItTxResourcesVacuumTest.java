@@ -220,7 +220,6 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
         view.upsert(parallelTx2, tupleForParallelTx);
 
         CompletableFuture<Void> finishStartedFuture = new CompletableFuture<>();
-        CompletableFuture<Void> finishAllowedFuture = new CompletableFuture<>();
 
         node.dropMessages((n, msg) -> {
             if (msg instanceof TxFinishReplicaRequest) {
@@ -229,7 +228,9 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
                 if (finishRequest.txId().equals(txId)) {
                     finishStartedFuture.complete(null);
 
-                    joinWithTimeout(finishAllowedFuture);
+                    log.info("Test: dropping finish on [node= {}].", n);
+
+                    return true;
                 }
             }
 
@@ -250,7 +251,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
         // Check that the volatile state of the transaction is preserved.
         assertTrue(checkVolatileTxStateOnNodes(nodes, txId));
 
-        assertTrue(finishAllowedFuture.complete(null));
+        node.stopDroppingMessages();
 
         assertThat(commitFut, willCompleteSuccessfully());
 
@@ -397,16 +398,17 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
         view.upsert(tx, tuple1);
 
         CompletableFuture<Void> cleanupStarted = new CompletableFuture<>();
-        CompletableFuture<Void> cleanupAllowed = new CompletableFuture<>();
 
         commitPartitionLeaseholder.dropMessages((n, msg) -> {
             if (msg instanceof TxCleanupMessage) {
-                cleanupStarted.complete(null);
-
-                log.info("Test: cleanup started.");
+                log.info("Test: cleanup started on [node= {}].", n);
 
                 if (commitPartNodes.contains(n)) {
-                    joinWithTimeout(cleanupAllowed);
+                    cleanupStarted.complete(null);
+
+                    log.info("Test: dropping cleanup on [node= {}].", n);
+
+                    return true;
                 }
             }
 
@@ -426,7 +428,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
         assertTxStateVacuumized(Set.of(leaseholderForAnotherTuple.name()), txId, commitPartId, false);
 
         // Unblocking cleanup.
-        assertTrue(cleanupAllowed.complete(null));
+        commitPartitionLeaseholder.stopDroppingMessages();
 
         assertThat(commitFut, willCompleteSuccessfully());
 
@@ -492,14 +494,19 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
         view.upsert(tx, tuple);
 
         CompletableFuture<Void> cleanupStarted = new CompletableFuture<>();
-        CompletableFuture<Void> cleanupAllowedFut = new CompletableFuture<>();
         boolean[] cleanupAllowed = new boolean[1];
 
         commitPartitionLeaseholder.dropMessages((n, msg) -> {
-            if (msg instanceof TxCleanupMessage && !cleanupAllowed[0]) {
+            if (msg instanceof TxCleanupMessage) {
+                log.info("Test: perform cleanup on [node= {}, msg={}].", n, msg);
+
                 cleanupStarted.complete(null);
 
-                joinWithTimeout(cleanupAllowedFut);
+                if (!cleanupAllowed[0]) {
+                    log.info("Test: dropping cleanup on [node= {}].", n);
+
+                    return true;
+                }
             }
 
             return false;
@@ -513,8 +520,6 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
 
         transferPrimary(cluster.runningNodes().collect(toSet()), commitPartGrpId, commitPartNodes::contains);
 
-        assertTrue(cleanupAllowedFut.complete(null));
-
         cleanupAllowed[0] = true;
 
         assertThat(commitFut, willCompleteSuccessfully());
@@ -523,9 +528,9 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
 
         waitForTxStateVacuum(txId, commitPartId, true, 10_000);
 
-        Transaction roTxAfter = beginReadOnlyTx(anyNode());
-
         log.info("Test: checking values.");
+
+        Transaction roTxAfter = beginReadOnlyTx(anyNode());
 
         // Trying to read the value.
         Tuple key = Tuple.create().set("key", tuple.longValue("key"));
@@ -577,19 +582,20 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
         view.upsert(tx, tuple);
 
         CompletableFuture<Void> cleanupStarted = new CompletableFuture<>();
-        CompletableFuture<Void> cleanupAllowedFut = new CompletableFuture<>();
         boolean[] cleanupAllowed = new boolean[1];
 
         // Cleanup may be triggered by the primary replica reelection as well.
         runningNodes().filter(n -> commitPartNodes.contains(n.name())).forEach(nd -> nd.dropMessages((n, msg) -> {
-            if (msg instanceof TxCleanupMessage && !cleanupAllowed[0]) {
+            if (msg instanceof TxCleanupMessage) {
+                log.info("Test: perform cleanup on [node= {}, msg={}].", n, msg);
+
                 cleanupStarted.complete(null);
 
-                log.warn("Test: cleanup started.");
+                if (!cleanupAllowed[0]) {
+                    log.info("Test: dropping cleanup on [node= {}].", n);
 
-                joinWithTimeout(cleanupAllowedFut);
-
-                log.info("Test: cleanup resumed.");
+                    return true;
+                }
             }
 
             return false;
@@ -610,8 +616,6 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
         assertTxStateVacuumized(txId, commitPartId, false);
 
         log.info("Test: volatile state vacuumized");
-
-        assertTrue(cleanupAllowedFut.complete(null));
 
         cleanupAllowed[0] = true;
 
@@ -1069,13 +1073,4 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
                 .get();
     }
 
-    private void joinWithTimeout(CompletableFuture<?> future) {
-        future.orTimeout(60, TimeUnit.SECONDS)
-                .exceptionally(e -> {
-                    log.error("Could not wait for the future.", e);
-
-                    return null;
-                })
-                .join();
-    }
 }

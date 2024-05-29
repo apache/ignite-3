@@ -327,7 +327,7 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
                 asList(new ZonePartitionId(tableImpl.internalTable().zoneId(), tableImpl.tableId(), 0)),
                 null
         );
-        bypassingThreadAssertions(() -> storage.put(tx.id(), txMetaToSet));
+        bypassingThreadAssertions(() -> storage.putForRebalance(tx.id(), txMetaToSet));
     }
 
     @Test

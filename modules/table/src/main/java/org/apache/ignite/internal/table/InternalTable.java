@@ -497,8 +497,8 @@ public interface InternalTable extends ManuallyCloseable {
     /**
      * Returns {@link ClusterNode} where primary replica of replication group is located.
      *
-     * @param zonePartitionId Replication group identifier.
+     * @param partitionId Partition ID.
      * @return Cluster node with primary replica.
      */
-    CompletableFuture<ClusterNode> partitionLocation(ZonePartitionId zonePartitionId);
+    CompletableFuture<ClusterNode> partitionLocation(int partitionId);
 }

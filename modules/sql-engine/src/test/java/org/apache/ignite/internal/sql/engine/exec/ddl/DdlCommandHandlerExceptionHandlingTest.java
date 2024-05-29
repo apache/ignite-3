@@ -37,6 +37,7 @@ import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -56,17 +57,17 @@ public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
     void before() {
         HybridClock clock = new HybridClockImpl();
         catalogManager = createTestCatalogManager("test", clock);
-        assertThat(catalogManager.startAsync(), willCompleteSuccessfully());
+        assertThat(catalogManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         clockWaiter = new ClockWaiter("test", clock);
-        assertThat(clockWaiter.startAsync(), willCompleteSuccessfully());
+        assertThat(clockWaiter.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         commandHandler = new DdlCommandHandler(catalogManager, new TestClockService(clock, clockWaiter), () -> 100);
     }
 
     @AfterEach
     public void after() {
-        assertThat(stopAsync(clockWaiter, catalogManager), willCompleteSuccessfully());
+        assertThat(stopAsync(new ComponentContext(), clockWaiter, catalogManager), willCompleteSuccessfully());
     }
 
     @Test

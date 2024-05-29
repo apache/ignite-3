@@ -24,8 +24,11 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.BitSet;
+import java.util.List;
 import java.util.UUID;
+import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.sql.BatchedArguments;
@@ -920,6 +923,22 @@ public class ClientMessageUnpacker implements AutoCloseable {
         long seconds = unpackLong();
         int nanos = unpackInt();
         return Instant.ofEpochSecond(seconds, nanos);
+    }
+
+    /**
+     * Unpacks deployment units.
+     *
+     * @return Deployment units.
+     */
+    public List<DeploymentUnit> unpackDeploymentUnits() {
+        int size = tryUnpackNil() ? 0 : unpackInt();
+        List<DeploymentUnit> res = new ArrayList<>(size);
+
+        for (int i = 0; i < size; i++) {
+            res.add(new DeploymentUnit(unpackString(), unpackString()));
+        }
+
+        return res;
     }
 
     private int readLength8() {
