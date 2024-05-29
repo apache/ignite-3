@@ -431,7 +431,8 @@ public class DataStreamerTests : IgniteTestsBase
         await CheckValue(decimal.MinValue, "java.math.BigDecimal", "-79228162514264337593543950335");
 
         await CheckValue(new LocalDate(1234, 5, 6), "java.time.LocalDate", "1234-05-06");
-        await CheckValue(new LocalTime(12, 3, 4), "java.time.LocalTime", "12:03:04");
+        await CheckValue(new LocalTime(12, 3, 4, 567), "java.time.LocalTime", "12:03:04.567");
+        await CheckValue(new LocalDateTime(1234, 5, 6, 7, 8, 9), "java.time.LocalDateTime", "1234-05-06T07:08:09");
 
         await CheckValue("str1", "java.lang.String", "str1");
         await CheckValue(Guid.Empty, "java.util.UUID", "00000000-0000-0000-0000-000000000000");
