@@ -64,7 +64,6 @@ import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.configuration.SchemaSynchronizationConfiguration;
-import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.sql.IgniteCatalogSqlImpl;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.cluster.management.ClusterInitializer;
@@ -162,7 +161,6 @@ import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageFactoryCre
 import org.apache.ignite.internal.replicator.ReplicaAwareLeaseTracker;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.rest.RestComponent;
 import org.apache.ignite.internal.rest.RestFactory;
@@ -621,19 +619,7 @@ public class IgniteImpl implements Ignite {
                 logicalTopologyService,
                 raftMgr,
                 topologyAwareRaftGroupServiceFactory,
-                clockService,
-                tablePartId -> {
-                    int catalogVer = catalogManager.latestCatalogVersion();
-
-                    CatalogTableDescriptor tbl = catalogManager.table(tablePartId.tableId(), catalogVer);
-
-                    int zoneId = tbl == null ? catalogManager.catalog(catalogVer).defaultZone().id() : tbl.zoneId();
-
-                    return new ZonePartitionId(
-                            zoneId,
-                            tablePartId.partitionId()
-                    );
-                }
+                clockService
         );
 
         ReplicaService replicaSvc = new ReplicaService(
@@ -909,7 +895,7 @@ public class IgniteImpl implements Ignite {
                 clockService,
                 schemaSyncService,
                 catalogManager,
-                placementDriverMgr.placementDriver(),
+                replicaAwarePlacementDriver,
                 clientConnectorConfiguration,
                 lowWatermark
         );

@@ -85,15 +85,17 @@ namespace Apache.Ignite.Internal.Table
         /// </summary>
         /// <param name="name">Table name.</param>
         /// <param name="id">Table id.</param>
+        /// <param name="zoneId">Zone id.</param>
         /// <param name="socket">Socket.</param>
         /// <param name="sql">SQL.</param>
-        public Table(string name, int id, ClientFailoverSocket socket, Sql sql)
+        public Table(string name, int id, int zoneId, ClientFailoverSocket socket, Sql sql)
         {
             _socket = socket;
             _sql = sql;
 
             Name = name;
             Id = id;
+            ZoneId = zoneId;
 
             _logger = socket.Configuration.LoggerFactory.CreateLogger<Table>();
 
@@ -130,6 +132,11 @@ namespace Apache.Ignite.Internal.Table
         /// Gets the table id.
         /// </summary>
         internal int Id { get; }
+
+        /// <summary>
+        /// Gets the zone id.
+        /// </summary>
+        internal int ZoneId { get; }
 
         /// <inheritdoc/>
         public IRecordView<T> GetRecordView<T>()
@@ -383,7 +390,7 @@ namespace Apache.Ignite.Internal.Table
 
             void Write(MsgPackWriter w)
             {
-                w.Write(Id);
+                w.Write(ZoneId);
                 w.Write(timestamp);
             }
 

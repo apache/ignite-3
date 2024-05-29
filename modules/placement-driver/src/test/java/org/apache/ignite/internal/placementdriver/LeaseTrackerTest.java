@@ -75,8 +75,7 @@ public class LeaseTrackerTest extends BaseIgniteAbstractTest {
                 "testNode",
                 msManager,
                 mock(ClusterNodeResolver.class),
-                new TestClockService(new HybridClockImpl()),
-                tablePartitionId -> new ZonePartitionId(123, tablePartitionId.partitionId())
+                new TestClockService(new HybridClockImpl())
         );
         leaseTracker.startTrack(0L);
 

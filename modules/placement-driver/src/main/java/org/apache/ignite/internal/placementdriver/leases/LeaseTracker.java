@@ -51,7 +51,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Function;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -69,7 +68,6 @@ import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -113,8 +111,6 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
     /** Cluster node resolver. */
     private final ClusterNodeResolver clusterNodeResolver;
 
-    private final Function<TablePartitionId, ZonePartitionId> tablePartIdToZoneIdProvider;
-
     private final ClockService clockService;
 
     /** Node name. */
@@ -134,14 +130,12 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
             String nodeName,
             MetaStorageManager msManager,
             ClusterNodeResolver clusterNodeResolver,
-            ClockService clockService,
-            Function<TablePartitionId, ZonePartitionId> tablePartIdToZoneIdProvider
+            ClockService clockService
     ) {
         this.nodeName = nodeName;
         this.msManager = msManager;
         this.clusterNodeResolver = clusterNodeResolver;
         this.clockService = clockService;
-        this.tablePartIdToZoneIdProvider = tablePartIdToZoneIdProvider;
     }
 
     /**
@@ -411,18 +405,9 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
             long timeout,
             TimeUnit unit
     ) {
-        assert groupId instanceof TablePartitionId : "Unexpected replication group type [grp=" + groupId + "].";
+        assert groupId instanceof ZonePartitionId : "Unexpected replication group type [grp=" + groupId + "].";
 
-        var tblPartId = (TablePartitionId) groupId;
-
-        ReplicationGroupId groupId0 = tablePartIdToZoneIdProvider.apply(tblPartId);
-
-        return awaitPrimaryReplicaForTable(
-                groupId0,
-                timestamp,
-                timeout,
-                unit
-        );
+        return awaitPrimaryReplicaForTable(groupId, timestamp, timeout, unit);
     }
 
     @Override
@@ -453,13 +438,9 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
 
     @Override
     public CompletableFuture<ReplicaMeta> getPrimaryReplica(ReplicationGroupId groupId, HybridTimestamp timestamp) {
-        assert groupId instanceof TablePartitionId : "Unexpected replication group type [grp=" + groupId + "].";
+        assert groupId instanceof ZonePartitionId : "Unexpected replication group type [grp=" + groupId + "].";
 
-        var tblPartId = (TablePartitionId) groupId;
-
-        ReplicationGroupId groupId0 = tablePartIdToZoneIdProvider.apply(tblPartId);
-
-        return getPrimaryReplicaForTable(groupId0, timestamp);
+        return getPrimaryReplicaForTable(groupId, timestamp);
     }
 
     @Override

@@ -284,8 +284,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
                     logicalTopologyService,
                     raftManager,
                     topologyAwareRaftGroupServiceFactory,
-                    new TestClockService(nodeClock),
-                    grp -> ZONE_GROUP_ID
+                    new TestClockService(nodeClock)
             );
 
             res.add(new Node(nodeName, clusterService, raftManager, metaStorageManager, placementDriverManager));

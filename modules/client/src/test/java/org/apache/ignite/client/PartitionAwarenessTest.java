@@ -621,8 +621,8 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         // Create table on both servers with the same ID.
         int tableId = nextTableId.getAndIncrement();
 
-        createTable(server, tableId, name);
-        createTable(server2, tableId, name);
+        createTable(server, zoneId, tableId, name);
+        createTable(server2, zoneId, tableId, name);
 
         return client2.tables().table(name);
     }
@@ -631,9 +631,9 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         return client2.compute();
     }
 
-    private void createTable(Ignite ignite, int id, String name) {
+    private void createTable(Ignite ignite, int zoneId, int id, String name) {
         FakeIgniteTables tables = (FakeIgniteTables) ignite.tables();
-        TableViewInternal tableView = tables.createTable(name, id);
+        TableViewInternal tableView = tables.createTable(name, zoneId, id);
 
         ((FakeInternalTable) tableView.internalTable()).setDataAccessListener((op, data) -> {
             lastOp = op;

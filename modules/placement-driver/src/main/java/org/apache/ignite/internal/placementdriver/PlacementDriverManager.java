@@ -25,7 +25,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
-import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -42,8 +41,6 @@ import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.TestOnly;
@@ -113,8 +110,7 @@ public class PlacementDriverManager implements IgniteComponent {
             LogicalTopologyService logicalTopologyService,
             RaftManager raftManager,
             TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory,
-            ClockService clockService,
-            Function<TablePartitionId, ZonePartitionId> tablePartIdToZoneIdProvider
+            ClockService clockService
     ) {
         this.replicationGroupId = replicationGroupId;
         this.clusterService = clusterService;
@@ -129,8 +125,7 @@ public class PlacementDriverManager implements IgniteComponent {
                 nodeName,
                 metastore,
                 clusterService.topologyService(),
-                clockService,
-                tablePartIdToZoneIdProvider
+                clockService
         );
 
         this.leaseUpdater = new LeaseUpdater(

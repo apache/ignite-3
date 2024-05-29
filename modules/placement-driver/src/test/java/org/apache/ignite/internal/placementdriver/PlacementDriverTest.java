@@ -44,7 +44,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -86,8 +85,6 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
     private static final ZonePartitionId GROUP_1 = new ZonePartitionId(2000, 1000, 0);
 
     private static final ZonePartitionId ZONE_GROUP_1 = new ZonePartitionId(2000, 0);
-
-    private static final Map<ZonePartitionId, ZonePartitionId> tableIdToZoneIdMapper = Map.of(GROUP_1, ZONE_GROUP_1);
 
     private static final String LEASEHOLDER_1 = "leaseholder1";
 
@@ -727,8 +724,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
                         return leaseholder;
                     }
                 },
-                clockService,
-                tableIdToZoneIdMapper::get
+                clockService
         );
     }
 }

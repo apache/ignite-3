@@ -43,6 +43,7 @@ public class ClientTablesGetRequest {
             for (var table : tables) {
                 var tableImpl = (TableViewInternal) table;
 
+                out.packInt(tableImpl.internalTable().zoneId());
                 out.packInt(tableImpl.tableId());
                 out.packString(table.name());
             }

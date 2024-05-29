@@ -81,7 +81,7 @@ class ClientPrimaryReplicaTrackerTest extends BaseIgniteAbstractTest {
     public void testInitialAssignmentIsRetrievedFromPlacementDriver() {
         tracker.start();
 
-        PrimaryReplicasResult replicas = tracker.primaryReplicasAsync(TABLE_ID, null).join();
+        PrimaryReplicasResult replicas = tracker.primaryReplicasAsync(ZONE_ID, null).join();
         assertEquals(PARTITIONS, replicas.nodeNames().size());
         assertEquals("s1", replicas.nodeNames().get(0));
         assertEquals("s2", replicas.nodeNames().get(1));
@@ -96,7 +96,7 @@ class ClientPrimaryReplicaTrackerTest extends BaseIgniteAbstractTest {
 
         assertEquals(2, tracker.maxStartTime());
 
-        PrimaryReplicasResult replicas = tracker.primaryReplicasAsync(TABLE_ID, null).join();
+        PrimaryReplicasResult replicas = tracker.primaryReplicasAsync(ZONE_ID, null).join();
         assertEquals(PARTITIONS, replicas.nodeNames().size());
         assertEquals("s3", replicas.nodeNames().get(0));
         assertEquals("s2", replicas.nodeNames().get(1));
@@ -112,7 +112,7 @@ class ClientPrimaryReplicaTrackerTest extends BaseIgniteAbstractTest {
 
         assertEquals(2, tracker.maxStartTime());
 
-        PrimaryReplicasResult replicas = tracker.primaryReplicasAsync(TABLE_ID, null).join();
+        PrimaryReplicasResult replicas = tracker.primaryReplicasAsync(ZONE_ID, null).join();
         assertEquals(PARTITIONS, replicas.nodeNames().size());
         assertNull(replicas.nodeNames().get(0));
         assertNull(replicas.nodeNames().get(1));
@@ -123,11 +123,11 @@ class ClientPrimaryReplicaTrackerTest extends BaseIgniteAbstractTest {
         driver.returnError(true);
         tracker.start();
 
-        CompletableFuture<PrimaryReplicasResult> fut = tracker.primaryReplicasAsync(TABLE_ID, null);
+        CompletableFuture<PrimaryReplicasResult> fut = tracker.primaryReplicasAsync(ZONE_ID, null);
         assertTrue(fut.isCompletedExceptionally());
 
         driver.returnError(false);
-        PrimaryReplicasResult replicas = tracker.primaryReplicasAsync(TABLE_ID, null).join();
+        PrimaryReplicasResult replicas = tracker.primaryReplicasAsync(ZONE_ID, null).join();
         assertEquals(PARTITIONS, replicas.nodeNames().size());
         assertEquals("s1", replicas.nodeNames().get(0));
         assertEquals("s2", replicas.nodeNames().get(1));
@@ -136,7 +136,7 @@ class ClientPrimaryReplicaTrackerTest extends BaseIgniteAbstractTest {
     @Test
     public void testOldEventsAreIgnoredByLeaseStartTime() {
         tracker.start();
-        tracker.primaryReplicasAsync(TABLE_ID, null).join(); // Start tracking the table.
+        tracker.primaryReplicasAsync(ZONE_ID, null).join(); // Start tracking the table.
 
         driver.updateReplica("update-1", TABLE_ID, ZONE_ID,  0, 10);
         driver.updateReplica("old-update-2", TABLE_ID, ZONE_ID,  0, 5);
@@ -145,7 +145,7 @@ class ClientPrimaryReplicaTrackerTest extends BaseIgniteAbstractTest {
 
         assertEquals(15, tracker.maxStartTime());
 
-        PrimaryReplicasResult replicas = tracker.primaryReplicasAsync(TABLE_ID, null).join();
+        PrimaryReplicasResult replicas = tracker.primaryReplicasAsync(ZONE_ID, null).join();
         assertEquals(PARTITIONS, replicas.nodeNames().size());
         assertEquals("update-3", replicas.nodeNames().get(0));
         assertEquals("s2", replicas.nodeNames().get(1));

@@ -33,7 +33,6 @@ import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 
 /**
@@ -89,7 +88,7 @@ public class FakePlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
     @Override
     public CompletableFuture<ReplicaMeta> awaitPrimaryReplica(ReplicationGroupId groupId, HybridTimestamp timestamp, long timeout,
             TimeUnit unit) {
-        TablePartitionId id = (TablePartitionId) groupId;
+        ZonePartitionId id = (ZonePartitionId) groupId;
 
         return returnError
                 ? CompletableFuture.failedFuture(new RuntimeException("FakePlacementDriver expected error"))
@@ -113,7 +112,7 @@ public class FakePlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
 
     @Override
     public CompletableFuture<ReplicaMeta> getPrimaryReplicaForTable(ReplicationGroupId replicationGroupId, HybridTimestamp timestamp) {
-        throw new IgniteInternalException("Not implemented yet.");
+        return awaitPrimaryReplica(replicationGroupId, timestamp, 0, TimeUnit.MILLISECONDS);
     }
 
     @Override

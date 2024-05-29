@@ -134,8 +134,7 @@ public class ActiveActorTest extends AbstractTopologyAwareGroupServiceTest {
                 logicalTopologyService,
                 mockRaftMgr,
                 raftGroupServiceFactory,
-                new TestClockService(new HybridClockImpl()),
-                grp -> ZONE_GROUP_ID
+                new TestClockService(new HybridClockImpl())
         );
 
         assertThat(placementDriverManager.startAsync(), willCompleteSuccessfully());

@@ -62,6 +62,9 @@ public class FakeInternalTable implements InternalTable {
     /** Table name. */
     private final String tableName;
 
+    /** Zone ID. */
+    private final int zoneId;
+
     /** Table ID. */
     private final int tableId;
 
@@ -77,11 +80,13 @@ public class FakeInternalTable implements InternalTable {
      * The constructor.
      *
      * @param tableName Name.
+     * @param zoneId Zone id.
      * @param tableId Id.
      * @param keyExtractor Function which converts given binary row to an index key.
      */
-    public FakeInternalTable(String tableName, int tableId, ColumnsExtractor keyExtractor) {
+    public FakeInternalTable(String tableName, int zoneId, int tableId, ColumnsExtractor keyExtractor) {
         this.tableName = tableName;
+        this.zoneId = zoneId;
         this.tableId = tableId;
         this.keyExtractor = keyExtractor;
     }
@@ -118,7 +123,7 @@ public class FakeInternalTable implements InternalTable {
 
     @Override
     public int zoneId() {
-        return 123;
+        return zoneId;
     }
 
     @Override

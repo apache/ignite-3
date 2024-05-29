@@ -115,7 +115,7 @@ std::function<void(ignite_result<bytes_view>)> make_schema_handler_function(std:
 void table_impl::load_schema_async(
     std::optional<std::int32_t> version, ignite_callback<std::shared_ptr<schema>> callback) {
     auto writer_func = [&](protocol::writer &writer) {
-        writer.write(m_id);
+        writer.write(m_table_id);
 
         if (!version) {
             writer.write_nil();
@@ -152,7 +152,7 @@ void table_impl::get_async(
         [self = shared_from_this(), key = std::make_shared<ignite_tuple>(key), tx0 = to_impl(tx)](
             const schema &sch, auto callback) mutable {
             auto writer_func = [self, key, &sch, &tx0](protocol::writer &writer) {
-                write_table_operation_header(writer, self->m_id, tx0.get(), sch);
+                write_table_operation_header(writer, self->m_table_id, tx0.get(), sch);
                 write_tuple(writer, sch, *key, true);
             };
 
@@ -172,7 +172,7 @@ void table_impl::contains_async(transaction *tx, const ignite_tuple &key, ignite
         [self = shared_from_this(), key = std::make_shared<ignite_tuple>(key), tx0 = to_impl(tx)](
             const schema &sch, auto callback) mutable {
             auto writer_func = [self, key, &sch, &tx0](protocol::writer &writer) {
-                write_table_operation_header(writer, self->m_id, tx0.get(), sch);
+                write_table_operation_header(writer, self->m_table_id, tx0.get(), sch);
                 write_tuple(writer, sch, *key, true);
             };
 
@@ -194,7 +194,7 @@ void table_impl::get_all_async(transaction *tx, std::vector<ignite_tuple> keys,
     with_proper_schema_async<std::vector<std::optional<ignite_tuple>>>(std::move(callback),
         [self = shared_from_this(), keys = shared_keys, tx0 = to_impl(tx)](const schema &sch, auto callback) mutable {
             auto writer_func = [self, keys, &sch, &tx0](protocol::writer &writer) {
-                write_table_operation_header(writer, self->m_id, tx0.get(), sch);
+                write_table_operation_header(writer, self->m_table_id, tx0.get(), sch);
                 write_tuples(writer, sch, *keys, true);
             };
 
@@ -213,7 +213,7 @@ void table_impl::upsert_async(transaction *tx, const ignite_tuple &record, ignit
         [self = shared_from_this(), record = ignite_tuple(record), tx0 = to_impl(tx)](
             const schema &sch, auto callback) mutable {
             auto writer_func = [self, &record, &sch, &tx0](protocol::writer &writer) {
-                write_table_operation_header(writer, self->m_id, tx0.get(), sch);
+                write_table_operation_header(writer, self->m_table_id, tx0.get(), sch);
                 write_tuple(writer, sch, record, false);
             };
 
@@ -228,7 +228,7 @@ void table_impl::upsert_all_async(transaction *tx, std::vector<ignite_tuple> rec
         [self = shared_from_this(), records = shared_records, tx0 = to_impl(tx)](
             const schema &sch, auto callback) mutable {
             auto writer_func = [self, records, &sch, &tx0](protocol::writer &writer) {
-                write_table_operation_header(writer, self->m_id, tx0.get(), sch);
+                write_table_operation_header(writer, self->m_table_id, tx0.get(), sch);
                 write_tuples(writer, sch, *records, false);
             };
 
@@ -244,7 +244,7 @@ void table_impl::get_and_upsert_async(
         [self = shared_from_this(), record = std::make_shared<ignite_tuple>(record), tx0 = to_impl(tx)](
             const schema &sch, auto callback) {
             auto writer_func = [self, record, &sch, &tx0](protocol::writer &writer) {
-                write_table_operation_header(writer, self->m_id, tx0.get(), sch);
+                write_table_operation_header(writer, self->m_table_id, tx0.get(), sch);
                 write_tuple(writer, sch, *record, false);
             };
 
@@ -263,7 +263,7 @@ void table_impl::insert_async(transaction *tx, const ignite_tuple &record, ignit
         [self = shared_from_this(), record = ignite_tuple(record), tx0 = to_impl(tx)](
             const schema &sch, auto callback) mutable {
             auto writer_func = [self, &record, &sch, &tx0](protocol::writer &writer) {
-                write_table_operation_header(writer, self->m_id, tx0.get(), sch);
+                write_table_operation_header(writer, self->m_table_id, tx0.get(), sch);
                 write_tuple(writer, sch, record, false);
             };
 
@@ -286,7 +286,7 @@ void table_impl::insert_all_async(
         [self = shared_from_this(), records = shared_records, tx0 = to_impl(tx)](
             const schema &sch, auto callback) mutable {
             auto writer_func = [self, records, &sch, &tx0](protocol::writer &writer) {
-                write_table_operation_header(writer, self->m_id, tx0.get(), sch);
+                write_table_operation_header(writer, self->m_table_id, tx0.get(), sch);
                 write_tuples(writer, sch, *records, false);
             };
 
@@ -305,7 +305,7 @@ void table_impl::replace_async(transaction *tx, const ignite_tuple &record, igni
         [self = shared_from_this(), record = ignite_tuple(record), tx0 = to_impl(tx)](
             const schema &sch, auto callback) mutable {
             auto writer_func = [self, &record, &sch, &tx0](protocol::writer &writer) {
-                write_table_operation_header(writer, self->m_id, tx0.get(), sch);
+                write_table_operation_header(writer, self->m_table_id, tx0.get(), sch);
                 write_tuple(writer, sch, record, false);
             };
 
@@ -326,7 +326,7 @@ void table_impl::replace_async(
         [self = shared_from_this(), record = ignite_tuple(record), new_record = ignite_tuple(new_record),
             tx0 = to_impl(tx)](const schema &sch, auto callback) mutable {
             auto writer_func = [self, &record, &new_record, &sch, &tx0](protocol::writer &writer) {
-                write_table_operation_header(writer, self->m_id, tx0.get(), sch);
+                write_table_operation_header(writer, self->m_table_id, tx0.get(), sch);
                 write_tuple(writer, sch, record, false);
                 write_tuple(writer, sch, new_record, false);
             };
@@ -349,7 +349,7 @@ void table_impl::get_and_replace_async(
         [self = shared_from_this(), record = std::make_shared<ignite_tuple>(record), tx0 = to_impl(tx)](
             const schema &sch, auto callback) mutable {
             auto writer_func = [self, record, &sch, &tx0](protocol::writer &writer) {
-                write_table_operation_header(writer, self->m_id, tx0.get(), sch);
+                write_table_operation_header(writer, self->m_table_id, tx0.get(), sch);
                 write_tuple(writer, sch, *record, false);
             };
 
@@ -368,7 +368,7 @@ void table_impl::remove_async(transaction *tx, const ignite_tuple &key, ignite_c
         [self = shared_from_this(), record = ignite_tuple(key), tx0 = to_impl(tx)](
             const schema &sch, auto callback) mutable {
             auto writer_func = [self, &record, &sch, &tx0](protocol::writer &writer) {
-                write_table_operation_header(writer, self->m_id, tx0.get(), sch);
+                write_table_operation_header(writer, self->m_table_id, tx0.get(), sch);
                 write_tuple(writer, sch, record, true);
             };
 
@@ -388,7 +388,7 @@ void table_impl::remove_exact_async(transaction *tx, const ignite_tuple &record,
         [self = shared_from_this(), record = ignite_tuple(record), tx0 = to_impl(tx)](
             const schema &sch, auto callback) mutable {
             auto writer_func = [self, &record, &sch, &tx0](protocol::writer &writer) {
-                write_table_operation_header(writer, self->m_id, tx0.get(), sch);
+                write_table_operation_header(writer, self->m_table_id, tx0.get(), sch);
                 write_tuple(writer, sch, record, false);
             };
 
@@ -410,7 +410,7 @@ void table_impl::get_and_remove_async(
         [self = shared_from_this(), record = std::make_shared<ignite_tuple>(key), tx0 = to_impl(tx)](
             const schema &sch, auto callback) mutable {
             auto writer_func = [self, record, &sch, &tx0](protocol::writer &writer) {
-                write_table_operation_header(writer, self->m_id, tx0.get(), sch);
+                write_table_operation_header(writer, self->m_table_id, tx0.get(), sch);
                 write_tuple(writer, sch, *record, true);
             };
 
@@ -430,7 +430,7 @@ void table_impl::remove_all_async(
     with_proper_schema_async<std::vector<ignite_tuple>>(std::move(callback),
         [self = shared_from_this(), keys = std::move(keys), tx0 = to_impl(tx)](const schema &sch, auto callback) {
             auto writer_func = [self, &keys, &sch, &tx0](protocol::writer &writer) {
-                write_table_operation_header(writer, self->m_id, tx0.get(), sch);
+                write_table_operation_header(writer, self->m_table_id, tx0.get(), sch);
                 write_tuples(writer, sch, keys, true);
             };
 
@@ -450,7 +450,7 @@ void table_impl::remove_all_exact_async(
     with_proper_schema_async<std::vector<ignite_tuple>>(std::move(callback),
         [self = shared_from_this(), records = std::move(records), tx0 = to_impl(tx)](const schema &sch, auto callback) {
             auto writer_func = [self, &records, &sch, &tx0](protocol::writer &writer) {
-                write_table_operation_header(writer, self->m_id, tx0.get(), sch);
+                write_table_operation_header(writer, self->m_table_id, tx0.get(), sch);
                 write_tuples(writer, sch, records, false);
             };
 
