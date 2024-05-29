@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.pagememory.persistence;
 
 import java.util.UUID;
-import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.pagememory.persistence.TestPartitionMeta.TestPartitionMetaSnapshot;
 import org.apache.ignite.internal.pagememory.persistence.io.PartitionMetaIo;
