@@ -417,21 +417,27 @@ public class DataStreamerTests : IgniteTestsBase
     [Test]
     public async Task TestWithReceiverAllDataTypes()
     {
-        // TODO: Different types.
-        var key = 1L;
+        await CheckValue(Guid.Empty, "java.util.UUID", "00000000-0000-0000-0000-000000000000");
 
-        await PocoView.StreamDataAsync<int, object>(
-            Enumerable.Range(0, 1).ToAsyncEnumerable(),
-            DataStreamerOptions.Default,
-            keySelector: x => GetPoco(x),
-            payloadSelector: x => Guid.Empty,
-            units: Array.Empty<DeploymentUnit>(),
-            receiverClassName: UpsertElementTypeNameReceiverClassName,
-            receiverArgs: new object[] { TableName, key });
+        async Task CheckValue(object value, string expectedClassName, string expectedValue)
+        {
+            var key1 = 1L;
+            var key2 = 2L;
 
-        var res = await TupleView.GetAsync(null, GetTuple(key));
-        Assert.IsTrue(res.HasValue);
-        Assert.AreEqual("xx", res.Value[1]);
+            await PocoView.StreamDataAsync<int, object>(
+                Enumerable.Range(0, 1).ToAsyncEnumerable(),
+                DataStreamerOptions.Default,
+                keySelector: x => GetPoco(x),
+                payloadSelector: x => value,
+                units: Array.Empty<DeploymentUnit>(),
+                receiverClassName: UpsertElementTypeNameReceiverClassName,
+                receiverArgs: new object[] { TableName, key1, key2 });
+
+            var className = (await TupleView.GetAsync(null, GetTuple(key1))).Value[1];
+            var valueStr = (await TupleView.GetAsync(null, GetTuple(key2))).Value[1];
+            Assert.AreEqual(expectedClassName, className);
+            Assert.AreEqual(expectedValue, valueStr);
+        }
     }
 
     private static async IAsyncEnumerable<IIgniteTuple> GetFakeServerData(int count)
