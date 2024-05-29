@@ -1088,7 +1088,77 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
                     break;
 
+                case (byte[]):
+                    AppendTypeAndSize(ColumnType.ByteArray, collection.Length);
+                    foreach (var item in collection)
+                    {
+                        AppendBytes((byte[])(object)item!);
+                    }
 
+                    break;
+
+                case decimal:
+                    AppendTypeAndSize(ColumnType.Decimal, collection.Length);
+                    foreach (var item in collection)
+                    {
+                        AppendDecimal((decimal)(object)item!, int.MaxValue);
+                    }
+
+                    break;
+
+                case BigInteger:
+                    AppendTypeAndSize(ColumnType.Number, collection.Length);
+                    foreach (var item in collection)
+                    {
+                        AppendNumber((BigInteger)(object)item!);
+                    }
+
+                    break;
+
+                case LocalDate:
+                    AppendTypeAndSize(ColumnType.Date, collection.Length);
+                    foreach (var item in collection)
+                    {
+                        AppendDate((LocalDate)(object)item!);
+                    }
+
+                    break;
+
+                case LocalTime:
+                    AppendTypeAndSize(ColumnType.Time, collection.Length);
+                    foreach (var item in collection)
+                    {
+                        AppendTime((LocalTime)(object)item!, TemporalTypes.MaxTimePrecision);
+                    }
+
+                    break;
+
+                case LocalDateTime:
+                    AppendTypeAndSize(ColumnType.Datetime, collection.Length);
+                    foreach (var item in collection)
+                    {
+                        AppendDateTime((LocalDateTime)(object)item!, TemporalTypes.MaxTimePrecision);
+                    }
+
+                    break;
+
+                case Instant:
+                    AppendTypeAndSize(ColumnType.Timestamp, collection.Length);
+                    foreach (var item in collection)
+                    {
+                        AppendTimestamp((Instant)(object)item!, TemporalTypes.MaxTimePrecision);
+                    }
+
+                    break;
+
+                case BitArray:
+                    AppendTypeAndSize(ColumnType.Bitmask, collection.Length);
+                    foreach (var item in collection)
+                    {
+                        AppendBitmask((BitArray)(object)item!);
+                    }
+
+                    break;
 
                 default:
                     throw new IgniteClientException(ErrorGroups.Client.Protocol, "Unsupported type: " + firstValue?.GetType());
