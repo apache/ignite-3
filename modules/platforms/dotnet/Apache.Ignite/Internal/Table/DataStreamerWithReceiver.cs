@@ -31,7 +31,6 @@ using Buffers;
 using Common;
 using Compute;
 using Ignite.Compute;
-using Ignite.Sql;
 using Ignite.Table;
 using Proto;
 using Proto.BinaryTuple;
@@ -91,7 +90,8 @@ internal static class DataStreamerWithReceiver
 
         if (expectResults)
         {
-            throw new NotSupportedException("TODO: Ticket number");
+            // TODO IGNITE-22356 Support result retrieval.
+            throw new NotSupportedException("Result retrieval is not yet supported.");
         }
 
         // ConcurrentDictionary is not necessary because we consume the source sequentially.
@@ -147,7 +147,7 @@ internal static class DataStreamerWithReceiver
             }
         }
 
-        // TODO: Ticket for results handling.
+        // TODO IGNITE-22356 Support result retrieval.
         yield break;
 
         Batch<TPayload> Add(TSource item)
