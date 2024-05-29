@@ -203,13 +203,13 @@ public class MetaStorageWriteHandler {
 
             clo.result(storage.invoke(toCondition(cmd.condition()), cmd.success(), cmd.failure(), opTime, cmd.id()));
 
-            // removeObsoleteRecordsFromIdempotentCommandsCache();
+             removeObsoleteRecordsFromIdempotentCommandsCache();
         } else if (command instanceof MultiInvokeCommand) {
             MultiInvokeCommand cmd = (MultiInvokeCommand) command;
 
             clo.result(storage.invoke(toIf(cmd.iif()), opTime, cmd.id()));
 
-            // removeObsoleteRecordsFromIdempotentCommandsCache();
+             removeObsoleteRecordsFromIdempotentCommandsCache();
         } else if (command instanceof SyncTimeCommand) {
             storage.advanceSafeTime(command.safeTime());
 
@@ -376,11 +376,14 @@ public class MetaStorageWriteHandler {
      * Removes obsolete entries from both volatile and persistent idempotent command cache.
      */
     public void removeObsoleteRecordsFromIdempotentCommandsCache() {
+        LOG.info("Idempotent command cache cleanup triggered [triggerTimestamp={}].", clusterTime.now());
+
         assert maxClockSkewMillisFuture.isDone();
 
         maxClockSkewMillisFuture.thenApply(maxClockSkewMillis -> {
             HybridTimestamp cleanupTimestamp = clusterTime.now();
 
+            LOG.info("Idempotent command cache cleanup started [cleanupTimestamp={}].", cleanupTimestamp);
             List<CommandId> commandIdsToRemove = idempotentCommandCache.entrySet().stream()
                     .filter(entry -> entry.getValue().commandStartTime.longValue()
                             > cleanupTimestamp.longValue() - (idempotentCacheTtlSupplier.getAsLong() + maxClockSkewMillis.getAsLong()))
@@ -395,6 +398,9 @@ public class MetaStorageWriteHandler {
 
             commandIdsToRemove.forEach(idempotentCommandCache.keySet()::remove);
 
+            LOG.info("Idempotent command cache cleanup started [cleanupTimestamp={}, cleanupCompletionTimestamp={},"
+                    + " removedEntriesCount={}, cacheSize={}].", cleanupTimestamp, clusterTime.now(), commandIdsToRemove.size(),
+                    idempotentCommandCache.size());
             return null;
         });
     }
