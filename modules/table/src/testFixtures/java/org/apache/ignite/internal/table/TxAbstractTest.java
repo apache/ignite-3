@@ -566,6 +566,12 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     private void printReplicaInfo(String name, ReplicationGroupId replicationGroupId, CompletableFuture<Replica> replicaCompletableFuture) {
+        if (!replicaCompletableFuture.isDone()) {
+            logger().info("Replica is not ready [node={}, groupId={}]", name, replicationGroupId);
+
+            return;
+        }
+
         Replica replica;
         try {
             replica = replicaCompletableFuture.get();
