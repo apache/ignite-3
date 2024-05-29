@@ -112,6 +112,7 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.jraft.storage.impl.VolatileRaftMetaStorage;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
+import org.jetbrains.annotations.VisibleForTesting;
 
 /**
  * Replica manager maintains {@link Replica} instances on an Ignite node.
@@ -148,6 +149,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     private final NetworkMessageHandler handler;
 
     /** Raft manager for RAFT-clients creation. */
+    // TODO: move into {@method Replica#shutdown} https://issues.apache.org/jira/browse/IGNITE-22372
     private final RaftManager raftManager;
 
     /** Raft clients factory for raft server endpoints starting. */
@@ -511,6 +513,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         RaftGroupEventsListener raftGroupEventsListener = createRaftGroupEventsListener(metaStorageMgr, zoneId,
                 replicaGrpId);
 
+        // TODO: move into {@method Replica#shutdown} https://issues.apache.org/jira/browse/IGNITE-22372
         // TODO: use RaftManager interface, see https://issues.apache.org/jira/browse/IGNITE-18273
         CompletableFuture<TopologyAwareRaftGroupService> newRaftClientFut = ((Loza) raftManager).startRaftGroupNode(
                 raftNodeId,
@@ -525,7 +528,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 replicaGrpId,
                 newConfiguration,
                 updateTableRaftService,
-                createListener, storageIndexTracker,
+                createListener,
+                storageIndexTracker,
                 newRaftClientFut);
 
     }
@@ -583,14 +587,20 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     /**
      * Starts a raft-client and pass it to a replica creation if the replica should be started too. If a replica with the same partition id
      * already exists, the method throws an exception.
+     * TODO: must be deleted or be private after https://issues.apache.org/jira/browse/IGNITE-22373
      *
      * @param replicaGrpId Replication group id.
      * @param newConfiguration Peers and Learners of the Raft group.
+     * @param updateTableRaftService A temporal clojure that updates table raft service with new raft-client, but
+     *      TODO: will be removed https://issues.apache.org/jira/browse/IGNITE-22218
      * @param createListener A clojure that returns done {@link ReplicaListener} by given raft-client {@link RaftGroupService}.
      * @param storageIndexTracker Storage index tracker.
+     * @param newRaftClientFut A future that returns created raft-client.
      * @throws NodeStoppingException If node is stopping.
      * @throws ReplicaIsAlreadyStartedException Is thrown when a replica with the same replication group id has already been started.
      */
+    @VisibleForTesting
+    @Deprecated
     public CompletableFuture<Boolean> startReplica(
             ReplicationGroupId replicaGrpId,
             PeersAndLearners newConfiguration,
@@ -613,12 +623,15 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
     /**
      * Creates and start new replica.
+     * TODO: must be deleted or be private after https://issues.apache.org/jira/browse/IGNITE-22373
      *
      * @param replicaGrpId Replication group id.
      * @param storageIndexTracker Storage index tracker.
      * @param newReplicaListenerFut Future that returns ready ReplicaListener for replica creation.
      * @return Future that promises ready new replica when done.
      */
+    @VisibleForTesting
+    @Deprecated
     public CompletableFuture<Replica> startReplica(
             ReplicationGroupId replicaGrpId,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker,
@@ -665,8 +678,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     }
 
     /**
-     * TODO: will be private after https://issues.apache.org/jira/browse/IGNITE-22315
      * Temporary public method for RAFT-client starting.
+     * TODO: will be removed after https://issues.apache.org/jira/browse/IGNITE-22315
      *
      * @param replicaGrpId Replication Group ID.
      * @param newConfiguration Peers and learners nodes for a raft group.
@@ -735,6 +748,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     }
 
     /** Getter for wrapped write-ahead log syncer. */
+    // TODO: will be removed after https://issues.apache.org/jira/browse/IGNITE-22292
     public LogSyncer getLogSyncer() {
         return raftManager.getLogSyncer();
     }
@@ -833,6 +847,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         return isRemovedFuture
                 .thenApply(v -> {
                     try {
+                        // TODO: move into {@method Replica#shutdown} https://issues.apache.org/jira/browse/IGNITE-22372
                         raftManager.stopRaftNodes(replicaGrpId);
                     } catch (NodeStoppingException ignored) {
                         // No-op.
