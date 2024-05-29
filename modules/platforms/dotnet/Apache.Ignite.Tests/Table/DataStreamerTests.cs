@@ -420,49 +420,38 @@ public class DataStreamerTests : IgniteTestsBase
     public async Task TestWithReceiverAllDataTypes()
     {
         // Invoke receiver with all supported element types and check resulting Java class and string representation.
-        await CheckValue(true, "java.lang.Boolean", "true");
-        await CheckValue((sbyte)-3, "java.lang.Byte", "-3");
-        await CheckValue(short.MinValue, "java.lang.Short", "-32768");
-        await CheckValue(int.MinValue, "java.lang.Integer", "-2147483648");
-        await CheckValue(long.MinValue, "java.lang.Long", "-9223372036854775808");
-        await CheckValue(float.MinValue, "java.lang.Float", "-3.4028235E38");
-        await CheckValue(double.MinValue, "java.lang.Double", "-1.7976931348623157E308");
+        await CheckReceiverValue(true, "java.lang.Boolean", "true");
+        await CheckReceiverValue((sbyte)-3, "java.lang.Byte", "-3");
+        await CheckReceiverValue(short.MinValue, "java.lang.Short", "-32768");
+        await CheckReceiverValue(int.MinValue, "java.lang.Integer", "-2147483648");
+        await CheckReceiverValue(long.MinValue, "java.lang.Long", "-9223372036854775808");
+        await CheckReceiverValue(float.MinValue, "java.lang.Float", "-3.4028235E38");
+        await CheckReceiverValue(double.MinValue, "java.lang.Double", "-1.7976931348623157E308");
 
-        await CheckValue(decimal.One, "java.math.BigDecimal", "1");
-        await CheckValue(decimal.MinValue, "java.math.BigDecimal", "-79228162514264337593543950335");
+        await CheckReceiverValue(decimal.One, "java.math.BigDecimal", "1");
+        await CheckReceiverValue(decimal.MinValue, "java.math.BigDecimal", "-79228162514264337593543950335");
 
-        await CheckValue(new LocalDate(1234, 5, 6), "java.time.LocalDate", "1234-05-06");
-        await CheckValue(new LocalTime(12, 3, 4, 567), "java.time.LocalTime", "12:03:04.567");
-        await CheckValue(new LocalDateTime(1234, 5, 6, 7, 8, 9), "java.time.LocalDateTime", "1234-05-06T07:08:09");
-        await CheckValue(Instant.MinValue, "java.time.Instant", "-9998-01-01T00:00:00Z");
+        await CheckReceiverValue(new LocalDate(1234, 5, 6), "java.time.LocalDate", "1234-05-06");
+        await CheckReceiverValue(new LocalTime(12, 3, 4, 567), "java.time.LocalTime", "12:03:04.567");
+        await CheckReceiverValue(new LocalDateTime(1234, 5, 6, 7, 8, 9), "java.time.LocalDateTime", "1234-05-06T07:08:09");
+        await CheckReceiverValue(Instant.MinValue, "java.time.Instant", "-9998-01-01T00:00:00Z");
 
-        await CheckValue("str1", "java.lang.String", "str1");
-        await CheckValue(new BitArray(new[] { false, true, false, true }), "java.util.BitSet", "{1, 3}");
-        await CheckValue(Guid.Empty, "java.util.UUID", "00000000-0000-0000-0000-000000000000");
-        await CheckValue(new byte[] { 1, 2, 3 }, "[B", "[1, 2, 3]");
+        await CheckReceiverValue("str1", "java.lang.String", "str1");
+        await CheckReceiverValue(new BitArray(new[] { false, true, false, true }), "java.util.BitSet", "{1, 3}");
+        await CheckReceiverValue(Guid.Empty, "java.util.UUID", "00000000-0000-0000-0000-000000000000");
+        await CheckReceiverValue(new byte[] { 1, 2, 3 }, "[B", "[1, 2, 3]");
 
-        await CheckValue(Period.FromDays(999), "java.time.Period", "P999D");
-        await CheckValue(Duration.FromSeconds(12345), "java.time.Duration", "PT3H25M45S");
+        await CheckReceiverValue(Period.FromDays(999), "java.time.Period", "P999D");
+        await CheckReceiverValue(Duration.FromSeconds(12345), "java.time.Duration", "PT3H25M45S");
+    }
 
-        async Task CheckValue(object value, string expectedClassName, string expectedValue)
-        {
-            var key1 = 1L;
-            var key2 = 2L;
+    [Test]
+    public void TestWithReceiverUnsupportedDataType()
+    {
+        var ex = Assert.ThrowsAsync<IgniteClientException>(
+            async () => await CheckReceiverValue(GetPoco(1), "java.lang.Boolean", "true"));
 
-            await PocoView.StreamDataAsync<int, object>(
-                Enumerable.Range(0, 1).ToAsyncEnumerable(),
-                DataStreamerOptions.Default,
-                keySelector: x => GetPoco(x),
-                payloadSelector: x => value,
-                units: Array.Empty<DeploymentUnit>(),
-                receiverClassName: UpsertElementTypeNameReceiverClassName,
-                receiverArgs: new object[] { TableName, key1, key2 });
-
-            var className = (await TupleView.GetAsync(null, GetTuple(key1))).Value[1];
-            var valueStr = (await TupleView.GetAsync(null, GetTuple(key2))).Value[1];
-            Assert.AreEqual(expectedClassName, className);
-            Assert.AreEqual(expectedValue, valueStr);
-        }
+        Assert.AreEqual("Unsupported type: Apache.Ignite.Tests.Table.Poco", ex.Message);
     }
 
     private static async IAsyncEnumerable<IIgniteTuple> GetFakeServerData(int count)
@@ -481,6 +470,26 @@ public class DataStreamerTests : IgniteTestsBase
             yield return GetTuple(i, "t" + i);
             await Task.Delay(15000, ct);
         }
+    }
+
+    private async Task CheckReceiverValue(object value, string expectedClassName, string expectedValue)
+    {
+        var key1 = 1L;
+        var key2 = 2L;
+
+        await PocoView.StreamDataAsync<int, object>(
+            Enumerable.Range(0, 1).ToAsyncEnumerable(),
+            DataStreamerOptions.Default,
+            keySelector: x => GetPoco(x),
+            payloadSelector: x => value,
+            units: Array.Empty<DeploymentUnit>(),
+            receiverClassName: UpsertElementTypeNameReceiverClassName,
+            receiverArgs: new object[] { TableName, key1, key2 });
+
+        var className = (await TupleView.GetAsync(null, GetTuple(key1))).Value[1];
+        var valueStr = (await TupleView.GetAsync(null, GetTuple(key2))).Value[1];
+        Assert.AreEqual(expectedClassName, className);
+        Assert.AreEqual(expectedValue, valueStr);
     }
 
     private async Task CheckData()
