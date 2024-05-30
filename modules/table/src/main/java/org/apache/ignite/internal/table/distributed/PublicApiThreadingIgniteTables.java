@@ -25,7 +25,7 @@ import java.util.concurrent.Executor;
 import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.internal.wrapper.Wrapper;
 import org.apache.ignite.table.Table;
-import org.apache.ignite.table.manager.IgniteTables;
+import org.apache.ignite.table.IgniteTables;
 import org.jetbrains.annotations.Nullable;
 
 /**
