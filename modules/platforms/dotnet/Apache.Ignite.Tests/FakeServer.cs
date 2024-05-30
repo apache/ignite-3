@@ -476,13 +476,12 @@ namespace Apache.Ignite.Tests
 
             for (int i = 0; i < propCount; i++)
             {
-                var idx = i * 4;
+                var idx = i * 3;
 
                 var name = propTuple.GetString(idx);
                 var type = (ColumnType)propTuple.GetInt(idx + 1);
-                var scale = propTuple.GetInt(idx + 2);
 
-                props[name] = propTuple.GetObject(idx + 3, type);
+                props[name] = propTuple.GetObject(idx + 2, type);
             }
 
             var sql = reader.ReadString();
@@ -587,13 +586,12 @@ namespace Apache.Ignite.Tests
 
             for (int i = 0; i < propCount; i++)
             {
-                var idx = i * 4;
+                var idx = i * 3;
 
                 var name = propTuple.GetString(idx);
                 var type = (ColumnType)propTuple.GetInt(idx + 1);
-                var scale = propTuple.GetInt(idx + 2);
 
-                props[name] = propTuple.GetObject(idx + 3, type);
+                props[name] = propTuple.GetObject(idx + 2, type);
             }
 
             var sql = reader.ReadString();
