@@ -25,7 +25,6 @@ import java.io.Serializable;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -204,17 +203,15 @@ public class MetaStorageWriteHandler {
 
             clo.result(storage.invoke(toCondition(cmd.condition()), cmd.success(), cmd.failure(), opTime, cmd.id()));
 
-            if (System.currentTimeMillis() % 100 == 0) {
-                removeObsoleteRecordsFromIdempotentCommandsCache();
-            }
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-19417 Remove.
+            evictIdempotentCommandsCache(opTime);
         } else if (command instanceof MultiInvokeCommand) {
             MultiInvokeCommand cmd = (MultiInvokeCommand) command;
 
             clo.result(storage.invoke(toIf(cmd.iif()), opTime, cmd.id()));
 
-            if (System.currentTimeMillis() % 100 == 0) {
-                removeObsoleteRecordsFromIdempotentCommandsCache();
-            }
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-19417 Remove.
+            evictIdempotentCommandsCache(opTime);
         } else if (command instanceof SyncTimeCommand) {
             storage.advanceSafeTime(command.safeTime());
 
@@ -379,39 +376,35 @@ public class MetaStorageWriteHandler {
 
     /**
      * Removes obsolete entries from both volatile and persistent idempotent command cache.
+     *
+     * @param safeTime Trigger operation safe time. TODO: https://issues.apache.org/jira/browse/IGNITE-19417 Remove.
      */
     // TODO: https://issues.apache.org/jira/browse/IGNITE-19417 Call on meta storage compaction.
-    public void removeObsoleteRecordsFromIdempotentCommandsCache() {
-        UUID token = UUID.randomUUID();
-        HybridTimestamp triggeredTime = clusterTime.now();
-
-        LOG.info("Idempotent command cache cleanup triggered [token={}, triggerTimestamp={}].", token, triggeredTime);
+    void evictIdempotentCommandsCache(HybridTimestamp safeTime) {
+        HybridTimestamp cleanupTimestamp = clusterTime.now();
+        LOG.info("Idempotent command cache cleanup started [cleanupTimestamp={}].", cleanupTimestamp);
 
         assert maxClockSkewMillisFuture.isDone();
 
-        maxClockSkewMillisFuture.thenApply(maxClockSkewMillis -> {
-            HybridTimestamp cleanupTimestamp = clusterTime.now();
+        long maxClockSkewMillis = maxClockSkewMillisFuture.join().getAsLong();
 
-            LOG.info("Idempotent command cache cleanup started [token={}, cleanupTimestamp={}].", token, cleanupTimestamp);
-            List<CommandId> commandIdsToRemove = idempotentCommandCache.entrySet().stream()
-                    .filter(entry -> entry.getValue().commandStartTime.longValue()
-                            > cleanupTimestamp.longValue() - (idempotentCacheTtlSupplier.getAsLong() + maxClockSkewMillis.getAsLong()))
-                    .map(entry -> entry.getKey())
-                    .collect(toList());
+        List<CommandId> commandIdsToRemove = idempotentCommandCache.entrySet().stream()
+                .filter(entry -> entry.getValue().commandStartTime.longValue()
+                        > cleanupTimestamp.longValue() - (idempotentCacheTtlSupplier.getAsLong() + maxClockSkewMillis))
+                .map(entry -> entry.getKey())
+                .collect(toList());
 
-            List<byte[]> commandIdStorageKeys = commandIdsToRemove.stream()
-                    .map(commandId -> ArrayUtils.concat(IDEMPOTENT_COMMAND_PREFIX_BYTES, ByteUtils.toBytes(commandId)))
-                    .collect(toList());
+        List<byte[]> commandIdStorageKeys = commandIdsToRemove.stream()
+                .map(commandId -> ArrayUtils.concat(new byte[]{}, ByteUtils.toBytes(commandId)))
+                .collect(toList());
 
-            storage.removeAll(commandIdStorageKeys, cleanupTimestamp);
+        storage.removeAll(commandIdStorageKeys, safeTime);
 
-            commandIdsToRemove.forEach(idempotentCommandCache.keySet()::remove);
+        commandIdsToRemove.forEach(idempotentCommandCache.keySet()::remove);
 
-            LOG.info("Idempotent command cache cleanup finished [token={}, cleanupTimestamp={}, cleanupCompletionTimestamp={},"
-                    + " removedEntriesCount={}, cacheSize={}].", token, cleanupTimestamp, clusterTime.now(), commandIdsToRemove.size(),
-                    idempotentCommandCache.size());
-            return null;
-        });
+        LOG.info("Idempotent command cache cleanup finished [cleanupTimestamp={}, cleanupCompletionTimestamp={},"
+                        + " removedEntriesCount={}, cacheSize={}].", cleanupTimestamp, clusterTime.now(), commandIdsToRemove.size(),
+                idempotentCommandCache.size());
     }
 
     private static class IdempotentCommandCachedResult {
