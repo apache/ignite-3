@@ -29,9 +29,7 @@ function(ignite_test TEST_NAME TEST_SOURCE)
 
     # Older versions of CMake provide the GTest::Main target while newer versions
     # provide the GTest::gtest_main target. The old target is deprecated but still
-    # available for now. However Conan-generated build recipe takes over original
-    # CMake behavior and provides the new target only. This mess is handled here.
-    # So we can build with and without Conan, with newer and with older CMake.
+    # available for now.
     if (TARGET GTest::gtest_main)
         target_link_libraries(${TEST_NAME} ${IGNITE_TEST_LIBS} GTest::gtest GTest::gtest_main)
     else()
