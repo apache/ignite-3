@@ -59,7 +59,7 @@ public class ClientBinaryTupleUtils {
 
         int typeId = reader.intValue(index);
         ColumnType type = ColumnTypeConverter.fromIdOrThrow(typeId);
-        int valIdx = index + 2;
+        int valIdx = index + 1;
 
         switch (type) {
             case INT8:
@@ -81,7 +81,7 @@ public class ClientBinaryTupleUtils {
                 return reader.doubleValue(valIdx);
 
             case DECIMAL:
-                return reader.decimalValue(valIdx, reader.intValue(index + 1));
+                return reader.decimalValue(valIdx, -1);
 
             case UUID:
                 return reader.uuidValue(valIdx);
@@ -124,7 +124,7 @@ public class ClientBinaryTupleUtils {
         }
     }
 
-    static Function<Integer, Object> readerForType(BinaryTupleReader binTuple, ColumnType type) {
+    private static Function<Integer, Object> readerForType(BinaryTupleReader binTuple, ColumnType type) {
         switch (type) {
             case INT8:
                 return binTuple::byteValue;
@@ -200,62 +200,62 @@ public class ClientBinaryTupleUtils {
             builder.appendNull(); // Scale.
             builder.appendNull(); // Value.
         } else if (obj instanceof Boolean) {
-            appendTypeAndScale(builder, ColumnType.BOOLEAN);
+            appendColumnType(builder, ColumnType.BOOLEAN);
             builder.appendBoolean((Boolean) obj);
         } else if (obj instanceof Byte) {
-            appendTypeAndScale(builder, ColumnType.INT8);
+            appendColumnType(builder, ColumnType.INT8);
             builder.appendByte((Byte) obj);
         } else if (obj instanceof Short) {
-            appendTypeAndScale(builder, ColumnType.INT16);
+            appendColumnType(builder, ColumnType.INT16);
             builder.appendShort((Short) obj);
         } else if (obj instanceof Integer) {
-            appendTypeAndScale(builder, ColumnType.INT32);
+            appendColumnType(builder, ColumnType.INT32);
             builder.appendInt((Integer) obj);
         } else if (obj instanceof Long) {
-            appendTypeAndScale(builder, ColumnType.INT64);
+            appendColumnType(builder, ColumnType.INT64);
             builder.appendLong((Long) obj);
         } else if (obj instanceof Float) {
-            appendTypeAndScale(builder, ColumnType.FLOAT);
+            appendColumnType(builder, ColumnType.FLOAT);
             builder.appendFloat((Float) obj);
         } else if (obj instanceof Double) {
-            appendTypeAndScale(builder, ColumnType.DOUBLE);
+            appendColumnType(builder, ColumnType.DOUBLE);
             builder.appendDouble((Double) obj);
         } else if (obj instanceof BigDecimal) {
             BigDecimal bigDecimal = (BigDecimal) obj;
-            appendTypeAndScale(builder, ColumnType.DECIMAL, bigDecimal.scale());
+            appendColumnType(builder, ColumnType.DECIMAL);
             builder.appendDecimal(bigDecimal, bigDecimal.scale());
         } else if (obj instanceof UUID) {
-            appendTypeAndScale(builder, ColumnType.UUID);
+            appendColumnType(builder, ColumnType.UUID);
             builder.appendUuid((UUID) obj);
         } else if (obj instanceof String) {
-            appendTypeAndScale(builder, ColumnType.STRING);
+            appendColumnType(builder, ColumnType.STRING);
             builder.appendString((String) obj);
         } else if (obj instanceof byte[]) {
-            appendTypeAndScale(builder, ColumnType.BYTE_ARRAY);
+            appendColumnType(builder, ColumnType.BYTE_ARRAY);
             builder.appendBytes((byte[]) obj);
         } else if (obj instanceof BitSet) {
-            appendTypeAndScale(builder, ColumnType.BITMASK);
+            appendColumnType(builder, ColumnType.BITMASK);
             builder.appendBitmask((BitSet) obj);
         } else if (obj instanceof LocalDate) {
-            appendTypeAndScale(builder, ColumnType.DATE);
+            appendColumnType(builder, ColumnType.DATE);
             builder.appendDate((LocalDate) obj);
         } else if (obj instanceof LocalTime) {
-            appendTypeAndScale(builder, ColumnType.TIME);
+            appendColumnType(builder, ColumnType.TIME);
             builder.appendTime((LocalTime) obj);
         } else if (obj instanceof LocalDateTime) {
-            appendTypeAndScale(builder, ColumnType.DATETIME);
+            appendColumnType(builder, ColumnType.DATETIME);
             builder.appendDateTime((LocalDateTime) obj);
         } else if (obj instanceof Instant) {
-            appendTypeAndScale(builder, ColumnType.TIMESTAMP);
+            appendColumnType(builder, ColumnType.TIMESTAMP);
             builder.appendTimestamp((Instant) obj);
         } else if (obj instanceof BigInteger) {
-            appendTypeAndScale(builder, ColumnType.NUMBER);
+            appendColumnType(builder, ColumnType.NUMBER);
             builder.appendNumber((BigInteger) obj);
         } else if (obj instanceof Duration) {
-            appendTypeAndScale(builder, ColumnType.DURATION);
+            appendColumnType(builder, ColumnType.DURATION);
             builder.appendDuration((Duration) obj);
         } else if (obj instanceof Period) {
-            appendTypeAndScale(builder, ColumnType.PERIOD);
+            appendColumnType(builder, ColumnType.PERIOD);
             builder.appendPeriod((Period) obj);
         } else {
             throw unsupportedTypeException(obj.getClass());
@@ -473,14 +473,8 @@ public class ClientBinaryTupleUtils {
         }
     }
 
-    private static void appendTypeAndScale(BinaryTupleBuilder builder, ColumnType type, int scale) {
+    private static void appendColumnType(BinaryTupleBuilder builder, ColumnType type) {
         builder.appendInt(type.id());
-        builder.appendInt(scale);
-    }
-
-    private static void appendTypeAndScale(BinaryTupleBuilder builder, ColumnType type) {
-        builder.appendInt(type.id());
-        builder.appendInt(0);
     }
 
     private static IgniteException unsupportedTypeException(int dataType) {
