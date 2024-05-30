@@ -654,8 +654,10 @@ public class PlatformTestNodeRunner {
                         break;
 
                     case DECIMAL:
-                        columns.add(new Column(colName, NativeTypes.decimalOf(100, 50), false));
-                        tuple.set(colName, reader.decimalValue(valIdx, -1));
+                        BigDecimal decimalVal = reader.decimalValue(valIdx, -1);
+                        assert decimalVal != null;
+                        columns.add(new Column(colName, NativeTypes.decimalOf(100, decimalVal.scale()), false));
+                        tuple.set(colName, decimalVal);
                         break;
 
                     case STRING:
