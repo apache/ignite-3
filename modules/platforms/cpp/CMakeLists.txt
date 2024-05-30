@@ -40,8 +40,6 @@ get_property(is_multi_config GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
 if (CMAKE_VERSION VERSION_GREATER_EQUAL "3.24.0")
     # Avoid warning about DOWNLOAD_EXTRACT_TIMESTAMP:
     cmake_policy(SET CMP0135 NEW)
-    # Silence Dart and FindDart modules warning in msgpack-c
-    cmake_policy(SET CMP0145 NEW)
 endif()
 
 cmake_policy(SET CMP0048 NEW)
