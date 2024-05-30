@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.table;
 
 import org.apache.ignite.client.IgniteClient;
-import org.apache.ignite.table.manager.IgniteTables;
+import org.apache.ignite.table.IgniteTables;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 
