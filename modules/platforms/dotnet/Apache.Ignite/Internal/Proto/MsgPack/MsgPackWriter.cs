@@ -376,7 +376,7 @@ internal readonly ref struct MsgPackWriter
             return;
         }
 
-        using var builder = new BinaryTupleBuilder(col.Count * 3);
+        using var builder = new BinaryTupleBuilder(col.Count * 2);
 
         foreach (var obj in col)
         {

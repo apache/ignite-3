@@ -54,7 +54,7 @@ internal sealed class TuplePairSerializerHandler : IRecordSerializerHandler<KvPa
 
             foreach (var column in schema.KeyColumns)
             {
-                keyTuple[column.Name] = tupleReader.GetObject(column.KeyIndex, column.Type, column.Scale);
+                keyTuple[column.Name] = tupleReader.GetObject(column.KeyIndex, column.Type);
             }
 
             return new(keyTuple);
@@ -68,7 +68,7 @@ internal sealed class TuplePairSerializerHandler : IRecordSerializerHandler<KvPa
             foreach (var column in schema.Columns)
             {
                 var tuple = column.IsKey ? keyTuple : valTuple;
-                tuple[column.Name] = tupleReader.GetObject(column.SchemaIndex, column.Type, column.Scale);
+                tuple[column.Name] = tupleReader.GetObject(column.SchemaIndex, column.Type);
             }
 
             return new(keyTuple, valTuple);

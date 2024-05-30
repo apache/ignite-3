@@ -125,7 +125,7 @@ namespace Apache.Ignite.Internal.Sql
                 ColumnType.Int64 => reader.GetLong(idx),
                 ColumnType.Float => reader.GetFloat(idx),
                 ColumnType.Double => reader.GetDouble(idx),
-                ColumnType.Decimal => reader.GetDecimal(idx, col.Scale),
+                ColumnType.Decimal => reader.GetDecimal(idx),
                 ColumnType.Date => reader.GetDate(idx),
                 ColumnType.Time => reader.GetTime(idx),
                 ColumnType.Datetime => reader.GetDateTime(idx),

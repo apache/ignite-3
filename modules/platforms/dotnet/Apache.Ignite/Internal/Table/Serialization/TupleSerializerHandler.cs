@@ -58,7 +58,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
             foreach (var column in columns)
             {
-                tuple[column.Name] = tupleReader.GetObject(column.GetBinaryTupleIndex(keyOnly), column.Type, column.Scale);
+                tuple[column.Name] = tupleReader.GetObject(column.GetBinaryTupleIndex(keyOnly), column.Type);
             }
 
             return tuple;
@@ -78,7 +78,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             var tupleReader = new BinaryTupleReader(buf, columns.Length);
             var column = columns[index];
 
-            return tupleReader.GetObject(index, column.Type, column.Scale);
+            return tupleReader.GetObject(index, column.Type);
         }
 
         /// <inheritdoc/>

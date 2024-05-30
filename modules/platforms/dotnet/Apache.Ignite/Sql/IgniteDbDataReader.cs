@@ -207,11 +207,9 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
     /// <inheritdoc/>
     public override decimal GetDecimal(int ordinal)
     {
-        var column = Metadata.Columns[ordinal];
+        ValidateColumnType(typeof(decimal), Metadata.Columns[ordinal]);
 
-        ValidateColumnType(typeof(decimal), column);
-
-        return GetReader().GetDecimal(ordinal, column.Scale);
+        return GetReader().GetDecimal(ordinal);
     }
 
     /// <inheritdoc/>

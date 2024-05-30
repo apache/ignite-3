@@ -460,7 +460,7 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
             static void Test(decimal val, int scale, decimal? expected = null)
             {
                 var reader = BuildAndRead((ref BinaryTupleBuilder b) => b.AppendDecimal(val, scale));
-                var res = reader.GetDecimal(0, scale);
+                var res = reader.GetDecimal(0);
 
                 Assert.AreEqual(expected ?? val, res);
             }
@@ -469,10 +469,8 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
         [Test]
         public void TestDecimalScaleOverflow()
         {
-            const int scale = 100;
-
             var ex = Assert.Throws<OverflowException>(
-                () => BuildAndRead((ref BinaryTupleBuilder b) => b.AppendBytes(new byte[] { 64, 64, 64 })).GetDecimal(0, scale));
+                () => BuildAndRead((ref BinaryTupleBuilder b) => b.AppendBytes(new byte[] { 64, 64, 64 })).GetDecimal(0));
 
             Assert.AreEqual("Value was either too large or too small for a Decimal.", ex!.Message);
         }
@@ -483,7 +481,7 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
             var magnitude = Enumerable.Range(1, 100).Select(_ => (byte)250).ToArray();
 
             var ex = Assert.Throws<OverflowException>(
-                () => BuildAndRead((ref BinaryTupleBuilder b) => b.AppendBytes(magnitude)).GetDecimal(0, 0));
+                () => BuildAndRead((ref BinaryTupleBuilder b) => b.AppendBytes(magnitude)).GetDecimal(0));
 
             Assert.AreEqual("Value was either too large or too small for a Decimal.", ex!.Message);
         }
@@ -653,7 +651,7 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
             Assert.IsNull(reader.GetLongNullable(0));
             Assert.IsNull(reader.GetDoubleNullable(0));
             Assert.IsNull(reader.GetFloatNullable(0));
-            Assert.IsNull(reader.GetDecimalNullable(0, 123));
+            Assert.IsNull(reader.GetDecimalNullable(0));
             Assert.IsNull(reader.GetNumberNullable(0));
             Assert.IsNull(reader.GetStringNullable(0));
             Assert.IsNull(reader.GetBitmaskNullable(0));
@@ -739,8 +737,8 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
             Assert.IsNull(reader.GetGuidNullable(17));
             Assert.AreEqual(bitArray, reader.GetBitmaskNullable(18));
             Assert.IsNull(reader.GetBitmaskNullable(19));
-            Assert.AreEqual(1, reader.GetDecimalNullable(20, 3));
-            Assert.IsNull(reader.GetDecimalNullable(21, 3));
+            Assert.AreEqual(1, reader.GetDecimalNullable(20));
+            Assert.IsNull(reader.GetDecimalNullable(21));
             Assert.AreEqual((BigInteger)1, reader.GetNumberNullable(22));
             Assert.IsNull(reader.GetNumberNullable(23));
             Assert.AreEqual(date, reader.GetDateNullable(24));
