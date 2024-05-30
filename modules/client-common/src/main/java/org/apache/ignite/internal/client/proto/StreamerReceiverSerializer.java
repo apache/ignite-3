@@ -77,7 +77,7 @@ public class StreamerReceiverSerializer {
         Object[] receiverArgs = new Object[receiverArgsCount];
         for (int i = 0; i < receiverArgsCount; i++) {
             receiverArgs[i] = ClientBinaryTupleUtils.readObject(reader, readerIndex);
-            readerIndex += 3;
+            readerIndex += 2;
         }
 
         List<Object> items = ClientBinaryTupleUtils.readCollectionFromBinaryTuple(reader, readerIndex);

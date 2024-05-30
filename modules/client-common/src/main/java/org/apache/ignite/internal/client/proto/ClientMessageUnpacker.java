@@ -736,7 +736,7 @@ public class ClientMessageUnpacker implements AutoCloseable {
      * @return BatchedArguments object with the unpacked arguments.
      */
     @SuppressWarnings("unused")
-    public BatchedArguments unpackObjectArrayFromBinaryTupleArray() {
+    public @Nullable BatchedArguments unpackObjectArrayFromBinaryTupleArray() {
         assert refCnt > 0 : "Unpacker is closed";
 
         if (tryUnpackNil()) {
@@ -763,7 +763,7 @@ public class ClientMessageUnpacker implements AutoCloseable {
      *
      * @return Object array.
      */
-    public Object[] unpackObjectArrayFromBinaryTuple(int size) {
+    public Object @Nullable [] unpackObjectArrayFromBinaryTuple(int size) {
         assert refCnt > 0 : "Unpacker is closed";
 
         if (tryUnpackNil()) {
@@ -771,10 +771,10 @@ public class ClientMessageUnpacker implements AutoCloseable {
         }
 
         Object[] args = new Object[size];
-        var reader = new BinaryTupleReader(size * 3, readBinaryUnsafe());
+        var reader = new BinaryTupleReader(size * 2, readBinaryUnsafe());
 
         for (int i = 0; i < size; i++) {
-            args[i] = ClientBinaryTupleUtils.readObject(reader, i * 3);
+            args[i] = ClientBinaryTupleUtils.readObject(reader, i * 2);
         }
 
         return args;
@@ -785,7 +785,7 @@ public class ClientMessageUnpacker implements AutoCloseable {
      *
      * @return Object array.
      */
-    public Object[] unpackObjectArrayFromBinaryTuple() {
+    public Object @Nullable [] unpackObjectArrayFromBinaryTuple() {
         assert refCnt > 0 : "Unpacker is closed";
 
         if (tryUnpackNil()) {
@@ -799,10 +799,10 @@ public class ClientMessageUnpacker implements AutoCloseable {
         }
 
         Object[] args = new Object[size];
-        var reader = new BinaryTupleReader(size * 3, readBinaryUnsafe());
+        var reader = new BinaryTupleReader(size * 2, readBinaryUnsafe());
 
         for (int i = 0; i < size; i++) {
-            args[i] = ClientBinaryTupleUtils.readObject(reader, i * 3);
+            args[i] = ClientBinaryTupleUtils.readObject(reader, i * 2);
         }
 
         return args;
@@ -813,14 +813,14 @@ public class ClientMessageUnpacker implements AutoCloseable {
      *
      * @return Object.
      */
-    public Object unpackObjectFromBinaryTuple() {
+    public @Nullable Object unpackObjectFromBinaryTuple() {
         assert refCnt > 0 : "Unpacker is closed";
 
         if (tryUnpackNil()) {
             return null;
         }
 
-        var reader = new BinaryTupleReader(3, readBinaryUnsafe());
+        var reader = new BinaryTupleReader(2, readBinaryUnsafe());
         return ClientBinaryTupleUtils.readObject(reader, 0);
     }
 
