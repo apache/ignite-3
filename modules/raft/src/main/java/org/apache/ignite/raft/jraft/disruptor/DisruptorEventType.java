@@ -15,33 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table;
+package org.apache.ignite.raft.jraft.disruptor;
 
-import org.apache.ignite.client.IgniteClient;
-import org.apache.ignite.table.manager.IgniteTables;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
+import com.lmax.disruptor.EventHandler;
+import org.apache.ignite.raft.jraft.entity.NodeId;
 
 /**
- * Tests to check that rows can be inserted and retrieved through thin client.
+ * There are different types of striped disruptor events. The disruptor uses some events for technical purposes,
+  * so it is necessary to distinguish types.
  */
-public class ItTablePutGetThinTest extends ItTablePutGetEmbeddedTest {
-    private static IgniteClient client;
+public enum DisruptorEventType {
+    /**
+    * This event type matches the technical striped disruptor event, look at {@link StripedDisruptor#subscribe( NodeId, EventHandler)}.
+    */
+    SUBSCRIBE,
 
-    @BeforeAll
-    static void startClient() {
-        client = IgniteClient.builder()
-                .addresses("127.0.0.1:10800")
-                .build();
-    }
-
-    @AfterAll
-    static void stopClient() throws Exception {
-        client.close();
-    }
-
-    @Override
-    IgniteTables tables() {
-        return client.tables();
-    }
+    /**
+    * This event type matches the regular event in the striped disruptor.
+    */
+    REGULAR
 }

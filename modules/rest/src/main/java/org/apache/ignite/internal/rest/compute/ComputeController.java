@@ -26,6 +26,7 @@ import java.util.Collection;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
+import org.apache.ignite.internal.rest.ResourceHolder;
 import org.apache.ignite.internal.rest.api.compute.ComputeApi;
 import org.apache.ignite.internal.rest.api.compute.JobState;
 import org.apache.ignite.internal.rest.api.compute.JobStatus;
@@ -38,8 +39,8 @@ import org.jetbrains.annotations.Nullable;
  * REST controller for compute operations.
  */
 @Controller
-public class ComputeController implements ComputeApi {
-    private final IgniteComputeInternal compute;
+public class ComputeController implements ComputeApi, ResourceHolder {
+    private IgniteComputeInternal compute;
 
     public ComputeController(IgniteComputeInternal compute) {
         this.compute = compute;
@@ -97,5 +98,10 @@ public class ComputeController implements ComputeApi {
                 jobStatus.startTime(),
                 jobStatus.finishTime()
         );
+    }
+
+    @Override
+    public void cleanResources() {
+        compute = null;
     }
 }

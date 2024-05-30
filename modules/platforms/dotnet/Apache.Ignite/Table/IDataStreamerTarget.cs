@@ -18,9 +18,11 @@
 // ReSharper disable TypeParameterCanBeVariant (justification: future compatibility for streamer with receiver).
 namespace Apache.Ignite.Table;
 
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Compute;
 using Internal.Common;
 
 /// <summary>
@@ -65,4 +67,55 @@ public interface IDataStreamerTarget<T>
             }
         }
     }
+
+    /// <summary>
+    /// Streams data into the underlying table with receiver that returns results.
+    /// </summary>
+    /// <param name="data">Data.</param>
+    /// <param name="keySelector">Key selector.</param>
+    /// <param name="payloadSelector">Payload selector.</param>
+    /// <param name="units">Deployment units. Can be empty.</param>
+    /// <param name="receiverClassName">Java class name of the streamer receiver to execute on the server.</param>
+    /// <param name="receiverArgs">Receiver args.</param>
+    /// <param name="options">Streamer options.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
+    /// <typeparam name="TSource">Source item type.</typeparam>
+    /// <typeparam name="TPayload">Payload type.</typeparam>
+    /// <typeparam name="TResult">Result type.</typeparam>
+    IAsyncEnumerable<TResult> StreamDataAsync<TSource, TPayload, TResult>(
+        IAsyncEnumerable<TSource> data,
+        Func<TSource, T> keySelector,
+        Func<TSource, TPayload> payloadSelector,
+        IEnumerable<DeploymentUnit> units,
+        string receiverClassName,
+        ICollection<object>? receiverArgs = null,
+        DataStreamerOptions? options = null,
+        CancellationToken cancellationToken = default)
+        where TPayload : notnull;
+
+    /// <summary>
+    /// Streams data into the underlying table with receiver, ignoring receiver results (if any).
+    /// </summary>
+    /// <param name="data">Data.</param>
+    /// <param name="keySelector">Key selector.</param>
+    /// <param name="payloadSelector">Payload selector.</param>
+    /// <param name="units">Deployment units. Can be empty.</param>
+    /// <param name="receiverClassName">Java class name of the streamer receiver to execute on the server.</param>
+    /// <param name="receiverArgs">Receiver args.</param>
+    /// <param name="options">Streamer options.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
+    /// <typeparam name="TSource">Source item type.</typeparam>
+    /// <typeparam name="TPayload">Payload type.</typeparam>
+    Task StreamDataAsync<TSource, TPayload>(
+        IAsyncEnumerable<TSource> data,
+        Func<TSource, T> keySelector,
+        Func<TSource, TPayload> payloadSelector,
+        IEnumerable<DeploymentUnit> units,
+        string receiverClassName,
+        ICollection<object>? receiverArgs = null,
+        DataStreamerOptions? options = null,
+        CancellationToken cancellationToken = default)
+        where TPayload : notnull;
 }

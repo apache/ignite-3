@@ -421,6 +421,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 }
 
                 txManager.cleanup(
+                        replicationGroupId,
                         txMeta.enlistedPartitions(),
                         txMeta.txState() == COMMITTED,
                         txMeta.commitTimestamp(),
@@ -507,7 +508,8 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         // Check whether a transaction has already been finished.
         if (txMeta != null && isFinalState(txMeta.txState())) {
-            return runCleanupOnNode(txId, senderId);
+            // Tx recovery message is processed on the commit partition.
+            return runCleanupOnNode(replicationGroupId, txId, senderId);
         }
 
         LOG.info("Orphan transaction has to be aborted [tx={}, meta={}].", txId, txMeta);
@@ -518,14 +520,15 @@ public class PartitionReplicaListener implements ReplicaListener {
     /**
      * Run cleanup on a node.
      *
+     * @param commitPartitionId Commit partition id.
      * @param txId Transaction id.
      * @param nodeId Node id (inconsistent).
      */
-    private CompletableFuture<Void> runCleanupOnNode(UUID txId, String nodeId) {
+    private CompletableFuture<Void> runCleanupOnNode(TablePartitionId commitPartitionId, UUID txId, String nodeId) {
         // Get node id of the sender to send back cleanup requests.
         String nodeConsistentId = clusterNodeResolver.getConsistentIdById(nodeId);
 
-        return nodeConsistentId == null ? nullCompletedFuture() : txManager.cleanup(nodeConsistentId, txId);
+        return nodeConsistentId == null ? nullCompletedFuture() : txManager.cleanup(commitPartitionId, nodeConsistentId, txId);
     }
 
     /**
@@ -540,13 +543,14 @@ public class PartitionReplicaListener implements ReplicaListener {
         // is sent in a common durable manner to a partition that have initiated recovery.
         return txManager.finish(
                         new HybridTimestampTracker(),
+                        // Tx recovery is executed on the commit partition.
                         replicationGroupId,
                         false,
                         // Enlistment consistency token is not required for the rollback, so it is 0L.
                         Map.of(replicationGroupId, new IgniteBiTuple<>(clusterNodeResolver.getById(senderId), 0L)),
                         txId
                 )
-                .whenComplete((v, ex) -> runCleanupOnNode(txId, senderId));
+                .whenComplete((v, ex) -> runCleanupOnNode(replicationGroupId, txId, senderId));
     }
 
     /**
@@ -1026,9 +1030,9 @@ public class PartitionReplicaListener implements ReplicaListener {
                 .thenAccept(validationResult -> {
                     if (!validationResult.isSuccessful()) {
                         throw new IncompatibleSchemaException(String.format(
-                                "Operation failed because it tried to access a row with newer schema version than transaction's [table=%d, "
+                                "Operation failed because it tried to access a row with newer schema version than transaction's [table=%s, "
                                         + "txSchemaVersion=%d, rowSchemaVersion=%d]",
-                                validationResult.failedTableId(), validationResult.fromSchemaVersion(), validationResult.toSchemaVersion()
+                                validationResult.failedTableName(), validationResult.fromSchemaVersion(), validationResult.toSchemaVersion()
                         ));
                     }
                 });
@@ -1620,17 +1624,20 @@ public class PartitionReplicaListener implements ReplicaListener {
     private static void throwIfSchemaValidationOnCommitFailed(CompatValidationResult validationResult, TransactionResult txResult) {
         if (!validationResult.isSuccessful()) {
             if (validationResult.isTableDropped()) {
-                // TODO: IGNITE-20966 - improve error message.
                 throw new MismatchingTransactionOutcomeException(
-                        format("Commit failed because a table was already dropped [tableId={}]", validationResult.failedTableId()),
+                        format("Commit failed because a table was already dropped [table={}]", validationResult.failedTableName()),
                         txResult
                 );
             } else {
-                // TODO: IGNITE-20966 - improve error message.
                 throw new MismatchingTransactionOutcomeException(
-                        "Commit failed because schema "
-                                + validationResult.fromSchemaVersion() + " is not forward-compatible with "
-                                + validationResult.toSchemaVersion() + " for table " + validationResult.failedTableId(),
+                        format(
+                                "Commit failed because schema is not forward-compatible "
+                                        + "[fromSchemaVersion={}, toSchemaVersion={}, table={}, details={}]",
+                                validationResult.fromSchemaVersion(),
+                                validationResult.toSchemaVersion(),
+                                validationResult.failedTableName(),
+                                validationResult.details()
+                        ),
                         txResult
                 );
             }
@@ -1691,7 +1698,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         return finishTransaction(enlistedPartitions.keySet(), txId, commit, commitTimestamp)
                 .thenCompose(txResult ->
-                        txManager.cleanup(enlistedPartitions, commit, commitTimestamp, txId)
+                        txManager.cleanup(replicationGroupId, enlistedPartitions, commit, commitTimestamp, txId)
                                 .thenApply(v -> txResult)
                 );
     }
