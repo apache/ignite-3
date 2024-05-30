@@ -96,8 +96,7 @@ public class DisasterRecoveryController implements DisasterRecoveryApi {
                 command.nodeNames(),
                 command.zoneName(),
                 command.tableName(),
-                command.partitionIds(),
-                command.purge()
+                command.partitionIds()
         );
     }
 

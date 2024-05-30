@@ -49,7 +49,7 @@ public class RestartPartitionsTest extends IgniteCliInterfaceTestBase {
         execute("recovery restart-partitions --cluster-endpoint-url " + mockUrl
                 + " --table table_NAME --zone zone_NAME");
 
-        assertSuccessfulOutputIs("Successfully restarted partitions without cleanup.");
+        assertSuccessfulOutputIs("Successfully restarted partitions.");
     }
 
     @Test
@@ -69,7 +69,7 @@ public class RestartPartitionsTest extends IgniteCliInterfaceTestBase {
         execute("recovery restart-partitions --cluster-endpoint-url " + mockUrl
                 + " --table table_NAME --zone zone_NAME --partitions 1,2");
 
-        assertSuccessfulOutputIs("Successfully restarted partitions without cleanup.");
+        assertSuccessfulOutputIs("Successfully restarted partitions.");
     }
 
     @Test
@@ -89,26 +89,6 @@ public class RestartPartitionsTest extends IgniteCliInterfaceTestBase {
         execute("recovery restart-partitions --cluster-endpoint-url " + mockUrl
                 + " --table table_NAME --zone zone_NAME --nodes node_NAME,node_NAME_2");
 
-        assertSuccessfulOutputIs("Successfully restarted partitions without cleanup.");
-    }
-
-    @Test
-    @DisplayName("Restart with purge")
-    void restartPartitionsPurge() {
-        String expectedSentContent = "{\"purge\" : true}";
-
-        clientAndServer
-                .when(request()
-                        .withMethod("POST")
-                        .withPath("/management/v1/recovery/restart-partitions")
-                        .withBody(json(expectedSentContent, ONLY_MATCHING_FIELDS))
-                        .withContentType(MediaType.APPLICATION_JSON_UTF_8)
-                )
-                .respond(response(null));
-
-        execute("recovery restart-partitions --cluster-endpoint-url " + mockUrl
-                + " --table table_NAME --zone zone_NAME --purge");
-
-        assertSuccessfulOutputIs("Successfully restarted partitions with cleanup.");
+        assertSuccessfulOutputIs("Successfully restarted partitions.");
     }
 }

@@ -314,9 +314,5 @@ public enum Options {
 
         public static final String RECOVERY_NODE_NAMES_OPTION_DESC = "Names specifying nodes to get partition states from. "
                 + "Case-sensitive, without quotes, all nodes if not set";
-
-        public static final String RECOVERY_PURGE_OPTION = "--purge";
-
-        public static final String RECOVERY_PURGE_OPTION_DESC = "If partitions data should be destroyed";
     }
 }

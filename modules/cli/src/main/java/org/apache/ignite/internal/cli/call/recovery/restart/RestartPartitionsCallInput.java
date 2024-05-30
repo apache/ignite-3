@@ -34,8 +34,6 @@ public class RestartPartitionsCallInput implements CallInput {
 
     private final List<Integer> partitionIds;
 
-    private final boolean purge;
-
     /** Cluster url. */
     public String clusterUrl() {
         return clusterUrl;
@@ -61,25 +59,18 @@ public class RestartPartitionsCallInput implements CallInput {
         return nodeNames;
     }
 
-    /** If partitions data should be destroyed. */
-    public boolean purge() {
-        return purge;
-    }
-
     private RestartPartitionsCallInput(
             String clusterUrl,
             String zoneName,
             String tableName,
             @Nullable List<Integer> partitionIds,
-            @Nullable List<String> nodeNames,
-            boolean purge
+            @Nullable List<String> nodeNames
     ) {
         this.clusterUrl = clusterUrl;
         this.zoneName = zoneName;
         this.tableName = tableName;
         this.partitionIds = partitionIds == null ? List.of() : List.copyOf(partitionIds);
         this.nodeNames = nodeNames == null ? List.of() : List.copyOf(nodeNames);
-        this.purge = purge;
     }
 
     public static RestartPartitionsCallInput of(RestartPartitionsMixin statesArgs) {
@@ -93,7 +84,6 @@ public class RestartPartitionsCallInput implements CallInput {
                 .tableName(restartArgs.tableName())
                 .partitionIds(restartArgs.partitionIds())
                 .nodeNames(restartArgs.nodeNames())
-                .purge(restartArgs.purge())
                 .clusterUrl(clusterUrl)
                 .build();
     }
@@ -120,8 +110,6 @@ public class RestartPartitionsCallInput implements CallInput {
 
         @Nullable
         private List<String> nodeNames;
-
-        private boolean purge;
 
         /** Set cluster URL. */
         RestartPartitionsCallInputBuilder clusterUrl(String clusterUrl) {
@@ -153,15 +141,9 @@ public class RestartPartitionsCallInput implements CallInput {
             return this;
         }
 
-        /** If partitions data should be destroyed. */
-        RestartPartitionsCallInputBuilder purge(boolean purge) {
-            this.purge = purge;
-            return this;
-        }
-
         /** Build {@link RestartPartitionsCallInput}. */
         RestartPartitionsCallInput build() {
-            return new RestartPartitionsCallInput(clusterUrl, zoneName, tableName, partitionIds, nodeNames, purge);
+            return new RestartPartitionsCallInput(clusterUrl, zoneName, tableName, partitionIds, nodeNames);
         }
     }
 }

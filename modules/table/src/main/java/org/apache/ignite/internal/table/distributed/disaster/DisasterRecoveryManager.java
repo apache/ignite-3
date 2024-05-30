@@ -246,27 +246,6 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
      * @param zoneName Name of the distribution zone. Case-sensitive, without quotes.
      * @param tableName Fully-qualified table name. Case-sensitive, without quotes. Example: "PUBLIC.Foo".
      * @param partitionIds IDs of partitions to restart. If empty, restart all zone's partitions.
-     * @param purge If partitions data should be destroyed.
-     * @return Future that completes when partitions are restarted.
-     */
-    // TODO https://issues.apache.org/jira/browse/IGNITE-22177 Add cleanup logic.
-    public CompletableFuture<Void> restartPartitions(
-            Set<String> nodeNames,
-            String zoneName,
-            String tableName,
-            Set<Integer> partitionIds,
-            boolean purge
-    ) {
-        return restartPartitions(nodeNames, zoneName, tableName, partitionIds);
-    }
-
-    /**
-     * Restarts replica service and raft group of passed partitions.
-     *
-     * @param nodeNames Names specifying nodes to restart partitions. Case-sensitive, empty set means "all nodes".
-     * @param zoneName Name of the distribution zone. Case-sensitive, without quotes.
-     * @param tableName Fully-qualified table name. Case-sensitive, without quotes. Example: "PUBLIC.Foo".
-     * @param partitionIds IDs of partitions to restart. If empty, restart all zone's partitions.
      * @return Future that completes when partitions are restarted.
      */
     public CompletableFuture<Void> restartPartitions(

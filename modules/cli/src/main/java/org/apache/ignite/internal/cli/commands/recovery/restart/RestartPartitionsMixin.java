@@ -21,8 +21,6 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_NODE_NAMES_OPTION_DESC;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_PARTITION_IDS_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_PARTITION_IDS_OPTION_DESC;
-import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_PURGE_OPTION;
-import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_PURGE_OPTION_DESC;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_TABLE_NAME_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_TABLE_NAME_OPTION_DESC;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_ZONE_NAME_OPTION;
@@ -51,9 +49,6 @@ public class RestartPartitionsMixin {
     @Option(names = RECOVERY_TABLE_NAME_OPTION, description = RECOVERY_TABLE_NAME_OPTION_DESC, required = true)
     private String tableName;
 
-    @Option(names = RECOVERY_PURGE_OPTION, description = RECOVERY_PURGE_OPTION_DESC)
-    private boolean purge;
-
     /** Returns name of the zone to restart partitions of. */
     public String zoneName() {
         return zoneName;
@@ -74,11 +69,6 @@ public class RestartPartitionsMixin {
     @Nullable
     public List<String> nodeNames() {
         return nodeNames;
-    }
-
-    /** If partitions data should be destroyed. */
-    public boolean purge() {
-        return purge;
     }
 
     /** Returns cluster endpoint URL. */
