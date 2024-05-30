@@ -78,7 +78,8 @@ class TupleImpl implements Tuple, Serializable {
         this(tuple.columnCount());
 
         for (int i = 0, len = tuple.columnCount(); i < len; i++) {
-            set(tuple.columnName(i), tuple.value(i));
+            // fix this hack
+            set("\"" + tuple.columnName(i) + "\"", tuple.value(i));
         }
     }
 

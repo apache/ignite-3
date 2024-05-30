@@ -155,7 +155,8 @@ public interface Tuple extends Iterable<Object> {
         }
 
         for (int idx = 0; idx < columns; idx++) {
-            int idx2 = secondTuple.columnIndex(firstTuple.columnName(idx));
+            // fix this hack
+            int idx2 = secondTuple.columnIndex("\""+ firstTuple.columnName(idx) +"\"");
 
             if (idx2 < 0) {
                 return false;

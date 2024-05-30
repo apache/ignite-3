@@ -179,7 +179,8 @@ public class TupleMarshallerImpl implements TupleMarshaller {
         for (Column col : columns) {
             NativeType colType = col.type();
 
-            Object val = tuple.valueOrDefault(col.name(), POISON_OBJECT);
+            // fix this hack
+            Object val = tuple.valueOrDefault("\"" + col.name() + "\"", POISON_OBJECT);
 
             if (val == POISON_OBJECT && col.positionInKey() != -1) {
                 throw new SchemaMismatchException("Missed key column: " + col.name());

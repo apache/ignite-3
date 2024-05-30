@@ -57,8 +57,6 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Tests client tuple builder implementation.
- *
- * <p>Should be in sync with org.apache.ignite.internal.table.TupleBuilderImplTest.
  */
 public class ClientTupleTest {
     private static final ReflectionMarshallersProvider marshallers = new ReflectionMarshallersProvider();

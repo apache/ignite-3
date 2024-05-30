@@ -25,6 +25,7 @@ import java.util.BitSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaAware;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -364,7 +365,7 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
         Column col = row.schema().column(IgniteNameUtils.parseSimpleName(columnName));
 
         if (col == null) {
-            throw new IllegalArgumentException("Invalid column name: columnName=" + columnName);
+            throw new IllegalArgumentException(IgniteStringFormatter.format("Column doesn't exist [name={}]", columnName));
         }
 
         return col;
