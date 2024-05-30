@@ -291,7 +291,7 @@ private:
             binary_tuple_parser parser(std::int32_t(columns_cnt), tuple_data);
 
             for (const auto &column : meta.columns()) {
-                res.set(column.name(), protocol::read_next_column(parser, column.type(), column.scale()));
+                res.set(column.name(), protocol::read_next_column(parser, column.type()));
             }
             page.emplace_back(std::move(res));
         }

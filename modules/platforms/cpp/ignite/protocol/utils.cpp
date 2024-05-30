@@ -309,7 +309,7 @@ void claim_primitive_with_type(binary_tuple_builder &builder, const primitive &v
         }
         case ignite_type::DECIMAL: {
             const auto &dec_value = value.get<big_decimal>();
-            claim_type(builder, ignite_type::DECIMAL));
+            claim_type(builder, ignite_type::DECIMAL);
             builder.claim_number(dec_value);
             break;
         }
@@ -468,7 +468,7 @@ void append_primitive_with_type(binary_tuple_builder &builder, const primitive &
     }
 }
 
-primitive read_next_column(binary_tuple_parser &parser, ignite_type typ, std::int32_t scale) {
+primitive read_next_column(binary_tuple_parser &parser, ignite_type typ) {
     auto val = parser.get_next();
     if (val.empty())
         return {};

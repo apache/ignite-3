@@ -66,7 +66,7 @@ public:
         m_row.clear();
         for (size_t i = 0; i < columns_cnt; ++i) {
             auto &column = columns[i];
-            m_row.push_back(protocol::read_next_column(parser, column.get_data_type(), column.get_scale()));
+            m_row.push_back(protocol::read_next_column(parser, column.get_data_type()));
         }
 
         return true;

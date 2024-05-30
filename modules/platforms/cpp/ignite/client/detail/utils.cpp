@@ -294,7 +294,7 @@ ignite_tuple read_tuple(protocol::reader &reader, const schema *sch, bool key_on
 
     for (std::int32_t i = 0; i < columns_cnt; ++i) {
         auto &column = sch->get_column(key_only, i);
-        res.set(column.name, protocol::read_next_column(parser, column.type, column.scale));
+        res.set(column.name, protocol::read_next_column(parser, column.type));
     }
     return res;
 }
