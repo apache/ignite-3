@@ -217,7 +217,7 @@ public class MetaStorageWriteHandler {
                 evictIdempotentCommandsCache(opTime);
             }
         } else if (command instanceof SyncTimeCommand) {
-                storage.advanceSafeTime(command.safeTime());
+            storage.advanceSafeTime(command.safeTime());
 
             clo.result(null);
         }
