@@ -47,70 +47,70 @@ void parameter::claim(binary_tuple_builder &builder, int offset, SQLULEN idx) co
         case SQL_CHAR:
         case SQL_VARCHAR:
         case SQL_LONGVARCHAR: {
-            protocol::claim_type_and_scale(builder, ignite_type::STRING);
+            protocol::claim_type(builder, ignite_type::STRING);
             builder.claim_varlen(buf.get_string(m_column_size));
             break;
         }
 
         case SQL_TINYINT: {
-            protocol::claim_type_and_scale(builder, ignite_type::INT8);
+            protocol::claim_type(builder, ignite_type::INT8);
             builder.claim_int8(buf.get_int8());
             break;
         }
 
         case SQL_SMALLINT: {
-            protocol::claim_type_and_scale(builder, ignite_type::INT16);
+            protocol::claim_type(builder, ignite_type::INT16);
             builder.claim_int16(buf.get_int16());
             break;
         }
 
         case SQL_INTEGER: {
-            protocol::claim_type_and_scale(builder, ignite_type::INT32);
+            protocol::claim_type(builder, ignite_type::INT32);
             builder.claim_int32(buf.get_int32());
             break;
         }
 
         case SQL_BIGINT: {
-            protocol::claim_type_and_scale(builder, ignite_type::INT64);
+            protocol::claim_type(builder, ignite_type::INT64);
             builder.claim_int64(buf.get_int64());
             break;
         }
 
         case SQL_FLOAT: {
-            protocol::claim_type_and_scale(builder, ignite_type::FLOAT);
+            protocol::claim_type(builder, ignite_type::FLOAT);
             builder.claim_float(buf.get_float());
             break;
         }
 
         case SQL_DOUBLE: {
-            protocol::claim_type_and_scale(builder, ignite_type::DOUBLE);
+            protocol::claim_type(builder, ignite_type::DOUBLE);
             builder.claim_double(buf.get_double());
             break;
         }
 
         case SQL_BIT: {
-            protocol::claim_type_and_scale(builder, ignite_type::BOOLEAN);
+            protocol::claim_type(builder, ignite_type::BOOLEAN);
             builder.claim_bool(buf.get_int8() != 0);
             break;
         }
 
         case SQL_TYPE_DATE:
         case SQL_DATE: {
-            protocol::claim_type_and_scale(builder, ignite_type::DATE);
+            protocol::claim_type(builder, ignite_type::DATE);
             builder.claim_date(buf.get_date());
             break;
         }
 
         case SQL_TYPE_TIMESTAMP:
         case SQL_TIMESTAMP: {
-            protocol::claim_type_and_scale(builder, ignite_type::DATETIME);
+            protocol::claim_type(builder, ignite_type::DATETIME);
             builder.claim_date_time(buf.get_date_time());
             break;
         }
 
         case SQL_TYPE_TIME:
         case SQL_TIME: {
-            protocol::claim_type_and_scale(builder, ignite_type::TIME);
+            protocol::claim_type(builder, ignite_type::TIME);
             builder.claim_time(buf.get_time());
             break;
         }
@@ -118,7 +118,7 @@ void parameter::claim(binary_tuple_builder &builder, int offset, SQLULEN idx) co
         case SQL_BINARY:
         case SQL_VARBINARY:
         case SQL_LONGVARBINARY: {
-            protocol::claim_type_and_scale(builder, ignite_type::BYTE_ARRAY);
+            protocol::claim_type(builder, ignite_type::BYTE_ARRAY);
 
             const application_data_buffer &const_buf = buf;
             const SQLLEN *res_len_ptr = const_buf.get_result_len();
@@ -131,7 +131,7 @@ void parameter::claim(binary_tuple_builder &builder, int offset, SQLULEN idx) co
         }
 
         case SQL_GUID: {
-            protocol::claim_type_and_scale(builder, ignite_type::UUID);
+            protocol::claim_type(builder, ignite_type::UUID);
             builder.claim_uuid(buf.get_uuid());
 
             break;
@@ -141,7 +141,7 @@ void parameter::claim(binary_tuple_builder &builder, int offset, SQLULEN idx) co
             big_decimal dec_value;
             buf.get_decimal(dec_value);
 
-            protocol::claim_type_and_scale(builder, ignite_type::DECIMAL);
+            protocol::claim_type(builder, ignite_type::DECIMAL);
             builder.claim_number(dec_value);
             break;
         }
@@ -175,70 +175,70 @@ void parameter::append(binary_tuple_builder &builder, int offset, SQLULEN idx) c
         case SQL_CHAR:
         case SQL_VARCHAR:
         case SQL_LONGVARCHAR: {
-            protocol::append_type_and_scale(builder, ignite_type::STRING);
+            protocol::append_type(builder, ignite_type::STRING);
             builder.append_varlen(buf.get_string(m_column_size));
             break;
         }
 
         case SQL_TINYINT: {
-            protocol::append_type_and_scale(builder, ignite_type::INT8);
+            protocol::append_type(builder, ignite_type::INT8);
             builder.append_int8(buf.get_int8());
             break;
         }
 
         case SQL_SMALLINT: {
-            protocol::append_type_and_scale(builder, ignite_type::INT16);
+            protocol::append_type(builder, ignite_type::INT16);
             builder.append_int16(buf.get_int16());
             break;
         }
 
         case SQL_INTEGER: {
-            protocol::append_type_and_scale(builder, ignite_type::INT32);
+            protocol::append_type(builder, ignite_type::INT32);
             builder.append_int32(buf.get_int32());
             break;
         }
 
         case SQL_BIGINT: {
-            protocol::append_type_and_scale(builder, ignite_type::INT64);
+            protocol::append_type(builder, ignite_type::INT64);
             builder.append_int64(buf.get_int64());
             break;
         }
 
         case SQL_FLOAT: {
-            protocol::append_type_and_scale(builder, ignite_type::FLOAT);
+            protocol::append_type(builder, ignite_type::FLOAT);
             builder.append_float(buf.get_float());
             break;
         }
 
         case SQL_DOUBLE: {
-            protocol::append_type_and_scale(builder, ignite_type::DOUBLE);
+            protocol::append_type(builder, ignite_type::DOUBLE);
             builder.append_double(buf.get_double());
             break;
         }
 
         case SQL_BIT: {
-            protocol::append_type_and_scale(builder, ignite_type::BOOLEAN);
+            protocol::append_type(builder, ignite_type::BOOLEAN);
             builder.append_bool(buf.get_int8() != 0);
             break;
         }
 
         case SQL_TYPE_DATE:
         case SQL_DATE: {
-            protocol::append_type_and_scale(builder, ignite_type::DATE);
+            protocol::append_type(builder, ignite_type::DATE);
             builder.append_date(buf.get_date());
             break;
         }
 
         case SQL_TYPE_TIMESTAMP:
         case SQL_TIMESTAMP: {
-            protocol::append_type_and_scale(builder, ignite_type::DATETIME);
+            protocol::append_type(builder, ignite_type::DATETIME);
             builder.append_date_time(buf.get_date_time());
             break;
         }
 
         case SQL_TYPE_TIME:
         case SQL_TIME: {
-            protocol::append_type_and_scale(builder, ignite_type::TIME);
+            protocol::append_type(builder, ignite_type::TIME);
             builder.append_time(buf.get_time());
             break;
         }
@@ -246,7 +246,7 @@ void parameter::append(binary_tuple_builder &builder, int offset, SQLULEN idx) c
         case SQL_BINARY:
         case SQL_VARBINARY:
         case SQL_LONGVARBINARY: {
-            protocol::append_type_and_scale(builder, ignite_type::BYTE_ARRAY);
+            protocol::append_type(builder, ignite_type::BYTE_ARRAY);
 
             const application_data_buffer &const_buf = buf;
             const SQLLEN *res_len_ptr = const_buf.get_result_len();
@@ -259,7 +259,7 @@ void parameter::append(binary_tuple_builder &builder, int offset, SQLULEN idx) c
         }
 
         case SQL_GUID: {
-            protocol::append_type_and_scale(builder, ignite_type::UUID);
+            protocol::append_type(builder, ignite_type::UUID);
             builder.append_uuid(buf.get_uuid());
 
             break;
@@ -269,7 +269,7 @@ void parameter::append(binary_tuple_builder &builder, int offset, SQLULEN idx) c
             big_decimal dec_value;
             buf.get_decimal(dec_value);
 
-            protocol::append_type_and_scale(builder, ignite_type::DECIMAL);
+            protocol::append_type(builder, ignite_type::DECIMAL);
             builder.append_number(dec_value);
             break;
         }
