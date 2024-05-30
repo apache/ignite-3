@@ -47,6 +47,7 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.raft.JraftGroupEventsListener;
@@ -273,7 +274,7 @@ public class TestCluster {
 
             var rpcServer = new TestIgniteRpcServer(clusterService, nodeManager, nodeOptions, requestExecutor);
 
-            assertThat(clusterService.startAsync(), willCompleteSuccessfully());
+            assertThat(clusterService.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
             if (optsClo != null)
                 optsClo.accept(nodeOptions);
@@ -290,7 +291,7 @@ public class TestCluster {
 
                     // Network service must be stopped after a node because raft initiates timeoutnowrequest on stop for faster
                     // leader election.
-                    assertThat(clusterService.stopAsync(), willCompleteSuccessfully());
+                    assertThat(clusterService.stopAsync(new ComponentContext()), willCompleteSuccessfully());
                 }
             };
 

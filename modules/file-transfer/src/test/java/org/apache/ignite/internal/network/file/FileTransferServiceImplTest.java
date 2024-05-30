@@ -46,6 +46,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.NetworkMessageHandler;
 import org.apache.ignite.internal.network.file.messages.FileDownloadRequest;
@@ -118,12 +119,12 @@ class FileTransferServiceImplTest extends BaseIgniteAbstractTest {
                 Executors.newSingleThreadExecutor()
         );
 
-        assertThat(fileTransferService.startAsync(), willCompleteSuccessfully());
+        assertThat(fileTransferService.startAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     @AfterEach
     void tearDown() {
-        assertThat(fileTransferService.stopAsync(), willCompleteSuccessfully());
+        assertThat(fileTransferService.stopAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     @Test

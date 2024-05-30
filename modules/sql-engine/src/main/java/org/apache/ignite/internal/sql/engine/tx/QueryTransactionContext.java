@@ -17,86 +17,19 @@
 
 package org.apache.ignite.internal.sql.engine.tx;
 
-import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
-
-import org.apache.ignite.internal.sql.engine.SqlQueryType;
-import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.tx.impl.TransactionInflights;
-import org.apache.ignite.sql.SqlException;
-import org.apache.ignite.tx.IgniteTransactions;
-import org.apache.ignite.tx.TransactionException;
-import org.apache.ignite.tx.TransactionOptions;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Starts an implicit transaction if there is no external transaction.
+ * Context that allows to get explicit transaction provided by user or start implicit one.
  */
-public class QueryTransactionContext {
-    private final IgniteTransactions transactions;
-    private final @Nullable InternalTransaction tx;
-    private final TransactionInflights transactionInflights;
+public interface QueryTransactionContext {
+    /** Returns explicit transaction or start implicit one. */
+    QueryTransactionWrapper getOrStartImplicit(boolean readOnly);
 
-    /**
-     * Constructor.
-     *
-     * @param transactions Ignite transactions.
-     * @param tx Transaction.
-     * @param transactionInflights Transaction inflights.
-     */
-    public QueryTransactionContext(IgniteTransactions transactions, @Nullable InternalTransaction tx,
-            TransactionInflights transactionInflights) {
-        this.transactions = transactions;
-        this.tx = tx;
-        this.transactionInflights = transactionInflights;
-    }
+    /** Updates tracker of latest time observed by client. */
+    void updateObservableTime(HybridTimestamp time);
 
-    /**
-     * Starts an implicit transaction if there is no external transaction.
-     *
-     * @param queryType Query type.
-     * @return Transaction wrapper.
-     */
-    public QueryTransactionWrapper getOrStartImplicit(SqlQueryType queryType) {
-        InternalTransaction transaction = tx;
-        boolean implicit;
-
-        if (transaction == null) {
-            implicit = true;
-            transaction = (InternalTransaction) transactions.begin(
-                    new TransactionOptions().readOnly(queryType != SqlQueryType.DML));
-        } else {
-            implicit = false;
-            validateStatement(queryType, transaction.isReadOnly());
-        }
-
-        // Adding inflights only for read-only transactions. See TransactionInflights.ReadOnlyTxContext for details.
-        if (transaction.isReadOnly() && !transactionInflights.addInflight(transaction.id(), transaction.isReadOnly())) {
-            throw new TransactionException(TX_ALREADY_FINISHED_ERR, format("Transaction is already finished [tx={}]", transaction));
-        }
-
-        return new QueryTransactionWrapperImpl(transaction, implicit, transactionInflights);
-    }
-
-    /** Returns transactions facade. */
-    IgniteTransactions transactions() {
-        return transactions;
-    }
-
-    /** Returns the external transaction if one has been started. */
-    @Nullable InternalTransaction transaction() {
-        return tx;
-    }
-
-    /** Checks that the statement is allowed within an external/script transaction. */
-    static void validateStatement(SqlQueryType queryType, boolean readOnly) {
-        if (SqlQueryType.DDL == queryType) {
-            throw new SqlException(RUNTIME_ERR, "DDL doesn't support transactions.");
-        }
-
-        if (SqlQueryType.DML == queryType && readOnly) {
-            throw new SqlException(RUNTIME_ERR, "DML query cannot be started by using read only transactions.");
-        }
-    }
+    /** Returns explicit transaction if one was provided by user. */
+    @Nullable QueryTransactionWrapper explicitTx();
 }

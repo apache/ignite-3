@@ -50,7 +50,9 @@ import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Flow;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -58,9 +60,13 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import org.apache.ignite.distributed.ItTxTestCluster;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
@@ -70,7 +76,10 @@ import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
+import org.apache.ignite.internal.replicator.Replica;
+import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -81,7 +90,13 @@ import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguratio
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
+import org.apache.ignite.internal.storage.index.IndexStorage;
+import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
+import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
+import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
@@ -97,8 +112,12 @@ import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
+import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.internal.tx.impl.VolatileTxStateMetaStorage;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.CollectionUtils;
+import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
@@ -263,7 +282,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
             NodeFinder nodeFinder) {
         var network = ClusterServiceTestUtils.clusterService(testInfo, port, nodeFinder);
 
-        assertThat(network.startAsync(), willCompleteSuccessfully());
+        assertThat(network.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         return network;
     }
@@ -275,17 +294,25 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
     /** {@inheritDoc} */
     protected TxManager txManager(TableViewInternal t) {
+        String leaseHolder = primaryNode(t);
+
+        assertNotNull(leaseHolder, "Table primary node should not be null");
+
+        TxManager manager = txTestCluster.txManagers().get(leaseHolder);
+
+        assertNotNull(manager);
+
+        return manager;
+    }
+
+    private @Nullable String primaryNode(TableViewInternal t) {
         CompletableFuture<ReplicaMeta> primaryReplicaFuture = txTestCluster.placementDriver().getPrimaryReplica(
                 new TablePartitionId(t.tableId(), 0),
                 txTestCluster.clocks().get(txTestCluster.localNodeName()).now());
 
         assertThat(primaryReplicaFuture, willCompleteSuccessfully());
 
-        TxManager manager = txTestCluster.txManagers().get(primaryReplicaFuture.join().getLeaseholder());
-
-        assertNotNull(manager);
-
-        return manager;
+        return primaryReplicaFuture.join().getLeaseholder();
     }
 
     /**
@@ -365,7 +392,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testRepeatedCommitRollbackAfterUpdateWithException() throws Exception {
+    public void testRepeatedCommitRollbackAfterUpdateWithException() {
         injectFailureOnNextOperation(accounts);
 
         InternalTransaction tx = (InternalTransaction) igniteTransactions.begin();
@@ -382,7 +409,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testRepeatedCommitRollbackAfterRollbackWithException() throws Exception {
+    public void testRepeatedCommitRollbackAfterRollbackWithException() {
         InternalTransaction tx = (InternalTransaction) igniteTransactions.begin();
 
         accounts.recordView().upsert(tx, makeValue(1, 100.));
@@ -440,9 +467,17 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         deleteUpsertAll().rollback();
 
         var res1 = accounts.recordView().get(null, makeKey(1));
+
+        // Here we try to catch the flaky NPE problem.
+        checkIfNull(res1, transaction -> accounts.recordView().get(transaction, makeKey(1)));
+
         assertEquals(100., res1.doubleValue("balance"), "tuple =[" + res1 + "]");
 
         var res2 = accounts.recordView().get(null, makeKey(2));
+
+        // Here we try to catch the flaky NPE problem.
+        checkIfNull(res2, transaction -> accounts.recordView().get(transaction, makeKey(2)));
+
         assertEquals(100., res2.doubleValue("balance"), "tuple =[" + res2 + "]");
     }
 
@@ -454,9 +489,16 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         accounts.recordView().upsertAll(null, tuples);
 
         var res1 = accounts.recordView().get(null, makeKey(1));
+
+        // Here we try to catch the flaky NPE problem.
+        checkIfNull(res1, transaction -> accounts.recordView().get(transaction, makeKey(1)));
+
         assertEquals(100., res1.doubleValue("balance"), "tuple =[" + res1 + "]");
 
         var res2 = accounts.recordView().get(null, makeKey(2));
+        // Here we try to catch the flaky NPE problem.
+        checkIfNull(res2, transaction -> accounts.recordView().get(transaction, makeKey(2)));
+
         assertEquals(100., res2.doubleValue("balance"), "tuple =[" + res2 + "]");
 
         InternalTransaction tx = (InternalTransaction) igniteTransactions.begin();
@@ -474,6 +516,85 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         accounts.recordView().upsertAll(tx, tuples);
 
         return tx;
+    }
+
+    private void checkIfNull(Tuple res1, Function<Transaction, Tuple> retryFunc) {
+        if (res1 != null) {
+            return;
+        }
+
+        logger().error("Found null value after upsertAll.");
+
+        printDebugInfo();
+
+        var resExplicit = igniteTransactions.runInTransaction(retryFunc);
+
+        logger().info("Same explicit call resulted in {} value", resExplicit);
+
+        fail("Found null value after upsertAll.");
+    }
+
+    private void printDebugInfo() {
+        logger().info("Primary node for accounts table is [node={}]", primaryNode(accounts));
+        logger().info("Cluster times:");
+        long latestTime = IgniteTestUtils.getFieldValue(txTestCluster.clientClock(), HybridClockImpl.class, "latestTime");
+        logger().info("Client clock [time={}]", HybridTimestamp.hybridTimestamp(latestTime));
+
+        txTestCluster.clocks().forEach((name, hybridClock) -> {
+            long time = IgniteTestUtils.getFieldValue(hybridClock, HybridClockImpl.class, "latestTime");
+
+            logger().info("Cluster clock [node={}, time={}]", name, HybridTimestamp.hybridTimestamp(time));
+        });
+
+        logger().info("Replica info:");
+        txTestCluster.replicaManagers().forEach((name, replicaManager) -> {
+            ConcurrentHashMap<ReplicationGroupId, CompletableFuture<Replica>> replicas =
+                    IgniteTestUtils.getFieldValue(replicaManager, ReplicaManager.class, "replicas");
+
+            replicas.forEach((replicationGroupId, replicaCompletableFuture) ->
+                    printReplicaInfo(name, replicationGroupId, replicaCompletableFuture)
+            );
+
+            TxManager txManager = txTestCluster.txManagers().get(name);
+            VolatileTxStateMetaStorage volatileTxState =
+                    IgniteTestUtils.getFieldValue(txManager, TxManagerImpl.class, "txStateVolatileStorage");
+
+            ConcurrentHashMap<UUID, TxStateMeta> txStateMap =
+                    IgniteTestUtils.getFieldValue(volatileTxState, VolatileTxStateMetaStorage.class, "txStateMap");
+            logger().info("Volatile tx state data [node={}, data={}]", name, txStateMap);
+        });
+    }
+
+    private void printReplicaInfo(String name, ReplicationGroupId replicationGroupId, CompletableFuture<Replica> replicaCompletableFuture) {
+        if (!replicaCompletableFuture.isDone()) {
+            logger().info("Replica is not ready [node={}, groupId={}]", name, replicationGroupId);
+
+            return;
+        }
+
+        Replica replica;
+        try {
+            replica = replicaCompletableFuture.get();
+        } catch (InterruptedException | ExecutionException e) {
+            throw new RuntimeException(e);
+        }
+
+        PartitionReplicaListener listener = IgniteTestUtils.getFieldValue(replica, Replica.class, "listener");
+        TestMvPartitionStorage storage = IgniteTestUtils.getFieldValue(listener, PartitionReplicaListener.class, "mvDataStorage");
+        Map<RowId, ?> map = IgniteTestUtils.getFieldValue(storage, TestMvPartitionStorage.class, "map");
+
+        logger().info("Partition data [node={}, groupId={}, data={}]", name, replicationGroupId, map);
+
+        Lazy<TableSchemaAwareIndexStorage> indexStorageLazy =
+                IgniteTestUtils.getFieldValue(listener, PartitionReplicaListener.class, "pkIndexStorage");
+        IndexStorage indexStorage = indexStorageLazy.get().storage();
+        Map<RowId, ?> indexMap = IgniteTestUtils.getFieldValue(indexStorage, TestHashIndexStorage.class, "index");
+
+        logger().info("Index data [node={}, groupId={}, data={}]", name, replicationGroupId, indexMap);
+
+        TxStateStorage stateStorage = IgniteTestUtils.getFieldValue(listener, PartitionReplicaListener.class, "txStateStorage");
+
+        logger().info("Tx state data [node={}, groupId={}, data={}]", name, replicationGroupId, stateStorage);
     }
 
     @Test
@@ -809,7 +930,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testSimpleConflict() throws Exception {
+    public void testSimpleConflict() {
         accounts.recordView().upsert(null, makeValue(1, 100.));
 
         Transaction tx1 = igniteTransactions.begin();
@@ -1281,7 +1402,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testReorder() throws Exception {
+    public void testReorder() {
         accounts.recordView().upsert(null, makeValue(1, 100.));
 
         InternalTransaction tx1 = (InternalTransaction) igniteTransactions.begin();
@@ -1501,12 +1622,12 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testScan() throws Exception {
+    public void testScan() {
         doTestScan(null);
     }
 
     @Test
-    public void testScanExplicit() throws Exception {
+    public void testScanExplicit() {
         igniteTransactions.runInTransaction(this::doTestScan);
     }
 

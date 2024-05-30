@@ -50,6 +50,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
@@ -103,6 +104,7 @@ import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.ByteArray;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -224,8 +226,9 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         var cmgManager = mock(ClusterManagementGroupManager.class);
 
         when(cmgManager.logicalTopology()).thenAnswer(invocation -> completedFuture(logicalTopology.getLogicalTopology()));
-        when(cmgManager.startAsync()).thenReturn(nullCompletedFuture());
-        when(cmgManager.stopAsync()).thenReturn(nullCompletedFuture());
+
+        when(cmgManager.startAsync(any())).thenReturn(nullCompletedFuture());
+        when(cmgManager.stopAsync(any())).thenReturn(nullCompletedFuture());
 
         metastore = spy(StandaloneMetaStorageManager.create(
                 new TestRocksDbKeyValueStorage(name, workDir.resolve("metastorage"))
@@ -282,11 +285,11 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         components.add(nodeCfgMgr);
 
         // Start.
-
-        assertThat(vault.startAsync(), willCompleteSuccessfully());
+        ComponentContext componentContext = new ComponentContext();
+        assertThat(vault.startAsync(componentContext), willCompleteSuccessfully());
         vault.putName(name);
 
-        assertThat(nodeCfgMgr.startAsync(), willCompleteSuccessfully());
+        assertThat(nodeCfgMgr.startAsync(componentContext), willCompleteSuccessfully());
 
         // Start the remaining components.
         List<IgniteComponent> otherComponents = List.of(
@@ -303,7 +306,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         for (IgniteComponent component : otherComponents) {
             // TODO: IGNITE-22119 required to be able to wait on this future.
-            component.startAsync();
+            component.startAsync(componentContext);
 
             components.add(component);
         }

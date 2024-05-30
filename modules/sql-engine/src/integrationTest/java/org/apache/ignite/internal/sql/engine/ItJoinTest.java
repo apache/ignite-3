@@ -17,13 +17,17 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
+
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -1072,5 +1076,39 @@ public class ItJoinTest extends BaseSqlIntegrationTest {
                 .flatMap(v -> Stream.of(Arguments.of(v, false), Arguments.of(v, true)));
 
         return types;
+    }
+
+    @Test
+    // TODO this test case can be removed after https://issues.apache.org/jira/browse/IGNITE-22295
+    public void testNaturalJoinTypeMismatch() {
+        try {
+            sql("CREATE TABLE t1_ij (i INTEGER PRIMARY KEY, j INTEGER);");
+            sql("CREATE TABLE t2_ij (i INTEGER PRIMARY KEY, j BIGINT);");
+
+            var expectedMessage = "Column N#1 matched using NATURAL keyword or USING clause " 
+                    + "has incompatible types in this context: 'INTEGER' to 'BIGINT'";
+
+            assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, expectedMessage, () -> sql("SELECT * FROM t1_ij NATURAL JOIN t2_ij"));
+        } finally {
+            sql("DROP TABLE t1_ij");
+            sql("DROP TABLE t2_ij");
+        }
+    }
+
+    @Test
+    // TODO this test case can be removed after https://issues.apache.org/jira/browse/IGNITE-22295
+    public void testUsingJoinTypeMismatch() {
+        try {
+            sql("CREATE TABLE t1_ij (i INTEGER PRIMARY KEY, j INTEGER);");
+            sql("CREATE TABLE t2_ij (i INTEGER PRIMARY KEY, j BIGINT);");
+
+            var expectedMessage = "Column N#1 matched using NATURAL keyword or USING clause "
+                    + "has incompatible types in this context: 'INTEGER' to 'BIGINT'";
+
+            assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, expectedMessage, () -> sql("SELECT * FROM t1_ij JOIN t2_ij USING (i)"));
+        } finally {
+            sql("DROP TABLE t1_ij");
+            sql("DROP TABLE t2_ij");
+        }
     }
 }

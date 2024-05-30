@@ -18,18 +18,30 @@
 package org.apache.ignite.internal.table;
 
 import org.apache.ignite.client.IgniteClient;
-import org.apache.ignite.table.manager.IgniteTables;
+import org.apache.ignite.table.IgniteTables;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 
 /**
  * Tests to check that rows can be inserted and retrieved through thin client.
  */
 public class ItTablePutGetThinTest extends ItTablePutGetEmbeddedTest {
-    @Override
-    @SuppressWarnings("resource")
-    IgniteTables tables() {
-        return IgniteClient.builder()
+    private static IgniteClient client;
+
+    @BeforeAll
+    static void startClient() {
+        client = IgniteClient.builder()
                 .addresses("127.0.0.1:10800")
-                .build()
-                .tables();
+                .build();
+    }
+
+    @AfterAll
+    static void stopClient() throws Exception {
+        client.close();
+    }
+
+    @Override
+    IgniteTables tables() {
+        return client.tables();
     }
 }

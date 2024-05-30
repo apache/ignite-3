@@ -58,6 +58,33 @@ namespace Apache.Ignite.Internal.Common
         }
 
         /// <summary>
+        /// Throws an ArgumentNullException if specified arg is null.
+        /// <para />
+        /// Unlike <see cref="ArgumentNullException.ThrowIfNull"/>, this is a generic method and does not cause boxing allocations.
+        /// </summary>
+        /// <param name="arg">The argument.</param>
+        /// <param name="argName">Name of the argument.</param>
+        /// <typeparam name="T">Arg type.</typeparam>
+        /// <returns>Arg.</returns>
+        [return:NotNullIfNotNull("arg")]
+        public static T NotNull2<T>(
+            [NoEnumeration, System.Diagnostics.CodeAnalysis.NotNull] T arg,
+            [CallerArgumentExpression("arg")] string? argName = null)
+        {
+            if (arg == null)
+            {
+                Throw();
+            }
+
+            return arg;
+
+            // Separate method to allow inlining of the parent method.
+            // Parent is called always to check arguments, so inlining it will improve perf.
+            [DoesNotReturn]
+            void Throw() => throw new ArgumentNullException(argName);
+        }
+
+        /// <summary>
         /// Throws an ArgumentException if specified arg is null or empty string.
         /// </summary>
         /// <param name="arg">The argument.</param>

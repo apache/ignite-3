@@ -15,27 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.rest;
+package org.apache.ignite.table;
 
-import io.micronaut.context.event.BeanDestroyedEvent;
-import io.micronaut.context.event.BeanDestroyedEventListener;
-import jakarta.inject.Singleton;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.Ignite;
 
 /**
- * Destroyer of any rest factory {@link RestFactory}.
+ * Context of the {@link DataStreamerReceiver} execution.
  */
-@Singleton
-public class RestFactoriesDestroyer implements BeanDestroyedEventListener<RestFactory> {
-    private static final IgniteLogger LOG = Loggers.forClass(RestFactoriesDestroyer.class);
-
-    @Override
-    public void onDestroyed(BeanDestroyedEvent<RestFactory> event) {
-        RestFactory bean = event.getBean();
-        if (bean != null) {
-            LOG.debug("Destroy rest factory " + bean);
-            bean.cleanResources();
-        }
-    }
+@SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
+public interface DataStreamerReceiverContext {
+    /**
+     * Gets the Ignite instance.
+     *
+     * @return Ignite instance.
+     */
+    Ignite ignite();
 }

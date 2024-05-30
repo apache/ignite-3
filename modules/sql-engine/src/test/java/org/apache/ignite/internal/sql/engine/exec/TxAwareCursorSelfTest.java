@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine;
+package org.apache.ignite.internal.sql.engine.exec;
 
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -24,23 +24,19 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.stream.Stream;
-import org.apache.ignite.internal.sql.ResultSetMetadataImpl;
 import org.apache.ignite.internal.sql.engine.framework.NoOpTransaction;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapperImpl;
-import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.util.AsyncWrapper;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.sql.ResultSetMetadata;
 import org.junit.jupiter.api.Named;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -48,11 +44,9 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mockito;
 
 /**
- * Tests for {@link AsyncSqlCursorImpl}.
+ * Tests for {@link TxAwareAsyncCursor}.
  */
-public class AsyncSqlCursorImplTest extends BaseIgniteAbstractTest {
-
-    private static final ResultSetMetadata RESULT_SET_METADATA = new ResultSetMetadataImpl(Collections.emptyList());
+public class TxAwareCursorSelfTest {
 
     /** Cursor should trigger commit of implicit transaction (if any) only if data is fully read. */
     @ParameterizedTest(name = "{0}")
@@ -60,13 +54,10 @@ public class AsyncSqlCursorImplTest extends BaseIgniteAbstractTest {
     public void testTriggerCommitAfterDataIsFullyRead(boolean implicit, QueryTransactionWrapper txWrapper) {
         List<Integer> list = List.of(1, 2, 3);
 
-        AsyncSqlCursorImpl<Integer> cursor = new AsyncSqlCursorImpl<>(
-                SqlQueryType.QUERY,
-                RESULT_SET_METADATA,
+        AsyncCursor<Integer> cursor = new TxAwareAsyncCursor<>(
                 txWrapper,
                 new AsyncWrapper<>(CompletableFuture.completedFuture(list.iterator()), Runnable::run),
-                nullCompletedFuture(),
-                null
+                nullCompletedFuture()
         );
 
         int requestRows = 2;
@@ -89,13 +80,10 @@ public class AsyncSqlCursorImplTest extends BaseIgniteAbstractTest {
     public void testExceptionRollbacksImplicitTx(boolean implicit, QueryTransactionWrapper txWrapper) {
         IgniteException err = new IgniteException(Common.INTERNAL_ERR);
 
-        AsyncSqlCursorImpl<Integer> cursor = new AsyncSqlCursorImpl<>(
-                SqlQueryType.QUERY,
-                RESULT_SET_METADATA,
+        AsyncCursor<Integer> cursor = new TxAwareAsyncCursor<>(
                 txWrapper,
                 new AsyncWrapper<>(CompletableFuture.failedFuture(err), Runnable::run),
-                nullCompletedFuture(),
-                null
+                nullCompletedFuture()
         );
 
         CompletionException t = assertThrows(CompletionException.class, () -> cursor.requestNextAsync(1).join());
@@ -112,13 +100,10 @@ public class AsyncSqlCursorImplTest extends BaseIgniteAbstractTest {
     @MethodSource("transactions")
     public void testCloseCommitsImplicitTx(boolean implicit, QueryTransactionWrapper txWrapper) {
         AsyncCursor<Integer> data = new AsyncWrapper<>(List.of(1, 2, 3, 4).iterator());
-        AsyncSqlCursorImpl<Integer> cursor = new AsyncSqlCursorImpl<>(
-                SqlQueryType.QUERY,
-                RESULT_SET_METADATA,
+        AsyncCursor<Integer> cursor = new TxAwareAsyncCursor<>(
                 txWrapper,
                 data,
-                nullCompletedFuture(),
-                null
+                nullCompletedFuture()
         );
         cursor.closeAsync().join();
 

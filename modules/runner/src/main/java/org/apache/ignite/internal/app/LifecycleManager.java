@@ -28,6 +28,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.rest.api.node.State;
 import org.apache.ignite.internal.rest.node.StateProvider;
@@ -69,9 +70,11 @@ class LifecycleManager implements StateProvider {
      * thrown.
      *
      * @param component Ignite component to start.
+     * @param componentContext Component context.
      * @throws NodeStoppingException If node stopping intention was detected.
      */
-    void startComponent(IgniteComponent component) throws NodeStoppingException {
+    void startComponent(IgniteComponent component, ComponentContext componentContext)
+            throws NodeStoppingException {
         if (status.get() == State.STOPPING) {
             throw new NodeStoppingException("Node=[" + nodeName + "] was stopped");
         }
@@ -79,19 +82,20 @@ class LifecycleManager implements StateProvider {
         synchronized (this) {
             startedComponents.add(component);
 
-            allComponentsStartFuture.add(component.startAsync());
+            allComponentsStartFuture.add(component.startAsync(componentContext));
         }
     }
 
     /**
      * Similar to {@link #startComponent} but allows to start multiple components at once.
      *
+     * @param componentContext Component context.
      * @param components Ignite components to start.
      * @throws NodeStoppingException If node stopping intention was detected.
      */
-    void startComponents(IgniteComponent... components) throws NodeStoppingException {
+    void startComponents(ComponentContext componentContext, IgniteComponent... components) throws NodeStoppingException {
         for (IgniteComponent component : components) {
-            startComponent(component);
+            startComponent(component, componentContext);
         }
     }
 
@@ -114,8 +118,8 @@ class LifecycleManager implements StateProvider {
     }
 
     /**
-     * Represents future that will be completed when all components start futures will be completed.
-     * Note that it is designed that this method is called only once.
+     * Represents future that will be completed when all components start futures will be completed. Note that it is designed that this
+     * method is called only once.
      *
      * @return Future that will be completed when all components start futures will be completed.
      */
@@ -130,22 +134,26 @@ class LifecycleManager implements StateProvider {
 
     /**
      * Stops all started components and transfers the node into the {@link State#STOPPING} state.
+     *
+     * @param componentContext Component context.
      */
-    CompletableFuture<Void> stopNode() {
+    CompletableFuture<Void> stopNode(ComponentContext componentContext) {
         State currentStatus = status.getAndSet(State.STOPPING);
 
         if (currentStatus != State.STOPPING) {
-            stopAllComponents();
+            stopAllComponents(componentContext);
         }
 
         return stopFuture;
     }
 
     /**
-     * Calls {@link IgniteComponent#beforeNodeStop()} and then {@link IgniteComponent#stopAsync()} for all components in
+     * Calls {@link IgniteComponent#beforeNodeStop()} and then {@link IgniteComponent#stopAsync(ComponentContext)} for all components in
      * start-reverse-order.
+     *
+     * @param componentContext Component context.
      */
-    private synchronized void stopAllComponents() {
+    private synchronized void stopAllComponents(ComponentContext componentContext) {
         List<IgniteComponent> components = new ArrayList<>(startedComponents);
         reverse(components);
 
@@ -157,7 +165,7 @@ class LifecycleManager implements StateProvider {
             }
         }
 
-        stopAsync(components)
+        stopAsync(componentContext, components)
                 .whenComplete((v, e) -> stopFuture.complete(null));
     }
 }

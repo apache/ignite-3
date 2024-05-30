@@ -34,6 +34,7 @@ import org.apache.ignite.internal.deployunit.NodesToDeploy;
 import org.apache.ignite.internal.deployunit.UnitStatuses;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.rest.ResourceHolder;
 import org.apache.ignite.internal.rest.api.deployment.DeploymentCodeApi;
 import org.apache.ignite.internal.rest.api.deployment.DeploymentStatus;
 import org.apache.ignite.internal.rest.api.deployment.InitialDeployMode;
@@ -47,10 +48,10 @@ import org.reactivestreams.Publisher;
  */
 @SuppressWarnings("OptionalContainsCollection")
 @Controller("/management/v1/deployment")
-public class DeploymentManagementController implements DeploymentCodeApi {
+public class DeploymentManagementController implements DeploymentCodeApi, ResourceHolder {
     private static final IgniteLogger LOG = Loggers.forClass(DeploymentManagementController.class);
 
-    private final IgniteDeployment deployment;
+    private IgniteDeployment deployment;
 
     public DeploymentManagementController(IgniteDeployment deployment) {
         this.deployment = deployment;
@@ -208,5 +209,10 @@ public class DeploymentManagementController implements DeploymentCodeApi {
 
     private static DeploymentStatus fromDeploymentStatus(org.apache.ignite.internal.deployunit.DeploymentStatus status) {
         return DeploymentStatus.valueOf(status.name());
+    }
+
+    @Override
+    public void cleanResources() {
+        deployment = null;
     }
 }

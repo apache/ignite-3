@@ -19,6 +19,7 @@ package org.apache.ignite.internal.rest.node;
 
 import io.micronaut.http.annotation.Controller;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
+import org.apache.ignite.internal.rest.RestFactory;
 import org.apache.ignite.internal.rest.api.node.NodeInfo;
 import org.apache.ignite.internal.rest.api.node.NodeManagementApi;
 import org.apache.ignite.internal.rest.api.node.NodeState;
@@ -27,12 +28,12 @@ import org.apache.ignite.internal.rest.api.node.NodeState;
  * REST endpoint allows to read node state.
  */
 @Controller("/management/v1/node")
-public class NodeManagementController implements NodeManagementApi {
-    private final StateProvider stateProvider;
+public class NodeManagementController implements NodeManagementApi, RestFactory {
+    private StateProvider stateProvider;
 
-    private final NameProvider nameProvider;
+    private NameProvider nameProvider;
 
-    private final JdbcPortProvider jdbcPortProvider;
+    private JdbcPortProvider jdbcPortProvider;
 
     /**
      * Constructs node management controller.
@@ -56,5 +57,12 @@ public class NodeManagementController implements NodeManagementApi {
     @Override
     public String version() {
         return IgniteProductVersion.CURRENT_VERSION.toString();
+    }
+
+    @Override
+    public void cleanResources() {
+        nameProvider = null;
+        stateProvider = null;
+        jdbcPortProvider = null;
     }
 }

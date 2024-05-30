@@ -20,9 +20,9 @@ package org.apache.ignite.internal.sql.engine.util;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker.QueryTemplate;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.sql.ResultSetMetadata;
-import org.apache.ignite.tx.IgniteTransactions;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -49,28 +49,28 @@ class QueryCheckerFactoryImpl implements QueryCheckerFactory {
     public QueryChecker create(
             String nodeName,
             QueryProcessor queryProcessor,
-            IgniteTransactions transactions,
+            HybridTimestampTracker observableTimeTracker,
             InternalTransaction tx,
             String query
     ) {
-        return create(nodeName, queryProcessor, transactions, (ignore) -> {}, tx, returnOriginalQuery(query));
+        return create(nodeName, queryProcessor, observableTimeTracker, (ignore) -> {}, tx, returnOriginalQuery(query));
     }
 
     @Override
     public QueryChecker create(
             String nodeName,
             QueryProcessor queryProcessor,
-            IgniteTransactions transactions,
+            HybridTimestampTracker observableTimeTracker,
             Consumer<ResultSetMetadata> metadataValidator,
             QueryTemplate queryTemplate
     ) {
-        return create(nodeName, queryProcessor, transactions, (ignore) -> {}, null, queryTemplate);
+        return create(nodeName, queryProcessor, observableTimeTracker, (ignore) -> {}, null, queryTemplate);
     }
 
     private QueryChecker create(
             String nodeName,
             QueryProcessor queryProcessor,
-            IgniteTransactions transactions,
+            HybridTimestampTracker observableTimeTracker,
             Consumer<ResultSetMetadata> metadataValidator,
             @Nullable InternalTransaction tx,
             QueryTemplate queryTemplate
@@ -82,8 +82,8 @@ class QueryCheckerFactoryImpl implements QueryCheckerFactory {
             }
 
             @Override
-            protected IgniteTransactions transactions() {
-                return transactions;
+            protected HybridTimestampTracker observableTimeTracker() {
+                return observableTimeTracker;
             }
 
             @Override

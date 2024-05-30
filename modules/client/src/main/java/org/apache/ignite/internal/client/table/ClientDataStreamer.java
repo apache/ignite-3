@@ -17,32 +17,118 @@
 
 package org.apache.ignite.internal.client.table;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Publisher;
+import java.util.function.Function;
+import org.apache.ignite.client.RetryLimitPolicy;
+import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.internal.client.ClientUtils;
+import org.apache.ignite.internal.client.proto.ClientMessagePacker;
+import org.apache.ignite.internal.client.proto.ClientOp;
+import org.apache.ignite.internal.client.proto.StreamerReceiverSerializer;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.streamer.StreamerOptions;
 import org.apache.ignite.internal.streamer.StreamerPartitionAwarenessProvider;
 import org.apache.ignite.internal.streamer.StreamerSubscriber;
 import org.apache.ignite.table.DataStreamerItem;
+import org.apache.ignite.table.DataStreamerOperationType;
 import org.apache.ignite.table.DataStreamerOptions;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Client data streamer.
  */
 class ClientDataStreamer {
-    @SuppressWarnings("resource")
     static <R> CompletableFuture<Void> streamData(
             Publisher<DataStreamerItem<R>> publisher,
             DataStreamerOptions options,
             StreamerBatchSender<R, Integer> batchSender,
             StreamerPartitionAwarenessProvider<R, Integer> partitionAwarenessProvider,
             ClientTable tbl) {
+        return streamData(
+                publisher,
+                DataStreamerItem::get,
+                DataStreamerItem::get,
+                x -> x.operationType() == DataStreamerOperationType.REMOVE,
+                options,
+                batchSender,
+                partitionAwarenessProvider,
+                tbl);
+    }
+
+    // T = key, E = element, V = payload, R = result.
+    @SuppressWarnings("resource")
+    static <T, E, V, R> CompletableFuture<Void> streamData(
+            Publisher<E> publisher,
+            Function<E, T> keyFunc,
+            Function<E, V> payloadFunc,
+            Function<E, Boolean> deleteFunc,
+            DataStreamerOptions options,
+            StreamerPartitionAwarenessProvider<T, Integer> partitionAwarenessProvider,
+            ClientTable tbl,
+            @Nullable Flow.Subscriber<R> resultSubscriber,
+            List<DeploymentUnit> deploymentUnits,
+            String receiverClassName,
+            Object... receiverArgs) {
+        StreamerBatchSender<V, Integer> batchSender = (partitionId, items, deleted) ->
+                tbl.getPartitionAssignment().thenCompose(
+                        partitionAssignment -> tbl.channel().serviceAsync(
+                                ClientOp.STREAMER_WITH_RECEIVER_BATCH_SEND,
+                                out -> {
+                                    assert deleted == null || deleted.isEmpty() : "Deletion is not supported with receiver.";
+
+                                    ClientMessagePacker w = out.out();
+                                    w.packInt(tbl.tableId());
+                                    w.packInt(partitionId);
+                                    w.packDeploymentUnits(deploymentUnits);
+                                    w.packBoolean(resultSubscriber != null); // receiveResults
+
+                                    StreamerReceiverSerializer.serialize(w, receiverClassName, receiverArgs, items);
+                                },
+                                in -> {
+                                    if (resultSubscriber != null) {
+                                        // TODO: IGNITE-22302 Add resultSubscriber support.
+                                        StreamerReceiverSerializer.deserializeResults(in.in());
+                                    }
+
+                                    return null;
+                                },
+                                partitionAssignment.get(partitionId),
+                                new RetryLimitPolicy().retryLimit(options.retryLimit()),
+                                false));
+
+        return streamData(
+                publisher,
+                keyFunc,
+                payloadFunc,
+                deleteFunc,
+                options,
+                batchSender,
+                partitionAwarenessProvider,
+                tbl);
+    }
+
+    // T = key, E = element, V = payload, R = result.
+    @SuppressWarnings("resource")
+    private static <T, E, V, R> CompletableFuture<Void> streamData(
+            Publisher<E> publisher,
+            Function<E, T> keyFunc,
+            Function<E, V> payloadFunc,
+            Function<E, Boolean> deleteFunc,
+            DataStreamerOptions options,
+            StreamerBatchSender<V, Integer> batchSender,
+            StreamerPartitionAwarenessProvider<T, Integer> partitionAwarenessProvider,
+            ClientTable tbl) {
         IgniteLogger log = ClientUtils.logger(tbl.channel().configuration(), StreamerSubscriber.class);
         StreamerOptions streamerOpts = streamerOptions(options);
-        StreamerSubscriber<R, Integer> subscriber = new StreamerSubscriber<>(
+        StreamerSubscriber<T, E, V, R, Integer> subscriber = new StreamerSubscriber<>(
                 batchSender,
+                keyFunc,
+                payloadFunc,
+                deleteFunc,
                 partitionAwarenessProvider,
                 streamerOpts,
                 tbl.channel().streamerFlushExecutor(),

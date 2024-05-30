@@ -20,7 +20,6 @@ package org.apache.ignite.internal.catalog;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static java.util.stream.Collectors.joining;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_REPLICA_COUNT;
@@ -28,35 +27,24 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.clusterWideEnsuredActivationTsSafeForRoReads;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZoneIdOpt;
-import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor.CatalogIndexDescriptorType.HASH;
-import static org.apache.ignite.internal.type.NativeTypes.BOOLEAN;
-import static org.apache.ignite.internal.type.NativeTypes.INT32;
-import static org.apache.ignite.internal.type.NativeTypes.STRING;
-import static org.apache.ignite.internal.type.NativeTypes.stringOf;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.NavigableMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
-import java.util.concurrent.Flow.Publisher;
 import java.util.function.LongSupplier;
 import org.apache.ignite.internal.catalog.commands.AlterZoneSetDefaultCommand;
 import org.apache.ignite.internal.catalog.commands.CreateSchemaCommand;
 import org.apache.ignite.internal.catalog.commands.CreateZoneCommand;
 import org.apache.ignite.internal.catalog.commands.StorageProfileParams;
-import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
@@ -75,15 +63,13 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.systemview.api.SystemView;
 import org.apache.ignite.internal.systemview.api.SystemViewProvider;
-import org.apache.ignite.internal.systemview.api.SystemViews;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
-import org.apache.ignite.internal.util.SubscriptionUtils;
-import org.apache.ignite.internal.util.TransformingIterator;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.jetbrains.annotations.Nullable;
 
@@ -95,8 +81,6 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     static String DEFAULT_ZONE_NAME = "Default";
 
     private static final int MAX_RETRY_COUNT = 10;
-
-    private static final int SYSTEM_VIEW_STRING_COLUMN_LENGTH = Short.MAX_VALUE;
 
     /** Safe time to wait before new Catalog version activation. */
     static final int DEFAULT_DELAY_DURATION = 0;
@@ -134,6 +118,8 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
     private final LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier;
 
+    private final CatalogSystemViewRegistry catalogSystemViewProvider;
+
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
@@ -157,10 +143,11 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
         this.clockService = clockService;
         this.delayDurationMsSupplier = delayDurationMsSupplier;
         this.partitionIdleSafeTimePropagationPeriodMsSupplier = partitionIdleSafeTimePropagationPeriodMsSupplier;
+        this.catalogSystemViewProvider = new CatalogSystemViewRegistry(() -> catalogAt(clockService.nowLong()));
     }
 
     @Override
-    public CompletableFuture<Void> startAsync() {
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         int objectIdGen = 0;
 
         Catalog emptyCatalog = new Catalog(0, 0L, objectIdGen, List.of(), List.of(), null);
@@ -169,28 +156,29 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
         updateLog.registerUpdateHandler(new OnUpdateHandlerImpl());
 
-        return updateLog.startAsync()
-                .thenCompose(none -> {
+        return updateLog.startAsync(componentContext)
+                .thenComposeAsync(none -> {
                     if (latestCatalogVersion() == emptyCatalog.version()) {
                         int initializedCatalogVersion = emptyCatalog.version() + 1;
 
                         this.catalogReadyFuture(initializedCatalogVersion)
-                                .thenCompose(ignored -> awaitVersionActivation(initializedCatalogVersion))
-                                .handle((r, e) -> catalogInitializationFuture.complete(null));
+                                .thenComposeAsync(ignored -> awaitVersionActivation(initializedCatalogVersion),
+                                        componentContext.executor())
+                                .handleAsync((r, e) -> catalogInitializationFuture.complete(null), componentContext.executor());
 
                         return initCatalog(emptyCatalog);
                     } else {
                         catalogInitializationFuture.complete(null);
                         return nullCompletedFuture();
                     }
-                });
+                }, componentContext.executor());
     }
 
     @Override
-    public CompletableFuture<Void> stopAsync() {
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         busyLock.block();
         versionTracker.close();
-        return updateLog.stopAsync();
+        return updateLog.stopAsync(componentContext);
     }
 
     @Override
@@ -522,12 +510,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
     @Override
     public List<SystemView<?>> systemViews() {
-        return List.of(
-                createSystemViewsView(),
-                createSystemViewColumnsView(),
-                createZonesView(),
-                createIndexesView()
-        );
+        return catalogSystemViewProvider.systemViews();
     }
 
     class OnUpdateHandlerImpl implements OnUpdateHandler {
@@ -633,174 +616,6 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
             }
 
             return bulkUpdateEntries;
-        }
-    }
-
-    private SystemView<?> createSystemViewsView() {
-        Iterable<SchemaAwareDescriptor<CatalogSystemViewDescriptor>> viewData = () -> {
-            Catalog catalog = catalogAt(clockService.nowLong());
-
-            return catalog.schemas().stream()
-                    .flatMap(schema -> Arrays.stream(schema.systemViews())
-                            .map(viewDescriptor -> new SchemaAwareDescriptor<>(viewDescriptor, schema.name()))
-                    )
-                    .iterator();
-        };
-
-        Publisher<SchemaAwareDescriptor<CatalogSystemViewDescriptor>> viewDataPublisher = SubscriptionUtils.fromIterable(viewData);
-
-        return SystemViews.<SchemaAwareDescriptor<CatalogSystemViewDescriptor>>clusterViewBuilder()
-                .name("SYSTEM_VIEWS")
-                .addColumn("ID", INT32, entry -> entry.descriptor.id())
-                .addColumn("SCHEMA", stringOf(SYSTEM_VIEW_STRING_COLUMN_LENGTH),
-                        entry -> entry.schema)
-                .addColumn("NAME", stringOf(SYSTEM_VIEW_STRING_COLUMN_LENGTH),
-                        entry -> entry.descriptor.name())
-                .addColumn("TYPE", stringOf(SYSTEM_VIEW_STRING_COLUMN_LENGTH),
-                        entry -> entry.descriptor.systemViewType().name())
-                .dataProvider(viewDataPublisher)
-                .build();
-    }
-
-    private SystemView<?> createSystemViewColumnsView() {
-        Iterable<ParentIdAwareDescriptor<CatalogTableColumnDescriptor>> viewData = () -> {
-            Catalog catalog = catalogAt(clockService.nowLong());
-
-            return catalog.schemas().stream()
-                    .flatMap(schema -> Arrays.stream(schema.systemViews()))
-                    .flatMap(viewDescriptor -> viewDescriptor.columns().stream()
-                            .map(columnDescriptor -> new ParentIdAwareDescriptor<>(columnDescriptor, viewDescriptor.id()))
-                    )
-                    .iterator();
-        };
-
-        Publisher<ParentIdAwareDescriptor<CatalogTableColumnDescriptor>> viewDataPublisher = SubscriptionUtils.fromIterable(viewData);
-
-        return SystemViews.<ParentIdAwareDescriptor<CatalogTableColumnDescriptor>>clusterViewBuilder()
-                .name("SYSTEM_VIEW_COLUMNS")
-                .addColumn("VIEW_ID", INT32, entry -> entry.id)
-                .addColumn("NAME", stringOf(SYSTEM_VIEW_STRING_COLUMN_LENGTH), entry -> entry.descriptor.name())
-                .addColumn("TYPE", stringOf(SYSTEM_VIEW_STRING_COLUMN_LENGTH), entry -> entry.descriptor.type().name())
-                .addColumn("NULLABLE", BOOLEAN, entry -> entry.descriptor.nullable())
-                .addColumn("PRECISION", INT32, entry -> entry.descriptor.precision())
-                .addColumn("SCALE", INT32, entry -> entry.descriptor.scale())
-                .addColumn("LENGTH", INT32, entry -> entry.descriptor.length())
-                .dataProvider(viewDataPublisher)
-                .build();
-    }
-
-    private SystemView<?> createZonesView() {
-        return SystemViews.<ZoneWithDefaultMarker>clusterViewBuilder()
-                .name("ZONES")
-                .<String>addColumn("NAME", STRING, wrapper -> wrapper.zone.name())
-                .<Integer>addColumn("PARTITIONS", INT32, wrapper -> wrapper.zone.partitions())
-                .<Integer>addColumn("REPLICAS", INT32, wrapper -> wrapper.zone.replicas())
-                .<Integer>addColumn("DATA_NODES_AUTO_ADJUST_SCALE_UP", INT32, wrapper -> wrapper.zone.dataNodesAutoAdjustScaleUp())
-                .<Integer>addColumn("DATA_NODES_AUTO_ADJUST_SCALE_DOWN", INT32, wrapper -> wrapper.zone.dataNodesAutoAdjustScaleDown())
-                .<String>addColumn("DATA_NODES_FILTER", STRING, wrapper -> wrapper.zone.filter())
-                .<Boolean>addColumn("IS_DEFAULT_ZONE", BOOLEAN, wrapper -> wrapper.isDefault)
-                .dataProvider(SubscriptionUtils.fromIterable(() -> {
-                            Catalog catalog = catalogAt(clockService.nowLong());
-                            CatalogZoneDescriptor defaultZone = catalog.defaultZone();
-                            return new TransformingIterator<>(catalog.zones().iterator(),
-                                    (zone) -> new ZoneWithDefaultMarker(zone, defaultZone != null && defaultZone.id() == zone.id()));
-                        }
-                ))
-                .build();
-    }
-
-    private SystemView<?> createIndexesView() {
-        Iterable<CatalogAwareDescriptor<CatalogIndexDescriptor>> viewData = () -> {
-            Catalog catalog = catalogAt(clockService.nowLong());
-
-            return catalog.indexes().stream()
-                    .filter(index -> index.status().isAlive())
-                    .map(index -> new CatalogAwareDescriptor<>(index, catalog))
-                    .iterator();
-        };
-
-        return SystemViews.<CatalogAwareDescriptor<CatalogIndexDescriptor>>clusterViewBuilder()
-                .name("INDEXES")
-                .addColumn("INDEX_ID", INT32, entry -> entry.descriptor.id())
-                .addColumn("INDEX_NAME", STRING, entry -> entry.descriptor.name())
-                .addColumn("TABLE_ID", INT32, entry -> entry.descriptor.tableId())
-                .addColumn("TABLE_NAME", STRING, entry -> getTableDescriptor(entry).name())
-                .addColumn("SCHEMA_ID", INT32, CatalogManagerImpl::getSchemaId)
-                .addColumn("SCHEMA_NAME", STRING, entry -> entry.catalog.schema(getSchemaId(entry)).name())
-                .addColumn("TYPE", STRING, entry -> entry.descriptor.indexType().name())
-                .addColumn("IS_UNIQUE", BOOLEAN, entry -> entry.descriptor.unique())
-                .addColumn("COLUMNS", STRING, CatalogManagerImpl::getColumnsString)
-                .addColumn("STATUS", STRING, entry -> entry.descriptor.status().name())
-                .dataProvider(SubscriptionUtils.fromIterable(viewData))
-                .build();
-    }
-
-    private static int getSchemaId(CatalogAwareDescriptor<CatalogIndexDescriptor> entry) {
-        return getTableDescriptor(entry).schemaId();
-    }
-
-    private static CatalogTableDescriptor getTableDescriptor(CatalogAwareDescriptor<CatalogIndexDescriptor> entry) {
-        return entry.catalog.table(entry.descriptor.tableId());
-    }
-
-    private static String getColumnsString(CatalogAwareDescriptor<CatalogIndexDescriptor> entry) {
-        return entry.descriptor.indexType() == HASH
-                ? String.join(", ", ((CatalogHashIndexDescriptor) entry.descriptor).columns())
-                : ((CatalogSortedIndexDescriptor) entry.descriptor)
-                        .columns()
-                        .stream()
-                        .map(column -> column.name() + (column.collation().asc() ? " ASC" : " DESC"))
-                        .collect(joining(", "));
-    }
-
-    /** Wraps a CatalogZoneDescriptor and a flag indicating whether this zone is the default zone. */
-    static class ZoneWithDefaultMarker {
-        private final CatalogZoneDescriptor zone;
-        private final boolean isDefault;
-
-        ZoneWithDefaultMarker(CatalogZoneDescriptor zone, boolean isDefault) {
-            this.zone = zone;
-            this.isDefault = isDefault;
-        }
-    }
-
-    /**
-     * A container that keeps given descriptor along with name of the schema this
-     * descriptor belongs to.
-     */
-    private static class SchemaAwareDescriptor<T> {
-        private final T descriptor;
-        private final String schema;
-
-        SchemaAwareDescriptor(T descriptor, String schema) {
-            this.descriptor = descriptor;
-            this.schema = schema;
-        }
-    }
-
-    /**
-     * A container that keeps given descriptor along with its parent's id.
-     */
-    private static class ParentIdAwareDescriptor<T> {
-        private final T descriptor;
-        private final int id;
-
-        ParentIdAwareDescriptor(T descriptor, int id) {
-            this.descriptor = descriptor;
-            this.id = id;
-        }
-    }
-
-    /**
-     * A container that keeps given descriptor along with the catalog it belongs to.
-     */
-    private static class CatalogAwareDescriptor<T> {
-        private final T descriptor;
-        private final Catalog catalog;
-
-        CatalogAwareDescriptor(T descriptor, Catalog catalog) {
-            this.descriptor = descriptor;
-            this.catalog = catalog;
         }
     }
 }

@@ -89,7 +89,7 @@ public class AbstractMultiNodeBenchmark {
 
             getAllFromCursor(
                     await(queryEngine.queryAsync(
-                            SqlPropertiesHelper.emptyProperties(), clusterNode.transactions(), null, createZoneStatement
+                            SqlPropertiesHelper.emptyProperties(), clusterNode.observableTimeTracker(), null, createZoneStatement
                     ))
             );
 
@@ -135,7 +135,7 @@ public class AbstractMultiNodeBenchmark {
 
         getAllFromCursor(
                 await(clusterNode.queryEngine().queryAsync(
-                        SqlPropertiesHelper.emptyProperties(), clusterNode.transactions(), null, createTableStatement
+                        SqlPropertiesHelper.emptyProperties(), clusterNode.observableTimeTracker(), null, createTableStatement
                 ))
         );
     }

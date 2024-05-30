@@ -45,7 +45,7 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.NodeStoppingException;
-import org.apache.ignite.internal.metrics.NoOpMetricManager;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NodeFinder;
 import org.apache.ignite.internal.network.StaticNodeFinder;
@@ -216,9 +216,8 @@ public class ItRaftGroupServiceTest extends IgniteAbstractTest {
 
         TestNode(TestInfo testInfo) {
             this.clusterService = ClusterServiceTestUtils.clusterService(testInfo, NODE_PORT_BASE + nodes.size(), NODE_FINDER);
-            this.loza = new Loza(
+            this.loza = TestLozaFactory.create(
                     clusterService,
-                    new NoOpMetricManager(),
                     raftConfiguration,
                     workDir.resolve("node" + nodes.size()),
                     new HybridClockImpl()
@@ -230,7 +229,7 @@ public class ItRaftGroupServiceTest extends IgniteAbstractTest {
         }
 
         void start() {
-            assertThat(startAsync(clusterService, loza), willCompleteSuccessfully());
+            assertThat(startAsync(new ComponentContext(), clusterService, loza), willCompleteSuccessfully());
         }
 
         CompletableFuture<RaftGroupService> startRaftGroup(PeersAndLearners configuration) {
@@ -266,7 +265,7 @@ public class ItRaftGroupServiceTest extends IgniteAbstractTest {
         }
 
         void stop() {
-            assertThat(stopAsync(loza, clusterService), willCompleteSuccessfully());
+            assertThat(stopAsync(new ComponentContext(), loza, clusterService), willCompleteSuccessfully());
         }
     }
 }

@@ -167,6 +167,7 @@ public class MetaStorageListener implements RaftGroupListener, BeforeApplyHandle
     @Override
     public boolean onSnapshotLoad(Path path) {
         storage.restoreSnapshot(path);
+        writeHandler.onSnapshotLoad();
         return true;
     }
 

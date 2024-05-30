@@ -50,6 +50,7 @@ import org.apache.ignite.internal.cluster.management.topology.LogicalTopologySer
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
@@ -125,7 +126,7 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
         );
 
         // Not adding 'distributionZoneManager' on purpose, it's started manually.
-        assertThat(startAsync(components), willCompleteSuccessfully());
+        assertThat(startAsync(new ComponentContext(), components), willCompleteSuccessfully());
     }
 
     @AfterEach
@@ -138,13 +139,13 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
 
         closeAll(Stream.concat(
                 components.stream().map(c -> c::beforeNodeStop),
-                Stream.of(() -> assertThat(stopAsync(components), willCompleteSuccessfully()))
+                Stream.of(() -> assertThat(stopAsync(new ComponentContext(), components), willCompleteSuccessfully()))
         ));
     }
 
     void startDistributionZoneManager() {
         assertThat(
-                distributionZoneManager.startAsync()
+                distributionZoneManager.startAsync(new ComponentContext())
                         .thenCompose(unused -> metaStorageManager.deployWatches()),
                 willCompleteSuccessfully()
         );

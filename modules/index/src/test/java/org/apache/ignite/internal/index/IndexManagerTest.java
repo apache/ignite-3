@@ -57,6 +57,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.marshaller.ReflectionMarshallersProvider;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
@@ -127,7 +128,7 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
 
     @AfterEach
     void tearDown() {
-        assertThat(stopAsync(metaStorageManager, catalogManager, indexManager), willCompleteSuccessfully());
+        assertThat(stopAsync(new ComponentContext(), metaStorageManager, catalogManager, indexManager), willCompleteSuccessfully());
     }
 
     @Test
@@ -230,7 +231,7 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
         );
 
         assertThat(
-                startAsync(metaStorageManager, catalogManager, indexManager)
+                startAsync(new ComponentContext(), metaStorageManager, catalogManager, indexManager)
                         .thenCompose(unused -> metaStorageManager.recoveryFinishedFuture())
                         .thenCompose(unused -> metaStorageManager.notifyRevisionUpdateListenerOnStart())
                         .thenCompose(unused -> metaStorageManager.deployWatches()),

@@ -45,7 +45,7 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.util.Pair;
-import org.apache.ignite.table.manager.IgniteTables;
+import org.apache.ignite.table.IgniteTables;
 import org.jetbrains.annotations.Nullable;
 
 // TODO IGNITE-15525 Filter by table type must be added after 'view' type will appear.

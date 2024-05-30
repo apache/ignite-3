@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.locks.ReadWriteLock;
@@ -36,6 +37,7 @@ import org.apache.ignite.internal.eventlog.api.IgniteEvents;
 import org.apache.ignite.internal.eventlog.event.EventUser;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderConfiguration;
 import org.apache.ignite.internal.security.authentication.configuration.AuthenticationProviderView;
 import org.apache.ignite.internal.security.authentication.configuration.AuthenticationView;
@@ -128,7 +130,7 @@ public class AuthenticationManagerImpl
     }
 
     @Override
-    public CompletableFuture<Void> startAsync() {
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         securityConfiguration.listen(securityConfigurationListener);
         securityConfiguration.enabled().listen(securityEnabledDisabledEventFactory);
         securityConfiguration.authentication().providers().listenElements(providerEventFactory);
@@ -142,7 +144,7 @@ public class AuthenticationManagerImpl
     }
 
     @Override
-    public CompletableFuture<Void> stopAsync() {
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         securityConfiguration.stopListen(securityConfigurationListener);
         securityConfiguration.enabled().stopListen(securityEnabledDisabledEventFactory);
         securityConfiguration.authentication().providers().stopListenElements(providerEventFactory);
@@ -167,14 +169,6 @@ public class AuthenticationManagerImpl
                         .map(authenticator -> authenticate(authenticator, authenticationRequest))
                         .filter(Objects::nonNull)
                         .findFirst()
-                        .map(userDetails ->  {
-                            eventLog.log(() ->
-                                    IgniteEvents.USER_AUTHENTICATED.create(EventUser.of(
-                                            userDetails.username(), userDetails.providerName()
-                                    )));
-
-                            return userDetails;
-                        })
                         .orElseThrow(() -> new InvalidCredentialsException("Authentication failed"));
             } else {
                 return UserDetails.UNKNOWN;
@@ -185,15 +179,47 @@ public class AuthenticationManagerImpl
     }
 
     @Nullable
-    private static UserDetails authenticate(Authenticator authenticator, AuthenticationRequest<?, ?> authenticationRequest) {
+    private UserDetails authenticate(
+            Authenticator authenticator,
+            AuthenticationRequest<?, ?> authenticationRequest
+    ) {
         try {
-            return authenticator.authenticate(authenticationRequest);
+            var userDetails = authenticator.authenticate(authenticationRequest);
+            if (userDetails != null) {
+                logUserAuthenticated(userDetails);
+            }
+            return userDetails;
         } catch (InvalidCredentialsException | UnsupportedAuthenticationTypeException exception) {
+            logAuthenticationFailure(authenticationRequest);
             return null;
         } catch (Exception e) {
+            logAuthenticationFailure(authenticationRequest);
             LOG.error("Unexpected exception during authentication", e);
             return null;
         }
+    }
+
+    private void logAuthenticationFailure(AuthenticationRequest<?, ?> authenticationRequest) {
+        eventLog.log(() ->
+                IgniteEvents.USER_AUTHENTICATION_FAILURE.builder()
+                        .user(EventUser.system())
+                        .fields(Map.of("identity", tryGetUsernameOrUnknown(authenticationRequest)))
+                        .build()
+        );
+    }
+
+    private static String tryGetUsernameOrUnknown(AuthenticationRequest<?, ?> authenticationRequest) {
+        if (authenticationRequest instanceof UsernamePasswordRequest) {
+            return ((UsernamePasswordRequest) authenticationRequest).getIdentity();
+        }
+        return "UNKNOWN_AUTHENTICATION_TYPE";
+    }
+
+    private void logUserAuthenticated(UserDetails userDetails) {
+        eventLog.log(() ->
+                IgniteEvents.USER_AUTHENTICATION_SUCCESS.create(EventUser.of(
+                        userDetails.username(), userDetails.providerName()
+                )));
     }
 
     private void refreshProviders(@Nullable SecurityView view) {

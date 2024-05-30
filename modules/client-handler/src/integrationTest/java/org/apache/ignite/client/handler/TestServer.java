@@ -31,6 +31,7 @@ import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
@@ -90,11 +91,13 @@ public class TestServer {
     }
 
     void tearDown() {
-        assertThat(bootstrapFactory.stopAsync(), willCompleteSuccessfully());
+        assertThat(bootstrapFactory.stopAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     ClientHandlerModule start(TestInfo testInfo) {
-        assertThat(authenticationManager.startAsync(), willCompleteSuccessfully());
+        ComponentContext componentContext = new ComponentContext();
+
+        assertThat(authenticationManager.startAsync(componentContext), willCompleteSuccessfully());
 
         clientConnectorConfiguration.change(
                 local -> local
@@ -110,7 +113,7 @@ public class TestServer {
 
         bootstrapFactory = new NettyBootstrapFactory(networkConfiguration, testInfo.getDisplayName());
 
-        assertThat(bootstrapFactory.startAsync(), willCompleteSuccessfully());
+        assertThat(bootstrapFactory.startAsync(componentContext), willCompleteSuccessfully());
 
         ClusterService clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
         Mockito.when(clusterService.topologyService().localMember().id()).thenReturn("id");
@@ -135,7 +138,7 @@ public class TestServer {
                 new TestLowWatermark()
         );
 
-        module.startAsync().join();
+        module.startAsync(componentContext).join();
 
         return module;
     }

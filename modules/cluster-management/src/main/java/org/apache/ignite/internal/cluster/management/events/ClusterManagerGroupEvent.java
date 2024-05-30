@@ -15,8 +15,18 @@
  * limitations under the License.
  */
 
-/**
- * Contains API classes for table management.
- */
+package org.apache.ignite.internal.cluster.management.events;
 
-package org.apache.ignite.table.manager;
+import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.event.Event;
+
+/** Enum with events for the {@link ClusterManagementGroupManager}. */
+
+public enum ClusterManagerGroupEvent implements Event {
+    /** Fired before starting the cmg raft group. */
+    BEFORE_START_RAFT_GROUP,
+    /** Fired before destroying the cmg raft group and cleaning the local state. */
+    BEFORE_DESTROY_RAFT_GROUP,
+    /** Fired after stopping the cmg raft group. */
+    AFTER_STOP_RAFT_GROUP
+}

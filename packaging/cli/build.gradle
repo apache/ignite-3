@@ -179,7 +179,7 @@ ospackage {
     user 'root'
 
     into(linuxTokens.INSTALL_DIR) {
-        from "$buildDir/linux/ignite3"
+        from "$buildDir/linux/start.sh"
         fileMode 0755
         rename {
             'ignite3'

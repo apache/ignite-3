@@ -42,6 +42,8 @@ namespace Apache.Ignite.Tests.Compute
     {
         public const string NodeNameJob = ItThinClientComputeTest + "$NodeNameJob";
 
+        public const string PlatformTestNodeRunner = "org.apache.ignite.internal.runner.app.PlatformTestNodeRunner";
+
         private const string ItThinClientComputeTest = "org.apache.ignite.internal.runner.app.client.ItThinClientComputeTest";
 
         private const string ConcatJob = ItThinClientComputeTest + "$ConcatJob";
@@ -53,8 +55,6 @@ namespace Apache.Ignite.Tests.Compute
         private const string SleepJob = ItThinClientComputeTest + "$SleepJob";
 
         private const string DecimalJob = ItThinClientComputeTest + "$DecimalJob";
-
-        private const string PlatformTestNodeRunner = "org.apache.ignite.internal.runner.app.PlatformTestNodeRunner";
 
         private const string CreateTableJob = PlatformTestNodeRunner + "$CreateTableJob";
 
