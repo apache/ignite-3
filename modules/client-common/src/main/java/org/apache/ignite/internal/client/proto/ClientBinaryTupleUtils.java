@@ -197,7 +197,6 @@ public class ClientBinaryTupleUtils {
     public static void appendObject(BinaryTupleBuilder builder, Object obj) {
         if (obj == null) {
             builder.appendNull(); // Type.
-            builder.appendNull(); // Scale.
             builder.appendNull(); // Value.
         } else if (obj instanceof Boolean) {
             appendColumnType(builder, ColumnType.BOOLEAN);
