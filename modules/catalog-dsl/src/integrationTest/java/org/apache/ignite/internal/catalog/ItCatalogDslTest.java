@@ -40,9 +40,9 @@ import org.apache.ignite.catalog.definitions.TableDefinition;
 import org.apache.ignite.catalog.definitions.ZoneDefinition;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.sql.SqlException;
+import org.apache.ignite.table.IgniteTables;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
-import org.apache.ignite.table.manager.IgniteTables;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 

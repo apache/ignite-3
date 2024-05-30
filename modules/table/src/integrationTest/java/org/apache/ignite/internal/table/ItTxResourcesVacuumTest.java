@@ -800,6 +800,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
         if (expected == null) {
             assertNull(actual);
         } else {
+            assertNotNull(actual);
             assertEquals(expected.stringValue("val"), actual.stringValue("val"));
         }
     }
