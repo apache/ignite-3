@@ -13,7 +13,7 @@
 @rem WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 @rem See the License for the specific language governing permissions and
 @rem limitations under the License.
-
+@rem
 
 set NODE_NAME=defaultNode
 

@@ -14,28 +14,17 @@
 @rem limitations under the License.
 @rem
 
-set ADD_OPENS_JAVA_OPTS=--add-opens java.base/java.lang=ALL-UNNAMED ^
---add-opens java.base/java.lang.invoke=ALL-UNNAMED ^
---add-opens java.base/java.lang.reflect=ALL-UNNAMED ^
---add-opens java.base/java.io=ALL-UNNAMED ^
---add-opens java.base/java.nio=ALL-UNNAMED ^
---add-opens java.base/java.math=ALL-UNNAMED ^
---add-opens java.base/java.util=ALL-UNNAMED ^
---add-opens java.base/jdk.internal.misc=ALL-UNNAMED ^
---add-opens java.base/jdk.internal.access=ALL-UNNAMED ^
---add-opens java.base/sun.nio.ch=ALL-UNNAMED
-
-set COMMON_JAVA_OPTS=%ADD_OPENS_JAVA_OPTS% ^
+set COMMON_JAVA_OPTS=@ADD_OPENS@ ^
 -Dio.netty.tryReflectionSetAccessible=true ^
 -Dfile.encoding=UTF-8 ^
 -XX:+HeapDumpOnOutOfMemoryError ^
 -XX:+ExitOnOutOfMemoryError
 
-set LOGGING_JAVA_OPTS=-Djava.util.logging.config.file="@CONF_DIR_WIN@\ignite.java.util.logging.properties" ^
--XX:HeapDumpPath="@LOG_DIR_WIN@" ^
--Xlog:gc=info:file="@LOG_DIR_WIN@\%JVM_GC_LOG_NAME%"::filecount=%JVM_GC_NUM_LOGS%,filesize=%JVM_GC_LOG_SIZE%
+set LOGGING_JAVA_OPTS=-Djava.util.logging.config.file="@CONF_DIR@\ignite.java.util.logging.properties" ^
+-XX:HeapDumpPath="@LOG_DIR@" ^
+-Xlog:gc=info:file="@LOG_DIR@\%JVM_GC_LOG_NAME%"::filecount=%JVM_GC_NUM_LOGS%,filesize=%JVM_GC_LOG_SIZE%
 
-set CLASSPATH=-classpath "@INSTALL_DIR_WIN@\lib\*" @MAIN_CLASS@
+set CLASSPATH=-classpath "@INSTALL_DIR@\lib\*" @MAIN_CLASS@
 
 set JAVA_CMD_WITH_ARGS="%JAVA_EXE%" %COMMON_JAVA_OPTS% %LOGGING_JAVA_OPTS% %IGNITE3_EXTRA_JVM_ARGS% %CLASSPATH%
 

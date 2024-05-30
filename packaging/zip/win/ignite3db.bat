@@ -1,11 +1,12 @@
 @rem
-@rem Copyright 2015 the original author or authors.
+@rem Licensed to the Apache Software Foundation (ASF) under one or more
+@rem contributor license agreements. See the NOTICE file distributed with
+@rem this work for additional information regarding copyright ownership.
+@rem The ASF licenses this file to You under the Apache License, Version 2.0
+@rem (the "License"); you may not use this file except in compliance with
+@rem the License. You may obtain a copy of the License at
 @rem
-@rem Licensed under the Apache License, Version 2.0 (the "License");
-@rem you may not use this file except in compliance with the License.
-@rem You may obtain a copy of the License at
-@rem
-@rem      https://www.apache.org/licenses/LICENSE-2.0
+@rem      http://www.apache.org/licenses/LICENSE-2.0
 @rem
 @rem Unless required by applicable law or agreed to in writing, software
 @rem distributed under the License is distributed on an "AS IS" BASIS,
@@ -69,8 +70,8 @@ goto fail
 if "%IGNITE_HOME%"=="" set IGNITE_HOME=%APP_HOME%
 cd "%IGNITE_HOME%"
 
-call "@CONF_DIR_WIN@\@VARS_FILE_NAME_WIN@"
-call "@LIB_DIR_WIN@\@BOOTSTRAP_FILE_NAME_WIN@"
+call "@CONF_DIR@\@VARS_FILE_NAME@"
+call "@LIB_DIR@\@BOOTSTRAP_FILE_NAME@"
 
 @rem Execute ignite3
 %JAVA_CMD_WITH_ARGS% %APPLICATION_ARGS%
