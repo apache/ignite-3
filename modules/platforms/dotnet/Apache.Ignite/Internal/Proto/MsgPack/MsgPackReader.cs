@@ -376,7 +376,7 @@ internal ref struct MsgPackReader
             return null;
         }
 
-        var tuple = new BinaryTupleReader(ReadBinary(), 3);
+        var tuple = new BinaryTupleReader(ReadBinary(), 2);
 
         return tuple.GetObject(0);
     }

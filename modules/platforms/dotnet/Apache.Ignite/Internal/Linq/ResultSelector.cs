@@ -359,11 +359,6 @@ internal static class ResultSelector
         il.Emit(OpCodes.Ldarg_1); // Reader.
         il.Emit(OpCodes.Ldc_I4, index); // Index.
 
-        if (col.Type == ColumnType.Decimal)
-        {
-            il.Emit(OpCodes.Ldc_I4, col.Scale);
-        }
-
         var colType = col.Type.ToClrType(col.Nullable);
         il.Emit(OpCodes.Call, BinaryTupleMethods.GetReadMethod(colType));
 
@@ -398,11 +393,6 @@ internal static class ResultSelector
         il.Emit(targetObj.LocalType.IsValueType ? OpCodes.Ldloca_S : OpCodes.Ldloc, targetObj); // res
         il.Emit(OpCodes.Ldarg_1); // Reader.
         il.Emit(OpCodes.Ldc_I4, colIndex); // Index.
-
-        if (col.Type == ColumnType.Decimal)
-        {
-            il.Emit(OpCodes.Ldc_I4, col.Scale);
-        }
 
         var colType = col.Type.ToClrType(col.Nullable);
         il.Emit(OpCodes.Call, BinaryTupleMethods.GetReadMethod(colType));

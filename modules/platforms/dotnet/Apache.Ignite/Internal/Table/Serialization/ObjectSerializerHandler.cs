@@ -105,11 +105,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 il.Emit(OpCodes.Ldarg_0); // writer
                 il.Emit(OpCodes.Ldarg_2); // value
 
-                if (col.Type == ColumnType.Decimal)
-                {
-                    il.Emit(OpCodes.Ldc_I4, col.Scale);
-                }
-                else if (col.Type is ColumnType.Time or ColumnType.Datetime or ColumnType.Timestamp)
+                if (col.Type is ColumnType.Time or ColumnType.Datetime or ColumnType.Timestamp)
                 {
                     il.Emit(OpCodes.Ldc_I4, col.Precision);
                 }
@@ -403,11 +399,6 @@ namespace Apache.Ignite.Internal.Table.Serialization
             il.Emit(local.LocalType.IsValueType ? OpCodes.Ldloca_S : OpCodes.Ldloc, local); // res
             il.Emit(OpCodes.Ldarg_0); // reader
             il.Emit(OpCodes.Ldc_I4, elemIdx); // index
-
-            if (col.Type == ColumnType.Decimal)
-            {
-                il.Emit(OpCodes.Ldc_I4, col.Scale);
-            }
 
             il.Emit(OpCodes.Call, readMethod);
             il.Emit(OpCodes.Stfld, fieldInfo); // res.field = value
