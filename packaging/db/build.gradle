@@ -62,7 +62,9 @@ def tokens = [
         APP_JAR             : "${project(':ignite-runner').name}-${project(':ignite-runner').version}.jar".toString(),
         MAIN_CLASS          : 'org.apache.ignite.internal.app.IgniteRunner',
         VARS_FILE_NAME      : 'vars.env',
+        VARS_FILE_NAME_WIN  : 'vars.bat',
         BOOTSTRAP_FILE_NAME : 'bootstrap-functions.sh',
+        BOOTSTRAP_FILE_NAME_WIN : 'bootstrap-functions.bat',
         SETUP_JAVA_FILE_NAME: 'setup-java.sh'
 ]
 
@@ -70,10 +72,14 @@ def tokens = [
 
 def zipStartScriptTokens = tokens + [
         LOG_DIR             : '${IGNITE_HOME}/log',
+        LOG_DIR_WIN         : '%IGNITE_HOME%\\log',
         APP_LOG_DIR         : 'log', // java logging does not support env variables, using relative path here
         LIB_DIR             : '${IGNITE_HOME}/lib',
+        LIB_DIR_WIN         : '%IGNITE_HOME%\\lib',
         CONF_DIR            : '${IGNITE_HOME}/etc',
-        INSTALL_DIR         : '${IGNITE_HOME}'
+        CONF_DIR_WIN        : '%IGNITE_HOME%\\etc',
+        INSTALL_DIR         : '${IGNITE_HOME}',
+        INSTALL_DIR_WIN     : '%IGNITE_HOME%'
 ]
 
 task replaceZipScriptVars(type: Copy) {
@@ -119,16 +125,19 @@ distributions {
             }
             into('etc') {
                 from "$buildDir/zip/${zipStartScriptTokens.VARS_FILE_NAME}"
+                from "$buildDir/zip/${zipStartScriptTokens.VARS_FILE_NAME_WIN}"
                 from generateConfigDefaults
                 from "$buildDir/zip/ignite.java.util.logging.properties"
             }
             into('bin') {
                 fileMode 0755
                 from "$buildDir/zip/ignite3db"
+                from "$buildDir/zip/ignite3db.bat"
             }
             into('lib') {
                 from configurations.dbArtifacts
                 from "$buildDir/zip/${zipStartScriptTokens.BOOTSTRAP_FILE_NAME}"
+                from "$buildDir/zip/${zipStartScriptTokens.BOOTSTRAP_FILE_NAME_WIN}"
                 from "$buildDir/zip/${zipStartScriptTokens.SETUP_JAVA_FILE_NAME}"
             }
         }
@@ -137,6 +146,7 @@ distributions {
 
 distZip.dependsOn replaceZipScriptVars
 distTar.dependsOn replaceZipScriptVars
+installDist.dependsOn replaceZipScriptVars
 
 task createChecksums(type: Checksum) {
     dependsOn distZip
