@@ -793,24 +793,12 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         return zoneDescriptor;
     }
 
-    private CatalogZoneDescriptor zoneDescriptor(int zoneId, int catalogVersion) {
-        CatalogZoneDescriptor zoneDescriptor = catalogManager.zone(zoneId, catalogVersion);
-
-        assert zoneDescriptor != null : "zoneId=" + zoneId + ", catalogVersion=" + catalogVersion;
-
-        return zoneDescriptor;
-    }
-
     ClusterNode localNode() {
         return topologyService.localMember();
     }
 
     private void onTableCreate(CreateTableEventParameters parameters) {
-        CatalogTableDescriptor tableDescriptor = parameters.tableDescriptor();
-
-        CatalogZoneDescriptor zoneDescriptor = zoneDescriptor(tableDescriptor.zoneId(), parameters.catalogVersion());
-
-        registerPartitionStatesMetricSource(zoneDescriptor, tableDescriptor);
+        registerPartitionStatesMetricSource(parameters.tableDescriptor());
     }
 
     private void onTableDrop(DropTableEventParameters parameters) {
@@ -820,15 +808,11 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
     private void registerMetricSources() {
         int catalogVersion = catalogManager.latestCatalogVersion();
 
-        catalogManager.tables(catalogVersion).forEach(tableDescriptor -> {
-            CatalogZoneDescriptor zoneDescriptor = zoneDescriptor(tableDescriptor.zoneId(), catalogVersion);
-
-            registerPartitionStatesMetricSource(zoneDescriptor, tableDescriptor);
-        });
+        catalogManager.tables(catalogVersion).forEach(this::registerPartitionStatesMetricSource);
     }
 
-    private void registerPartitionStatesMetricSource(CatalogZoneDescriptor zoneDescriptor, CatalogTableDescriptor tableDescriptor) {
-        var metricSource = new PartitionStatesMetricSource(zoneDescriptor, tableDescriptor, this);
+    private void registerPartitionStatesMetricSource(CatalogTableDescriptor tableDescriptor) {
+        var metricSource = new PartitionStatesMetricSource(tableDescriptor, this);
 
         PartitionStatesMetricSource previous = metricSourceByTableId.putIfAbsent(tableDescriptor.id(), metricSource);
 

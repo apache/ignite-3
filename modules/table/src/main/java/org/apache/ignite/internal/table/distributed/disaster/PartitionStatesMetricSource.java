@@ -25,7 +25,6 @@ import static org.apache.ignite.internal.table.distributed.disaster.LocalPartiti
 import static org.apache.ignite.internal.table.distributed.disaster.LocalPartitionStateEnum.UNAVAILABLE;
 
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.metrics.MetricSet;
 import org.apache.ignite.internal.metrics.MetricSetBuilder;
 import org.apache.ignite.internal.metrics.MetricSource;
@@ -46,14 +45,13 @@ class PartitionStatesMetricSource implements MetricSource {
     private boolean enabled;
 
     PartitionStatesMetricSource(
-            CatalogZoneDescriptor zoneDescriptor,
             CatalogTableDescriptor tableDescriptor,
             DisasterRecoveryManager disasterRecoveryManager
     ) {
         this.tableId = tableDescriptor.id();
         this.disasterRecoveryManager = disasterRecoveryManager;
 
-        metricSourceName = String.format("partition.states.zone.%s.table.%s", zoneDescriptor.id(), tableDescriptor.id());
+        metricSourceName = String.format("partition.states.zone.%s.table.%s", tableDescriptor.zoneId(), tableDescriptor.id());
     }
 
     @Override
