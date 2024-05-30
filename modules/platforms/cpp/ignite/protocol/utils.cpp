@@ -251,7 +251,6 @@ ignite_error read_error(reader &reader) {
 void claim_primitive_with_type(binary_tuple_builder &builder, const primitive &value) {
     if (value.is_null()) {
         builder.claim_null(); // Type.
-        builder.claim_null(); // Scale.
         builder.claim_null(); // Value.
         return;
     }
@@ -310,7 +309,7 @@ void claim_primitive_with_type(binary_tuple_builder &builder, const primitive &v
         }
         case ignite_type::DECIMAL: {
             const auto &dec_value = value.get<big_decimal>();
-            claim_type_and_scale(builder, ignite_type::DECIMAL, dec_value.get_scale());
+            claim_type_and_scale(builder, ignite_type::DECIMAL));
             builder.claim_number(dec_value);
             break;
         }
@@ -362,7 +361,6 @@ void claim_primitive_with_type(binary_tuple_builder &builder, const primitive &v
 void append_primitive_with_type(binary_tuple_builder &builder, const primitive &value) {
     if (value.is_null()) {
         builder.append_null(); // Type.
-        builder.append_null(); // Scale.
         builder.append_null(); // Value.
         return;
     }
@@ -421,7 +419,7 @@ void append_primitive_with_type(binary_tuple_builder &builder, const primitive &
         }
         case ignite_type::DECIMAL: {
             const auto &dec_value = value.get<big_decimal>();
-            append_type_and_scale(builder, ignite_type::DECIMAL, dec_value.get_scale());
+            append_type_and_scale(builder, ignite_type::DECIMAL);
             builder.append_number(dec_value);
             break;
         }
@@ -497,7 +495,7 @@ primitive read_next_column(binary_tuple_parser &parser, ignite_type typ, std::in
         case ignite_type::BYTE_ARRAY:
             return std::vector<std::byte>(binary_tuple_parser::get_varlen(val));
         case ignite_type::DECIMAL:
-            return binary_tuple_parser::get_decimal(val, scale);
+            return binary_tuple_parser::get_decimal(val);
         case ignite_type::NUMBER:
             return binary_tuple_parser::get_number(val);
         case ignite_type::DATE:

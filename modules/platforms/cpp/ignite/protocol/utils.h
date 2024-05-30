@@ -231,11 +231,9 @@ template<>
  *
  * @param builder Tuple builder.
  * @param typ Type.
- * @param scale Scale.
  */
-inline void claim_type_and_scale(binary_tuple_builder &builder, ignite_type typ, std::int32_t scale = 0) {
+inline void claim_type_and_scale(binary_tuple_builder &builder, ignite_type typ) {
     builder.claim_int32(static_cast<std::int32_t>(typ));
-    builder.claim_int32(scale);
 }
 
 /**
@@ -243,11 +241,9 @@ inline void claim_type_and_scale(binary_tuple_builder &builder, ignite_type typ,
  *
  * @param builder Tuple builder.
  * @param typ Type.
- * @param scale Scale.
  */
-inline void append_type_and_scale(binary_tuple_builder &builder, ignite_type typ, std::int32_t scale = 0) {
+inline void append_type_and_scale(binary_tuple_builder &builder, ignite_type typ) {
     builder.append_int32(static_cast<std::int32_t>(typ));
-    builder.append_int32(scale);
 }
 
 /**

@@ -141,7 +141,7 @@ void parameter::claim(binary_tuple_builder &builder, int offset, SQLULEN idx) co
             big_decimal dec_value;
             buf.get_decimal(dec_value);
 
-            protocol::claim_type_and_scale(builder, ignite_type::DECIMAL, dec_value.get_scale());
+            protocol::claim_type_and_scale(builder, ignite_type::DECIMAL);
             builder.claim_number(dec_value);
             break;
         }
@@ -269,7 +269,7 @@ void parameter::append(binary_tuple_builder &builder, int offset, SQLULEN idx) c
             big_decimal dec_value;
             buf.get_decimal(dec_value);
 
-            protocol::append_type_and_scale(builder, ignite_type::DECIMAL, dec_value.get_scale());
+            protocol::append_type_and_scale(builder, ignite_type::DECIMAL);
             builder.append_number(dec_value);
             break;
         }

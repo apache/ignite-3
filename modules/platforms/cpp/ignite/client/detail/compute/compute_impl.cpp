@@ -35,7 +35,7 @@ void write_primitives_as_binary_tuple(protocol::writer &writer, const std::vecto
 
     writer.write(args_num);
 
-    binary_tuple_builder args_builder{args_num * 3};
+    binary_tuple_builder args_builder{args_num * 2};
 
     args_builder.start();
     for (const auto &arg : args) {
@@ -59,11 +59,10 @@ void write_primitives_as_binary_tuple(protocol::writer &writer, const std::vecto
  */
 primitive read_primitive_from_binary_tuple(protocol::reader &reader) {
     auto tuple_data = reader.read_binary();
-    binary_tuple_parser parser(3, tuple_data);
+    binary_tuple_parser parser(2, tuple_data);
 
     auto typ = static_cast<ignite_type>(binary_tuple_parser::get_int32(parser.get_next()));
-    auto scale = binary_tuple_parser::get_int32(parser.get_next());
-    return protocol::read_next_column(parser, typ, scale);
+    return protocol::read_next_column(parser, typ);
 }
 
 /**
