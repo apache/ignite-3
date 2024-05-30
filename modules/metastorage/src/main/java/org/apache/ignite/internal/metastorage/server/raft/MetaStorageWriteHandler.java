@@ -25,6 +25,7 @@ import java.io.Serializable;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -204,16 +205,20 @@ public class MetaStorageWriteHandler {
             clo.result(storage.invoke(toCondition(cmd.condition()), cmd.success(), cmd.failure(), opTime, cmd.id()));
 
             // TODO: https://issues.apache.org/jira/browse/IGNITE-19417 Remove.
-            evictIdempotentCommandsCache(opTime);
+            if (command.safeTime().longValue() % 100 == 0) {
+                evictIdempotentCommandsCache(opTime);
+            }
         } else if (command instanceof MultiInvokeCommand) {
             MultiInvokeCommand cmd = (MultiInvokeCommand) command;
 
             clo.result(storage.invoke(toIf(cmd.iif()), opTime, cmd.id()));
 
             // TODO: https://issues.apache.org/jira/browse/IGNITE-19417 Remove.
-            evictIdempotentCommandsCache(opTime);
+            if (command.safeTime().longValue() % 100 == 0) {
+                evictIdempotentCommandsCache(opTime);
+            }
         } else if (command instanceof SyncTimeCommand) {
-            storage.advanceSafeTime(command.safeTime());
+                storage.advanceSafeTime(command.safeTime());
 
             clo.result(null);
         }
@@ -399,11 +404,11 @@ public class MetaStorageWriteHandler {
                 storage.removeAll(commandIdStorageKeys, safeTime);
 
                 commandIdsToRemove.forEach(idempotentCommandCache.keySet()::remove);
-
-                LOG.info("Idempotent command cache cleanup finished [cleanupTimestamp={}, cleanupCompletionTimestamp={},"
-                                + " removedEntriesCount={}, cacheSize={}].", cleanupTimestamp, clusterTime.now(), commandIdsToRemove.size(),
-                        idempotentCommandCache.size());
             }
+
+            LOG.info("Idempotent command cache cleanup finished [cleanupTimestamp={}, cleanupCompletionTimestamp={},"
+                            + " removedEntriesCount={}, cacheSize={}].", cleanupTimestamp, clusterTime.now(), commandIdsToRemove.size(),
+                    idempotentCommandCache.size());
         });
     }
 
