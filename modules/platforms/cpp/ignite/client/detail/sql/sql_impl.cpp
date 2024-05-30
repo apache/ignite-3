@@ -72,7 +72,7 @@ void write_args(protocol::writer &writer, const std::vector<primitive> &args) {
 
     writer.write(args_num);
 
-    binary_tuple_builder args_builder{args_num * 3};
+    binary_tuple_builder args_builder{args_num * 2};
 
     args_builder.start();
     for (const auto &arg : args) {
