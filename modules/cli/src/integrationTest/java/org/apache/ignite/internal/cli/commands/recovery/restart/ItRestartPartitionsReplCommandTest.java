@@ -15,21 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.recovery;
+package org.apache.ignite.internal.cli.commands.recovery.restart;
 
-import org.apache.ignite.internal.cli.commands.BaseCommand;
-import org.apache.ignite.internal.cli.commands.recovery.partitions.PartitionStatesReplCommand;
-import org.apache.ignite.internal.cli.commands.recovery.reset.ResetPartitionsReplCommand;
-import org.apache.ignite.internal.cli.commands.recovery.restart.RestartPartitionsReplCommand;
-import picocli.CommandLine.Command;
+/** Test class for {@link RestartPartitionsReplCommand}. */
+public class ItRestartPartitionsReplCommandTest extends ItRestartPartitionsTest {
 
-/** Disaster recovery command. */
-@Command(name = "recovery",
-        subcommands = {
-                PartitionStatesReplCommand.class,
-                ResetPartitionsReplCommand.class,
-                RestartPartitionsReplCommand.class
-        },
-        description = "Managers disaster recovery of Ignite cluster")
-public class RecoveryReplCommand extends BaseCommand {
+    @Override
+    protected Class<?> getCommandClass() {
+        return RestartPartitionsReplCommand.class;
+    }
 }

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.call.recovery.reset;
+package org.apache.ignite.internal.cli.call.recovery.restart;
 
 import jakarta.inject.Singleton;
 import org.apache.ignite.internal.cli.core.call.Call;
@@ -24,31 +24,34 @@ import org.apache.ignite.internal.cli.core.exception.IgniteCliApiException;
 import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
 import org.apache.ignite.rest.client.api.RecoveryApi;
 import org.apache.ignite.rest.client.invoker.ApiException;
-import org.apache.ignite.rest.client.model.ResetPartitionsRequest;
+import org.apache.ignite.rest.client.model.RestartPartitionsRequest;
 
-/** Call to reset partitions. */
+/** Call to restart partitions. */
 @Singleton
-public class ResetPartitionsCall implements Call<ResetPartitionsCallInput, String> {
+public class RestartPartitionsCall implements Call<RestartPartitionsCallInput, String> {
     private final ApiClientFactory clientFactory;
 
-    public ResetPartitionsCall(ApiClientFactory clientFactory) {
+    public RestartPartitionsCall(ApiClientFactory clientFactory) {
         this.clientFactory = clientFactory;
     }
 
     @Override
-    public DefaultCallOutput<String> execute(ResetPartitionsCallInput input) {
+    public DefaultCallOutput<String> execute(RestartPartitionsCallInput input) {
         RecoveryApi client = new RecoveryApi(clientFactory.getClient(input.clusterUrl()));
 
-        ResetPartitionsRequest command = new ResetPartitionsRequest();
+        RestartPartitionsRequest command = new RestartPartitionsRequest();
 
         command.setPartitionIds(input.partitionIds());
+        command.setNodeNames(input.nodeNames());
         command.setTableName(input.tableName());
         command.setZoneName(input.zoneName());
 
         try {
-            client.resetPartitions(command);
+            client.restartPartitions(command);
 
-            return DefaultCallOutput.success("Successfully reset partitions.");
+            return DefaultCallOutput.success(
+                    "Successfully restarted partitions."
+            );
         } catch (ApiException e) {
             return DefaultCallOutput.failure(new IgniteCliApiException(e, input.clusterUrl()));
         }
