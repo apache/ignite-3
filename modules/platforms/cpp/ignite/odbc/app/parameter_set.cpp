@@ -162,7 +162,7 @@ void parameter_set::write(protocol::writer &writer, SQLULEN begin, SQLULEN end, 
 
 void parameter_set::write_row(protocol::writer &writer, SQLULEN idx) const {
     auto args_num = calculate_row_len();
-    binary_tuple_builder row_builder{args_num * 3};
+    binary_tuple_builder row_builder{args_num * 2};
 
     row_builder.start();
 

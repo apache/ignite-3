@@ -26,7 +26,6 @@ namespace ignite {
 void parameter::claim(binary_tuple_builder &builder, int offset, SQLULEN idx) const {
     if (m_buffer.get_input_size() == SQL_NULL_DATA) {
         builder.claim_null(); // Type.
-        builder.claim_null(); // Scale.
         builder.claim_null(); // Value.
         return;
     }
@@ -154,7 +153,6 @@ void parameter::claim(binary_tuple_builder &builder, int offset, SQLULEN idx) co
 void parameter::append(binary_tuple_builder &builder, int offset, SQLULEN idx) const {
     if (m_buffer.get_input_size() == SQL_NULL_DATA) {
         builder.append_null(); // Type.
-        builder.append_null(); // Scale.
         builder.append_null(); // Value.
         return;
     }
