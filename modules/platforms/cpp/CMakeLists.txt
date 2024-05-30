@@ -37,11 +37,20 @@ list(APPEND CMAKE_PREFIX_PATH ${CMAKE_BINARY_DIR})
 
 get_property(is_multi_config GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
 
+if (CMAKE_VERSION VERSION_GREATER_EQUAL "3.24.0")
+    # Avoid warning about DOWNLOAD_EXTRACT_TIMESTAMP:
+    cmake_policy(SET CMP0135 NEW)
+    # Silence Dart and FindDart modules warning in msgpack-c
+    cmake_policy(SET CMP0145 NEW)
+endif()
+
+cmake_policy(SET CMP0048 NEW)
+
 include(FetchContent)
 FetchContent_Declare(
         msgpack-c
-        GIT_REPOSITORY git@github.com:msgpack/msgpack-c.git
-        GIT_TAG        cpp-4.0.0
+        URL https://github.com/msgpack/msgpack-c/releases/download/c-4.0.0/msgpack-c-4.0.0.tar.gz
+        URL_HASH MD5=1b02fb40973d52f2cfa37758db69d156
 )
 
 FetchContent_MakeAvailable(msgpack-c)
@@ -49,8 +58,8 @@ FetchContent_MakeAvailable(msgpack-c)
 if (${ENABLE_TESTS})
     FetchContent_Declare(
             googletest
-            GIT_REPOSITORY git@github.com:google/googletest.git
-            GIT_TAG        release-1.12.1
+            URL https://github.com/google/googletest/archive/refs/tags/release-1.12.1.tar.gz
+            URL_HASH MD5=e82199374acdfda3f425331028eb4e2a
     )
 
     FetchContent_MakeAvailable(googletest)
