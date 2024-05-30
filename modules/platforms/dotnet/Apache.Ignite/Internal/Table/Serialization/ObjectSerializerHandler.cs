@@ -105,7 +105,11 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 il.Emit(OpCodes.Ldarg_0); // writer
                 il.Emit(OpCodes.Ldarg_2); // value
 
-                if (col.Type is ColumnType.Time or ColumnType.Datetime or ColumnType.Timestamp)
+                if (col.Type == ColumnType.Decimal)
+                {
+                    il.Emit(OpCodes.Ldc_I4, col.Scale);
+                }
+                else if (col.Type is ColumnType.Time or ColumnType.Datetime or ColumnType.Timestamp)
                 {
                     il.Emit(OpCodes.Ldc_I4, col.Precision);
                 }
@@ -285,11 +289,6 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 // Single column to primitive type mapping.
                 il.Emit(OpCodes.Ldarg_0); // reader
                 il.Emit(OpCodes.Ldc_I4_0); // index
-
-                if (schema.Columns[0] is { Type: ColumnType.Decimal } col)
-                {
-                    il.Emit(OpCodes.Ldc_I4, col.Scale);
-                }
 
                 il.Emit(OpCodes.Call, readMethod);
                 il.Emit(OpCodes.Ret);
