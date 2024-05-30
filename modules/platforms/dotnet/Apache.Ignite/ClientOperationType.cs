@@ -149,6 +149,11 @@ namespace Apache.Ignite
         /// <summary>
         /// Send data streamer batch (<see cref="IDataStreamerTarget{T}"/>).
         /// </summary>
-        StreamerBatchSend
+        StreamerBatchSend,
+
+        /// <summary>
+        /// Send data streamer batch with receiver (<see cref="IDataStreamerTarget{T}"/>).
+        /// </summary>
+        StreamerWithReceiverBatchSend
     }
 }

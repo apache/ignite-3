@@ -125,7 +125,6 @@ public abstract class IgniteServerBase : IDisposable
 
                 _cts.Cancel();
                 _handler?.Dispose();
-                _listener.Disconnect(false);
                 _listener.Dispose();
                 _cts.Dispose();
 
