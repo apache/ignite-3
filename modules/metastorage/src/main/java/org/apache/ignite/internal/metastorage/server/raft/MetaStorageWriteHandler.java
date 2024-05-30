@@ -391,17 +391,19 @@ public class MetaStorageWriteHandler {
                     .map(entry -> entry.getKey())
                     .collect(toList());
 
-            List<byte[]> commandIdStorageKeys = commandIdsToRemove.stream()
-                    .map(commandId -> ArrayUtils.concat(new byte[]{}, ByteUtils.toBytes(commandId)))
-                    .collect(toList());
+            if (!commandIdsToRemove.isEmpty()) {
+                List<byte[]> commandIdStorageKeys = commandIdsToRemove.stream()
+                        .map(commandId -> ArrayUtils.concat(new byte[]{}, ByteUtils.toBytes(commandId)))
+                        .collect(toList());
 
-            storage.removeAll(commandIdStorageKeys, safeTime);
+                storage.removeAll(commandIdStorageKeys, safeTime);
 
-            commandIdsToRemove.forEach(idempotentCommandCache.keySet()::remove);
+                commandIdsToRemove.forEach(idempotentCommandCache.keySet()::remove);
 
-            LOG.info("Idempotent command cache cleanup finished [cleanupTimestamp={}, cleanupCompletionTimestamp={},"
-                            + " removedEntriesCount={}, cacheSize={}].", cleanupTimestamp, clusterTime.now(), commandIdsToRemove.size(),
-                    idempotentCommandCache.size());
+                LOG.info("Idempotent command cache cleanup finished [cleanupTimestamp={}, cleanupCompletionTimestamp={},"
+                                + " removedEntriesCount={}, cacheSize={}].", cleanupTimestamp, clusterTime.now(), commandIdsToRemove.size(),
+                        idempotentCommandCache.size());
+            }
         });
     }
 
