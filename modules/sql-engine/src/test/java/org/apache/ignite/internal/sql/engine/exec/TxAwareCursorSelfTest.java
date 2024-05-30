@@ -31,6 +31,7 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.sql.engine.framework.NoOpTransaction;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapperImpl;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
@@ -46,7 +47,7 @@ import org.mockito.Mockito;
 /**
  * Tests for {@link TxAwareAsyncCursor}.
  */
-public class TxAwareCursorSelfTest {
+public class TxAwareCursorSelfTest extends BaseIgniteAbstractTest {
 
     /** Cursor should trigger commit of implicit transaction (if any) only if data is fully read. */
     @ParameterizedTest(name = "{0}")
