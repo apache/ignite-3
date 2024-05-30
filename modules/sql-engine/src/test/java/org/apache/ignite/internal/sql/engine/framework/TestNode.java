@@ -197,7 +197,7 @@ public class TestNode implements LifecycleAware {
         return clock;
     }
 
-    public ClockService clockService() {
+    ClockService clockService() {
         return clockService;
     }
 
