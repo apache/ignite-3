@@ -708,7 +708,7 @@ namespace Apache.Ignite.Tests
                 }.ToString()
                 : Node.Name;
 
-            using var builder = new BinaryTupleBuilder(3);
+            using var builder = new BinaryTupleBuilder(2);
             builder.AppendObjectWithType(resObj);
 
             var arrayBufferWriter = new PooledArrayBuffer();
