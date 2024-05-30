@@ -267,7 +267,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
                     topologyAwareRaftGroupServiceFactory,
                     new NoOpMetricManager(),
                     metaStorageConfiguration,
-                    completedFuture(() -> clockService.maxClockSkewMillis())
+                    completedFuture(clockService::maxClockSkewMillis)
             );
 
             if (this.metaStorageManager == null) {
