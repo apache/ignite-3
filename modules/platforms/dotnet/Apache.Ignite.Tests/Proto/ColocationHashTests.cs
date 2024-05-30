@@ -211,8 +211,8 @@ public class ColocationHashTests : IgniteTestsBase
     private static (byte[] Bytes, int Hash) WriteAsBinaryTuple(IReadOnlyCollection<object> arr, int timePrecision, int timestampPrecision)
     {
         using var builder = new BinaryTupleBuilder(
-            numElements: arr.Count * 3,
-            hashedColumnsPredicate: new TestIndexProvider(x => x % 3 == 2 ? x / 3 : -1, arr.Count));
+            numElements: arr.Count * 2,
+            hashedColumnsPredicate: new TestIndexProvider(x => x % 2 == 1 ? x / 2 : -1, arr.Count));
 
         foreach (var obj in arr)
         {

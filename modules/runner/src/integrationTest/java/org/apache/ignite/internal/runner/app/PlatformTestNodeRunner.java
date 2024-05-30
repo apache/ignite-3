@@ -609,12 +609,11 @@ public class PlatformTestNodeRunner {
 
             List<Column> columns = new ArrayList<>(columnCount);
             var tuple = Tuple.create(columnCount);
-            var reader = new BinaryTupleReader(columnCount * 3, buf);
+            var reader = new BinaryTupleReader(columnCount * 2, buf);
 
             for (int i = 0; i < columnCount; i++) {
-                var type = ColumnTypeConverter.fromIdOrThrow(reader.intValue(i * 3));
-                var scale = reader.intValue(i * 3 + 1);
-                var valIdx = i * 3 + 2;
+                var type = ColumnTypeConverter.fromIdOrThrow(reader.intValue(i * 2));
+                var valIdx = i * 2 + 1;
 
                 String colName = "col" + i;
 
@@ -655,8 +654,8 @@ public class PlatformTestNodeRunner {
                         break;
 
                     case DECIMAL:
-                        columns.add(new Column(colName, NativeTypes.decimalOf(100, scale), false));
-                        tuple.set(colName, reader.decimalValue(valIdx, scale));
+                        columns.add(new Column(colName, NativeTypes.decimalOf(100, 50), false));
+                        tuple.set(colName, reader.decimalValue(valIdx, -1));
                         break;
 
                     case STRING:
