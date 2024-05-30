@@ -26,8 +26,8 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.marshaller.MarshallersProvider;
-import org.apache.ignite.table.Table;
 import org.apache.ignite.table.IgniteTables;
+import org.apache.ignite.table.Table;
 
 /**
  * Client tables API implementation.
