@@ -142,6 +142,24 @@ namespace Apache.Ignite.Internal.Compute
         public override string ToString() => IgniteToStringBuilder.Build(GetType());
 
         /// <summary>
+        /// Writes the deployment units.
+        /// </summary>
+        /// <param name="units">Units.</param>
+        /// <param name="buf">Buffer.</param>
+        internal static void WriteUnits(IEnumerable<DeploymentUnit> units, PooledArrayBuffer buf)
+        {
+            WriteEnumerable(units, buf, writerFunc: unit =>
+            {
+                IgniteArgumentCheck.NotNullOrEmpty(unit.Name);
+                IgniteArgumentCheck.NotNullOrEmpty(unit.Version);
+
+                var w = buf.MessageWriter;
+                w.Write(unit.Name);
+                w.Write(unit.Version);
+            });
+        }
+
+        /// <summary>
         /// Gets the job status.
         /// </summary>
         /// <param name="jobId">Job ID.</param>
@@ -233,19 +251,6 @@ namespace Apache.Ignite.Internal.Compute
 
             countSpan[0] = MsgPackCode.Array32;
             BinaryPrimitives.WriteInt32BigEndian(countSpan[1..], count);
-        }
-
-        private static void WriteUnits(IEnumerable<DeploymentUnit> units, PooledArrayBuffer buf)
-        {
-            WriteEnumerable(units, buf, writerFunc: unit =>
-            {
-                IgniteArgumentCheck.NotNullOrEmpty(unit.Name);
-                IgniteArgumentCheck.NotNullOrEmpty(unit.Version);
-
-                var w = buf.MessageWriter;
-                w.Write(unit.Name);
-                w.Write(unit.Version);
-            });
         }
 
         private static void WriteNodeNames(IEnumerable<IClusterNode> nodes, PooledArrayBuffer buf)

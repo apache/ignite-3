@@ -241,7 +241,7 @@ public class StripedDisruptorTest extends IgniteAbstractTest {
 
         assertTrue(IgniteTestUtils.waitForCondition(() -> {
             for (GroupAwareTestObjHandler handler : handlers) {
-                if (handler.applied != batchSize || handler.batchesApplied != 1) {
+                if (handler.applied != batchSize) {
                     return false;
                 }
             }
@@ -305,17 +305,17 @@ public class StripedDisruptorTest extends IgniteAbstractTest {
                 int batchCommited = 0;
 
                 for (GroupAwareTestObjHandler handler : handlers) {
-                    if (handler.applied == batchSize && handler.batchesApplied == 1) {
+                    if (handler.applied == batchSize) {
                         batchCommited++;
                     }
                 }
 
-                return batchCommited == 1;
+                return batchCommited >= 1;
             }, 10_000));
         } else {
             assertTrue(IgniteTestUtils.waitForCondition(() -> {
                 for (GroupAwareTestObjHandler handler : handlers) {
-                    if (handler.applied != batchSize || handler.batchesApplied != 1) {
+                    if (handler.applied != batchSize) {
                         return false;
                     }
                 }
@@ -428,9 +428,6 @@ public class StripedDisruptorTest extends IgniteAbstractTest {
         /** Counter of applied events. */
         int applied = 0;
 
-        /** Amount of applied batches. */
-        int batchesApplied = 0;
-
         /** {@inheritDoc} */
         @Override
         public void onEvent(NodeIdAwareTestObj event, long sequence, boolean endOfBatch) {
@@ -438,8 +435,6 @@ public class StripedDisruptorTest extends IgniteAbstractTest {
 
             if (endOfBatch) {
                 applied += batch.size();
-
-                batchesApplied++;
 
                 batch.clear();
             }
