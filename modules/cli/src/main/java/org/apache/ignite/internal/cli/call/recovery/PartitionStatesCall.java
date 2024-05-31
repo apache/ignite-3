@@ -51,13 +51,11 @@ public class PartitionStatesCall implements Call<PartitionStatesCallInput, Table
     public DefaultCallOutput<Table> execute(PartitionStatesCallInput input) {
         RecoveryApi client = new RecoveryApi(clientFactory.getClient(input.clusterUrl()));
 
-        List<String> trimmedZoneNames = trim(input.zoneNames());
-
         try {
             if (input.local()) {
-                return getLocalPartitionStatesOutput(client, trimmedZoneNames, input);
+                return getLocalPartitionStatesOutput(client, input.zoneNames(), input);
             } else {
-                return getGlobalPartitionStatesOutput(input, client, trimmedZoneNames);
+                return getGlobalPartitionStatesOutput(input, client, input.zoneNames());
             }
         } catch (ApiException e) {
             return DefaultCallOutput.failure(new IgniteCliApiException(e, input.clusterUrl()));
@@ -67,10 +65,10 @@ public class PartitionStatesCall implements Call<PartitionStatesCallInput, Table
     private static DefaultCallOutput<Table> getGlobalPartitionStatesOutput(
             PartitionStatesCallInput input,
             RecoveryApi client,
-            List<String> trimmedZoneNames
+            List<String> zoneNames
     ) throws ApiException {
         GlobalPartitionStatesResponse globalStates = client.getGlobalPartitionStates(
-                trimmedZoneNames,
+                zoneNames,
                 input.partitionIds()
         );
 
@@ -89,14 +87,12 @@ public class PartitionStatesCall implements Call<PartitionStatesCallInput, Table
 
     private static DefaultCallOutput<Table> getLocalPartitionStatesOutput(
             RecoveryApi client,
-            List<String> trimmedZoneNames,
+            List<String> zoneNames,
             PartitionStatesCallInput input)
             throws ApiException {
-        List<String> trimmedNodeNames = trim(input.nodeNames());
-
         LocalPartitionStatesResponse localStates = client.getLocalPartitionStates(
-                trimmedZoneNames,
-                trimmedNodeNames,
+                zoneNames,
+                input.nodeNames(),
                 input.partitionIds()
         );
 
@@ -113,13 +109,5 @@ public class PartitionStatesCall implements Call<PartitionStatesCallInput, Table
                 .collect(toList());
 
         return DefaultCallOutput.success(new Table(LOCAL_HEADERS, content));
-    }
-
-    private static List<String> trim(List<String> names) {
-        return names == null
-                ? List.of()
-                : names.stream()
-                        .map(String::trim)
-                        .collect(toList());
     }
 }

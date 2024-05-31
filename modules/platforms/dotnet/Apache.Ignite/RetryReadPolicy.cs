@@ -62,6 +62,7 @@ namespace Apache.Ignite
                 ClientOperationType.ComputeChangePriority => false,
                 ClientOperationType.ComputeGetStatus => true,
                 ClientOperationType.StreamerBatchSend => false,
+                ClientOperationType.StreamerWithReceiverBatchSend => false,
                 var unsupported => throw new NotSupportedException("Unsupported operation type: " + unsupported)
             };
         }

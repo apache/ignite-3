@@ -50,8 +50,10 @@ import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
@@ -82,8 +84,12 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteCheckedException;
+import org.apache.ignite.table.DataStreamerReceiver;
+import org.apache.ignite.table.DataStreamerReceiverContext;
+import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Helper class for non-Java platform tests (.NET, C++, Python, ...). Starts nodes, populates tables and data for tests.
@@ -764,6 +770,66 @@ public class PlatformTestNodeRunner {
                     });
 
             assertThat(changeFuture, willCompleteSuccessfully());
+
+            return null;
+        }
+    }
+
+    @SuppressWarnings("unused") // Used by platform tests.
+    private static class TestReceiver implements DataStreamerReceiver<String, String> {
+        @SuppressWarnings("resource")
+        @Override
+        public @Nullable CompletableFuture<List<String>> receive(List<String> page, DataStreamerReceiverContext ctx, Object... args) {
+            String tableName = (String) args[0];
+            String arg1 = (String) args[1];
+            int arg2 = (Integer) args[2];
+
+            if (Objects.equals(arg1, "throw")) {
+                throw new ArithmeticException("Test exception: " + arg2);
+            }
+
+            Table table = ctx.ignite().tables().table(tableName);
+            RecordView<Tuple> recordView = table.recordView();
+
+            for (String s : page) {
+                String[] parts = s.split("-", 2);
+
+                Tuple rec = Tuple.create()
+                        .set("key", Long.parseLong(parts[0]))
+                        .set("val", parts[1] + "_" + arg1 + "_" + arg2);
+
+                recordView.upsert(null, rec);
+            }
+
+            return null;
+        }
+    }
+
+    @SuppressWarnings("unused") // Used by platform tests.
+    private static class UpsertElementTypeNameReceiver implements DataStreamerReceiver<Object, Object> {
+        @SuppressWarnings("resource")
+        @Override
+        public @Nullable CompletableFuture<List<Object>> receive(List<Object> page, DataStreamerReceiverContext ctx, Object... args) {
+            String tableName = (String) args[0];
+            long id1 = (Long) args[1];
+            long id2 = (Long) args[2];
+
+            Table table = ctx.ignite().tables().table(tableName);
+            RecordView<Tuple> recordView = table.recordView();
+
+            for (Object item : page) {
+                Tuple classNameRec = Tuple.create()
+                        .set("key", id1)
+                        .set("val", item.getClass().getName());
+
+                Tuple valStrRec = Tuple.create()
+                        .set("key", id2)
+                        .set("val", item instanceof byte[]
+                                ? Arrays.toString((byte[]) item)
+                                : item.toString());
+
+                recordView.upsertAll(null, List.of(classNameRec, valStrRec));
+            }
 
             return null;
         }

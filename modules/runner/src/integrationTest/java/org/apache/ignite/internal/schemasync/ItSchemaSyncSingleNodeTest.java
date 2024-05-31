@@ -110,7 +110,7 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
                     ex.getMessage(),
                     containsString(String.format(
                             "Table schema was updated after the transaction was started [table=%s, startSchema=1, operationSchema=2]",
-                            tableId
+                            table.name()
                     ))
             );
         } else {
@@ -119,7 +119,7 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
                     ex.getMessage(),
                     is(String.format(
                             "Table schema was updated after the transaction was started [table=%s, startSchema=1, operationSchema=2]",
-                            tableId
+                            table.name()
                     ))
             );
         }
@@ -252,13 +252,15 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
             ex = assertThrows(IgniteException.class, () -> operation.execute(table, tx, cluster));
             assertThat(
                     ex.getMessage(),
-                    containsString(String.format("Table was dropped [table=%s]", tableId))
+                    // TODO https://issues.apache.org/jira/browse/IGNITE-22309 use tableName instead
+                    containsString(String.format("Table was dropped [tableId=%s]", tableId))
             );
         } else {
             ex = assertThrows(IncompatibleSchemaException.class, () -> operation.execute(table, tx, cluster));
             assertThat(
                     ex.getMessage(),
-                    is(String.format("Table was dropped [table=%s]", tableId))
+                    // TODO https://issues.apache.org/jira/browse/IGNITE-22309 use tableName instead
+                    is(String.format("Table was dropped [tableId=%s]", tableId))
             );
         }
 
@@ -294,7 +296,7 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
         assertThat(ex, is(instanceOf(TransactionException.class)));
         assertThat(
                 ex.getMessage(),
-                containsString(String.format("Commit failed because a table was already dropped [tableId=%s]", tableId))
+                containsString(String.format("Commit failed because a table was already dropped [table=%s]", table.name()))
         );
 
         assertThat(((TransactionException) ex).code(), is(Transactions.TX_UNEXPECTED_STATE_ERR));
@@ -356,7 +358,7 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
                 containsString(String.format(
                         "Operation failed because it tried to access a row with newer schema version than transaction's [table=%s, "
                                 + "txSchemaVersion=1, rowSchemaVersion=2]",
-                        tableId
+                        table.name()
                 ))
         );
 

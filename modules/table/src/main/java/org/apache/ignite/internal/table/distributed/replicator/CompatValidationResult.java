@@ -23,16 +23,17 @@ import org.jetbrains.annotations.Nullable;
  * Result of a schema compatibility validation.
  */
 public class CompatValidationResult {
-    private static final CompatValidationResult SUCCESSFUL_RESULT = new CompatValidationResult(ValidationStatus.SUCCESS, -1, -1, -1);
+    private static final CompatValidationResult SUCCESSFUL_RESULT = new CompatValidationResult(ValidationStatus.SUCCESS, "", -1, -1, null);
 
     private enum ValidationStatus {
         SUCCESS, INCOMPATIBLE_CHANGE, TABLE_DROPPED
     }
 
     private final ValidationStatus status;
-    private final int failedTableId;
+    private final String failedTableName;
     private final int fromSchemaVersion;
     private final @Nullable Integer toSchemaVersion;
+    private final @Nullable String details;
 
     /**
      * Returns a successful validation result.
@@ -46,36 +47,49 @@ public class CompatValidationResult {
     /**
      * Creates a validation result denoting incompatible schema change.
      *
-     * @param failedTableId Table which schema change is incompatible.
+     * @param failedTableName Table which schema change is incompatible.
      * @param fromSchemaVersion Version number of the schema from which an incompatible transition tried to be made.
      * @param toSchemaVersion Version number of the schema to which an incompatible transition tried to be made.
      * @return A validation result for a failure.
      */
-    public static CompatValidationResult incompatibleChange(int failedTableId, int fromSchemaVersion, int toSchemaVersion) {
-        return new CompatValidationResult(ValidationStatus.INCOMPATIBLE_CHANGE, failedTableId, fromSchemaVersion, toSchemaVersion);
+    public static CompatValidationResult incompatibleChange(
+            String failedTableName,
+            int fromSchemaVersion,
+            int toSchemaVersion,
+            @Nullable String details
+    ) {
+        return new CompatValidationResult(
+                ValidationStatus.INCOMPATIBLE_CHANGE,
+                failedTableName,
+                fromSchemaVersion,
+                toSchemaVersion,
+                details
+        );
     }
 
     /**
      * Creates a validation result denoting 'table already dropped when commit is made' situation.
      *
-     * @param failedTableId Table which schema change is incompatible.
+     * @param failedTableName Table which schema change is incompatible.
      * @param fromSchemaVersion Version number of the schema from which an incompatible transition tried to be made.
      * @return A validation result for a failure.
      */
-    public static CompatValidationResult tableDropped(int failedTableId, int fromSchemaVersion) {
-        return new CompatValidationResult(ValidationStatus.TABLE_DROPPED, failedTableId, fromSchemaVersion, null);
+    public static CompatValidationResult tableDropped(String failedTableName, int fromSchemaVersion) {
+        return new CompatValidationResult(ValidationStatus.TABLE_DROPPED, failedTableName, fromSchemaVersion, null, null);
     }
 
     private CompatValidationResult(
             ValidationStatus status,
-            int failedTableId,
+            String failedTableName,
             int fromSchemaVersion,
-            @Nullable Integer toSchemaVersion
+            @Nullable Integer toSchemaVersion,
+            @Nullable String details
     ) {
         this.status = status;
-        this.failedTableId = failedTableId;
+        this.failedTableName = failedTableName;
         this.fromSchemaVersion = fromSchemaVersion;
         this.toSchemaVersion = toSchemaVersion;
+        this.details = details;
     }
 
     /**
@@ -95,15 +109,15 @@ public class CompatValidationResult {
     }
 
     /**
-     * Returns ID of the table for which the validation has failed. Should only be called for a failed validation result, otherwise an
+     * Returns name of the table for which the validation has failed. Should only be called for a failed validation result, otherwise an
      * exception is thrown.
      *
-     * @return Table ID.
+     * @return Table name.
      */
-    public int failedTableId() {
+    public String failedTableName() {
         assert !isSuccessful() : "Should not be called on a successful result";
 
-        return failedTableId;
+        return failedTableName;
     }
 
     /**
@@ -127,5 +141,17 @@ public class CompatValidationResult {
         assert toSchemaVersion != null : "Should not be called when there is no toSchemaVersion";
 
         return toSchemaVersion;
+    }
+
+    /**
+     * For failed validation returns details why the operation failed.
+     *
+     * @return Details why the operation failed.
+     */
+    public String details() {
+        assert !isSuccessful() : "Should not be called on a successful result";
+        assert details != null : "Should not be called when there are no details";
+
+        return details;
     }
 }

@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.util.CompletableFutures.emptySetCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
@@ -87,9 +88,7 @@ import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
-import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
@@ -277,6 +276,12 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         when(topologyService.localMember()).thenReturn(node);
         when(distributionZoneManager.dataNodes(anyLong(), anyInt(), anyInt())).thenReturn(emptySetCompletedFuture());
 
+        when(replicaMgr.getLogSyncer()).thenReturn(mock(LogSyncer.class));
+        when(replicaMgr.startReplica(any(), any(), any(), any(), any(), any()))
+                .thenReturn(nullCompletedFuture());
+        // TODO: will be removed after https://issues.apache.org/jira/browse/IGNITE-22315
+        when(replicaMgr.startRaftClient(any(), any(), any()))
+                .thenReturn(completedFuture(mock(TopologyAwareRaftGroupService.class)));
         when(replicaMgr.stopReplica(any())).thenReturn(trueCompletedFuture());
 
         try (MockedStatic<SchemaUtils> schemaServiceMock = mockStatic(SchemaUtils.class)) {
@@ -314,7 +319,6 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 clusterService.messagingService(),
                 clusterService.topologyService(),
                 clusterService.serializationRegistry(),
-                rm,
                 replicaMgr,
                 null,
                 null,
@@ -323,13 +327,12 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 workDir,
                 metaStorageManager,
                 sm = new SchemaManager(revisionUpdater, catalogManager),
-                budgetView -> new LocalLogStorageFactory(),
                 partitionOperationsExecutor,
                 partitionOperationsExecutor,
+                mock(ScheduledExecutorService.class),
                 clock,
                 clockService,
                 new OutgoingSnapshotsManager(clusterService.messagingService()),
-                mock(TopologyAwareRaftGroupServiceFactory.class),
                 distributionZoneManager,
                 new AlwaysSyncedSchemaSyncService(),
                 catalogManager,
@@ -337,7 +340,6 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 placementDriver,
                 () -> mock(IgniteSql.class),
                 new RemotelyTriggeredResourceRegistry(),
-                mock(ScheduledExecutorService.class),
                 lowWatermark,
                 new TransactionInflights(placementDriver, clockService)
         ) {
