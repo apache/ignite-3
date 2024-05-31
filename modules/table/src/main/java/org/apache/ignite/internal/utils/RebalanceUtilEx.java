@@ -29,6 +29,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
+import static org.apache.ignite.internal.util.ByteUtils.longToComparableBytes;
 import static org.apache.ignite.internal.util.CollectionUtils.difference;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
@@ -46,7 +47,6 @@ import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.util.ByteUtils;
 
 /**
  * Util class for methods needed for the rebalance process. "Ex" stands for "Excommunicado". This class should be removed in the future.
@@ -137,7 +137,7 @@ public class RebalanceUtilEx {
         byte[] assignmentsByteArray = Assignments.toBytes(assignments);
 
         ByteArray changeTriggerKey = pendingChangeTriggerKey(partId);
-        byte[] rev = ByteUtils.longToBytes(entry.revision());
+        byte[] rev = longToComparableBytes(entry.revision());
 
         // Here is what happens in the MetaStorage:
         // if ((notExists(changeTriggerKey) || value(changeTriggerKey) < revision) && (notExists(pendingKey) && notExists(stableKey)) {

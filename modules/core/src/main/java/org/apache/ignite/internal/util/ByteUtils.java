@@ -24,6 +24,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
@@ -64,6 +65,17 @@ public class ByteUtils {
         return bytesToLong(bytes, 0);
     }
 
+
+    /**
+     * Constructs {@code long} from byte array created with {@link #longToComparableBytes(long)} with offset equal to 0.
+     *
+     * @param bytes Array of bytes.
+     * @return Long value.
+     */
+    public static long comparableBytesToLong(byte[] bytes) {
+        return bytesToLong(bytes) ^ 0x0080808080808080L;
+    }
+
     /**
      * Converts a primitive {@code long} value to a byte array in Big Endian order.
      *
@@ -72,6 +84,17 @@ public class ByteUtils {
      */
     public static byte[] longToBytes(long l) {
         return putLongToBytes(l, new byte[8], 0);
+    }
+
+    /**
+     * Converts a primitive {@code long} value to a byte array than can be compared with {@link ByteBuffer#compareTo(ByteBuffer)} with the
+     * same order as the original {@code long}.
+     *
+     * @param l Long value.
+     * @return Array of bytes.
+     */
+    public static byte[] longToComparableBytes(long l) {
+        return longToBytes(l ^ 0x0080808080808080L);
     }
 
     /**
