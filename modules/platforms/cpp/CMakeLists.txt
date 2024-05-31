@@ -128,7 +128,6 @@ endif()
 
 # Setup gtest for unit & integration tests.
 if (${ENABLE_TESTS})
-    find_package(GTest REQUIRED)
     include(GoogleTest)
     enable_testing()
 endif()

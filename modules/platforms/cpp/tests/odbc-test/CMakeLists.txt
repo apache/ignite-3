@@ -34,8 +34,7 @@ set(SOURCES
     transaction_test.cpp
 )
 
-add_executable(${TARGET} ${SOURCES})
-target_link_libraries(${TARGET} ignite-test-common ignite-client ${ODBC_LIBRARY} GTest::GTest)
+ignite_test(${TARGET} ${SOURCES} LIBS ignite-test-common ignite-client ${ODBC_LIBRARY})
 
 if (WIN32)
     remove_definitions(-DUNICODE=1)
