@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.util;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.apache.ignite.internal.util.ByteUtils.comparableBytesToLong;
-import static org.apache.ignite.internal.util.ByteUtils.longToComparableBytes;
+import static org.apache.ignite.internal.util.ByteUtils.bytesToLongKeepingOrder;
+import static org.apache.ignite.internal.util.ByteUtils.longToBytesKeepingOrder;
 import static org.apache.ignite.internal.util.ByteUtils.stringFromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.stringToBytes;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -50,17 +50,25 @@ public class ByteUtilsTest {
     }
 
     @Test
-    void testComparableLong() {
-        assertEquals(1234567890L, comparableBytesToLong(longToComparableBytes(1234567890L)));
+    void testBytesToLongKeepingOrder() {
+        assertEquals(1234567890L, bytesToLongKeepingOrder(longToBytesKeepingOrder(1234567890L)));
+    }
 
-        ByteBuffer buf127 = ByteBuffer.wrap(longToComparableBytes(127));
-        ByteBuffer buf128 = ByteBuffer.wrap(longToComparableBytes(128));
+    @Test
+    void testBytesToLongKeepingOrderComparison() {
+        for (int i = 0; i < Long.SIZE - 4; i++) {
+            ByteBuffer bufLo = ByteBuffer.wrap(longToBytesKeepingOrder(3L << i));
+            ByteBuffer bufHi = ByteBuffer.wrap(longToBytesKeepingOrder(3L << (i + 1)));
 
-        assertThat(buf127, lessThan(buf128));
+            assertThat(bufLo, lessThan(bufHi));
+        }
+    }
 
-        ByteBuffer buf1 = ByteBuffer.wrap(longToComparableBytes(1));
-        ByteBuffer buf256 = ByteBuffer.wrap(longToComparableBytes(256));
+    @Test
+    void testBytesToLongKeepingOrderLongOverflow() {
+        ByteBuffer bufLo = ByteBuffer.wrap(longToBytesKeepingOrder(Long.MIN_VALUE));
+        ByteBuffer bufHi = ByteBuffer.wrap(longToBytesKeepingOrder(Long.MAX_VALUE));
 
-        assertThat(buf1, lessThan(buf256));
+        assertThat(bufLo, lessThan(bufHi));
     }
 }

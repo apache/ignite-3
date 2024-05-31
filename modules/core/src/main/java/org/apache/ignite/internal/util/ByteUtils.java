@@ -66,12 +66,12 @@ public class ByteUtils {
     }
 
     /**
-     * Constructs {@code long} from byte array created with {@link #longToComparableBytes(long)} with offset equal to 0.
+     * Constructs {@code long} from byte array created with {@link #longToBytesKeepingOrder(long)} with offset equal to 0.
      *
      * @param bytes Array of bytes.
      * @return Long value.
      */
-    public static long comparableBytesToLong(byte[] bytes) {
+    public static long bytesToLongKeepingOrder(byte[] bytes) {
         return bytesToLong(bytes) ^ 0x0080808080808080L;
     }
 
@@ -92,7 +92,7 @@ public class ByteUtils {
      * @param l Long value.
      * @return Array of bytes.
      */
-    public static byte[] longToComparableBytes(long l) {
+    public static byte[] longToBytesKeepingOrder(long l) {
         return longToBytes(l ^ 0x0080808080808080L);
     }
 

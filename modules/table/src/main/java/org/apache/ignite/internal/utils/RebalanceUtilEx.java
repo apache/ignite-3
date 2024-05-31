@@ -29,7 +29,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
-import static org.apache.ignite.internal.util.ByteUtils.longToComparableBytes;
+import static org.apache.ignite.internal.util.ByteUtils.longToBytesKeepingOrder;
 import static org.apache.ignite.internal.util.CollectionUtils.difference;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
@@ -137,7 +137,7 @@ public class RebalanceUtilEx {
         byte[] assignmentsByteArray = Assignments.toBytes(assignments);
 
         ByteArray changeTriggerKey = pendingChangeTriggerKey(partId);
-        byte[] rev = longToComparableBytes(entry.revision());
+        byte[] rev = longToBytesKeepingOrder(entry.revision());
 
         // Here is what happens in the MetaStorage:
         // if ((notExists(changeTriggerKey) || value(changeTriggerKey) < revision) && (notExists(pendingKey) && notExists(stableKey)) {

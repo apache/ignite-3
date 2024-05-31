@@ -26,7 +26,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
-import static org.apache.ignite.internal.util.ByteUtils.comparableBytesToLong;
+import static org.apache.ignite.internal.util.ByteUtils.bytesToLongKeepingOrder;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
@@ -228,8 +228,8 @@ public class CausalityDataNodesEngine {
             }
 
             Set<Node> baseDataNodes = DistributionZonesUtil.dataNodes(fromBytes(dataNodesEntry.value()));
-            long scaleUpTriggerRevision = comparableBytesToLong(scaleUpChangeTriggerKey.value());
-            long scaleDownTriggerRevision = comparableBytesToLong(scaleDownChangeTriggerKey.value());
+            long scaleUpTriggerRevision = bytesToLongKeepingOrder(scaleUpChangeTriggerKey.value());
+            long scaleDownTriggerRevision = bytesToLongKeepingOrder(scaleDownChangeTriggerKey.value());
 
             Set<Node> finalDataNodes = new HashSet<>(baseDataNodes);
 
@@ -507,7 +507,7 @@ public class CausalityDataNodesEngine {
             if (entry.value() == null) {
                 return entry.revision();
             } else {
-                long entryScaleRevision = comparableBytesToLong(entry.value());
+                long entryScaleRevision = bytesToLongKeepingOrder(entry.value());
 
                 if (entryScaleRevision >= scaleRevision) {
                     return entry.revision();

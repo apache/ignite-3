@@ -31,9 +31,9 @@ import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
-import static org.apache.ignite.internal.util.ByteUtils.comparableBytesToLong;
+import static org.apache.ignite.internal.util.ByteUtils.bytesToLongKeepingOrder;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
-import static org.apache.ignite.internal.util.ByteUtils.longToComparableBytes;
+import static org.apache.ignite.internal.util.ByteUtils.longToBytesKeepingOrder;
 
 import com.jayway.jsonpath.Configuration;
 import com.jayway.jsonpath.JsonPath;
@@ -269,7 +269,7 @@ public class DistributionZonesUtil {
     static CompoundCondition conditionForRecoverableStateChanges(long revision) {
         return or(
                 notExists(zonesRecoverableStateRevision()),
-                value(zonesRecoverableStateRevision()).lt(longToComparableBytes(revision))
+                value(zonesRecoverableStateRevision()).lt(longToBytesKeepingOrder(revision))
         );
     }
 
@@ -296,7 +296,7 @@ public class DistributionZonesUtil {
         SimpleCondition scaleUpCondition;
 
         if (scaleUpTriggerRevision != INITIAL_TRIGGER_REVISION_VALUE) {
-            scaleUpCondition = value(zoneScaleUpChangeTriggerKey(zoneId)).eq(longToComparableBytes(scaleUpTriggerRevision));
+            scaleUpCondition = value(zoneScaleUpChangeTriggerKey(zoneId)).eq(longToBytesKeepingOrder(scaleUpTriggerRevision));
         } else {
             scaleUpCondition = notExists(zoneScaleUpChangeTriggerKey(zoneId));
         }
@@ -304,7 +304,7 @@ public class DistributionZonesUtil {
         SimpleCondition scaleDownCondition;
 
         if (scaleDownTriggerRevision != INITIAL_TRIGGER_REVISION_VALUE) {
-            scaleDownCondition = value(zoneScaleDownChangeTriggerKey(zoneId)).eq(longToComparableBytes(scaleDownTriggerRevision));
+            scaleDownCondition = value(zoneScaleDownChangeTriggerKey(zoneId)).eq(longToBytesKeepingOrder(scaleDownTriggerRevision));
         } else {
             scaleDownCondition = notExists(zoneScaleDownChangeTriggerKey(zoneId));
         }
@@ -323,7 +323,7 @@ public class DistributionZonesUtil {
     static Update updateDataNodesAndScaleUpTriggerKey(int zoneId, long revision, byte[] nodes) {
         return ops(
                 put(zoneDataNodesKey(zoneId), nodes),
-                put(zoneScaleUpChangeTriggerKey(zoneId), longToComparableBytes(revision))
+                put(zoneScaleUpChangeTriggerKey(zoneId), longToBytesKeepingOrder(revision))
         ).yield(true);
     }
 
@@ -338,7 +338,7 @@ public class DistributionZonesUtil {
     static Update updateDataNodesAndScaleDownTriggerKey(int zoneId, long revision, byte[] nodes) {
         return ops(
                 put(zoneDataNodesKey(zoneId), nodes),
-                put(zoneScaleDownChangeTriggerKey(zoneId), longToComparableBytes(revision))
+                put(zoneScaleDownChangeTriggerKey(zoneId), longToBytesKeepingOrder(revision))
         ).yield(true);
     }
 
@@ -355,8 +355,8 @@ public class DistributionZonesUtil {
     static Update updateDataNodesAndTriggerKeys(int zoneId, long revision, byte[] nodes) {
         return ops(
                 put(zoneDataNodesKey(zoneId), nodes),
-                put(zoneScaleUpChangeTriggerKey(zoneId), longToComparableBytes(revision)),
-                put(zoneScaleDownChangeTriggerKey(zoneId), longToComparableBytes(revision))
+                put(zoneScaleUpChangeTriggerKey(zoneId), longToBytesKeepingOrder(revision)),
+                put(zoneScaleDownChangeTriggerKey(zoneId), longToBytesKeepingOrder(revision))
         ).yield(true);
     }
 
@@ -389,7 +389,7 @@ public class DistributionZonesUtil {
                 .collect(toSet());
 
         return ops(
-                put(zonesLogicalTopologyVersionKey(), longToComparableBytes(topologyVersion)),
+                put(zonesLogicalTopologyVersionKey(), longToBytesKeepingOrder(topologyVersion)),
                 put(zonesLogicalTopologyKey(), ByteUtils.toBytes(topologyFromCmg))
         ).yield(true);
     }
@@ -449,7 +449,7 @@ public class DistributionZonesUtil {
      */
     static long extractChangeTriggerRevision(Entry revisionEntry) {
         if (!revisionEntry.empty()) {
-            return comparableBytesToLong(revisionEntry.value());
+            return bytesToLongKeepingOrder(revisionEntry.value());
         } else {
             return INITIAL_TRIGGER_REVISION_VALUE;
         }

@@ -57,9 +57,9 @@ import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
-import static org.apache.ignite.internal.util.ByteUtils.comparableBytesToLong;
+import static org.apache.ignite.internal.util.ByteUtils.bytesToLongKeepingOrder;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
-import static org.apache.ignite.internal.util.ByteUtils.longToComparableBytes;
+import static org.apache.ignite.internal.util.ByteUtils.longToBytesKeepingOrder;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
@@ -611,7 +611,7 @@ public class DistributionZoneManager implements IgniteComponent {
                 // Very first start of the cluster, so we just initialize zonesLogicalTopologyVersionKey
                 updateCondition = notExists(zonesLogicalTopologyVersionKey());
             } else {
-                updateCondition = value(zonesLogicalTopologyVersionKey()).lt(longToComparableBytes(newTopology.version()));
+                updateCondition = value(zonesLogicalTopologyVersionKey()).lt(longToBytesKeepingOrder(newTopology.version()));
             }
 
             Iif iff = iif(
@@ -814,7 +814,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
         puts[0] = put(zonesNodesAttributes(), toBytes(nodesAttributes()));
 
-        puts[1] = put(zonesRecoverableStateRevision(), longToComparableBytes(revision));
+        puts[1] = put(zonesRecoverableStateRevision(), longToBytesKeepingOrder(revision));
 
         puts[2] = put(zonesLastHandledTopology(), toBytes(newLogicalTopology));
 
@@ -1433,7 +1433,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
             Entry lastUpdateRevisionEntry = metaStorageManager.getLocally(zonesRecoverableStateRevision(), recoveryRevision);
 
-            if (lastUpdateRevisionEntry.value() == null || topologyRevision > comparableBytesToLong(lastUpdateRevisionEntry.value())) {
+            if (lastUpdateRevisionEntry.value() == null || topologyRevision > bytesToLongKeepingOrder(lastUpdateRevisionEntry.value())) {
                 return onLogicalTopologyUpdate(newLogicalTopology, recoveryRevision, catalogVersion);
             } else {
                 return restoreTimers(catalogVersion);

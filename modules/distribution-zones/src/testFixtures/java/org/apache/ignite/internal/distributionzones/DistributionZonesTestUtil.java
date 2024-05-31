@@ -259,7 +259,7 @@ public class DistributionZonesTestUtil {
         assertValueInStorage(
                 keyValueStorage,
                 zoneScaleUpChangeTriggerKey(zoneId).bytes(),
-                ByteUtils::comparableBytesToLong,
+                ByteUtils::bytesToLongKeepingOrder,
                 revision,
                 2000
         );
@@ -348,7 +348,7 @@ public class DistributionZonesTestUtil {
         assertValueInStorage(
                 keyValueStorage,
                 zonesLogicalTopologyVersionKey().bytes(),
-                ByteUtils::comparableBytesToLong,
+                ByteUtils::bytesToLongKeepingOrder,
                 topVer,
                 1000
         );

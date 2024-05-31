@@ -36,9 +36,9 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
-import static org.apache.ignite.internal.util.ByteUtils.comparableBytesToLong;
+import static org.apache.ignite.internal.util.ByteUtils.bytesToLongKeepingOrder;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
-import static org.apache.ignite.internal.util.ByteUtils.longToComparableBytes;
+import static org.apache.ignite.internal.util.ByteUtils.longToBytesKeepingOrder;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.apache.ignite.internal.util.CollectionUtils.difference;
 import static org.apache.ignite.internal.util.CollectionUtils.intersect;
@@ -419,7 +419,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             Set<Assignment> retrievedSwitchAppend = readAssignments(switchAppendEntry).nodes();
             Set<Assignment> retrievedPending = readAssignments(pendingEntry).nodes();
             long stableChangeTriggerValue = stableChangeTriggerEntry.value() == null
-                    ? 0L : comparableBytesToLong(stableChangeTriggerEntry.value());
+                    ? 0L : bytesToLongKeepingOrder(stableChangeTriggerEntry.value());
 
             if (!retrievedPending.equals(stableFromRaft)) {
                 return;
@@ -520,7 +520,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             int res = metaStorageMgr.invoke(
                     iif(or(
                                     notExists(stableChangeTriggerKey(tablePartitionId)),
-                                    value(stableChangeTriggerKey(tablePartitionId)).lt(longToComparableBytes(revision))
+                                    value(stableChangeTriggerKey(tablePartitionId)).lt(longToBytesKeepingOrder(revision))
                             ),
                             iif(retryPreconditions, successCase, failCase),
                             ops().yield(OUTDATED_INVOKE_STATUS)
