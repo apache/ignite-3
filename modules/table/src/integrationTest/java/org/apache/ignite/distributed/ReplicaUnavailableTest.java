@@ -139,8 +139,6 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
 
     private ExecutorService requestsExecutor;
 
-    private ScheduledThreadPoolExecutor rebalanceScheduler;
-
     private Loza raftManager;
 
     private TopologyAwareRaftGroupService raftClient;
@@ -182,10 +180,6 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                 NamedThreadFactory.create(NODE_NAME, "partition-operations", log)
         );
 
-        rebalanceScheduler = new ScheduledThreadPoolExecutor(
-                20,
-                NamedThreadFactory.create("test", "rebalance-scheduler", log));
-
         replicaService = new ReplicaService(
                 clusterService.messagingService(),
                 clock,
@@ -200,7 +194,6 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                 Set.of(TableMessageGroup.class, TxMessageGroup.class),
                 new TestPlacementDriver(clusterService.topologyService().localMember()),
                 requestsExecutor,
-                rebalanceScheduler,
                 () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
                 new NoOpFailureProcessor(),
                 mock(ThreadLocalPartitionCommandsMarshaller.class),
@@ -215,7 +208,6 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
     @AfterEach
     public void teardown() {
         IgniteUtils.shutdownAndAwaitTermination(requestsExecutor, 10, TimeUnit.SECONDS);
-        IgniteUtils.shutdownAndAwaitTermination(rebalanceScheduler, 10, TimeUnit.SECONDS);
 
         assertThat(clusterService.stopAsync(new ComponentContext()), willCompleteSuccessfully());
     }
