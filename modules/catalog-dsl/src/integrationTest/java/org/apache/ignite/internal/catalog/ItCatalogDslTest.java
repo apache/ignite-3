@@ -286,10 +286,6 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
         return CLUSTER.node(0).tables();
     }
 
-    @Zone(value = ZONE_NAME, storageProfiles = DEFAULT_AIPERSIST_PROFILE_NAME)
-    private static class ZoneTest {
-    }
-
     private static class PojoKey {
         @Id
         Integer id;
@@ -309,7 +305,10 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
 
     @Table(
             value = POJO_KV_TABLE_NAME,
-            zone = ZoneTest.class,
+            zone = @Zone(
+                    value = ZONE_NAME,
+                    storageProfiles = DEFAULT_AIPERSIST_PROFILE_NAME
+            ),
             colocateBy = @ColumnRef("id"),
             indexes = @Index(value = "ix_pojo", columns = {
                     @ColumnRef("f_name"),
@@ -354,7 +353,6 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
 
     @Table(
             value = POJO_RECORD_TABLE_NAME,
-            zone = ZoneTest.class,
             colocateBy = @ColumnRef("id"),
             indexes = @Index(value = "ix_pojo", columns = {
                     @ColumnRef("f_name"),

@@ -223,19 +223,6 @@ class CreateFromAnnotationsTest {
         assertThrows(IllegalArgumentException.class, () -> createTable().processRecordClass(NoAnnotations.class));
     }
 
-    @Zone(
-            value = "zone_test",
-            partitions = 1,
-            replicas = 3,
-            affinityFunction = "affinity",
-            dataNodesAutoAdjust = 1,
-            dataNodesAutoAdjustScaleDown = 2,
-            dataNodesAutoAdjustScaleUp = 3,
-            filter = "filter",
-            storageProfiles = "default"
-    )
-    private static class ZoneTest {}
-
     @SuppressWarnings("unused")
     private static class PojoKey {
         @Id
@@ -249,7 +236,17 @@ class CreateFromAnnotationsTest {
     @SuppressWarnings("unused")
     @Table(
             value = "pojo_value_test",
-            zone = ZoneTest.class,
+            zone = @Zone(
+                    value = "zone_test",
+                    partitions = 1,
+                    replicas = 3,
+                    affinityFunction = "affinity",
+                    dataNodesAutoAdjust = 1,
+                    dataNodesAutoAdjustScaleDown = 2,
+                    dataNodesAutoAdjustScaleUp = 3,
+                    filter = "filter",
+                    storageProfiles = "default"
+            ),
             colocateBy = {@ColumnRef("id"), @ColumnRef("id_str")},
             indexes = @Index(value = "ix_pojo", columns = {
                     @ColumnRef("f_name"),
@@ -269,7 +266,17 @@ class CreateFromAnnotationsTest {
     @SuppressWarnings("unused")
     @Table(
             value = "pojo_test",
-            zone = ZoneTest.class,
+            zone = @Zone(
+                    value = "zone_test",
+                    partitions = 1,
+                    replicas = 3,
+                    affinityFunction = "affinity",
+                    dataNodesAutoAdjust = 1,
+                    dataNodesAutoAdjustScaleDown = 2,
+                    dataNodesAutoAdjustScaleUp = 3,
+                    filter = "filter",
+                    storageProfiles = "default"
+            ),
             colocateBy = {@ColumnRef("id"), @ColumnRef("id_str")},
             indexes = @Index(value = "ix_pojo", columns = {
                     @ColumnRef("f_name"),
@@ -293,10 +300,7 @@ class CreateFromAnnotationsTest {
         String str;
     }
 
-    @Table(
-            schemaName = "public",
-            indexes = @Index(columns = {@ColumnRef("col1"), @ColumnRef("col2")})
-    )
+    @Table(indexes = @Index(columns = {@ColumnRef("col1"), @ColumnRef("col2")}))
     private static class NameGeneration {
         Integer col1;
         String col2;

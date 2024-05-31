@@ -22,7 +22,6 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
-import org.apache.ignite.catalog.DefaultZone;
 import org.apache.ignite.catalog.IndexType;
 
 /**
@@ -31,6 +30,11 @@ import org.apache.ignite.catalog.IndexType;
 @Target(TYPE)
 @Retention(RUNTIME)
 public @interface Table {
+    /**
+     * Default zone name.
+     */
+    String DEFAULT_ZONE = "Default";
+
     /**
      * The name of the table. If it's empty, the name of the class annotated with this annotation will be used.
      *
@@ -43,7 +47,7 @@ public @interface Table {
      *
      * @return The schema name.
      */
-    String schemaName() default "";
+    String schemaName() default "PUBLIC";
 
     /**
      * Indexes to create on this table.
@@ -71,5 +75,5 @@ public @interface Table {
      *
      * @return Zone description class.
      */
-    Class<?> zone() default DefaultZone.class;
+    Zone zone() default @Zone(value = DEFAULT_ZONE, storageProfiles = "");
 }

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.catalog.sql;
 
 import static org.apache.ignite.catalog.ColumnSorted.column;
+import static org.apache.ignite.catalog.annotations.Table.DEFAULT_ZONE;
 import static org.apache.ignite.internal.catalog.sql.QueryUtils.mapArrayToList;
 import static org.apache.ignite.table.mapper.Mapper.nativelySupported;
 
@@ -25,9 +26,9 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import org.apache.ignite.catalog.ColumnSorted;
 import org.apache.ignite.catalog.ColumnType;
-import org.apache.ignite.catalog.DefaultZone;
 import org.apache.ignite.catalog.IndexType;
 import org.apache.ignite.catalog.Options;
 import org.apache.ignite.catalog.annotations.Column;
@@ -100,15 +101,12 @@ class CreateFromAnnotationsImpl extends AbstractCatalogQuery {
     }
 
     private void processZone(Table table) {
-        Class<?> zoneRef = table.zone();
-        if (zoneRef == DefaultZone.class) {
-            return;
-        }
-        Zone zone = zoneRef.getAnnotation(Zone.class);
-        if (zone != null) {
+        Zone zone = table.zone();
+
+        if (zone != null && !Objects.equals(zone.value(), DEFAULT_ZONE)) {
             createZone = new CreateZoneImpl(sql, options).ifNotExists();
 
-            String zoneName = zone.value().isEmpty() ? zoneRef.getSimpleName() : zone.value();
+            String zoneName = zone.value();
             createTable.zone(zoneName);
             createZone.name(zoneName);
             createZone.storageProfiles(zone.storageProfiles());
