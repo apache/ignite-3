@@ -39,8 +39,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
@@ -82,8 +80,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 public class ReplicaManagerTest extends BaseIgniteAbstractTest {
     private ExecutorService requestsExecutor;
 
-    private ScheduledExecutorService rebalanceScheduler;
-
     private ReplicaManager replicaManager;
 
     @Mock
@@ -119,10 +115,6 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
                 NamedThreadFactory.create(nodeName, "partition-operations", log)
         );
 
-        rebalanceScheduler = new ScheduledThreadPoolExecutor(
-                20,
-                NamedThreadFactory.create("test", "rebalance-scheduler", log));
-
         replicaManager = new ReplicaManager(
                 nodeName,
                 clusterService,
@@ -131,7 +123,6 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
                 Set.of(),
                 placementDriver,
                 requestsExecutor,
-                rebalanceScheduler,
                 () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
                 new NoOpFailureProcessor(),
                 marshaller,
@@ -160,7 +151,6 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
         assertThat(replicaManager.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
         IgniteUtils.shutdownAndAwaitTermination(requestsExecutor, 10, TimeUnit.SECONDS);
-        IgniteUtils.shutdownAndAwaitTermination(rebalanceScheduler, 10, TimeUnit.SECONDS);
     }
 
     /**

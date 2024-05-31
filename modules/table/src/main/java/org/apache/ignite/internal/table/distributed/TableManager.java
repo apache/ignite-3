@@ -113,6 +113,8 @@ import org.apache.ignite.internal.causality.CompletionListener;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
+import org.apache.ignite.internal.distributionzones.rebalance.PartitionMover;
+import org.apache.ignite.internal.distributionzones.rebalance.RebalanceRaftGroupEventsListener;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -142,11 +144,13 @@ import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.raft.ExecutorInclinedRaftCommandRunner;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
+import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.raft.storage.SnapshotStorageFactory;
+import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -375,6 +379,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      */
     private final Executor partitionOperationsExecutor;
 
+    /** Executor for scheduling rebalance routine. */
+    private final ScheduledExecutorService rebalanceScheduler;
+
     /** Marshallers provider. */
     private final ReflectionMarshallersProvider marshallers = new ReflectionMarshallersProvider();
 
@@ -414,6 +421,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      *     persisting.
      * @param partitionOperationsExecutor Striped executor on which partition operations (potentially requiring I/O with storages)
      *     will be executed.
+     * @param rebalanceScheduler Executor for scheduling rebalance routine.
      * @param placementDriver Placement driver.
      * @param sql A supplier function that returns {@link IgniteSql}.
      * @param lowWatermark Low watermark.
@@ -438,6 +446,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             SchemaManager schemaManager,
             ExecutorService ioExecutor,
             Executor partitionOperationsExecutor,
+            ScheduledExecutorService rebalanceScheduler,
             HybridClock clock,
             ClockService clockService,
             OutgoingSnapshotsManager outgoingSnapshotsManager,
@@ -461,6 +470,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         this.schemaManager = schemaManager;
         this.ioExecutor = ioExecutor;
         this.partitionOperationsExecutor = partitionOperationsExecutor;
+        this.rebalanceScheduler = rebalanceScheduler;
         this.clock = clock;
         this.clockService = clockService;
         this.outgoingSnapshotsManager = outgoingSnapshotsManager;
@@ -964,13 +974,15 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         partitionUpdateHandlers,
                         raftClient);
 
+                RaftGroupEventsListener raftGroupEventsListener = createRaftGroupEventsListener(zoneId, replicaGrpId);
+
                 MvTableStorage mvTableStorage = internalTable.storage();
 
                 try {
                     return replicaMgr.startReplica(
-                            metaStorageMgr,
+                            raftGroupEventsListener,
                             raftGroupListener,
-                            mvTableStorage,
+                            mvTableStorage.isVolatile(),
                             snapshotStorageFactory,
                             updateTableRaftService,
                             createListener,
@@ -1024,6 +1036,30 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         return nodesForStarting
                 .stream()
                 .anyMatch(assignment -> assignment.consistentId().equals(localNode().name()));
+    }
+
+    private PartitionMover createPartitionMover(TablePartitionId replicaGrpId) {
+        return new PartitionMover(busyLock, () -> {
+            CompletableFuture<Replica> replicaFut = replicaMgr.replica(replicaGrpId);
+            if (replicaFut == null) {
+                throw new IgniteInternalException("No such replica for partition " + replicaGrpId.partitionId()
+                        + " in table " + replicaGrpId.tableId());
+            }
+            return replicaFut.thenApply(Replica::raftClient);
+        });
+    }
+
+    private RaftGroupEventsListener createRaftGroupEventsListener(int zoneId, TablePartitionId replicaGrpId) {
+        PartitionMover partitionMover = createPartitionMover(replicaGrpId);
+
+        return new RebalanceRaftGroupEventsListener(
+                metaStorageMgr,
+                replicaGrpId,
+                busyLock,
+                partitionMover,
+                rebalanceScheduler,
+                zoneId
+        );
     }
 
     private PartitionReplicaListener createReplicaListener(
@@ -1117,6 +1153,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     () -> shutdownAndAwaitTermination(txStateStorageScheduledPool, shutdownTimeoutSeconds, TimeUnit.SECONDS),
                     () -> shutdownAndAwaitTermination(scanRequestExecutor, shutdownTimeoutSeconds, TimeUnit.SECONDS),
                     () -> shutdownAndAwaitTermination(incomingSnapshotsExecutor, shutdownTimeoutSeconds, TimeUnit.SECONDS),
+                    () -> shutdownAndAwaitTermination(rebalanceScheduler, shutdownTimeoutSeconds, TimeUnit.SECONDS),
                     () -> shutdownAndAwaitTermination(streamerFlushExecutor, shutdownTimeoutSeconds, TimeUnit.SECONDS)
             );
         } catch (Exception e) {

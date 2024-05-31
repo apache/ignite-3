@@ -52,6 +52,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
@@ -328,6 +329,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 sm = new SchemaManager(revisionUpdater, catalogManager),
                 partitionOperationsExecutor,
                 partitionOperationsExecutor,
+                mock(ScheduledExecutorService.class),
                 clock,
                 clockService,
                 new OutgoingSnapshotsManager(clusterService.messagingService()),

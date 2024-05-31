@@ -56,7 +56,6 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -245,8 +244,6 @@ public class ItTxTestCluster {
 
     private ExecutorService partitionOperationsExecutor;
 
-    private ScheduledExecutorService rebalanceScheduler;
-
     protected IgniteTransactions igniteTransactions;
 
     protected String localNodeName;
@@ -380,10 +377,6 @@ public class ItTxTestCluster {
                 NamedThreadFactory.create("test", "partition-operations", LOG)
         );
 
-        rebalanceScheduler = new ScheduledThreadPoolExecutor(
-                20,
-                NamedThreadFactory.create("test", "rebalance-scheduler", LOG));
-
         for (int i = 0; i < nodes; i++) {
             ClusterService clusterService = cluster.get(i);
 
@@ -430,7 +423,6 @@ public class ItTxTestCluster {
                     Set.of(TableMessageGroup.class, TxMessageGroup.class),
                     placementDriver,
                     partitionOperationsExecutor,
-                    rebalanceScheduler,
                     () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
                     new NoOpFailureProcessor(),
                     commandMarshaller,
@@ -913,10 +905,6 @@ public class ItTxTestCluster {
 
         if (partitionOperationsExecutor != null) {
             IgniteUtils.shutdownAndAwaitTermination(partitionOperationsExecutor, 10, TimeUnit.SECONDS);
-        }
-
-        if (rebalanceScheduler != null) {
-            IgniteUtils.shutdownAndAwaitTermination(rebalanceScheduler, 10, TimeUnit.SECONDS);
         }
 
         if (raftServers != null) {

@@ -50,21 +50,17 @@ import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.components.LogSyncer;
-import org.apache.ignite.internal.distributionzones.rebalance.PartitionMover;
-import org.apache.ignite.internal.distributionzones.rebalance.RebalanceRaftGroupEventsListener;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.failure.FailureType;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.network.ChannelType;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NetworkMessage;
@@ -101,7 +97,6 @@ import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaSafeTimeSyncRequest;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
-import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.thread.ExecutorChooser;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.PublicApiThreading;
@@ -180,9 +175,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     /** Executor that will be used to execute requests by replicas. */
     private final Executor requestsExecutor;
 
-    /** Executor for scheduling rebalance routine. */
-    private final ScheduledExecutorService rebalanceScheduler;
-
     /** Failure processor. */
     private final FailureProcessor failureProcessor;
 
@@ -207,7 +199,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param messageGroupsToHandle Message handlers.
      * @param placementDriver A placement driver.
      * @param requestsExecutor Executor that will be used to execute requests by replicas.
-     * @param rebalanceScheduler Executor for scheduling rebalance routine.
      * @param idleSafeTimePropagationPeriodMsSupplier Used to get idle safe time propagation period in ms.
      * @param failureProcessor Failure processor.
      * @param raftCommandsMarshaller Command marshaller for raft groups creation.
@@ -224,7 +215,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             Set<Class<?>> messageGroupsToHandle,
             PlacementDriver placementDriver,
             Executor requestsExecutor,
-            ScheduledExecutorService rebalanceScheduler,
             LongSupplier idleSafeTimePropagationPeriodMsSupplier,
             FailureProcessor failureProcessor,
             Marshaller raftCommandsMarshaller,
@@ -241,7 +231,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         this.placementDriverMessageHandler = this::onPlacementDriverMessageReceived;
         this.placementDriver = placementDriver;
         this.requestsExecutor = requestsExecutor;
-        this.rebalanceScheduler = rebalanceScheduler;
         this.idleSafeTimePropagationPeriodMsSupplier = idleSafeTimePropagationPeriodMsSupplier;
         this.failureProcessor = failureProcessor;
         this.raftCommandsMarshaller = raftCommandsMarshaller;
@@ -493,13 +482,12 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     }
 
     private CompletableFuture<Boolean> startReplicaInternal(
-            MetaStorageManager metaStorageMgr,
+            RaftGroupEventsListener raftGroupEventsListener,
             RaftGroupListener raftGroupListener,
-            MvTableStorage mvTableStorage,
+            boolean isVolatileStorage,
             SnapshotStorageFactory snapshotStorageFactory,
             Consumer<RaftGroupService> updateTableRaftService,
             Function<RaftGroupService, ReplicaListener> createListener,
-            int zoneId,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker,
             TablePartitionId replicaGrpId,
             PeersAndLearners newConfiguration
@@ -507,11 +495,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         RaftNodeId raftNodeId = new RaftNodeId(replicaGrpId, new Peer(localNodeConsistentId));
 
         RaftGroupOptions groupOptions = groupOptionsForPartition(
-                mvTableStorage,
+                isVolatileStorage,
                 snapshotStorageFactory);
-
-        RaftGroupEventsListener raftGroupEventsListener = createRaftGroupEventsListener(metaStorageMgr, zoneId,
-                replicaGrpId);
 
         // TODO: move into {@method Replica#shutdown} https://issues.apache.org/jira/browse/IGNITE-22372
         // TODO: use RaftManager interface, see https://issues.apache.org/jira/browse/IGNITE-18273
@@ -531,15 +516,14 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 createListener,
                 storageIndexTracker,
                 newRaftClientFut);
-
     }
 
     /**
      * Creates and starts a new replica.
      *
-     * @param metaStorageMgr Metastore manager.
+     * @param raftGroupEventsListener Raft group events listener for raft group starting.
      * @param raftGroupListener Raft group listener for raft group starting.
-     * @param mvTableStorage Multi-version table storage.
+     * @param isVolatileStorage is table storage volatile?
      * @param snapshotStorageFactory Snapshot storage factory for raft group option's parameterization.
      * @param updateTableRaftService Temporal consumer while TableRaftService wouldn't be removed in
      *      TODO: https://issues.apache.org/jira/browse/IGNITE-22218.
@@ -552,9 +536,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @return Future that promises ready new replica when done.
      */
     public CompletableFuture<Boolean> startReplica(
-            MetaStorageManager metaStorageMgr,
+            RaftGroupEventsListener raftGroupEventsListener,
             RaftGroupListener raftGroupListener,
-            MvTableStorage mvTableStorage,
+            boolean isVolatileStorage,
             SnapshotStorageFactory snapshotStorageFactory,
             Consumer<RaftGroupService> updateTableRaftService,
             Function<RaftGroupService, ReplicaListener> createListener,
@@ -569,13 +553,12 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         try {
             return startReplicaInternal(
-                    metaStorageMgr,
+                    raftGroupEventsListener,
                     raftGroupListener,
-                    mvTableStorage,
+                    isVolatileStorage,
                     snapshotStorageFactory,
                     updateTableRaftService,
                     createListener,
-                    zoneId,
                     storageIndexTracker,
                     replicaGrpId,
                     newConfiguration);
@@ -701,31 +684,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 : raftManager.startRaftGroupService(replicaGrpId, newConfiguration, raftGroupServiceFactory, raftCommandsMarshaller);
     }
 
-    private RaftGroupEventsListener createRaftGroupEventsListener(MetaStorageManager metaStorageMgr, int zoneId,
-            TablePartitionId replicaGrpId) {
-        PartitionMover partitionMover = createPartitionMover(replicaGrpId);
-
-        return new RebalanceRaftGroupEventsListener(
-                metaStorageMgr,
-                replicaGrpId,
-                busyLock,
-                partitionMover,
-                rebalanceScheduler,
-                zoneId
-        );
-    }
-
-    private PartitionMover createPartitionMover(TablePartitionId replicaGrpId) {
-        return new PartitionMover(busyLock, () -> {
-            CompletableFuture<Replica> replicaFut = replica(replicaGrpId);
-            if (replicaFut == null) {
-                throw new IgniteInternalException("No such replica for partition " + replicaGrpId.partitionId()
-                        + " in table " + replicaGrpId.tableId());
-            }
-            return replicaFut.thenApply(Replica::raftClient);
-        });
-    }
-
     /**
      * Returns future with a replica if it was created or null if there no any replicas starting with given identifier.
      *
@@ -753,10 +711,10 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         return raftManager.getLogSyncer();
     }
 
-    private RaftGroupOptions groupOptionsForPartition(MvTableStorage mvTableStorage, SnapshotStorageFactory snapshotFactory) {
+    private RaftGroupOptions groupOptionsForPartition(boolean isVolatileStorage, SnapshotStorageFactory snapshotFactory) {
         RaftGroupOptions raftGroupOptions;
 
-        if (mvTableStorage.isVolatile()) {
+        if (isVolatileStorage) {
             LogStorageBudgetView view = ((Loza) raftManager).volatileRaft().logStorage().value();
             raftGroupOptions = RaftGroupOptions.forVolatileStores()
                     .setLogStorageFactory(volatileLogStorageFactoryCreator.factory(view))
@@ -900,7 +858,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         int shutdownTimeoutSeconds = 10;
 
         shutdownAndAwaitTermination(scheduledIdleSafeTimeSyncExecutor, shutdownTimeoutSeconds, TimeUnit.SECONDS);
-        shutdownAndAwaitTermination(rebalanceScheduler, shutdownTimeoutSeconds, TimeUnit.SECONDS);
         shutdownAndAwaitTermination(executor, shutdownTimeoutSeconds, TimeUnit.SECONDS);
 
         assert replicas.values().stream().noneMatch(CompletableFuture::isDone)
