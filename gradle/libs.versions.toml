@@ -25,7 +25,7 @@ fmpp = "0.9.16"
 jackson = "2.17.1"
 jakarta = "2.0.0"
 jansi = "2.4.1"
-netty = "4.1.109.Final"
+netty = "4.1.110.Final"
 javapoet = "1.13.0"
 javax = "1.3.2"
 jetbrainsAnnotations = "24.1.0"
@@ -101,7 +101,7 @@ checksum = "org.gradle.crypto.checksum:1.4.0"
 setupbuilder = "de.inetsoftware.setupbuilder:7.2.21"
 aggregateJavadoc = "io.freefair.aggregate-javadoc:6.6.3"
 ideaext = "org.jetbrains.gradle.plugin.idea-ext:1.1.8"
-spotbugs = "com.github.spotbugs:6.0.14"
+spotbugs = "com.github.spotbugs:6.0.15"
 
 
 [libraries]

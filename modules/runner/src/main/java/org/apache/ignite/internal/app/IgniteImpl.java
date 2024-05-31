@@ -236,7 +236,7 @@ import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeMetadata;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.apache.ignite.sql.IgniteSql;
-import org.apache.ignite.table.manager.IgniteTables;
+import org.apache.ignite.table.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;

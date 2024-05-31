@@ -19,12 +19,14 @@ namespace Apache.Ignite.Internal.Table
 {
     using System;
     using System.Collections.Generic;
+    using System.Diagnostics;
     using System.Diagnostics.CodeAnalysis;
     using System.Linq;
     using System.Threading;
     using System.Threading.Tasks;
     using Buffers;
     using Common;
+    using Ignite.Compute;
     using Ignite.Sql;
     using Ignite.Table;
     using Ignite.Transactions;
@@ -300,9 +302,65 @@ namespace Apache.Ignite.Internal.Table
             await DataStreamer.StreamDataAsync(
                 data,
                 _table,
-                writer: _ser,
+                writer: _ser.Handler,
                 options ?? DataStreamerOptions.Default,
                 cancellationToken).ConfigureAwait(false);
+
+        /// <inheritdoc/>
+        public IAsyncEnumerable<TResult> StreamDataAsync<TSource, TPayload, TResult>(
+            IAsyncEnumerable<TSource> data,
+            Func<TSource, T> keySelector,
+            Func<TSource, TPayload> payloadSelector,
+            IEnumerable<DeploymentUnit> units,
+            string receiverClassName,
+            ICollection<object>? receiverArgs,
+            DataStreamerOptions? options,
+            CancellationToken cancellationToken = default)
+            where TPayload : notnull =>
+            DataStreamerWithReceiver.StreamDataAsync<TSource, T, TPayload, TResult>(
+                data,
+                _table,
+                keySelector,
+                payloadSelector,
+                keyWriter: _ser.Handler,
+                options ?? DataStreamerOptions.Default,
+                expectResults: true,
+                units,
+                receiverClassName,
+                receiverArgs,
+                cancellationToken);
+
+        /// <inheritdoc/>
+        public async Task StreamDataAsync<TSource, TPayload>(
+            IAsyncEnumerable<TSource> data,
+            Func<TSource, T> keySelector,
+            Func<TSource, TPayload> payloadSelector,
+            IEnumerable<DeploymentUnit> units,
+            string receiverClassName,
+            ICollection<object>? receiverArgs,
+            DataStreamerOptions? options,
+            CancellationToken cancellationToken = default)
+            where TPayload : notnull
+        {
+            IAsyncEnumerable<object> results = DataStreamerWithReceiver.StreamDataAsync<TSource, T, TPayload, object>(
+                data,
+                _table,
+                keySelector,
+                payloadSelector,
+                keyWriter: _ser.Handler,
+                options ?? DataStreamerOptions.Default,
+                expectResults: false,
+                units,
+                receiverClassName,
+                receiverArgs,
+                cancellationToken);
+
+            // Await streaming completion.
+            await foreach (var unused in results)
+            {
+                Debug.Fail("Got results with expectResults=false: " + unused);
+            }
+        }
 
         /// <inheritdoc/>
         public override string ToString() =>

@@ -32,6 +32,8 @@ import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.tostring.IgniteToStringInclude;
+import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
@@ -43,6 +45,7 @@ import org.jetbrains.annotations.Nullable;
  * Test implementation of {@link TxStateStorage} based on {@link ConcurrentSkipListMap}.
  */
 public class TestTxStateStorage implements TxStateStorage {
+    @IgniteToStringInclude
     private final ConcurrentSkipListMap<UUID, TxMeta> storage = new ConcurrentSkipListMap<>(new UnsignedUuidComparator());
 
     private volatile long lastAppliedIndex;
@@ -263,6 +266,11 @@ public class TestTxStateStorage implements TxStateStorage {
         lastAppliedTerm = 0;
 
         return nullCompletedFuture();
+    }
+
+    @Override
+    public String toString() {
+        return S.toString(TestTxStateStorage.class, this);
     }
 
     private void checkStorageInProgreesOfRebalance() {

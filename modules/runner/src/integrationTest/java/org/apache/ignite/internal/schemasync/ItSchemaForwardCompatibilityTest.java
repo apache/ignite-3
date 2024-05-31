@@ -107,8 +107,10 @@ class ItSchemaForwardCompatibilityTest extends ClusterPerTestIntegrationTest {
         assertThat(
                 ex.getMessage(),
                 containsString(String.format(
-                        "Commit failed because schema 1 is not forward-compatible with 2 for table %d",
-                        tableId
+                        "Commit failed because schema is not forward-compatible [fromSchemaVersion=1, toSchemaVersion=2, table=%s, "
+                                + "details=%s]",
+                        table.name(),
+                        ddl.expectedDetails
                 ))
         );
 
@@ -154,15 +156,18 @@ class ItSchemaForwardCompatibilityTest extends ClusterPerTestIntegrationTest {
     private enum ForwardIncompatibleDdl {
         // TODO: Enable after https://issues.apache.org/jira/browse/IGNITE-19484 is fixed.
         // RENAME_TABLE("RENAME TABLE " + TABLE_NAME + " to new_table"),
-        DROP_COLUMN("ALTER TABLE " + TABLE_NAME + " DROP COLUMN not_null_int"),
-        ADD_DEFAULT("ALTER TABLE " + TABLE_NAME + " ALTER COLUMN not_null_int SET DEFAULT 102"),
-        CHANGE_DEFAULT("ALTER TABLE " + TABLE_NAME + " ALTER COLUMN int_with_default SET DEFAULT 102"),
-        DROP_DEFAULT("ALTER TABLE " + TABLE_NAME + " ALTER COLUMN int_with_default DROP DEFAULT");
+        DROP_COLUMN("ALTER TABLE " + TABLE_NAME + " DROP COLUMN not_null_int", "Columns were dropped"),
+        ADD_DEFAULT("ALTER TABLE " + TABLE_NAME + " ALTER COLUMN not_null_int SET DEFAULT 102", "Column default value changed"),
+        CHANGE_DEFAULT("ALTER TABLE " + TABLE_NAME + " ALTER COLUMN int_with_default SET DEFAULT 102",
+                "Column default value changed"),
+        DROP_DEFAULT("ALTER TABLE " + TABLE_NAME + " ALTER COLUMN int_with_default DROP DEFAULT", "Column default value changed");
 
         private final String ddl;
+        private final String expectedDetails;
 
-        ForwardIncompatibleDdl(String ddl) {
+        ForwardIncompatibleDdl(String ddl, String expectedDetails) {
             this.ddl = ddl;
+            this.expectedDetails = expectedDetails;
         }
 
         void executeOn(Cluster cluster) {

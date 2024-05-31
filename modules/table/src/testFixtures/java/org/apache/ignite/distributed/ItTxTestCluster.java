@@ -1077,4 +1077,12 @@ public class ItTxTestCluster {
     public Map<String, HybridClock> clocks() {
         return clocks;
     }
+
+    public HybridClock clientClock() {
+        return clientClock;
+    }
+
+    public Map<String, ReplicaManager> replicaManagers() {
+        return replicaManagers;
+    }
 }

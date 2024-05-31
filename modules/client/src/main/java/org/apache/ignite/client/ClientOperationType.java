@@ -24,8 +24,8 @@ import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.table.DataStreamerTarget;
+import org.apache.ignite.table.IgniteTables;
 import org.apache.ignite.table.RecordView;
-import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.table.partition.PartitionManager;
 import org.apache.ignite.tx.Transaction;
 

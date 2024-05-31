@@ -15,8 +15,23 @@
  * limitations under the License.
  */
 
-/**
- * Contains API classes for table management.
- */
+package org.apache.ignite.raft.jraft.disruptor;
 
-package org.apache.ignite.table.manager;
+import com.lmax.disruptor.EventHandler;
+import org.apache.ignite.raft.jraft.entity.NodeId;
+
+/**
+ * There are different types of striped disruptor events. The disruptor uses some events for technical purposes,
+  * so it is necessary to distinguish types.
+ */
+public enum DisruptorEventType {
+    /**
+    * This event type matches the technical striped disruptor event, look at {@link StripedDisruptor#subscribe( NodeId, EventHandler)}.
+    */
+    SUBSCRIBE,
+
+    /**
+    * This event type matches the regular event in the striped disruptor.
+    */
+    REGULAR
+}

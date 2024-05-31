@@ -15,27 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.rest;
+package org.apache.ignite.internal.cli.commands.recovery.restart;
 
-import io.micronaut.context.event.BeanDestroyedEvent;
-import io.micronaut.context.event.BeanDestroyedEventListener;
-import jakarta.inject.Singleton;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
-
-/**
- * Destroyer of any rest factory {@link RestFactory}.
- */
-@Singleton
-public class RestFactoriesDestroyer implements BeanDestroyedEventListener<RestFactory> {
-    private static final IgniteLogger LOG = Loggers.forClass(RestFactoriesDestroyer.class);
+/** Test class for {@link RestartPartitionsReplCommand}. */
+public class ItRestartPartitionsReplCommandTest extends ItRestartPartitionsTest {
 
     @Override
-    public void onDestroyed(BeanDestroyedEvent<RestFactory> event) {
-        RestFactory bean = event.getBean();
-        if (bean != null) {
-            LOG.debug("Destroy rest factory " + bean);
-            bean.cleanResources();
-        }
+    protected Class<?> getCommandClass() {
+        return RestartPartitionsReplCommand.class;
     }
 }
