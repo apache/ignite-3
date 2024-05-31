@@ -446,9 +446,11 @@ public class DistributionZoneManagerScaleUpScaleDownTest extends BaseDistributio
             byte[] keyDataNodes = zoneDataNodesKey(zoneId).bytes();
 
             if (Arrays.stream(iif.cond().keys()).anyMatch(k -> Arrays.equals(keyScaleUp, k))) {
+                byte[] value = keyValueStorage.get(zoneDataNodesKey(zoneId).bytes()).value();
+
                 keyValueStorage.putAll(
                         List.of(keyScaleUp, keyDataNodes),
-                        List.of(longToComparableBytes(revisionOfScaleUp + 100L), keyValueStorage.get(zoneDataNodesKey(zoneId).bytes()).value()),
+                        List.of(longToComparableBytes(revisionOfScaleUp + 100L), value),
                         HybridTimestamp.MIN_VALUE
                 );
             }
