@@ -40,6 +40,7 @@ import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCost;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Ignite sort operator.
@@ -62,8 +63,8 @@ public class IgniteSort extends Sort implements IgniteRel {
             RelTraitSet traits,
             RelNode child,
             RelCollation collation,
-            RexNode offset,
-            RexNode fetch
+            @Nullable RexNode offset,
+            @Nullable RexNode fetch
     ) {
         super(cluster, traits, child, collation, offset, fetch);
     }
@@ -85,8 +86,9 @@ public class IgniteSort extends Sort implements IgniteRel {
     }
 
     /**
-     * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Constructor used for deserialization.
+     *
+     * @param input Serialized representation.
      */
     public IgniteSort(RelInput input) {
         super(changeTraits(input, IgniteConvention.INSTANCE));
@@ -98,8 +100,8 @@ public class IgniteSort extends Sort implements IgniteRel {
             RelTraitSet traitSet,
             RelNode newInput,
             RelCollation newCollation,
-            RexNode offset,
-            RexNode fetch
+            @Nullable RexNode offset,
+            @Nullable RexNode fetch
     ) {
         return new IgniteSort(getCluster(), traitSet, newInput, traitSet.getCollation(), offset, fetch);
     }

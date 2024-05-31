@@ -48,7 +48,7 @@ public class SortExchangeTransposeRule extends RelRule<SortExchangeTransposeRule
         IgniteExchange exchange = call.rel(1);
 
         return hashAlike(distribution(exchange.getInput()))
-                && exchange.distribution() == single();
+                && exchange.distribution() == single() && call.rel(0).isEnforcer();
     }
 
     private static boolean hashAlike(IgniteDistribution distribution) {
@@ -59,6 +59,9 @@ public class SortExchangeTransposeRule extends RelRule<SortExchangeTransposeRule
     @Override
     public void onMatch(RelOptRuleCall call) {
         IgniteSort sort = call.rel(0);
+
+        assert sort.isEnforcer() : "Non enforcer sort can not be pushed under Exchanger";
+
         IgniteExchange exchange = call.rel(1);
 
         RelOptCluster cluster = sort.getCluster();
@@ -84,6 +87,8 @@ public class SortExchangeTransposeRule extends RelRule<SortExchangeTransposeRule
                 .withDescription("SortExchangeTransposeRule")
                 .withOperandSupplier(o0 ->
                         o0.operand(IgniteSort.class)
+                                // Only an enforcer sort (a sort operator w/o fetch/offset parameters) can be pushed under exchange
+                                .predicate(IgniteSort::isEnforcer)
                                 .oneInput(o1 ->
                                         o1.operand(IgniteExchange.class)
                                                 .anyInputs()))
