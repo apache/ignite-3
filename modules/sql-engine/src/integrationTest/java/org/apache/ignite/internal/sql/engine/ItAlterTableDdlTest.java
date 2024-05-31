@@ -96,6 +96,29 @@ public class ItAlterTableDdlTest extends BaseSqlIntegrationTest {
                 .check();
     }
 
+    /** Test add/drop column short syntax. */
+    @Test
+    public void testDropAndAddColumnShortSyntax() {
+        sql("CREATE TABLE my (c1 INT PRIMARY KEY, c2 INT)");
+
+        sql("ALTER TABLE my ADD (c3 VARCHAR)");
+        sql("ALTER TABLE my ADD (c4 INT DEFAULT -1, c5 INT)");
+
+        sql("INSERT INTO my (c1, c2, c3) VALUES (1, 2, '3')");
+
+        sql("ALTER TABLE my DROP c2");
+
+        assertQuery("SELECT * FROM my")
+                .returns(1, "3", -1, null)
+                .check();
+
+        sql("ALTER TABLE my DROP c3, c5");
+
+        assertQuery("SELECT * FROM my")
+                .returns(1, -1)
+                .check();
+    }
+
     /** Test that adding nullable column via ALTER TABLE ADD name type NULL works. */
     @Test
     public void testNullableColumn() {
