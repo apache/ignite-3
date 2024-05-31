@@ -66,7 +66,7 @@ public class ByteUtils {
     }
 
     /**
-     * Constructs {@code long} from byte array created with {@link #longToBytesKeepingOrder(long)} with offset equal to 0.
+     * Constructs {@code long} from byte array created with {@link #longToBytesKeepingOrder(long)}.
      *
      * @param bytes Array of bytes.
      * @return Long value.
@@ -149,6 +149,17 @@ public class ByteUtils {
     }
 
     /**
+     * Constructs {@code int} from byte array created with {@link #intToBytesKeepingOrder(int)}.
+     *
+     * @param bytes Array of bytes.
+     * @return Integer value.
+     */
+    public static int bytesToIntKeepingOrder(byte[] bytes) {
+        return bytesToInt(bytes) ^ 0x00808080;
+    }
+
+
+    /**
      * Converts a primitive {@code int} value to a byte array in Big Endian order.
      *
      * @param i Integer value.
@@ -156,6 +167,17 @@ public class ByteUtils {
      */
     public static byte[] intToBytes(int i) {
         return putIntToBytes(i, new byte[4], 0);
+    }
+
+    /**
+     * Converts a primitive {@code int} value to a byte array than can be compared with {@link ByteBuffer#compareTo(ByteBuffer)} with the
+     * same order as the original {@code int}.
+     *
+     * @param i Integer value.
+     * @return Array of bytes.
+     */
+    public static byte[] intToBytesKeepingOrder(int i) {
+        return intToBytes(i ^ 0x00808080);
     }
 
     /**
