@@ -65,7 +65,6 @@ public class ByteUtils {
         return bytesToLong(bytes, 0);
     }
 
-
     /**
      * Constructs {@code long} from byte array created with {@link #longToComparableBytes(long)} with offset equal to 0.
      *
