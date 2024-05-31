@@ -145,7 +145,6 @@ import org.apache.ignite.internal.raft.ExecutorInclinedRaftCommandRunner;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
-import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -903,19 +902,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             mvGc.addStorage(replicaGrpId, partitionUpdateHandlers.gcUpdateHandler);
         }
 
-        // TODO: will be removed in https://issues.apache.org/jira/browse/IGNITE-22315
-        Supplier<RaftGroupService> getCachedRaftClient = () -> {
-            try {
-                // Return existing service if it's already started.
-                return internalTbl
-                        .tableRaftService()
-                        .partitionRaftGroupService(replicaGrpId.partitionId());
-            } catch (IgniteInternalException e) {
-                // We use "IgniteInternalException" in accordance with the javadoc of "partitionRaftGroupService" method.
-                return null;
-            }
-        };
-
         // TODO: will be removed in https://issues.apache.org/jira/browse/IGNITE-22218
         Consumer<RaftGroupService> updateTableRaftService = (raftClient) -> ((InternalTableImpl) internalTbl)
                 .tableRaftService()
@@ -1005,21 +991,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         //        newConfiguration.peers().stream().map(Peer::consistentId).collect(toSet()))
         //        .contains(localNode().name());
         startGroupFut
-                // TODO: the stage will be removed after https://issues.apache.org/jira/browse/IGNITE-22315
-                .thenComposeAsync(isReplicaStarted -> inBusyLock(busyLock, () -> {
-                    if (isReplicaStarted) {
-                        return nullCompletedFuture();
-                    }
-
-                    CompletableFuture<TopologyAwareRaftGroupService> newRaftClientFut;
-                    try {
-                        newRaftClientFut = replicaMgr.startRaftClient(
-                                replicaGrpId, newConfiguration, getCachedRaftClient);
-                    } catch (NodeStoppingException e) {
-                        throw new CompletionException(e);
-                    }
-                    return newRaftClientFut.thenAccept(updateTableRaftService);
-                }), ioExecutor)
                 .whenComplete((res, ex) -> {
                     if (ex != null) {
                         LOG.warn("Unable to update raft groups on the node [tableId={}, partitionId={}]", ex, tableId, partId);
