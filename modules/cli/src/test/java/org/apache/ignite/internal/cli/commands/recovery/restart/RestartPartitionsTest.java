@@ -17,6 +17,11 @@
 
 package org.apache.ignite.internal.cli.commands.recovery.restart;
 
+import static org.apache.ignite.internal.cli.commands.Options.Constants.CLUSTER_URL_OPTION;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_NODE_NAMES_OPTION;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_PARTITION_IDS_OPTION;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_TABLE_NAME_OPTION;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_ZONE_NAME_OPTION;
 import static org.mockserver.matchers.MatchType.ONLY_MATCHING_FIELDS;
 import static org.mockserver.model.HttpRequest.request;
 import static org.mockserver.model.HttpResponse.response;
@@ -46,8 +51,11 @@ public class RestartPartitionsTest extends IgniteCliInterfaceTestBase {
                 )
                 .respond(response(null));
 
-        execute("recovery restart-partitions --cluster-endpoint-url " + mockUrl
-                + " --table table_NAME --zone zone_NAME");
+        execute("recovery", "restart-partitions",
+                CLUSTER_URL_OPTION, mockUrl,
+                RECOVERY_TABLE_NAME_OPTION, "table_NAME",
+                RECOVERY_ZONE_NAME_OPTION, "zone_NAME"
+        );
 
         assertSuccessfulOutputIs("Successfully restarted partitions.");
     }
@@ -66,8 +74,12 @@ public class RestartPartitionsTest extends IgniteCliInterfaceTestBase {
                 )
                 .respond(response(null));
 
-        execute("recovery restart-partitions --cluster-endpoint-url " + mockUrl
-                + " --table table_NAME --zone zone_NAME --partitions 1,2");
+        execute("recovery", "restart-partitions",
+                CLUSTER_URL_OPTION, mockUrl,
+                RECOVERY_TABLE_NAME_OPTION, "table_NAME",
+                RECOVERY_ZONE_NAME_OPTION, "zone_NAME",
+                RECOVERY_PARTITION_IDS_OPTION, "1,2"
+        );
 
         assertSuccessfulOutputIs("Successfully restarted partitions.");
     }
@@ -86,8 +98,13 @@ public class RestartPartitionsTest extends IgniteCliInterfaceTestBase {
                 )
                 .respond(response(null));
 
-        execute("recovery restart-partitions --cluster-endpoint-url " + mockUrl
-                + " --table table_NAME --zone zone_NAME --nodes node_NAME,node_NAME_2");
+
+        execute("recovery", "restart-partitions",
+                CLUSTER_URL_OPTION, mockUrl,
+                RECOVERY_TABLE_NAME_OPTION, "table_NAME",
+                RECOVERY_ZONE_NAME_OPTION, "zone_NAME",
+                RECOVERY_NODE_NAMES_OPTION, "node_NAME,node_NAME_2"
+        );
 
         assertSuccessfulOutputIs("Successfully restarted partitions.");
     }
