@@ -106,7 +106,7 @@ public abstract class PartitionMeta {
      *
      * @param checkpointId Checkpoint ID.
      */
-    protected void updateSnapshot(@Nullable UUID checkpointId) {
+    protected final void updateSnapshot(@Nullable UUID checkpointId) {
         PartitionMetaSnapshot current = metaSnapshot;
 
         if (current.checkpointId() != checkpointId) {
