@@ -18,12 +18,17 @@
 package org.apache.ignite.internal.util;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.ignite.internal.util.ByteUtils.comparableBytesToLong;
+import static org.apache.ignite.internal.util.ByteUtils.longToComparableBytes;
 import static org.apache.ignite.internal.util.ByteUtils.stringFromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.stringToBytes;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.lessThan;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
+import java.nio.ByteBuffer;
 import org.junit.jupiter.api.Test;
 
 /** For {@link ByteUtils} testing. */
@@ -42,5 +47,20 @@ public class ByteUtilsTest {
 
         assertEquals("", stringFromBytes(stringToBytes("")));
         assertEquals("abc", stringFromBytes(stringToBytes("abc")));
+    }
+
+    @Test
+    void testComparableLong() {
+        assertEquals(1234567890L, comparableBytesToLong(longToComparableBytes(1234567890L)));
+
+        ByteBuffer buf127 = ByteBuffer.wrap(longToComparableBytes(127));
+        ByteBuffer buf128 = ByteBuffer.wrap(longToComparableBytes(128));
+
+        assertThat(buf127, lessThan(buf128));
+
+        ByteBuffer buf1 = ByteBuffer.wrap(longToComparableBytes(1));
+        ByteBuffer buf256 = ByteBuffer.wrap(longToComparableBytes(256));
+
+        assertThat(buf1, lessThan(buf256));
     }
 }
