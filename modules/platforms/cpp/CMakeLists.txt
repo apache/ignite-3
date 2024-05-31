@@ -42,13 +42,13 @@ if (CMAKE_VERSION VERSION_GREATER_EQUAL "3.24.0")
     cmake_policy(SET CMP0135 NEW)
 endif()
 
-cmake_policy(SET CMP0048 NEW)
-
 include(FetchContent)
+set(MSGPACK_BUILD_TESTS OFF)
+set(MSGPACK_BUILD_EXAMPLES OFF)
 FetchContent_Declare(
         msgpack-c
-        URL https://github.com/msgpack/msgpack-c/releases/download/c-4.0.0/msgpack-c-4.0.0.tar.gz
-        URL_HASH MD5=1b02fb40973d52f2cfa37758db69d156
+        URL https://github.com/msgpack/msgpack-c/releases/download/c-6.0.1/msgpack-c-6.0.1.tar.gz
+        URL_HASH MD5=090df53a59b845767fcfc48221b30ee9
 )
 
 FetchContent_MakeAvailable(msgpack-c)
