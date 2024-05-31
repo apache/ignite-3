@@ -27,7 +27,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMeta.PartitionMetaSnapshot;
 import org.apache.ignite.internal.pagememory.persistence.io.PartitionMetaIo;
@@ -37,18 +36,16 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Partition meta information manager.
  */
-public class PartitionMetaManager<M extends PartitionMeta<? extends PartitionMetaSnapshot<I>>, I extends PartitionMetaIo> {
+public class PartitionMetaManager {
     private static final IgniteLogger LOG = Loggers.forClass(PartitionMetaManager.class);
 
-    private final Map<GroupPartitionId, M> metas = new ConcurrentHashMap<>();
+    private final Map<GroupPartitionId, PartitionMeta> metas = new ConcurrentHashMap<>();
 
     private final PageIoRegistry ioRegistry;
 
     private final int pageSize;
 
-    private final PartitionMetaFactory<M, I> partitionMetaFactory;
-
-    private final IoVersions<I> versions;
+    private final PartitionMetaFactory partitionMetaFactory;
 
     /**
      * Constructor.
@@ -56,18 +53,15 @@ public class PartitionMetaManager<M extends PartitionMeta<? extends PartitionMet
      * @param ioRegistry Page IO Registry.
      * @param pageSize Page size in bytes.
      * @param partitionMetaFactory Partition meta factory.
-     * @param versions IO versions.
      */
     public PartitionMetaManager(
             PageIoRegistry ioRegistry,
             int pageSize,
-            PartitionMetaFactory<M, I> partitionMetaFactory,
-            IoVersions<I> versions
+            PartitionMetaFactory partitionMetaFactory
     ) {
         this.ioRegistry = ioRegistry;
         this.pageSize = pageSize;
         this.partitionMetaFactory = partitionMetaFactory;
-        this.versions = versions;
     }
 
     /**
@@ -75,7 +69,7 @@ public class PartitionMetaManager<M extends PartitionMeta<? extends PartitionMet
      *
      * @param groupPartitionId Partition of the group.
      */
-    public @Nullable M getMeta(GroupPartitionId groupPartitionId) {
+    public @Nullable PartitionMeta getMeta(GroupPartitionId groupPartitionId) {
         return metas.get(groupPartitionId);
     }
 
@@ -85,12 +79,12 @@ public class PartitionMetaManager<M extends PartitionMeta<? extends PartitionMet
      * @param groupPartitionId Partition of the group.
      * @param partitionMeta Partition meta information.
      */
-    public void addMeta(GroupPartitionId groupPartitionId, M partitionMeta) {
+    public void addMeta(GroupPartitionId groupPartitionId, PartitionMeta partitionMeta) {
         metas.put(groupPartitionId, partitionMeta);
     }
 
     /**
-     * Reads the partition {@link M meta} from the partition file or creates a new one.
+     * Reads the partition {@link PartitionMeta meta} from the partition file or creates a new one.
      *
      * <p>If it creates a new one, it writes the meta to the file.</p>
      *
@@ -99,7 +93,7 @@ public class PartitionMetaManager<M extends PartitionMeta<? extends PartitionMet
      * @param filePageStore Partition file page store.
      * @param buffer Buffer for reading and writing pages.
      */
-    public M readOrCreateMeta(
+    public PartitionMeta readOrCreateMeta(
             @Nullable UUID checkpointId,
             GroupPartitionId groupPartitionId,
             FilePageStore filePageStore,
@@ -121,7 +115,7 @@ public class PartitionMetaManager<M extends PartitionMeta<? extends PartitionMet
         }
 
         // Creates and writes a partition meta.
-        I io = versions.latest();
+        PartitionMetaIo io = partitionMetaFactory.partitionMetaIo();
 
         io.initNewPage(bufferAddr, partitionMetaPageId, pageSize);
 
@@ -148,7 +142,7 @@ public class PartitionMetaManager<M extends PartitionMeta<? extends PartitionMet
      */
     public void writeMetaToBuffer(
             GroupPartitionId groupPartitionId,
-            PartitionMetaSnapshot<I> partitionMeta,
+            PartitionMetaSnapshot partitionMeta,
             ByteBuffer writeToBuffer
     ) {
         assert writeToBuffer.remaining() == pageSize : writeToBuffer.remaining();
@@ -157,7 +151,7 @@ public class PartitionMetaManager<M extends PartitionMeta<? extends PartitionMet
 
         long pageAddr = bufferAddress(writeToBuffer);
 
-        I io = versions.latest();
+        PartitionMetaIo io = partitionMetaFactory.partitionMetaIo();
 
         io.initNewPage(pageAddr, partitionMetaPageId, pageSize);
 

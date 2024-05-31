@@ -17,12 +17,10 @@
 
 package org.apache.ignite.internal.storage.pagememory;
 
-import java.lang.invoke.MethodHandles;
-import java.lang.invoke.VarHandle;
 import java.util.UUID;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMeta;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaFactory;
-import org.apache.ignite.internal.storage.pagememory.StoragePartitionMeta.StoragePartitionMetaSnapshot;
+import org.apache.ignite.internal.pagememory.persistence.io.PartitionMetaIo;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -30,20 +28,9 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Storage partition meta information.
  */
-public class StoragePartitionMeta extends PartitionMeta<StoragePartitionMetaSnapshot> {
-    public static final PartitionMetaFactory<StoragePartitionMeta, StoragePartitionMetaIo> FACTORY =
-            StoragePartitionMeta::new;
+public class StoragePartitionMeta extends PartitionMeta {
 
-    private static final VarHandle PAGE_COUNT;
-
-    static {
-        try {
-            PAGE_COUNT = MethodHandles.lookup().findVarHandle(StoragePartitionMeta.class, "pageCount", int.class);
-
-        } catch (ReflectiveOperationException e) {
-            throw new ExceptionInInitializerError(e);
-        }
-    }
+    public static final PartitionMetaFactory FACTORY = new StoragePartitionMetaFactory();
 
     private volatile long lastAppliedIndex;
 
@@ -60,8 +47,6 @@ public class StoragePartitionMeta extends PartitionMeta<StoragePartitionMetaSnap
     private volatile long indexTreeMetaPageId;
 
     private volatile long gcQueueMetaPageId;
-
-    private volatile int pageCount;
 
     /**
      * Default constructor.
@@ -92,7 +77,7 @@ public class StoragePartitionMeta extends PartitionMeta<StoragePartitionMetaSnap
             int pageCount,
             long leaseStartTime
     ) {
-        super(checkpointId);
+        super(checkpointId, pageCount);
         this.lastAppliedIndex = lastAppliedIndex;
         this.lastAppliedTerm = lastAppliedTerm;
         this.lastReplicationProtocolGroupConfigFirstPageId = lastReplicationProtocolGroupConfigFirstPageId;
@@ -100,7 +85,6 @@ public class StoragePartitionMeta extends PartitionMeta<StoragePartitionMetaSnap
         this.versionChainTreeRootPageId = versionChainTreeRootPageId;
         this.indexTreeMetaPageId = indexTreeMetaPageId;
         this.gcQueueMetaPageId = gcQueueMetaPageId;
-        this.pageCount = pageCount;
         this.leaseStartTime = leaseStartTime;
     }
 
@@ -111,7 +95,11 @@ public class StoragePartitionMeta extends PartitionMeta<StoragePartitionMetaSnap
      * @param metaIo Partition meta IO.
      * @param pageAddr Address of the page with the partition meta.
      */
-    StoragePartitionMeta(@Nullable UUID checkpointId, StoragePartitionMetaIo metaIo, long pageAddr) {
+    StoragePartitionMeta(@Nullable UUID checkpointId, PartitionMetaIo metaIo, long pageAddr) {
+        this(checkpointId, (StoragePartitionMetaIo) metaIo, pageAddr);
+    }
+
+    private StoragePartitionMeta(@Nullable UUID checkpointId, StoragePartitionMetaIo metaIo, long pageAddr) {
         this(
                 checkpointId,
                 metaIo.getLastAppliedIndex(pageAddr),
@@ -249,25 +237,14 @@ public class StoragePartitionMeta extends PartitionMeta<StoragePartitionMetaSnap
         this.gcQueueMetaPageId = gcQueueMetaPageId;
     }
 
-    /**
-     * Returns count of pages in the partition.
-     */
-    public int pageCount() {
-        return pageCount;
-    }
-
-    /**
-     * Increases the number of pages in a partition.
-     */
-    public void incrementPageCount(@Nullable UUID checkpointId) {
-        updateSnapshot(checkpointId);
-
-        PAGE_COUNT.getAndAdd(this, 1);
-    }
-
     @Override
     protected StoragePartitionMetaSnapshot buildSnapshot(@Nullable UUID checkpointId) {
         return new StoragePartitionMetaSnapshot(checkpointId, this);
+    }
+
+    @Override
+    public StoragePartitionMetaSnapshot metaSnapshot(@Nullable UUID checkpointId) {
+        return (StoragePartitionMetaSnapshot) super.metaSnapshot(checkpointId);
     }
 
     @Override
@@ -303,7 +280,7 @@ public class StoragePartitionMeta extends PartitionMeta<StoragePartitionMetaSnap
     /**
      * An immutable snapshot of the partition's meta information.
      */
-    public static class StoragePartitionMetaSnapshot implements PartitionMetaSnapshot<StoragePartitionMetaIo> {
+    public static class StoragePartitionMetaSnapshot implements PartitionMetaSnapshot {
         private final @Nullable UUID checkpointId;
 
         private final long lastAppliedIndex;
@@ -339,7 +316,7 @@ public class StoragePartitionMeta extends PartitionMeta<StoragePartitionMetaSnap
             freeListRootPageId = partitionMeta.freeListRootPageId;
             indexTreeMetaPageId = partitionMeta.indexTreeMetaPageId;
             gcQueueMetaPageId = partitionMeta.gcQueueMetaPageId;
-            pageCount = partitionMeta.pageCount;
+            pageCount = partitionMeta.pageCount();
             leaseStartTime = partitionMeta.leaseStartTime;
         }
 
@@ -411,20 +388,21 @@ public class StoragePartitionMeta extends PartitionMeta<StoragePartitionMetaSnap
         /**
          * Writes the contents of the snapshot to a page of type {@link StoragePartitionMetaIo}.
          *
-         * @param metaIo Partition meta IO.
+         * @param metaIo Partition meta IO (which should be of type {@link StoragePartitionMetaIo}).
          * @param pageAddr Address of the page with the partition meta.
          */
         @Override
-        public void writeTo(StoragePartitionMetaIo metaIo, long pageAddr) {
-            metaIo.setLastAppliedIndex(pageAddr, lastAppliedIndex);
-            metaIo.setLastAppliedTerm(pageAddr, lastAppliedTerm);
-            metaIo.setLastReplicationProtocolGroupConfigFirstPageId(pageAddr, lastReplicationProtocolGroupConfigFirstPageId);
-            metaIo.setVersionChainTreeRootPageId(pageAddr, versionChainTreeRootPageId);
-            metaIo.setFreeListRootPageId(pageAddr, freeListRootPageId);
-            metaIo.setIndexTreeMetaPageId(pageAddr, indexTreeMetaPageId);
-            metaIo.setGcQueueMetaPageId(pageAddr, gcQueueMetaPageId);
-            metaIo.setPageCount(pageAddr, pageCount);
-            metaIo.setLeaseStartTime(pageAddr, leaseStartTime);
+        public void writeTo(PartitionMetaIo metaIo, long pageAddr) {
+            StoragePartitionMetaIo storageMetaIo = (StoragePartitionMetaIo) metaIo;
+            storageMetaIo.setLastAppliedIndex(pageAddr, lastAppliedIndex);
+            storageMetaIo.setLastAppliedTerm(pageAddr, lastAppliedTerm);
+            storageMetaIo.setLastReplicationProtocolGroupConfigFirstPageId(pageAddr, lastReplicationProtocolGroupConfigFirstPageId);
+            storageMetaIo.setVersionChainTreeRootPageId(pageAddr, versionChainTreeRootPageId);
+            storageMetaIo.setFreeListRootPageId(pageAddr, freeListRootPageId);
+            storageMetaIo.setIndexTreeMetaPageId(pageAddr, indexTreeMetaPageId);
+            storageMetaIo.setGcQueueMetaPageId(pageAddr, gcQueueMetaPageId);
+            storageMetaIo.setPageCount(pageAddr, pageCount);
+            storageMetaIo.setLeaseStartTime(pageAddr, leaseStartTime);
         }
 
         /**

@@ -19,17 +19,15 @@ package org.apache.ignite.internal.pagememory.persistence;
 
 import java.util.UUID;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
-import org.apache.ignite.internal.pagememory.persistence.TestPartitionMeta.TestPartitionMetaSnapshot;
 import org.apache.ignite.internal.pagememory.persistence.io.PartitionMetaIo;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Simple implementation of {@link PartitionMeta} for testing purposes.
  */
-public class TestPartitionMeta extends PartitionMeta<TestPartitionMetaSnapshot> {
+public class TestPartitionMeta extends PartitionMeta {
 
-    public static final PartitionMetaFactory<TestPartitionMeta, TestPartitionMetaIo> FACTORY =
-            (checkpointId, metaIo, pageAddr) -> new TestPartitionMeta(checkpointId);
+    public static final PartitionMetaFactory FACTORY = new TestPartitionMetaFactory();
 
     /**
      * Constructor.
@@ -48,7 +46,7 @@ public class TestPartitionMeta extends PartitionMeta<TestPartitionMetaSnapshot> 
     /**
      * Simple implementation of {@link PartitionMetaSnapshot} for testing purposes.
      */
-    public static class TestPartitionMetaSnapshot implements PartitionMetaSnapshot<TestPartitionMetaIo> {
+    public static class TestPartitionMetaSnapshot implements PartitionMetaSnapshot {
         private final UUID checkpointId;
 
         public TestPartitionMetaSnapshot(@Nullable UUID checkpointId) {
@@ -56,7 +54,7 @@ public class TestPartitionMeta extends PartitionMeta<TestPartitionMetaSnapshot> 
         }
 
         @Override
-        public void writeTo(TestPartitionMetaIo metaIo, long pageAddr) {
+        public void writeTo(PartitionMetaIo metaIo, long pageAddr) {
         }
 
         @Override
@@ -79,6 +77,20 @@ public class TestPartitionMeta extends PartitionMeta<TestPartitionMetaSnapshot> 
          */
         protected TestPartitionMetaIo(int ver) {
             super(ver, 0);
+        }
+    }
+
+    /**
+     * Simple implementation of {@link PartitionMetaFactory} for testing purposes.
+     */
+    public static class TestPartitionMetaFactory implements PartitionMetaFactory {
+        @Override public PartitionMeta createPartitionMeta(UUID checkpointId, PartitionMetaIo metaIo, long pageAddr) {
+            return new TestPartitionMeta(checkpointId);
+        }
+
+        @Override
+        public PartitionMetaIo partitionMetaIo() {
+            return TestPartitionMetaIo.VERSIONS.latest();
         }
     }
 }

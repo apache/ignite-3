@@ -33,6 +33,7 @@ import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.freelist.FreeListImpl;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
+import org.apache.ignite.internal.pagememory.persistence.PartitionMeta;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointProgress;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTimeoutLock;
@@ -112,7 +113,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
     public PersistentPageMemoryMvPartitionStorage createMvPartitionStorage(int partitionId) {
         GroupPartitionId groupPartitionId = createGroupPartitionId(partitionId);
 
-        StoragePartitionMeta meta = getOrCreatePartitionMetaOnCreatePartition(groupPartitionId);
+        StoragePartitionMeta meta = (StoragePartitionMeta) getOrCreatePartitionMetaOnCreatePartition(groupPartitionId);
 
         return inCheckpointLock(() -> {
             PersistentPageMemory pageMemory = dataRegion.pageMemory();
@@ -335,7 +336,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
 
             int partitionId = groupPartitionId.getPartitionId();
 
-            StoragePartitionMeta meta = getOrCreatePartitionMetaOnCreatePartition(groupPartitionId);
+            StoragePartitionMeta meta = (StoragePartitionMeta) getOrCreatePartitionMetaOnCreatePartition(groupPartitionId);
 
             inCheckpointLock(() -> {
                 FreeListImpl freeList = createFreeList(partitionId, pageMemory, meta);
@@ -392,7 +393,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
      *
      * @param groupPartitionId Partition of the group.
      */
-    private StoragePartitionMeta getOrCreatePartitionMetaOnCreatePartition(GroupPartitionId groupPartitionId) {
+    private PartitionMeta getOrCreatePartitionMetaOnCreatePartition(GroupPartitionId groupPartitionId) {
         ByteBuffer buffer = allocateBuffer(dataRegion.pageMemory().pageSize());
 
         try {
@@ -400,7 +401,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
 
             // TODO: IGNITE-20983 This shouldn't happen, we should read the page store and its meta again
             if (filePageStore != null) {
-                StoragePartitionMeta partitionMeta = dataRegion.partitionMetaManager().getMeta(groupPartitionId);
+                PartitionMeta partitionMeta = dataRegion.partitionMetaManager().getMeta(groupPartitionId);
 
                 assert partitionMeta != null : groupPartitionId;
 
@@ -409,7 +410,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
 
             filePageStore = readOrCreateAndInitFilePageStore(groupPartitionId, buffer);
 
-            StoragePartitionMeta partitionMeta = readOrCreatePartitionMeta(groupPartitionId, filePageStore, buffer.rewind());
+            PartitionMeta partitionMeta = readOrCreatePartitionMeta(groupPartitionId, filePageStore, buffer.rewind());
 
             filePageStore.pages(partitionMeta.pageCount());
 
@@ -457,7 +458,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
         }
     }
 
-    private StoragePartitionMeta readOrCreatePartitionMeta(
+    private PartitionMeta readOrCreatePartitionMeta(
             GroupPartitionId groupPartitionId,
             FilePageStore filePageStore,
             ByteBuffer buffer

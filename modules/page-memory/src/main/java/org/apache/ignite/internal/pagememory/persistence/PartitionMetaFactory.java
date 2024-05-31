@@ -18,14 +18,14 @@
 package org.apache.ignite.internal.pagememory.persistence;
 
 import java.util.UUID;
-import org.apache.ignite.internal.pagememory.persistence.PartitionMeta.PartitionMetaSnapshot;
 import org.apache.ignite.internal.pagememory.persistence.io.PartitionMetaIo;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Factory for creating {@link PartitionMeta} instances.
  */
-@FunctionalInterface
-public interface PartitionMetaFactory<M extends PartitionMeta<? extends PartitionMetaSnapshot<I>>, I extends PartitionMetaIo> {
-    M createPartitionMeta(@Nullable UUID checkpointId, I metaIo, long pageAddr);
+public interface PartitionMetaFactory {
+    PartitionMeta createPartitionMeta(@Nullable UUID checkpointId, PartitionMetaIo metaIo, long pageAddr);
+
+    PartitionMetaIo partitionMetaIo();
 }

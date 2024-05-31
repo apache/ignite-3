@@ -18,15 +18,22 @@
 package org.apache.ignite.internal.storage.pagememory;
 
 import java.util.UUID;
+import org.apache.ignite.internal.pagememory.persistence.PartitionMeta;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaFactory;
+import org.apache.ignite.internal.pagememory.persistence.io.PartitionMetaIo;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * * Factory for creating {@link StoragePartitionMeta} instances.
  */
-public class StoragePartitionMetaFactory implements PartitionMetaFactory<StoragePartitionMeta, StoragePartitionMetaIo> {
+public class StoragePartitionMetaFactory implements PartitionMetaFactory {
     @Override
-    public StoragePartitionMeta createPartitionMeta(@Nullable UUID checkpointId, StoragePartitionMetaIo metaIo, long pageAddr) {
+    public PartitionMeta createPartitionMeta(@Nullable UUID checkpointId, PartitionMetaIo metaIo, long pageAddr) {
         return new StoragePartitionMeta(checkpointId, metaIo, pageAddr);
+    }
+
+    @Override
+    public PartitionMetaIo partitionMetaIo() {
+        return StoragePartitionMetaIo.VERSIONS.latest();
     }
 }

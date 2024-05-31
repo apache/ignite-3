@@ -23,26 +23,32 @@ import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.util.UUID;
-import org.apache.ignite.internal.pagememory.persistence.PartitionMeta.PartitionMetaSnapshot;
 import org.apache.ignite.internal.pagememory.persistence.io.PartitionMetaIo;
+import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Partition meta information.
  */
-public abstract class PartitionMeta<S extends PartitionMetaSnapshot<?>> {
+public abstract class PartitionMeta {
+    private static final VarHandle PAGE_COUNT;
 
     private static final VarHandle META_SNAPSHOT;
 
     static {
         try {
+            PAGE_COUNT = MethodHandles.lookup().findVarHandle(PartitionMeta.class, "pageCount", int.class);
+
             META_SNAPSHOT = MethodHandles.lookup().findVarHandle(PartitionMeta.class, "metaSnapshot", PartitionMetaSnapshot.class);
         } catch (ReflectiveOperationException e) {
             throw new ExceptionInInitializerError(e);
         }
     }
 
-    protected volatile S metaSnapshot;
+    protected volatile PartitionMetaSnapshot metaSnapshot;
+
+    private volatile int pageCount;
+
 
     /**
      * Constructor.
@@ -53,14 +59,42 @@ public abstract class PartitionMeta<S extends PartitionMetaSnapshot<?>> {
         metaSnapshot = buildSnapshot(checkpointId);
     }
 
-    protected abstract S buildSnapshot(@Nullable UUID checkpointId);
+    /**
+     * Constructor.
+     *
+     * @param checkpointId Checkpoint ID.
+     * @param pageCount Page count.
+     */
+    protected PartitionMeta(@Nullable UUID checkpointId, int pageCount) {
+        this(checkpointId);
+
+        this.pageCount = pageCount;
+    }
+
+    protected abstract PartitionMetaSnapshot buildSnapshot(@Nullable UUID checkpointId);
+
+    /**
+     * Returns count of pages in the partition.
+     */
+    public int pageCount() {
+        return pageCount;
+    }
+
+    /**
+     * Increases the number of pages in a partition.
+     */
+    public void incrementPageCount(@Nullable UUID checkpointId) {
+        updateSnapshot(checkpointId);
+
+        PAGE_COUNT.getAndAdd(this, 1);
+    }
 
     /**
      * Returns the latest snapshot of the partition meta.
      *
      * @param checkpointId Checkpoint ID.
      */
-    public S metaSnapshot(@Nullable UUID checkpointId) {
+    public PartitionMetaSnapshot metaSnapshot(@Nullable UUID checkpointId) {
         updateSnapshot(checkpointId);
 
         return metaSnapshot;
@@ -73,7 +107,7 @@ public abstract class PartitionMeta<S extends PartitionMetaSnapshot<?>> {
      * @param checkpointId Checkpoint ID.
      */
     protected void updateSnapshot(@Nullable UUID checkpointId) {
-        S current = metaSnapshot;
+        PartitionMetaSnapshot current = metaSnapshot;
 
         if (current.checkpointId() != checkpointId) {
             META_SNAPSHOT.compareAndSet(this, current, buildSnapshot(checkpointId));
@@ -82,20 +116,20 @@ public abstract class PartitionMeta<S extends PartitionMetaSnapshot<?>> {
 
     @Override
     public String toString() {
-        return org.apache.ignite.internal.tostring.S.toString(PartitionMeta.class, this);
+        return S.toString(PartitionMeta.class, this);
     }
 
     /**
      * An immutable snapshot of the partition's meta information.
      */
-    public interface PartitionMetaSnapshot<I extends PartitionMetaIo> {
+    public interface PartitionMetaSnapshot {
         /**
          * Writes the contents of the snapshot to a page of type {@link PartitionMetaIo}.
          *
          * @param metaIo Partition meta IO.
          * @param pageAddr Address of the page with the partition meta.
          */
-        void writeTo(I metaIo, long pageAddr);
+        void writeTo(PartitionMetaIo metaIo, long pageAddr);
 
         /**
          * Returns the checkpoint ID.

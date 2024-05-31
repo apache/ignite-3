@@ -21,6 +21,7 @@ import static java.lang.System.nanoTime;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.ignite.internal.pagememory.persistence.TestPartitionMeta.FACTORY;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.DIRTY_PAGE_COMPARATOR;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.EMPTY;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.FINISHED;
@@ -73,7 +74,6 @@ import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.TestPartitionMeta;
-import org.apache.ignite.internal.pagememory.persistence.TestPartitionMeta.TestPartitionMetaIo;
 import org.apache.ignite.internal.pagememory.persistence.WriteDirtyPage;
 import org.apache.ignite.internal.pagememory.persistence.compaction.Compactor;
 import org.apache.ignite.internal.pagememory.persistence.store.DeltaFilePageStoreIo;
@@ -356,8 +356,7 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
                 fullPageId(0, 0, 1), fullPageId(0, 0, 2), fullPageId(0, 0, 3)
         ));
 
-        PartitionMetaManager<TestPartitionMeta, TestPartitionMetaIo> partitionMetaManager =
-                new PartitionMetaManager<>(ioRegistry, PAGE_SIZE, TestPartitionMeta.FACTORY, TestPartitionMetaIo.VERSIONS);
+        PartitionMetaManager partitionMetaManager = new PartitionMetaManager(ioRegistry, PAGE_SIZE, FACTORY);
 
         partitionMetaManager.addMeta(
                 new GroupPartitionId(0, 0),
@@ -409,8 +408,7 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
                 null,
                 mock(FailureProcessor.class),
                 createCheckpointWorkflow(dirtyPages),
-                createCheckpointPagesWriterFactory(
-                        new PartitionMetaManager<>(ioRegistry, PAGE_SIZE, TestPartitionMeta.FACTORY, TestPartitionMetaIo.VERSIONS)),
+                createCheckpointPagesWriterFactory(new PartitionMetaManager(ioRegistry, PAGE_SIZE, FACTORY)),
                 createFilePageStoreManager(Map.of()),
                 compactor,
                 checkpointConfig,

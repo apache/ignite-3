@@ -21,7 +21,6 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.pagememory.persistence.PartitionMeta.partitionMetaPageId;
 import static org.apache.ignite.internal.pagememory.persistence.store.FilePageStore.VERSION_1;
 import static org.apache.ignite.internal.storage.pagememory.StoragePartitionMeta.FACTORY;
-import static org.apache.ignite.internal.storage.pagememory.StoragePartitionMetaIo.VERSIONS;
 import static org.apache.ignite.internal.util.GridUnsafe.allocateBuffer;
 import static org.apache.ignite.internal.util.GridUnsafe.bufferAddress;
 import static org.apache.ignite.internal.util.GridUnsafe.freeBuffer;
@@ -74,8 +73,7 @@ public class StoragePartitionMetaManagerTest extends BaseIgniteAbstractTest {
     void testReadWritePartitionMeta(@WorkDirectory Path workDir) throws Exception {
         Path testFilePath = workDir.resolve("test");
 
-        PartitionMetaManager<StoragePartitionMeta, StoragePartitionMetaIo> manager =
-                new PartitionMetaManager<>(ioRegistry, PAGE_SIZE, FACTORY, VERSIONS);
+        PartitionMetaManager manager = new PartitionMetaManager(ioRegistry, PAGE_SIZE, FACTORY);
 
         GroupPartitionId partId = new GroupPartitionId(0, 0);
 
@@ -190,14 +188,14 @@ public class StoragePartitionMetaManagerTest extends BaseIgniteAbstractTest {
     }
 
     private static StoragePartitionMeta readOrCreateMeta(
-            PartitionMetaManager<StoragePartitionMeta, StoragePartitionMetaIo> manager,
+            PartitionMetaManager manager,
             GroupPartitionId partId,
             FilePageStore filePageStore
     ) throws Exception {
         ByteBuffer buffer = allocateBuffer(PAGE_SIZE);
 
         try {
-            return manager.readOrCreateMeta(null, partId, filePageStore, buffer);
+            return (StoragePartitionMeta) manager.readOrCreateMeta(null, partId, filePageStore, buffer);
         } finally {
             freeBuffer(buffer);
         }
