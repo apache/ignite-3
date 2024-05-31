@@ -32,8 +32,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.TxState;
@@ -50,9 +48,6 @@ import org.jetbrains.annotations.Nullable;
  * Sends TX Cleanup request.
  */
 public class TxCleanupRequestSender {
-    /** Logger. */
-    private static final IgniteLogger LOG = Loggers.forClass(TxCleanupRequestSender.class);
-
     /** Placement driver helper. */
     private final PlacementDriverHelper placementDriverHelper;
 
