@@ -64,11 +64,13 @@ public abstract class BaseIgniteAbstractTest {
         Mockito.framework().clearInlineMocks();
     }
 
-    /** For tests with active leak detection forces GC to detect buffer leaks. */
+    /** For tests with paranoid netty leak detection forces GC to catch leaks. */
     @AfterAll
     static void forceGcForNettyBufferLeaksDetection() {
-        //noinspection CallToSystemGC
-        System.gc();
+        if ("paranoid".equals(System.getProperty("io.netty.leakDetectionLevel"))) {
+            //noinspection CallToSystemGC
+            System.gc();
+        }
     }
 
     @BeforeEach
