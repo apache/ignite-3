@@ -20,7 +20,6 @@ package org.apache.ignite.internal.catalog.commands;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.createCatalogManagerWithTestUpdateLog;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.clusterWideEnsuredActivationTimestamp;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceIndex;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceTable;
 import static org.apache.ignite.internal.hlc.TestClockService.TEST_MAX_CLOCK_SKEW_MILLIS;
@@ -59,10 +58,6 @@ import org.junit.jupiter.api.Test;
 /** For {@link CatalogUtils} testing. */
 public class CatalogUtilsTest extends BaseIgniteAbstractTest {
     private static final String TABLE_NAME = "test_table";
-
-    private static final String INDEX_NAME = "test_index";
-
-    private static final String PK_INDEX_NAME = pkIndexName(TABLE_NAME);
 
     private static final String COLUMN_NAME = "key";
 
