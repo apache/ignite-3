@@ -921,7 +921,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 )
                 : trueCompletedFuture();
 
-        CompletableFuture<Boolean> startGroupFut = shouldStartGroupFut
+        shouldStartGroupFut
                 .thenComposeAsync(startGroup -> inBusyLock(busyLock, () -> {
                     // (1) if partitionReplicatorNodeRecovery#shouldStartGroup fails -> do start nothing
                     if (!startGroup) {
