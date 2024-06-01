@@ -975,7 +975,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                 snapshotStorageFactory,
                                 updateTableRaftService,
                                 createListener,
-                                zoneId,
                                 storageIndexTracker,
                                 replicaGrpId,
                                 newConfiguration);
