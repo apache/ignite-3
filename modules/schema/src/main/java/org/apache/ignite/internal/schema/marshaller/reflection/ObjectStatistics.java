@@ -38,11 +38,11 @@ class ObjectStatistics {
     private static final ObjectStatistics ZERO_STATISTICS = new ObjectStatistics(-1, false);
 
     /**
-     * The average size of a decimal number is taken from the air. This value is used to avoid unnecessary
-     * buffer reallocation when building a binary row. The exact size of the decimal value can be determined
-     * after compaction (see {@link BinaryTupleCommon#shrinkDecimal(BigDecimal, int)}.
+     * The value is used to avoid unnecessary buffer reallocation when building
+     * a binary row. The exact size of the decimal value can be determined after
+     * compaction (see {@link BinaryTupleCommon#shrinkDecimal(BigDecimal, int)}.
      */
-    private static final int DECIMAL_VALUE_SIZE = 32;
+    private static final int DECIMAL_VALUE_ESTIMATED_SIZE = 32;
 
     /** Estimated total size of the object. */
     private final int estimatedValueSize;
@@ -89,7 +89,7 @@ class ObjectStatistics {
             if (colType.spec().fixedLength()) {
                 estimatedValueSize += colType.sizeInBytes();
             } else {
-                int valueSize = colType.spec() == NativeTypeSpec.DECIMAL ? DECIMAL_VALUE_SIZE : getValueSize(val, colType);
+                int valueSize = colType.spec() == NativeTypeSpec.DECIMAL ? DECIMAL_VALUE_ESTIMATED_SIZE : getValueSize(val, colType);
 
                 exactEstimation = false;
 
