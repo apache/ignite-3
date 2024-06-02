@@ -723,9 +723,7 @@ public class IgniteImpl implements Ignite {
                 distributionZoneManager,
                 metaStorageMgr,
                 clusterSvc.topologyService(),
-                clusterSvc.serializationRegistry(),
-                clockService,
-                placementDriver()
+                clusterSvc.serializationRegistry()
         );
 
         TransactionConfiguration txConfig = clusterConfigRegistry.getConfiguration(TransactionConfiguration.KEY);

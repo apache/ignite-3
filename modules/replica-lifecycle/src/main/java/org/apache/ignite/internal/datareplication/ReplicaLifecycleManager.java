@@ -48,7 +48,6 @@ import org.apache.ignite.internal.catalog.events.CreateZoneEventParameters;
 import org.apache.ignite.internal.datareplication.marshaller.ThreadLocalPartitionCommandsMarshaller;
 import org.apache.ignite.internal.datareplication.snapshot.FailFastSnapshotStorageFactory;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
-import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -61,7 +60,6 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
-import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.Peer;
@@ -90,11 +88,11 @@ import org.jetbrains.annotations.TestOnly;
  */
 public class ReplicaLifecycleManager implements IgniteComponent {
 
+    public static final String FEATURE_FLAG_NAME = "IGNITE_ZONE_BASED_REPLICATION";
     /* Feature flag for zone based collocation track */
     // TODO IGNITE-22115 remove it
-    public static final boolean ENABLED = getBoolean("IGNITE_ZONE_BASED_REPLICATION", true);
+    public static final boolean ENABLED = getBoolean(FEATURE_FLAG_NAME, false);
 
-    /** Catalog manager */
     private final CatalogManager catalogMgr;
 
     private final RaftManager raftMgr;
@@ -111,10 +109,6 @@ public class ReplicaLifecycleManager implements IgniteComponent {
 
     private final Marshaller raftCommandsMarshaller;
 
-    private final ClockService clockService;
-
-    private final PlacementDriver placementDriver;
-
     public static final String ZONE_STABLE_ASSIGNMENTS_PREFIX = "zone.assignments.stable.";
 
     /** The logger. */
@@ -129,7 +123,7 @@ public class ReplicaLifecycleManager implements IgniteComponent {
     public ReplicaLifecycleManager(CatalogManager catalogMgr, RaftManager raftMgr, ReplicaManager replicaMgr,
             TopologyAwareRaftGroupServiceFactory raftGroupServiceFactory, DistributionZoneManager distributionZoneMgr,
             MetaStorageManager metaStorageMgr, TopologyService topologyService,
-            MessageSerializationRegistry messageSerializationRegistry, ClockService clockService, PlacementDriver placementDriver) {
+            MessageSerializationRegistry messageSerializationRegistry) {
         this.catalogMgr = catalogMgr;
         this.raftMgr = raftMgr;
         this.replicaMgr = replicaMgr;
@@ -138,8 +132,6 @@ public class ReplicaLifecycleManager implements IgniteComponent {
         this.metaStorageMgr = metaStorageMgr;
         this.topologyService = topologyService;
         this.raftCommandsMarshaller = new ThreadLocalPartitionCommandsMarshaller(messageSerializationRegistry);
-        this.clockService = clockService;
-        this.placementDriver = placementDriver;
     }
 
     @Override

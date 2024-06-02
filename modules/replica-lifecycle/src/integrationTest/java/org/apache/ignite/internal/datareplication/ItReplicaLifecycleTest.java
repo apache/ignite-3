@@ -5,6 +5,7 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static org.apache.ignite.internal.BaseIgniteRestartTest.createVault;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_TEST_PROFILE_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.datareplication.ReplicaLifecycleManager.FEATURE_FLAG_NAME;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.REBALANCE_SCHEDULER_POOL_SIZE;
 import static org.apache.ignite.internal.sql.SqlCommon.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
@@ -57,6 +58,7 @@ import org.apache.ignite.internal.configuration.storage.LocalFileConfigurationSt
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
+import org.apache.ignite.internal.datareplication.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
 import org.apache.ignite.internal.failure.FailureProcessor;
@@ -109,7 +111,6 @@ import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryDataSto
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineExtensionConfigurationSchema;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineExtensionConfigurationSchema;
 import org.apache.ignite.internal.table.TableTestUtils;
-import org.apache.ignite.internal.datareplication.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
@@ -135,13 +136,17 @@ import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.KeyValueView;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 @ExtendWith({WorkDirectoryExtension.class, ConfigurationExtension.class})
+@Timeout(60)
 public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
     private static final IgniteLogger LOG = Loggers.forClass(ItReplicaLifecycleTest.class);
 
@@ -180,6 +185,22 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
     private Path workDir;
 
     private List<Node> nodes;
+
+    private static String featureFlagOldValue = System.getProperty(FEATURE_FLAG_NAME);
+
+    @BeforeAll
+    static void beforeAll() {
+        System.setProperty(FEATURE_FLAG_NAME, "true");
+    }
+
+    @AfterAll
+    static void afterAll() {
+        if (featureFlagOldValue == null) {
+            System.clearProperty(FEATURE_FLAG_NAME);
+        } else {
+            System.setProperty(FEATURE_FLAG_NAME, featureFlagOldValue);
+        }
+    }
 
     @BeforeEach
     void before(TestInfo testInfo) throws Exception {
@@ -597,9 +618,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     distributionZoneManager,
                     metaStorageManager,
                     clusterService.topologyService(),
-                    clusterService.serializationRegistry(),
-                    clockService,
-                    placementDriver
+                    clusterService.serializationRegistry()
             );
 
             StorageUpdateConfiguration storageUpdateConfiguration = clusterConfigRegistry.getConfiguration(StorageUpdateConfiguration.KEY);
