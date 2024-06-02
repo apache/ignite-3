@@ -78,7 +78,6 @@ import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.TopologyService;
-import org.jetbrains.annotations.TestOnly;
 
 /**
  * The main responsibilities of this class:
@@ -87,7 +86,6 @@ import org.jetbrains.annotations.TestOnly;
  * - Support the rebalance mechanism and start the new replication entities when the rebalance triggers occurred.
  */
 public class ReplicaLifecycleManager implements IgniteComponent {
-
     public static final String FEATURE_FLAG_NAME = "IGNITE_ZONE_BASED_REPLICATION";
     /* Feature flag for zone based collocation track */
     // TODO IGNITE-22115 remove it
@@ -119,7 +117,18 @@ public class ReplicaLifecycleManager implements IgniteComponent {
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
-    @TestOnly
+    /**
+     * The constructor.
+     *
+     * @param catalogMgr Catalog manager.
+     * @param raftMgr RAFT manager.
+     * @param replicaMgr Replica manager.
+     * @param raftGroupServiceFactory Raft clients factory.
+     * @param distributionZoneMgr Distribution zone manager.
+     * @param metaStorageMgr Metastorage manager.
+     * @param topologyService Topology service.
+     * @param messageSerializationRegistry Message serialization registry.
+     */
     public ReplicaLifecycleManager(CatalogManager catalogMgr, RaftManager raftMgr, ReplicaManager replicaMgr,
             TopologyAwareRaftGroupServiceFactory raftGroupServiceFactory, DistributionZoneManager distributionZoneMgr,
             MetaStorageManager metaStorageMgr, TopologyService topologyService,
@@ -145,7 +154,6 @@ public class ReplicaLifecycleManager implements IgniteComponent {
                         inBusyLock(busyLock, () -> onCreateZone(parameters).thenApply((ignored) -> false))
         );
 
-        // TODO: IGNITE-22231 Will be replaced by the real code.
         return nullCompletedFuture();
     }
 
@@ -165,7 +173,7 @@ public class ReplicaLifecycleManager implements IgniteComponent {
         });
     }
 
-    public CompletableFuture<Void> createZoneReplicationEntities(CompletableFuture<List<Assignments>> assignmentsFuture, int zoneId) {
+    private CompletableFuture<Void> createZoneReplicationEntities(CompletableFuture<List<Assignments>> assignmentsFuture, int zoneId) {
         return assignmentsFuture.thenCompose(assignments -> {
             assert assignments != null : IgniteStringFormatter.format("Zone [id={}] has empty assignments.", zoneId);
 
@@ -181,7 +189,7 @@ public class ReplicaLifecycleManager implements IgniteComponent {
         });
     }
 
-    public CompletableFuture<Void> createZonePartitionReplicationNodes(int zoneId, int partId, Assignments assignments) {
+    private CompletableFuture<Void> createZonePartitionReplicationNodes(int zoneId, int partId, Assignments assignments) {
 
         Assignment localMemberAssignment = assignments.nodes().stream()
                 .filter(a -> a.consistentId().equals(localNode().name()))
@@ -269,7 +277,7 @@ public class ReplicaLifecycleManager implements IgniteComponent {
      * @param assignmentsFuture Assignments future, to get the assignments that should be written.
      * @return Real list of assignments.
      */
-    public CompletableFuture<List<Assignments>> writeTableAssignmentsToMetastore(
+    private CompletableFuture<List<Assignments>> writeTableAssignmentsToMetastore(
             int zoneId,
             CompletableFuture<List<Assignments>> assignmentsFuture
     ) {
