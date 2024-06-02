@@ -22,6 +22,9 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_CREATE;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.zoneAssignmentsGetLocally;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.zonePartitionAssignmentsGetLocally;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.getBoolean;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
@@ -287,7 +290,7 @@ public class ReplicaLifecycleManager implements IgniteComponent {
             List<Operation> partitionAssignments = new ArrayList<>(newAssignments.size());
 
             for (int i = 0; i < newAssignments.size(); i++) {
-                ByteArray stableAssignmentsKey = zoneStablePartAssignmentsKey(new ZonePartitionId(zoneId, i));
+                ByteArray stableAssignmentsKey = stablePartAssignmentsKey(new ZonePartitionId(zoneId, i));
                 byte[] anAssignment = newAssignments.get(i).toBytes();
                 Operation op = put(stableAssignmentsKey, anAssignment);
                 partitionAssignments.add(op);
@@ -322,7 +325,7 @@ public class ReplicaLifecycleManager implements IgniteComponent {
                             return completedFuture(newAssignments);
                         } else {
                             Set<ByteArray> partKeys = IntStream.range(0, newAssignments.size())
-                                    .mapToObj(p -> zoneStablePartAssignmentsKey(new ZonePartitionId(zoneId, p)))
+                                    .mapToObj(p -> stablePartAssignmentsKey(new ZonePartitionId(zoneId, p)))
                                     .collect(toSet());
 
                             CompletableFuture<Map<ByteArray, Entry>> resFuture = metaStorageMgr.getAll(partKeys);
@@ -332,7 +335,7 @@ public class ReplicaLifecycleManager implements IgniteComponent {
 
                                 for (int p = 0; p < newAssignments.size(); p++) {
                                     var partId = new ZonePartitionId(zoneId, p);
-                                    Entry assignmentsEntry = metaStorageAssignments.get(zoneStablePartAssignmentsKey(partId));
+                                    Entry assignmentsEntry = metaStorageAssignments.get(stablePartAssignmentsKey(partId));
 
                                     assert assignmentsEntry != null && !assignmentsEntry.empty() && !assignmentsEntry.tombstone()
                                             : "Unexpected assignments for partition [" + partId + ", entry=" + assignmentsEntry + "].";
@@ -397,38 +400,6 @@ public class ReplicaLifecycleManager implements IgniteComponent {
         }
 
         return assignmentsFuture;
-    }
-
-    public static Set<Assignment> zonePartitionAssignmentsGetLocally(
-            MetaStorageManager metaStorageManager,
-            int zoneId,
-            int partitionNumber,
-            long revision
-    ) {
-        Entry entry = metaStorageManager.getLocally(zoneStablePartAssignmentsKey(new ZonePartitionId(zoneId, partitionNumber)), revision);
-
-        return (entry == null || entry.empty() || entry.tombstone()) ? null : Assignments.fromBytes(entry.value()).nodes();
-    }
-
-    public static ByteArray zoneStablePartAssignmentsKey(ZonePartitionId partId) {
-        return new ByteArray(ZONE_STABLE_ASSIGNMENTS_PREFIX + partId);
-    }
-
-    public static List<Assignments> zoneAssignmentsGetLocally(
-            MetaStorageManager metaStorageManager,
-            int zoneId,
-            int numberOfPartitions,
-            long revision
-    ) {
-        return IntStream.range(0, numberOfPartitions)
-                .mapToObj(p -> {
-                    Entry e = metaStorageManager.getLocally(zoneStablePartAssignmentsKey(new ZonePartitionId(zoneId, p)), revision);
-
-                    assert e != null && !e.empty() && !e.tombstone() : e;
-
-                    return Assignments.fromBytes(e.value());
-                })
-                .collect(toList());
     }
 
     @Override
