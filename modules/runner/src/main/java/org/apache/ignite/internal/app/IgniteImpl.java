@@ -107,7 +107,6 @@ import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidator;
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidatorImpl;
 import org.apache.ignite.internal.datareplication.ReplicaLifecycleManager;
-import org.apache.ignite.internal.placementdriver.ZoneBasedPlacementDriver;
 import org.apache.ignite.internal.deployunit.DeploymentManagerImpl;
 import org.apache.ignite.internal.deployunit.IgniteDeployment;
 import org.apache.ignite.internal.deployunit.configuration.DeploymentConfiguration;
@@ -325,8 +324,6 @@ public class IgniteImpl implements Ignite {
 
     /** Distributed table manager. */
     private final TableManager distributedTblMgr;
-
-    private final PlacementDriver newReplicationPlacementDriver;
 
     /** Disaster recovery manager. */
     private final DisasterRecoveryManager disasterRecoveryManager;
@@ -571,8 +568,6 @@ public class IgniteImpl implements Ignite {
 
         logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgMgr);
 
-        newReplicationPlacementDriver = new ZoneBasedPlacementDriver(clusterSvc);
-
         var topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
                 clusterSvc,
                 logicalTopologyService,
@@ -642,7 +637,7 @@ public class IgniteImpl implements Ignite {
                 cmgMgr,
                 clockService,
                 Set.of(PartitionReplicationMessageGroup.class, TxMessageGroup.class),
-                placementDriver(),
+                placementDriverMgr.placementDriver(),
                 threadPoolsManager.partitionOperationsExecutor(),
                 partitionIdleSafeTimePropagationPeriodMsSupplier,
                 failureProcessor
@@ -745,7 +740,7 @@ public class IgniteImpl implements Ignite {
                 clusterSvc.messagingService()
         );
 
-        var transactionInflights = new TransactionInflights(placementDriver(), clockService);
+        var transactionInflights = new TransactionInflights(placementDriverMgr.placementDriver(), clockService);
 
         // TODO: IGNITE-19344 - use nodeId that is validated on join (and probably generated differently).
         txManager = new TxManagerImpl(
@@ -757,7 +752,7 @@ public class IgniteImpl implements Ignite {
                 lockMgr,
                 clockService,
                 new TransactionIdGenerator(() -> clusterSvc.nodeName().hashCode()),
-                placementDriver(),
+                placementDriverMgr.placementDriver(),
                 partitionIdleSafeTimePropagationPeriodMsSupplier,
                 indexNodeFinishedRwTransactionsChecker,
                 threadPoolsManager.partitionOperationsExecutor(),
@@ -806,7 +801,7 @@ public class IgniteImpl implements Ignite {
                 schemaSyncService,
                 catalogManager,
                 observableTimestampTracker,
-                placementDriver(),
+                placementDriverMgr.placementDriver(),
                 this::bareSql,
                 resourcesRegistry,
                 rebalanceScheduler,
@@ -842,7 +837,7 @@ public class IgniteImpl implements Ignite {
                 catalogManager,
                 metaStorageMgr,
                 indexManager,
-                placementDriver(),
+                placementDriverMgr.placementDriver(),
                 clusterSvc,
                 logicalTopologyService,
                 clockService
@@ -862,7 +857,7 @@ public class IgniteImpl implements Ignite {
                 systemViewManager,
                 failureProcessor,
                 partitionIdleSafeTimePropagationPeriodMsSupplier,
-                placementDriver(),
+                placementDriverMgr.placementDriver(),
                 clusterConfigRegistry.getConfiguration(SqlDistributedConfiguration.KEY),
                 nodeConfigRegistry.getConfiguration(SqlLocalConfiguration.KEY),
                 transactionInflights,
@@ -895,7 +890,7 @@ public class IgniteImpl implements Ignite {
         );
 
         compute = new IgniteComputeImpl(
-                placementDriver(),
+                placementDriverMgr.placementDriver(),
                 clusterSvc.topologyService(),
                 distributedTblMgr,
                 computeComponent,
@@ -921,7 +916,7 @@ public class IgniteImpl implements Ignite {
                 clockService,
                 schemaSyncService,
                 catalogManager,
-                placementDriver(),
+                placementDriverMgr.placementDriver(),
                 clientConnectorConfiguration,
                 lowWatermark
         );
@@ -1593,11 +1588,7 @@ public class IgniteImpl implements Ignite {
     /** Returns the node's placement driver service. */
     @TestOnly
     public PlacementDriver placementDriver() {
-        if (ReplicaLifecycleManager.ENABLED) {
-            return newReplicationPlacementDriver;
-        } else {
-            return placementDriverMgr.placementDriver();
-        }
+        return placementDriverMgr.placementDriver();
     }
 
     /** Returns the node's catalog manager. */

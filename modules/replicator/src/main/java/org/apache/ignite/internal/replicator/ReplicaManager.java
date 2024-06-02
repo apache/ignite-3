@@ -48,7 +48,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
-import org.apache.ignite.internal.ZoneBasedReplica;
+import org.apache.ignite.internal.ZonePartitionReplica;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.failure.FailureContext;
@@ -159,16 +159,17 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     private Function<ReplicationGroupId, ReplicationGroupId> groupIdConverter = Function.identity();
 
     /**
+     * Constructor for a replica serivce.
      *
-     * @param nodeName
-     * @param clusterNetSvc
-     * @param cmgMgr
-     * @param clockService
-     * @param messageGroupsToHandle
-     * @param placementDriver
-     * @param requestsExecutor
-     * @param failureProcessor
-     * @param groupIdConverter
+     * @param nodeName Node name.
+     * @param clusterNetSvc Cluster network service.
+     * @param cmgMgr Cluster group manager.
+     * @param clockService Clock service.
+     * @param messageGroupsToHandle Message handlers.
+     * @param placementDriver A placement driver.
+     * @param requestsExecutor Executor that will be used to execute requests by replicas.
+     * @param failureProcessor Failure processor.
+     * @param groupIdConverter Temporary converter to support the zone based partitions in tests.
      */
     @TestOnly
     public ReplicaManager(
@@ -539,32 +540,26 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     }
 
     /**
-     * Internal method for starting a replica.
+     * Starts a replica. If a replica with the same partition id already exists, the method throws an exception.
      *
      * @param replicaGrpId Replication group id.
      * @param listener Replica listener.
      * @param raftClient Topology aware Raft client.
-     * @param storageIndexTracker Storage index tracker.
+     * @throws NodeStoppingException If node is stopping.
+     * @throws ReplicaIsAlreadyStartedException Is thrown when a replica with the same replication group id has already been
+     *         started.
      */
-    private CompletableFuture<Replica> startReplicaInternal(
+    public CompletableFuture<Replica> startReplica(
             ReplicationGroupId replicaGrpId,
             ReplicaListener listener,
-            TopologyAwareRaftGroupService raftClient,
-            PendingComparableValuesTracker<Long, Void> storageIndexTracker
+            TopologyAwareRaftGroupService raftClient
     ) {
         LOG.info("Replica is about to start [replicationGroupId={}].", replicaGrpId);
 
-        ClusterNode localNode = clusterNetSvc.topologyService().localMember();
-
-        Replica newReplica = new Replica(
+        Replica newReplica = new ZonePartitionReplica(
                 replicaGrpId,
                 listener,
-                storageIndexTracker,
-                raftClient,
-                localNode,
-                executor,
-                placementDriver,
-                clockService
+                raftClient
         );
 
         CompletableFuture<Replica> replicaFuture = replicas.compute(replicaGrpId, (k, existingReplicaFuture) -> {
@@ -592,17 +587,33 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 .thenCompose(v -> replicaFuture);
     }
 
-    public CompletableFuture<Replica> startReplica(
+    /**
+     * Internal method for starting a replica.
+     *
+     * @param replicaGrpId Replication group id.
+     * @param listener Replica listener.
+     * @param raftClient Topology aware Raft client.
+     * @param storageIndexTracker Storage index tracker.
+     */
+    private CompletableFuture<Replica> startReplicaInternal(
             ReplicationGroupId replicaGrpId,
             ReplicaListener listener,
-            TopologyAwareRaftGroupService raftClient
+            TopologyAwareRaftGroupService raftClient,
+            PendingComparableValuesTracker<Long, Void> storageIndexTracker
     ) {
         LOG.info("Replica is about to start [replicationGroupId={}].", replicaGrpId);
 
-        Replica newReplica = new ZoneBasedReplica(
+        ClusterNode localNode = clusterNetSvc.topologyService().localMember();
+
+        Replica newReplica = new Replica(
                 replicaGrpId,
                 listener,
-                raftClient
+                storageIndexTracker,
+                raftClient,
+                localNode,
+                executor,
+                placementDriver,
+                clockService
         );
 
         CompletableFuture<Replica> replicaFuture = replicas.compute(replicaGrpId, (k, existingReplicaFuture) -> {
