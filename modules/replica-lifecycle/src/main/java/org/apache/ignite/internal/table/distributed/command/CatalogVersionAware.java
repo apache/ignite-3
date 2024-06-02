@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.command;
 
-import org.apache.ignite.internal.datareplication.PartitionCommandsMarshaller;
+import org.apache.ignite.internal.datareplication.marshaller.PartitionCommandsMarshaller;
 
 /**
  * A command that requires certain level of catalog version to be locally available just to be accepted on the node.

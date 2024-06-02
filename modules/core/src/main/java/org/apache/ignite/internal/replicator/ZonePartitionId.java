@@ -1,7 +1,6 @@
-package org.apache.ignite.internal.datareplication;
+package org.apache.ignite.internal.replicator;
 
 import java.util.Objects;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 
 // TODO KKK replace by the feature-branch compatible version
 public class ZonePartitionId implements ReplicationGroupId {

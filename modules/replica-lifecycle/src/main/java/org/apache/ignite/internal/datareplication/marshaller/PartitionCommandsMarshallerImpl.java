@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.datareplication;
+package org.apache.ignite.internal.datareplication.marshaller;
 
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
