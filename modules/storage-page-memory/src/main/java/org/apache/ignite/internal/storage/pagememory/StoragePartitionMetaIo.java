@@ -226,7 +226,6 @@ public class StoragePartitionMetaIo extends PartitionMetaIo {
         return getLong(pageAddr, GC_QUEUE_META_PAGE_ID_OFF);
     }
 
-
     /**
      * Sets the lease start time.
      *
