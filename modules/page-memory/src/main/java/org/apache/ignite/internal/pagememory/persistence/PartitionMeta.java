@@ -45,7 +45,7 @@ public abstract class PartitionMeta {
         }
     }
 
-    protected volatile PartitionMetaSnapshot metaSnapshot;
+    private volatile PartitionMetaSnapshot metaSnapshot;
 
     private volatile int pageCount;
 
