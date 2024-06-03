@@ -37,7 +37,7 @@ set(SOURCES
     transactions_test.cpp
 )
 
-ignite_test(${TARGET} ${SOURCES} LIBS ignite-test-common ignite-client)
+ignite_test(${TARGET} "${SOURCES}" LIBS ignite-test-common ignite-client)
 
 set(TEST_TARGET IgniteClientTest)
 add_test(NAME ${TEST_TARGET} COMMAND ${TARGET})
