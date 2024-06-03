@@ -25,7 +25,18 @@ import org.jetbrains.annotations.Nullable;
  * Factory for creating {@link PartitionMeta} instances.
  */
 public interface PartitionMetaFactory {
+    /**
+     * Creates a new {@link PartitionMeta} instance.
+     *
+     * @param checkpointId Checkpoint ID.
+     * @param metaIo Partition meta IO.
+     * @param pageAddr Page address.
+     * @return Partition meta.
+     */
     PartitionMeta createPartitionMeta(@Nullable UUID checkpointId, PartitionMetaIo metaIo, long pageAddr);
 
+    /**
+     * @return Partition meta IO.
+     */
     PartitionMetaIo partitionMetaIo();
 }
