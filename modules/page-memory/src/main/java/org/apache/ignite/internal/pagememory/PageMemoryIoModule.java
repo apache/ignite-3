@@ -31,7 +31,6 @@ import org.apache.ignite.internal.pagememory.io.PageIoModule;
  */
 @AutoService(PageIoModule.class)
 public class PageMemoryIoModule implements PageIoModule {
-    /** {@inheritDoc} */
     @Override
     public Collection<IoVersions<?>> ioVersions() {
         return List.of(
