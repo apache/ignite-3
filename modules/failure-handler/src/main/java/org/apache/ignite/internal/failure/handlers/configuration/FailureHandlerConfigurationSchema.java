@@ -17,8 +17,12 @@
 
 package org.apache.ignite.internal.failure.handlers.configuration;
 
+import static org.apache.ignite.internal.failure.FailureType.SYSTEM_CRITICAL_OPERATION_TIMEOUT;
+import static org.apache.ignite.internal.failure.FailureType.SYSTEM_WORKER_BLOCKED;
+
 import org.apache.ignite.configuration.annotation.PolymorphicConfig;
 import org.apache.ignite.configuration.annotation.PolymorphicId;
+import org.apache.ignite.configuration.annotation.Value;
 
 /**
  * Failure handles configuration schema.
@@ -27,7 +31,12 @@ import org.apache.ignite.configuration.annotation.PolymorphicId;
 public class FailureHandlerConfigurationSchema {
     /**
      * Unique failure handler type.
+     * TODO https://issues.apache.org/jira/browse/IGNITE-21456
      */
     @PolymorphicId(hasDefault = true)
     public String failureHandlerType = NoOpFailureHandlerConfigurationSchema.TYPE;
+
+    @Value(hasDefault = true)
+    @IgnoredFailureTypes
+    public String[] ignoredFailureTypes = {SYSTEM_WORKER_BLOCKED.typeName(), SYSTEM_CRITICAL_OPERATION_TIMEOUT.typeName()};
 }

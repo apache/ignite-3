@@ -20,9 +20,12 @@ package org.apache.ignite.internal.failure.configuration;
 import com.google.auto.service.AutoService;
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.configuration.validation.Validator;
+import org.apache.ignite.internal.failure.handlers.configuration.IgnoredFailureTypesValidator;
 import org.apache.ignite.internal.failure.handlers.configuration.NoOpFailureHandlerConfigurationSchema;
 import org.apache.ignite.internal.failure.handlers.configuration.StopNodeFailureHandlerConfigurationSchema;
 import org.apache.ignite.internal.failure.handlers.configuration.StopNodeOrHaltFailureHandlerConfigurationSchema;
@@ -48,5 +51,10 @@ public class FailureProcessorConfigurationModule implements ConfigurationModule 
                 NoOpFailureHandlerConfigurationSchema.class,
                 StopNodeFailureHandlerConfigurationSchema.class,
                 StopNodeOrHaltFailureHandlerConfigurationSchema.class);
+    }
+
+    @Override
+    public Set<Validator<?, ?>> validators() {
+        return Set.of(IgnoredFailureTypesValidator.INSTANCE);
     }
 }

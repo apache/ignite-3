@@ -15,18 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.failure.configuration;
+package org.apache.ignite.internal.failure.handlers.configuration;
 
-import org.apache.ignite.configuration.annotation.ConfigValue;
-import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.internal.failure.handlers.configuration.FailureHandlerConfigurationSchema;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
 /**
- * Failure processor configuration schema.
+ * Annotation to validate IgnoredFailureTypes configuration.
  */
-@ConfigurationRoot(rootName = "failureProcessor", type = ConfigurationType.LOCAL)
-public class FailureProcessorConfigurationSchema {
-    @ConfigValue
-    public FailureHandlerConfigurationSchema failureHandler;
+@Target(ElementType.FIELD)
+@Retention(RetentionPolicy.RUNTIME)
+public @interface IgnoredFailureTypes {
 }
