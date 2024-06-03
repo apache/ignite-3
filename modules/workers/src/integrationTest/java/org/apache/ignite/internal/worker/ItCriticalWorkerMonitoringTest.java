@@ -25,7 +25,7 @@ import java.util.regex.Pattern;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.datareplication.network.PartitionReplicationMessageGroup;
-import org.apache.ignite.internal.table.distributed.PartitionReplicationMessagesFactory;
+import org.apache.ignite.internal.datareplication.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.datareplication.network.raft.SnapshotMetaResponse;
 import org.apache.ignite.internal.testframework.log4j2.LogInspector;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;

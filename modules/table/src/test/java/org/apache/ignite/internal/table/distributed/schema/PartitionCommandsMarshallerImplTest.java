@@ -26,6 +26,10 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
+import org.apache.ignite.internal.datareplication.network.PartitionReplicationMessageGroup;
+import org.apache.ignite.internal.datareplication.network.PartitionReplicationMessagesFactory;
+import org.apache.ignite.internal.datareplication.network.command.FinishTxCommand;
+import org.apache.ignite.internal.datareplication.network.command.FinishTxCommandSerializationFactory;
 import org.apache.ignite.internal.network.MessageSerializationRegistryImpl;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
@@ -34,10 +38,6 @@ import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommandSerializationFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaMessageGroup;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
-import org.apache.ignite.internal.datareplication.network.PartitionReplicationMessageGroup;
-import org.apache.ignite.internal.table.distributed.PartitionReplicationMessagesFactory;
-import org.apache.ignite.internal.datareplication.network.command.FinishTxCommand;
-import org.apache.ignite.internal.table.distributed.command.FinishTxCommandSerializationFactory;
 import org.junit.jupiter.api.Test;
 
 class PartitionCommandsMarshallerImplTest {
