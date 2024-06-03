@@ -248,7 +248,6 @@ public class StoragePartitionMetaIo extends PartitionMetaIo {
         return getLong(pageAddr, LEASE_START_TIME_OFF);
     }
 
-    /** {@inheritDoc} */
     @Override
     protected void printPage(long addr, int pageSize, IgniteStringBuilder sb) {
         sb.app("TablePartitionMeta [").nl()
