@@ -212,6 +212,7 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
                     topologyAwareRaftGroupServiceFactory,
                     new NoOpMetricManager(),
                     metaStorageConfiguration,
+                    raftConfiguration.responseTimeout(),
                     completedFuture(() -> TEST_MAX_CLOCK_SKEW_MILLIS)
             );
 

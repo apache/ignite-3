@@ -1103,6 +1103,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     topologyAwareRaftGroupServiceFactory,
                     metricManager,
                     metaStorageConfiguration,
+                    raftConfiguration.responseTimeout(),
                     completedFuture(() -> DEFAULT_MAX_CLOCK_SKEW_MS)
             );
 

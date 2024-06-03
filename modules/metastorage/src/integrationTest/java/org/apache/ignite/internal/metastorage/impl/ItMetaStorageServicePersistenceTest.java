@@ -164,7 +164,7 @@ public class ItMetaStorageServicePersistenceTest extends ItAbstractListenerSnaps
                 storage,
                 new ClusterTimeImpl(nodeName, new IgniteSpinBusyLock(), new HybridClockImpl()),
                 completedFuture(() -> TEST_MAX_CLOCK_SKEW_MILLIS),
-                () -> Long.MAX_VALUE
+                raftConfiguration.responseTimeout()
         );
     }
 

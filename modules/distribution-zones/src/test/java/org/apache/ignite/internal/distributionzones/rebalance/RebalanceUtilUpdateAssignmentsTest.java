@@ -44,6 +44,7 @@ import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.affinity.Assignments;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -61,6 +62,7 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.WriteCommand;
+import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -101,6 +103,9 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
             DEFAULT_STORAGE_PROFILE
     );
 
+    @InjectConfiguration
+    private RaftConfiguration raftConfiguration;
+
     private static final int partNum = 2;
     private static final int replicas = 2;
 
@@ -128,7 +133,7 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
                 keyValueStorage,
                 mock(ClusterTimeImpl.class),
                 completedFuture(() -> TEST_MAX_CLOCK_SKEW_MILLIS),
-                () -> Long.MAX_VALUE
+                raftConfiguration.responseTimeout()
         );
 
         RaftGroupService metaStorageService = mock(RaftGroupService.class);

@@ -204,6 +204,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
                 topologyAwareRaftGroupServiceFactory,
                 new NoOpMetricManager(),
                 metaStorageConfiguration,
+                raftConfiguration.responseTimeout(),
                 completedFuture(clockService::maxClockSkewMillis)
         );
 

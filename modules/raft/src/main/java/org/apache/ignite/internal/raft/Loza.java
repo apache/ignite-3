@@ -555,9 +555,4 @@ public class Loza implements RaftManager {
     public Set<RaftNodeId> localNodes() {
         return raftServer.localNodes();
     }
-
-    @Override
-    public RaftConfiguration raftConfiguration() {
-        return raftConfiguration;
-    }
 }

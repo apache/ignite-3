@@ -428,6 +428,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 topologyAwareRaftGroupServiceFactory,
                 metricManager,
                 metaStorageConfiguration,
+                raftConfiguration.responseTimeout(),
                 maxClockSkewFuture
         ) {
             @Override

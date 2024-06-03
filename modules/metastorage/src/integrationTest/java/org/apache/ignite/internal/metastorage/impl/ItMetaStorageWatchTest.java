@@ -196,6 +196,7 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
                     topologyAwareRaftGroupServiceFactory,
                     new NoOpMetricManager(),
                     metaStorageConfiguration,
+                    raftConfiguration.responseTimeout(),
                     completedFuture(() -> TEST_MAX_CLOCK_SKEW_MILLIS)
             );
 

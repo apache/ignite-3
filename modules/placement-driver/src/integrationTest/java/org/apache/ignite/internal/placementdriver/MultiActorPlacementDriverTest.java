@@ -267,6 +267,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
                     topologyAwareRaftGroupServiceFactory,
                     new NoOpMetricManager(),
                     metaStorageConfiguration,
+                    raftConfiguration.responseTimeout(),
                     completedFuture(clockService::maxClockSkewMillis)
             );
 

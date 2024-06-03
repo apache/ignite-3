@@ -242,7 +242,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
                     mockStorage,
                     clusterTime,
                     completedFuture(() -> TEST_MAX_CLOCK_SKEW_MILLIS),
-                    () -> raftConfiguration.responseTimeout().value()
+                    raftConfiguration.responseTimeout()
             );
 
             var raftNodeId = new RaftNodeId(MetastorageGroupId.INSTANCE, peer);

@@ -27,6 +27,8 @@ import java.util.Iterator;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.function.LongSupplier;
+import org.apache.ignite.configuration.ConfigurationValue;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.command.GetAllCommand;
@@ -46,6 +48,7 @@ import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Meta storage listener.
@@ -66,13 +69,13 @@ public class MetaStorageListener implements RaftGroupListener, BeforeApplyHandle
             KeyValueStorage storage,
             ClusterTimeImpl clusterTime,
             CompletableFuture<LongSupplier> maxClockSkewMillisFuture,
-            LongSupplier idempotentCacheTtlSupplier
+            ConfigurationValue<Long> idempotentCacheTtl
     ) {
         this.storage = storage;
         this.writeHandler = new MetaStorageWriteHandler(
                 storage,
                 clusterTime,
-                idempotentCacheTtlSupplier,
+                idempotentCacheTtl,
                 maxClockSkewMillisFuture
         );
     }
@@ -185,5 +188,12 @@ public class MetaStorageListener implements RaftGroupListener, BeforeApplyHandle
 
     @Override
     public void onShutdown() {
+    }
+
+    @TestOnly
+    @Deprecated(forRemoval = true)
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-19417 cache eviction should be triggered by MS GC instead.
+    public void evictIdempotentCommandsCache() {
+        writeHandler.evictIdempotentCommandsCache(HybridTimestamp.MIN_VALUE);
     }
 }

@@ -48,6 +48,7 @@ import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
+import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.BeforeApplyHandler;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
@@ -108,6 +109,7 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
                 mock(TopologyAwareRaftGroupServiceFactory.class),
                 mockConfiguration(),
                 clock,
+                mockRaftConfiguration().responseTimeout(),
                 completedFuture(() -> TEST_MAX_CLOCK_SKEW_MILLIS)
         );
     }
@@ -130,6 +132,7 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
             TopologyAwareRaftGroupServiceFactory raftServiceFactory,
             MetaStorageConfiguration configuration,
             HybridClock clock,
+            ConfigurationValue<Long> idempotentCacheTtl,
             CompletableFuture<LongSupplier> maxClockSkewMillisFuture
     ) {
         super(
@@ -142,6 +145,7 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
                 raftServiceFactory,
                 new NoOpMetricManager(),
                 configuration,
+                idempotentCacheTtl,
                 maxClockSkewMillisFuture
         );
     }
@@ -214,6 +218,10 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
         when(value.value()).thenReturn(1000L);
 
         return configuration;
+    }
+
+    private static RaftConfiguration mockRaftConfiguration() {
+        return mock(RaftConfiguration.class, LENIENT_SETTINGS);
     }
 
     private static CompletableFuture<Serializable> runCommand(Command command, RaftGroupListener listener) {

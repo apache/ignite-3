@@ -586,6 +586,7 @@ public class IgniteImpl implements Ignite {
                 clock,
                 topologyAwareRaftGroupServiceFactory,
                 metricManager,
+                raftConfiguration.responseTimeout(),
                 maxClockSkewMillisFuture
         );
 

@@ -29,6 +29,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.LongSupplier;
+import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -86,19 +87,19 @@ public class MetaStorageWriteHandler {
 
     private final Map<CommandId, IdempotentCommandCachedResult> idempotentCommandCache = new ConcurrentHashMap<>();
 
-    private final LongSupplier idempotentCacheTtlSupplier;
+    private final ConfigurationValue<Long> idempotentCacheTtl;
 
     private final CompletableFuture<LongSupplier> maxClockSkewMillisFuture;
 
     MetaStorageWriteHandler(
             KeyValueStorage storage,
             ClusterTimeImpl clusterTime,
-            LongSupplier idempotentCacheTtlSupplier,
+            ConfigurationValue<Long> idempotentCacheTtl,
             CompletableFuture<LongSupplier> maxClockSkewMillisFuture
     ) {
         this.storage = storage;
         this.clusterTime = clusterTime;
-        this.idempotentCacheTtlSupplier = idempotentCacheTtlSupplier;
+        this.idempotentCacheTtl = idempotentCacheTtl;
         this.maxClockSkewMillisFuture = maxClockSkewMillisFuture;
     }
 
@@ -111,7 +112,14 @@ public class MetaStorageWriteHandler {
         CommandClosure<WriteCommand> resultClosure;
 
         if (command instanceof IdempotentCommand) {
-            CommandId commandId = ((IdempotentCommand) command).id();
+            IdempotentCommand idempotentCommand = ((IdempotentCommand) command);
+            CommandId commandId = idempotentCommand.id();
+
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-19417 Remove.
+            if (idempotentCommand.safeTime().getPhysical() % 100 == 0) {
+                evictIdempotentCommandsCache(((IdempotentCommand) command).safeTime());
+            }
+
             IdempotentCommandCachedResult cachedResult = idempotentCommandCache.get(commandId);
 
             if (cachedResult != null) {
@@ -202,20 +210,10 @@ public class MetaStorageWriteHandler {
             InvokeCommand cmd = (InvokeCommand) command;
 
             clo.result(storage.invoke(toCondition(cmd.condition()), cmd.success(), cmd.failure(), opTime, cmd.id()));
-
-            // TODO: https://issues.apache.org/jira/browse/IGNITE-19417 Remove.
-            if (command.safeTime().longValue() % 100 == 0) {
-                evictIdempotentCommandsCache(opTime);
-            }
         } else if (command instanceof MultiInvokeCommand) {
             MultiInvokeCommand cmd = (MultiInvokeCommand) command;
 
             clo.result(storage.invoke(toIf(cmd.iif()), opTime, cmd.id()));
-
-            // TODO: https://issues.apache.org/jira/browse/IGNITE-19417 Remove.
-            if (command.safeTime().longValue() % 100 == 0) {
-                evictIdempotentCommandsCache(opTime);
-            }
         } else if (command instanceof SyncTimeCommand) {
             storage.advanceSafeTime(command.safeTime());
 
@@ -390,8 +388,8 @@ public class MetaStorageWriteHandler {
 
         maxClockSkewMillisFuture.thenAccept(maxClockSkewMillis -> {
             List<CommandId> commandIdsToRemove = idempotentCommandCache.entrySet().stream()
-                    .filter(entry -> entry.getValue().commandStartTime.longValue()
-                            > cleanupTimestamp.longValue() - (idempotentCacheTtlSupplier.getAsLong() + maxClockSkewMillis.getAsLong()))
+                    .filter(entry -> entry.getValue().commandStartTime.getPhysical()
+                            <= cleanupTimestamp.getPhysical() - (idempotentCacheTtl.value() + maxClockSkewMillis.getAsLong()))
                     .map(entry -> entry.getKey())
                     .collect(toList());
 

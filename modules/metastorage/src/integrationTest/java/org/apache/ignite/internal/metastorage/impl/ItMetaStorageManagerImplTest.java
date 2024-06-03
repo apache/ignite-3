@@ -100,10 +100,12 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
 
     private MetaStorageManagerImpl metaStorageManager;
 
+    @InjectConfiguration
+    private RaftConfiguration raftConfiguration;
+
     @BeforeEach
     void setUp(
             TestInfo testInfo,
-            @InjectConfiguration RaftConfiguration raftConfiguration,
             @InjectConfiguration("mock.idleSyncTimeInterval = 100") MetaStorageConfiguration metaStorageConfiguration
     ) {
         var addr = new NetworkAddress("localhost", 10_000);
@@ -145,6 +147,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
                 topologyAwareRaftGroupServiceFactory,
                 new NoOpMetricManager(),
                 metaStorageConfiguration,
+                raftConfiguration.responseTimeout(),
                 completedFuture(() -> TEST_MAX_CLOCK_SKEW_MILLIS)
         );
 
@@ -233,6 +236,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
                 new HybridClockImpl(),
                 mock(TopologyAwareRaftGroupServiceFactory.class),
                 new NoOpMetricManager(),
+                raftConfiguration.responseTimeout(),
                 completedFuture(() -> TEST_MAX_CLOCK_SKEW_MILLIS)
         );
 

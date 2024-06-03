@@ -177,6 +177,4 @@ public interface RaftManager extends IgniteComponent {
 
     /** Returns write-ahead log syncer. */
     LogSyncer getLogSyncer();
-
-    RaftConfiguration raftConfiguration();
 }

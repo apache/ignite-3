@@ -44,6 +44,7 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
+import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -56,6 +57,9 @@ import org.junit.jupiter.params.provider.MethodSource;
 public class MetaStorageDeployWatchesCorrectnessTest extends IgniteAbstractTest {
     @InjectConfiguration
     private static MetaStorageConfiguration metaStorageConfiguration;
+
+    @InjectConfiguration
+    private static RaftConfiguration raftConfiguration;
 
     /**
      * Returns a stream with test arguments.
@@ -89,6 +93,7 @@ public class MetaStorageDeployWatchesCorrectnessTest extends IgniteAbstractTest 
                         mock(TopologyAwareRaftGroupServiceFactory.class),
                         new NoOpMetricManager(),
                         metaStorageConfiguration,
+                        raftConfiguration.responseTimeout(),
                         completedFuture(() -> TEST_MAX_CLOCK_SKEW_MILLIS)
                 ),
                 StandaloneMetaStorageManager.create()

@@ -415,7 +415,7 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
                         mockStorage,
                         mock(ClusterTimeImpl.class),
                         completedFuture(() -> TEST_MAX_CLOCK_SKEW_MILLIS),
-                        () -> raftConfiguration.responseTimeout().value()
+                        raftConfiguration.responseTimeout()
                 ),
                 defaults()
         );
@@ -429,7 +429,7 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
                         mockStorage,
                         mock(ClusterTimeImpl.class),
                         completedFuture(() -> TEST_MAX_CLOCK_SKEW_MILLIS),
-                        () -> raftConfiguration.responseTimeout().value()
+                        raftConfiguration.responseTimeout()
                 ),
                 defaults()
         );
@@ -443,7 +443,7 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
                         mockStorage,
                         mock(ClusterTimeImpl.class),
                         completedFuture(() -> TEST_MAX_CLOCK_SKEW_MILLIS),
-                        () -> raftConfiguration.responseTimeout().value()
+                        raftConfiguration.responseTimeout()
                 ),
                 defaults()
         );
