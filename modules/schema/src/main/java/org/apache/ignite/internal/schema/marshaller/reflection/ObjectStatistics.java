@@ -42,7 +42,7 @@ class ObjectStatistics {
      * a binary row. The exact size of the decimal value can be determined after
      * compaction (see {@link BinaryTupleCommon#shrinkDecimal(BigDecimal, int)}.
      */
-    private static final int DECIMAL_VALUE_ESTIMATED_SIZE = 32;
+    private static final int DECIMAL_VALUE_ESTIMATED_SIZE = 26;
 
     /** Estimated total size of the object. */
     private final int estimatedValueSize;
