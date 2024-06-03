@@ -418,8 +418,8 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
             node.metaStorageManager.evictIdempotentCommandsCache();
         }
 
-//        // todo check java doc.
-//        // Run same idempotent command one more time and check that condition wasn't re-evaluated, but was retrieved from the cache instead.
+
+        // Run same idempotent command one more time and check that condition **was** re-evaluated and not retrieved from the cache.
         CompletableFuture<Object> commandProcessingResultFuture3 = raftClient().run(idempotentCommand);
         assertThat(commandProcessingResultFuture3, willCompleteSuccessfully());
         Object commandProcessingResult3 = commandProcessingResultFuture3.get();
