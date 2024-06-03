@@ -44,6 +44,7 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.NoOpFailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -149,7 +150,7 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
                     new TestConfigurationValidator()
             );
 
-            this.failureProcessor = new FailureProcessor(clusterService.nodeName());
+            this.failureProcessor = new NoOpFailureProcessor(clusterService.nodeName());
 
             cmgManager = new ClusterManagementGroupManager(
                     vaultManager,
