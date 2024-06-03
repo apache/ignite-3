@@ -53,6 +53,7 @@ import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.CommandClosure;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
@@ -63,7 +64,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Tests for idempotency of {@link org.apache.ignite.internal.metastorage.command.IdempotentCommand}.
  */
 @ExtendWith(ConfigurationExtension.class)
-public class IdempotentCommandCacheTest {
+public class IdempotentCommandCacheTest extends BaseIgniteAbstractTest {
     private static final String NODE_NAME = "node";
 
     private static final MetaStorageCommandsFactory CMD_FACTORY = new MetaStorageCommandsFactory();
