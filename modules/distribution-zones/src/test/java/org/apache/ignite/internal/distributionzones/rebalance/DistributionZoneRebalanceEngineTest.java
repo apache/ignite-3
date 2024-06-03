@@ -192,8 +192,8 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
         MetaStorageListener metaStorageListener = new MetaStorageListener(
                 keyValueStorage,
                 mock(ClusterTimeImpl.class),
-                completedFuture(() -> TEST_MAX_CLOCK_SKEW_MILLIS),
-                raftConfiguration.retryTimeout()
+                raftConfiguration.retryTimeout(),
+                completedFuture(() -> TEST_MAX_CLOCK_SKEW_MILLIS)
         );
 
         RaftGroupService metaStorageService = mock(RaftGroupService.class);

@@ -324,8 +324,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         followerListener = new MetaStorageListener(
                 storage,
                 clusterTime,
-                maxClockSkewMillisFuture,
-                idempotentCacheTtl
+                idempotentCacheTtl,
+                maxClockSkewMillisFuture
         );
 
         CompletableFuture<TopologyAwareRaftGroupService> raftServiceFuture = raftMgr.startRaftGroupNodeAndWaitNodeReadyFuture(
@@ -372,8 +372,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         learnerListener = new MetaStorageListener(
                 storage,
                 clusterTime,
-                maxClockSkewMillisFuture,
-                idempotentCacheTtl
+                idempotentCacheTtl,
+                maxClockSkewMillisFuture
         );
 
         return raftMgr.startRaftGroupNodeAndWaitNodeReadyFuture(

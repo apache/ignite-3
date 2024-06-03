@@ -68,8 +68,8 @@ public class MetaStorageListener implements RaftGroupListener, BeforeApplyHandle
     public MetaStorageListener(
             KeyValueStorage storage,
             ClusterTimeImpl clusterTime,
-            CompletableFuture<LongSupplier> maxClockSkewMillisFuture,
-            ConfigurationValue<Long> idempotentCacheTtl
+            ConfigurationValue<Long> idempotentCacheTtl,
+            CompletableFuture<LongSupplier> maxClockSkewMillisFuture
     ) {
         this.storage = storage;
         this.writeHandler = new MetaStorageWriteHandler(

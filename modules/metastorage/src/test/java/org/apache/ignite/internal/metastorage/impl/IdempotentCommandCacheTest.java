@@ -89,8 +89,8 @@ public class IdempotentCommandCacheTest extends BaseIgniteAbstractTest {
         metaStorageListener = new MetaStorageListener(
                 storage,
                 new ClusterTimeImpl(NODE_NAME, new IgniteSpinBusyLock(), clock),
-                completedFuture(() -> TEST_MAX_CLOCK_SKEW_MILLIS),
-                raftConfiguration.retryTimeout()
+                raftConfiguration.retryTimeout(),
+                completedFuture(() -> TEST_MAX_CLOCK_SKEW_MILLIS)
         );
     }
 
