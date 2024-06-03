@@ -36,7 +36,7 @@ public interface PartitionMetaFactory {
     PartitionMeta createPartitionMeta(@Nullable UUID checkpointId, PartitionMetaIo metaIo, long pageAddr);
 
     /**
-     * Creates a new {@link PartitionMetaIo} instance.
+     * Returns an instance of {@link PartitionMetaIo} suitable for current {@link PartitionMetaFactory#createPartitionMeta} implementation.
      *
      * @return Partition meta IO.
      */
