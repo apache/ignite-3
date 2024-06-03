@@ -25,7 +25,7 @@ import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.pagememory.io.PageIo;
 
 /**
- * base Io for partition metadata pages.
+ * Base Io for partition metadata pages.
  */
 public abstract class PartitionMetaIo extends PageIo {
     /** Page IO type. */
