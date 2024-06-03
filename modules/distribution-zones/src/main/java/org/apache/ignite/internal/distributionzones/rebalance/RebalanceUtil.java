@@ -34,6 +34,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
+import static org.apache.ignite.internal.util.ByteUtils.longToBytesKeepingOrder;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.nio.charset.StandardCharsets;
@@ -59,7 +60,6 @@ import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.jetbrains.annotations.Nullable;
 
@@ -187,16 +187,16 @@ public class RebalanceUtil {
             newAssignmentsCondition = notExists(partAssignmentsStableKey).or(newAssignmentsCondition);
         }
 
-        Iif iif = iif(or(notExists(partChangeTriggerKey), value(partChangeTriggerKey).lt(ByteUtils.longToBytes(revision))),
+        Iif iif = iif(or(notExists(partChangeTriggerKey), value(partChangeTriggerKey).lt(longToBytesKeepingOrder(revision))),
                 iif(and(notExists(partAssignmentsPendingKey), newAssignmentsCondition),
                         ops(
                                 put(partAssignmentsPendingKey, partAssignmentsBytes),
-                                put(partChangeTriggerKey, ByteUtils.longToBytes(revision))
+                                put(partChangeTriggerKey, longToBytesKeepingOrder(revision))
                         ).yield(PENDING_KEY_UPDATED.ordinal()),
                         iif(and(value(partAssignmentsPendingKey).ne(partAssignmentsBytes), exists(partAssignmentsPendingKey)),
                                 ops(
                                         put(partAssignmentsPlannedKey, partAssignmentsBytes),
-                                        put(partChangeTriggerKey, ByteUtils.longToBytes(revision))
+                                        put(partChangeTriggerKey, longToBytesKeepingOrder(revision))
                                 ).yield(PLANNED_KEY_UPDATED.ordinal()),
                                 iif(value(partAssignmentsPendingKey).eq(partAssignmentsBytes),
                                         ops(remove(partAssignmentsPlannedKey)).yield(PLANNED_KEY_REMOVED_EQUALS_PENDING.ordinal()),
@@ -410,7 +410,7 @@ public class RebalanceUtil {
         }
 
         byte[] partAssignmentsBytes = Assignments.forced(partAssignments).toBytes();
-        byte[] revisionBytes = ByteUtils.longToBytes(revision);
+        byte[] revisionBytes = longToBytesKeepingOrder(revision);
 
         ByteArray partChangeTriggerKey = pendingChangeTriggerKey(partId);
         ByteArray partAssignmentsPendingKey = pendingPartAssignmentsKey(partId);

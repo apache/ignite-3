@@ -15,8 +15,13 @@
  * limitations under the License.
  */
 
-/**
- * Contains API classes for table management.
- */
+package org.apache.ignite.internal.cli.commands.recovery.restart;
 
-package org.apache.ignite.table.manager;
+/** Test class for {@link RestartPartitionsReplCommand}. */
+public class ItRestartPartitionsReplCommandTest extends ItRestartPartitionsTest {
+
+    @Override
+    protected Class<?> getCommandClass() {
+        return RestartPartitionsReplCommand.class;
+    }
+}

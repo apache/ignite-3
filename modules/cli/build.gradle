@@ -202,3 +202,7 @@ artifacts {
         builtBy(generateAutocompletionScript)
     }
 }
+
+tasks.withType(Test).configureEach {
+    jvmArgs += '-Dio.netty.leakDetectionLevel=paranoid'
+}

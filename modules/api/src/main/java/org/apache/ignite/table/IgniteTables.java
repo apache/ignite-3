@@ -15,12 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.table.manager;
+package org.apache.ignite.table;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.table.Table;
 
 /**
  * Interface that provides methods for managing tables.

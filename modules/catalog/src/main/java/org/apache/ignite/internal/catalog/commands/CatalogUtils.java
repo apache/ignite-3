@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.catalog.CatalogService.SYSTEM_SCHEMA_NA
 import static org.apache.ignite.internal.catalog.commands.DefaultValue.Type.FUNCTION_CALL;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
-import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.Collection;
 import java.util.EnumMap;
 import java.util.EnumSet;
@@ -33,7 +32,6 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.function.LongSupplier;
 import org.apache.ignite.internal.catalog.Catalog;
-import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.DistributionZoneNotFoundValidationException;
 import org.apache.ignite.internal.catalog.IndexNotFoundValidationException;
@@ -508,47 +506,6 @@ public class CatalogUtils {
         }
 
         return index;
-    }
-
-    /**
-     * Collects all table indexes (including dropped) that the table has in the requested catalog version range.
-     *
-     * <p>It is expected that at least one index should be between the requested versions.</p>
-     *
-     * @param catalogService Catalog service.
-     * @param tableId Table ID for which indexes will be collected.
-     * @param catalogVersionFrom Catalog version from which indexes will be collected (including).
-     * @param catalogVersionTo Catalog version up to which indexes will be collected (including).
-     * @return Table indexes.
-     */
-    public static Collection<CatalogIndexDescriptor> collectIndexes(
-            CatalogService catalogService,
-            int tableId,
-            int catalogVersionFrom,
-            int catalogVersionTo
-    ) {
-        assert catalogVersionFrom <= catalogVersionTo : "from=" + catalogVersionFrom + ", to=" + catalogVersionTo;
-
-        if (catalogVersionFrom == catalogVersionTo) {
-            List<CatalogIndexDescriptor> indexes = catalogService.indexes(catalogVersionFrom, tableId);
-
-            assert !indexes.isEmpty() : "catalogVersion=" + catalogVersionFrom + ", tableId=" + tableId;
-
-            return indexes;
-        }
-
-        var indexByIdMap = new Int2ObjectOpenHashMap<CatalogIndexDescriptor>();
-
-        for (int catalogVersion = catalogVersionFrom; catalogVersion <= catalogVersionTo; catalogVersion++) {
-            for (CatalogIndexDescriptor index : catalogService.indexes(catalogVersion, tableId)) {
-                indexByIdMap.put(index.id(), index);
-            }
-        }
-
-        assert !indexByIdMap.isEmpty()
-                : String.format("catalogVersionFrom=%s, catalogVersionTo=%s, tableId=%s", catalogVersionFrom, catalogVersionTo, tableId);
-
-        return indexByIdMap.values();
     }
 
     /**
