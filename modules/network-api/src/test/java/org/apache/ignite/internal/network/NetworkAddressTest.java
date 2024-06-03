@@ -28,7 +28,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Test suite for {@link NetworkAddress}.
  */
-class NetworkAddressTest extends BaseNetworkTest {
+class NetworkAddressTest {
     /**
      * Test parsing of a {@link NetworkAddress} from a string.
      */

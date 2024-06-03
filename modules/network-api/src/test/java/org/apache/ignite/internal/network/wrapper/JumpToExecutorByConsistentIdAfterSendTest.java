@@ -36,12 +36,12 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
-import org.apache.ignite.internal.network.BaseNetworkTest;
 import org.apache.ignite.internal.network.ChannelType;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessageHandler;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.thread.ExecutorChooser;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterNode;
@@ -54,7 +54,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-class JumpToExecutorByConsistentIdAfterSendTest extends BaseNetworkTest {
+class JumpToExecutorByConsistentIdAfterSendTest extends BaseIgniteAbstractTest {
     private static final String SENDER_CONSISTENT_ID = "sender";
     private static final String RECIPIENT_CONSISTENT_ID = "recipient";
 

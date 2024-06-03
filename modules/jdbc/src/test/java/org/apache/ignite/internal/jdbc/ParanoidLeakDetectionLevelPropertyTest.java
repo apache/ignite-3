@@ -15,17 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network;
+package org.apache.ignite.internal.jdbc;
 
-import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.junit.jupiter.api.BeforeAll;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
 
+import org.junit.jupiter.api.Test;
 
-/** Base test class for network unit tests. */
-public class BaseNetworkTest extends BaseIgniteAbstractTest {
-    @BeforeAll
-    public static void assertParanoidLeakDetectionProperty() {
-        assert "paranoid".equals(System.getProperty("io.netty.leakDetectionLevel"))
-                : "Network tests should run with paranoid leak detection";
+/** Test checking that leak detection level property is set to PARANOID for JDBC unit tests. */
+public class ParanoidLeakDetectionLevelPropertyTest {
+    @Test
+    public void testParanoidLeakDetectionLevelProperty() {
+        assertThat(System.getProperty("io.netty.leakDetectionLevel"), is("paranoid"));
     }
 }

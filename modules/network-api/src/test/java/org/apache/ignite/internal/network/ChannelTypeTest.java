@@ -27,7 +27,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Test suite for {@link ChannelType}.
  */
-public class ChannelTypeTest extends BaseNetworkTest {
+public class ChannelTypeTest {
     private static short OFFSET = Short.MAX_VALUE - 100;
 
     @Test
