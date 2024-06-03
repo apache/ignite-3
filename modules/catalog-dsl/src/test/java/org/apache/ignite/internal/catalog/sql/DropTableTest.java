@@ -20,31 +20,22 @@ package org.apache.ignite.internal.catalog.sql;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
-import org.apache.ignite.catalog.Options;
+import org.apache.ignite.catalog.Query;
 import org.junit.jupiter.api.Test;
 
 class DropTableTest {
     @Test
     void testDropTable() {
-        String sql = dropTable().name("table1").toSqlString();
+        Query query2 = dropTable().name("table1");
+        String sql = query2.toString();
         assertThat(sql, is("DROP TABLE table1;"));
 
-        sql = dropTable().ifExists().name("table1").toSqlString();
+        Query query1 = dropTable().ifExists().name("table1");
+        sql = query1.toString();
         assertThat(sql, is("DROP TABLE IF EXISTS table1;"));
-
-        sql = dropTableQuoted().ifExists().name("table1").toSqlString();
-        assertThat(sql, is("DROP TABLE IF EXISTS \"table1\";"));
     }
 
     private static DropTableImpl dropTable() {
-        return dropTable(Options.DEFAULT);
-    }
-
-    private static DropTableImpl dropTable(Options options) {
-        return new DropTableImpl(null, options);
-    }
-
-    private static DropTableImpl dropTableQuoted() {
-        return dropTable(Options.builder().quoteIdentifiers().build());
+        return new DropTableImpl(null);
     }
 }

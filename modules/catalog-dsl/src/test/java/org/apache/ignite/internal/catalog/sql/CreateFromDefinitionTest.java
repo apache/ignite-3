@@ -28,7 +28,6 @@ import static org.hamcrest.Matchers.is;
 
 import org.apache.ignite.catalog.ColumnType;
 import org.apache.ignite.catalog.IndexType;
-import org.apache.ignite.catalog.Options;
 import org.apache.ignite.catalog.annotations.Column;
 import org.apache.ignite.catalog.annotations.Id;
 import org.apache.ignite.catalog.definitions.TableDefinition;
@@ -108,16 +107,6 @@ class CreateFromDefinitionTest {
                         + "CREATE INDEX IF NOT EXISTS ix_id_str_f_name ON builder_test (id_str, f_name);"
                         + "CREATE INDEX IF NOT EXISTS ix_test ON builder_test USING SORTED (id_str asc, f_name desc nulls last);")
         );
-
-        assertThat(
-                createTableQuoted(table),
-                is("CREATE TABLE IF NOT EXISTS \"builder_test\""
-                        + " (\"id\" int, \"id_str\" varchar, \"f_name\" varchar(20) NOT NULL DEFAULT 'a', PRIMARY KEY (\"id\", \"id_str\"))"
-                        + " COLOCATE BY (\"id\", \"id_str\") WITH PRIMARY_ZONE='ZONE_TEST';"
-                        + "CREATE INDEX IF NOT EXISTS \"ix_id_str_f_name\" ON \"builder_test\" (\"id_str\", \"f_name\");"
-                        + "CREATE INDEX IF NOT EXISTS \"ix_test\" ON \"builder_test\""
-                        + " USING SORTED (\"id_str\" asc, \"f_name\" desc nulls last);")
-        );
     }
 
     @Test
@@ -132,11 +121,6 @@ class CreateFromDefinitionTest {
                 createTable(tableDefinition),
                 is("CREATE TABLE primitive_test (id int, val int, PRIMARY KEY (id));")
         );
-
-        assertThat(
-                createTableQuoted(tableDefinition),
-                is("CREATE TABLE \"primitive_test\" (\"id\" int, \"val\" int, PRIMARY KEY (\"id\"));")
-        );
     }
 
     @Test
@@ -150,12 +134,6 @@ class CreateFromDefinitionTest {
         assertThat(
                 createTable(tableDefinition),
                 is("CREATE TABLE pojo_value_test (id int, f_name varchar, l_name varchar, str varchar, PRIMARY KEY (id));")
-        );
-
-        assertThat(
-                createTableQuoted(tableDefinition),
-                is("CREATE TABLE \"pojo_value_test\""
-                        + " (\"id\" int, \"f_name\" varchar, \"l_name\" varchar, \"str\" varchar, PRIMARY KEY (\"id\"));")
         );
     }
 
@@ -175,14 +153,6 @@ class CreateFromDefinitionTest {
                         + " (id int, id_str varchar(20), f_name varchar, l_name varchar, str varchar, PRIMARY KEY (id, id_str))"
                         + " COLOCATE BY (id, id_str) WITH PRIMARY_ZONE='ZONE_TEST';")
         );
-
-        assertThat(
-                createTableQuoted(tableDefinition),
-                is("CREATE TABLE \"pojo_value_test\""
-                        + " (\"id\" int, \"id_str\" varchar(20), \"f_name\" varchar, \"l_name\" varchar, \"str\" varchar,"
-                        + " PRIMARY KEY (\"id\", \"id_str\"))"
-                        + " COLOCATE BY (\"id\", \"id_str\") WITH PRIMARY_ZONE='ZONE_TEST';")
-        );
     }
 
     @Test
@@ -200,14 +170,6 @@ class CreateFromDefinitionTest {
                         + " f_name varchar(20) not null default 'a', l_name varchar, str varchar,"
                         + " PRIMARY KEY (id, id_str)) COLOCATE BY (id, id_str) WITH PRIMARY_ZONE='ZONE_TEST';")
         );
-
-        // quote identifiers
-        assertThat(
-                createTableQuoted(tableDefinition),
-                is("CREATE TABLE IF NOT EXISTS \"pojo_test\" (\"id\" int, \"id_str\" varchar(20),"
-                        + " \"f_name\" varchar(20) not null default 'a', \"l_name\" varchar, \"str\" varchar,"
-                        + " PRIMARY KEY (\"id\", \"id_str\")) COLOCATE BY (\"id\", \"id_str\") WITH PRIMARY_ZONE='ZONE_TEST';")
-        );
     }
 
     @Test
@@ -219,12 +181,6 @@ class CreateFromDefinitionTest {
         assertThat(
                 createTable(tableDefinition),
                 is("CREATE TABLE primitive_test (id int, PRIMARY KEY (id));")
-        );
-
-        // quote identifiers
-        assertThat(
-                createTableQuoted(tableDefinition),
-                is("CREATE TABLE \"primitive_test\" (\"id\" int, PRIMARY KEY (\"id\"));")
         );
     }
 
@@ -250,22 +206,14 @@ class CreateFromDefinitionTest {
     }
 
     private static String createZone(ZoneDefinition zoneDefinition) {
-        return createTable().from(zoneDefinition).toSqlString();
+        return createTable().from(zoneDefinition).toString();
     }
 
     private static String createTable(TableDefinition tableDefinition) {
-        return createTable().from(tableDefinition).toSqlString();
+        return createTable().from(tableDefinition).toString();
     }
 
     private static CreateFromDefinitionImpl createTable() {
-        return new CreateFromDefinitionImpl(null, Options.DEFAULT);
-    }
-
-    private static String createTableQuoted(TableDefinition tableDefinition) {
-        return createTableQuoted().from(tableDefinition).toSqlString();
-    }
-
-    private static CreateFromDefinitionImpl createTableQuoted() {
-        return new CreateFromDefinitionImpl(null, Options.builder().quoteIdentifiers().build());
+        return new CreateFromDefinitionImpl(null);
     }
 }

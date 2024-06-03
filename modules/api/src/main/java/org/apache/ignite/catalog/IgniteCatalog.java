@@ -19,6 +19,7 @@ package org.apache.ignite.catalog;
 
 import org.apache.ignite.catalog.definitions.TableDefinition;
 import org.apache.ignite.catalog.definitions.ZoneDefinition;
+import org.apache.ignite.table.Table;
 
 /**
  * Provides the ability to create and execute SQL DDL queries from annotated classes or fluent builders. This is an example of the simple
@@ -145,7 +146,7 @@ public interface IgniteCatalog {
      * @param recordClass Annotated record class.
      * @return Query object.
      */
-    Query create(Class<?> recordClass);
+    Table create(Class<?> recordClass);
 
     /**
      * Creates a query object from the annotated key and value classes.
@@ -154,7 +155,7 @@ public interface IgniteCatalog {
      * @param valueClass Annotated value class.
      * @return Query object.
      */
-    Query create(Class<?> keyClass, Class<?> valueClass);
+    Table create(Class<?> keyClass, Class<?> valueClass);
 
     /**
      * Creates a query object from the table definition.
@@ -162,45 +163,40 @@ public interface IgniteCatalog {
      * @param definition Table definition.
      * @return Query object.
      */
-    Query createTable(TableDefinition definition);
+    Table createTable(TableDefinition definition);
 
     /**
      * Creates a query object from the zone definition.
      *
      * @param definition Zone definition.
-     * @return Query object.
      */
-    Query createZone(ZoneDefinition definition);
+    void createZone(ZoneDefinition definition);
 
     /**
      * Creates a {@code DROP TABLE} query object from the table definition.
      *
      * @param definition Table definition.
-     * @return query object
      */
-    Query dropTable(TableDefinition definition);
+    void dropTable(TableDefinition definition);
 
     /**
      * Creates a {@code DROP TABLE} query object from the table name.
      *
      * @param name Table name.
-     * @return Query object.
      */
-    Query dropTable(String name);
+    void dropTable(String name);
 
     /**
      * Creates a {@code DROP ZONE} query object from the zone definition.
      *
      * @param definition Zone definition.
-     * @return Query object.
      */
-    Query dropZone(ZoneDefinition definition);
+    void dropZone(ZoneDefinition definition);
 
     /**
      * Creates a {@code DROP ZONE} query object from the zone name.
      *
      * @param name Zone name.
-     * @return Query object.
      */
-    Query dropZone(String name);
+    void dropZone(String name);
 }

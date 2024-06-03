@@ -20,57 +20,36 @@ package org.apache.ignite.internal.catalog.sql;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
-import org.apache.ignite.catalog.Options;
+import org.apache.ignite.catalog.Query;
 import org.junit.jupiter.api.Test;
 
 class CreateZoneTest {
     @Test
     void testIfNotExists() {
-        String sql = createZone().ifNotExists().name("zone1").toSqlString();
+        Query query1 = createZone().ifNotExists().name("zone1");
+        String sql = query1.toString();
         assertThat(sql, is("CREATE ZONE IF NOT EXISTS zone1;"));
-
-        sql = createZoneQuoted().ifNotExists().name("zone1").toSqlString();
-        assertThat(sql, is("CREATE ZONE IF NOT EXISTS \"zone1\";"));
     }
 
     @Test
     void testNames() {
-        String sql = createZone().name("public", "zone1").toSqlString();
+        Query query1 = createZone().name("public", "zone1");
+        String sql = query1.toString();
         assertThat(sql, is("CREATE ZONE public.zone1;"));
-
-        // quote identifiers
-        sql = createZoneQuoted().name("public", "zone1").toSqlString();
-        assertThat(sql, is("CREATE ZONE \"public\".\"zone1\";"));
     }
 
     @Test
     void testWithOptions() {
-        String sql = createZone().name("zone1").partitions(1).toSqlString();
+        Query query4 = createZone().name("zone1").partitions(1);
+        String sql = query4.toString();
         assertThat(sql, is("CREATE ZONE zone1 WITH PARTITIONS=1;"));
 
-        sql = createZone().name("zone1").partitions(1).replicas(1).toSqlString();
+        Query query3 = createZone().name("zone1").partitions(1).replicas(1);
+        sql = query3.toString();
         assertThat(sql, is("CREATE ZONE zone1 WITH PARTITIONS=1, REPLICAS=1;"));
-
-        // quote identifiers
-        sql = createZoneQuoted().name("zone1").partitions(1).toSqlString();
-        assertThat(sql, is("CREATE ZONE \"zone1\" WITH PARTITIONS=1;"));
-
-        sql = createZoneQuoted().name("zone1").partitions(1).replicas(1).toSqlString();
-        assertThat(sql, is("CREATE ZONE \"zone1\" WITH PARTITIONS=1, REPLICAS=1;"));
-
-        sql = createZoneQuoted().name("zone1").storageProfiles("profile1,profile2").toSqlString();
-        assertThat(sql, is("CREATE ZONE \"zone1\" WITH STORAGE_PROFILES='profile1,profile2';"));
     }
 
     private static CreateZoneImpl createZone() {
-        return createZone(Options.DEFAULT);
-    }
-
-    private static CreateZoneImpl createZone(Options options) {
-        return new CreateZoneImpl(null, options);
-    }
-
-    private static CreateZoneImpl createZoneQuoted() {
-        return createZone(Options.builder().quoteIdentifiers().build());
+        return new CreateZoneImpl(null);
     }
 }

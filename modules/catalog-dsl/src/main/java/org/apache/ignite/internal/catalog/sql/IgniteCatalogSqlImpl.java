@@ -18,11 +18,11 @@
 package org.apache.ignite.internal.catalog.sql;
 
 import org.apache.ignite.catalog.IgniteCatalog;
-import org.apache.ignite.catalog.Options;
-import org.apache.ignite.catalog.Query;
 import org.apache.ignite.catalog.definitions.TableDefinition;
 import org.apache.ignite.catalog.definitions.ZoneDefinition;
 import org.apache.ignite.sql.IgniteSql;
+import org.apache.ignite.table.IgniteTables;
+import org.apache.ignite.table.Table;
 
 /**
  * Implementation of the catalog.
@@ -30,50 +30,53 @@ import org.apache.ignite.sql.IgniteSql;
 public class IgniteCatalogSqlImpl implements IgniteCatalog {
     private final IgniteSql sql;
 
-    private final Options options;
+    private final IgniteTables tables;
 
-    public IgniteCatalogSqlImpl(IgniteSql sql, Options options) {
-        this.options = options;
+    public IgniteCatalogSqlImpl(IgniteSql sql, IgniteTables tables) {
         this.sql = sql;
+        this.tables = tables;
     }
 
     @Override
-    public Query create(Class<?> keyClass, Class<?> valueClass) {
-        return new CreateFromAnnotationsImpl(sql, options).processKeyValueClasses(keyClass, valueClass);
+    public Table create(Class<?> keyClass, Class<?> valueClass) {
+        TableZoneId tableZoneId = new CreateFromAnnotationsImpl(sql).processKeyValueClasses(keyClass, valueClass).execute();
+        return tables.table(tableZoneId.tableName());
     }
 
     @Override
-    public Query create(Class<?> recordClass) {
-        return new CreateFromAnnotationsImpl(sql, options).processRecordClass(recordClass);
+    public Table create(Class<?> recordClass) {
+        TableZoneId tableZoneId = new CreateFromAnnotationsImpl(sql).processRecordClass(recordClass).execute();
+        return tables.table(tableZoneId.tableName());
     }
 
     @Override
-    public Query createTable(TableDefinition definition) {
-        return new CreateFromDefinitionImpl(sql, options).from(definition);
+    public Table createTable(TableDefinition definition) {
+        TableZoneId tableZoneId = new CreateFromDefinitionImpl(sql).from(definition).execute();
+        return tables.table(tableZoneId.tableName());
     }
 
     @Override
-    public Query createZone(ZoneDefinition definition) {
-        return new CreateFromDefinitionImpl(sql, options).from(definition);
+    public void createZone(ZoneDefinition definition) {
+        new CreateFromDefinitionImpl(sql).from(definition);
     }
 
     @Override
-    public Query dropTable(TableDefinition definition) {
-        return new DropTableImpl(sql, options).name(definition.schemaName(), definition.tableName()).ifExists();
+    public void dropTable(TableDefinition definition) {
+        new DropTableImpl(sql).name(definition.schemaName(), definition.tableName()).ifExists();
     }
 
     @Override
-    public Query dropTable(String name) {
-        return new DropTableImpl(sql, options).name(name).ifExists();
+    public void dropTable(String name) {
+        new DropTableImpl(sql).name(name).ifExists();
     }
 
     @Override
-    public Query dropZone(ZoneDefinition definition) {
-        return new DropZoneImpl(sql, options).name(definition.zoneName()).ifExists();
+    public void dropZone(ZoneDefinition definition) {
+        new DropZoneImpl(sql).name(definition.zoneName()).ifExists();
     }
 
     @Override
-    public Query dropZone(String name) {
-        return new DropZoneImpl(sql, options).name(name).ifExists();
+    public void dropZone(String name) {
+        new DropZoneImpl(sql).name(name).ifExists();
     }
 }

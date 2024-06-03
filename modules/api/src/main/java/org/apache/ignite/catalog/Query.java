@@ -20,16 +20,9 @@ package org.apache.ignite.catalog;
 /**
  * Represents the query generated from the definition or annotation. Can be executed directly or converted to the string representation.
  */
-public interface Query {
+public interface Query<T> {
     /**
      * Executes the query.
      */
-    void execute();
-
-    /**
-     * Converts the query to string.
-     *
-     * @return String representation of the query.
-     */
-    String toSqlString();
+    T execute();
 }

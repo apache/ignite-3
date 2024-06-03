@@ -17,28 +17,30 @@
 
 package org.apache.ignite.internal.catalog.sql;
 
-import org.apache.ignite.catalog.Query;
-import org.apache.ignite.sql.IgniteSql;
+import org.jetbrains.annotations.Nullable;
 
-abstract class AbstractCatalogQuery<T> extends QueryPart implements Query<T> {
-    protected final IgniteSql sql;
+/**
+ * Composite class for table and zone names.
+ */
+public class TableZoneId {
+    @Nullable
+    private final String tableName;
 
-    AbstractCatalogQuery(IgniteSql sql) {
-        this.sql = sql;
+    @Nullable
+    private final String zoneName;
+
+    public TableZoneId(@Nullable String tableName, @Nullable String zoneName) {
+        this.tableName = tableName;
+        this.zoneName = zoneName;
     }
 
-    @Override
-    public T execute() {
-        sql.executeScript(toString());
-        return result();
+    @Nullable
+    public String tableName() {
+        return tableName;
     }
 
-    protected abstract T result();
-
-    @Override
-    public String toString() {
-        return new QueryContext()
-                .visit(this)
-                .getSql();
+    @Nullable
+    public String zoneName() {
+        return zoneName;
     }
 }
