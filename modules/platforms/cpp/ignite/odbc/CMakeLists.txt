@@ -99,8 +99,8 @@ if (${INSTALL_IGNITE_FILES})
             )
 endif()
 
-ignite_test(connection_info_test DISCOVER TRUE SOURCES config/connection_info_test.cpp LIBS ${TARGET}-obj ${LIBRARIES})
-ignite_test(config_tools_test DISCOVER TRUE SOURCES config/config_tools_test.cpp LIBS ${TARGET}-obj ${LIBRARIES})
-ignite_test(string_utils_test DISCOVER TRUE SOURCES string_utils_test.cpp LIBS ${TARGET}-obj ${LIBRARIES})
-ignite_test(application_data_buffer_test DISCOVER TRUE SOURCES app/application_data_buffer_test.cpp LIBS ${TARGET}-obj ${LIBRARIES})
+ignite_test(connection_info_test DISCOVER SOURCES config/connection_info_test.cpp LIBS ${TARGET}-obj ${LIBRARIES})
+ignite_test(config_tools_test DISCOVER SOURCES config/config_tools_test.cpp LIBS ${TARGET}-obj ${LIBRARIES})
+ignite_test(string_utils_test DISCOVER SOURCES string_utils_test.cpp LIBS ${TARGET}-obj ${LIBRARIES})
+ignite_test(application_data_buffer_test DISCOVER SOURCES app/application_data_buffer_test.cpp LIBS ${TARGET}-obj ${LIBRARIES})
 

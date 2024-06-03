@@ -42,11 +42,13 @@ if (CMAKE_VERSION VERSION_GREATER_EQUAL "3.24.0")
     cmake_policy(SET CMP0135 NEW)
 endif()
 
-cmake_policy(SET CMP0077 NEW)
+set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
+
+set(MSGPACK_BUILD_TESTS OFF)
+set(MSGPACK_GEN_COVERAGE OFF)
+set(MSGPACK_BUILD_EXAMPLES OFF)
 
 include(FetchContent)
-set(MSGPACK_BUILD_TESTS OFF)
-set(MSGPACK_BUILD_EXAMPLES OFF)
 FetchContent_Declare(
         msgpack-c
         URL https://github.com/msgpack/msgpack-c/releases/download/c-6.0.1/msgpack-c-6.0.1.tar.gz
@@ -58,8 +60,8 @@ FetchContent_MakeAvailable(msgpack-c)
 if (${ENABLE_TESTS})
     FetchContent_Declare(
             googletest
-            URL https://github.com/google/googletest/archive/refs/tags/release-1.12.1.tar.gz
-            URL_HASH MD5=e82199374acdfda3f425331028eb4e2a
+            URL https://github.com/google/googletest/archive/refs/tags/v1.14.0.tar.gz
+            URL_HASH MD5=c8340a482851ef6a3fe618a082304cfc
     )
 
     FetchContent_MakeAvailable(googletest)

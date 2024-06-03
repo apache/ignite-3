@@ -34,11 +34,8 @@ set(SOURCES
     transaction_test.cpp
 )
 
-ignite_test(${TARGET} DISCOVER FALSE SOURCES ${SOURCES} LIBS ignite-test-common ignite-client ${ODBC_LIBRARY})
+ignite_test(${TARGET} SOURCES ${SOURCES} LIBS ignite-test-common ignite-client ${ODBC_LIBRARY})
 
 if (WIN32)
     remove_definitions(-DUNICODE=1)
 endif()
-
-set(TEST_TARGET IgniteOdbcTest)
-add_test(NAME ${TEST_TARGET} COMMAND ${TARGET})

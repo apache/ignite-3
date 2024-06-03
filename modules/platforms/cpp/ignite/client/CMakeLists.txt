@@ -103,4 +103,4 @@ if (${INSTALL_IGNITE_FILES})
     ignite_install_headers(FILES ${PUBLIC_HEADERS} DESTINATION ${IGNITE_INCLUDEDIR}/client)
 endif()
 
-ignite_test(utils_test DISCOVER TRUE SOURCES detail/utils_test.cpp LIBS ${TARGET}-obj ${LIBRARIES})
+ignite_test(utils_test DISCOVER SOURCES detail/utils_test.cpp LIBS ${TARGET}-obj ${LIBRARIES})
