@@ -32,7 +32,6 @@ public class PartitionCommandsMarshallerImpl extends OptimizedMarshaller impleme
 
     @Override
     protected void beforeWriteMessage(Object o, ByteBuffer buffer) {
-        // TODO KKK what about the version awared details?
         int requiredCatalogVersion = NO_VERSION_REQUIRED;
 
         stream.setBuffer(buffer);
