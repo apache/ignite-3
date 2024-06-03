@@ -58,11 +58,10 @@ import java.util.UUID;
 import java.util.function.Function;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.table.Tuple;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
- * Tuple interface test.
+ * Base test class for Tuple interface contract.
  */
 public abstract class AbstractTupleSelfTest {
     protected static final int NANOS_IN_SECOND = 9;
@@ -204,12 +203,13 @@ public abstract class AbstractTupleSelfTest {
 
     }
 
+    /** For non-quoted name, any of then next will be valid: non-quoted string in uppercase or quoted string in uppercase. */
     @Test
     public void testColumnNameReturnsNameByIndex() {
-        assertEquals("ID", getTuple().columnName(0));
-        assertEquals("SIMPLENAME", getTuple().columnName(1));
-        assertEquals("QuotedName", getTuple().columnName(2));
-        assertEquals("NOVALUE", getTuple().columnName(3));
+        assertEquals("\"ID\"", getTuple().columnName(0));
+        assertEquals("\"SIMPLENAME\"", getTuple().columnName(1));
+        assertEquals("\"QuotedName\"", getTuple().columnName(2));
+        assertEquals("\"NOVALUE\"", getTuple().columnName(3));
     }
 
     @Test
@@ -231,7 +231,6 @@ public abstract class AbstractTupleSelfTest {
         assertEquals(2, getTuple().columnIndex("\"QuotedName\""));
     }
 
-    @Disabled
     @Test
     public void testColumnResolvableName() {
         Tuple tuple = getTuple();
@@ -257,7 +256,7 @@ public abstract class AbstractTupleSelfTest {
     }
 
     @Test
-    public void testBasicTupleEquality() {
+    public void testTupleEquality() {
         assertEquals(getTuple(), getTuple());
         assertEquals(getTupleWithColumnOfAllTypes(), getTupleWithColumnOfAllTypes());
     }

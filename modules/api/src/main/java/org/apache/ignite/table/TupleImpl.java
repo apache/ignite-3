@@ -78,8 +78,7 @@ class TupleImpl implements Tuple, Serializable {
         this(tuple.columnCount());
 
         for (int i = 0, len = tuple.columnCount(); i < len; i++) {
-            // fix this hack
-            set("\"" + tuple.columnName(i) + "\"", tuple.value(i));
+            set(tuple.columnName(i), tuple.value(i));
         }
     }
 
@@ -119,7 +118,9 @@ class TupleImpl implements Tuple, Serializable {
     public String columnName(int columnIndex) {
         Objects.checkIndex(columnIndex, colValues.size());
 
-        return colNames.get(columnIndex);
+        String columnName = colNames.get(columnIndex);
+
+        return "\"" + columnName + "\"";
     }
 
     /** {@inheritDoc} */

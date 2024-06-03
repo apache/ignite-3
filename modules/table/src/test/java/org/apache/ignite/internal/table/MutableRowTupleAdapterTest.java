@@ -60,19 +60,24 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Tests server tuple builder implementation.
+ *
+ * <p>The class contains implementation-specific tests. Tuple interface contract conformance/violation tests are inherited from the base class.
  */
 public class MutableRowTupleAdapterTest extends AbstractMutableTupleSelfTest {
-    /** Schema descriptor. */
+    /** Schema descriptor for default test tuple. */
     private final SchemaDescriptor schema = new SchemaDescriptor(
             42,
-            new Column[]{new Column("ID", INT64, false)},
-            new Column[]{
+            List.of(
+                    new Column("ID", INT64, false),
                     new Column("SIMPLENAME", STRING, true),
                     new Column("QuotedName", STRING, true),
                     new Column("NOVALUE", STRING, true)
-            });
+            ),
+            List.of("ID"),
+            null
+    );
 
-    /** Schema descriptor. */
+    /** Schema descriptor for tuple with columns of all the supported types. */
     private final SchemaDescriptor fullSchema = new SchemaDescriptor(42,
             List.of(
                     new Column("valByteCol".toUpperCase(), INT8, true),
@@ -252,22 +257,22 @@ public class MutableRowTupleAdapterTest extends AbstractMutableTupleSelfTest {
         assertNull(((SchemaAware) val).schema());
     }
 
-    @Override
     @Test
-    public void testVariousColumnTypes() {
-        Tuple tuple = addColumnOfAllTypes(Tuple.create().set("keyUuidCol", UUID_VALUE));
-        Tuple rowTuple = getTupleWithColumnOfAllTypes();
+    public void testTupleEqualityCompatibility() {
+        var clientTuple = getTupleWithColumnOfAllTypes();
+        var tuple = Tuple.create();
 
-        assertEquals(tuple, rowTuple);
+        for (int i = 0; i < clientTuple.columnCount(); i++) {
+            tuple.set(clientTuple.columnName(i), clientTuple.value(i));
+        }
 
-        rowTuple.set("foo", "bar"); // Force row to tuple conversion.
-        tuple.set("foo", "bar"); // Force row to tuple conversion.
-
-        assertEquals(tuple, rowTuple);
+        assertEquals(clientTuple, tuple);
+        assertEquals(tuple, clientTuple);
+        assertEquals(clientTuple.hashCode(), tuple.hashCode());
     }
 
     @Test
-    public void testTupleEquality() throws Exception {
+    public void testExtendedTupleEquality() throws Exception {
         Tuple keyTuple = Tuple.create().set("keyUuidCol", UUID_VALUE);
         Tuple valTuple = addColumnOfAllTypes(Tuple.create());
         Tuple tuple = Tuple.copy(valTuple).set(keyTuple.columnName(0), keyTuple.value(0));

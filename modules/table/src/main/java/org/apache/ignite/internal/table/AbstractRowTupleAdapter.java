@@ -67,7 +67,7 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     /** {@inheritDoc} */
     @Override
     public String columnName(int columnIndex) {
-        return rowColumnByIndex(columnIndex).name();
+        return "\"" + rowColumnByIndex(columnIndex).name() + "\"";
     }
 
     /** {@inheritDoc} */

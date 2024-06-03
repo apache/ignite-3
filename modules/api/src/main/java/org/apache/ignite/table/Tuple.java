@@ -35,6 +35,8 @@ import org.jetbrains.annotations.Nullable;
  * Column name arguments passed to the tuple methods must use SQL-parser style notation; e.g.,
  * "myColumn" - column named "MYCOLUMN", "\"MyColumn\"" - "MyColumn", etc.
  *
+ * <p>Note: case sensitive name "\"MYCOLUMN\"" is equivalent to case sensitive name "MYCOLUMN".
+ *
  * <p>Provides a specialized method for some value-types to avoid boxing/unboxing.
  */
 public interface Tuple extends Iterable<Object> {
@@ -155,8 +157,7 @@ public interface Tuple extends Iterable<Object> {
         }
 
         for (int idx = 0; idx < columns; idx++) {
-            // fix this hack
-            int idx2 = secondTuple.columnIndex("\""+ firstTuple.columnName(idx) +"\"");
+            int idx2 = secondTuple.columnIndex(firstTuple.columnName(idx));
 
             if (idx2 < 0) {
                 return false;
@@ -194,7 +195,9 @@ public interface Tuple extends Iterable<Object> {
      * Gets a name of the column with the specified index.
      *
      * @param columnIndex Column index.
-     * @return Column name.
+     * @return Quoted column name in SQL-parser style notation; e.g., <br>
+     *         "\"MYCOLUMN\"" - is equivalent to "MYCOLUMN" - a case insensitive name of the column.
+     *         "\"MyColumn\"" - "MyColumn", returns the index of the column with respect to case sensitivity.
      * @throws IndexOutOfBoundsException If a value for a column with the given index doesn't exists.
      */
     String columnName(int columnIndex);

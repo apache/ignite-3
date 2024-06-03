@@ -482,7 +482,7 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
     private String schemaColumnName0(int publicIndex) {
         Objects.checkIndex(publicIndex, columnCount);
 
-        return schemaColumnName(binaryTupleIndex(publicIndex));
+        return "\"" + schemaColumnName(binaryTupleIndex(publicIndex)) + "\"";
     }
 
     private @Nullable Object object(int binaryTupleIndex) {
