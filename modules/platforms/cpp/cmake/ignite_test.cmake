@@ -15,17 +15,25 @@
 # limitations under the License.
 #
 
-# ignite_test(<test-name> <test-src> [LIBS <lib>...])
+# ignite_test(<test-name> [DISCOVER TRUE|FALSE] SOURCES <test-src>... [LIBS <lib>...])
 #
 # Function to add a unit test.
-function(ignite_test TEST_NAME TEST_SOURCE)
+function(ignite_test TEST_NAME)
     if (NOT ${ENABLE_TESTS})
         return()
     endif()
 
-    cmake_parse_arguments(IGNITE_TEST "" "" "LIBS" ${ARGN})
+    set(OPTIONAL_ARGUMENT_TAGS DISCOVER)
+    set(SINGLE_ARGUMENT_TAGS)
+    set(MULTI_ARGUMENT_TAGS LIBS SOURCES)
 
-    add_executable(${TEST_NAME} ${TEST_SOURCE})
+    cmake_parse_arguments(IGNITE_TEST
+            "${OPTIONAL_ARGUMENT_TAGS}"
+            "${SINGLE_ARGUMENT_TAGS}"
+            "${MULTI_ARGUMENT_TAGS}"
+            ${ARGN})
+
+    add_executable(${TEST_NAME} ${IGNITE_TEST_SOURCES})
 
     # Older versions of CMake provide the GTest::Main target while newer versions
     # provide the GTest::gtest_main target. The old target is deprecated but still
@@ -36,5 +44,7 @@ function(ignite_test TEST_NAME TEST_SOURCE)
         target_link_libraries(${TEST_NAME} ${IGNITE_TEST_LIBS} GTest::GTest GTest::Main GTest::gmock_main)
     endif()
 
-    gtest_discover_tests(${TEST_NAME} XML_OUTPUT_DIR ${CMAKE_BINARY_DIR}/Testing/Result)
+    if(${DISCOVER})
+        gtest_discover_tests(${TEST_NAME} XML_OUTPUT_DIR ${CMAKE_BINARY_DIR}/Testing/Result)
+    endif()
 endfunction()

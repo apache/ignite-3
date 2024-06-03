@@ -34,7 +34,7 @@ add_library(${TARGET} STATIC ${SOURCES})
 
 target_link_libraries(${TARGET} ignite-common)
 
-ignite_test(tuple_test tuple_test.cpp LIBS ${TARGET})
+ignite_test(tuple_test DISCOVER TRUE SOURCES tuple_test.cpp LIBS ${TARGET})
 
 if (${INSTALL_IGNITE_FILES})
     install(TARGETS ${TARGET}
