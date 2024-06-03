@@ -90,7 +90,7 @@ public class IdempotentCommandCacheTest extends BaseIgniteAbstractTest {
                 storage,
                 new ClusterTimeImpl(NODE_NAME, new IgniteSpinBusyLock(), clock),
                 completedFuture(() -> TEST_MAX_CLOCK_SKEW_MILLIS),
-                raftConfiguration.responseTimeout()
+                raftConfiguration.retryTimeout()
         );
     }
 

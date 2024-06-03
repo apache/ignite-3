@@ -147,7 +147,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
                 topologyAwareRaftGroupServiceFactory,
                 new NoOpMetricManager(),
                 metaStorageConfiguration,
-                raftConfiguration.responseTimeout(),
+                raftConfiguration.retryTimeout(),
                 completedFuture(() -> TEST_MAX_CLOCK_SKEW_MILLIS)
         );
 
@@ -236,7 +236,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
                 new HybridClockImpl(),
                 mock(TopologyAwareRaftGroupServiceFactory.class),
                 new NoOpMetricManager(),
-                raftConfiguration.responseTimeout(),
+                raftConfiguration.retryTimeout(),
                 completedFuture(() -> TEST_MAX_CLOCK_SKEW_MILLIS)
         );
 

@@ -93,7 +93,7 @@ public class MetaStorageDeployWatchesCorrectnessTest extends IgniteAbstractTest 
                         mock(TopologyAwareRaftGroupServiceFactory.class),
                         new NoOpMetricManager(),
                         metaStorageConfiguration,
-                        raftConfiguration.responseTimeout(),
+                        raftConfiguration.retryTimeout(),
                         completedFuture(() -> TEST_MAX_CLOCK_SKEW_MILLIS)
                 ),
                 StandaloneMetaStorageManager.create()

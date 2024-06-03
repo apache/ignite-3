@@ -205,7 +205,7 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
                     topologyAwareRaftGroupServiceFactory,
                     new NoOpMetricManager(),
                     metaStorageConfiguration,
-                    raftConfiguration.responseTimeout(),
+                    raftConfiguration.retryTimeout(),
                     completedFuture(() -> TEST_MAX_CLOCK_SKEW_MILLIS)
             );
 

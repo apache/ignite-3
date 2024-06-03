@@ -121,7 +121,7 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
     private static final int YIELD_RESULT = 10;
     private static final int ANOTHER_YIELD_RESULT = 20;
 
-    @InjectConfiguration
+    @InjectConfiguration("mock.retryTimeout = 10000")
     private RaftConfiguration raftConfiguration;
 
     @InjectConfiguration("mock.idleSyncTimeInterval = 100")
@@ -197,7 +197,7 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
                     topologyAwareRaftGroupServiceFactory,
                     new NoOpMetricManager(),
                     metaStorageConfiguration,
-                    raftConfiguration.responseTimeout(),
+                    raftConfiguration.retryTimeout(),
                     completedFuture(() -> TEST_MAX_CLOCK_SKEW_MILLIS)
             );
 
@@ -256,8 +256,6 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
 
     @BeforeEach
     void setUp(TestInfo testInfo) {
-        assertThat(raftConfiguration.change(cfg -> cfg.changeResponseTimeout(100)), willCompleteSuccessfully());
-
         startCluster(testInfo);
     }
 
@@ -406,8 +404,6 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
             assertEquals(YIELD_RESULT, ((StatementResult) commandProcessingResult2).getAsInt());
             assertTrue(leader.checkValueInStorage(TEST_KEY_2.bytes(), TEST_VALUE_2));
         }
-
-        assertThat(raftConfiguration.change(cfg -> cfg.changeResponseTimeout(100)), willCompleteSuccessfully());
 
         for (Node node : nodes) {
             assertThat(node.clockService.waitFor(
