@@ -15,25 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal;
+package org.apache.ignite.internal.cli;
 
+import static io.netty.util.ResourceLeakDetector.Level.PARANOID;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
-import org.apache.ignite.internal.junit.StopAllIgnitesAfterTests;
-import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.extension.ExtendWith;
+import io.netty.util.ResourceLeakDetector;
+import org.junit.jupiter.api.Test;
 
-/**
- * A test that starts some Ignite instances (and cleans them up later if they are forgotten).
- */
-// The order is important here.
-@ExtendWith({WorkDirectoryExtension.class, StopAllIgnitesAfterTests.class})
-public abstract class IgniteIntegrationTest extends BaseIgniteAbstractTest {
-    @BeforeAll
-    public static void assertParanoidLeakDetectionProperty() {
-        assertThat(System.getProperty("io.netty.leakDetectionLevel"), is("paranoid"));
+/** Test checking that leak detection level is set to PARANOID for CLI unit tests. */
+public class ParanoidLeakDetectionLevelTest {
+    @Test
+    public void testParanoidLeakDetectionLevel() {
+        assertThat(ResourceLeakDetector.getLevel(), is(PARANOID));
     }
 }

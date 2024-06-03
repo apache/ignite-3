@@ -15,25 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal;
+package org.apache.ignite.internal.jdbc;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
-import org.apache.ignite.internal.junit.StopAllIgnitesAfterTests;
-import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.Test;
 
-/**
- * A test that starts some Ignite instances (and cleans them up later if they are forgotten).
- */
-// The order is important here.
-@ExtendWith({WorkDirectoryExtension.class, StopAllIgnitesAfterTests.class})
-public abstract class IgniteIntegrationTest extends BaseIgniteAbstractTest {
-    @BeforeAll
-    public static void assertParanoidLeakDetectionProperty() {
+/** Test checking that leak detection level property is set to PARANOID for JDBC unit tests. */
+public class ParanoidLeakDetectionLevelPropertyTest {
+    @Test
+    public void testParanoidLeakDetectionLevelProperty() {
         assertThat(System.getProperty("io.netty.leakDetectionLevel"), is("paranoid"));
     }
 }
