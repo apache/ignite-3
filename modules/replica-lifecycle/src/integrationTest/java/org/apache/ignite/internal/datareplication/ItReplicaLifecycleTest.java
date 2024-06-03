@@ -1,3 +1,20 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.apache.ignite.internal.datareplication;
 
 import static java.util.Collections.reverse;
@@ -59,6 +76,7 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.datareplication.network.PartitionReplicationMessageGroup;
+import org.apache.ignite.internal.datareplication.utils.ZoneBasedPlacementDriver;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
 import org.apache.ignite.internal.failure.FailureProcessor;
@@ -88,7 +106,6 @@ import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfigurationSchema;
 import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
 import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileConfigurationSchema;
-import org.apache.ignite.internal.datareplication.utils.ZoneBasedPlacementDriver;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
@@ -145,6 +162,9 @@ import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
 
+/**
+ * Replica lifecycle test.
+ */
 @ExtendWith({WorkDirectoryExtension.class, ConfigurationExtension.class})
 @Timeout(60)
 public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
@@ -278,6 +298,16 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
         createZone(node, zoneName, partitions, replicas, false);
     }
 
+    private static void createZone(Node node, String zoneName, int partitions, int replicas, boolean testStorageProfile) {
+        DistributionZonesTestUtil.createZoneWithStorageProfile(
+                node.catalogManager,
+                zoneName,
+                partitions,
+                replicas,
+                testStorageProfile ? DEFAULT_TEST_PROFILE_NAME : DEFAULT_STORAGE_PROFILE
+        );
+    }
+
     private static void createTable(Node node, String zoneName, String tableName) {
         node.waitForMetadataCompletenessAtNow();
 
@@ -291,16 +321,6 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                         ColumnParams.builder().name("val").type(INT32).nullable(true).build()
                 ),
                 List.of("key")
-        );
-    }
-
-    private static void createZone(Node node, String zoneName, int partitions, int replicas, boolean testStorageProfile) {
-        DistributionZonesTestUtil.createZoneWithStorageProfile(
-                node.catalogManager,
-                zoneName,
-                partitions,
-                replicas,
-                testStorageProfile ? DEFAULT_TEST_PROFILE_NAME : DEFAULT_STORAGE_PROFILE
         );
     }
 
@@ -660,7 +680,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     rebalanceScheduler,
                     lowWatermark,
                     transactionInflights
-            ) ;
+            );
 
             indexManager = new IndexManager(
                     schemaManager,

@@ -20,11 +20,11 @@ package org.apache.ignite.internal.datareplication.network.command;
 import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
+import org.apache.ignite.internal.datareplication.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.network.annotations.Transient;
 import org.apache.ignite.internal.network.annotations.WithSetter;
 import org.apache.ignite.internal.raft.WriteCommand;
-import org.apache.ignite.internal.datareplication.network.PartitionReplicationMessageGroup;
 
 /** State machine command to build a table index. */
 @Transferable(PartitionReplicationMessageGroup.Commands.BUILD_INDEX)

@@ -20,9 +20,9 @@ package org.apache.ignite.internal.datareplication.network.command;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
 
 import java.util.List;
+import org.apache.ignite.internal.datareplication.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.datareplication.network.PartitionReplicationMessageGroup;
 import org.jetbrains.annotations.Nullable;
 
 /**

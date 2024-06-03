@@ -18,9 +18,9 @@
 package org.apache.ignite.internal.datareplication.network.replication;
 
 import java.util.UUID;
+import org.apache.ignite.internal.datareplication.network.command.TablePartitionIdMessage;
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaRequest;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
-import org.apache.ignite.internal.datareplication.network.command.TablePartitionIdMessage;
 
 /** Read-write replica request. */
 public interface ReadWriteReplicaRequest extends PrimaryReplicaRequest, TimestampAware {

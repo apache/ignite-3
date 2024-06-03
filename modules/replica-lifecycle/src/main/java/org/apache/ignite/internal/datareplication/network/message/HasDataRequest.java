@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.datareplication.network.message;
 
+import org.apache.ignite.internal.datareplication.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.datareplication.network.PartitionReplicationMessageGroup;
 
 /**
  * A message that queries a node whether it has data for the partition of a table.

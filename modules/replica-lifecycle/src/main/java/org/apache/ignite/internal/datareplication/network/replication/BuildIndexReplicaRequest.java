@@ -19,10 +19,10 @@ package org.apache.ignite.internal.datareplication.network.replication;
 
 import java.util.List;
 import java.util.UUID;
+import org.apache.ignite.internal.datareplication.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaRequest;
-import org.apache.ignite.internal.datareplication.network.PartitionReplicationMessageGroup;
 
 /**
  * Replica request to build a table index.

@@ -18,9 +18,9 @@
 package org.apache.ignite.internal.datareplication.network.disaster;
 
 import java.util.Set;
+import org.apache.ignite.internal.datareplication.network.PartitionReplicationMessageGroup.DisasterRecoveryMessages;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.datareplication.network.PartitionReplicationMessageGroup.DisasterRecoveryMessages;
 
 /**
  * Request for reading partition states from the node.

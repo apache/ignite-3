@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.datareplication.network.replication;
 
 import java.util.BitSet;
-import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.datareplication.network.PartitionReplicationMessageGroup;
+import org.apache.ignite.internal.network.annotations.Transferable;
 import org.jetbrains.annotations.Nullable;
 
 /**

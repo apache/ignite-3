@@ -20,7 +20,7 @@ package org.apache.ignite.internal.replicator;
 import java.util.Objects;
 
 /**
- * Partition id for zone based partitions
+ * Partition id for zone based partitions.
  */
 public class ZonePartitionId implements ReplicationGroupId {
 

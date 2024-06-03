@@ -19,10 +19,10 @@ package org.apache.ignite.internal.datareplication.network.raft;
 
 import java.util.List;
 import java.util.UUID;
+import org.apache.ignite.internal.datareplication.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Marshallable;
 import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.datareplication.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.tx.TxMeta;
 
 /**

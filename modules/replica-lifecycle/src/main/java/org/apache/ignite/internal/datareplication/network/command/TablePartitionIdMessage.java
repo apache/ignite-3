@@ -18,10 +18,10 @@
 package org.apache.ignite.internal.datareplication.network.command;
 
 import java.io.Serializable;
+import org.apache.ignite.internal.datareplication.network.PartitionReplicationMessageGroup.Commands;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.datareplication.network.PartitionReplicationMessageGroup.Commands;
 
 /**
  * Network Message interface to transfer {@link TablePartitionId} as part of {@link NetworkMessage}.

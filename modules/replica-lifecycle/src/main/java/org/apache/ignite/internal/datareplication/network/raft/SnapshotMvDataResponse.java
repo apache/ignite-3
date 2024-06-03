@@ -23,6 +23,7 @@ import org.apache.ignite.internal.datareplication.network.PartitionReplicationMe
 import org.apache.ignite.internal.datareplication.network.replication.BinaryRowMessage;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
+import org.apache.ignite.internal.storage.ReadResult;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -45,6 +46,7 @@ public interface SnapshotMvDataResponse extends NetworkMessage {
         /** Individual row id. */
         UUID rowId();
 
+        /** List of rows for a given {@link #rowId()}. */
         List<BinaryRowMessage> rowVersions();
 
         /**
@@ -59,6 +61,7 @@ public interface SnapshotMvDataResponse extends NetworkMessage {
         /** Commit table id for write-intent if it's present. */
         @Nullable Integer commitTableId();
 
+        /** Commit partition id for write-intent if it's present. {@link ReadResult#UNDEFINED_COMMIT_PARTITION_ID} otherwise. */
         int commitPartitionId();
     }
 }

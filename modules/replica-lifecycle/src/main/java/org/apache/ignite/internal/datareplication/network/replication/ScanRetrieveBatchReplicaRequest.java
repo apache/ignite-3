@@ -19,6 +19,7 @@ package org.apache.ignite.internal.datareplication.network.replication;
 
 import java.util.BitSet;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -45,6 +46,8 @@ public interface ScanRetrieveBatchReplicaRequest extends ReplicaRequest {
     BinaryTupleMessage exactKey();
 
     /**
+     * Gets a lower bound to choose entries from {@link SortedIndexStorage}. Exclusivity is controlled by a {@link
+     * SortedIndexStorage#GREATER_OR_EQUAL} or {@link SortedIndexStorage#GREATER} flag. {@code null} means unbounded.
      *
      * @return lower bound.
      */
@@ -52,6 +55,8 @@ public interface ScanRetrieveBatchReplicaRequest extends ReplicaRequest {
     BinaryTupleMessage lowerBoundPrefix();
 
     /**
+     * Gets an upper bound to choose entries from {@link SortedIndexStorage}. Upper bound. Exclusivity is controlled by a {@link
+     * SortedIndexStorage#LESS} or {@link SortedIndexStorage#LESS_OR_EQUAL} flag. {@code null} means unbounded.
      *
      * @return upper bound.
      */
@@ -59,6 +64,9 @@ public interface ScanRetrieveBatchReplicaRequest extends ReplicaRequest {
     BinaryTupleMessage upperBoundPrefix();
 
     /**
+     * Gets control flags for {@link SortedIndexStorage}. {@link SortedIndexStorage#GREATER} | {@link SortedIndexStorage#LESS} by default.
+     * Other available values are {@link SortedIndexStorage#GREATER_OR_EQUAL}, {@link SortedIndexStorage#LESS_OR_EQUAL}.
+     *
      * @return Flags to determine a scan order.
      */
     int flags();

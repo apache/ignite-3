@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.datareplication.network.raft;
 
-import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.datareplication.network.PartitionReplicationMessageGroup;
+import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
  * Snapshot partition data request message.

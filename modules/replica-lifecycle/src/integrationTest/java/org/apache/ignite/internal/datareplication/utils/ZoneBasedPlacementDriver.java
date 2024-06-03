@@ -31,6 +31,9 @@ import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParam
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.network.ClusterNode;
 
+/**
+ * Trivial placement driver for tests.
+ */
 public class ZoneBasedPlacementDriver  extends AbstractEventProducer<PrimaryReplicaEvent, PrimaryReplicaEventParameters>  implements
         PlacementDriver {
 
