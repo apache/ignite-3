@@ -69,7 +69,7 @@ public class FakePartitionMeta extends PartitionMeta {
      */
     public static class FakePartitionMetaIo extends PartitionMetaIo {
         /** I/O versions. */
-        public static final IoVersions<FakePartitionMetaIo> VERSIONS = new IoVersions<>(new FakePartitionMetaIo(7, 1));
+        public static final IoVersions<FakePartitionMetaIo> VERSIONS = new IoVersions<>(new FakePartitionMetaIo(1, 1));
 
         /**
          * Constructor.
