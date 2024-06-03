@@ -24,7 +24,7 @@ import org.junit.jupiter.api.BeforeAll;
 public class BaseJdbcTest extends BaseIgniteAbstractTest {
     @BeforeAll
     public static void assertParanoidLeakDetectionProperty() {
-        assert "paranoid".equals(System.getProperty("io.netty.leakDetection.level"))
+        assert "paranoid".equals(System.getProperty("io.netty.leakDetectionLevel"))
                 : "JDBC tests should run with paranoid leak detection";
     }
 }

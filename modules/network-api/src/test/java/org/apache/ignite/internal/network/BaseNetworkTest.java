@@ -25,7 +25,7 @@ import org.junit.jupiter.api.BeforeAll;
 public class BaseNetworkTest extends BaseIgniteAbstractTest {
     @BeforeAll
     public static void assertParanoidLeakDetectionProperty() {
-        assert "paranoid".equals(System.getProperty("io.netty.leakDetection.level"))
+        assert "paranoid".equals(System.getProperty("io.netty.leakDetectionLevel"))
                 : "Network tests should run with paranoid leak detection";
     }
 }
