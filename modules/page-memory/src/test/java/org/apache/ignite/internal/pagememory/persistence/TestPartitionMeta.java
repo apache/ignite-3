@@ -68,15 +68,15 @@ public class TestPartitionMeta extends PartitionMeta {
      */
     public static class TestPartitionMetaIo extends PartitionMetaIo {
         /** I/O versions. */
-        public static final IoVersions<TestPartitionMetaIo> VERSIONS = new IoVersions<>(new TestPartitionMetaIo(1));
+        public static final IoVersions<TestPartitionMetaIo> VERSIONS = new IoVersions<>(new TestPartitionMetaIo(7, 1));
 
         /**
          * Constructor.
          *
          * @param ver Page format version.
          */
-        protected TestPartitionMetaIo(int ver) {
-            super(ver, 0);
+        protected TestPartitionMetaIo(int type, int ver) {
+            super(type, ver, 0);
         }
     }
 

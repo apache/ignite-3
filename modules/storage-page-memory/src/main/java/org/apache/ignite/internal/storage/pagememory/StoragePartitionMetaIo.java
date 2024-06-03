@@ -29,6 +29,9 @@ import org.apache.ignite.internal.pagememory.persistence.io.PartitionMetaIo;
  * Storage Io for partition metadata pages.
  */
 public class StoragePartitionMetaIo extends PartitionMetaIo {
+    /** Page IO type. */
+    public static final short T_TABLE_PARTITION_META_IO = 7;
+
     private static final int LAST_APPLIED_INDEX_OFF = COMMON_HEADER_END;
 
     private static final int LAST_APPLIED_TERM_OFF = LAST_APPLIED_INDEX_OFF + Long.BYTES;
@@ -57,7 +60,7 @@ public class StoragePartitionMetaIo extends PartitionMetaIo {
      * @param ver Page format version.
      */
     protected StoragePartitionMetaIo(int ver) {
-        super(ver, PAGE_COUNT_OFF);
+        super(T_TABLE_PARTITION_META_IO, ver, PAGE_COUNT_OFF);
     }
 
     /** {@inheritDoc} */

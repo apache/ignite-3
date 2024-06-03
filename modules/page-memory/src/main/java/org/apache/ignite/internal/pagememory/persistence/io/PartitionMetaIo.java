@@ -28,9 +28,6 @@ import org.apache.ignite.internal.pagememory.io.PageIo;
  * Base Io for partition metadata pages.
  */
 public abstract class PartitionMetaIo extends PageIo {
-    /** Page IO type. */
-    public static final short T_TABLE_PARTITION_META_IO = 7;
-
     private final int getPageCountOff;
 
     /**
@@ -38,8 +35,8 @@ public abstract class PartitionMetaIo extends PageIo {
      *
      * @param ver Page format version.
      */
-    protected PartitionMetaIo(int ver, int getPageCountOff) {
-        super(T_TABLE_PARTITION_META_IO, ver, FLAG_AUX);
+    protected PartitionMetaIo(int type, int ver, int getPageCountOff) {
+        super(type, ver, FLAG_AUX);
         this.getPageCountOff = getPageCountOff;
     }
 
