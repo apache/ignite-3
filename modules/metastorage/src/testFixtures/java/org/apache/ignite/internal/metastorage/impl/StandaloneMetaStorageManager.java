@@ -109,7 +109,7 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
                 mock(TopologyAwareRaftGroupServiceFactory.class),
                 mockConfiguration(),
                 clock,
-                mockRaftConfiguration().responseTimeout(),
+                mockRaftConfiguration().retryTimeout(),
                 completedFuture(() -> TEST_MAX_CLOCK_SKEW_MILLIS)
         );
     }

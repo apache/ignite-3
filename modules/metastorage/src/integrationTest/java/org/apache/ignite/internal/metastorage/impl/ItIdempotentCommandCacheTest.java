@@ -408,7 +408,7 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
         for (Node node : nodes) {
             assertThat(node.clockService.waitFor(
                     new HybridTimestamp(
-                            timestampAfterRestartPhysicalLong + raftConfiguration.responseTimeout().value() + node.clockService.maxClockSkewMillis(),
+                            timestampAfterRestartPhysicalLong + raftConfiguration.retryTimeout().value() + node.clockService.maxClockSkewMillis(),
                             0
                     )
             ), willCompleteSuccessfully());
