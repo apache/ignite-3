@@ -36,9 +36,9 @@ public class StoragePartitionMeta extends PartitionMeta {
 
     private volatile long lastAppliedTerm;
 
-    private volatile long leaseStartTime;
-
     private volatile long lastReplicationProtocolGroupConfigFirstPageId;
+
+    private volatile long leaseStartTime;
 
     private volatile long freeListRootPageId;
 
@@ -67,25 +67,25 @@ public class StoragePartitionMeta extends PartitionMeta {
      */
     public StoragePartitionMeta(
             @Nullable UUID checkpointId,
+            int pageCount,
             long lastAppliedIndex,
             long lastAppliedTerm,
             long lastReplicationProtocolGroupConfigFirstPageId,
+            long leaseStartTime,
             long freeListRootPageId,
             long versionChainTreeRootPageId,
             long indexTreeMetaPageId,
-            long gcQueueMetaPageId,
-            int pageCount,
-            long leaseStartTime
+            long gcQueueMetaPageId
     ) {
         super(checkpointId, pageCount);
         this.lastAppliedIndex = lastAppliedIndex;
         this.lastAppliedTerm = lastAppliedTerm;
         this.lastReplicationProtocolGroupConfigFirstPageId = lastReplicationProtocolGroupConfigFirstPageId;
+        this.leaseStartTime = leaseStartTime;
         this.freeListRootPageId = freeListRootPageId;
         this.versionChainTreeRootPageId = versionChainTreeRootPageId;
         this.indexTreeMetaPageId = indexTreeMetaPageId;
         this.gcQueueMetaPageId = gcQueueMetaPageId;
-        this.leaseStartTime = leaseStartTime;
     }
 
     /**
@@ -102,15 +102,15 @@ public class StoragePartitionMeta extends PartitionMeta {
     private StoragePartitionMeta(@Nullable UUID checkpointId, StoragePartitionMetaIo metaIo, long pageAddr) {
         this(
                 checkpointId,
+                metaIo.getPageCount(pageAddr),
                 metaIo.getLastAppliedIndex(pageAddr),
                 metaIo.getLastAppliedTerm(pageAddr),
                 metaIo.getLastReplicationProtocolGroupConfigFirstPageId(pageAddr),
+                metaIo.getLeaseStartTime(pageAddr),
                 StoragePartitionMetaIo.getFreeListRootPageId(pageAddr),
                 metaIo.getVersionChainTreeRootPageId(pageAddr),
                 metaIo.getIndexTreeMetaPageId(pageAddr),
-                metaIo.getGcQueueMetaPageId(pageAddr),
-                metaIo.getPageCount(pageAddr),
-                metaIo.getLeaseStartTime(pageAddr)
+                metaIo.getGcQueueMetaPageId(pageAddr)
         );
     }
 
