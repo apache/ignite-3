@@ -20,6 +20,7 @@ package org.apache.ignite.internal;
 import org.apache.ignite.internal.junit.StopAllIgnitesAfterTests;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
@@ -28,4 +29,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 // The order is important here.
 @ExtendWith({WorkDirectoryExtension.class, StopAllIgnitesAfterTests.class})
 public abstract class IgniteIntegrationTest extends BaseIgniteAbstractTest {
+    @BeforeAll
+    public static void assertParanoidLeakDetectionProperty() {
+        assert "paranoid".equals(System.getProperty("io.netty.leakDetection.level"))
+                : "Integration tests should run with paranoid leak detection";
+    }
 }
