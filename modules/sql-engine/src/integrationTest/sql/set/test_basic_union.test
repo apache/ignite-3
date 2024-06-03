@@ -1,6 +1,7 @@
 # name: test/sql/set/basic_union.test
 # description: UNION DISTINCT table operator
-# feature: E071-01
+# feature: E071-01 UNION DISTINCT table operator
+# feature: E071-02 UNION ALL table operator
 # [group] Set operations
 
 statement ok
@@ -109,3 +110,28 @@ SELECT 1.1::FLOAT AS two UNION SELECT 2 UNION ALL SELECT 2.0::FLOAT ORDER BY 1;
 1.1
 2
 2
+
+# Implicit type coercion for set operation should not happen 
+
+statement error: Type mismatch in column 1 of UNION
+SELECT '2000-11-02' UNION SELECT '2000-11-02'::DATE
+
+statement error: Type mismatch in column 1 of UNION
+SELECT 1 UNION SELECT 'abc'
+
+statement error: Type mismatch in column 1 of UNION
+SELECT '1' UNION SELECT 1
+
+statement error: Type mismatch in column 1 of UNION ALL
+SELECT 1 UNION ALL SELECT 'abc'
+
+statement error: Column count mismatch in UNION ALL
+SELECT 1, 2 UNION ALL SELECT 1, 2, 3
+
+statement error: Type mismatch in column 1 of UNION ALL
+SELECT 'abcd' UNION ALL SELECT '2000-11-02'::DATE
+
+skipif ignite3
+# https://issues.apache.org/jira/browse/IGNITE-22358
+statement error: Type mismatch in column 1 of UNION ALL
+SELECT 1 UNION ALL SELECT '2000-11-02'::DATE
