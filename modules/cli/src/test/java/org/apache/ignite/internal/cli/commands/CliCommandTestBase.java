@@ -68,6 +68,12 @@ public abstract class CliCommandTestBase extends BaseIgniteAbstractTest {
         System.setProperty("org.jline.terminal.dumb", "true");
     }
 
+    @BeforeAll
+    public static void assertParanoidLeakDetectionProperty() {
+        assert "paranoid".equals(System.getProperty("io.netty.leakDetection.level"))
+                : "CLI tests should run with paranoid leak detection";
+    }
+
     protected abstract Class<?> getCommandClass();
 
     protected void execute(String argsLine) {

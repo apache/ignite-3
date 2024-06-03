@@ -36,7 +36,6 @@ import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryCloseRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryCloseResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQuerySingleResult;
 import org.apache.ignite.internal.jdbc.proto.event.Response;
-import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -44,7 +43,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 /** Unit test for JdbcResultSet. */
 @ExtendWith(MockitoExtension.class)
-public class JdbcResultSetTest extends BaseIgniteAbstractTest {
+public class JdbcResultSetTest extends BaseJdbcTest {
     @Test
     public void getNextResultSetTest() throws SQLException {
         String errorStr = "Failed to fetch query results";
