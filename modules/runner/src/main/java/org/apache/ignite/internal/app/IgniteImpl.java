@@ -640,7 +640,8 @@ public class IgniteImpl implements Ignite {
                 placementDriverMgr.placementDriver(),
                 threadPoolsManager.partitionOperationsExecutor(),
                 partitionIdleSafeTimePropagationPeriodMsSupplier,
-                failureProcessor
+                failureProcessor,
+                threadPoolsManager.tableIoExecutor()
         );
 
         metricManager.configure(clusterConfigRegistry.getConfiguration(MetricConfiguration.KEY));
