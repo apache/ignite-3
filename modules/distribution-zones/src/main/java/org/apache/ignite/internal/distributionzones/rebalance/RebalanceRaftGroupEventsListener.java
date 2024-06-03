@@ -36,8 +36,9 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
-import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
+import static org.apache.ignite.internal.util.ByteUtils.bytesToLongKeepingOrder;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
+import static org.apache.ignite.internal.util.ByteUtils.longToBytesKeepingOrder;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.apache.ignite.internal.util.CollectionUtils.difference;
 import static org.apache.ignite.internal.util.CollectionUtils.intersect;
@@ -68,7 +69,6 @@ import org.apache.ignite.internal.raft.RaftError;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.Status;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
-import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 
 /**
@@ -418,7 +418,8 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             Set<Assignment> retrievedSwitchReduce = readAssignments(switchReduceEntry).nodes();
             Set<Assignment> retrievedSwitchAppend = readAssignments(switchAppendEntry).nodes();
             Set<Assignment> retrievedPending = readAssignments(pendingEntry).nodes();
-            long stableChangeTriggerValue = stableChangeTriggerEntry.value() == null ? 0L : bytesToLong(stableChangeTriggerEntry.value());
+            long stableChangeTriggerValue = stableChangeTriggerEntry.value() == null
+                    ? 0L : bytesToLongKeepingOrder(stableChangeTriggerEntry.value());
 
             if (!retrievedPending.equals(stableFromRaft)) {
                 return;
@@ -519,7 +520,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             int res = metaStorageMgr.invoke(
                     iif(or(
                                     notExists(stableChangeTriggerKey(zonePartitionId)),
-                                    value(stableChangeTriggerKey(zonePartitionId)).lt(ByteUtils.longToBytes(revision))
+                                    value(stableChangeTriggerKey(zonePartitionId)).lt(longToBytesKeepingOrder(revision))
                             ),
                             iif(retryPreconditions, successCase, failCase),
                             ops().yield(OUTDATED_INVOKE_STATUS)

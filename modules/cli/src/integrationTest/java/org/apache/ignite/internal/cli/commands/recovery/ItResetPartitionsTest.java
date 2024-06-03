@@ -27,7 +27,7 @@ import org.apache.ignite.internal.cli.CliIntegrationTest;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-/** Base test class for Recovery reset partitions commands. */
+/** Base test class for Cluster Recovery reset partitions commands. */
 public abstract class ItResetPartitionsTest extends CliIntegrationTest {
     private static final String ZONE = "first_ZONE";
 
@@ -50,7 +50,7 @@ public abstract class ItResetPartitionsTest extends CliIntegrationTest {
                 RECOVERY_ZONE_NAME_OPTION, ZONE);
 
         assertErrOutputIsEmpty();
-        assertOutputContains("Successfully started resetting partitions.");
+        assertOutputContains("Successfully reset partitions.");
     }
 
     @Test
@@ -61,7 +61,7 @@ public abstract class ItResetPartitionsTest extends CliIntegrationTest {
                 RECOVERY_PARTITION_IDS_OPTION, "1,2");
 
         assertErrOutputIsEmpty();
-        assertOutputContains("Successfully started resetting partitions.");
+        assertOutputContains("Successfully reset partitions.");
     }
 
     @Test
@@ -94,7 +94,7 @@ public abstract class ItResetPartitionsTest extends CliIntegrationTest {
         execute(CLUSTER_URL_OPTION, NODE_URL,
                 RECOVERY_TABLE_NAME_OPTION, QUALIFIED_TABLE_NAME,
                 RECOVERY_ZONE_NAME_OPTION, ZONE,
-                RECOVERY_PARTITION_IDS_OPTION, "0,5,-1,-10");
+                RECOVERY_PARTITION_IDS_OPTION, "0,5,-10");
 
         assertErrOutputContains("Partition ID can't be negative, found: -10");
         assertOutputIsEmpty();

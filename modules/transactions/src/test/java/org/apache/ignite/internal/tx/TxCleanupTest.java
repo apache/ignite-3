@@ -146,7 +146,7 @@ public class TxCleanupTest extends IgniteAbstractTest {
 
         HybridTimestamp commitTimestamp = clock.now();
 
-        CompletableFuture<Void> cleanup = cleanupRequestSender.cleanup(partitions, true, commitTimestamp, txId);
+        CompletableFuture<Void> cleanup = cleanupRequestSender.cleanup(zonePartitionId1, partitions, true, commitTimestamp, txId);
 
         assertThat(cleanup, willCompleteSuccessfully());
 
@@ -182,7 +182,7 @@ public class TxCleanupTest extends IgniteAbstractTest {
 
         HybridTimestamp commitTimestamp = clock.now();
 
-        CompletableFuture<Void> cleanup = cleanupRequestSender.cleanup(partitions, true, commitTimestamp, txId);
+        CompletableFuture<Void> cleanup = cleanupRequestSender.cleanup(zonePartitionId1, partitions, true, commitTimestamp, txId);
 
         assertThat(cleanup, willCompleteSuccessfully());
 
@@ -216,7 +216,7 @@ public class TxCleanupTest extends IgniteAbstractTest {
 
         HybridTimestamp commitTimestamp = clock.now();
 
-        CompletableFuture<Void> cleanup = cleanupRequestSender.cleanup(partitions, true, commitTimestamp, txId);
+        CompletableFuture<Void> cleanup = cleanupRequestSender.cleanup(zonePartitionId1, partitions, true, commitTimestamp, txId);
 
         assertThat(cleanup, willCompleteSuccessfully());
 

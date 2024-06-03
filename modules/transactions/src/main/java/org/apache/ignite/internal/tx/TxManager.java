@@ -145,6 +145,7 @@ public interface TxManager extends IgniteComponent {
      *
      * <p>The nodes to send the request to are taken from the mapping `partition id -> partition primary`.
      *
+     * @param commitPartitionId Commit partition id.
      * @param enlistedPartitions Map of partition groups to their primary nodes.
      * @param commit {@code true} if a commit requested.
      * @param commitTimestamp Commit timestamp ({@code null} if it's an abort).
@@ -152,6 +153,7 @@ public interface TxManager extends IgniteComponent {
      * @return Completable future of Void.
      */
     CompletableFuture<Void> cleanup(
+            ZonePartitionId commitPartitionId,
             Map<ZonePartitionId, String> enlistedPartitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
@@ -163,6 +165,7 @@ public interface TxManager extends IgniteComponent {
      *
      * <p>The nodes to sends the request to are calculated by the placement driver.
      *
+     * @param commitPartitionId Commit partition id.
      * @param enlistedPartitions Enlisted partition groups.
      * @param commit {@code true} if a commit requested.
      * @param commitTimestamp Commit timestamp ({@code null} if it's an abort).
@@ -170,6 +173,7 @@ public interface TxManager extends IgniteComponent {
      * @return Completable future of Void.
      */
     CompletableFuture<Void> cleanup(
+            ZonePartitionId commitPartitionId,
             Collection<ZonePartitionId> enlistedPartitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
@@ -179,11 +183,12 @@ public interface TxManager extends IgniteComponent {
     /**
      * Sends cleanup request to the nodes than initiated recovery.
      *
+     * @param commitPartitionId Commit partition id.
      * @param node Target node.
      * @param txId Transaction id.
      * @return Completable future of Void.
      */
-    CompletableFuture<Void> cleanup(String node, UUID txId);
+    CompletableFuture<Void> cleanup(ZonePartitionId commitPartitionId, String node, UUID txId);
 
     /**
      * Locally vacuums no longer needed transactional resources, like txnState both persistent and volatile.

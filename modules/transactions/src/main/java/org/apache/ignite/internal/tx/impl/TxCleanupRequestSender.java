@@ -32,8 +32,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tx.TxState;
@@ -50,9 +48,6 @@ import org.jetbrains.annotations.Nullable;
  * Sends TX Cleanup request.
  */
 public class TxCleanupRequestSender {
-    /** Logger. */
-    private static final IgniteLogger LOG = Loggers.forClass(TxCleanupRequestSender.class);
-
     /** Placement driver helper. */
     private final PlacementDriverHelper placementDriverHelper;
 
@@ -86,18 +81,17 @@ public class TxCleanupRequestSender {
      */
     public void start() {
         txMessageSender.messagingService().addMessageHandler(TxMessageGroup.class, (msg, sender, correlationId) -> {
+            // correlationId == null means we get the second TxCleanupMessageResponse
+            // that gets sent when cleanup is replicated to the majority.
             if (msg instanceof TxCleanupMessageResponse && correlationId == null) {
+                // The cleanup response is sent only in the success case, hence no error is expected.
+                assert !(msg instanceof TxCleanupMessageErrorResponse) : "Cleanup error response is not expected here.";
+
                 CleanupReplicatedInfo result = ((TxCleanupMessageResponse) msg).result();
 
-                if (result != null) {
-                    onCleanupReplicated(result);
-                }
+                assert result != null : "Result for the cleanup response cannot be null.";
 
-                if (msg instanceof TxCleanupMessageErrorResponse) {
-                    TxCleanupMessageErrorResponse response = (TxCleanupMessageErrorResponse) msg;
-
-                    LOG.warn("Exception happened during transaction cleanup [txId={}].", response.throwable(), response.txId());
-                }
+                onCleanupReplicated(result);
             }
         });
     }
@@ -110,19 +104,19 @@ public class TxCleanupRequestSender {
         });
 
         if (ctx != null && ctx.partitions.isEmpty()) {
-            markTxnCleanupReplicated(info.txId(), ctx.txState);
+            markTxnCleanupReplicated(info.txId(), ctx.txState, ctx.commitPartitionId);
 
             writeIntentsReplicated.remove(info.txId());
         }
     }
 
-    private void markTxnCleanupReplicated(UUID txId, TxState state) {
+    private void markTxnCleanupReplicated(UUID txId, TxState state, ZonePartitionId commitPartitionId) {
         long cleanupCompletionTimestamp = System.currentTimeMillis();
 
         txStateVolatileStorage.updateMeta(txId, oldMeta ->
                 new TxStateMeta(oldMeta == null ? state : oldMeta.txState(),
                         oldMeta == null ? null : oldMeta.txCoordinatorId(),
-                        oldMeta == null ? null : oldMeta.commitPartitionId(),
+                        commitPartitionId,
                         oldMeta == null ? null : oldMeta.commitTimestamp(),
                         oldMeta == null ? null : oldMeta.initialVacuumObservationTimestamp(),
                         cleanupCompletionTimestamp)
@@ -132,17 +126,19 @@ public class TxCleanupRequestSender {
     /**
      * Sends unlock request to the nodes than initiated recovery.
      *
+     * @param commitPartitionId Commit partition id.
      * @param node Target node.
      * @param txId Transaction id.
      * @return Completable future of Void.
      */
-    public CompletableFuture<Void> cleanup(String node, UUID txId) {
-        return sendCleanupMessageWithRetries(false, null, txId, node, null);
+    public CompletableFuture<Void> cleanup(ZonePartitionId commitPartitionId, String node, UUID txId) {
+        return sendCleanupMessageWithRetries(commitPartitionId, false, null, txId, node, null);
     }
 
     /**
      * Sends cleanup request to the primary nodes of each one of {@code partitions}.
      *
+     * @param commitPartitionId Commit partition id.
      * @param enlistedPartitions Map of enlisted partition group to the initial primary node.
      * @param commit {@code true} if a commit requested.
      * @param commitTimestamp Commit timestamp ({@code null} if it's an abort).
@@ -150,24 +146,29 @@ public class TxCleanupRequestSender {
      * @return Completable future of Void.
      */
     public CompletableFuture<Void> cleanup(
+            ZonePartitionId commitPartitionId,
             Map<ZonePartitionId, String> enlistedPartitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId
     ) {
         // Start tracking the partitions we want to learn the replication confirmation from.
-        writeIntentsReplicated.put(txId, new CleanupContext(enlistedPartitions.keySet(), commit ? TxState.COMMITTED : TxState.ABORTED));
+        writeIntentsReplicated.put(
+                txId,
+                new CleanupContext(commitPartitionId, enlistedPartitions.keySet(), commit ? TxState.COMMITTED : TxState.ABORTED)
+        );
 
         Map<String, Set<ZonePartitionId>> partitions = new HashMap<>();
         enlistedPartitions.forEach((partitionId, nodeId) ->
                 partitions.computeIfAbsent(nodeId, node -> new HashSet<>()).add(partitionId));
 
-        return cleanupPartitions(partitions, commit, commitTimestamp, txId);
+        return cleanupPartitions(commitPartitionId, partitions, commit, commitTimestamp, txId);
     }
 
     /**
      * Gets primary nodes for each of the provided {@code partitions} and sends cleanup request to each one.
      *
+     * @param commitPartitionId Commit partition id.
      * @param partitionIds Collection of enlisted partition groups.
      * @param commit {@code true} if a commit requested.
      * @param commitTimestamp Commit timestamp ({@code null} if it's an abort).
@@ -175,23 +176,29 @@ public class TxCleanupRequestSender {
      * @return Completable future of Void.
      */
     public CompletableFuture<Void> cleanup(
+            ZonePartitionId commitPartitionId,
             Collection<ZonePartitionId> partitionIds,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId
     ) {
         // Start tracking the partitions we want to learn the replication confirmation from.
-        writeIntentsReplicated.put(txId, new CleanupContext(new HashSet<>(partitionIds), commit ? TxState.COMMITTED : TxState.ABORTED));
+        writeIntentsReplicated.put(
+                txId,
+                new CleanupContext(commitPartitionId, new HashSet<>(partitionIds), commit ? TxState.COMMITTED : TxState.ABORTED)
+        );
 
         return placementDriverHelper.findPrimaryReplicas(partitionIds)
                 .thenCompose(partitionData -> {
-                    cleanupPartitionsWithoutPrimary(commit, commitTimestamp, txId, partitionData.partitionsWithoutPrimary);
+                    cleanupPartitionsWithoutPrimary(commitPartitionId, commit, commitTimestamp, txId,
+                            partitionData.partitionsWithoutPrimary);
 
-                    return cleanupPartitions(partitionData.partitionsByNode, commit, commitTimestamp, txId);
+                    return cleanupPartitions(commitPartitionId, partitionData.partitionsByNode, commit, commitTimestamp, txId);
                 });
     }
 
     private void cleanupPartitionsWithoutPrimary(
+            ZonePartitionId commitPartitionId,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId,
@@ -200,10 +207,11 @@ public class TxCleanupRequestSender {
         // For the partitions without primary, we need to wait until a new primary is found.
         // Then we can proceed with the common cleanup flow.
         placementDriverHelper.awaitPrimaryReplicas(noPrimaryFound)
-                .thenCompose(partitionsByNode -> cleanupPartitions(partitionsByNode, commit, commitTimestamp, txId));
+                .thenCompose(partitionsByNode -> cleanupPartitions(commitPartitionId, partitionsByNode, commit, commitTimestamp, txId));
     }
 
     private CompletableFuture<Void> cleanupPartitions(
+            ZonePartitionId commitPartitionId,
             Map<String, Set<ZonePartitionId>> partitionsByNode,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
@@ -215,13 +223,14 @@ public class TxCleanupRequestSender {
             String node = entry.getKey();
             Set<ZonePartitionId> nodePartitions = entry.getValue();
 
-            cleanupFutures.add(sendCleanupMessageWithRetries(commit, commitTimestamp, txId, node, nodePartitions));
+            cleanupFutures.add(sendCleanupMessageWithRetries(commitPartitionId, commit, commitTimestamp, txId, node, nodePartitions));
         }
 
         return allOf(cleanupFutures.toArray(new CompletableFuture<?>[0]));
     }
 
     private CompletableFuture<Void> sendCleanupMessageWithRetries(
+            ZonePartitionId commitPartitionId,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId,
@@ -244,12 +253,12 @@ public class TxCleanupRequestSender {
                             if (partitions == null) {
                                 // If we don't have any partition, which is the recovery case,
                                 // just try again with the same node.
-                                return sendCleanupMessageWithRetries(commit, commitTimestamp, txId, node, partitions);
+                                return sendCleanupMessageWithRetries(commitPartitionId, commit, commitTimestamp, txId, node, partitions);
                             }
 
                             // Run a cleanup that finds new primaries for the given partitions.
                             // This covers the case when a partition primary died and we still want to switch write intents.
-                            return cleanup(partitions, commit, commitTimestamp, txId);
+                            return cleanup(commitPartitionId, partitions, commit, commitTimestamp, txId);
                         }
 
                         return CompletableFuture.<Void>failedFuture(throwable);
@@ -261,9 +270,10 @@ public class TxCleanupRequestSender {
     }
 
     private static class CleanupContext {
+        private final ZonePartitionId commitPartitionId;
 
         /**
-         * The partitions the we have not received write intent replication confirmation for.
+         * The partitions that we have not received write intent replication confirmation for.
          */
         private final Set<ZonePartitionId> partitions;
 
@@ -272,11 +282,10 @@ public class TxCleanupRequestSender {
          */
         private final TxState txState;
 
-        private CleanupContext(Set<ZonePartitionId> partitions, TxState txState) {
+        private CleanupContext(ZonePartitionId commitPartitionId, Set<ZonePartitionId> partitions, TxState txState) {
+            this.commitPartitionId = commitPartitionId;
             this.partitions = partitions;
-
             this.txState = txState;
         }
     }
-
 }

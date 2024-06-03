@@ -222,7 +222,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
      * @param zoneName Name of the distribution zone. Case-sensitive, without quotes.
      * @param tableName Fully-qualified table name. Case-sensitive, without quotes. Example: "PUBLIC.Foo".
      * @param partitionIds IDs of partitions to reset. If empty, reset all zone's partitions.
-     * @return Operation future.
+     * @return Future that completes when partitions are reset.
      */
     public CompletableFuture<Void> resetPartitions(String zoneName, String tableName, Set<Integer> partitionIds) {
         try {
@@ -247,9 +247,14 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
      * @param zoneName Name of the distribution zone. Case-sensitive, without quotes.
      * @param tableName Fully-qualified table name. Case-sensitive, without quotes. Example: "PUBLIC.Foo".
      * @param partitionIds IDs of partitions to restart. If empty, restart all zone's partitions.
-     * @return Operation future.
+     * @return Future that completes when partitions are restarted.
      */
-    public CompletableFuture<Void> restartPartitions(Set<String> nodeNames, String zoneName, String tableName, Set<Integer> partitionIds) {
+    public CompletableFuture<Void> restartPartitions(
+            Set<String> nodeNames,
+            String zoneName,
+            String tableName,
+            Set<Integer> partitionIds
+    ) {
         try {
             // Validates passed node names.
             getNodes(nodeNames);

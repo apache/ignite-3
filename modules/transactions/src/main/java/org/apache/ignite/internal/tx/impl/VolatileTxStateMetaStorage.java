@@ -37,6 +37,8 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
+import org.apache.ignite.internal.tx.impl.PersistentTxStateVacuumizer.PersistentTxStateVacuumResult;
+import org.apache.ignite.internal.tx.impl.PersistentTxStateVacuumizer.VacuumizableTx;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -115,11 +117,19 @@ public class VolatileTxStateMetaStorage {
     }
 
     /**
-     * Locally vacuums no longer needed transactional resource.
+     * Locally vacuums no longer needed transactional resource. Also calls {@code persistentVacuumOp} to vacuum some persistent states.
      * For each finished (COMMITTED or ABORTED) transactions:
      * <ol>
-     *     <li> Removes it from the volatile storage if txnResourcesTTL == 0 or if
-     *     txnState.initialVacuumObservationTimestamp + txnResourcesTTL < vacuumObservationTimestamp.</li>
+     *     <li> Takes every suitable txn state from the volatile storage if txnResourcesTTL == 0 or if
+     *     max(txnState.initialVacuumObservationTimestamp, txnState.cleanupCompletionTimestamp) + txnResourcesTTL <
+     *     vacuumObservationTimestamp. If txnState.cleanupCompletionTimestamp is {@code null}, then only
+     *     txnState.initialVacuumObservationTimestamp is used.</li>
+     *     <li>If txnState.commitPartitionId is {@code null}, then only volatile state is vacuumized, if not {@code null} this
+     *     means we are probably on commit partition and this txnState should be passed to {@code persistentVacuumOp} to vacuumize the
+     *     persistent state as well. Only after such txn states are processed by {@code persistentVacuumOp} we can remove the volatile
+     *     txn state. Only states which are marked by {@code persistentVacuumOp} as sucessfully vacuumized and
+     *     {@code cleanupCompletionTimestamp} is the same that was passed to {@code persistentVacuumOp} can be removed, to prevent
+     *     races.</li>
      *     <li>Updates txnState.initialVacuumObservationTimestamp by setting it to vacuumObservationTimestamp
      *     if it's not already initialized.</li>
      * </ol>
@@ -133,7 +143,7 @@ public class VolatileTxStateMetaStorage {
     public CompletableFuture<Void> vacuum(
             long vacuumObservationTimestamp,
             long txnResourceTtl,
-            Function<Map<ZonePartitionId, Set<UUID>>, CompletableFuture<Set<UUID>>> persistentVacuumOp
+            Function<Map<ZonePartitionId, Set<VacuumizableTx>>, CompletableFuture<PersistentTxStateVacuumResult>> persistentVacuumOp
     ) {
         LOG.info("Vacuum started [vacuumObservationTimestamp={}, txnResourceTtl={}].", vacuumObservationTimestamp, txnResourceTtl);
 
@@ -142,7 +152,7 @@ public class VolatileTxStateMetaStorage {
         AtomicInteger alreadyMarkedTxnsCount = new AtomicInteger(0);
         AtomicInteger skippedForFurtherProcessingUnfinishedTxnsCount = new AtomicInteger(0);
 
-        Map<ZonePartitionId, Set<UUID>> txIds = new HashMap<>();
+        Map<ZonePartitionId, Set<VacuumizableTx>> txIds = new HashMap<>();
         Map<UUID, Long> cleanupCompletionTimestamps = new HashMap<>();
 
         txStateMap.forEach((txId, meta) -> {
@@ -166,8 +176,8 @@ public class VolatileTxStateMetaStorage {
 
                                 return null;
                             } else {
-                                Set<UUID> ids = txIds.computeIfAbsent(meta0.commitPartitionId(), k -> new HashSet<>());
-                                ids.add(txId);
+                                Set<VacuumizableTx> ids = txIds.computeIfAbsent(meta0.commitPartitionId(), k -> new HashSet<>());
+                                ids.add(new VacuumizableTx(txId, cleanupCompletionTimestamp));
 
                                 if (cleanupCompletionTimestamp != null) {
                                     cleanupCompletionTimestamps.put(txId, cleanupCompletionTimestamp);
@@ -189,8 +199,8 @@ public class VolatileTxStateMetaStorage {
         });
 
         return persistentVacuumOp.apply(txIds)
-                .thenAccept(successful -> {
-                    for (UUID txId : successful) {
+                .thenAccept(vacuumResult -> {
+                    for (UUID txId : vacuumResult.txnsToVacuum) {
                         txStateMap.compute(txId, (k, v) -> {
                             if (v == null) {
                                 return null;
@@ -218,7 +228,7 @@ public class VolatileTxStateMetaStorage {
                             vacuumObservationTimestamp,
                             txnResourceTtl,
                             vacuumizedTxnsCount,
-                            successful.size(),
+                            vacuumResult.vacuumizedPersistentTxnStatesCount,
                             markedAsInitiallyDetectedTxnsCount,
                             alreadyMarkedTxnsCount,
                             skippedForFurtherProcessingUnfinishedTxnsCount

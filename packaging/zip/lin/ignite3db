@@ -29,7 +29,7 @@ if [ -z ${IGNITE_HOME+x} ]; then IGNITE_HOME=$(pwd); fi
 
 
 . @CONF_DIR@/@VARS_FILE_NAME@
-. ${IGNITE_HOME}/lib/@BOOTSTRAP_FILE_NAME@
+. @LIB_DIR@/@BOOTSTRAP_FILE_NAME@
 
 cd ${IGNITE_HOME} || exit
 

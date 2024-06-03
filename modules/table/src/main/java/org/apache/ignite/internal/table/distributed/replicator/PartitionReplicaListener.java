@@ -422,6 +422,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 }
 
                 txManager.cleanup(
+                        zoneReplicationGroupId,
                         txMeta.enlistedPartitions(),
                         txMeta.txState() == COMMITTED,
                         txMeta.commitTimestamp(),
@@ -508,7 +509,8 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         // Check whether a transaction has already been finished.
         if (txMeta != null && isFinalState(txMeta.txState())) {
-            return runCleanupOnNode(txId, senderId);
+            // Tx recovery message is processed on the commit partition.
+            return runCleanupOnNode(zoneReplicationGroupId, txId, senderId);
         }
 
         LOG.info("Orphan transaction has to be aborted [tx={}, meta={}].", txId, txMeta);
@@ -519,14 +521,15 @@ public class PartitionReplicaListener implements ReplicaListener {
     /**
      * Run cleanup on a node.
      *
+     * @param commitPartitionId Commit partition id.
      * @param txId Transaction id.
      * @param nodeId Node id (inconsistent).
      */
-    private CompletableFuture<Void> runCleanupOnNode(UUID txId, String nodeId) {
+    private CompletableFuture<Void> runCleanupOnNode(ZonePartitionId commitPartitionId, UUID txId, String nodeId) {
         // Get node id of the sender to send back cleanup requests.
         String nodeConsistentId = clusterNodeResolver.getConsistentIdById(nodeId);
 
-        return nodeConsistentId == null ? nullCompletedFuture() : txManager.cleanup(nodeConsistentId, txId);
+        return nodeConsistentId == null ? nullCompletedFuture() : txManager.cleanup(commitPartitionId, nodeConsistentId, txId);
     }
 
     /**
@@ -541,13 +544,14 @@ public class PartitionReplicaListener implements ReplicaListener {
         // is sent in a common durable manner to a partition that have initiated recovery.
         return txManager.finish(
                         new HybridTimestampTracker(),
+                        // Tx recovery is executed on the commit partition.
                         zoneReplicationGroupId,
                         false,
                         // Enlistment consistency token is not required for the rollback, so it is 0L.
                         Map.of(zoneReplicationGroupId, new IgniteBiTuple<>(clusterNodeResolver.getById(senderId), 0L)),
                         txId
                 )
-                .whenComplete((v, ex) -> runCleanupOnNode(txId, senderId));
+                .whenComplete((v, ex) -> runCleanupOnNode(zoneReplicationGroupId, txId, senderId));
     }
 
     /**
@@ -1695,7 +1699,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         return finishTransaction(enlistedPartitions.keySet(), txId, commit, commitTimestamp)
                 .thenCompose(txResult ->
-                        txManager.cleanup(enlistedPartitions, commit, commitTimestamp, txId)
+                        txManager.cleanup(zoneReplicationGroupId, enlistedPartitions, commit, commitTimestamp, txId)
                                 .thenApply(v -> txResult)
                 );
     }
