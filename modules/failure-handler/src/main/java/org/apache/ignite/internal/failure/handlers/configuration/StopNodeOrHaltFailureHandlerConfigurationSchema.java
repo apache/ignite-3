@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.failure.handlers.configuration;
 
-import java.util.concurrent.TimeUnit;
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Range;
@@ -32,15 +31,16 @@ public class StopNodeOrHaltFailureHandlerConfigurationSchema extends FailureHand
 
     /** This field indicates that the failure handler should try to gracefully stop a node. */
     @Value(hasDefault = true)
-    public boolean tryStop = true;
+    public boolean tryStop = false;
 
     /**
      * Timeout in ms that is used to gracefully stop a node before
      * JVM process will be terminated forcibly using {@code Runtime.getRuntime().halt()}.
+     * The value {@code 0} means that the node will be stopped immediately.
      *
      * @see #tryStop
      */
     @Value(hasDefault = true)
-    @Range(min = 1)
-    public long timeout = TimeUnit.SECONDS.toMillis(1);
+    @Range(min = 0)
+    public long timeout = 0;
 }
