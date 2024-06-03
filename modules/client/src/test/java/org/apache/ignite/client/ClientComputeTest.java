@@ -48,6 +48,7 @@ import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobExecution;
+import org.apache.ignite.compute.JobInfo;
 import org.apache.ignite.compute.TaskExecution;
 import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.client.table.ClientTable;
@@ -160,10 +161,10 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
             Tuple key = Tuple.create().set("key", "k");
 
             JobExecution<String> execution1 = client.compute()
-                    .submitColocated(TABLE_NAME, key, List.of(), "job");
+                    .submitColocated(TABLE_NAME, key, new JobInfo("job"));
 
             JobExecution<String> execution2 = client.compute()
-                    .submitColocated(TABLE_NAME, 1L, Mapper.of(Long.class), List.of(), "job");
+                    .submitColocated(TABLE_NAME, 1L, Mapper.of(Long.class), new JobInfo("job"));
 
             assertThat(execution1.resultAsync(), willBe("s2"));
             assertThat(execution2.resultAsync(), willBe("s2"));
