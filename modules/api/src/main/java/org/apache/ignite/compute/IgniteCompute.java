@@ -277,36 +277,33 @@ public interface IgniteCompute {
     /**
      * Submits a {@link MapReduceTask} of the given class for an execution.
      *
-     * @param units Deployment units.
-     * @param taskClassName Map reduce task class name.
+     * @param task Task info.
      * @param args Task arguments.
      * @param <R> Task result type.
      * @return Task execution interface.
      */
-    <R> TaskExecution<R> submitMapReduce(List<DeploymentUnit> units, String taskClassName, Object... args);
+    <R> TaskExecution<R> submitMapReduce(TaskInfo task, Object... args);
 
     /**
      * Submits a {@link MapReduceTask} of the given class for an execution. A shortcut for {@code submitMapReduce(...).resultAsync()}.
      *
-     * @param units Deployment units.
-     * @param taskClassName Map reduce task class name.
+     * @param task Task info.
      * @param args Task arguments.
      * @param <R> Task result type.
      * @return Task result future.
      */
-    default <R> CompletableFuture<R> executeMapReduceAsync(List<DeploymentUnit> units, String taskClassName, Object... args) {
-        return this.<R>submitMapReduce(units, taskClassName, args).resultAsync();
+    default <R> CompletableFuture<R> executeMapReduceAsync(TaskInfo task, Object... args) {
+        return this.<R>submitMapReduce(task, args).resultAsync();
     }
 
     /**
      * Executes a {@link MapReduceTask} of the given class.
      *
-     * @param units Deployment units.
-     * @param taskClassName Map reduce task class name.
+     * @param task Task info.
      * @param args Task arguments.
      * @param <R> Task result type.
      * @return Task result.
      * @throws ComputeException If there is any problem executing the task.
      */
-    <R> R executeMapReduce(List<DeploymentUnit> units, String taskClassName, Object... args);
+    <R> R executeMapReduce(TaskInfo task, Object... args);
 }
