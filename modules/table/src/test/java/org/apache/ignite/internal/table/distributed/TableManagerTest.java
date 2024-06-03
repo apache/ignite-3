@@ -150,6 +150,7 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
 /** Tests scenarios for table manager. */
+// TODO: test demands for reworking https://issues.apache.org/jira/browse/IGNITE-22388
 @ExtendWith({MockitoExtension.class, ConfigurationExtension.class})
 @MockitoSettings(strictness = Strictness.LENIENT)
 public class TableManagerTest extends IgniteAbstractTest {
@@ -175,6 +176,7 @@ public class TableManagerTest extends IgniteAbstractTest {
     private static final String ZONE_NAME = "zone1";
 
     /** Topology service. */
+    // TODO: useless field for now https://issues.apache.org/jira/browse/IGNITE-22388
     @Mock
     private TopologyService ts;
 
@@ -710,12 +712,14 @@ public class TableManagerTest extends IgniteAbstractTest {
     ) throws Exception {
         String consistentId = "node0";
 
+        // TODO: should be removed or reworked https://issues.apache.org/jira/browse/IGNITE-22388
         when(ts.getByConsistentId(any())).thenReturn(new ClusterNodeImpl(
                 UUID.randomUUID().toString(),
                 consistentId,
                 new NetworkAddress("localhost", 47500)
         ));
 
+        // TODO: should be removed or reworked https://issues.apache.org/jira/browse/IGNITE-22388
         try (MockedStatic<SchemaUtils> schemaServiceMock = mockStatic(SchemaUtils.class)) {
             schemaServiceMock.when(() -> SchemaUtils.prepareSchemaDescriptor(any()))
                     .thenReturn(mock(SchemaDescriptor.class));
