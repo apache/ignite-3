@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.distributionzones;
 
 import static java.util.Collections.emptySet;
+import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.toSet;
@@ -304,9 +305,10 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 distributionZoneManager
         );
 
+        var startComponentFuts = new ArrayList<CompletableFuture<Void>>();
+
         for (IgniteComponent component : otherComponents) {
-            // TODO: IGNITE-22119 required to be able to wait on this future.
-            component.startAsync(componentContext);
+            startComponentFuts.add(component.startAsync(componentContext));
 
             components.add(component);
         }
@@ -326,6 +328,8 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         );
 
         partialNodes.add(partialNode);
+
+        assertThat(allOf(startComponentFuts.toArray(new CompletableFuture[0])), willCompleteSuccessfully());
 
         return partialNode;
     }
