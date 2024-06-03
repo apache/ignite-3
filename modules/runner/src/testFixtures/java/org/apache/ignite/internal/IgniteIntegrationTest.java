@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
+
 import org.apache.ignite.internal.junit.StopAllIgnitesAfterTests;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -31,7 +34,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public abstract class IgniteIntegrationTest extends BaseIgniteAbstractTest {
     @BeforeAll
     public static void assertParanoidLeakDetectionProperty() {
-        assert "paranoid".equals(System.getProperty("io.netty.leakDetectionLevel"))
-                : "Integration tests should run with paranoid leak detection";
+        assertThat(System.getProperty("io.netty.leakDetectionLevel"), is("paranoid"));
     }
 }
