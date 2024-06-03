@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.getInt;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putInt;
 
-import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.pagememory.io.PageIo;
 
 /**
@@ -67,13 +66,5 @@ public abstract class PartitionMetaIo extends PageIo {
      */
     public int getPageCount(long pageAddr) {
         return getInt(pageAddr, getPageCountOff);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    protected void printPage(long addr, int pageSize, IgniteStringBuilder sb) {
-        sb.app("TablePartitionMeta [").nl()
-                .app("pageCount=").app(getPageCount(addr)).nl()
-                .app(']');
     }
 }

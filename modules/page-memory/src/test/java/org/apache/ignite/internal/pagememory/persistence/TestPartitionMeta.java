@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.pagememory.persistence;
 
 import java.util.UUID;
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.pagememory.persistence.io.PartitionMetaIo;
 import org.jetbrains.annotations.Nullable;
@@ -77,6 +78,13 @@ public class TestPartitionMeta extends PartitionMeta {
          */
         protected TestPartitionMetaIo(int type, int ver) {
             super(type, ver, 0);
+        }
+
+        @Override
+        protected void printPage(long addr, int pageSize, IgniteStringBuilder sb) {
+            sb.app("TestPartitionMeta [").nl()
+                    .app("pageCount=").app(getPageCount(addr)).nl()
+                    .app(']');
         }
     }
 
