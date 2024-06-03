@@ -39,3 +39,6 @@ ignite_test(${TARGET} DISCOVER FALSE SOURCES ${SOURCES} LIBS ignite-test-common 
 if (WIN32)
     remove_definitions(-DUNICODE=1)
 endif()
+
+set(TEST_TARGET IgniteOdbcTest)
+add_test(NAME ${TEST_TARGET} COMMAND ${TARGET})

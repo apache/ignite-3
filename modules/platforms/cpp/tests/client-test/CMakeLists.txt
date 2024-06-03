@@ -38,3 +38,6 @@ set(SOURCES
 )
 
 ignite_test(${TARGET} DISCOVER FALSE SOURCES ${SOURCES} LIBS ignite-test-common ignite-client)
+
+set(TEST_TARGET IgniteClientTest)
+add_test(NAME ${TEST_TARGET} COMMAND ${TARGET})
