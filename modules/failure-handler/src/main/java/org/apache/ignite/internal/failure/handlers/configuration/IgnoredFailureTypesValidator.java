@@ -34,7 +34,7 @@ public class IgnoredFailureTypesValidator implements Validator<IgnoredFailureTyp
     @Override
     public void validate(IgnoredFailureTypes annotation, ValidationContext<String[]> ctx) {
         Set<String> possibleFailureTypes = Arrays.stream(FailureType.values())
-                .map(Enum::name)
+                .map(FailureType::typeName)
                 .collect(Collectors.toSet());
 
         String[] ignoredFailureTypes = ctx.getNewValue();

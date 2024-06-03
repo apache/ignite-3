@@ -199,7 +199,11 @@ public class FailureProcessor implements IgniteComponent {
 
         Set<FailureType> ignoredFailureTypesSet = EnumSet.noneOf(FailureType.class);
         for (String ignoredFailureType : ignoredFailureTypes) {
-            ignoredFailureTypesSet.add(FailureType.valueOf(ignoredFailureType));
+            for (FailureType type : FailureType.values()) {
+                if (type.name().equals(ignoredFailureType)) {
+                    ignoredFailureTypesSet.add(type);
+                }
+            }
         }
 
         hnd.ignoredFailureTypes(ignoredFailureTypesSet);
