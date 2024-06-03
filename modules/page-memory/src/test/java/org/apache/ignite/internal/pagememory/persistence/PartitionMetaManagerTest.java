@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.pagememory.persistence;
 
-import static org.apache.ignite.internal.pagememory.persistence.TestPartitionMeta.FACTORY;
+import static org.apache.ignite.internal.pagememory.persistence.FakePartitionMeta.FACTORY;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.mockito.Mockito.mock;
@@ -59,7 +59,7 @@ public class PartitionMetaManagerTest extends BaseIgniteAbstractTest {
 
         assertNull(manager.getMeta(id));
 
-        TestPartitionMeta meta = mock(TestPartitionMeta.class);
+        FakePartitionMeta meta = mock(FakePartitionMeta.class);
 
         manager.addMeta(id, meta);
 
@@ -76,7 +76,7 @@ public class PartitionMetaManagerTest extends BaseIgniteAbstractTest {
 
         manager.removeMeta(id);
 
-        TestPartitionMeta meta = mock(TestPartitionMeta.class);
+        FakePartitionMeta meta = mock(FakePartitionMeta.class);
 
         manager.addMeta(id, meta);
 

@@ -26,31 +26,31 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Simple implementation of {@link PartitionMeta} for testing purposes.
  */
-public class TestPartitionMeta extends PartitionMeta {
+public class FakePartitionMeta extends PartitionMeta {
 
-    public static final PartitionMetaFactory FACTORY = new TestPartitionMetaFactory();
+    public static final PartitionMetaFactory FACTORY = new FakePartitionMetaFactory();
 
     /**
      * Constructor.
      *
      * @param checkpointId Checkpoint ID.
      */
-    public TestPartitionMeta(@Nullable UUID checkpointId) {
+    public FakePartitionMeta(@Nullable UUID checkpointId) {
         super(checkpointId);
     }
 
     @Override
-    protected TestPartitionMetaSnapshot buildSnapshot(@Nullable UUID checkpointId) {
-        return new TestPartitionMetaSnapshot(checkpointId);
+    protected FakePartitionMetaSnapshot buildSnapshot(@Nullable UUID checkpointId) {
+        return new FakePartitionMetaSnapshot(checkpointId);
     }
 
     /**
      * Simple implementation of {@link PartitionMetaSnapshot} for testing purposes.
      */
-    public static class TestPartitionMetaSnapshot implements PartitionMetaSnapshot {
+    public static class FakePartitionMetaSnapshot implements PartitionMetaSnapshot {
         private final UUID checkpointId;
 
-        public TestPartitionMetaSnapshot(@Nullable UUID checkpointId) {
+        public FakePartitionMetaSnapshot(@Nullable UUID checkpointId) {
             this.checkpointId = checkpointId;
         }
 
@@ -67,16 +67,16 @@ public class TestPartitionMeta extends PartitionMeta {
     /**
      * Simple implementation of {@link PartitionMetaIo} for testing purposes.
      */
-    public static class TestPartitionMetaIo extends PartitionMetaIo {
+    public static class FakePartitionMetaIo extends PartitionMetaIo {
         /** I/O versions. */
-        public static final IoVersions<TestPartitionMetaIo> VERSIONS = new IoVersions<>(new TestPartitionMetaIo(7, 1));
+        public static final IoVersions<FakePartitionMetaIo> VERSIONS = new IoVersions<>(new FakePartitionMetaIo(7, 1));
 
         /**
          * Constructor.
          *
          * @param ver Page format version.
          */
-        protected TestPartitionMetaIo(int type, int ver) {
+        protected FakePartitionMetaIo(int type, int ver) {
             super(type, ver, 0);
         }
 
@@ -91,14 +91,14 @@ public class TestPartitionMeta extends PartitionMeta {
     /**
      * Simple implementation of {@link PartitionMetaFactory} for testing purposes.
      */
-    public static class TestPartitionMetaFactory implements PartitionMetaFactory {
+    public static class FakePartitionMetaFactory implements PartitionMetaFactory {
         @Override public PartitionMeta createPartitionMeta(UUID checkpointId, PartitionMetaIo metaIo, long pageAddr) {
-            return new TestPartitionMeta(checkpointId);
+            return new FakePartitionMeta(checkpointId);
         }
 
         @Override
         public PartitionMetaIo partitionMetaIo() {
-            return TestPartitionMetaIo.VERSIONS.latest();
+            return FakePartitionMetaIo.VERSIONS.latest();
         }
     }
 }
