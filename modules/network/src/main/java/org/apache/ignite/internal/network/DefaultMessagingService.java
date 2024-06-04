@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.network.NettyBootstrapFactory.isInNetworkThread;
 import static org.apache.ignite.internal.network.serialization.PerSessionSerializationService.createClassDescriptorsMessages;
 import static org.apache.ignite.internal.thread.ThreadOperation.NOTHING_ALLOWED;
+import static org.apache.ignite.internal.tracing.TracingManager.span;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.safeAbs;
 
@@ -58,6 +59,8 @@ import org.apache.ignite.internal.network.serialization.marshal.UserObjectMarsha
 import org.apache.ignite.internal.thread.ExecutorChooser;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.thread.StripedExecutor;
+import org.apache.ignite.internal.tracing.TraceSpan;
+import org.apache.ignite.internal.tracing.TracingManager;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.worker.CriticalSingleThreadExecutor;
 import org.apache.ignite.internal.worker.CriticalStripedThreadPoolExecutor;
@@ -276,8 +279,12 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         long correlationId = createCorrelationId();
 
-        CompletableFuture<NetworkMessage> responseFuture = new CompletableFuture<NetworkMessage>()
-                .orTimeout(timeout, TimeUnit.MILLISECONDS);
+        TraceSpan s = span("responseFuture");
+
+        CompletableFuture<NetworkMessage> responseFuture = TracingManager.wrap(new CompletableFuture<NetworkMessage>()
+                .orTimeout(timeout, TimeUnit.MILLISECONDS));
+
+        s.close();
 
         requestsMap.put(correlationId, responseFuture);
 
@@ -323,11 +330,19 @@ public class DefaultMessagingService extends AbstractMessagingService {
             return failedFuture(new IgniteException("Failed to marshal message: " + e.getMessage(), e));
         }
 
-        return connectionManager.channel(consistentId, type, addr)
-                .thenComposeToCompletable(sender -> sender.send(
-                        new OutNetworkObject(message, descriptors),
-                        () -> triggerChannelCreation(consistentId, type, addr)
-                ));
+        return span("DefaultMessagingService.sendMessage", (span) -> {
+            if (consistentId != null) {
+                span.addAttribute("consistentId", consistentId::toString);
+            }
+
+            span.addAttribute("message", message::toString);
+
+            return connectionManager.channel(consistentId, type, addr)
+                    .thenComposeToCompletable(sender -> sender.send(
+                            new OutNetworkObject(message, descriptors),
+                            () -> triggerChannelCreation(consistentId, type, addr)
+                    ));
+        });
     }
 
     private void triggerChannelCreation(@Nullable String consistentId, ChannelType type, InetSocketAddress addr) {
@@ -349,10 +364,12 @@ public class DefaultMessagingService extends AbstractMessagingService {
      * @param correlationId Correlation id.
      */
     private void sendToSelf(NetworkMessage message, @Nullable Long correlationId) {
-        for (HandlerContext context : getHandlerContexts(message.groupType())) {
-            // Invoking on the same thread, ignoring the executor chooser registered with the handler.
-            context.handler().onReceived(message, topologyService.localMember(), correlationId);
-        }
+        span("DefaultMessagingService.sendToSelf", (span) -> {
+            for (HandlerContext context : getHandlerContexts(message.groupType())) {
+                // Invoking on the same thread, ignoring the executor chooser registered with the handler.
+                context.handler().onReceived(message, topologyService.localMember(), correlationId);
+            }
+        });
     }
 
     /**
@@ -519,9 +536,13 @@ public class DefaultMessagingService extends AbstractMessagingService {
      * @param correlationId Request's correlation id.
      */
     private void onInvokeResponse(NetworkMessage response, Long correlationId) {
-        CompletableFuture<NetworkMessage> responseFuture = requestsMap.remove(correlationId);
-        if (responseFuture != null) {
-            responseFuture.complete(response);
+        try (var span = span("DefaultMessagingService.onInvokeResponse")) {
+            span.addAttribute("res", response::toString);
+
+            CompletableFuture<NetworkMessage> responseFuture = requestsMap.remove(correlationId);
+            if (responseFuture != null) {
+                responseFuture.complete(response);
+            }
         }
     }
 

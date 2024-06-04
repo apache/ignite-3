@@ -17,6 +17,8 @@
 
 package org.apache.ignite.client.handler.requests.table;
 
+import static org.apache.ignite.internal.tracing.TracingManager.span;
+
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
@@ -40,14 +42,16 @@ public class ClientTableGetRequest {
             ClientMessagePacker out,
             IgniteTables tables
     ) {
-        String tableName = in.unpackString();
+        return span("ClientTableGetRequest.process", (span) -> {
+            String tableName = in.unpackString();
 
-        return tables.tableAsync(tableName).thenAccept(table -> {
-            if (table == null) {
-                out.packNil();
-            } else {
-                out.packInt(((TableViewInternal) table).tableId());
-            }
+            return tables.tableAsync(tableName).thenAccept(table -> {
+                if (table == null) {
+                    out.packNil();
+                } else {
+                    out.packInt(((TableViewInternal) table).tableId());
+                }
+            });
         });
     }
 }

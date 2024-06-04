@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.
 import static org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED;
 import static org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED;
 import static org.apache.ignite.internal.placementdriver.leases.Lease.emptyLease;
+import static org.apache.ignite.internal.tracing.TracingManager.span;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
@@ -262,40 +263,44 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
     ) {
         CompletableFuture<ReplicaMeta> future = new CompletableFuture<>();
 
-        awaitPrimaryReplica(groupId, timestamp, future);
+        return span("awaitPrimaryReplica", span -> {
+            awaitPrimaryReplica(groupId, timestamp, future);
 
-        return future
-                .orTimeout(timeout, unit)
-                .exceptionally(e -> {
-                    if (e instanceof TimeoutException) {
-                        throw new PrimaryReplicaAwaitTimeoutException(groupId, timestamp, leases.leaseByGroupId().get(groupId), e);
-                    }
+            return future
+                    .orTimeout(timeout, unit)
+                    .exceptionally(e -> {
+                        if (e instanceof TimeoutException) {
+                            throw new PrimaryReplicaAwaitTimeoutException(groupId, timestamp, leases.leaseByGroupId().get(groupId), e);
+                        }
 
-                    throw new PrimaryReplicaAwaitException(groupId, timestamp, e);
-                });
+                        throw new PrimaryReplicaAwaitException(groupId, timestamp, e);
+                    });
+        });
     }
 
     @Override
     public CompletableFuture<ReplicaMeta> getPrimaryReplica(ReplicationGroupId replicationGroupId, HybridTimestamp timestamp) {
-        return inBusyLockAsync(busyLock, () -> {
-            Lease lease = getLease(replicationGroupId);
+        return span("getPrimaryReplica", span -> {
+            return inBusyLockAsync(busyLock, () -> {
+                Lease lease = getLease(replicationGroupId);
 
-            if (lease.isAccepted() && clockService.after(lease.getExpirationTime(), timestamp)) {
-                return completedFuture(lease);
-            }
+                if (lease.isAccepted() && clockService.after(lease.getExpirationTime(), timestamp)) {
+                    return completedFuture(lease);
+                }
 
-            return msManager
-                    .clusterTime()
-                    .waitFor(timestamp.addPhysicalTime(clockService.maxClockSkewMillis()))
-                    .thenApply(ignored -> inBusyLock(busyLock, () -> {
-                        Lease lease0 = getLease(replicationGroupId);
+                return msManager
+                        .clusterTime()
+                        .waitFor(timestamp.addPhysicalTime(clockService.maxClockSkewMillis()))
+                        .thenApply(ignored -> inBusyLock(busyLock, () -> {
+                            Lease lease0 = getLease(replicationGroupId);
 
-                        if (lease0.isAccepted() && clockService.after(lease0.getExpirationTime(), timestamp)) {
-                            return lease0;
-                        } else {
-                            return null;
-                        }
-                    }));
+                            if (lease0.isAccepted() && clockService.after(lease0.getExpirationTime(), timestamp)) {
+                                return lease0;
+                            } else {
+                                return null;
+                            }
+                        }));
+            });
         });
     }
 

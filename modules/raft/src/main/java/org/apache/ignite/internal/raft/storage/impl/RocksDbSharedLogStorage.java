@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.raft.storage.impl;
 
 import static java.util.Arrays.copyOfRange;
+import static org.apache.ignite.internal.tracing.TracingManager.span;
 
 import java.io.IOException;
 import java.lang.invoke.MethodHandles;
@@ -32,6 +33,7 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.tracing.TraceSpan;
 import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.conf.ConfigurationEntry;
 import org.apache.ignite.raft.jraft.conf.ConfigurationManager;
@@ -270,7 +272,9 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
         try {
             byte[] vs = new byte[8];
             LONG_ARRAY_HANDLE.set(vs, 0, firstLogIndex);
-            this.db.put(this.confHandle, this.writeOptions, createKey(FIRST_LOG_IDX_KEY), vs);
+            try (TraceSpan ignored = span("saveFirstLogIndex")) {
+                this.db.put(this.confHandle, this.writeOptions, createKey(FIRST_LOG_IDX_KEY), vs);
+            }
             return true;
         } catch (RocksDBException e) {
             LOG.error("Fail to save first log index {}.", e, firstLogIndex);
@@ -411,7 +415,9 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
                 long logIndex = entry.getId().getIndex();
                 byte[] valueBytes = this.logEntryEncoder.encode(entry);
                 byte[] newValueBytes = onDataAppend(logIndex, valueBytes);
-                this.db.put(this.dataHandle, this.writeOptions, createKey(logIndex), newValueBytes);
+                try (TraceSpan ignored = span("appendEntry")) {
+                    this.db.put(this.dataHandle, this.writeOptions, createKey(logIndex), newValueBytes);
+                }
                 if (newValueBytes != valueBytes) {
                     doSync();
                 }
@@ -601,7 +607,9 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
             }
 
             template.execute(batch);
-            this.db.write(this.writeOptions, batch);
+            try (TraceSpan ignored = span("executeBatch")) {
+                this.db.write(this.writeOptions, batch);
+            }
         } catch (RocksDBException e) {
             LOG.error("Execute batch failed with rocksdb exception.", e);
             return false;

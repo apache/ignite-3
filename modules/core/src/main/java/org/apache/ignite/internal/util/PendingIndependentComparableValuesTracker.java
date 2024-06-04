@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.util;
 
+import static org.apache.ignite.internal.tracing.TracingManager.wrap;
+
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -74,7 +76,7 @@ public class PendingIndependentComparableValuesTracker<T extends Comparable<T>, 
             // It's safe to remove it within smallerFutures.clear() on next completeWaitersOnUpdate iteration.
         }
 
-        return future;
+        return wrap(future);
     }
 
     @Override

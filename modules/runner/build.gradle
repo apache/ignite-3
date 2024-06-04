@@ -85,6 +85,7 @@ dependencies {
     implementation project(':ignite-eventlog')
     implementation project(':ignite-low-watermark')
     implementation project(':ignite-replica-lifecycle')
+    implementation project(':ignite-otel-ext')
     implementation libs.jetbrains.annotations
     implementation libs.micronaut.inject
     implementation libs.micronaut.validation
@@ -128,6 +129,7 @@ dependencies {
     integrationTestImplementation project(':ignite-page-memory')
     integrationTestImplementation project(':ignite-raft-api')
     integrationTestImplementation project(':ignite-replicator')
+    integrationTestImplementation project(':ignite-otel-ext')
     integrationTestImplementation project(':ignite-client')
     integrationTestImplementation project(':ignite-client-handler')
     integrationTestImplementation project(':ignite-storage-api')

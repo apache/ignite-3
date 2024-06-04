@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.replicator.ReplicatorConstants.DEFAULT_
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.thread.ThreadOperation.TX_STATE_STORAGE_ACCESS;
+import static org.apache.ignite.internal.tracing.TracingManager.span;
 import static org.apache.ignite.internal.util.CompletableFutures.isCompletedSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
@@ -46,6 +47,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 import java.util.function.LongSupplier;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.event.AbstractEventProducer;
@@ -85,6 +87,7 @@ import org.apache.ignite.internal.thread.ExecutorChooser;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.internal.thread.ThreadAttributes;
+import org.apache.ignite.internal.tracing.TraceSpan;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
@@ -358,7 +361,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     msg = prepareReplicaErrorResponse(sendTimestamp, ex);
                 }
 
-                clusterNetSvc.messagingService().respond(senderConsistentId, msg, correlationId);
+                span("sendReplicaResponse", (Consumer<TraceSpan>) (span) -> clusterNetSvc.messagingService().respond(senderConsistentId,
+                        msg, correlationId));
 
                 if (request instanceof PrimaryReplicaRequest && isConnectivityRelatedException(ex)) {
                     stopLeaseProlongation(request.groupId(), null);
@@ -379,7 +383,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                         }
 
                         // Using strong send here is important to avoid a reordering with a normal response.
-                        clusterNetSvc.messagingService().send(senderConsistentId, ChannelType.DEFAULT, msg0);
+                        span("sendDelayedReplicaResponse", (Consumer<TraceSpan>) (span) -> clusterNetSvc.messagingService().send(
+                                senderConsistentId, ChannelType.DEFAULT, msg0));
                     });
                 }
             });

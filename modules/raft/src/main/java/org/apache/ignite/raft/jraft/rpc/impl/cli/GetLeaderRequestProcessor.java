@@ -19,6 +19,7 @@ package org.apache.ignite.raft.jraft.rpc.impl.cli;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executor;
+import org.apache.ignite.internal.tracing.TracingManager;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.Status;
@@ -57,42 +58,45 @@ public class GetLeaderRequestProcessor extends BaseCliRequestProcessor<GetLeader
 
     @Override
     public Message processRequest(final GetLeaderRequest request, final RpcRequestClosure done) {
-        List<Node> nodes = new ArrayList<>();
-        final String groupId = getGroupId(request);
-        if (request.peerId() != null) {
-            final String peerIdStr = getPeerId(request);
-            final PeerId peer = new PeerId();
-            if (peer.parse(peerIdStr)) {
-                final Status st = new Status();
-                nodes.add(getNode(groupId, peer, st, done.getRpcCtx().getNodeManager()));
-                if (!st.isOk()) {
+        return TracingManager.span("GetLeaderRequestProcessor.processRequest", (span) -> {
+            List<Node> nodes = new ArrayList<>();
+            final String groupId = getGroupId(request);
+            if (request.peerId() != null) {
+                final String peerIdStr = getPeerId(request);
+                final PeerId peer = new PeerId();
+                if (peer.parse(peerIdStr)) {
+                    final Status st = new Status();
+                    nodes.add(getNode(groupId, peer, st, done.getRpcCtx().getNodeManager()));
+                    if (!st.isOk()) {
+                        return RaftRpcFactory.DEFAULT //
+                            .newResponse(msgFactory(), st);
+                    }
+                }
+                else {
                     return RaftRpcFactory.DEFAULT //
-                        .newResponse(msgFactory(), st);
+                        .newResponse(msgFactory(), RaftError.EINVAL, "Fail to parse peer id %s", peerIdStr);
                 }
             }
             else {
+                nodes = done.getRpcCtx().getNodeManager().getNodesByGroupId(groupId);
+            }
+            if (nodes == null || nodes.isEmpty()) {
                 return RaftRpcFactory.DEFAULT //
-                    .newResponse(msgFactory(), RaftError.EINVAL, "Fail to parse peer id %s", peerIdStr);
+                    .newResponse(msgFactory(), RaftError.ENOENT, "No nodes in group %s", groupId);
             }
-        }
-        else {
-            nodes = done.getRpcCtx().getNodeManager().getNodesByGroupId(groupId);
-        }
-        if (nodes == null || nodes.isEmpty()) {
+            for (final Node node : nodes) {
+                final PeerId leader = node.getLeaderId();
+                if (leader != null && !leader.isEmpty()) {
+                    return msgFactory().getLeaderResponse()
+                        .leaderId(leader.toString())
+                        .currentTerm(node.getCurrentTerm())
+                        .build();
+                }
+            }
             return RaftRpcFactory.DEFAULT //
-                .newResponse(msgFactory(), RaftError.ENOENT, "No nodes in group %s", groupId);
-        }
-        for (final Node node : nodes) {
-            final PeerId leader = node.getLeaderId();
-            if (leader != null && !leader.isEmpty()) {
-                return msgFactory().getLeaderResponse()
-                    .leaderId(leader.toString())
-                    .currentTerm(node.getCurrentTerm())
-                    .build();
-            }
-        }
-        return RaftRpcFactory.DEFAULT //
+
             .newResponse(msgFactory(), RaftError.UNKNOWN, "Unknown leader");
+        });
     }
 
     @Override

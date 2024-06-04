@@ -17,12 +17,15 @@
 
 package org.apache.ignite.internal.tx.impl;
 
+import static org.apache.ignite.internal.tracing.TracingManager.span;
 import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_COMMIT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ROLLBACK_ERR;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
+import org.apache.ignite.internal.tracing.TraceSpan;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
@@ -45,17 +48,22 @@ public abstract class IgniteAbstractTransactionImpl implements InternalTransacti
      */
     private final String coordinatorId;
 
+    /** Parent span. */
+    protected final TraceSpan parentSpan;
+
     /**
      * The constructor.
      *
      * @param txManager The tx manager.
      * @param id The id.
      * @param coordinatorId Transaction coordinator inconsistent ID.
+     * @param parentSpan Parent span.
      */
-    public IgniteAbstractTransactionImpl(TxManager txManager, UUID id, String coordinatorId) {
+    public IgniteAbstractTransactionImpl(TxManager txManager, UUID id, String coordinatorId, TraceSpan parentSpan) {
         this.txManager = txManager;
         this.id = id;
         this.coordinatorId = coordinatorId;
+        this.parentSpan = parentSpan;
     }
 
     /** {@inheritDoc} */
@@ -95,7 +103,7 @@ public abstract class IgniteAbstractTransactionImpl implements InternalTransacti
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> commitAsync() {
-        return finish(true);
+        return span("IgniteAbstractTransactionImpl.commitAsync", (Function<TraceSpan, CompletableFuture<Void>>) (span) -> finish(true));
     }
 
     /** {@inheritDoc} */
@@ -111,7 +119,13 @@ public abstract class IgniteAbstractTransactionImpl implements InternalTransacti
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> rollbackAsync() {
-        return finish(false);
+        return span("IgniteAbstractTransactionImpl.rollbackAsync", (Function<TraceSpan, CompletableFuture<Void>>) (span) -> finish(false));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public TraceSpan parentSpan() {
+        return parentSpan;
     }
 
     /**

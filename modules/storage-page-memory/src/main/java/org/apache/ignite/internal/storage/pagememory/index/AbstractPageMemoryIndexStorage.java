@@ -50,6 +50,7 @@ import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 import org.apache.ignite.internal.storage.pagememory.index.meta.UpdateLastRowIdUuidToBuildInvokeClosure;
 import org.apache.ignite.internal.storage.util.StorageState;
 import org.apache.ignite.internal.storage.util.StorageUtils;
+import org.apache.ignite.internal.tracing.TracingManager;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.jetbrains.annotations.Nullable;
 
@@ -384,12 +385,14 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
 
         @Override
         public boolean hasNext() {
-            return busyDataRead(() -> {
-                try {
-                    return advanceIfNeededBusy();
-                } catch (IgniteInternalCheckedException e) {
-                    throw new StorageException("Error while advancing the cursor", e);
-                }
+            return TracingManager.span("hasNextPageMemoryIndexStorage", (span) -> {
+                return busyDataRead(() -> {
+                    try {
+                        return advanceIfNeededBusy();
+                    } catch (IgniteInternalCheckedException e) {
+                        throw new StorageException("Error while advancing the cursor", e);
+                    }
+                });
             });
         }
 

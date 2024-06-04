@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table.distributed.replicator;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.tracing.TracingManager.span;
 import static org.apache.ignite.internal.tx.TxState.ABANDONED;
 import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
@@ -134,25 +135,27 @@ public class TransactionStateResolver {
             TablePartitionId commitGrpId,
             @Nullable HybridTimestamp timestamp
     ) {
-        TxStateMeta localMeta = txManager.stateMeta(txId);
+        return span("PartitionReplicaListener.resolveTxState", (span) -> {
+            TxStateMeta localMeta = txManager.stateMeta(txId);
 
-        if (localMeta != null && isFinalState(localMeta.txState())) {
-            return completedFuture(localMeta);
-        }
-
-        CompletableFuture<TransactionMeta> future = txStateFutures.compute(txId, (k, v) -> {
-            if (v == null) {
-                v = new CompletableFuture<>();
-
-                resolveDistributiveTxState(txId, localMeta, commitGrpId, timestamp, v);
+            if (localMeta != null && isFinalState(localMeta.txState())) {
+                return completedFuture(localMeta);
             }
 
-            return v;
+            CompletableFuture<TransactionMeta> future = txStateFutures.compute(txId, (k, v) -> {
+                if (v == null) {
+                    v = new CompletableFuture<>();
+
+                    resolveDistributiveTxState(txId, localMeta, commitGrpId, timestamp, v);
+                }
+
+                return v;
+            });
+
+            future.whenComplete((v, e) -> txStateFutures.remove(txId));
+
+            return future;
         });
-
-        future.whenComplete((v, e) -> txStateFutures.remove(txId));
-
-        return future;
     }
 
     /**
@@ -175,27 +178,29 @@ public class TransactionStateResolver {
 
         HybridTimestamp timestamp0 = timestamp == null ? HybridTimestamp.MIN_VALUE : timestamp;
 
-        if (localMeta == null) {
-            // Fallback to commit partition path, because we don't have coordinator id.
-            resolveTxStateFromCommitPartition(txId, commitGrpId, txMetaFuture);
-        } else if (localMeta.txState() == PENDING) {
-            resolveTxStateFromTxCoordinator(txId, localMeta.txCoordinatorId(), commitGrpId, timestamp0, txMetaFuture);
-        } else if (localMeta.txState() == FINISHING) {
-            assert localMeta instanceof TxStateMetaFinishing;
+        span("PartitionReplicaListener.resolveDistributiveTxState", (span) -> {
+            if (localMeta == null) {
+                // Fallback to commit partition path, because we don't have coordinator id.
+                resolveTxStateFromCommitPartition(txId, commitGrpId, txMetaFuture);
+            } else if (localMeta.txState() == PENDING) {
+                resolveTxStateFromTxCoordinator(txId, localMeta.txCoordinatorId(), commitGrpId, timestamp0, txMetaFuture);
+            } else if (localMeta.txState() == FINISHING) {
+                assert localMeta instanceof TxStateMetaFinishing;
 
-            ((TxStateMetaFinishing) localMeta).txFinishFuture().whenComplete((v, e) -> {
-                if (e == null) {
-                    txMetaFuture.complete(v);
-                } else {
-                    txMetaFuture.completeExceptionally(e);
-                }
-            });
-        } else {
-            assert localMeta.txState() == ABANDONED : "Unexpected transaction state [txId=" + txId + ", txStateMeta=" + localMeta + ']';
+                ((TxStateMetaFinishing) localMeta).txFinishFuture().whenComplete((v, e) -> {
+                    if (e == null) {
+                        txMetaFuture.complete(v);
+                    } else {
+                        txMetaFuture.completeExceptionally(e);
+                    }
+                });
+            } else {
+                assert localMeta.txState() == ABANDONED : "Unexpected transaction state [txId=" + txId + ", txStateMeta=" + localMeta + ']';
 
-            // Still try to resolve the state from commit partition.
-            resolveTxStateFromCommitPartition(txId, commitGrpId, txMetaFuture);
-        }
+                // Still try to resolve the state from commit partition.
+                resolveTxStateFromCommitPartition(txId, commitGrpId, txMetaFuture);
+            }
+        });
     }
 
     private void resolveTxStateFromTxCoordinator(

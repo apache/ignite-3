@@ -20,6 +20,7 @@ package org.apache.ignite.internal.storage.rocksdb;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.storage.rocksdb.instance.SharedRocksDbInstance.DFLT_WRITE_OPTS;
 import static org.apache.ignite.internal.storage.util.StorageUtils.createMissingMvPartitionErrorMessage;
+import static org.apache.ignite.internal.tracing.TracingManager.span;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
@@ -45,6 +46,7 @@ import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.storage.rocksdb.index.AbstractRocksDbIndexStorage;
 import org.apache.ignite.internal.storage.rocksdb.instance.SharedRocksDbInstance;
 import org.apache.ignite.internal.storage.util.MvPartitionStorages;
+import org.apache.ignite.internal.tracing.TraceSpan;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.jetbrains.annotations.Nullable;
 import org.rocksdb.ColumnFamilyHandle;
@@ -202,7 +204,9 @@ public class RocksDbTableStorage implements MvTableStorage {
             if (partition.lastAppliedIndex() == 0L) {
                 // Explicitly save meta-information about partition's creation.
                 partition.runConsistently(locker -> {
-                    partition.lastApplied(partition.lastAppliedIndex(), partition.lastAppliedTerm());
+                    try (TraceSpan ignored = span("createMvPartition")) {
+                        partition.lastApplied(partition.lastAppliedIndex(), partition.lastAppliedTerm());
+                    }
 
                     return null;
                 });
@@ -229,7 +233,9 @@ public class RocksDbTableStorage implements MvTableStorage {
 
                 indexes.destroyAllIndexesForPartition(partitionId, writeBatch);
 
-                rocksDb.db.write(DFLT_WRITE_OPTS, writeBatch);
+                try (TraceSpan ignored = span("destroyPartition")) {
+                    rocksDb.db.write(DFLT_WRITE_OPTS, writeBatch);
+                }
 
                 return nullCompletedFuture();
             } catch (RocksDBException e) {
@@ -286,7 +292,9 @@ public class RocksDbTableStorage implements MvTableStorage {
 
                 indexes.startRebalance(partitionId, writeBatch);
 
-                rocksDb.db.write(DFLT_WRITE_OPTS, writeBatch);
+                try (TraceSpan ignored = span("startRebalancePartition")) {
+                    rocksDb.db.write(DFLT_WRITE_OPTS, writeBatch);
+                }
 
                 return nullCompletedFuture();
             } catch (RocksDBException e) {
@@ -307,7 +315,9 @@ public class RocksDbTableStorage implements MvTableStorage {
 
                 indexes.abortRebalance(partitionId, writeBatch);
 
-                rocksDb.db.write(DFLT_WRITE_OPTS, writeBatch);
+                try (TraceSpan ignored = span("abortRebalancePartition")) {
+                    rocksDb.db.write(DFLT_WRITE_OPTS, writeBatch);
+                }
 
                 return nullCompletedFuture();
             } catch (RocksDBException e) {
@@ -332,7 +342,9 @@ public class RocksDbTableStorage implements MvTableStorage {
 
                 indexes.finishRebalance(partitionId);
 
-                rocksDb.db.write(DFLT_WRITE_OPTS, writeBatch);
+                try (TraceSpan ignored = span("finishRebalancePartition")) {
+                    rocksDb.db.write(DFLT_WRITE_OPTS, writeBatch);
+                }
 
                 return nullCompletedFuture();
             } catch (RocksDBException e) {
@@ -356,7 +368,9 @@ public class RocksDbTableStorage implements MvTableStorage {
                     storage.startCleanup(writeBatch);
                 }
 
-                rocksDb.db.write(DFLT_WRITE_OPTS, writeBatch);
+                try (TraceSpan ignored = span("clearPartition")) {
+                    rocksDb.db.write(DFLT_WRITE_OPTS, writeBatch);
+                }
 
                 return nullCompletedFuture();
             } catch (RocksDBException e) {

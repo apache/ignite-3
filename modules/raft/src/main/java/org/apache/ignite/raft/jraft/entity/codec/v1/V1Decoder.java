@@ -16,8 +16,11 @@
  */
 package org.apache.ignite.raft.jraft.entity.codec.v1;
 
+import static org.apache.ignite.internal.util.IgniteUtils.capacity;
+
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
 import org.apache.ignite.raft.jraft.entity.EnumOutter;
@@ -117,6 +120,27 @@ public final class V1Decoder implements LogEntryDecoder {
             }
         }
 
+        // Trace headers.
+        reader.pos = pos;
+        int traceHeadersCount = (int)reader.readLong();
+        pos = reader.pos;
+
+        if (traceHeadersCount > 0) {
+            var traceHeaders = new HashMap<String, String>(capacity(traceHeadersCount));
+
+            for (int i = 0; i < traceHeadersCount; i++) {
+                var key = readString(pos, content);
+                pos += 2 + key.length();
+
+                var val = readString(pos, content);
+                pos += 2 + val.length();
+
+                traceHeaders.put(key, val);
+            }
+
+            log.setTraceHeaders(traceHeaders);
+        }
+
         // Data.
         if (type != EnumOutter.EntryType.ENTRY_TYPE_CONFIGURATION) {
             if (content.length > pos) {
@@ -129,16 +153,20 @@ public final class V1Decoder implements LogEntryDecoder {
         }
     }
 
+    private static String readString(int pos, byte[] content) {
+          short len = Bits.getShort(content, pos);
+          pos += 2;
+          return AsciiStringUtil.unsafeDecode(content, pos, len);
+    }
+
     private static int readNodesList(int pos, byte[] content, int count, List<PeerId> nodes) {
         for (int i = 0; i < count; i++) {
-            short len = Bits.getShort(content, pos);
-            pos += 2;
+            String s = readString(pos, content);
+            pos += 2 + s.length();
 
             PeerId peer = new PeerId();
-            peer.parse(AsciiStringUtil.unsafeDecode(content, pos, len));
+            peer.parse(s);
             nodes.add(peer);
-
-            pos += len;
         }
 
         return pos;

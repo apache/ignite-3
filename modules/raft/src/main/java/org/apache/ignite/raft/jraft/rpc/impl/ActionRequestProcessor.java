@@ -16,6 +16,7 @@
  */
 package org.apache.ignite.raft.jraft.rpc.impl;
 
+import static org.apache.ignite.internal.tracing.TracingManager.taskWrapping;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.util.List;
@@ -34,6 +35,7 @@ import org.apache.ignite.internal.raft.server.impl.JraftServerImpl.DelegatingSta
 import org.apache.ignite.internal.raft.service.BeforeApplyHandler;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
+import org.apache.ignite.internal.tracing.NoopSpan;import org.apache.ignite.internal.tracing.TraceSpan;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
@@ -69,7 +71,7 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
     private final Map<String, Object> groupIdsToMonitors = new ConcurrentHashMap<>();
 
     public ActionRequestProcessor(Executor executor, RaftMessagesFactory factory) {
-        this.executor = executor;
+        this.executor = taskWrapping(executor);
         this.factory = factory;
     }
 
@@ -338,17 +340,22 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
     /** The implementation. */
     private abstract static class CommandClosureImpl<T extends Command> implements Closure, CommandClosure<T> {
         private final T command;
+        private final TraceSpan span;
 
         /**
          * @param command The command.
          */
         public CommandClosureImpl(T command) {
             this.command = command;
+            this.span = NoopSpan.INSTANCE;
         }
 
         /** {@inheritDoc} */
         @Override public T command() {
             return command;
         }
-    }
+
+        @Override public TraceSpan span() {
+            return span;
+        }}
 }

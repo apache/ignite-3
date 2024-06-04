@@ -32,6 +32,7 @@ import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
+import org.apache.ignite.internal.tracing.TracingManager;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.rocksdb.AbstractEventListener;
 import org.rocksdb.ColumnFamilyHandle;
@@ -186,23 +187,25 @@ public class RocksDbFlusher {
      * @see #scheduleFlush()
      */
     public CompletableFuture<Void> awaitFlush(boolean schedule) {
-        CompletableFuture<Void> future;
+        return TracingManager.span("awaitFlush", (span) -> {
+            CompletableFuture<Void> future;
 
-        long dbSequenceNumber = db.getLatestSequenceNumber();
+            long dbSequenceNumber = db.getLatestSequenceNumber();
 
-        synchronized (latestPersistedSequenceNumberMux) {
-            if (dbSequenceNumber <= latestPersistedSequenceNumber) {
-                return nullCompletedFuture();
+            synchronized (latestPersistedSequenceNumberMux) {
+                if (dbSequenceNumber <= latestPersistedSequenceNumber) {
+                    return nullCompletedFuture();
+                }
+
+                future = flushFuturesBySequenceNumber.computeIfAbsent(dbSequenceNumber, s -> new CompletableFuture<>());
             }
 
-            future = flushFuturesBySequenceNumber.computeIfAbsent(dbSequenceNumber, s -> new CompletableFuture<>());
-        }
+            if (schedule) {
+                scheduleFlush();
+            }
 
-        if (schedule) {
-            scheduleFlush();
-        }
-
-        return future;
+            return future;
+        });
     }
 
     /**

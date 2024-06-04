@@ -17,14 +17,17 @@
 
 package org.apache.ignite.internal.table.distributed.schema;
 
+import static org.apache.ignite.internal.tracing.TracingManager.span;
 import static org.apache.ignite.lang.ErrorGroups.Table.TABLE_NOT_FOUND_ERR;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.tracing.TraceSpan;
 import org.apache.ignite.lang.TableNotFoundException;
 
 /**
@@ -52,8 +55,10 @@ public class SchemaVersionsImpl implements SchemaVersions {
 
     @Override
     public CompletableFuture<Integer> schemaVersionAt(HybridTimestamp timestamp, int tableId) {
-        return tableDescriptor(tableId, timestamp)
-                .thenApply(CatalogTableDescriptor::tableVersion);
+        return span("schemaVersionAt", (Function<TraceSpan, ? extends CompletableFuture<Integer>>) (span) ->
+                tableDescriptor(tableId, timestamp)
+                        .thenApply(CatalogTableDescriptor::tableVersion)
+        );
     }
 
     private CompletableFuture<CatalogTableDescriptor> tableDescriptor(int tableId, HybridTimestamp timestamp) {

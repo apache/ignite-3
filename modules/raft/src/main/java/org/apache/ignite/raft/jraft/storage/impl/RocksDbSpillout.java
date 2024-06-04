@@ -17,7 +17,7 @@
 
 package org.apache.ignite.raft.jraft.storage.impl;
 
-import java.io.IOException;
+import static org.apache.ignite.internal.tracing.TracingManager.span;import java.io.IOException;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.nio.ByteOrder;
@@ -29,7 +29,7 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.raft.jraft.entity.LogEntry;
+import org.apache.ignite.internal.tracing.TraceSpan;import org.apache.ignite.raft.jraft.entity.LogEntry;
 import org.apache.ignite.raft.jraft.entity.codec.LogEntryDecoder;
 import org.apache.ignite.raft.jraft.entity.codec.LogEntryEncoder;
 import org.apache.ignite.raft.jraft.option.LogStorageOptions;
@@ -242,7 +242,9 @@ public class RocksDbSpillout implements Logs {
 
             long logIndex = entry.getId().getIndex();
             byte[] valueBytes = this.logEntryEncoder.encode(entry);
-            this.db.put(this.columnFamily, this.writeOptions, createKey(logIndex), valueBytes);
+            try (TraceSpan ignored = span("appendEntry")) {
+                this.db.put(this.columnFamily, this.writeOptions, createKey(logIndex), valueBytes);
+            }
         } catch (RocksDBException e) {
             LOG.error("Fail to append entry.", e);
             throw new LogStorageException("Fail to append entry", e);
@@ -326,7 +328,9 @@ public class RocksDbSpillout implements Logs {
             }
 
             template.execute(batch);
-            this.db.write(this.writeOptions, batch);
+            try (TraceSpan ignored = span("execute batch")) {
+                this.db.write(this.writeOptions, batch);
+            }
         } catch (RocksDBException e) {
             LOG.error("Execute batch failed with rocksdb exception.", e);
             throw new LogStorageException("Execute batch failed with rocksdb exception.", e);

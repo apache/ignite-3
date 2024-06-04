@@ -19,6 +19,8 @@ package org.apache.ignite.internal.benchmark;
 
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
+import static org.apache.ignite.internal.tracing.TracingManager.rootSpan;
+
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -37,6 +39,8 @@ import org.apache.ignite.internal.sql.engine.QueryProperty;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
+import org.apache.ignite.internal.tracing.TraceSpan;
+import org.apache.ignite.internal.tracing.configuration.TracingConfiguration;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.SqlRow;
@@ -177,6 +181,16 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
     }
 
     /**
+     * Benchmark for KV get via embedded client with enabled tracing.
+     */
+    @Benchmark
+    public void kvGetTracing(TracingEnableState state, Blackhole bh) {
+        try (TraceSpan ignored = rootSpan("kvGetBenchmark")) {
+            kvGet(bh);
+        }
+    }
+
+    /**
      * Benchmark for KV get via thin client.
      */
     @Benchmark
@@ -190,7 +204,9 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
      */
     public static void main(String[] args) throws RunnerException {
         Options opt = new OptionsBuilder()
-                .include(".*" + SelectBenchmark.class.getSimpleName() + ".*")
+                .include(".*" + SelectBenchmark.class.getSimpleName() + ".kvGet*")
+                .param("clusterSize", "1")
+                .param("fsync", "false")
                 .build();
 
         new Runner(opt).run();
@@ -344,6 +360,34 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
 
         KeyValueView<Tuple, Tuple> kvView() {
             return kvView;
+        }
+    }
+
+    /**
+     * Benchmark state for {@link #kvThinGet(KvThinState, Blackhole)}.
+     *
+     * <p>Holds {@link IgniteClient} and {@link KeyValueView} for the table.
+     */
+    @State(Scope.Benchmark)
+    public static class TracingEnableState {
+        /**
+         * Initializes tracing.
+         */
+        @Setup
+        public void setUp() {
+            clusterNode.clusterConfiguration().getConfiguration(TracingConfiguration.KEY).change(change -> {
+                change.changeRatio(0.5d);
+            });
+        }
+
+        /**
+         * Disable tracing.
+         */
+        @TearDown
+        public void tearDown() throws Exception {
+            clusterNode.clusterConfiguration().getConfiguration(TracingConfiguration.KEY).change(change -> {
+                change.changeRatio(0.0d);
+            }).get();
         }
     }
 

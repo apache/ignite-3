@@ -19,6 +19,7 @@ package org.apache.ignite.internal.cluster.management.raft;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.rocksdb.snapshot.ColumnFamilyRange.fullRange;
+import static org.apache.ignite.internal.tracing.TracingManager.span;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
@@ -41,6 +42,7 @@ import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.rocksdb.snapshot.RocksSnapshotManager;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.tracing.TraceSpan;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
@@ -140,7 +142,7 @@ public class RocksDbClusterStateStorage implements ClusterStateStorage {
     @Override
     public void put(byte[] key, byte[] value) {
         inBusyLock(busyLock, () -> {
-            try {
+            try (TraceSpan ignored = span("rocksDbClusterStateStoragePut")) {
                 db.put(defaultWriteOptions, key, value);
             } catch (RocksDBException e) {
                 throw new CmgStorageException("Unable to put data into Rocks DB", e);
@@ -160,7 +162,9 @@ public class RocksDbClusterStateStorage implements ClusterStateStorage {
 
                 batch.put(key, value);
 
+                try (TraceSpan ignored = span("RocksDB write")) {
                 db.write(defaultWriteOptions, batch);
+            }
             } catch (RocksDBException e) {
                 throw new CmgStorageException("Unable to replace data in Rocks DB", e);
             }
@@ -186,7 +190,9 @@ public class RocksDbClusterStateStorage implements ClusterStateStorage {
                     batch.delete(key);
                 }
 
+                try (TraceSpan ignored = span("RocksDB write")) {
                 db.write(defaultWriteOptions, batch);
+            }
             } catch (RocksDBException e) {
                 throw new CmgStorageException("Unable to remove data from Rocks DB", e);
             }

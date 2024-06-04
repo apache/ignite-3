@@ -19,6 +19,7 @@ package org.apache.ignite.internal.util;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.tracing.TracingManager.wrap;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
@@ -182,7 +183,7 @@ public class PendingComparableValuesTracker<T extends Comparable<T>, R> implemen
             valueFutures.remove(valueToWait);
         }
 
-        return future;
+        return wrap(future);
     }
 
     protected void cleanupWaitersOnClose(TrackerClosedException trackerClosedException) {

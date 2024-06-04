@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table;
 
 import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.convertToPublicFuture;
+import static org.apache.ignite.internal.tracing.TracingManager.span;
 
 import java.util.ArrayList;
 import java.util.BitSet;
@@ -44,6 +45,7 @@ import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.table.criteria.SqlRowProjection;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.thread.PublicApiThreading;
+import org.apache.ignite.internal.tracing.TraceSpan;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
@@ -100,10 +102,12 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
     public CompletableFuture<Tuple> getAsync(@Nullable Transaction tx, Tuple key) {
         Objects.requireNonNull(key, "key");
 
-        return doOperation(tx, (schemaVersion) -> {
-            Row keyRow = marshal(key, null, schemaVersion);
+        return span("KeyValueBinaryViewImpl.getAsync", (span) -> {
+            return doOperation(tx, (schemaVersion) -> {
+                Row keyRow = marshal(key, null, schemaVersion);
 
-            return tbl.get(keyRow, (InternalTransaction) tx).thenApply(row -> unmarshalValue(row, schemaVersion));
+                return tbl.get(keyRow, (InternalTransaction) tx).thenApply(row -> unmarshalValue(row, schemaVersion));
+            });
         });
     }
 
@@ -138,11 +142,13 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
     public CompletableFuture<Tuple> getOrDefaultAsync(@Nullable Transaction tx, Tuple key, Tuple defaultValue) {
         Objects.requireNonNull(key, "key");
 
-        return doOperation(tx, (schemaVersion) -> {
-            BinaryRowEx keyRow = marshal(key, null, schemaVersion);
+        return span("KeyValueBinaryViewImpl.getOrDefaultAsync", (span) -> {
+            return doOperation(tx, (schemaVersion) -> {
+                BinaryRowEx keyRow = marshal(key, null, schemaVersion);
 
-            return tbl.get(keyRow, (InternalTransaction) tx)
-                    .thenApply(r -> IgniteUtils.nonNullOrElse(unmarshalValue(r, schemaVersion), defaultValue));
+                return tbl.get(keyRow, (InternalTransaction) tx)
+                        .thenApply(r -> IgniteUtils.nonNullOrElse(unmarshalValue(r, schemaVersion), defaultValue));
+            });
         });
     }
 
@@ -157,10 +163,12 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
     public CompletableFuture<Map<Tuple, Tuple>> getAllAsync(@Nullable Transaction tx, Collection<Tuple> keys) {
         checkKeysForNulls(keys);
 
-        return doOperation(tx, (schemaVersion) -> {
-            List<BinaryRowEx> keyRows = marshalKeys(keys, schemaVersion);
+        return span("KeyValueBinaryViewImpl.getAllAsync", (span) -> {
+            return doOperation(tx, (schemaVersion) -> {
+                List<BinaryRowEx> keyRows = marshalKeys(keys, schemaVersion);
 
-            return tbl.getAll(keyRows, (InternalTransaction) tx).thenApply(rows -> unmarshalValues(rows, schemaVersion));
+                return tbl.getAll(keyRows, (InternalTransaction) tx).thenApply(rows -> unmarshalValues(rows, schemaVersion));
+            });
         });
     }
 
@@ -196,10 +204,12 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
         Objects.requireNonNull(key, "key");
         Objects.requireNonNull(val, "val");
 
-        return doOperation(tx, (schemaVersion) -> {
-            Row row = marshal(key, val, schemaVersion);
+        return span("KeyValueBinaryViewImpl.putAsync", (span) -> {
+            return doOperation(tx, (schemaVersion) -> {
+                Row row = marshal(key, val, schemaVersion);
 
-            return tbl.upsert(row, (InternalTransaction) tx);
+                return tbl.upsert(row, (InternalTransaction) tx);
+            });
         });
     }
 
@@ -218,8 +228,10 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
             Objects.requireNonNull(entry.getValue(), "val");
         }
 
-        return doOperation(tx, (schemaVersion) -> {
-            return tbl.upsertAll(marshalPairs(pairs.entrySet(), schemaVersion, null), (InternalTransaction) tx);
+        return span("KeyValueBinaryViewImpl.putAllAsync", (span) -> {
+            return doOperation(tx, (schemaVersion) -> {
+                return tbl.upsertAll(marshalPairs(pairs.entrySet(), schemaVersion, null), (InternalTransaction) tx);
+            });
         });
     }
 
@@ -235,10 +247,12 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
         Objects.requireNonNull(key, "key");
         Objects.requireNonNull(val, "val");
 
-        return doOperation(tx, (schemaVersion) -> {
-            Row row = marshal(key, val, schemaVersion);
+        return span("KeyValueBinaryViewImpl.getAndPutAsync", (span) -> {
+            return doOperation(tx, (schemaVersion) -> {
+                Row row = marshal(key, val, schemaVersion);
 
-            return tbl.getAndUpsert(row, (InternalTransaction) tx).thenApply(resultRow -> unmarshalValue(resultRow, schemaVersion));
+                return tbl.getAndUpsert(row, (InternalTransaction) tx).thenApply(resultRow -> unmarshalValue(resultRow, schemaVersion));
+            });
         });
     }
 
@@ -275,10 +289,12 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
         Objects.requireNonNull(key, "key");
         Objects.requireNonNull(val, "val");
 
-        return doOperation(tx, (schemaVersion) -> {
-            Row row = marshal(key, val, schemaVersion);
+        return span("KeyValueBinaryViewImpl.putIfAbsentAsync", (span) -> {
+            return doOperation(tx, (schemaVersion) -> {
+                Row row = marshal(key, val, schemaVersion);
 
-            return tbl.insert(row, (InternalTransaction) tx);
+                return tbl.insert(row, (InternalTransaction) tx);
+            });
         });
     }
 
@@ -299,10 +315,12 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
     public CompletableFuture<Boolean> removeAsync(@Nullable Transaction tx, Tuple key) {
         Objects.requireNonNull(key, "key");
 
-        return doOperation(tx, (schemaVersion) -> {
-            Row row = marshal(key, null, schemaVersion);
+        return span("KeyValueBinaryViewImpl.removeAsync", (span) -> {
+            return doOperation(tx, (schemaVersion) -> {
+                Row row = marshal(key, null, schemaVersion);
 
-            return tbl.delete(row, (InternalTransaction) tx);
+                return tbl.delete(row, (InternalTransaction) tx);
+            });
         });
     }
 
@@ -312,10 +330,12 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
         Objects.requireNonNull(key, "key");
         Objects.requireNonNull(val, "val");
 
-        return doOperation(tx, (schemaVersion) -> {
-            Row row = marshal(key, val, schemaVersion);
+        return span("KeyValueBinaryViewImpl.removeAsync", (span) -> {
+            return doOperation(tx, (schemaVersion) -> {
+                Row row = marshal(key, val, schemaVersion);
 
-            return tbl.deleteExact(row, (InternalTransaction) tx);
+                return tbl.deleteExact(row, (InternalTransaction) tx);
+            });
         });
     }
 
@@ -330,10 +350,12 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
     public CompletableFuture<Collection<Tuple>> removeAllAsync(@Nullable Transaction tx, Collection<Tuple> keys) {
         checkKeysForNulls(keys);
 
-        return doOperation(tx, (schemaVersion) -> {
-            List<BinaryRowEx> keyRows = marshalKeys(keys, schemaVersion);
+        return span("KeyValueBinaryViewImpl.removeAllAsync", (span) -> {
+            return doOperation(tx, (schemaVersion) -> {
+                List<BinaryRowEx> keyRows = marshalKeys(keys, schemaVersion);
 
-            return tbl.deleteAll(keyRows, (InternalTransaction) tx).thenApply(rows -> unmarshalKeys(rows, schemaVersion));
+                return tbl.deleteAll(keyRows, (InternalTransaction) tx).thenApply(rows -> unmarshalKeys(rows, schemaVersion));
+            });
         });
     }
 
@@ -350,9 +372,11 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
     public CompletableFuture<Tuple> getAndRemoveAsync(@Nullable Transaction tx, Tuple key) {
         Objects.requireNonNull(key, "key");
 
-        return doOperation(tx, (schemaVersion) -> {
-            return tbl.getAndDelete(marshal(key, null, schemaVersion), (InternalTransaction) tx)
-                    .thenApply(row -> unmarshalValue(row, schemaVersion));
+        return span("KeyValueBinaryViewImpl.getAndRemoveAsync", (span) -> {
+            return doOperation(tx, (schemaVersion) -> {
+                return tbl.getAndDelete(marshal(key, null, schemaVersion), (InternalTransaction) tx)
+                        .thenApply(row -> unmarshalValue(row, schemaVersion));
+            });
         });
     }
 
@@ -394,10 +418,12 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
         Objects.requireNonNull(key, "key");
         Objects.requireNonNull(val, "val");
 
-        return doOperation(tx, (schemaVersion) -> {
-            Row row = marshal(key, val, schemaVersion);
+        return span("KeyValueBinaryViewImpl.replaceAsync", (span) -> {
+            return doOperation(tx, (schemaVersion) -> {
+                Row row = marshal(key, val, schemaVersion);
 
-            return tbl.replace(row, (InternalTransaction) tx);
+                return tbl.replace(row, (InternalTransaction) tx);
+            });
         });
     }
 
@@ -413,11 +439,13 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
         Objects.requireNonNull(oldVal, "oldVal");
         Objects.requireNonNull(newVal, "newVal");
 
-        return doOperation(tx, (schemaVersion) -> {
-            Row oldRow = marshal(key, oldVal, schemaVersion);
-            Row newRow = marshal(key, newVal, schemaVersion);
+        return span("KeyValueBinaryViewImpl.replaceAsync", (span) -> {
+            return doOperation(tx, (schemaVersion) -> {
+                Row oldRow = marshal(key, oldVal, schemaVersion);
+                Row newRow = marshal(key, newVal, schemaVersion);
 
-            return tbl.replace(oldRow, newRow, (InternalTransaction) tx);
+                return tbl.replace(oldRow, newRow, (InternalTransaction) tx);
+            });
         });
     }
 
@@ -433,9 +461,11 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
         Objects.requireNonNull(key, "key");
         Objects.requireNonNull(val, "val");
 
-        return doOperation(tx, (schemaVersion) -> {
-            return tbl.getAndReplace(marshal(key, val, schemaVersion), (InternalTransaction) tx)
-                    .thenApply(row -> unmarshalValue(row, schemaVersion));
+        return span("KeyValueBinaryViewImpl.getAndReplaceAsync", (span) -> {
+            return doOperation(tx, (schemaVersion) -> {
+                return tbl.getAndReplace(marshal(key, val, schemaVersion), (InternalTransaction) tx)
+                        .thenApply(row -> unmarshalValue(row, schemaVersion));
+            });
         });
     }
 
@@ -492,7 +522,9 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
             return null;
         }
 
-        return TableRow.valueTuple(rowConverter.resolveRow(row, schemaVersion));
+        return span("unmarshalValue", (Function<TraceSpan, ? extends Tuple>) (span) ->
+                TableRow.valueTuple(rowConverter.resolveRow(row, schemaVersion))
+        );
     }
 
     /**

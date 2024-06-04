@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.tx.impl;
 
 import static java.util.Collections.emptyList;
+import static org.apache.ignite.internal.tracing.TracingManager.span;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_TIMEOUT_ERR;
@@ -164,23 +165,28 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
 
     @Override
     public CompletableFuture<Lock> acquire(UUID txId, LockKey lockKey, LockMode lockMode) {
-        if (lockKey.contextId() == null) { // Treat this lock as a hierarchy lock.
-            return parentLockManager.acquire(txId, lockKey, lockMode);
-        }
+        return span("HeapLockManager.acquire", (span) -> {
+            span.addAttribute("lockKey", lockKey::toString);
+            span.addAttribute("mode", lockMode::toString);
 
-        while (true) {
-            LockState state = lockState(lockKey);
-
-            IgniteBiTuple<CompletableFuture<Void>, LockMode> futureTuple = state.tryAcquire(txId, lockMode);
-
-            if (futureTuple.get1() == null) {
-                continue; // State is marked for remove, need retry.
+            if (lockKey.contextId() == null) { // Treat this lock as a hierarchy lock.
+                return parentLockManager.acquire(txId, lockKey, lockMode);
             }
 
-            LockMode newLockMode = futureTuple.get2();
+            while (true) {
+                LockState state = lockState(lockKey);
 
-            return futureTuple.get1().thenApply(res -> new Lock(lockKey, newLockMode, txId));
-        }
+                IgniteBiTuple<CompletableFuture<Void>, LockMode> futureTuple = state.tryAcquire(txId, lockMode);
+
+                if (futureTuple.get1() == null) {
+                    continue; // State is marked for remove, need retry.
+                }
+
+                LockMode newLockMode = futureTuple.get2();
+
+                return futureTuple.get1().thenApply(res -> new Lock(lockKey, newLockMode, txId));
+            }
+        });
     }
 
     @Override
@@ -195,18 +201,23 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
 
     @Override
     public void release(UUID txId, LockKey lockKey, LockMode lockMode) {
-        // TODO: Delegation to parentLockManager might change after https://issues.apache.org/jira/browse/IGNITE-20895 
-        if (lockKey.contextId() == null) { // Treat this lock as a hierarchy lock.
-            parentLockManager.release(txId, lockKey, lockMode);
+        span("HeapLockManager.release", (span) -> {
+            span.addAttribute("lockKey", lockKey::toString);
+            span.addAttribute("mode", lockMode::toString);
 
-            return;
-        }
+            // TODO: Delegation to parentLockManager might change after https://issues.apache.org/jira/browse/IGNITE-20895
+            if (lockKey.contextId() == null) { // Treat this lock as a hierarchy lock.
+                parentLockManager.release(txId, lockKey, lockMode);
 
-        LockState state = lockState(lockKey);
+                return;
+            }
 
-        if (state.tryRelease(txId, lockMode)) {
-            locks.compute(lockKey, (k, v) -> adjustLockState(state, v));
-        }
+            LockState state = lockState(lockKey);
+
+            if (state.tryRelease(txId, lockMode)) {
+                locks.compute(lockKey, (k, v) -> adjustLockState(state, v));
+            }
+        });
     }
 
     @Override

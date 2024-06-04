@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.table.distributed.index;
 
+import static org.apache.ignite.internal.tracing.TracingManager.span;
+
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
@@ -65,9 +67,11 @@ public class IndexUpdateHandler {
             return;
         }
 
-        for (TableSchemaAwareIndexStorage index : indexes(indexIds)) {
-            putToIndex(index, binaryRow, rowId);
-        }
+        span("IndexUpdateHandler.addToIndexes", (ignored) -> {
+            for (TableSchemaAwareIndexStorage index : indexes(indexIds)) {
+                putToIndex(index, binaryRow, rowId);
+            }
+        });
     }
 
     /**
