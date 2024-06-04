@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.tx.impl;
 
+import static org.apache.ignite.internal.tracing.TracingManager.span;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.UUID;
@@ -25,6 +26,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.tracing.TraceSpan;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.network.ClusterNode;
 
@@ -55,9 +57,10 @@ class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
             HybridTimestampTracker observableTsTracker,
             UUID id,
             String txCoordinatorId,
-            HybridTimestamp readTimestamp
+            HybridTimestamp readTimestamp,
+            TraceSpan traceSpan
     ) {
-        super(txManager, id, txCoordinatorId);
+        super(txManager, id, txCoordinatorId, traceSpan);
 
         this.readTimestamp = readTimestamp;
         this.observableTsTracker = observableTsTracker;
@@ -103,17 +106,21 @@ class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
 
     @Override
     protected CompletableFuture<Void> finish(boolean commit) {
-        return finish(commit, readTimestamp);
+        return parentSpan.endWhenComplete(finish(commit, readTimestamp));
     }
 
     @Override
     public CompletableFuture<Void> finish(boolean commit, HybridTimestamp executionTimestamp) {
-        if (!finishGuard.compareAndSet(false, true)) {
-            return nullCompletedFuture();
-        }
+        return parentSpan.endWhenComplete(span(parentSpan, "finishtransaction", (span) -> {
+            span.addAttribute("commit", () -> Boolean.toString(commit));
 
-        observableTsTracker.update(executionTimestamp);
+            if (!finishGuard.compareAndSet(false, true)) {
+                return nullCompletedFuture();
+            }
 
-        return ((TxManagerImpl) txManager).completeReadOnlyTransactionFuture(new TxIdAndTimestamp(readTimestamp, id()));
+            observableTsTracker.update(executionTimestamp);
+
+            return ((TxManagerImpl) txManager).completeReadOnlyTransactionFuture(new TxIdAndTimestamp(readTimestamp, id()));
+        }));
     }
 }

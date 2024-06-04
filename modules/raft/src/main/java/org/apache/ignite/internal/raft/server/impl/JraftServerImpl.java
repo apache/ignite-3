@@ -21,6 +21,7 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
+import static org.apache.ignite.internal.tracing.TracingManager.span;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.io.File;
@@ -41,6 +42,8 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 import java.util.function.BiConsumer;
 import java.util.function.BiPredicate;
+import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -66,6 +69,7 @@ import org.apache.ignite.internal.raft.storage.impl.IgniteJraftServiceFactory;
 import org.apache.ignite.internal.raft.storage.impl.StripeAwareLogManager.Stripe;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
+import org.apache.ignite.internal.tracing.TraceSpan;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.Iterator;
 import org.apache.ignite.raft.jraft.JRaftUtils;
@@ -710,7 +714,9 @@ public class JraftServerImpl implements RaftServer {
                         @Nullable CommandClosure<WriteCommand> done = (CommandClosure<WriteCommand>) iter.done();
                         ByteBuffer data = iter.getData();
 
-                        WriteCommand command = done == null ? marshaller.unmarshall(data) : done.command();
+                        WriteCommand command = done == null
+                                ? span("unmarshall", (Function<TraceSpan, ? extends WriteCommand>) (span) -> marshaller.unmarshall(data))
+                                : done.command();
 
                         long commandIndex = iter.getIndex();
                         long commandTerm = iter.getTerm();
@@ -743,7 +749,20 @@ public class JraftServerImpl implements RaftServer {
 
                                 iter.next();
                             }
+
+                            @Override public TraceSpan span() {
+                                return iter.span();
+                            }
                         };
+                    }
+
+                    @Override
+                    public void forEachRemaining(Consumer<? super CommandClosure<WriteCommand>> action) {
+                        java.util.Iterator.super.forEachRemaining(clo -> {
+                            try (var ignored = clo.span()) {
+                                action.accept(clo);
+                            }
+                        });
                     }
                 });
             } catch (Exception err) {

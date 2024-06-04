@@ -17,6 +17,8 @@
 
 package org.apache.ignite.client.handler.requests.tx;
 
+import static org.apache.ignite.internal.tracing.TracingManager.rootSpan;
+
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientResource;
@@ -49,36 +51,38 @@ public class ClientTransactionBeginRequest {
             IgniteTransactionsImpl transactions,
             ClientResourceRegistry resources,
             ClientHandlerMetricSource metrics) throws IgniteInternalCheckedException {
-        TransactionOptions options = null;
-        HybridTimestamp observableTs = null;
+        try (var ignored = rootSpan("ClientTransactionBeginRequest.process")) {
+            TransactionOptions options = null;
+            HybridTimestamp observableTs = null;
 
-        boolean readOnly = in.unpackBoolean();
-        if (readOnly) {
-            options = new TransactionOptions().readOnly(true);
+            boolean readOnly = in.unpackBoolean();
+            if (readOnly) {
+                options = new TransactionOptions().readOnly(true);
 
-            // Timestamp makes sense only for read-only transactions.
-            observableTs = HybridTimestamp.nullableHybridTimestamp(in.unpackLong());
-        }
+                // Timestamp makes sense only for read-only transactions.
+                observableTs = HybridTimestamp.nullableHybridTimestamp(in.unpackLong());
+            }
 
-        // NOTE: we don't use beginAsync here because it is synchronous anyway.
-        var tx = transactions.begin(options, observableTs);
+            // NOTE: we don't use beginAsync here because it is synchronous anyway.
+            var tx = transactions.begin(options, observableTs);
 
-        if (readOnly) {
-            // For read-only tx, override observable timestamp that we send to the client:
-            // use readTimestamp() instead of now().
-            out.meta(tx.readTimestamp());
-        }
+            if (readOnly) {
+                // For read-only tx, override observable timestamp that we send to the client:
+                // use readTimestamp() instead of now().
+                out.meta(tx.readTimestamp());
+            }
 
-        try {
-            long resourceId = resources.put(new ClientResource(tx, tx::rollbackAsync));
-            out.packLong(resourceId);
+            try {
+                long resourceId = resources.put(new ClientResource(tx, tx::rollbackAsync));
+                out.packLong(resourceId);
 
-            metrics.transactionsActiveIncrement();
+                metrics.transactionsActiveIncrement();
 
-            return null;
-        } catch (IgniteInternalCheckedException e) {
-            tx.rollback();
-            throw e;
+                return null;
+            } catch (IgniteInternalCheckedException e) {
+                tx.rollback();
+                throw e;
+            }
         }
     }
 }

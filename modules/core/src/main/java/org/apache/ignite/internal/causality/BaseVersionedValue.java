@@ -19,6 +19,7 @@ package org.apache.ignite.internal.causality;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.tracing.TracingManager.wrap;
 import static org.apache.ignite.internal.util.CompletableFutures.copyStateTo;
 
 import java.util.ArrayList;
@@ -100,7 +101,7 @@ class BaseVersionedValue<T> implements VersionedValue<T> {
                 throw new OutdatedTokenException(causalityToken, actualToken, maxHistorySize);
             }
 
-            return histEntry.getValue();
+            return wrap(histEntry.getValue());
         } finally {
             readWriteLock.readLock().unlock();
         }

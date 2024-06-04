@@ -29,6 +29,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.tracing.TracingManager;
 
 /**
  * A Hybrid Logical Clock implementation.
@@ -109,20 +110,22 @@ public class HybridClockImpl implements HybridClock {
      */
     @Override
     public HybridTimestamp update(HybridTimestamp requestTime) {
-        while (true) {
-            long now = currentTime();
+        return TracingManager.span("HybridClock#update", (span) -> {
+            while (true) {
+                long now = currentTime();
 
-            // Read the latest time after accessing UTC time to reduce contention.
-            long oldLatestTime = this.latestTime;
+                // Read the latest time after accessing UTC time to reduce contention.
+                long oldLatestTime = this.latestTime;
 
-            long newLatestTime = max(requestTime.longValue() + 1, max(now, oldLatestTime + 1));
+                long newLatestTime = max(requestTime.longValue() + 1, max(now, oldLatestTime + 1));
 
-            if (LATEST_TIME.compareAndSet(this, oldLatestTime, newLatestTime)) {
-                notifyUpdateListeners(newLatestTime);
+                if (LATEST_TIME.compareAndSet(this, oldLatestTime, newLatestTime)) {
+                    notifyUpdateListeners(newLatestTime);
 
-                return hybridTimestamp(newLatestTime);
+                    return hybridTimestamp(newLatestTime);
+                }
             }
-        }
+        });
     }
 
     @Override

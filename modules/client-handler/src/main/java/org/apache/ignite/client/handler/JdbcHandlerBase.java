@@ -18,6 +18,7 @@
 package org.apache.ignite.client.handler;
 
 import static org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode.UNSUPPORTED_OPERATION;
+import static org.apache.ignite.internal.tracing.TracingManager.span;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -62,42 +63,44 @@ abstract class JdbcHandlerBase {
      * @return JdbcQuerySingleResult filled with first batch of data.
      */
     CompletionStage<JdbcQuerySingleResult> createJdbcResult(AsyncSqlCursor<InternalSqlRow> cur, int pageSize) {
-        return cur.requestNextAsync(pageSize).thenApply(batch -> {
-            boolean hasNext = batch.hasMore();
+        return span("JdbcHandlerBase.createJdbcResult", (span) -> {
+            return cur.requestNextAsync(pageSize).thenApply(batch -> {
+                boolean hasNext = batch.hasMore();
 
-            long cursorId;
-            try {
-                cursorId = resources.put(new ClientResource(cur, cur::closeAsync));
-            } catch (IgniteInternalCheckedException e) {
-                cur.closeAsync();
+                long cursorId;
+                try {
+                    cursorId = resources.put(new ClientResource(cur, cur::closeAsync));
+                } catch (IgniteInternalCheckedException e) {
+                    cur.closeAsync();
 
-                return new JdbcQuerySingleResult(Response.STATUS_FAILED,
-                        "Unable to store query cursor.");
-            }
-
-            switch (cur.queryType()) {
-                case EXPLAIN:
-                case QUERY: {
-                    List<ColumnMetadata> columns = cur.metadata().columns();
-
-                    return buildSingleRequest(batch, columns, cursorId, !hasNext);
+                    return new JdbcQuerySingleResult(Response.STATUS_FAILED,
+                            "Unable to store query cursor.");
                 }
-                case DML: {
-                    if (!validateDmlResult(cur.metadata(), hasNext)) {
-                        return new JdbcQuerySingleResult(Response.STATUS_FAILED, "Unexpected result for DML query");
+
+                switch (cur.queryType()) {
+                    case EXPLAIN:
+                    case QUERY: {
+                        List<ColumnMetadata> columns = cur.metadata().columns();
+
+                        return buildSingleRequest(batch, columns, cursorId, !hasNext);
                     }
+                    case DML: {
+                        if (!validateDmlResult(cur.metadata(), hasNext)) {
+                            return new JdbcQuerySingleResult(Response.STATUS_FAILED, "Unexpected result for DML query");
+                        }
 
-                    long updCount = (long) batch.items().get(0).get(0);
+                        long updCount = (long) batch.items().get(0).get(0);
 
-                    return new JdbcQuerySingleResult(cursorId, updCount);
+                        return new JdbcQuerySingleResult(cursorId, updCount);
+                    }
+                    case DDL:
+                    case TX_CONTROL:
+                        return new JdbcQuerySingleResult(cursorId, 0);
+                    default:
+                        return new JdbcQuerySingleResult(UNSUPPORTED_OPERATION,
+                                "Query type is not supported yet [queryType=" + cur.queryType() + ']');
                 }
-                case DDL:
-                case TX_CONTROL:
-                    return new JdbcQuerySingleResult(cursorId, 0);
-                default:
-                    return new JdbcQuerySingleResult(UNSUPPORTED_OPERATION,
-                            "Query type is not supported yet [queryType=" + cur.queryType() + ']');
-            }
+            });
         });
     }
 

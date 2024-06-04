@@ -19,6 +19,7 @@ package org.apache.ignite.raft.jraft.core;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
+import static org.apache.ignite.internal.tracing.TracingManager.serializeSpanContext;
 import com.lmax.disruptor.EventHandler;
 import com.lmax.disruptor.EventTranslator;
 import com.lmax.disruptor.RingBuffer;
@@ -1841,6 +1842,7 @@ public class NodeImpl implements Node, RaftServerService {
 
         final LogEntry entry = new LogEntry();
         entry.setData(task.getData());
+        entry.setTraceHeaders(serializeSpanContext());
 
         final EventTranslator<LogEntryAndClosure> translator = (event, sequence) -> {
             event.reset();
@@ -2264,6 +2266,10 @@ public class NodeImpl implements Node, RaftServerService {
             for (RaftOutter.EntryMeta entry : entriesList) {
                 index++;
 
+                if (request.entriesList() != null && request.entriesList().stream().filter(entryMeta -> entryMeta.dataLen() == 2593).count() > 0) {
+                    System.out.println(">>>handleAppendEntriesRequest");
+                }
+
                 final LogEntry logEntry = logEntryFromMeta(index, allData, entry);
 
                 if (logEntry != null) {
@@ -2344,6 +2350,9 @@ public class NodeImpl implements Node, RaftServerService {
                 throw new IllegalStateException(
                     "Invalid log entry that contains zero peers but is ENTRY_TYPE_CONFIGURATION type");
             }
+
+            logEntry.setTraceHeaders(entry.traceHeaders());
+
             return logEntry;
         }
         return null;
@@ -2390,6 +2399,8 @@ public class NodeImpl implements Node, RaftServerService {
             }
             logEntry.setOldLearners(peers);
         }
+
+        logEntry.setTraceHeaders(entry.traceHeaders());
     }
 
     // called when leader receive greater term in AppendEntriesResponse

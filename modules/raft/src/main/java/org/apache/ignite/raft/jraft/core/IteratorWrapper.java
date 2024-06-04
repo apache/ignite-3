@@ -16,15 +16,17 @@
  */
 package org.apache.ignite.raft.jraft.core;
 
+import static org.apache.ignite.internal.tracing.TracingManager.restoreSpanContext;
+import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import java.nio.ByteBuffer;
-import org.apache.ignite.raft.jraft.Closure;
+import java.util.Map;
+import org.apache.ignite.internal.tracing.NoopSpan;import org.apache.ignite.internal.tracing.TraceSpan;import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.Iterator;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.entity.EnumOutter;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
 
 public class IteratorWrapper implements Iterator {
-
     private final IteratorImpl impl;
 
     public IteratorWrapper(IteratorImpl iterImpl) {
@@ -50,6 +52,15 @@ public class IteratorWrapper implements Iterator {
     public ByteBuffer getData() {
         final LogEntry entry = this.impl.entry();
         return entry != null ? entry.getData() : null;
+    }
+
+    @Override
+    public TraceSpan span() {
+        if (this.impl.entry() == null || nullOrEmpty(impl.entry().getTraceHeaders())) {
+            return NoopSpan.INSTANCE;
+        }
+
+        return restoreSpanContext(impl.entry().getTraceHeaders());
     }
 
     @Override

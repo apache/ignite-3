@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.function.Function.identity;
 import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.convertToPublicFuture;
 import static org.apache.ignite.internal.table.criteria.CriteriaExceptionMapperUtil.mapToPublicCriteriaException;
+import static org.apache.ignite.internal.tracing.TracingManager.span;
 import static org.apache.ignite.internal.util.ExceptionUtils.isOrCausedBy;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
@@ -162,31 +163,33 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
         return schemaVersionFuture
                 .thenCompose(schemaVersion -> action.act(schemaVersion)
                         .handle((res, ex) -> {
-                            if (ex == null) {
-                                return completedFuture(res);
-                            }
+                            return span("withSchemaSync.handle", (span) -> {
+                                if (ex == null) {
+                                    return completedFuture(res);
+                                }
 
-                            if (isOrCausedBy(InternalSchemaVersionMismatchException.class, ex)) {
-                                // There is no transaction, and table version was changed between taking the table version (that was used
-                                // to marshal inputs and would be used to unmarshal outputs) and starting an implicit transaction
-                                // in InternalTable. A transaction must always work with binary rows of the same table version matching the
-                                // version corresponding to the transaction creation moment, so this mismatch is not tolerable: we need
-                                // to retry the operation here.
+                                if (isOrCausedBy(InternalSchemaVersionMismatchException.class, ex)) {
+                                    // There is no transaction, and table version was changed between taking the table version (that was
+                                    // used to marshal inputs and would be used to unmarshal outputs) and starting an implicit transaction
+                                    // in InternalTable. A transaction must always work with binary rows of the same table version matching
+                                    // the version corresponding to the transaction creation moment, so this mismatch is not tolerable:
+                                    // we need to retry the operation here.
 
-                                assert tx == null : "Only for implicit transactions a retry might be requested";
-                                assertSchemaVersionIncreased(previousSchemaVersion, schemaVersion);
+                                    assert tx == null : "Only for implicit transactions a retry might be requested";
+                                    assertSchemaVersionIncreased(previousSchemaVersion, schemaVersion);
 
-                                // Repeat.
-                                return withSchemaSync(tx, schemaVersion, action);
-                            } else if (tx == null && isOrCausedBy(IncompatibleSchemaException.class, ex)) {
-                                // Table version was changed while we were executing an implicit transaction (between it had been created
-                                // and the moment when the operation actually touched the partition), let's retry.
-                                assertSchemaVersionIncreased(previousSchemaVersion, schemaVersion);
+                                    // Repeat.
+                                    return withSchemaSync(tx, schemaVersion, action);
+                                } else if (tx == null && isOrCausedBy(IncompatibleSchemaException.class, ex)) {
+                                    // Table version was changed while we were executing an implicit transaction (between it had been
+                                    // created and the moment when the operation actually touched the partition), let's retry.
+                                    assertSchemaVersionIncreased(previousSchemaVersion, schemaVersion);
 
-                                return withSchemaSync(tx, schemaVersion, action);
-                            } else {
-                                return CompletableFuture.<T>failedFuture(ex);
-                            }
+                                    return withSchemaSync(tx, schemaVersion, action);
+                                } else {
+                                    return CompletableFuture.<T>failedFuture(ex);
+                                }
+                            });
                         }))
                 .thenCompose(identity());
     }

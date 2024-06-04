@@ -56,6 +56,7 @@ import static org.apache.ignite.internal.table.distributed.TableUtils.droppedTab
 import static org.apache.ignite.internal.table.distributed.index.IndexUtils.registerIndexesToTable;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
+import static org.apache.ignite.internal.tracing.TracingManager.span;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
@@ -92,6 +93,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.IntSupplier;
 import java.util.function.LongFunction;
 import java.util.function.Supplier;
@@ -198,6 +200,7 @@ import org.apache.ignite.internal.table.distributed.storage.TableRaftServiceImpl
 import org.apache.ignite.internal.table.distributed.wrappers.ExecutorInclinedPlacementDriver;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.tracing.TraceSpan;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
@@ -691,8 +694,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private CompletableFuture<Boolean> onTableCreate(CreateTableEventParameters parameters) {
-        return createTableLocally(parameters.causalityToken(), parameters.catalogVersion(), parameters.tableDescriptor(), false)
-                .thenApply(unused -> false);
+        return span("TableManager.onTableCreate", (Function<TraceSpan, ? extends CompletableFuture<Boolean>>) (span) ->
+            createTableLocally(parameters.causalityToken(), parameters.catalogVersion(), parameters.tableDescriptor(), false)
+                .thenApply(unused -> false)
+        );
     }
 
     /**
@@ -939,11 +944,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         if (localMemberAssignment != null) {
             CompletableFuture<Boolean> shouldStartGroupFut = isRecovery
                     ? partitionReplicatorNodeRecovery.initiateGroupReentryIfNeeded(
-                            replicaGrpId,
-                            internalTbl,
-                            newConfiguration,
-                            localMemberAssignment
-                    )
+                    replicaGrpId,
+                    internalTbl,
+                    newConfiguration,
+                    localMemberAssignment
+            )
                     : trueCompletedFuture();
 
             startGroupFut = shouldStartGroupFut.thenApplyAsync(startGroup -> inBusyLock(busyLock, () -> {
@@ -1268,30 +1273,34 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             CatalogTableDescriptor tableDescriptor,
             boolean onNodeRecovery
     ) {
-        return inBusyLockAsync(busyLock, () -> {
-            int tableId = tableDescriptor.id();
+        return span("TableManager.createTableLocally", (Function<TraceSpan, ? extends CompletableFuture<?>>) (span) ->
+                inBusyLockAsync(busyLock, () -> {
+                    int tableId = tableDescriptor.id();
 
-            // Retrieve descriptor during synchronous call, before the previous catalog version could be concurrently compacted.
-            CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor, catalogVersion);
 
-            CompletableFuture<List<Assignments>> assignmentsFuture = getOrCreateAssignments(
-                    tableDescriptor,
-                    zoneDescriptor,
-                    causalityToken,
-                    catalogVersion
-            );
+                    // Retrieve descriptor during synchronous call, before the previous catalog version could be concurrently compacted.
+                    CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor, catalogVersion);
 
-            CompletableFuture<List<Assignments>> assignmentsFutureAfterInvoke =
-                    writeTableAssignmentsToMetastore(tableId, assignmentsFuture);
+                    CompletableFuture<List<Assignments>> assignmentsFuture = getOrCreateAssignments(
+                            tableDescriptor,
+                            zoneDescriptor,
+                            causalityToken,
+                            catalogVersion
+                    );
 
-            return createTableLocally(
-                    causalityToken,
-                    tableDescriptor,
-                    zoneDescriptor,
-                    assignmentsFutureAfterInvoke,
-                    onNodeRecovery
-            );
-        });
+                    CompletableFuture<List<Assignments>> assignmentsFutureAfterInvoke =
+                            writeTableAssignmentsToMetastore(tableId, assignmentsFuture);
+
+                    return createTableLocally(
+                            causalityToken,
+                            tableDescriptor,
+                            zoneDescriptor,
+                            assignmentsFutureAfterInvoke,
+
+                            onNodeRecovery
+                    );
+                })
+        );
     }
 
     /**
@@ -1316,97 +1325,103 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         LOG.trace("Creating local table: name={}, id={}, token={}", tableDescriptor.name(), tableDescriptor.id(), causalityToken);
 
-        MvTableStorage tableStorage = createTableStorage(tableDescriptor, zoneDescriptor);
-        TxStateTableStorage txStateStorage = createTxStateTableStorage(tableDescriptor, zoneDescriptor);
+        return span("TableManager.createTableLocally", (span) -> {
+            MvTableStorage tableStorage = createTableStorage(tableDescriptor, zoneDescriptor);
+            TxStateTableStorage txStateStorage = createTxStateTableStorage(tableDescriptor, zoneDescriptor);
 
-        int partitions = zoneDescriptor.partitions();
+            int partitions = zoneDescriptor.partitions();
 
-        TableRaftServiceImpl tableRaftService = new TableRaftServiceImpl(
-                tableName,
-                partitions,
-                new Int2ObjectOpenHashMap<>(partitions),
-                topologyService
-        );
+            TableRaftServiceImpl tableRaftService = new TableRaftServiceImpl(
+                    tableName,
+                    partitions,
+                    new Int2ObjectOpenHashMap<>(partitions),
+                    topologyService
+            );
+            InternalTableImpl internalTable = new InternalTableImpl(
+                    tableName,
+                    tableId,
 
-        InternalTableImpl internalTable = new InternalTableImpl(
-                tableName,
-                tableId,
-                partitions,
-                topologyService,
-                txManager,
-                tableStorage,
-                txStateStorage,
-                replicaSvc,
-                clock,
-                observableTimestampTracker,
-                executorInclinedPlacementDriver,
-                tableRaftService,
-                transactionInflights,
-                implicitTransactionTimeout,
-                attemptsObtainLock,
-                this::streamerFlushExecutor
-        );
+                    partitions,
+                    topologyService,
+                    txManager,
+                    tableStorage,
+                    txStateStorage,
+                    replicaSvc,
+                    clock,
+                    observableTimestampTracker,
+                    executorInclinedPlacementDriver,
+                    tableRaftService,
+                    transactionInflights,
+                    implicitTransactionTimeout,
+                    attemptsObtainLock,
+                    this::streamerFlushExecutor
+            );
 
-        var table = new TableImpl(
-                internalTable,
-                lockMgr,
-                schemaVersions,
-                marshallers,
-                sql.get(),
-                tableDescriptor.primaryKeyIndexId()
-        );
+            var table = new TableImpl(
+                    internalTable,
+                    lockMgr,
+                    schemaVersions,
+                    marshallers,
+                    sql.get(),
+                    tableDescriptor.primaryKeyIndexId()
+            );
 
-        tablesVv.update(causalityToken, (ignore, e) -> inBusyLock(busyLock, () -> {
-            if (e != null) {
-                return failedFuture(e);
-            }
+            tablesVv.update(causalityToken, (ignore, e) -> inBusyLock(busyLock, () -> {
+                if (e != null) {
+                    return failedFuture(e);
+                }
 
-            return schemaManager.schemaRegistry(causalityToken, tableId).thenAccept(table::schemaView);
-        }));
+                return schemaManager.schemaRegistry(causalityToken, tableId)
+                        .thenAccept(
+                            table::schemaView);
+            }));
 
-        // NB: all vv.update() calls must be made from the synchronous part of the method (not in thenCompose()/etc!).
-        CompletableFuture<?> localPartsUpdateFuture = localPartitionsVv.update(causalityToken,
-                (ignore, throwable) -> inBusyLock(busyLock, () -> assignmentsFuture.thenComposeAsync(newAssignments -> {
-                    PartitionSet parts = new BitSetPartitionSet();
+            // NB: all vv.update() calls must be made from the synchronous part of the method (not in thenCompose()/etc!).
+            CompletableFuture<?> localPartsUpdateFuture = localPartitionsVv.update(causalityToken,
+                    (ignore, throwable) -> inBusyLock(busyLock, () -> assignmentsFuture.thenComposeAsync(newAssignments -> {
+                        PartitionSet parts = new BitSetPartitionSet();
 
-                    // TODO: https://issues.apache.org/jira/browse/IGNITE-19713 Process assignments and set partitions only for
-                    // TODO assigned partitions.
-                    for (int i = 0; i < newAssignments.size(); i++) {
-                        parts.set(i);
-                    }
-
-                    return getOrCreatePartitionStorages(table, parts).thenAccept(u -> localPartsByTableId.put(tableId, parts));
-                }, ioExecutor)));
-
-        CompletableFuture<?> tablesByIdFuture = tablesVv.get(causalityToken);
-
-        // TODO https://issues.apache.org/jira/browse/IGNITE-19170 Partitions should be started only on the assignments change
-        //  event triggered by zone create or alter.
-        CompletableFuture<?> createPartsFut = assignmentsUpdatedVv.update(causalityToken, (token, e) -> {
-            if (e != null) {
-                return failedFuture(e);
-            }
-
-            return allOf(localPartsUpdateFuture, tablesByIdFuture).thenComposeAsync(ignore -> inBusyLock(busyLock, () -> {
-                        if (onNodeRecovery) {
-                            SchemaRegistry schemaRegistry = table.schemaView();
-                            PartitionSet partitionSet = localPartsByTableId.get(tableId);
-                            // LWM starts updating only after the node is restored.
-                            HybridTimestamp lwm = lowWatermark.getLowWatermark();
-
-                            registerIndexesToTable(table, catalogService, partitionSet, schemaRegistry, lwm);
+                        // TODO: https://issues.apache.org/jira/browse/IGNITE-19713 Process assignments and set partitions only for
+                        // TODO assigned partitions.
+                        for (int i = 0; i < newAssignments.size(); i++) {
+                            parts.set(i);
                         }
-                        return startLocalPartitionsAndClients(assignmentsFuture, table, zoneDescriptor.id(), onNodeRecovery);
-                    }
-            ), ioExecutor);
+
+                        return getOrCreatePartitionStorages(table, parts).thenAccept(u -> localPartsByTableId.put(tableId, parts));
+                    }, ioExecutor)));
+
+
+            CompletableFuture<?> tablesByIdFuture = tablesVv.get(causalityToken);
+
+            // TODO https://issues.apache.org/jira/browse/IGNITE-19170 Partitions should be started only on the assignments change
+            //  event triggered by zone create or alter.
+            CompletableFuture<?> createPartsFut = assignmentsUpdatedVv.update(causalityToken, (token, e) -> {
+                if (e != null) {
+                    return failedFuture(e);
+                }
+
+                return allOf(localPartsUpdateFuture,
+                        tablesByIdFuture).thenComposeAsync(ignore -> inBusyLock(busyLock, () -> {
+                            if (onNodeRecovery) {
+                                SchemaRegistry schemaRegistry = table.schemaView();
+                                PartitionSet partitionSet = localPartsByTableId.get(tableId);
+                                // LWM starts updating only after the node is restored.
+                                HybridTimestamp lwm = lowWatermark.getLowWatermark();
+
+                                registerIndexesToTable(table, catalogService, partitionSet, schemaRegistry, lwm);
+                            }
+                            return startLocalPartitionsAndClients(assignmentsFuture, table, zoneDescriptor.id(), onNodeRecovery);
+                        }
+                ), ioExecutor);
+            });
+
+            tables.put(tableId, table);
+
+            // TODO should be reworked in IGNITE-16763
+
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-19913 Possible performance degradation.
+            return createPartsFut.thenAccept(ignore -> startedTables.put(tableId, table));
         });
-
-        tables.put(tableId, table);
-
-        // TODO should be reworked in IGNITE-16763
-
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-19913 Possible performance degradation.
-        return createPartsFut.thenAccept(ignore -> startedTables.put(tableId, table));
     }
 
     /**
@@ -1457,10 +1472,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         assert engine != null : "tableId=" + tableDescriptor.id() + ", engine=" + engine.name();
 
-        return engine.createMvTable(
-                new StorageTableDescriptor(tableDescriptor.id(), zoneDescriptor.partitions(), tableDescriptor.storageProfile()),
-                new CatalogStorageIndexDescriptorSupplier(catalogService, lowWatermark)
-        );
+        return span("TableManager.createTableStorage", (span) -> {
+            return engine.createMvTable(
+                    new StorageTableDescriptor(tableDescriptor.id(), zoneDescriptor.partitions(), tableDescriptor.storageProfile()),
+                    new CatalogStorageIndexDescriptorSupplier(catalogService, lowWatermark)
+            );
+        });
     }
 
     /**
@@ -1668,21 +1685,23 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @return Future representing pending completion of the {@code TableManager#tableAsyncInternal} operation.
      */
     private CompletableFuture<TableViewInternal> tableAsyncInternal(String name) {
-        return inBusyLockAsync(busyLock, () -> {
-            HybridTimestamp now = clockService.now();
+        return span("tableAsync", (Function<TraceSpan, ? extends CompletableFuture<TableViewInternal>>) (span) ->
+                inBusyLockAsync(busyLock, () -> {
+                    HybridTimestamp now = clockService.now();
 
-            return orStopManagerFuture(executorInclinedSchemaSyncService.waitForMetadataCompleteness(now))
-                    .thenCompose(unused -> inBusyLockAsync(busyLock, () -> {
-                        CatalogTableDescriptor tableDescriptor = catalogService.table(name, now.longValue());
+                    return orStopManagerFuture(executorInclinedSchemaSyncService.waitForMetadataCompleteness(now))
+                            .thenCompose(unused -> inBusyLockAsync(busyLock, () -> {
+                                CatalogTableDescriptor tableDescriptor = catalogService.table(name, now.longValue());
 
-                        // Check if the table has been deleted.
-                        if (tableDescriptor == null) {
-                            return nullCompletedFuture();
-                        }
+                                // Check if the table has been deleted.
+                                if (tableDescriptor == null) {
+                                    return nullCompletedFuture();
+                                }
 
-                        return tableAsyncInternalBusy(tableDescriptor.id());
-                    }));
-        });
+                                return tableAsyncInternalBusy(tableDescriptor.id());
+                            }));
+                })
+        );
     }
 
     private CompletableFuture<TableViewInternal> tableAsyncInternalBusy(int tableId) {
@@ -2211,28 +2230,30 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     // TODO: https://issues.apache.org/jira/browse/IGNITE-19739 Create storages only once.
     private CompletableFuture<Void> getOrCreatePartitionStorages(TableImpl table, PartitionSet partitions) {
-        InternalTable internalTable = table.internalTable();
+        return span("TableManager.getOrCreatePartitionStorages", (span) -> {
+            InternalTable internalTable = table.internalTable();
 
-        CompletableFuture<?>[] storageFuts = partitions.stream().mapToObj(partitionId -> {
-            MvPartitionStorage mvPartition = internalTable.storage().getMvPartition(partitionId);
+            CompletableFuture<?>[] storageFuts = partitions.stream().mapToObj(partitionId -> {
+                MvPartitionStorage mvPartition = internalTable.storage().getMvPartition(partitionId);
 
-            return (mvPartition != null ? completedFuture(mvPartition) : internalTable.storage().createMvPartition(partitionId))
-                    .thenComposeAsync(mvPartitionStorage -> {
-                        TxStateStorage txStateStorage = internalTable.txStateStorage().getOrCreateTxStateStorage(partitionId);
+                return (mvPartition != null ? completedFuture(mvPartition) : internalTable.storage().createMvPartition(partitionId))
+                        .thenComposeAsync(mvPartitionStorage -> {
+                            TxStateStorage txStateStorage = internalTable.txStateStorage().getOrCreateTxStateStorage(partitionId);
 
-                        if (mvPartitionStorage.lastAppliedIndex() == MvPartitionStorage.REBALANCE_IN_PROGRESS
-                                || txStateStorage.lastAppliedIndex() == TxStateStorage.REBALANCE_IN_PROGRESS) {
-                            return allOf(
-                                    internalTable.storage().clearPartition(partitionId),
-                                    txStateStorage.clear()
-                            );
-                        } else {
-                            return nullCompletedFuture();
-                        }
-                    }, ioExecutor);
-        }).toArray(CompletableFuture[]::new);
+                            if (mvPartitionStorage.lastAppliedIndex() == MvPartitionStorage.REBALANCE_IN_PROGRESS
+                                    || txStateStorage.lastAppliedIndex() == TxStateStorage.REBALANCE_IN_PROGRESS) {
+                                return allOf(
+                                        internalTable.storage().clearPartition(partitionId),
+                                        txStateStorage.clear()
+                                );
+                            } else {
+                                return nullCompletedFuture();
+                            }
+                        }, ioExecutor);
+            }).toArray(CompletableFuture[]::new);
 
-        return allOf(storageFuts);
+            return allOf(storageFuts);
+        });
     }
 
     /**

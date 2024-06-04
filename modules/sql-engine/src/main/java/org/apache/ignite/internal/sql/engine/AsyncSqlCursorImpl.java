@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.internal.tracing.TracingManager.wrap;
+
 import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.sql.engine.exec.AsyncDataCursor;
@@ -70,7 +72,7 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<BatchedResult<T>> requestNextAsync(int rows) {
-        return dataCursor.requestNextAsync(rows);
+        return wrap(dataCursor.requestNextAsync(rows));
     }
 
     /** {@inheritDoc} */

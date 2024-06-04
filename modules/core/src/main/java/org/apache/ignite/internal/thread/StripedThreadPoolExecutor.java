@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.thread;
 
+import static org.apache.ignite.internal.tracing.TracingManager.taskWrapping;
+
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadFactory;
@@ -66,7 +68,7 @@ public class StripedThreadPoolExecutor extends AbstractStripedThreadPoolExecutor
 
             executor.allowCoreThreadTimeOut(allowCoreThreadTimeOut);
 
-            execs[i] = executor;
+            execs[i] = taskWrapping(executor);
         }
 
         return execs;

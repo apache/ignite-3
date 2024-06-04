@@ -17,6 +17,8 @@
 
 package org.apache.ignite.client.handler.requests.jdbc;
 
+import static org.apache.ignite.internal.tracing.TracingManager.span;
+
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
@@ -55,27 +57,29 @@ public class JdbcQueryCursor<T> implements AsyncSqlCursor<T> {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<BatchedResult<T>> requestNextAsync(int rows) {
-        long fetched0 = fetched.addAndGet(rows);
+        return span("JdbcQueryCursor.requestNextAsync", (span) -> {
+            long fetched0 = fetched.addAndGet(rows);
 
-        assert cur != null : "non initialized cursor";
+            assert cur != null : "non initialized cursor";
 
-        return cur.requestNextAsync(rows).thenApply(batch -> {
-            if (maxRows == 0 || fetched0 < maxRows) {
-                return batch;
-            }
+            return cur.requestNextAsync(rows).thenApply(batch -> {
+                if (maxRows == 0 || fetched0 < maxRows) {
+                    return batch;
+                }
 
-            int remainCnt = (int) (maxRows - fetched0 + rows);
+                int remainCnt = (int) (maxRows - fetched0 + rows);
 
-            List<T> remainItems = remainCnt < batch.items().size()
-                    ? batch.items().subList(0, remainCnt)
-                    : batch.items();
+                List<T> remainItems = remainCnt < batch.items().size()
+                        ? batch.items().subList(0, remainCnt)
+                        : batch.items();
 
-            return new BatchedResult<>(remainItems, false);
+                return new BatchedResult<>(remainItems, false);
+            });
         });
     }
 
     /** {@inheritDoc} */
-    @Override 
+    @Override
     public CompletableFuture<Void> closeAsync() {
         return cur.closeAsync();
     }

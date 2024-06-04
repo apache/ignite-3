@@ -17,12 +17,15 @@
 
 package org.apache.ignite.internal.vault.persistence;
 
+import static org.apache.ignite.internal.tracing.TracingManager.span;
+
 import java.nio.file.Path;
 import java.util.Map;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
+import org.apache.ignite.internal.tracing.TraceSpan;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultService;
@@ -115,7 +118,9 @@ public class PersistentVaultService implements VaultService {
             if (val == null) {
                 db.delete(key.bytes());
             } else {
-                db.put(key.bytes(), val);
+                try (TraceSpan ignored = span("vaultStoragePutData")) {
+                    db.put(key.bytes(), val);
+                }
             }
         } catch (RocksDBException e) {
             throw new IgniteInternalException("Unable to write data to RocksDB", e);
@@ -172,7 +177,9 @@ public class PersistentVaultService implements VaultService {
                 }
             }
 
-            db.write(writeOpts, writeBatch);
+            try (TraceSpan ignored = span("putAll")) {
+                db.write(writeOpts, writeBatch);
+            }
         } catch (RocksDBException e) {
             throw new IgniteInternalException("Unable to write data to RocksDB", e);
         }

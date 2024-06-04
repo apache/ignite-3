@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client.handler;
 
+import static org.apache.ignite.internal.tracing.TracingManager.rootSpan;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Client.HANDSHAKE_HEADER_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_COMPATIBILITY_ERR;
@@ -321,17 +322,21 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     /** {@inheritDoc} */
     @Override
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
-        resources.close();
+        try (var ignored = rootSpan("ClientInboundMessageHandler.channelInactive")) {
+            resources.close();
 
-        super.channelInactive(ctx);
+            super.channelInactive(ctx);
 
-        if (LOG.isDebugEnabled()) {
-            LOG.debug("Connection closed [connectionId=" + connectionId + ", remoteAddress=" + ctx.channel().remoteAddress() + "]");
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Connection closed [connectionId=" + connectionId + ", remoteAddress=" + ctx.channel().remoteAddress() + "]");
+            }
         }
     }
 
     private void handshake(ChannelHandlerContext ctx, ClientMessageUnpacker unpacker, ClientMessagePacker packer) {
-        try {
+        var span = rootSpan("ClientInboundMessageHandler.handshake");
+
+        try (span) {
             writeMagic(ctx);
             var clientVer = ProtocolVersion.unpack(unpacker);
 
@@ -399,6 +404,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         } catch (Throwable t) {
             LOG.warn("Handshake failed [connectionId=" + connectionId + ", remoteAddress=" + ctx.channel().remoteAddress() + "]: "
                     + t.getMessage(), t);
+
+            span.recordException(t);
 
             packer.close();
 
@@ -482,7 +489,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
         ClientMessagePacker packer = getPacker(ctx.alloc());
 
-        try {
+        var span = rootSpan("ClientInboundMessageHandler.writeError");
+
+        try (span) {
             assert err != null;
 
             writeResponseHeader(packer, requestId, ctx, isNotification, true);
@@ -492,6 +501,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         } catch (Throwable t) {
             packer.close();
             exceptionCaught(ctx, t);
+            span.recordException(t);
         }
     }
 

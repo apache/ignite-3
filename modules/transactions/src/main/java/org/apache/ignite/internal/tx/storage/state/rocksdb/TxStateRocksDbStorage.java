@@ -20,6 +20,7 @@ package org.apache.ignite.internal.tx.storage.state.rocksdb;
 import static java.nio.ByteOrder.BIG_ENDIAN;
 import static java.util.Objects.requireNonNull;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.tracing.TracingManager.span;
 import static org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbTableStorage.TABLE_PREFIX_SIZE_BYTES;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
@@ -38,11 +39,13 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
+import org.apache.ignite.internal.tracing.TraceSpan;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
@@ -136,7 +139,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     @Override
     public @Nullable TxMeta get(UUID txId) {
         return busy(() -> {
-            try {
+            try (TraceSpan ignored = span("txStateStorageGet")) {
                 throwExceptionIfStorageInProgressOfRebalance();
 
                 byte[] txMetaBytes = sharedStorage.db().get(txIdToKey(txId));
@@ -155,7 +158,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     @Override
     public void putForRebalance(UUID txId, TxMeta txMeta) {
         busy(() -> {
-            try {
+            try (TraceSpan ignored = span("txStateStoragePut")) {
                 sharedStorage.db().put(txIdToKey(txId), toBytes(txMeta));
 
                 return null;
@@ -174,7 +177,11 @@ public class TxStateRocksDbStorage implements TxStateStorage {
         return updateData(writeBatch -> {
             byte[] txIdBytes = txIdToKey(txId);
 
-            byte[] txMetaExistingBytes = sharedStorage.db().get(sharedStorage.readOptions, txIdToKey(txId));
+            byte[] txMetaExistingBytes;
+
+            try (TraceSpan ignored = span("compareAndSet")) {
+                txMetaExistingBytes = sharedStorage.db().get(sharedStorage.readOptions, txIdToKey(txId));
+            }
 
             boolean result;
 
@@ -208,7 +215,9 @@ public class TxStateRocksDbStorage implements TxStateStorage {
         updateData(writeBatch -> {
             throwExceptionIfStorageInProgressOfRebalance();
 
-            writeBatch.delete(txIdToKey(txId));
+            try (TraceSpan ignored = span("txStateStorageRemove")) {
+                writeBatch.delete(txIdToKey(txId));
+            }
 
             return null;
         }, commandIndex, commandTerm);
@@ -241,7 +250,9 @@ public class TxStateRocksDbStorage implements TxStateStorage {
                     updateLastApplied(writeBatch, commandIndex, commandTerm);
                 }
 
-                sharedStorage.db().write(sharedStorage.writeOptions, writeBatch);
+                try (TraceSpan ignored = span("compareAndSet")) {
+                    sharedStorage.db().write(sharedStorage.writeOptions, writeBatch);
+                }
 
                 return result;
             } catch (RocksDBException e) {
@@ -308,7 +319,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
                     return busy(() -> {
                         throwExceptionIfStorageInProgressOfRebalance();
 
-                        return super.next();
+                        return span("nextRocksIteratorElements", (Function<TraceSpan, IgniteBiTuple<UUID, TxMeta>>) (span) -> super.next());
                     });
                 }
 
@@ -325,7 +336,8 @@ public class TxStateRocksDbStorage implements TxStateStorage {
 
     @Override
     public CompletableFuture<Void> flush() {
-        return busy(() -> sharedStorage.awaitFlush(true));
+        return span("txStateStorageFlush", (Function<TraceSpan, CompletableFuture<Void>>) (span) -> busy(() ->
+                sharedStorage.awaitFlush(true)));
     }
 
     @Override
@@ -344,7 +356,9 @@ public class TxStateRocksDbStorage implements TxStateStorage {
             try {
                 throwExceptionIfStorageInProgressOfRebalance();
 
-                sharedStorage.db().put(lastAppliedIndexAndTermKey, indexAndTermToBytes(lastAppliedIndex, lastAppliedTerm));
+                try (TraceSpan ignored = span("txStateStorageLastApplied")) {
+                    sharedStorage.db().put(lastAppliedIndexAndTermKey, indexAndTermToBytes(lastAppliedIndex, lastAppliedTerm));
+                }
 
                 this.lastAppliedIndex = lastAppliedIndex;
                 this.lastAppliedTerm = lastAppliedTerm;
@@ -386,7 +400,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     }
 
     private byte @Nullable [] readLastAppliedIndexAndTerm(ReadOptions readOptions) {
-        try {
+        try (TraceSpan ignored = span("txStateStorageReadLastApplied")) {
             return sharedStorage.db().get(readOptions, lastAppliedIndexAndTermKey);
         } catch (RocksDBException e) {
             throw new IgniteInternalException(
@@ -408,7 +422,9 @@ public class TxStateRocksDbStorage implements TxStateStorage {
 
             writeBatch.delete(lastAppliedIndexAndTermKey);
 
-            sharedStorage.db().write(sharedStorage.writeOptions, writeBatch);
+            try (TraceSpan ignored = span("destroy")) {
+                sharedStorage.db().write(sharedStorage.writeOptions, writeBatch);
+            }
         } catch (Exception e) {
             throw new IgniteInternalException(TX_STATE_STORAGE_ERR, format("Failed to destroy storage: [{}]", createStorageInfo()), e);
         }
@@ -462,7 +478,9 @@ public class TxStateRocksDbStorage implements TxStateStorage {
 
             updateLastApplied(writeBatch, REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS);
 
-            sharedStorage.db().write(sharedStorage.writeOptions, writeBatch);
+            try (TraceSpan ignored = span("startRebalance")) {
+                sharedStorage.db().write(sharedStorage.writeOptions, writeBatch);
+            }
 
             return nullCompletedFuture();
         } catch (Exception e) {
@@ -487,7 +505,9 @@ public class TxStateRocksDbStorage implements TxStateStorage {
 
             writeBatch.delete(lastAppliedIndexAndTermKey);
 
-            sharedStorage.db().write(sharedStorage.writeOptions, writeBatch);
+            try (TraceSpan ignored = span("abortRebalance")) {
+                sharedStorage.db().write(sharedStorage.writeOptions, writeBatch);
+            }
 
             lastAppliedIndex = 0;
             lastAppliedTerm = 0;
@@ -516,7 +536,9 @@ public class TxStateRocksDbStorage implements TxStateStorage {
         try (WriteBatch writeBatch = new WriteBatch()) {
             updateLastApplied(writeBatch, lastAppliedIndex, lastAppliedTerm);
 
-            sharedStorage.db().write(sharedStorage.writeOptions, writeBatch);
+            try (TraceSpan ignored = span("finishRebalance")) {
+                sharedStorage.db().write(sharedStorage.writeOptions, writeBatch);
+            }
 
             state.set(StorageState.RUNNABLE);
         } catch (Exception e) {
@@ -544,7 +566,9 @@ public class TxStateRocksDbStorage implements TxStateStorage {
 
             updateLastApplied(writeBatch, 0, 0);
 
-            sharedStorage.db().write(sharedStorage.writeOptions, writeBatch);
+            try (TraceSpan ignored = span("clear")) {
+                sharedStorage.db().write(sharedStorage.writeOptions, writeBatch);
+            }
 
             return nullCompletedFuture();
         } catch (RocksDBException e) {

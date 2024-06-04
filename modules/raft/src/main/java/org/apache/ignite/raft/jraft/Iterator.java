@@ -16,7 +16,7 @@
  */
 package org.apache.ignite.raft.jraft;
 
-import java.nio.ByteBuffer;
+import java.nio.ByteBuffer;import org.apache.ignite.internal.tracing.TraceSpan;
 
 /**
  * Iterator over a batch of committed tasks.
@@ -63,4 +63,6 @@ public interface Iterator extends java.util.Iterator<ByteBuffer> {
      * @param st Status to describe the detail of the error.
      */
     void setErrorAndRollback(final long ntail, final Status st);
+
+    TraceSpan span();
 }

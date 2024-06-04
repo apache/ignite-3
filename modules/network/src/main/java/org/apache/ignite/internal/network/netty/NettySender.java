@@ -18,17 +18,20 @@
 package org.apache.ignite.internal.network.netty;
 
 import static org.apache.ignite.internal.network.netty.NettyUtils.toCompletableFuture;
+import static org.apache.ignite.internal.tracing.TracingManager.serializeSpanContext;
 import static org.apache.ignite.internal.util.CompletableFutures.isCompletedSuccessfully;
 
 import io.netty.channel.Channel;
 import io.netty.handler.stream.ChunkedInput;
 import java.nio.channels.ClosedChannelException;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.network.OutNetworkObject;
 import org.apache.ignite.internal.network.direct.DirectMessageWriter;
+import org.apache.ignite.internal.network.message.TraceableMessageImpl;
 import org.apache.ignite.internal.network.recovery.RecoveryDescriptor;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
@@ -93,12 +96,25 @@ public class NettySender {
      * in the current sender (this might happen if the 'current' channel gets closed and another one is opened
      * in the same logical connection and resends a not-yet-acknowledged message sent via the old channel).
      *
-     * @param obj Network message wrapper.
+     * @param obj0 Network message wrapper.
      * @param triggerChannelRecreation Used to trigger channel recreation (when it turns out that the underlying channel is closed
      *     and the connection recovery procedure has to be performed).
      * @return Future of the send operation (that gets completed when the message gets acknowledged by the receiver).
      */
-    public CompletableFuture<Void> send(OutNetworkObject obj, Runnable triggerChannelRecreation) {
+    public CompletableFuture<Void> send(OutNetworkObject obj0, Runnable triggerChannelRecreation) {
+        Map<String, String> headers = serializeSpanContext();
+        OutNetworkObject obj;
+
+        if (headers != null) {
+            obj = new OutNetworkObject(
+                    TraceableMessageImpl.builder().headers(headers).message(obj0.networkMessage()).build(),
+                    obj0.descriptors(),
+                    obj0.shouldBeSavedForRecovery()
+            );
+        } else {
+            obj = obj0;
+        }
+
         if (!obj.networkMessage().needAck()) {
             // We don't care that the client might get an exception like ClosedChannelException or that the message
             // will be lost if the channel is closed as it does not require to be acked.

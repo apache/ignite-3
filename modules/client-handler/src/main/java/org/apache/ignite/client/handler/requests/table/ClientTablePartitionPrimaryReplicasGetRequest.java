@@ -17,6 +17,8 @@
 
 package org.apache.ignite.client.handler.requests.table;
 
+import static org.apache.ignite.internal.tracing.TracingManager.span;
+
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientPrimaryReplicaTracker;
@@ -44,26 +46,28 @@ public class ClientTablePartitionPrimaryReplicasGetRequest {
             ClientMessagePacker out,
             ClientPrimaryReplicaTracker tracker
     ) throws NodeStoppingException {
-        int tableId = in.unpackInt();
-        long timestamp = in.unpackLong();
+        return span("ClientTablePartitionAssignmentGetRequest.process", (span) -> {
+            int tableId = in.unpackInt();
+            long timestamp = in.unpackLong();
 
-        return tracker.primaryReplicasAsync(tableId, timestamp).thenAccept(primaryReplicas -> {
-            assert primaryReplicas != null : "Primary replicas == null";
+            return tracker.primaryReplicasAsync(tableId, timestamp).thenAccept(primaryReplicas -> {
+                assert primaryReplicas != null : "Primary replicas == null";
 
-            List<String> nodeNames = primaryReplicas.nodeNames();
-            if (nodeNames == null) {
-                // Special case: assignment is not yet available, but we return the partition count.
-                out.packInt(primaryReplicas.partitions());
-                out.packBoolean(false);
-            } else {
-                out.packInt(nodeNames.size());
-                out.packBoolean(true); // Assignment available.
-                out.packLong(primaryReplicas.timestamp());
+                List<String> nodeNames = primaryReplicas.nodeNames();
+                if (nodeNames == null) {
+                    // Special case: assignment is not yet available, but we return the partition count.
+                    out.packInt(primaryReplicas.partitions());
+                    out.packBoolean(false);
+                } else {
+                    out.packInt(nodeNames.size());
+                    out.packBoolean(true); // Assignment available.
+                    out.packLong(primaryReplicas.timestamp());
 
-                for (String nodeName : nodeNames) {
-                    out.packString(nodeName);
+                    for (String nodeName : nodeNames) {
+                        out.packString(nodeName);
+                    }
                 }
-            }
+            });
         });
     }
 }

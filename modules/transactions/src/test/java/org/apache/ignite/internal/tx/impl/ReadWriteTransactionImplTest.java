@@ -37,6 +37,7 @@ import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.tracing.NoopSpan;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
@@ -80,7 +81,7 @@ class ReadWriteTransactionImplTest extends BaseIgniteAbstractTest {
 
         UUID txId = TestTransactionIds.TRANSACTION_ID_GENERATOR.transactionIdFor(beginTs);
 
-        var tx = new ReadWriteTransactionImpl(txManager, new HybridTimestampTracker(), txId, CLUSTER_NODE.id());
+        var tx = new ReadWriteTransactionImpl(txManager, new HybridTimestampTracker(), txId, CLUSTER_NODE.id(), NoopSpan.INSTANCE);
 
         assertThat(tx.startTimestamp(), is(beginTs));
     }
@@ -111,7 +112,7 @@ class ReadWriteTransactionImplTest extends BaseIgniteAbstractTest {
 
         UUID txId = TestTransactionIds.TRANSACTION_ID_GENERATOR.transactionIdFor(beginTs);
 
-        var tx = new ReadWriteTransactionImpl(txManager, new HybridTimestampTracker(), txId, CLUSTER_NODE.id());
+        var tx = new ReadWriteTransactionImpl(txManager, new HybridTimestampTracker(), txId, CLUSTER_NODE.id(), NoopSpan.INSTANCE);
 
         tx.assignCommitPartition(TX_COMMIT_PART);
 

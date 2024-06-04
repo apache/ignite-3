@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptio
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageStateOnRebalance;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInRunnableOrRebalanceState;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwStorageExceptionIfItCause;
+import static org.apache.ignite.internal.tracing.TracingManager.span;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
 import java.util.ArrayList;
@@ -181,7 +182,11 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      * @param indexDescriptor Index descriptor.
      */
     public PageMemoryHashIndexStorage getOrCreateHashIndex(StorageHashIndexDescriptor indexDescriptor) {
-        return busy(() -> indexes.getOrCreateHashIndex(indexDescriptor, renewableState.indexStorageFactory()));
+        return span("getOrCreateHashIndex", (span) -> {
+            return busy(() -> indexes.getOrCreateHashIndex(
+                    indexDescriptor, renewableState.indexStorageFactory())
+            );
+        });
     }
 
     /**
@@ -190,7 +195,9 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      * @param indexDescriptor Index descriptor.
      */
     public PageMemorySortedIndexStorage getOrCreateSortedIndex(StorageSortedIndexDescriptor indexDescriptor) {
-        return busy(() -> indexes.getOrCreateSortedIndex(indexDescriptor, renewableState.indexStorageFactory()));
+        return span("getOrCreateSortedIndex", (span) -> {
+            return busy(() -> indexes.getOrCreateSortedIndex(indexDescriptor, renewableState.indexStorageFactory()));
+        });
     }
 
     void updateRenewableState(
@@ -224,24 +231,27 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
     @Override
     public ReadResult read(RowId rowId, HybridTimestamp timestamp) throws StorageException {
-        return busy(() -> {
-            throwExceptionIfStorageNotInRunnableState();
+        return span("readPageMemory", (span) -> {
+            return busy(() -> {
+                throwExceptionIfStorageNotInRunnableState();
 
-            if (rowId.partitionId() != partitionId) {
-                throw new IllegalArgumentException(
-                        String.format("RowId partition [%d] is not equal to storage partition [%d].", rowId.partitionId(), partitionId));
-            }
-
-            return findVersionChain(rowId, versionChain -> {
-                if (versionChain == null) {
-                    return ReadResult.empty(rowId);
+                if (rowId.partitionId() != partitionId) {
+                    throw new IllegalArgumentException(
+                            String.format("RowId partition [%d] is not equal to storage partition [%d].", rowId.partitionId(),
+                                    partitionId));
                 }
 
-                if (lookingForLatestVersion(timestamp)) {
-                    return findLatestRowVersion(versionChain);
-                } else {
-                    return findRowVersionByTimestamp(versionChain, timestamp);
-                }
+                return findVersionChain(rowId, versionChain -> {
+                    if (versionChain == null) {
+                        return ReadResult.empty(rowId);
+                    }
+
+                    if (lookingForLatestVersion(timestamp)) {
+                        return findLatestRowVersion(versionChain);
+                    } else {
+                        return findRowVersionByTimestamp(versionChain, timestamp);
+                    }
+                });
             });
         });
     }

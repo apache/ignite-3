@@ -44,6 +44,7 @@ import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptio
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageStateOnRebalance;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageInProgressOfRebalance;
 import static org.apache.ignite.internal.storage.util.StorageUtils.transitionToTerminalState;
+import static org.apache.ignite.internal.tracing.TracingManager.span;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.ByteUtils.putLongToBytes;
 
@@ -54,6 +55,7 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
@@ -69,6 +71,7 @@ import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.storage.gc.GcEntry;
 import org.apache.ignite.internal.storage.util.LocalLocker;
 import org.apache.ignite.internal.storage.util.StorageState;
+import org.apache.ignite.internal.tracing.TraceSpan;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.jetbrains.annotations.Nullable;
@@ -241,7 +244,9 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                         V res = closure.execute(locker);
 
                         if (writeBatch.count() > 0) {
-                            db.write(DFLT_WRITE_OPTS, writeBatch);
+                            try (TraceSpan ignored = span("runConsistently")) {
+                                db.write(DFLT_WRITE_OPTS, writeBatch);
+                            }
 
                             // Here we assume that no two threads would try to update these values concurrently.
                             if (oldAppliedIndex != state.pendingAppliedIndex) {
@@ -377,7 +382,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     @Override
     public @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, int commitTableId, int commitPartitionId)
             throws TxIdMismatchException, StorageException {
-        return busy(() -> {
+        return span("addWriteRocks", (Function<TraceSpan, ? extends BinaryRow>) (span) -> busy(() -> {
             @SuppressWarnings("resource") WriteBatchWithIndex writeBatch = PartitionDataHelper.requireWriteBatch();
 
             assert rowIsLocked(rowId);
@@ -425,7 +430,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             }
 
             return res;
-        });
+        }));
     }
 
     /**

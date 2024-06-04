@@ -31,6 +31,7 @@ import org.apache.ignite.internal.network.serialization.MessageReader;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.internal.network.serialization.MessageWriter;
 import org.apache.ignite.internal.raft.Marshaller;
+import org.apache.ignite.internal.tracing.TracingManager;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -112,48 +113,50 @@ public class OptimizedMarshaller implements Marshaller {
 
     @Override
     public byte[] marshall(Object o) {
-        assert o instanceof NetworkMessage;
+        return TracingManager.span("marshall", (span) -> {
+            assert o instanceof NetworkMessage;
 
-        ByteBuffer poolBuffer = pool.borrow();
+            ByteBuffer poolBuffer = pool.borrow();
 
-        ByteBuffer buffer = poolBuffer == null ? ByteBuffer.allocate(DEFAULT_BUFFER_SIZE).order(ORDER) : poolBuffer;
+            ByteBuffer buffer = poolBuffer == null ? ByteBuffer.allocate(DEFAULT_BUFFER_SIZE).order(ORDER) : poolBuffer;
 
-        NetworkMessage message = (NetworkMessage) o;
+            NetworkMessage message = (NetworkMessage) o;
 
-        beforeWriteMessage(o, buffer);
+            beforeWriteMessage(o, buffer);
 
-        while (true) {
-            stream.setBuffer(buffer);
+            while (true) {
+                stream.setBuffer(buffer);
 
-            stream.writeMessage(message, messageWriter);
+                stream.writeMessage(message, messageWriter);
 
-            if (stream.lastFinished()) {
-                break;
+                if (stream.lastFinished()) {
+                    break;
+                }
+
+                buffer = expandBuffer(buffer);
+
+                if (buffer.capacity() <= MAX_CACHED_BUFFER_BYTES && poolBuffer != null) {
+                    poolBuffer = buffer;
+                } else if (poolBuffer != null) {
+                    poolBuffer.position(0);
+                    pool.release(poolBuffer);
+
+                    poolBuffer = null;
+                }
             }
 
-            buffer = expandBuffer(buffer);
+            // Prevent holding the reference for too long.
+            stream.setBuffer(EMPTY_BYTE_BUFFER);
 
-            if (buffer.capacity() <= MAX_CACHED_BUFFER_BYTES && poolBuffer != null) {
-                poolBuffer = buffer;
-            } else if (poolBuffer != null) {
+            byte[] result = Arrays.copyOf(buffer.array(), buffer.position());
+
+            if (poolBuffer != null) {
                 poolBuffer.position(0);
                 pool.release(poolBuffer);
-
-                poolBuffer = null;
             }
-        }
 
-        // Prevent holding the reference for too long.
-        stream.setBuffer(EMPTY_BYTE_BUFFER);
-
-        byte[] result = Arrays.copyOf(buffer.array(), buffer.position());
-
-        if (poolBuffer != null) {
-            poolBuffer.position(0);
-            pool.release(poolBuffer);
-        }
-
-        return result;
+            return result;
+        });
     }
 
     /**
@@ -165,9 +168,11 @@ public class OptimizedMarshaller implements Marshaller {
     @SuppressWarnings("unchecked")
     @Override
     public <T> T unmarshall(ByteBuffer bytes) {
-        stream.setBuffer(bytes.duplicate().order(ORDER));
+        return TracingManager.span("marshall", (span) -> {
+            stream.setBuffer(bytes.duplicate().order(ORDER));
 
-        return stream.readMessage(messageReader);
+            return stream.readMessage(messageReader);
+        });
     }
 
     /**

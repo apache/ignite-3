@@ -19,6 +19,8 @@ package org.apache.ignite.internal.raft.service;
 
 import java.io.Serializable;
 import org.apache.ignite.internal.raft.Command;
+import org.apache.ignite.internal.tracing.NoopSpan;
+import org.apache.ignite.internal.tracing.TraceSpan;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -55,4 +57,11 @@ public interface CommandClosure<R extends Command> {
      * @param res Execution result.
      */
     void result(@Nullable Serializable res);
+
+    /**
+     * Returns trace context.
+     */
+    default TraceSpan span() {
+        return NoopSpan.INSTANCE;
+    }
 }

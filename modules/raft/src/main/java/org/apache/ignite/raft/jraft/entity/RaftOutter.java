@@ -50,6 +50,9 @@ public final class RaftOutter {
 
         /** Returns {@code true} when the entry has a checksum, {@code false} otherwise. */
         boolean hasChecksum();
+
+        @Nullable
+        Map<String, String> traceHeaders();
     }
 
     @Transferable(RaftMessageGroup.RaftOutterMessageGroup.SNAPSHOT_META)

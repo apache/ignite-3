@@ -209,6 +209,8 @@ import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncServiceImpl;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.tracing.GridTracingManager;
+import org.apache.ignite.internal.tracing.configuration.TracingConfiguration;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
@@ -913,6 +915,10 @@ public class IgniteImpl implements Ignite {
         );
 
         restComponent = createRestComponent(name);
+
+        TracingConfiguration tracingConfiguration = clusterConfigRegistry.getConfiguration(TracingConfiguration.KEY);
+
+        GridTracingManager.initialize(null, tracingConfiguration);
     }
 
     private static Map<String, StorageEngine> applyThreadAssertionsIfNeeded(Map<String, StorageEngine> storageEngines) {
