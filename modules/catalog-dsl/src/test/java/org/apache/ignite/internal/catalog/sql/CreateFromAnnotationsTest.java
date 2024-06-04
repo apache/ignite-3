@@ -96,9 +96,9 @@ class CreateFromAnnotationsTest {
                         + " AFFINITY_FUNCTION='affinity',"
                         + " DATA_NODES_AUTO_ADJUST=1, DATA_NODES_AUTO_ADJUST_SCALE_UP=3, DATA_NODES_AUTO_ADJUST_SCALE_DOWN=2,"
                         + " DATA_NODES_FILTER='filter';"
-                        + "CREATE TABLE IF NOT EXISTS pojo_value_test (id int, f_name varchar, l_name varchar, str varchar,"
+                        + "CREATE TABLE IF NOT EXISTS PUBLIC.pojo_value_test (id int, f_name varchar, l_name varchar, str varchar,"
                         + " PRIMARY KEY (id)) COLOCATE BY (id, id_str) WITH PRIMARY_ZONE='ZONE_TEST';"
-                        + "CREATE INDEX IF NOT EXISTS ix_pojo ON pojo_value_test (f_name, l_name desc);")
+                        + "CREATE INDEX IF NOT EXISTS ix_pojo ON PUBLIC.pojo_value_test (f_name, l_name desc);")
         );
     }
 
@@ -111,9 +111,9 @@ class CreateFromAnnotationsTest {
                         + " AFFINITY_FUNCTION='affinity',"
                         + " DATA_NODES_AUTO_ADJUST=1, DATA_NODES_AUTO_ADJUST_SCALE_UP=3, DATA_NODES_AUTO_ADJUST_SCALE_DOWN=2,"
                         + " DATA_NODES_FILTER='filter';"
-                        + "CREATE TABLE IF NOT EXISTS \"pojo_value_test\" (\"id\" int, \"f_name\" varchar, \"l_name\" varchar,"
+                        + "CREATE TABLE IF NOT EXISTS \"PUBLIC\".\"pojo_value_test\" (\"id\" int, \"f_name\" varchar, \"l_name\" varchar,"
                         + " \"str\" varchar, PRIMARY KEY (\"id\")) COLOCATE BY (\"id\", \"id_str\") WITH PRIMARY_ZONE='ZONE_TEST';"
-                        + "CREATE INDEX IF NOT EXISTS \"ix_pojo\" ON \"pojo_value_test\" (\"f_name\", \"l_name\" desc);")
+                        + "CREATE INDEX IF NOT EXISTS \"ix_pojo\" ON \"PUBLIC\".\"pojo_value_test\" (\"f_name\", \"l_name\" desc);")
         );
     }
 
@@ -126,9 +126,9 @@ class CreateFromAnnotationsTest {
                         + " AFFINITY_FUNCTION='affinity',"
                         + " DATA_NODES_AUTO_ADJUST=1, DATA_NODES_AUTO_ADJUST_SCALE_UP=3, DATA_NODES_AUTO_ADJUST_SCALE_DOWN=2,"
                         + " DATA_NODES_FILTER='filter';"
-                        + "CREATE TABLE IF NOT EXISTS pojo_value_test (id int, id_str varchar(20), f_name varchar, l_name varchar,"
+                        + "CREATE TABLE IF NOT EXISTS PUBLIC.pojo_value_test (id int, id_str varchar(20), f_name varchar, l_name varchar,"
                         + " str varchar, PRIMARY KEY (id, id_str)) COLOCATE BY (id, id_str) WITH PRIMARY_ZONE='ZONE_TEST';"
-                        + "CREATE INDEX IF NOT EXISTS ix_pojo ON pojo_value_test (f_name, l_name desc);")
+                        + "CREATE INDEX IF NOT EXISTS ix_pojo ON PUBLIC.pojo_value_test (f_name, l_name desc);")
         );
     }
 
@@ -141,10 +141,10 @@ class CreateFromAnnotationsTest {
                         + " AFFINITY_FUNCTION='affinity',"
                         + " DATA_NODES_AUTO_ADJUST=1, DATA_NODES_AUTO_ADJUST_SCALE_UP=3, DATA_NODES_AUTO_ADJUST_SCALE_DOWN=2,"
                         + " DATA_NODES_FILTER='filter';"
-                        + "CREATE TABLE IF NOT EXISTS \"pojo_value_test\" (\"id\" int, \"id_str\" varchar(20), \"f_name\" varchar,"
+                        + "CREATE TABLE IF NOT EXISTS \"PUBLIC\".\"pojo_value_test\" (\"id\" int, \"id_str\" varchar(20), \"f_name\" varchar,"
                         + " \"l_name\" varchar, \"str\" varchar, PRIMARY KEY (\"id\", \"id_str\")) COLOCATE BY (\"id\", \"id_str\")"
                         + " WITH PRIMARY_ZONE='ZONE_TEST';"
-                        + "CREATE INDEX IF NOT EXISTS \"ix_pojo\" ON \"pojo_value_test\" (\"f_name\", \"l_name\" desc);")
+                        + "CREATE INDEX IF NOT EXISTS \"ix_pojo\" ON \"PUBLIC\".\"pojo_value_test\" (\"f_name\", \"l_name\" desc);")
         );
     }
 
@@ -156,10 +156,10 @@ class CreateFromAnnotationsTest {
                         + " AFFINITY_FUNCTION='affinity',"
                         + " DATA_NODES_AUTO_ADJUST=1, DATA_NODES_AUTO_ADJUST_SCALE_UP=3, DATA_NODES_AUTO_ADJUST_SCALE_DOWN=2,"
                         + " DATA_NODES_FILTER='filter';"
-                        + "CREATE TABLE IF NOT EXISTS pojo_test (id int, id_str varchar(20), f_name varchar(20) not null default 'a',"
+                        + "CREATE TABLE IF NOT EXISTS PUBLIC.pojo_test (id int, id_str varchar(20), f_name varchar(20) not null default 'a',"
                         + " l_name varchar, str varchar, PRIMARY KEY (id, id_str))"
                         + " COLOCATE BY (id, id_str) WITH PRIMARY_ZONE='ZONE_TEST';"
-                        + "CREATE INDEX IF NOT EXISTS ix_pojo ON pojo_test (f_name, l_name desc);")
+                        + "CREATE INDEX IF NOT EXISTS ix_pojo ON PUBLIC.pojo_test (f_name, l_name desc);")
         );
     }
 
@@ -171,10 +171,10 @@ class CreateFromAnnotationsTest {
                         + " AFFINITY_FUNCTION='affinity',"
                         + " DATA_NODES_AUTO_ADJUST=1, DATA_NODES_AUTO_ADJUST_SCALE_UP=3, DATA_NODES_AUTO_ADJUST_SCALE_DOWN=2,"
                         + " DATA_NODES_FILTER='filter';"
-                        + "CREATE TABLE IF NOT EXISTS \"pojo_test\" (\"id\" int, \"id_str\" varchar(20),"
+                        + "CREATE TABLE IF NOT EXISTS \"PUBLIC\".\"pojo_test\" (\"id\" int, \"id_str\" varchar(20),"
                         + " \"f_name\" varchar(20) not null default 'a', \"l_name\" varchar, \"str\" varchar,"
                         + " PRIMARY KEY (\"id\", \"id_str\")) COLOCATE BY (\"id\", \"id_str\") WITH PRIMARY_ZONE='ZONE_TEST';"
-                        + "CREATE INDEX IF NOT EXISTS \"ix_pojo\" ON \"pojo_test\" (\"f_name\", \"l_name\" desc);")
+                        + "CREATE INDEX IF NOT EXISTS \"ix_pojo\" ON \"PUBLIC\".\"pojo_test\" (\"f_name\", \"l_name\" desc);")
         );
     }
 
@@ -182,8 +182,8 @@ class CreateFromAnnotationsTest {
     void nameGeneration() {
         assertThat(
                 createTable().processRecordClass(NameGeneration.class).toSqlString(),
-                is("CREATE TABLE IF NOT EXISTS public.NameGeneration (col1 int, col2 varchar);"
-                        + "CREATE INDEX IF NOT EXISTS ix_col1_col2 ON public.NameGeneration (col1, col2);")
+                is("CREATE TABLE IF NOT EXISTS PUBLIC.NameGeneration (col1 int, col2 varchar);"
+                        + "CREATE INDEX IF NOT EXISTS ix_col1_col2 ON PUBLIC.NameGeneration (col1, col2);")
         );
     }
 
@@ -191,8 +191,8 @@ class CreateFromAnnotationsTest {
     void nameGenerationQuoted() {
         assertThat(
                 createTableQuoted().processRecordClass(NameGeneration.class).toSqlString(),
-                is("CREATE TABLE IF NOT EXISTS \"public\".\"NameGeneration\" (\"col1\" int, \"col2\" varchar);"
-                        + "CREATE INDEX IF NOT EXISTS \"ix_col1_col2\" ON \"public\".\"NameGeneration\" (\"col1\", \"col2\");")
+                is("CREATE TABLE IF NOT EXISTS \"PUBLIC\".\"NameGeneration\" (\"col1\" int, \"col2\" varchar);"
+                        + "CREATE INDEX IF NOT EXISTS \"ix_col1_col2\" ON \"PUBLIC\".\"NameGeneration\" (\"col1\", \"col2\");")
         );
     }
 
@@ -200,7 +200,7 @@ class CreateFromAnnotationsTest {
     void primaryKey() {
         assertThat(
                 createTable().processRecordClass(PkSort.class).toSqlString(),
-                is("CREATE TABLE IF NOT EXISTS PkSort (id int, PRIMARY KEY USING SORTED (id desc));")
+                is("CREATE TABLE IF NOT EXISTS PUBLIC.PkSort (id int, PRIMARY KEY USING SORTED (id desc));")
         );
     }
 
@@ -208,7 +208,7 @@ class CreateFromAnnotationsTest {
     void primaryKeyQuoted() {
         assertThat(
                 createTableQuoted().processRecordClass(PkSort.class).toSqlString(),
-                is("CREATE TABLE IF NOT EXISTS \"PkSort\" (\"id\" int, PRIMARY KEY USING SORTED (\"id\" desc));")
+                is("CREATE TABLE IF NOT EXISTS \"PUBLIC\".\"PkSort\" (\"id\" int, PRIMARY KEY USING SORTED (\"id\" desc));")
         );
     }
 

@@ -36,6 +36,11 @@ public @interface Table {
     String DEFAULT_ZONE = "Default";
 
     /**
+     * Default schema name.
+     */
+    String DEFAULT_SCHEMA = "PUBLIC";
+
+    /**
      * The name of the table. If it's empty, the name of the class annotated with this annotation will be used.
      *
      * @return The name of the table.
@@ -47,7 +52,7 @@ public @interface Table {
      *
      * @return The schema name.
      */
-    String schemaName() default "PUBLIC";
+    String schemaName() default DEFAULT_SCHEMA;
 
     /**
      * Indexes to create on this table.
