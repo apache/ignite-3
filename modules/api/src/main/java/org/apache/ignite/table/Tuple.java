@@ -79,7 +79,7 @@ public interface Tuple extends Iterable<Object> {
      * @param tuple Tuple to copy.
      * @return A new tuple.
      */
-    static Tuple create(Tuple tuple) {
+    static Tuple copy(Tuple tuple) {
         return new TupleImpl(tuple);
     }
 

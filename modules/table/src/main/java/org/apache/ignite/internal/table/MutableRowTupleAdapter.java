@@ -308,7 +308,7 @@ public class MutableRowTupleAdapter extends AbstractRowTupleAdapter implements S
      */
     private void unmarshalRow() {
         if (tuple == null) {
-            tuple = Tuple.create(this);
+            tuple = Tuple.copy(this);
 
             row = null;
         }
