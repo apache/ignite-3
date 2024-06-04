@@ -21,7 +21,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.Map;
 import java.util.function.Function;
-import org.apache.ignite.internal.table.AbstractTupleSelfTest;
 import org.junit.jupiter.api.Test;
 
 /**

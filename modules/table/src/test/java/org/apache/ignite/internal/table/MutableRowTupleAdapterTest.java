@@ -45,6 +45,7 @@ import java.time.LocalTime;
 import java.util.List;
 import java.util.UUID;
 import java.util.function.Function;
+import org.apache.ignite.table.AbstractMutableTupleSelfTest;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.SchemaAware;

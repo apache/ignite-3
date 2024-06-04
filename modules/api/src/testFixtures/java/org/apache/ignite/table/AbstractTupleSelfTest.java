@@ -15,24 +15,7 @@
  * limitations under the License.
  */
 
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-package org.apache.ignite.internal.table;
+package org.apache.ignite.table;
 
 import static java.time.temporal.ChronoField.NANO_OF_SECOND;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -56,8 +39,6 @@ import java.util.BitSet;
 import java.util.Random;
 import java.util.UUID;
 import java.util.function.Function;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -68,8 +49,12 @@ public abstract class AbstractTupleSelfTest {
     protected static final int TIMESTAMP_PRECISION = 6;
     protected static final int TIME_PRECISION = 0;
 
-    protected static final Instant INSTANT_VALUE;
-    protected static final BitSet BIT_SET_VALUE;
+    protected static final Instant TIMESTAMP_VALUE;
+    protected static final LocalDate DATE_VALUE;
+    protected static final LocalTime TIME_VALUE;
+    protected static final LocalDateTime DATETIME_VALUE;
+
+    protected static final BitSet BITSET_VALUE;
     protected static final byte[] BYTE_ARRAY_VALUE;
     protected static final String STRING_VALUE;
     protected static final BigInteger BIG_INTEGER_VALUE;
@@ -79,10 +64,16 @@ public abstract class AbstractTupleSelfTest {
     static {
         Random rnd = new Random();
 
-        INSTANT_VALUE = Instant.now();
-        BIT_SET_VALUE = randomBitSet(rnd, 12);
-        STRING_VALUE = IgniteTestUtils.randomString(rnd, 14);
-        BYTE_ARRAY_VALUE = IgniteTestUtils.randomBytes(rnd, 13);
+        byte[] randomBytes = new byte[15];
+        rnd.nextBytes(randomBytes);
+
+        TIMESTAMP_VALUE = Instant.now();
+        DATE_VALUE = LocalDate.ofInstant(TIMESTAMP_VALUE, ZoneId.systemDefault());
+        TIME_VALUE = LocalTime.ofInstant(TIMESTAMP_VALUE, ZoneId.systemDefault());
+        DATETIME_VALUE = LocalDateTime.ofInstant(TIMESTAMP_VALUE, ZoneId.systemDefault());
+        BITSET_VALUE = randomBitSet(rnd, 12);
+        STRING_VALUE = "🔥 Ignite";
+        BYTE_ARRAY_VALUE = randomBytes;
         BIG_INTEGER_VALUE = BigInteger.valueOf(rnd.nextLong());
         BIG_DECIMAL_VALUE = BigDecimal.valueOf(rnd.nextLong(), 5);
     }
@@ -307,11 +298,11 @@ public abstract class AbstractTupleSelfTest {
                 .set("valFloatCol", 0.055f)
                 .set("valDoubleCol", 0.066d)
                 .set("valUuidCol", UUID_VALUE)
-                .set("valDateCol", LocalDate.ofInstant(INSTANT_VALUE, ZoneId.systemDefault()))
-                .set("valDateTimeCol", truncateToDefaultPrecision(LocalDateTime.ofInstant(INSTANT_VALUE, ZoneId.systemDefault())))
-                .set("valTimeCol", truncateToDefaultPrecision(LocalTime.ofInstant(INSTANT_VALUE, ZoneId.systemDefault())))
-                .set("valTimeStampCol", truncateToDefaultPrecision(INSTANT_VALUE))
-                .set("valBitmask1Col", BIT_SET_VALUE)
+                .set("valDateCol", LocalDate.ofInstant(TIMESTAMP_VALUE, ZoneId.systemDefault()))
+                .set("valDateTimeCol", truncateToDefaultPrecision(LocalDateTime.ofInstant(TIMESTAMP_VALUE, ZoneId.systemDefault())))
+                .set("valTimeCol", truncateToDefaultPrecision(LocalTime.ofInstant(TIMESTAMP_VALUE, ZoneId.systemDefault())))
+                .set("valTimeStampCol", truncateToDefaultPrecision(TIMESTAMP_VALUE))
+                .set("valBitmask1Col", BITSET_VALUE)
                 .set("valBytesCol", BYTE_ARRAY_VALUE)
                 .set("valStringCol", STRING_VALUE)
                 .set("valNumberCol", BIG_INTEGER_VALUE)
