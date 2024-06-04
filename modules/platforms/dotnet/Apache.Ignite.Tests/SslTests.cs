@@ -180,7 +180,7 @@ public class SslTests : IgniteTestsBase
     [Test]
     public async Task TestCustomCipherSuite()
     {
-        var cipherSuite = Environment.OSVersion.Platform == PlatformID.MacOSX
+        var cipherSuite = OperatingSystem.IsMacOS()
             ? TlsCipherSuite.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
             : TlsCipherSuite.TLS_AES_128_GCM_SHA256;
 
