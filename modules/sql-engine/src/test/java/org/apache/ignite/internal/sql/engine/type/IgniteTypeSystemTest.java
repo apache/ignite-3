@@ -31,7 +31,7 @@ public class IgniteTypeSystemTest extends BaseIgniteAbstractTest {
     private static final int DECIMAL_PRECISION = 32767;
     private static final int DECIMAL_SCALE = 32767;
     private final IgniteTypeSystem typeSystem = IgniteTypeSystem.INSTANCE;
-    
+
     @Test
     public void getMaxPrecision() {
         assertEquals(STRING_PRECISION, typeSystem.getMaxPrecision(SqlTypeName.CHAR));
@@ -54,14 +54,14 @@ public class IgniteTypeSystemTest extends BaseIgniteAbstractTest {
         assertEquals(TIME_PRECISION, typeSystem.getMaxPrecision(SqlTypeName.TIMESTAMP));
         assertEquals(TIME_PRECISION, typeSystem.getMaxPrecision(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE));
     }
-    
+
     @Test
     public void getDefaultPrecision() {
         assertEquals(STRING_PRECISION, typeSystem.getMaxPrecision(SqlTypeName.CHAR));
         assertEquals(STRING_PRECISION, typeSystem.getMaxPrecision(SqlTypeName.VARCHAR));
         assertEquals(STRING_PRECISION, typeSystem.getMaxPrecision(SqlTypeName.BINARY));
         assertEquals(STRING_PRECISION, typeSystem.getMaxPrecision(SqlTypeName.VARBINARY));
-        
+
         assertEquals(3, typeSystem.getMaxPrecision(SqlTypeName.TINYINT));
         assertEquals(5, typeSystem.getMaxPrecision(SqlTypeName.SMALLINT));
         assertEquals(10, typeSystem.getMaxPrecision(SqlTypeName.INTEGER));
@@ -82,7 +82,7 @@ public class IgniteTypeSystemTest extends BaseIgniteAbstractTest {
     public void testGetMaxNumericPrecision() {
         assertEquals(DECIMAL_PRECISION, typeSystem.getMaxNumericPrecision());
     }
-    
+
     @Test
     public void testGetMaxNumericScale() {
         assertEquals(DECIMAL_SCALE, typeSystem.getMaxNumericScale());
