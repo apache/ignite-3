@@ -159,22 +159,22 @@ class CreateTableImpl extends AbstractCatalogQuery<Name> {
 
         ctx.sqlIndentStart(" (");
 
-        ctx.visit(partsList(columns).formatSeparator());
+        ctx.visit(partsList(columns));
 
         if (!constraints.isEmpty()) {
-            ctx.sql(", ").formatSeparator();
-            ctx.visit(partsList(constraints).formatSeparator());
+            ctx.sql(", ");
+            ctx.visit(partsList(constraints));
         }
 
-        ctx.sqlIndentEnd(")");
+        ctx.sql(")");
 
         if (colocate != null) {
-            ctx.sql(" ").formatSeparator().visit(colocate);
+            ctx.sql(" ").visit(colocate);
         }
 
         if (!withOptions.isEmpty()) {
-            ctx.sql(" ").formatSeparator().sql("WITH ");
-            ctx.visit(partsList(withOptions).formatSeparator());
+            ctx.sql(" ").sql("WITH ");
+            ctx.visit(partsList(withOptions));
         }
 
         ctx.sql(";");

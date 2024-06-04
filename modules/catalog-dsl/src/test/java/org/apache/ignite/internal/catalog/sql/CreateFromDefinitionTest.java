@@ -104,7 +104,9 @@ class CreateFromDefinitionTest {
                 is("CREATE TABLE IF NOT EXISTS builder_test"
                         + " (id int, id_str varchar, f_name varchar(20) NOT NULL DEFAULT 'a', PRIMARY KEY (id, id_str))"
                         + " COLOCATE BY (id, id_str) WITH PRIMARY_ZONE='ZONE_TEST';"
+                        + System.lineSeparator()
                         + "CREATE INDEX IF NOT EXISTS ix_id_str_f_name ON builder_test (id_str, f_name);"
+                        + System.lineSeparator()
                         + "CREATE INDEX IF NOT EXISTS ix_test ON builder_test USING SORTED (id_str asc, f_name desc nulls last);")
         );
     }

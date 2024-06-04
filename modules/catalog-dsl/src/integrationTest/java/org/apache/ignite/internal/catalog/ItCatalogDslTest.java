@@ -20,6 +20,8 @@ package org.apache.ignite.internal.catalog;
 import static org.apache.ignite.catalog.definitions.ColumnDefinition.column;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.will;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.is;
@@ -29,6 +31,7 @@ import static org.hamcrest.Matchers.nullValue;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.catalog.ColumnType;
 import org.apache.ignite.catalog.IgniteCatalog;
 import org.apache.ignite.catalog.SortOrder;
@@ -83,7 +86,9 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
                 .build();
 
         // When create zone from definition
-        catalog().createZone(zoneDefinition);
+        CompletableFuture<Void> zoneAsync = catalog().createZoneAsync(zoneDefinition);
+
+        assertThat(zoneAsync, willCompleteSuccessfully());
 
         // Then zone was created
         assertThrows(
@@ -93,7 +98,7 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
         );
 
         // When drop zone by definition
-        catalog().dropZone(zoneDefinition);
+        catalog().dropZoneAsync(zoneDefinition);
 
         // Then zone was dropped
         assertThrows(
@@ -112,7 +117,8 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
                 .build();
 
         // When create zone from definition
-        catalog().createZone(zoneDefinition);
+        CompletableFuture<Void> createZone = catalog().createZoneAsync(zoneDefinition);
+        assertThat(createZone, willCompleteSuccessfully());
 
         // Then zone was created
         assertThrows(
@@ -122,7 +128,8 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
         );
 
         // When drop zone by name
-        catalog().dropZone(ZONE_NAME);
+        CompletableFuture<Void> dropZone = catalog().dropZoneAsync(ZONE_NAME);
+        assertThat(dropZone, willCompleteSuccessfully());
 
         // Then zone was dropped
         assertThrows(
@@ -141,9 +148,8 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
                 .build();
 
         // When create table from definition
-        org.apache.ignite.table.Table table = catalog().createTable(tableDefinition);
-
-        assertThat(table, not(nullValue()));
+        CompletableFuture<org.apache.ignite.table.Table> tableFuture = catalog().createTableAsync(tableDefinition);
+        assertThat(tableFuture, will(not(nullValue())));
 
         // Then table was created
         assertThrows(
@@ -153,7 +159,7 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
         );
 
         // When drop table by definition
-        catalog().dropTable(tableDefinition);
+        catalog().dropTableAsync(tableDefinition);
 
         // Then table is dropped
         assertThrows(
@@ -172,9 +178,8 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
                 .build();
 
         // When create table from definition
-        org.apache.ignite.table.Table table = catalog().createTable(tableDefinition);
-
-        assertThat(table, not(nullValue()));
+        CompletableFuture<org.apache.ignite.table.Table> tableFuture = catalog().createTableAsync(tableDefinition);
+        assertThat(tableFuture, will(not(nullValue())));
 
         // Then table was created
         assertThrows(
@@ -184,7 +189,8 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
         );
 
         // When drop table by name
-        catalog().dropTable(POJO_KV_TABLE_NAME);
+        CompletableFuture<Void> dropTable = catalog().dropTableAsync(POJO_KV_TABLE_NAME);
+        assertThat(dropTable, willCompleteSuccessfully());
 
         // Then table is dropped
         assertThrows(
@@ -199,10 +205,11 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
     }
 
     @Test
-    void primitiveKeyKvViewFromAnnotation() {
-        org.apache.ignite.table.Table table = catalog().create(Integer.class, PojoValue.class);
+    void primitiveKeyKvViewFromAnnotation() throws Exception {
+        CompletableFuture<org.apache.ignite.table.Table> tableFuture = catalog().createTableAsync(Integer.class, PojoValue.class);
+        assertThat(tableFuture, will(not(nullValue())));
 
-        KeyValueView<Integer, PojoValue> keyValueView = table
+        KeyValueView<Integer, PojoValue> keyValueView = tableFuture.get()
                 .keyValueView(Integer.class, PojoValue.class);
 
         keyValueView.put(null, KEY, POJO_VALUE);
@@ -210,10 +217,11 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
     }
 
     @Test
-    void pojoKeyKvViewFromAnnotation() {
-        org.apache.ignite.table.Table table = catalog().create(PojoKey.class, PojoValue.class);
+    void pojoKeyKvViewFromAnnotation() throws Exception {
+        CompletableFuture<org.apache.ignite.table.Table> tableFuture = catalog().createTableAsync(PojoKey.class, PojoValue.class);
+        assertThat(tableFuture, will(not(nullValue())));
 
-        KeyValueView<PojoKey, PojoValue> keyValueView = table
+        KeyValueView<PojoKey, PojoValue> keyValueView = tableFuture.get()
                 .keyValueView(PojoKey.class, PojoValue.class);
 
         keyValueView.put(null, POJO_KEY, POJO_VALUE);
@@ -221,60 +229,65 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
     }
 
     @Test
-    void primitiveKeyKvViewFromDefinition() {
+    void primitiveKeyKvViewFromDefinition() throws Exception {
         TableDefinition definition = TableDefinition.builder(POJO_KV_TABLE_NAME)
                 .key(Integer.class)
                 .value(PojoValue.class)
                 .build();
 
-        org.apache.ignite.table.Table table = catalog().createTable(definition);
+        CompletableFuture<org.apache.ignite.table.Table> tableFuture = catalog().createTableAsync(definition);
+        assertThat(tableFuture, will(not(nullValue())));
 
-        KeyValueView<Integer, PojoValue> keyValueView = table.keyValueView(Integer.class, PojoValue.class);
+        KeyValueView<Integer, PojoValue> keyValueView = tableFuture.get().keyValueView(Integer.class, PojoValue.class);
 
         keyValueView.put(null, KEY, POJO_VALUE);
         assertThat(keyValueView.get(null, KEY), is(POJO_VALUE));
     }
 
     @Test
-    void pojoKeyKvViewFromDefinition() {
+    void pojoKeyKvViewFromDefinition() throws Exception {
         TableDefinition definition = TableDefinition.builder(POJO_KV_TABLE_NAME)
                 .key(PojoKey.class)
                 .value(PojoValue.class)
                 .build();
 
-        org.apache.ignite.table.Table table = catalog().createTable(definition);
+        CompletableFuture<org.apache.ignite.table.Table> tableFuture = catalog().createTableAsync(definition);
+        assertThat(tableFuture, will(not(nullValue())));
 
-        KeyValueView<PojoKey, PojoValue> keyValueView = table.keyValueView(PojoKey.class, PojoValue.class);
+        KeyValueView<PojoKey, PojoValue> keyValueView = tableFuture.get().keyValueView(PojoKey.class, PojoValue.class);
 
         keyValueView.put(null, POJO_KEY, POJO_VALUE);
         assertThat(keyValueView.get(null, POJO_KEY), is(POJO_VALUE));
     }
 
     @Test
-    void pojoRecordViewFromAnnotation() {
-        org.apache.ignite.table.Table table = catalog().create(Pojo.class);
+    void pojoRecordViewFromAnnotation() throws Exception {
+        CompletableFuture<org.apache.ignite.table.Table> tableFuture = catalog().createTableAsync(Pojo.class);
+        assertThat(tableFuture, will(not(nullValue())));
 
-        RecordView<Pojo> recordView = table.recordView(Pojo.class);
+        RecordView<Pojo> recordView = tableFuture.get().recordView(Pojo.class);
 
         assertThat(recordView.insert(null, POJO_RECORD), is(true));
         assertThat(recordView.get(null, POJO_RECORD), is(POJO_RECORD));
     }
 
     @Test
-    void pojoRecordViewFromDefinition() {
+    void pojoRecordViewFromDefinition() throws Exception {
         TableDefinition definition = TableDefinition.builder(POJO_RECORD_TABLE_NAME).record(Pojo.class).build();
 
-        org.apache.ignite.table.Table table = catalog().createTable(definition);
+        CompletableFuture<org.apache.ignite.table.Table> tableFuture = catalog().createTableAsync(definition);
+        assertThat(tableFuture, will(not(nullValue())));
 
-        RecordView<Pojo> recordView = table.recordView(Pojo.class);
+        RecordView<Pojo> recordView = tableFuture.get().recordView(Pojo.class);
 
         assertThat(recordView.insert(null, POJO_RECORD), is(true));
         assertThat(recordView.get(null, POJO_RECORD), is(POJO_RECORD));
     }
 
     @Test
-    void createFromAnnotationAndInsertBySql() {
-        org.apache.ignite.table.Table table = catalog().create(Pojo.class);
+    void createFromAnnotationAndInsertBySql() throws Exception {
+        CompletableFuture<org.apache.ignite.table.Table> tableFuture = catalog().createTableAsync(Pojo.class);
+        assertThat(tableFuture, will(not(nullValue())));
 
         sql("insert into " + POJO_RECORD_TABLE_NAME + " (id, id_str, f_name, l_name, str) values (1, '1', 'f', 'l', 's')");
         List<List<Object>> rows = sql("select * from " + POJO_RECORD_TABLE_NAME);
@@ -282,7 +295,7 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
         assertThat(rows, contains(List.of(1, "1", "f", "l", "s")));
 
         Pojo pojo = new Pojo(1, "1", "f", "l", "s");
-        assertThat(table.recordView(Pojo.class).get(null, pojo), is(pojo));
+        assertThat(tableFuture.get().recordView(Pojo.class).get(null, pojo), is(pojo));
     }
 
     private static IgniteCatalog catalog() {

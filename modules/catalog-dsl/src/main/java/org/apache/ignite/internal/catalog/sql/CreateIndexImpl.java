@@ -91,13 +91,11 @@ class CreateIndexImpl extends AbstractCatalogQuery<Name> {
             ctx.sql(" USING ").sql(indexType.name());
         }
 
-        ctx.sqlIndentStart(" (");
+        ctx.sql(" (");
         if (!columns.isEmpty()) {
-            ctx.visit(partsList(columns).formatSeparator());
+            ctx.visit(partsList(columns));
         }
 
-        ctx.sqlIndentEnd(")");
-
-        ctx.sql(";");
+        ctx.sql(");");
     }
 }

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.catalog.sql;
 
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.catalog.IgniteCatalog;
 import org.apache.ignite.catalog.definitions.TableDefinition;
 import org.apache.ignite.catalog.definitions.ZoneDefinition;
@@ -38,45 +39,70 @@ public class IgniteCatalogSqlImpl implements IgniteCatalog {
     }
 
     @Override
-    public Table create(Class<?> keyClass, Class<?> valueClass) {
-        TableZoneId tableZoneId = new CreateFromAnnotationsImpl(sql).processKeyValueClasses(keyClass, valueClass).execute();
-        return tables.table(tableZoneId.tableName());
+    public CompletableFuture<Table> createTableAsync(Class<?> keyClass, Class<?> valueClass) {
+        return new CreateFromAnnotationsImpl(sql)
+                .processKeyValueClasses(keyClass, valueClass)
+                .executeAsync()
+                .thenCompose(tableZoneId -> tables.tableAsync(tableZoneId.tableName()));
     }
 
     @Override
-    public Table create(Class<?> recordClass) {
-        TableZoneId tableZoneId = new CreateFromAnnotationsImpl(sql).processRecordClass(recordClass).execute();
-        return tables.table(tableZoneId.tableName());
+    public CompletableFuture<Table> createTableAsync(Class<?> recordClass) {
+        return new CreateFromAnnotationsImpl(sql)
+                .processRecordClass(recordClass)
+                .executeAsync()
+                .thenCompose(tableZoneId -> tables.tableAsync(tableZoneId.tableName()));
     }
 
     @Override
-    public Table createTable(TableDefinition definition) {
-        TableZoneId tableZoneId = new CreateFromDefinitionImpl(sql).from(definition).execute();
-        return tables.table(tableZoneId.tableName());
+    public CompletableFuture<Table> createTableAsync(TableDefinition definition) {
+        return new CreateFromDefinitionImpl(sql)
+                .from(definition)
+                .executeAsync()
+                .thenCompose(tableZoneId -> tables.tableAsync(tableZoneId.tableName()));
     }
 
     @Override
-    public void createZone(ZoneDefinition definition) {
-        new CreateFromDefinitionImpl(sql).from(definition);
+    public CompletableFuture<Void> createZoneAsync(ZoneDefinition definition) {
+        return new CreateFromDefinitionImpl(sql)
+                .from(definition)
+                .executeAsync()
+                .thenRun(() -> {});
     }
 
     @Override
-    public void dropTable(TableDefinition definition) {
-        new DropTableImpl(sql).name(definition.schemaName(), definition.tableName()).ifExists();
+    public CompletableFuture<Void> dropTableAsync(TableDefinition definition) {
+        return new DropTableImpl(sql)
+                .name(definition.schemaName(), definition.tableName())
+                .ifExists()
+                .executeAsync()
+                .thenRun(() -> {});
     }
 
     @Override
-    public void dropTable(String name) {
-        new DropTableImpl(sql).name(name).ifExists();
+    public CompletableFuture<Void> dropTableAsync(String name) {
+        return new DropTableImpl(sql)
+                .name(name)
+                .ifExists()
+                .executeAsync()
+                .thenRun(() -> {});
     }
 
     @Override
-    public void dropZone(ZoneDefinition definition) {
-        new DropZoneImpl(sql).name(definition.zoneName()).ifExists();
+    public CompletableFuture<Void> dropZoneAsync(ZoneDefinition definition) {
+        return new DropZoneImpl(sql)
+                .name(definition.zoneName())
+                .ifExists()
+                .executeAsync()
+                .thenRun(() -> {});
     }
 
     @Override
-    public void dropZone(String name) {
-        new DropZoneImpl(sql).name(name).ifExists();
+    public CompletableFuture<Void> dropZoneAsync(String name) {
+        return new DropZoneImpl(sql)
+                .name(name)
+                .ifExists()
+                .executeAsync()
+                .thenRun(() -> {});
     }
 }

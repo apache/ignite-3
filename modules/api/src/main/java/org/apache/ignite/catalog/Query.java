@@ -17,6 +17,8 @@
 
 package org.apache.ignite.catalog;
 
+import java.util.concurrent.CompletableFuture;
+
 /**
  * Represents the query generated from the definition or annotation. Can be executed directly or converted to the string representation.
  */
@@ -24,5 +26,5 @@ public interface Query<T> {
     /**
      * Executes the query.
      */
-    T execute();
+    CompletableFuture<T> executeAsync();
 }

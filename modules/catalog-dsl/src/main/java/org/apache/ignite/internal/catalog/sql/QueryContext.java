@@ -69,9 +69,7 @@ class QueryContext {
     }
 
     QueryContext formatSeparator() {
-        if (!newline) {
-            newline = true;
-        }
+        newline = true;
         return this;
     }
 
@@ -85,17 +83,7 @@ class QueryContext {
 
     private QueryContext sqlIndentStart() {
         indent += INDENT;
-        newline = true;
         return this;
-    }
-
-    QueryContext sqlIndentEnd(String s) {
-        return sqlIndentEnd().sql(s);
-    }
-
-    private QueryContext sqlIndentEnd() {
-        indent -= INDENT;
-        return this.formatSeparator();
     }
 
     private String indentation() {
@@ -105,7 +93,6 @@ class QueryContext {
     private void applyNewLine() {
         if (newline) {
             sql.append(System.lineSeparator());
-            sql.append(indentation());
         }
     }
 

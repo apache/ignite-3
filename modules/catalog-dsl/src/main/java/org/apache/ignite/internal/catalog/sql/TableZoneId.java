@@ -23,18 +23,16 @@ import org.jetbrains.annotations.Nullable;
  * Composite class for table and zone names.
  */
 public class TableZoneId {
-    @Nullable
     private final String tableName;
 
     @Nullable
     private final String zoneName;
 
-    public TableZoneId(@Nullable String tableName, @Nullable String zoneName) {
+    public TableZoneId(String tableName, @Nullable String zoneName) {
         this.tableName = tableName;
         this.zoneName = zoneName;
     }
 
-    @Nullable
     public String tableName() {
         return tableName;
     }

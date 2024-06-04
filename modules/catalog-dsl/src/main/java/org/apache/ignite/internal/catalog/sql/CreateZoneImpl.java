@@ -125,8 +125,8 @@ class CreateZoneImpl extends AbstractCatalogQuery<Name> {
         ctx.visit(zoneName);
 
         if (!withOptions.isEmpty()) {
-            ctx.sql(" ").formatSeparator().sql("WITH ");
-            ctx.visit(partsList(withOptions).formatSeparator());
+            ctx.sql(" ").sql("WITH ");
+            ctx.visit(partsList(withOptions));
         }
 
         ctx.sql(";");
