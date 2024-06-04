@@ -68,7 +68,8 @@ import org.junit.jupiter.api.Test;
 /**
  * Tests server tuple builder implementation.
  *
- * <p>The class contains implementation-specific tests. Tuple interface contract conformance/violation tests are inherited from the base class.
+ * <p>The class contains implementation-specific tests. Tuple interface contract conformance/violation tests are inherited from the base
+ * class.
  */
 public class MutableRowTupleAdapterTest extends AbstractMutableTupleTest {
     /** Schema descriptor for default test tuple. */
@@ -267,16 +268,16 @@ public class MutableRowTupleAdapterTest extends AbstractMutableTupleTest {
 
     @Test
     public void testTupleEqualityCompatibility() {
-        var clientTuple = getTupleWithColumnOfAllTypes();
-        var tuple = Tuple.create();
+        var tuple = getTupleWithColumnOfAllTypes();
+        var referenceTuple = Tuple.create();
 
-        for (int i = 0; i < clientTuple.columnCount(); i++) {
-            tuple.set(clientTuple.columnName(i), clientTuple.value(i));
+        for (int i = 0; i < tuple.columnCount(); i++) {
+            referenceTuple.set(tuple.columnName(i), tuple.value(i));
         }
 
-        assertEquals(clientTuple, tuple);
-        assertEquals(tuple, clientTuple);
-        assertEquals(clientTuple.hashCode(), tuple.hashCode());
+        assertEquals(tuple, referenceTuple);
+        assertEquals(referenceTuple, tuple);
+        assertEquals(tuple.hashCode(), referenceTuple.hashCode());
     }
 
     @Test
@@ -477,7 +478,8 @@ public class MutableRowTupleAdapterTest extends AbstractMutableTupleTest {
             }
 
             if (columnType == ColumnType.PERIOD || columnType == ColumnType.DURATION) {
-                continue; //TODO https://issues.apache.org/jira/browse/IGNITE-15200: Not supported yet.
+                // TODO https://issues.apache.org/jira/browse/IGNITE-15200: Not supported yet.
+                continue;
             }
 
             assertTrue(schemaTypes.contains(columnType), "Schema does not contain " + columnType);

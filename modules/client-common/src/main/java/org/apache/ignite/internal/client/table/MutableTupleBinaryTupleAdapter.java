@@ -26,6 +26,7 @@ import java.util.Objects;
 import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.BinaryTupleContainer;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
+import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
@@ -482,7 +483,7 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
     private String schemaColumnName0(int publicIndex) {
         Objects.checkIndex(publicIndex, columnCount);
 
-        return "\"" + schemaColumnName(binaryTupleIndex(publicIndex)) + "\"";
+        return IgniteNameUtils.quoteIfNeeded(schemaColumnName(binaryTupleIndex(publicIndex)));
     }
 
     private @Nullable Object object(int binaryTupleIndex) {

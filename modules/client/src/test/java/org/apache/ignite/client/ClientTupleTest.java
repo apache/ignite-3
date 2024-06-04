@@ -46,6 +46,9 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Tests client tuple builder implementation.
+ *
+ * <p>The class contains implementation-specific tests. Tuple interface contract conformance/violation tests are inherited from the base
+ * class.
  */
 public class ClientTupleTest extends AbstractMutableTupleTest {
     private static final ReflectionMarshallersProvider marshallers = new ReflectionMarshallersProvider();
@@ -99,13 +102,13 @@ public class ClientTupleTest extends AbstractMutableTupleTest {
 
     @Test
     public void testColumnNameReturnsNameByIndexKeyOnly() {
-        assertEquals("\"I32\"", createTuplePart(TuplePart.KEY, false).columnName(0));
+        assertEquals("I32", createTuplePart(TuplePart.KEY, false).columnName(0));
         assertEquals("\"i64\"", createTuplePart(TuplePart.KEY, false).columnName(1));
     }
 
     @Test
     public void testColumnNameReturnsNameByIndexValOnly() {
-        assertEquals("\"I8\"", createTuplePart(TuplePart.VAL, false).columnName(0));
+        assertEquals("I8", createTuplePart(TuplePart.VAL, false).columnName(0));
         assertEquals("\"i16\"", createTuplePart(TuplePart.VAL, false).columnName(1));
     }
 

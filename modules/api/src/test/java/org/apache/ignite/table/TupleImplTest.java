@@ -25,8 +25,11 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Tests server tuple builder implementation.
+ *
+ * <p>The class contains implementation-specific tests. Tuple interface contract conformance/violation tests are inherited from the base
+ * class.
  */
-public class TupleImplTest extends AbstractImmutableTupleTest {
+public class TupleImplTest extends AbstractMutableTupleTest {
     @Override
     protected Tuple createTuple(Function<Tuple, Tuple> transformer) {
         return transformer.apply(new TupleImpl());

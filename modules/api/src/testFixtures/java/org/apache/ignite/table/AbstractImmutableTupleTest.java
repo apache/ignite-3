@@ -194,10 +194,10 @@ public abstract class AbstractImmutableTupleTest {
     /** For non-quoted name, any of then next will be valid: non-quoted string in uppercase or quoted string in uppercase. */
     @Test
     public void testColumnNameReturnsNameByIndex() {
-        assertEquals("\"ID\"", getTuple().columnName(0));
-        assertEquals("\"SIMPLENAME\"", getTuple().columnName(1));
+        assertEquals("ID", getTuple().columnName(0));
+        assertEquals("SIMPLENAME", getTuple().columnName(1));
         assertEquals("\"QuotedName\"", getTuple().columnName(2));
-        assertEquals("\"NOVALUE\"", getTuple().columnName(3));
+        assertEquals("NOVALUE", getTuple().columnName(3));
     }
 
     @Test
