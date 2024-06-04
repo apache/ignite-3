@@ -979,17 +979,17 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 MvTableStorage mvTableStorage = internalTable.storage();
 
                 try {
-                    return replicaMgr.startReplica(
+                    var ret = replicaMgr.startReplica(
                             raftGroupEventsListener,
                             raftGroupListener,
                             mvTableStorage.isVolatile(),
                             snapshotStorageFactory,
                             updateTableRaftService,
                             createListener,
-                            zoneId,
                             storageIndexTracker,
                             replicaGrpId,
                             newConfiguration);
+                    return ret;
                 } catch (NodeStoppingException e) {
                     throw new AssertionError("Loza was stopped before Table manager", e);
                 }

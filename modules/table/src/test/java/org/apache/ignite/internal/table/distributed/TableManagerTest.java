@@ -43,6 +43,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.atMost;
@@ -277,8 +278,8 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         when(distributionZoneManager.dataNodes(anyLong(), anyInt(), anyInt())).thenReturn(emptySetCompletedFuture());
 
-        when(replicaMgr.startReplica(any(), any(), any(), any(), any(), any()))
-                .thenReturn(nullCompletedFuture());
+        when(replicaMgr.startReplica(any(), any(), anyBoolean(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(trueCompletedFuture());
         // TODO: will be removed after https://issues.apache.org/jira/browse/IGNITE-22315
         when(replicaMgr.startRaftClient(any(), any(), any()))
                 .thenReturn(completedFuture(mock(TopologyAwareRaftGroupService.class)));

@@ -529,7 +529,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      *      TODO: https://issues.apache.org/jira/browse/IGNITE-22218.
      * @param createListener Due to creation of ReplicaListener in TableManager, the function returns desired listener by created
      *      raft-client inside {@link #startReplica} method.
-     * @param zoneId Distribution zone ID.
      * @param replicaGrpId Replication group id.
      * @param storageIndexTracker Storage index tracker.
      * @param newConfiguration A configuration for new raft group.
@@ -542,7 +541,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             SnapshotStorageFactory snapshotStorageFactory,
             Consumer<RaftGroupService> updateTableRaftService,
             Function<RaftGroupService, ReplicaListener> createListener,
-            int zoneId,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker,
             TablePartitionId replicaGrpId,
             PeersAndLearners newConfiguration
