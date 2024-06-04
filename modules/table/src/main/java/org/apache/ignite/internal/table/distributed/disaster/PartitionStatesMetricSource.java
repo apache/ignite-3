@@ -17,20 +17,18 @@
 
 package org.apache.ignite.internal.table.distributed.disaster;
 
-import static org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager.convertState;
 import static org.apache.ignite.internal.table.distributed.disaster.LocalPartitionStateEnum.BROKEN;
 import static org.apache.ignite.internal.table.distributed.disaster.LocalPartitionStateEnum.HEALTHY;
 import static org.apache.ignite.internal.table.distributed.disaster.LocalPartitionStateEnum.INITIALIZING;
 import static org.apache.ignite.internal.table.distributed.disaster.LocalPartitionStateEnum.INSTALLING_SNAPSHOT;
 import static org.apache.ignite.internal.table.distributed.disaster.LocalPartitionStateEnum.UNAVAILABLE;
+import static org.apache.ignite.internal.table.distributed.disaster.LocalPartitionStateEnumWithLogIndex.of;
 
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.metrics.MetricSet;
 import org.apache.ignite.internal.metrics.MetricSetBuilder;
 import org.apache.ignite.internal.metrics.MetricSource;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.raft.jraft.Node;
-import org.apache.ignite.raft.jraft.RaftGroupService;
 import org.jetbrains.annotations.Nullable;
 
 /** Source of metrics for table partition statuses. */
@@ -118,9 +116,9 @@ class PartitionStatesMetricSource implements MetricSource {
                 var tablePartitionId = (TablePartitionId) raftNodeId.groupId();
 
                 if (tablePartitionId.tableId() == tableId) {
-                    LocalPartitionStateEnum partitionState = localPartitionState(raftGroupService);
+                    LocalPartitionStateEnumWithLogIndex localPartitionStateWithLogIndex = of(raftGroupService.getRaftNode());
 
-                    if (partitionState == state) {
+                    if (localPartitionStateWithLogIndex.state == state) {
                         count[0]++;
                     }
                 }
@@ -128,25 +126,5 @@ class PartitionStatesMetricSource implements MetricSource {
         });
 
         return count[0];
-    }
-
-    private static LocalPartitionStateEnum localPartitionState(RaftGroupService raftGroupService) {
-        Node raftNode = raftGroupService.getRaftNode();
-
-        LocalPartitionStateEnum localState = convertState(raftNode.getNodeState());
-        long lastLogIndex = raftNode.lastLogIndex();
-
-        if (localState == HEALTHY) {
-            // Node without log didn't process anything yet, it's not really "healthy" before it accepts leader's configuration.
-            if (lastLogIndex == 0) {
-                localState = INITIALIZING;
-            }
-
-            if (raftNode.isInstallingSnapshot()) {
-                localState = INSTALLING_SNAPSHOT;
-            }
-        }
-
-        return localState;
     }
 }

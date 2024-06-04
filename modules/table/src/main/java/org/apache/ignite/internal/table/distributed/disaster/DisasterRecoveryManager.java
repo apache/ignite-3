@@ -32,12 +32,9 @@ import static org.apache.ignite.internal.table.distributed.disaster.DisasterReco
 import static org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionStateEnum.AVAILABLE;
 import static org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionStateEnum.DEGRADED;
 import static org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionStateEnum.READ_ONLY;
-import static org.apache.ignite.internal.table.distributed.disaster.LocalPartitionStateEnum.BROKEN;
 import static org.apache.ignite.internal.table.distributed.disaster.LocalPartitionStateEnum.CATCHING_UP;
 import static org.apache.ignite.internal.table.distributed.disaster.LocalPartitionStateEnum.HEALTHY;
-import static org.apache.ignite.internal.table.distributed.disaster.LocalPartitionStateEnum.INITIALIZING;
-import static org.apache.ignite.internal.table.distributed.disaster.LocalPartitionStateEnum.INSTALLING_SNAPSHOT;
-import static org.apache.ignite.internal.table.distributed.disaster.LocalPartitionStateEnum.UNAVAILABLE;
+import static org.apache.ignite.internal.table.distributed.disaster.LocalPartitionStateEnumWithLogIndex.of;
 import static org.apache.ignite.internal.util.CompletableFutures.copyStateTo;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.DisasterRecovery.PARTITION_STATE_ERR;
@@ -96,8 +93,6 @@ import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.TopologyService;
-import org.apache.ignite.raft.jraft.Node;
-import org.apache.ignite.raft.jraft.core.State;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -556,35 +551,19 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
                     CatalogTableDescriptor tableDescriptor = catalogManager.table(tablePartitionId.tableId(), catalogVersion);
                     // Only tables that belong to a specific catalog version will be returned.
-                    if (tableDescriptor == null || !containsOrEmpty(tableDescriptor.zoneId(), request.zoneIds())
-                    ) {
+                    if (tableDescriptor == null || !containsOrEmpty(tableDescriptor.zoneId(), request.zoneIds())) {
                         return;
                     }
 
-                    Node raftNode = raftGroupService.getRaftNode();
-                    State nodeState = raftNode.getNodeState();
-
-                    LocalPartitionStateEnum localState = convertState(nodeState);
-                    long lastLogIndex = raftNode.lastLogIndex();
-
-                    if (localState == HEALTHY) {
-                        // Node without log didn't process anything yet, it's not really "healthy" before it accepts leader's configuration.
-                        if (lastLogIndex == 0) {
-                            localState = INITIALIZING;
-                        }
-
-                        if (raftNode.isInstallingSnapshot()) {
-                            localState = INSTALLING_SNAPSHOT;
-                        }
-                    }
+                    LocalPartitionStateEnumWithLogIndex localPartitionStateWithLogIndex = of(raftGroupService.getRaftNode());
 
                     statesList.add(MSG_FACTORY.localPartitionStateMessage()
                             .partitionId(MSG_FACTORY.tablePartitionIdMessage()
                                     .tableId(tablePartitionId.tableId())
                                     .partitionId(tablePartitionId.partitionId())
                                     .build())
-                            .state(localState)
-                            .logIndex(lastLogIndex)
+                            .state(localPartitionStateWithLogIndex.state)
+                            .logIndex(localPartitionStateWithLogIndex.logIndex)
                             .build()
                     );
                 }
@@ -598,32 +577,6 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
     private static <T> boolean containsOrEmpty(T item, Collection<T> collection) {
         return collection.isEmpty() || collection.contains(item);
-    }
-
-    /** Converts internal raft node state into public local partition state. */
-    static LocalPartitionStateEnum convertState(State nodeState) {
-        switch (nodeState) {
-            case STATE_LEADER:
-            case STATE_TRANSFERRING:
-            case STATE_CANDIDATE:
-            case STATE_FOLLOWER:
-                return HEALTHY;
-
-            case STATE_ERROR:
-                return BROKEN;
-
-            case STATE_UNINITIALIZED:
-                return INITIALIZING;
-
-            case STATE_SHUTTING:
-            case STATE_SHUTDOWN:
-            case STATE_END:
-                return UNAVAILABLE;
-
-            default:
-                // Unrecognized state, better safe than sorry.
-                return BROKEN;
-        }
     }
 
     /**
