@@ -24,7 +24,6 @@ import java.util.Map;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.tracing.TraceSpan;
-import org.apache.ignite.internal.tracing.configuration.TracingConfiguration;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.BeforeAll;
@@ -74,7 +73,7 @@ public class KvOperationTest extends ClusterPerClassIntegrationTest {
     void kvGetWithTracing() throws Exception {
         IgniteImpl ignite = CLUSTER.aliveNode();
 
-//        ignite.clusterConfiguration().getConfiguration(TracingConfiguration.KEY).change(change -> change.changeRatio(1.0d)).get();
+        // ignite.clusterConfiguration().getConfiguration(TracingConfiguration.KEY).change(change -> change.changeRatio(1.0d)).get();
 
         KeyValueView<Tuple, Tuple> keyValueView = ignite.tables().table(DEFAULT_TABLE_NAME).keyValueView();
 

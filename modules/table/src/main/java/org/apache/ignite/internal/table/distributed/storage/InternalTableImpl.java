@@ -27,9 +27,9 @@ import static org.apache.ignite.internal.table.distributed.replicator.action.Req
 import static org.apache.ignite.internal.table.distributed.replicator.action.RequestType.RW_GET;
 import static org.apache.ignite.internal.table.distributed.replicator.action.RequestType.RW_GET_ALL;
 import static org.apache.ignite.internal.table.distributed.storage.RowBatch.allResultFutures;
-import static org.apache.ignite.internal.util.CompletableFutures.completedOrFailedFuture;
 import static org.apache.ignite.internal.tracing.TracingManager.asyncSpan;
 import static org.apache.ignite.internal.tracing.TracingManager.span;
+import static org.apache.ignite.internal.util.CompletableFutures.completedOrFailedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.matchAny;
@@ -450,15 +450,15 @@ public class InternalTableImpl implements InternalTable {
                     assert !implicit;
 
                     fut = trackingInvoke(actualTx, partitionId, enlistmentConsistencyToken ->
-                                fac.apply(rowBatch.requestedRows, actualTx, partGroupId, enlistmentConsistencyToken, false),
-                        false,
-                        primaryReplicaAndConsistencyToken, noOpChecker, attemptsObtainLock);
+                                    fac.apply(rowBatch.requestedRows, actualTx, partGroupId, enlistmentConsistencyToken, false),
+                            false,
+                            primaryReplicaAndConsistencyToken, noOpChecker, attemptsObtainLock);
                 } else {
                     fut = enlistAndInvoke(
                             actualTx,
                             partitionId,
                             enlistmentConsistencyToken ->
-                                fac.apply(rowBatch.requestedRows, actualTx, partGroupId, enlistmentConsistencyToken, full),
+                                    fac.apply(rowBatch.requestedRows, actualTx, partGroupId, enlistmentConsistencyToken, full),
                             full,
                             noOpChecker
 
@@ -782,7 +782,6 @@ public class InternalTableImpl implements InternalTable {
             return postEvaluate(fut, tx);
         }
     }
-}
 
     /**
      * Evaluates the multi-row request to the cluster for a read-only single-partition transaction.
@@ -853,7 +852,7 @@ public class InternalTableImpl implements InternalTable {
                                 }); // Preserve failed state.
                     }
 
-                    return tx.finish(true, clock.now()).thenApply(ignored -> r)
+                    return tx.finish(true, clock.now()).thenApply(ignored -> r);
                 })
         ).thenCompose(identity());
     }
@@ -1981,18 +1980,18 @@ public class InternalTableImpl implements InternalTable {
     private CompletableFuture<ReplicaMeta> partitionMeta(ReplicationGroupId tablePartitionId) {
         HybridTimestamp now = clock.now();
 
-            CompletableFuture<ReplicaMeta> primaryReplicaFuture = placementDriver.awaitPrimaryReplica(
-                    tablePartitionId,
-                    now,
-                    AWAIT_PRIMARY_REPLICA_TIMEOUT,
-                    SECONDS
-            );
+        CompletableFuture<ReplicaMeta> primaryReplicaFuture = placementDriver.awaitPrimaryReplica(
+                tablePartitionId,
+                now,
+                AWAIT_PRIMARY_REPLICA_TIMEOUT,
+                SECONDS
+        );
 
-            return primaryReplicaFuture.handle((primaryReplica, e) -> {
-                if (e != null) {
-                    throw withCause(TransactionException::new, REPLICA_UNAVAILABLE_ERR, "Failed to get the primary replica"
-                            + " [tablePartitionId=" + tablePartitionId + ", awaitTimestamp=" + now + ']', e);
-                }
+        return primaryReplicaFuture.handle((primaryReplica, e) -> {
+            if (e != null) {
+                throw withCause(TransactionException::new, REPLICA_UNAVAILABLE_ERR, "Failed to get the primary replica"
+                        + " [tablePartitionId=" + tablePartitionId + ", awaitTimestamp=" + now + ']', e);
+            }
 
             return primaryReplica;
         });
@@ -2001,10 +2000,10 @@ public class InternalTableImpl implements InternalTable {
     private ClusterNode getClusterNode(@Nullable String leaserHolder) {
         ClusterNode node = clusterNodeResolver.getByConsistentId(leaserHolder);
 
-            if (node == null) {
-                throw new TransactionException(REPLICA_UNAVAILABLE_ERR, "Failed to resolve the primary replica node [consistentId="
-                        + primaryReplica.getLeaseholder() + ']');
-            }
+        if (node == null) {
+            throw new TransactionException(REPLICA_UNAVAILABLE_ERR, "Failed to resolve the primary replica node [consistentId="
+                    + leaserHolder + ']');
+        }
 
         return node;
     }

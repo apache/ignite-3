@@ -17,9 +17,8 @@
 
 package org.apache.ignite.internal.benchmark;
 
-import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
-
 import static org.apache.ignite.internal.tracing.TracingManager.rootSpan;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
 import java.io.IOException;
 import java.sql.Connection;
