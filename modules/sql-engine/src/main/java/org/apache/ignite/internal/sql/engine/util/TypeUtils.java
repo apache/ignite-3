@@ -66,6 +66,7 @@ import org.apache.ignite.internal.sql.engine.exec.row.TypeSpec;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomTypeCoercionRules;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.internal.type.BitmaskNativeType;
 import org.apache.ignite.internal.type.DecimalNativeType;
@@ -373,6 +374,17 @@ public class TypeUtils {
                 return ColumnType.NULL;
             default:
                 throw new IllegalArgumentException("Unexpected type: " + type.getSqlTypeName());
+        }
+    }
+
+
+    /** Returns precision for the given type. */
+    public static int columnPrecision(RelDataType type) {
+        // REAL has the same precision as FLOAT.
+        if (type.getSqlTypeName() == SqlTypeName.REAL) {
+            return IgniteTypeSystem.INSTANCE.getDefaultPrecision(SqlTypeName.FLOAT);
+        } else {
+            return type.getPrecision();
         }
     }
 

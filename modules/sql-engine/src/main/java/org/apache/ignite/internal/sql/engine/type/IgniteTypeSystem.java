@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.type;
 
-import java.io.Serializable;
 import java.math.BigDecimal;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
@@ -29,7 +28,7 @@ import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 /**
  * Ignite type system.
  */
-public class IgniteTypeSystem extends RelDataTypeSystemImpl implements Serializable {
+public class IgniteTypeSystem extends RelDataTypeSystemImpl {
     public static final IgniteTypeSystem INSTANCE = new IgniteTypeSystem();
 
     /** {@inheritDoc} */
@@ -66,10 +65,12 @@ public class IgniteTypeSystem extends RelDataTypeSystemImpl implements Serializa
             case TIMESTAMP_WITH_LOCAL_TIME_ZONE: // TIMESTAMP
                 // SQL`16 part 2 section 6.1 syntax rule 36
                 return 6;
+            // FLOAT is an alias for REAL, When choosing between a real and a float, let's always choose a real.
+            // getDefaultPrecision for types that do not have precision only affects results of TypeFactory::leastRestrictive
+            case REAL:
+                return 8;
             case FLOAT:
-                // TODO: https://issues.apache.org/jira/browse/IGNITE-18556
-                // Fixes leastRestrictive(FLOAT, DOUBLE) != leastRestrictive(DOUBLE, FLOAT).
-                return super.getDefaultPrecision(typeName) - 1;
+                return 7;
             default:
                 return super.getDefaultPrecision(typeName);
         }
