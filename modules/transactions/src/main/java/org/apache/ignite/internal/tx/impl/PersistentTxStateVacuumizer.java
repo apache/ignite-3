@@ -17,17 +17,20 @@
 
 package org.apache.ignite.internal.tx.impl;
 
+import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.util.CompletableFutures.allOf;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -39,6 +42,7 @@ import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissExcepti
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.message.VacuumTxStateReplicaRequest;
 import org.apache.ignite.network.ClusterNode;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Implements the logic of persistent tx states vacuum.
@@ -79,12 +83,13 @@ public class PersistentTxStateVacuumizer {
     /**
      * Vacuum persistent tx states.
      *
-     * @param txIds Transaction ids to vacuum; map of commit partition ids to sets of tx ids.
-     * @return A future, result is the set of successfully vacuumized txn states.
+     * @param txIds Transaction ids to vacuum; map of commit partition ids to sets of {@link VacuumizableTx}.
+     * @return A future, result is the set of successfully processed txn states and count of persistent states that were vacuumized.
      */
-    public CompletableFuture<Set<UUID>> vacuumPersistentTxStates(Map<TablePartitionId, Set<UUID>> txIds) {
+    public CompletableFuture<PersistentTxStateVacuumResult> vacuumPersistentTxStates(Map<TablePartitionId, Set<VacuumizableTx>> txIds) {
         Set<UUID> successful = ConcurrentHashMap.newKeySet();
         List<CompletableFuture<?>> futures = new ArrayList<>();
+        AtomicInteger vacuumizedPersistentTxnStatesCount = new AtomicInteger();
         HybridTimestamp now = clockService.now();
 
         txIds.forEach((commitPartitionId, txs) -> {
@@ -95,15 +100,29 @@ public class PersistentTxStateVacuumizer {
                         // timestamp) would be updated there, and then this operation would be called from there.
                         // Also, we are going to send the vacuum request only to the local node.
                         if (replicaMeta != null && localNode.id().equals(replicaMeta.getLeaseholderId())) {
+                            // Filter txns to define those which persistent states can be vacuumized.
+                            Set<UUID> filteredTxIds = new HashSet<>();
+
+                            for (VacuumizableTx v : txs) {
+                                if (v.cleanupCompletionTimestamp == null) {
+                                    // If there is no cleanup completion timestamp, add the tx id to successful set to remove the
+                                    // volatile state. Persistent state should be preserved until tx cleanup is complete.
+                                    successful.add(v.txId);
+                                } else {
+                                    filteredTxIds.add(v.txId);
+                                }
+                            }
+
                             VacuumTxStateReplicaRequest request = TX_MESSAGES_FACTORY.vacuumTxStateReplicaRequest()
                                     .enlistmentConsistencyToken(replicaMeta.getStartTime().longValue())
                                     .groupId(commitPartitionId)
-                                    .transactionIds(txs)
+                                    .transactionIds(filteredTxIds)
                                     .build();
 
                             return replicaService.invoke(localNode, request).whenComplete((v, e) -> {
                                 if (e == null) {
-                                    successful.addAll(txs);
+                                    successful.addAll(filteredTxIds);
+                                    vacuumizedPersistentTxnStatesCount.addAndGet(filteredTxIds.size());
                                     // We can log the exceptions without further handling because failed requests' txns are not added
                                     // to the set of successful and will be retried. PrimaryReplicaMissException can be considered as
                                     // a part of regular flow and doesn't need to be logged.
@@ -114,7 +133,7 @@ public class PersistentTxStateVacuumizer {
                                 }
                             });
                         } else {
-                            successful.addAll(txs);
+                            successful.addAll(txs.stream().map(v -> v.txId).collect(toSet()));
 
                             return nullCompletedFuture();
                         }
@@ -124,6 +143,36 @@ public class PersistentTxStateVacuumizer {
         });
 
         return allOf(futures.toArray(new CompletableFuture[0]))
-                .handle((unused, unusedEx) -> successful);
+                .handle((unused, unusedEx) -> new PersistentTxStateVacuumResult(successful, vacuumizedPersistentTxnStatesCount.get()));
+    }
+
+    /**
+     * Class representing the vaccumizable tx context, actually a pair of the tx id and the cleanup completion timestamp.
+     */
+    public static class VacuumizableTx {
+        final UUID txId;
+
+        @Nullable
+        final Long cleanupCompletionTimestamp;
+
+        VacuumizableTx(UUID txId, @Nullable Long cleanupCompletionTimestamp) {
+            this.txId = txId;
+            this.cleanupCompletionTimestamp = cleanupCompletionTimestamp;
+        }
+    }
+
+    /**
+     * Result of the persistent tx state vacuum operation.
+     */
+    public static class PersistentTxStateVacuumResult {
+        /** Transaction IDs that are processed by the persistent vacuumizer and can be removed from volatile storage. */
+        final Set<UUID> txnsToVacuum;
+
+        final int vacuumizedPersistentTxnStatesCount;
+
+        public PersistentTxStateVacuumResult(Set<UUID> txnsToVacuum, int vacuumizedPersistentTxnStatesCount) {
+            this.txnsToVacuum = txnsToVacuum;
+            this.vacuumizedPersistentTxnStatesCount = vacuumizedPersistentTxnStatesCount;
+        }
     }
 }

@@ -131,6 +131,9 @@ namespace Apache.Ignite.Internal.Proto
         ComputeChangePriority = 61,
 
         /** Send streamer batch. */
-        StreamerBatchSend = 62
+        StreamerBatchSend = 62,
+
+        /** Send streamer batch with receiver. */
+        StreamerWithReceiverBatchSend = 66
     }
 }

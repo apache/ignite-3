@@ -72,8 +72,6 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
 
     @Test
     public void testNullValuesMetaData() throws Exception {
-        Statement stmt = DriverManager.getConnection(URL).createStatement();
-
         ResultSet rs = stmt.executeQuery(
                 "select NULL, substring(null, 1, 2)");
 
@@ -96,8 +94,6 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
 
     @Test
     public void testResultSetMetaData() throws Exception {
-        Statement stmt = DriverManager.getConnection(URL).createStatement();
-
         ResultSet rs = stmt.executeQuery(
                 "select p.name, o.id as orgId, p.age from PERSON p, ORGANIZATION o where p.orgId = o.id");
 
@@ -267,9 +263,7 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
     }
 
     private void createMetaTable() {
-        try (Connection conn = DriverManager.getConnection(URL);
-                Statement stmt = conn.createStatement();
-        ) {
+        try {
             StringJoiner joiner = new StringJoiner(",");
 
             // Add columns with All supported types.
@@ -655,23 +649,21 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
      * @param invalidCat catalog name that is not either
      */
     private void checkNoEntitiesFoundForCatalog(String invalidCat) throws SQLException {
-        try (Connection conn = DriverManager.getConnection(URL)) {
-            DatabaseMetaData meta = conn.getMetaData();
+        DatabaseMetaData meta = conn.getMetaData();
 
-            // Intention: we set the other arguments that way, the values to have as many results as possible.
-            assertIsEmpty(meta.getTables(invalidCat, null, "%", new String[]{"TABLE"}));
-            assertIsEmpty(meta.getColumns(invalidCat, null, "%", "%"));
-            assertIsEmpty(meta.getColumnPrivileges(invalidCat, "pers", "PERSON", "%"));
-            assertIsEmpty(meta.getTablePrivileges(invalidCat, null, "%"));
-            assertIsEmpty(meta.getPrimaryKeys(invalidCat, "pers", "PERSON"));
-            assertIsEmpty(meta.getImportedKeys(invalidCat, "pers", "PERSON"));
-            assertIsEmpty(meta.getExportedKeys(invalidCat, "pers", "PERSON"));
-            // meta.getCrossReference(...) doesn't make sense because we don't have FK constraint.
-            assertIsEmpty(meta.getIndexInfo(invalidCat, null, "%", false, true));
-            assertIsEmpty(meta.getSuperTables(invalidCat, "%", "%"));
-            assertIsEmpty(meta.getSchemas(invalidCat, null));
-            assertIsEmpty(meta.getPseudoColumns(invalidCat, null, "%", ""));
-        }
+        // Intention: we set the other arguments that way, the values to have as many results as possible.
+        assertIsEmpty(meta.getTables(invalidCat, null, "%", new String[]{"TABLE"}));
+        assertIsEmpty(meta.getColumns(invalidCat, null, "%", "%"));
+        assertIsEmpty(meta.getColumnPrivileges(invalidCat, "pers", "PERSON", "%"));
+        assertIsEmpty(meta.getTablePrivileges(invalidCat, null, "%"));
+        assertIsEmpty(meta.getPrimaryKeys(invalidCat, "pers", "PERSON"));
+        assertIsEmpty(meta.getImportedKeys(invalidCat, "pers", "PERSON"));
+        assertIsEmpty(meta.getExportedKeys(invalidCat, "pers", "PERSON"));
+        // meta.getCrossReference(...) doesn't make sense because we don't have FK constraint.
+        assertIsEmpty(meta.getIndexInfo(invalidCat, null, "%", false, true));
+        assertIsEmpty(meta.getSuperTables(invalidCat, "%", "%"));
+        assertIsEmpty(meta.getSchemas(invalidCat, null));
+        assertIsEmpty(meta.getPseudoColumns(invalidCat, null, "%", ""));
     }
 
     /**
