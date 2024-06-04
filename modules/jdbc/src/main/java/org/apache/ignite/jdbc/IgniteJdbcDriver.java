@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.jdbc;
+package org.apache.ignite.jdbc;
 
 import static org.apache.ignite.internal.jdbc.ConnectionPropertiesImpl.URL_PREFIX;
 
@@ -29,11 +29,92 @@ import java.sql.SQLFeatureNotSupportedException;
 import java.util.Properties;
 import java.util.logging.Logger;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
+import org.apache.ignite.internal.jdbc.ConnectionPropertiesImpl;
+import org.apache.ignite.internal.jdbc.JdbcConnection;
 
 /**
- * JDBC driver thin implementation for Apache Ignite 3.x.
+ * JDBC driver implementation for Apache Ignite 3.x.
  *
- * <p>Driver allows to get distributed data from Ignite Data Storage using standard SQL queries and standard JDBC API.
+ * <p>Driver allows to get distributed data from Ignite 3 Data Storage using standard SQL queries and standard JDBC API.</p>
+ * <p><h2>Register the JDBC drivers</h2></p>
+ * <p>
+ * The JDBC driver registration is automatically done via the Java Standard Edition Service Provider mechanism.
+ * Ignite JDBC driver implements this feature and it is automatically registered for case the JDBC driver jar presents in classpath.
+ * </p>
+ * <h2>URL Format</h2>
+ * <p>
+ * The JDBC Driver supports the following URL formats to establish a connection with an Ignite 3 Database.
+ * </p>
+ * jdbc:ignite:thin://host[:port][,host[:port][/schema][[?parameter1=value1][&parameter2=value2],...]]
+ * <p> or </p>
+ * jdbc:ignite:thin://host[:port][,host[:port][/schema][[?parameter1=value1][;parameter2=value2],...]]
+ * <p>
+ * URL can have an optional list of name-value pairs as parameters after the '<B>?</B>' delimiter.
+ * Name and value are separated by an '<B>=</B>' and multiple properties are separated either by an '<B>&</B>' or a '<B>;</B>'.
+ * Separate sign can't be mixed and should be either semicolon or ampersand sign.
+ * </p>
+ *   <b>The list of supported name value pairs: </b><br>
+ *   <table border="2">
+ *   <tr>
+ *   <th>Parameter Name</th>
+ *   <th>Description</th>
+ *   </tr>
+ *   <tr>
+ *   <td>schema</td>
+ *   <td>Specifies default schema name</td>
+ *   </tr>
+ *   <tr>
+ *   <td>queryTimeout</td>
+ *   <td>Sets the number of seconds the driver will wait for a <code>Statement</code> object to execute. Zero means there is no limits.</td>
+ *   </tr>
+ *   <tr>
+ *   <td>connectionTimeout</td>
+ *   <td>Sets the number of milliseconds JDBC client will waits for server to response. Zero means there is no limits."</td>
+ *   </tr>
+ *   <tr>
+ *   <td>reconnectThrottlingPeriod</td>
+ *   <td>Sets the reconnect throttling period, in milliseconds. Zero means there is no limits.</td>
+ *   </tr>
+ *   <td>reconnectThrottlingRetries</td>
+ *   <td>Sets the reconnect throttling retries. Zero means there is no limits.</td>
+ *   </tr>
+ *   <td>trustStorePath</td>
+ *   <td>Path to trust store.</td>
+ *   </tr>
+ *   <td>trustStorePassword</td>
+ *   <td>Trust store password</td>
+ *   </tr>
+ *   <td>keyStorePath</td>
+ *   <td>Path to key store</td>
+ *   </tr>
+ *   <td>keyStorePassword</td>
+ *   <td>Key store password</td>
+ *   </tr>
+ *   <td>clientAuth</td>
+ *   <td>SSL client authentication.</td>
+ *   </tr>
+ *   <td>ciphers</td>
+ *   <td>SSL ciphers.</td>
+ *   </tr>
+ *   <td>sslEnabled</td>
+ *   <td>Enable ssl.</td>
+ *   </tr>
+ *   <td>username</td>
+ *   <td>Username.</td>
+ *   </tr>
+ *   <td>password</td>
+ *   <td>Password.</td>
+ *   </tr>
+ *   <td>connectionTimeZone</td>
+ *   <td>Client connection time-zone ID.</td>
+ *   </tr>
+ * </table>
+ * <p> As example: </p>
+ * <b>jdbc:ignite:thin://192.168.1.1:10800/public?connectionTimeout=1000&sslEnabled=false?connectionTimeZone=GMT+1</b>
+ * <p>
+ * The driver follows the following precedence (high priority goes first) for parameter value resolution: API arguments (if it available on
+ * <code>Connection</code> object), last instance in the connection string, properties object passed during connection.
+ * </p>
  */
 @AutoService(Driver.class)
 public class IgniteJdbcDriver implements Driver {
