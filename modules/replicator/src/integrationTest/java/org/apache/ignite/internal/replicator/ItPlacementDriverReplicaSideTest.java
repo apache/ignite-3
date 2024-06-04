@@ -23,7 +23,12 @@ import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.raft.PeersAndLearners.fromConsistentIds;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CollectionUtils.first;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
+import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
+import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -59,6 +64,7 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.IgniteTriConsumer;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NetworkMessageHandler;
 import org.apache.ignite.internal.network.StaticNodeFinder;
@@ -71,6 +77,7 @@ import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.RaftNodeId;
+import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.TestRaftGroupListener;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
@@ -163,7 +170,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
 
             RaftGroupEventsClientListener eventsClientListener = new RaftGroupEventsClientListener();
 
-            var raftManager = new Loza(
+            var raftManager = TestLozaFactory.create(
                     clusterService,
                     raftConfiguration,
                     workDir.resolve(nodeName + "_loza"),
@@ -195,19 +202,19 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
 
             replicaManagers.put(nodeName, replicaManager);
 
-            clusterService.start();
-            raftManager.start();
-            replicaManager.start();
+            assertThat(startAsync(new ComponentContext(), clusterService, raftManager, replicaManager), willCompleteSuccessfully());
 
             servicesToClose.add(() -> {
                 try {
-                    replicaManager.beforeNodeStop();
-                    raftManager.beforeNodeStop();
-                    clusterService.beforeNodeStop();
-
-                    replicaManager.stop();
-                    raftManager.stop();
-                    clusterService.stop();
+                    closeAll(
+                            replicaManager::beforeNodeStop,
+                            raftManager::beforeNodeStop,
+                            clusterService::beforeNodeStop,
+                            () -> assertThat(
+                                    stopAsync(new ComponentContext(), replicaManager, raftManager, clusterService),
+                                    willCompleteSuccessfully()
+                            )
+                    );
                 } catch (Exception e) {
                     log.info("Fail to stop services [node={}]", e, nodeName);
                 }
@@ -219,7 +226,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
 
     @AfterEach
     public void afterTest() throws Exception {
-        IgniteUtils.closeAll(servicesToClose);
+        closeAll(servicesToClose);
 
         replicaListener = null;
     }
@@ -355,7 +362,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
             var srvc = clusterServices.get(nodeToStop);
 
             srvc.beforeNodeStop();
-            srvc.stop();
+            assertThat(srvc.stopAsync(new ComponentContext()), willCompleteSuccessfully());
         }
 
         var anyNode = randomNode(grpNodesToStop);

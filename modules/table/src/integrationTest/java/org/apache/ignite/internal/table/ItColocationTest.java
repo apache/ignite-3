@@ -45,6 +45,7 @@ import java.nio.ByteBuffer;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.HashMap;
@@ -52,7 +53,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.TimeZone;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -66,6 +66,7 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
@@ -205,7 +206,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
             }
         };
 
-        assertThat(txManager.start(), willCompleteSuccessfully());
+        assertThat(txManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         Int2ObjectMap<RaftGroupService> partRafts = new Int2ObjectOpenHashMap<>();
         Map<ReplicationGroupId, RaftGroupService> groupRafts = new HashMap<>();
@@ -316,9 +317,9 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
     }
 
     @AfterAll
-    static void afterAllTests() throws Exception {
+    static void afterAllTests() {
         if (txManager != null) {
-            txManager.stop();
+            assertThat(txManager.stopAsync(new ComponentContext()), willCompleteSuccessfully());
         }
     }
 
@@ -366,7 +367,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 );
             case TIMESTAMP:
                 return ((LocalDateTime) generateValueByType(i, NativeTypeSpec.DATETIME))
-                        .atZone(TimeZone.getDefault().toZoneId())
+                        .atZone(ZoneId.systemDefault())
                         .toInstant();
             default:
                 throw new IllegalStateException("Unexpected type: " + type);

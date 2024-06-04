@@ -707,9 +707,12 @@ public class IgniteToStringBuilder {
      * @param val1  Additional parameter value.
      * @return String presentation of the given object.
      */
-    public static <T> String toString(Class<T> cls, T obj,
-            String name0, Object val0,
-            String name1, Object val1) {
+    public static <T> String toString(
+            Class<T> cls,
+            T obj,
+            String name0, @Nullable Object val0,
+            String name1, @Nullable Object val1
+    ) {
         return toString(cls, obj, name0, val0, false, name1, val1, false);
     }
 

@@ -34,6 +34,7 @@ import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobStatus;
+import org.apache.ignite.compute.task.MapReduceTask;
 import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.compute.message.DeploymentUnitMsg;
 import org.apache.ignite.internal.compute.message.ExecuteResponse;
@@ -44,6 +45,7 @@ import org.apache.ignite.internal.compute.message.JobStatusResponse;
 import org.apache.ignite.internal.compute.message.JobStatusesResponse;
 import org.apache.ignite.lang.IgniteCheckedException;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.table.DataStreamerReceiver;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -53,7 +55,7 @@ public class ComputeUtils {
     private static final ComputeMessagesFactory MESSAGES_FACTORY = new ComputeMessagesFactory();
 
     /**
-     * Instantiate compute job via provided class loader by provided job class name.
+     * Instantiate compute job via provided class loader by provided job class.
      *
      * @param computeJobClass Compute job class.
      * @param <R> Compute job return type.
@@ -76,11 +78,7 @@ public class ComputeUtils {
 
             return constructor.newInstance();
         } catch (ReflectiveOperationException e) {
-            throw new ComputeException(
-                    CLASS_INITIALIZATION_ERR,
-                    "Cannot instantiate job",
-                    e
-            );
+            throw new ComputeException(CLASS_INITIALIZATION_ERR, "Cannot instantiate job", e);
         }
     }
 
@@ -96,11 +94,96 @@ public class ComputeUtils {
         try {
             return (Class<ComputeJob<R>>) Class.forName(jobClassName, true, jobClassLoader);
         } catch (ClassNotFoundException e) {
+            throw new ComputeException(CLASS_INITIALIZATION_ERR, "Cannot load job class by name '" + jobClassName + "'", e);
+        }
+    }
+
+    /**
+     * Instantiate map reduce task via provided class loader by provided task class.
+     *
+     * @param taskClass Map reduce task class.
+     * @param <R> Map reduce task return type.
+     * @return Map reduce task instance.
+     */
+    public static <R> MapReduceTask<R> instantiateTask(Class<? extends MapReduceTask<R>> taskClass) {
+        if (!(MapReduceTask.class.isAssignableFrom(taskClass))) {
             throw new ComputeException(
                     CLASS_INITIALIZATION_ERR,
-                    "Cannot load job class by name '" + jobClassName + "'",
-                    e
+                    "'" + taskClass.getName() + "' does not implement ComputeTask interface"
             );
+        }
+
+        try {
+            Constructor<? extends MapReduceTask<R>> constructor = taskClass.getDeclaredConstructor();
+
+            if (!constructor.canAccess(null)) {
+                constructor.setAccessible(true);
+            }
+
+            return constructor.newInstance();
+        } catch (ReflectiveOperationException e) {
+            throw new ComputeException(CLASS_INITIALIZATION_ERR, "Cannot instantiate task", e);
+        }
+    }
+
+    /**
+     * Resolve map reduce task class name to map reduce task class reference.
+     *
+     * @param taskClassLoader Class loader.
+     * @param taskClassName Map reduce task class name.
+     * @param <R> Map reduce task return type.
+     * @return Map reduce task class.
+     */
+    public static <R> Class<MapReduceTask<R>> taskClass(ClassLoader taskClassLoader, String taskClassName) {
+        try {
+            return (Class<MapReduceTask<R>>) Class.forName(taskClassName, true, taskClassLoader);
+        } catch (ClassNotFoundException e) {
+            throw new ComputeException(CLASS_INITIALIZATION_ERR, "Cannot load task class by name '" + taskClassName + "'", e);
+        }
+    }
+
+    /**
+     * Instantiate data streamer receiver.
+     *
+     * @param recvClass Receiver class.
+     * @param <T> Receiver item type.
+     * @param <R> Receiver return type.
+     * @return Receiver instance.
+     */
+    public static <T, R> DataStreamerReceiver<T, R> instantiateReceiver(Class<? extends DataStreamerReceiver<T, R>> recvClass) {
+        if (!(DataStreamerReceiver.class.isAssignableFrom(recvClass))) {
+            throw new ComputeException(
+                    CLASS_INITIALIZATION_ERR,
+                    "'" + recvClass.getName() + "' does not implement DataStreamerReceiver interface"
+            );
+        }
+
+        try {
+            Constructor<? extends DataStreamerReceiver<T, R>> constructor = recvClass.getDeclaredConstructor();
+
+            if (!constructor.canAccess(null)) {
+                constructor.setAccessible(true);
+            }
+
+            return constructor.newInstance();
+        } catch (ReflectiveOperationException e) {
+            throw new ComputeException(CLASS_INITIALIZATION_ERR, "Cannot instantiate streamer receiver", e);
+        }
+    }
+
+    /**
+     * Resolve receiver class name.
+     *
+     * @param classLoader Class loader.
+     * @param className Class name.
+     * @param <R> Return type.
+     * @return Receiver class.
+     */
+    public static <T, R> Class<DataStreamerReceiver<T, R>> receiverClass(ClassLoader classLoader, String className) {
+        try {
+            return (Class<DataStreamerReceiver<T, R>>) Class.forName(className, true, classLoader);
+        } catch (ClassNotFoundException e) {
+            throw new ComputeException(CLASS_INITIALIZATION_ERR, "Cannot load receiver class by name '" + className + "'", e);
         }
     }
 

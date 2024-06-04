@@ -27,6 +27,7 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.io.Writer;
 import java.util.List;
+import java.util.Set;
 import org.apache.ignite.internal.Cluster;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.cli.call.connect.ConnectCall;
@@ -44,6 +45,7 @@ import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
 import org.apache.ignite.internal.cli.event.EventPublisher;
 import org.apache.ignite.internal.cli.event.Events;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import picocli.CommandLine;
 
@@ -89,6 +91,11 @@ public abstract class CliIntegrationTest extends ClusterPerClassIntegrationTest 
     @Inject
     private EventListeningActivationPoint eventListeningActivationPoint;
 
+    @BeforeAll
+    static void setDumbTerminal() {
+        System.setProperty("org.jline.terminal.dumb", "true");
+    }
+
     @BeforeEach
     void setUp() {
         configManagerProvider.setConfigFile(TestConfigManagerHelper.createIntegrationTestsConfig());
@@ -104,7 +111,7 @@ public abstract class CliIntegrationTest extends ClusterPerClassIntegrationTest 
         eventPublisher.publish(Events.disconnect());
     }
 
-    protected void resetOutput() {
+    private void resetOutput() {
         sout = new StringWriter();
         serr = new StringWriter();
         cmd.setOut(new PrintWriter(sout));
@@ -116,6 +123,7 @@ public abstract class CliIntegrationTest extends ClusterPerClassIntegrationTest 
     }
 
     protected void execute(String... args) {
+        resetOutput();
         exitCode = cmd.execute(args);
     }
 
@@ -145,16 +153,63 @@ public abstract class CliIntegrationTest extends ClusterPerClassIntegrationTest 
                 .isEqualTo(expectedOutput);
     }
 
+    protected void assertOutputStartsWith(String expectedOutput) {
+        assertThat(sout.toString())
+                .as("Expected command output to start with: " + expectedOutput + " but was " + sout.toString())
+                .startsWith(expectedOutput);
+    }
+
     protected void assertOutputContains(String expectedOutput) {
         assertThat(sout.toString())
                 .as("Expected command output to contain: " + expectedOutput + " but was " + sout.toString())
                 .contains(expectedOutput);
     }
 
+    protected void assertOutputContainsAnyIgnoringCase(Set<String> expectedOutput) {
+        CharSequence[] expectedUpperCase = expectedOutput.stream().map(String::toUpperCase).toArray(CharSequence[]::new);
+
+        assertThat(sout.toString().toUpperCase())
+                .as("Expected command output to contain any of, ignoring case: " + expectedOutput + " but was " + sout.toString())
+                .containsAnyOf(expectedUpperCase);
+    }
+
+    protected void assertOutputContainsAny(Set<String> expectedOutput) {
+
+        assertThat(sout.toString())
+                .as("Expected command output to contain any of: " + expectedOutput + " but was " + sout.toString())
+                .containsAnyOf(expectedOutput.toArray(CharSequence[]::new));
+    }
+
+    protected void assertOutputContainsAllIgnoringCase(Set<String> expectedOutput) {
+        CharSequence[] expectedUpperCase = expectedOutput.stream().map(String::toUpperCase).toArray(CharSequence[]::new);
+
+        assertThat(sout.toString().toUpperCase())
+                .as("Expected command output to contain all of, ignoring case: " + expectedOutput + " but was " + sout.toString())
+                .contains(expectedUpperCase);
+    }
+
+    protected void assertOutputContainsAll(Set<String> expectedOutput) {
+        assertThat(sout.toString())
+                .as("Expected command output to contain all of: " + expectedOutput + " but was " + sout.toString())
+                .contains(expectedOutput.toArray(CharSequence[]::new));
+    }
+
     protected void assertOutputDoesNotContain(String expectedOutput) {
         assertThat(sout.toString())
                 .as("Expected command output to not contain: " + expectedOutput + " but was " + sout.toString())
                 .doesNotContain(expectedOutput);
+    }
+
+    protected void assertOutputDoesNotContain(Set<String> expectedOutput) {
+        assertThat(sout.toString())
+                .as("Expected command output to not contain: " + expectedOutput + " but was " + sout.toString())
+                .doesNotContain(expectedOutput.toArray(CharSequence[]::new));
+    }
+
+    protected void assertOutputDoesNotContainIgnoreCase(Set<String> expectedOutput) {
+        assertThat(sout.toString())
+                .as("Expected command output to not contain: " + expectedOutput + " but was " + sout.toString())
+                .doesNotContainIgnoringCase(expectedOutput.toArray(CharSequence[]::new));
     }
 
     protected void assertOutputMatches(String regex) {

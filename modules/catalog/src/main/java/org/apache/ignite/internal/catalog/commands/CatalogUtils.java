@@ -19,23 +19,25 @@ package org.apache.ignite.internal.catalog.commands;
 
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.CatalogService.SYSTEM_SCHEMA_NAME;
+import static org.apache.ignite.internal.catalog.commands.DefaultValue.Type.FUNCTION_CALL;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
-import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.Collection;
 import java.util.EnumMap;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.LongSupplier;
 import org.apache.ignite.internal.catalog.Catalog;
-import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.DistributionZoneNotFoundValidationException;
 import org.apache.ignite.internal.catalog.IndexNotFoundValidationException;
 import org.apache.ignite.internal.catalog.TableNotFoundValidationException;
+import org.apache.ignite.internal.catalog.commands.DefaultValue.FunctionCall;
+import org.apache.ignite.internal.catalog.commands.DefaultValue.Type;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogStorageProfileDescriptor;
@@ -120,6 +122,11 @@ public class CatalogUtils {
 
     private static final Map<ColumnType, Set<ColumnType>> ALTER_COLUMN_TYPE_TRANSITIONS = new EnumMap<>(ColumnType.class);
 
+    /**
+     * Functions that are allowed to be used as columns' functional default. The set contains uppercase function names.
+     */
+    private static final Map<String, ColumnType> FUNCTIONAL_DEFAULT_FUNCTIONS = new HashMap<>();
+
     static {
         ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.INT8, EnumSet.of(ColumnType.INT8, ColumnType.INT16, ColumnType.INT32,
                 ColumnType.INT64));
@@ -131,6 +138,8 @@ public class CatalogUtils {
         ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.STRING, EnumSet.of(ColumnType.STRING));
         ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.BYTE_ARRAY, EnumSet.of(ColumnType.BYTE_ARRAY));
         ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.DECIMAL, EnumSet.of(ColumnType.DECIMAL));
+
+        FUNCTIONAL_DEFAULT_FUNCTIONS.put("RAND_UUID", ColumnType.UUID);
     }
 
     public static final List<String> SYSTEM_SCHEMAS = List.of(SYSTEM_SCHEMA_NAME);
@@ -138,30 +147,6 @@ public class CatalogUtils {
     /** System schema names. */
     static boolean isSystemSchema(String schemaName) {
         return SYSTEM_SCHEMAS.contains(schemaName);
-    }
-
-    /**
-     * Returns zone descriptor with default parameters.
-     *
-     * @param id Distribution zone ID.
-     * @param zoneName Zone name.
-     * @return Distribution zone descriptor.
-     */
-    public static CatalogZoneDescriptor fromParams(int id, String zoneName) {
-        List<StorageProfileParams> storageProfiles =
-                List.of(StorageProfileParams.builder().storageProfile(CatalogService.DEFAULT_STORAGE_PROFILE).build());
-
-        return new CatalogZoneDescriptor(
-                id,
-                zoneName,
-                DEFAULT_PARTITION_COUNT,
-                DEFAULT_REPLICA_COUNT,
-                INFINITE_TIMER_VALUE,
-                IMMEDIATE_TIMER_VALUE,
-                INFINITE_TIMER_VALUE,
-                DEFAULT_FILTER,
-                fromParams(storageProfiles)
-        );
     }
 
     /**
@@ -524,47 +509,6 @@ public class CatalogUtils {
     }
 
     /**
-     * Collects all table indexes (including dropped) that the table has in the requested catalog version range.
-     *
-     * <p>It is expected that at least one index should be between the requested versions.</p>
-     *
-     * @param catalogService Catalog service.
-     * @param tableId Table ID for which indexes will be collected.
-     * @param catalogVersionFrom Catalog version from which indexes will be collected (including).
-     * @param catalogVersionTo Catalog version up to which indexes will be collected (including).
-     * @return Table indexes.
-     */
-    public static Collection<CatalogIndexDescriptor> collectIndexes(
-            CatalogService catalogService,
-            int tableId,
-            int catalogVersionFrom,
-            int catalogVersionTo
-    ) {
-        assert catalogVersionFrom <= catalogVersionTo : "from=" + catalogVersionFrom + ", to=" + catalogVersionTo;
-
-        if (catalogVersionFrom == catalogVersionTo) {
-            List<CatalogIndexDescriptor> indexes = catalogService.indexes(catalogVersionFrom, tableId);
-
-            assert !indexes.isEmpty() : "catalogVersion=" + catalogVersionFrom + ", tableId=" + tableId;
-
-            return indexes;
-        }
-
-        var indexByIdMap = new Int2ObjectOpenHashMap<CatalogIndexDescriptor>();
-
-        for (int catalogVersion = catalogVersionFrom; catalogVersion <= catalogVersionTo; catalogVersion++) {
-            for (CatalogIndexDescriptor index : catalogService.indexes(catalogVersion, tableId)) {
-                indexByIdMap.put(index.id(), index);
-            }
-        }
-
-        assert !indexByIdMap.isEmpty()
-                : String.format("catalogVersionFrom=%s, catalogVersionTo=%s, tableId=%s", catalogVersionFrom, catalogVersionTo, tableId);
-
-        return indexByIdMap.values();
-    }
-
-    /**
      * Returns the timestamp at which the catalog version is guaranteed to be activated on every node of the cluster. This takes into
      * account possible clock skew between nodes.
      *
@@ -597,5 +541,60 @@ public class CatalogUtils {
         return clusterWideEnsuredActivationTs.addPhysicalTime(
                 partitionIdleSafeTimePropagationPeriodMsSupplier.getAsLong() + maxClockSkewMillis
         );
+    }
+
+    /** Returns id of the default zone from given catalog, or {@code null} if default zone is not exist. */
+    public static @Nullable Integer defaultZoneIdOpt(Catalog catalog) {
+        CatalogZoneDescriptor defaultZone = catalog.defaultZone();
+
+        return defaultZone != null ? defaultZone.id() : null;
+    }
+
+    /**
+     * Check if provided default value is a constant or a functional default of supported function, or fail otherwise.
+     */
+    static void ensureSupportedDefault(String columnName, ColumnType columnType, @Nullable DefaultValue defaultValue) {
+        if (defaultValue == null || defaultValue.type == Type.CONSTANT) {
+            return;
+        }
+
+        if (defaultValue.type == FUNCTION_CALL) {
+            String functionName = ((FunctionCall) defaultValue).functionName();
+            ColumnType returnType = FUNCTIONAL_DEFAULT_FUNCTIONS.get(functionName.toUpperCase());
+
+            if (returnType == columnType) {
+                return;
+            }
+
+            if (returnType != null) {
+                throw new CatalogValidationException(
+                        format("Functional default type mismatch: [col={}, functionName={}, expectedType={}, actualType={}]",
+                                columnName, functionName, returnType, columnType));
+            }
+
+            throw new CatalogValidationException(
+                    format("Functional default contains unsupported function: [col={}, functionName={}]",
+                            columnName, functionName));
+        }
+
+        throw new CatalogValidationException(
+                format("Default of unsupported kind: [col={}, defaultType={}]", columnName, defaultValue.type));
+    }
+
+    /**
+     * Check if provided default value is a constant, or fail otherwise.
+     */
+    static void ensureNonFunctionalDefault(String columnName, @Nullable DefaultValue defaultValue) {
+        if (defaultValue == null || defaultValue.type == Type.CONSTANT) {
+            return;
+        }
+
+        if (defaultValue.type == FUNCTION_CALL) {
+            throw new CatalogValidationException(
+                    format("Functional defaults are not supported for non-primary key columns [col={}].", columnName));
+        }
+
+        throw new CatalogValidationException(
+                format("Default of unsupported kind: [col={}, defaultType={}]", columnName, defaultValue.type));
     }
 }

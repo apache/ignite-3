@@ -17,14 +17,13 @@
 
 package org.apache.ignite.internal.sql.metrics;
 
+import java.util.List;
 import org.apache.ignite.internal.metrics.AbstractMetricSource;
 import org.apache.ignite.internal.metrics.AtomicLongMetric;
-import org.apache.ignite.internal.metrics.MetricSetBuilder;
+import org.apache.ignite.internal.metrics.Metric;
 import org.apache.ignite.internal.sql.engine.util.cache.StatsCounter;
 
-/**
- * Metric source, which provides SQL plan cache metrics.
- */
+/** Metric source, which provides SQL plan cache metrics. */
 public class SqlPlanCacheMetricSource extends AbstractMetricSource<SqlPlanCacheMetricSource.Holder> implements StatsCounter {
     public static final String NAME = "sql.plan.cache";
 
@@ -51,24 +50,19 @@ public class SqlPlanCacheMetricSource extends AbstractMetricSource<SqlPlanCacheM
         }
     }
 
-    /** {@inheritDoc} */
-    @Override
-    protected void init(MetricSetBuilder bldr, Holder holder) {
-        bldr.register(holder.cachePlanHits);
-        bldr.register(holder.cachePlanMisses);
-    }
-
-    /** {@inheritDoc} */
     @Override
     protected Holder createHolder() {
         return new Holder();
     }
 
-    /**
-     * Holder.
-     */
+    /** Holder. */
     protected static class Holder implements AbstractMetricSource.Holder<Holder> {
         private final AtomicLongMetric cachePlanHits = new AtomicLongMetric("Hits", "Cache plan hits");
         private final AtomicLongMetric cachePlanMisses = new AtomicLongMetric("Misses", "Cache plan misses");
+
+        @Override
+        public Iterable<Metric> metrics() {
+            return List.of(cachePlanHits, cachePlanMisses);
+        }
     }
 }

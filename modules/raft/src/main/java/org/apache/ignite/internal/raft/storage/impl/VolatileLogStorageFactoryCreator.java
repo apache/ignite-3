@@ -17,7 +17,9 @@
 
 package org.apache.ignite.internal.raft.storage.impl;
 
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.rocksdb.RocksDB.DEFAULT_COLUMN_FAMILY;
 
 import java.io.IOException;
@@ -32,11 +34,11 @@ import java.util.concurrent.Executors;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.raft.configuration.LogStorageBudgetView;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.jraft.util.Platform;
 import org.rocksdb.ColumnFamilyDescriptor;
@@ -88,7 +90,7 @@ public class VolatileLogStorageFactoryCreator implements LogStorageFactoryCreato
     }
 
     @Override
-    public CompletableFuture<Void> start() {
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         try {
             Files.createDirectories(spillOutPath);
         } catch (IOException e) {
@@ -177,10 +179,16 @@ public class VolatileLogStorageFactoryCreator implements LogStorageFactoryCreato
     }
 
     @Override
-    public void stop() throws Exception {
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         ExecutorServiceHelper.shutdownAndAwaitTermination(executorService);
 
-        IgniteUtils.closeAll(columnFamily, db, dbOptions);
+        try {
+            closeAll(columnFamily, db, dbOptions);
+        } catch (Exception e) {
+            return failedFuture(e);
+        }
+
+        return nullCompletedFuture();
     }
 
     @Override

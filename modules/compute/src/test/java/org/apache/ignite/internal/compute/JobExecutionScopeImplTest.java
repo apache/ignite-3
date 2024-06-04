@@ -37,7 +37,7 @@ class JobExecutionScopeImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void returnsIgnite() {
-        JobExecutionContext context = new JobExecutionContextImpl(ignite, new AtomicBoolean());
+        JobExecutionContext context = new JobExecutionContextImpl(ignite, new AtomicBoolean(), ClassLoader.getSystemClassLoader());
 
         assertThat(context.ignite(), is(sameInstance(ignite)));
     }
@@ -46,7 +46,7 @@ class JobExecutionScopeImplTest extends BaseIgniteAbstractTest {
     void returnsInterruptedFlag() {
         AtomicBoolean isInterrupted = new AtomicBoolean();
 
-        JobExecutionContext context = new JobExecutionContextImpl(ignite, isInterrupted);
+        JobExecutionContext context = new JobExecutionContextImpl(ignite, isInterrupted, ClassLoader.getSystemClassLoader());
 
         assertThat(context.isInterrupted(), is(false));
 

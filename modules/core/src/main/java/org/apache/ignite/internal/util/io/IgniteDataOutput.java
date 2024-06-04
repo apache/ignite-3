@@ -20,6 +20,16 @@ package org.apache.ignite.internal.util.io;
 import java.io.DataOutput;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.Period;
+import java.util.BitSet;
+import java.util.UUID;
 
 /**
  * Extended data output.
@@ -128,6 +138,86 @@ public interface IgniteDataOutput extends DataOutput {
      * @throws IOException In case of error.
      */
     void writeCharArray(char[] arr) throws IOException;
+
+    /**
+     * Writes big integer.
+     *
+     * @param val Big integer.
+     * @throws IOException In case of error.
+     */
+    void writeBigInteger(BigInteger val) throws IOException;
+
+    /**
+     * Writes decimal.
+     *
+     * @param val Big decimal.
+     * @throws IOException In case of error.
+     */
+    void writeBigDecimal(BigDecimal val) throws IOException;
+
+    /**
+     * Writes local time.
+     *
+     * @param val Local time.
+     * @throws IOException In case of error.
+     */
+    void writeLocalTime(LocalTime val) throws IOException;
+
+    /**
+     * Writes local date.
+     *
+     * @param date Local date.
+     * @throws IOException In case of error.
+     */
+    void writeLocalDate(LocalDate date) throws IOException;
+
+    /**
+     * Writes local date time.
+     *
+     * @param val Local date time.
+     * @throws IOException In case of error.
+     */
+    void writeLocalDateTime(LocalDateTime val) throws IOException;
+
+    /**
+     * Writes instant.
+     *
+     * @param val Instant.
+     * @throws IOException In case of error.
+     */
+    void writeInstant(Instant val) throws IOException;
+
+    /**
+     * Writes period.
+     *
+     * @param val Period.
+     * @throws IOException In case of error.
+     */
+    void writePeriod(Period val) throws IOException;
+
+    /**
+     * Writes duration.
+     *
+     * @param val Duration.
+     * @throws IOException In case of error.
+     */
+    void writeDuration(Duration val) throws IOException;
+
+    /**
+     * Writes uuid.
+     *
+     * @param val UUID.
+     * @throws IOException In case of error.
+     */
+    void writeUuid(UUID val) throws IOException;
+
+    /**
+     * Writes bit set.
+     *
+     * @param val Bit set.
+     * @throws IOException In case of error.
+     */
+    void writeBitSet(BitSet val) throws IOException;
 
     /**
      * Flushes the output. This flushes the interlying {@link OutputStream} (if exists).

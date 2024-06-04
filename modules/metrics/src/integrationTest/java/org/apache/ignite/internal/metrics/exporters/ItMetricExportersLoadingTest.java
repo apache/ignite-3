@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.metrics.exporters;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -25,7 +27,9 @@ import java.io.OutputStream;
 import java.util.concurrent.locks.LockSupport;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
@@ -50,7 +54,7 @@ public class ItMetricExportersLoadingTest extends BaseIgniteAbstractTest {
 
     @Test
     public void test() throws Exception {
-        MetricManager metricManager = new MetricManager();
+        MetricManager metricManager = new MetricManagerImpl();
 
         metricManager.configure(metricConfiguration);
 
@@ -70,7 +74,7 @@ public class ItMetricExportersLoadingTest extends BaseIgniteAbstractTest {
 
             assertEquals(0, pushOutputStream.toString().length());
 
-            metricManager.start();
+            assertThat(metricManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
             src.inc();
 
@@ -82,7 +86,7 @@ public class ItMetricExportersLoadingTest extends BaseIgniteAbstractTest {
             waitForOutput(pullOutputStream, "TestMetricsSource:\nMetric:1");
             assertTrue(pullOutputStream.toString().contains("TestMetricsSource:\nMetric:1"));
 
-            metricManager.stop();
+            assertThat(metricManager.stopAsync(new ComponentContext()), willCompleteSuccessfully());
         }
     }
 

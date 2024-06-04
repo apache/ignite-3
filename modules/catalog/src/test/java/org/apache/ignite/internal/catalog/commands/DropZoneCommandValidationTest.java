@@ -48,7 +48,7 @@ public class DropZoneCommandValidationTest extends AbstractCommandValidationTest
 
     @Test
     void rejectToDropDefaultZone() {
-        Catalog catalog = emptyCatalog();
+        Catalog catalog = catalogWithDefaultZone();
 
         CatalogCommand cmd = DropZoneCommand.builder()
                 .zoneName(catalog.defaultZone().name())
@@ -81,7 +81,7 @@ public class DropZoneCommandValidationTest extends AbstractCommandValidationTest
     void exceptionIsThrownIfZoneWithGivenNameNotFound() {
         DropZoneCommandBuilder builder = DropZoneCommand.builder();
 
-        Catalog catalog = emptyCatalog();
+        Catalog catalog = catalogWithDefaultZone();
 
         CatalogCommand command = builder
                 .zoneName("some_zone")

@@ -81,10 +81,13 @@ class DynamicCompleterRegistryTest {
         registry.register(CompleterConf.forCommand("command2"), words -> completer3);
 
         // When find completers for "command1"
-        List<DynamicCompleter> completers = registry.findCompleters(words("command1", "subcommand1"));
+        List<DynamicCompleter> completers1 = registry.findCompleters(words("command1", "subcommand1"));
 
         // Then
-        assertThat(completers, containsInAnyOrder(completer1, completer2));
+        assertThat(completers1, containsInAnyOrder(completer1, completer2));
+        // And
+        List<DynamicCompleter> completers2 = registry.findCompleters(words("command2"));
+        assertThat(completers2, contains(completer3));
     }
 
     @Test
@@ -341,5 +344,58 @@ class DynamicCompleterRegistryTest {
 
         // Then completer is not returned
         assertThat(completersWithPositional, is(empty()));
+    }
+
+    @Test
+    void sameOptionDifferentCompleters() {
+        // Given
+        registry.register(
+                CompleterConf.builder()
+                        .command("command", "subcommand1")
+                        .enableOptions("--to")
+                        .exclusiveEnableOptions().build(),
+                words -> completer1
+        );
+
+        registry.register(
+                CompleterConf.builder()
+                        .command("command", "subcommand2")
+                        .enableOptions("--to")
+                        .exclusiveEnableOptions().build(),
+                words -> completer2);
+
+        // Then
+        assertThat(registry.findCompleters(words("command", "subcommand1", "--to")), containsInAnyOrder(completer1));
+        // And
+        assertThat(registry.findCompleters(words("command", "subcommand2", "--to")), containsInAnyOrder(completer2));
+    }
+
+    @Test
+    void positionParameterIsNotCollapsedWithOptions() {
+        registry.register(
+                CompleterConf.builder()
+                        .enableOptions(Options.NODE_NAME)
+                        .exclusiveEnableOptions().build(),
+                words -> completer1
+        );
+
+        registry.register(
+                CompleterConf.builder()
+                        .command("cluster", "config", "show")
+                        .command("cluster", "config", "update")
+                        .singlePositionalParameter().build(),
+                words -> completer2
+        );
+
+        // Then
+        assertThat(
+                registry.findCompleters(words("cluster", "config", "update", Options.NODE_NAME.fullName(), "")),
+                hasSize(1)
+        );
+        // And
+        assertThat(
+                registry.findCompleters(words("cluster", "config", "update", "")),
+                hasSize(1)
+        );
     }
 }

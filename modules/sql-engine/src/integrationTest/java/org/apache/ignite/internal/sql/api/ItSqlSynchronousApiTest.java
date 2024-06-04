@@ -28,37 +28,25 @@ import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.tx.Transaction;
-import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.Test;
 
 /**
  * Tests for synchronous SQL API.
  */
 public class ItSqlSynchronousApiTest extends ItSqlApiBaseTest {
     @Override
-    @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18647")
-    public void resultSetCloseShouldFinishImplicitTransaction() {
-        super.resultSetCloseShouldFinishImplicitTransaction();
-    }
-
-    @Override
-    @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18647")
-    public void errors() throws InterruptedException {
-        super.errors();
-    }
-
-    @Override
     protected ResultSet<SqlRow> executeForRead(IgniteSql sql, Transaction tx, Statement statement, Object... args) {
         return sql.execute(tx, statement, args);
     }
 
     @Override
-    protected long[] executeBatch(IgniteSql sql, String query, BatchedArguments args) {
-        return sql.executeBatch(null, query, args);
+    protected long[] executeBatch(String query, BatchedArguments args) {
+        return igniteSql().executeBatch(null, query, args);
     }
 
+    @Override
+    protected long[] executeBatch(Statement statement, BatchedArguments args) {
+        return igniteSql().executeBatch(null, statement, args);
+    }
 
     @Override
     protected ResultProcessor execute(Integer expectedPages, Transaction tx, IgniteSql sql, Statement statement, Object... args) {

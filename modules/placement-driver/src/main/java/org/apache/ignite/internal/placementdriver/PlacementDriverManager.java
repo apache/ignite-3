@@ -32,6 +32,7 @@ import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.network.ClusterService;
@@ -134,7 +135,7 @@ public class PlacementDriverManager implements IgniteComponent {
     }
 
     @Override
-    public CompletableFuture<Void> start() {
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         inBusyLock(busyLock, () -> {
             placementDriverNodesNamesProvider.get()
                     .thenCompose(placementDriverNodes -> {
@@ -187,9 +188,9 @@ public class PlacementDriverManager implements IgniteComponent {
     }
 
     @Override
-    public void stop() throws Exception {
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         if (!stopGuard.compareAndSet(false, true)) {
-            return;
+            return nullCompletedFuture();
         }
 
         busyLock.block();
@@ -197,6 +198,8 @@ public class PlacementDriverManager implements IgniteComponent {
         withRaftClientIfPresent(TopologyAwareRaftGroupService::shutdown);
 
         leaseUpdater.deactivate();
+
+        return nullCompletedFuture();
     }
 
     private void withRaftClientIfPresent(Consumer<TopologyAwareRaftGroupService> closure) {

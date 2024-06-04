@@ -56,6 +56,7 @@ import org.apache.ignite.internal.deployunit.metastore.NodeStatusWatchListener;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitClusterStatus;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
 import org.jetbrains.annotations.Nullable;
 
@@ -396,7 +397,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
     }
 
     @Override
-    public CompletableFuture<Void> start() {
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         deployer.initUnitsFolder(workDir.resolve(configuration.deploymentLocation().value()));
         deploymentUnitStore.registerNodeStatusListener(nodeStatusWatchListener);
         deploymentUnitStore.registerClusterStatusListener(clusterStatusWatchListener);
@@ -408,13 +409,15 @@ public class DeploymentManagerImpl implements IgniteDeployment {
     }
 
     @Override
-    public void stop() throws Exception {
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         deployer.stop();
         nodeStatusWatchListener.stop();
         tracker.cancelAll();
         deploymentUnitStore.unregisterNodeStatusListener(nodeStatusWatchListener);
         deploymentUnitStore.unregisterClusterStatusListener(clusterStatusWatchListener);
         undeployer.stop();
+
+        return nullCompletedFuture();
     }
 
     private static void checkId(String id) {

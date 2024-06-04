@@ -55,7 +55,7 @@ public class AlterZoneCommandValidationTest extends AbstractCommandValidationTes
         CatalogCommand cmd = AlterZoneCommand.builder().zoneName("not_existing_zone").build();
         assertThrows(
                 CatalogValidationException.class,
-                () -> cmd.get(emptyCatalog()),
+                () -> cmd.get(catalogWithDefaultZone()),
                 "Distribution zone with name 'not_existing_zone' not found"
         );
     }

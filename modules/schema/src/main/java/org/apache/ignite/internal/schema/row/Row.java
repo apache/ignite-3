@@ -18,59 +18,26 @@
 package org.apache.ignite.internal.schema.row;
 
 import java.math.BigDecimal;
-import java.nio.ByteBuffer;
 import org.apache.ignite.internal.binarytuple.BinaryTupleContainer;
-import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.lang.InternalTuple;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
-import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
-import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaAware;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.util.ColocationUtils;
-import org.apache.ignite.internal.util.HashCalculator;
 
 /**
- * Schema-aware row.
- *
- * <p>The class contains non-generic methods to read boxed and unboxed primitives based on the schema column types. Any type conversions
- * and coercions should be implemented outside the row by the key-value or query runtime.
- *
- * <p>When a non-boxed primitive is read from a null column value, it is converted to the primitive type default value.
+ * Schema-aware row interface.
  */
-public class Row extends BinaryTupleReader implements BinaryRowEx, SchemaAware, InternalTuple, BinaryTupleContainer {
-    /** Schema descriptor. */
-    private final SchemaDescriptor schema;
-
-    /** Binary row. */
-    private final BinaryRow row;
-
-    private final BinaryTupleSchema binaryTupleSchema;
-
-    private final boolean keyOnly;
-
-    /** Cached colocation hash value. */
-    private int colocationHash;
-
-    protected Row(boolean keyOnly, SchemaDescriptor schema, BinaryTupleSchema binaryTupleSchema, BinaryRow row) {
-        super(binaryTupleSchema.elementCount(), row.tupleSlice());
-
-        this.keyOnly = keyOnly;
-        this.row = row;
-        this.schema = schema;
-        this.binaryTupleSchema = binaryTupleSchema;
-    }
-
+public interface Row extends SchemaAware, BinaryRowEx, InternalTuple, BinaryTupleContainer {
     /**
      * Creates a row from a given {@code BinaryRow}.
      *
      * @param schema Schema.
      * @param binaryRow Binary row.
      */
-    public static Row wrapBinaryRow(SchemaDescriptor schema, BinaryRow binaryRow) {
-        return new Row(false, schema, BinaryTupleSchema.createRowSchema(schema), binaryRow);
+    static Row wrapBinaryRow(SchemaDescriptor schema, BinaryRow binaryRow) {
+        return new RowImpl(false, schema, BinaryTupleSchema.createRowSchema(schema), binaryRow);
     }
 
     /**
@@ -79,106 +46,25 @@ public class Row extends BinaryTupleReader implements BinaryRowEx, SchemaAware, 
      * @param schema Schema.
      * @param binaryRow Binary row.
      */
-    public static Row wrapKeyOnlyBinaryRow(SchemaDescriptor schema, BinaryRow binaryRow) {
-        return new Row(true, schema, BinaryTupleSchema.createKeySchema(schema), binaryRow);
+    static Row wrapKeyOnlyBinaryRow(SchemaDescriptor schema, BinaryRow binaryRow) {
+        return new RowImpl(true, schema, BinaryTupleSchema.createKeySchema(schema), binaryRow);
     }
 
+    /** Short-cut method that reads decimal value with a scale from the schema. */
+    BigDecimal decimalValue(int col);
+
     /**
-     * Get row schema.
+     * Reads value for specified column.
+     *
+     * @param colIdx Column index.
+     * @return Column value.
      */
-    @Override
-    public SchemaDescriptor schema() {
-        return schema;
-    }
+    Object value(int colIdx);
 
     /**
      * Gets a value indicating whether the row contains only key columns.
      *
      * @return {@code true} if the row contains only key columns.
      */
-    public boolean keyOnly() {
-        return keyOnly;
-    }
-
-    /**
-     * Reads value for specified column.
-     *
-     * @param col Column index.
-     * @return Column value.
-     */
-    public Object value(int col) {
-        return binaryTupleSchema.value(this, col);
-    }
-
-    public BigDecimal decimalValue(int col) {
-        return binaryTupleSchema.decimalValue(this, col);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public int schemaVersion() {
-        return row.schemaVersion();
-    }
-
-    @Override
-    public ByteBuffer tupleSlice() {
-        return row.tupleSlice();
-    }
-
-    @Override
-    public int tupleSliceLength() {
-        return row.tupleSliceLength();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public int colocationHash() {
-        int h0 = colocationHash;
-
-        if (h0 == 0) {
-            HashCalculator hashCalc = new HashCalculator();
-
-            for (Column c : schema.colocationColumns()) {
-                int idx = keyOnly
-                        ? c.positionInKey()
-                        : c.positionInRow();
-
-                assert idx >= 0 : c;
-
-                ColocationUtils.append(hashCalc, value(idx), c.type());
-            }
-
-            colocationHash = h0 = hashCalc.hash();
-        }
-
-        return h0;
-    }
-
-    @Override
-    public BinaryTuple binaryTuple() {
-        return new BinaryTuple(binaryTupleSchema.elementCount(), row.tupleSlice());
-    }
-
-    public BinaryTupleSchema binaryTupleSchema() {
-        return binaryTupleSchema;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-
-        Row row1 = (Row) o;
-
-        return row.equals(row1.row);
-    }
-
-    @Override
-    public int hashCode() {
-        return row.hashCode();
-    }
+    boolean keyOnly();
 }

@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.rest.configuration;
 
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 
 import io.micronaut.context.annotation.Bean;
 import io.micronaut.context.annotation.Factory;
@@ -33,6 +35,7 @@ import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidatorImpl;
+import org.apache.ignite.internal.manager.ComponentContext;
 
 /**
  * Factory that creates beans needed for unit tests.
@@ -43,7 +46,7 @@ public class TestFactory {
      * Creates test configuration registry.
      */
     @Singleton
-    @Bean(preDestroy = "stop")
+    @Bean(preDestroy = "stopAsync")
     public ConfigurationRegistry configurationRegistry() {
         Validator<Value, Object> validator = new Validator<>() {
             /** {@inheritDoc} */
@@ -64,7 +67,7 @@ public class TestFactory {
                 ConfigurationValidatorImpl.withDefaultValidators(generator, Set.of(validator))
         );
 
-        configurationRegistry.start();
+        assertThat(configurationRegistry.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         return configurationRegistry;
     }

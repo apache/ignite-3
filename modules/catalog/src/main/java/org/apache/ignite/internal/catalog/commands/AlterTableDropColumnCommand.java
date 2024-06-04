@@ -56,15 +56,17 @@ public class AlterTableDropColumnCommand extends AbstractTableCommand {
      *
      * @param tableName Name of the table to delete columns from. Should not be null or blank.
      * @param schemaName Name of the schema the table of interest belongs to. Should not be null or blank.
+     * @param ifTableExists Flag indicating whether the {@code IF EXISTS} was specified.
      * @param columns Set of the columns to delete. There should be at least one column.
      * @throws CatalogValidationException if any of restrictions above is violated.
      */
     private AlterTableDropColumnCommand(
             String tableName,
             String schemaName,
+            boolean ifTableExists,
             Set<String> columns
     ) throws CatalogValidationException {
-        super(schemaName, tableName);
+        super(schemaName, tableName, ifTableExists);
 
         // Set.copyOf() will throw NPE if any elements of the given set is null
         validate(columns);
@@ -105,7 +107,7 @@ public class AlterTableDropColumnCommand extends AbstractTableCommand {
         });
 
         return List.of(
-                new DropColumnsEntry(table.id(), columns, schemaName)
+                new DropColumnsEntry(table.id(), columns)
         );
     }
 
@@ -146,6 +148,8 @@ public class AlterTableDropColumnCommand extends AbstractTableCommand {
 
         private String tableName;
 
+        private boolean ifTableExists;
+
         @Override
         public AlterTableDropColumnCommandBuilder schemaName(String schemaName) {
             this.schemaName = schemaName;
@@ -156,6 +160,13 @@ public class AlterTableDropColumnCommand extends AbstractTableCommand {
         @Override
         public AlterTableDropColumnCommandBuilder tableName(String tableName) {
             this.tableName = tableName;
+
+            return this;
+        }
+
+        @Override
+        public AlterTableDropColumnCommandBuilder ifTableExists(boolean ifTableExists) {
+            this.ifTableExists = ifTableExists;
 
             return this;
         }
@@ -172,6 +183,7 @@ public class AlterTableDropColumnCommand extends AbstractTableCommand {
             return new AlterTableDropColumnCommand(
                     tableName,
                     schemaName,
+                    ifTableExists,
                     columns
             );
         }

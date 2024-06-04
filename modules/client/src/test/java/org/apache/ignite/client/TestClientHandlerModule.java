@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client;
 
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import io.netty.bootstrap.ServerBootstrap;
@@ -48,6 +49,7 @@ import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
@@ -151,7 +153,7 @@ public class TestClientHandlerModule implements IgniteComponent {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> start() {
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         if (channel != null) {
             throw new IgniteException("ClientHandlerModule is already started.");
         }
@@ -167,12 +169,18 @@ public class TestClientHandlerModule implements IgniteComponent {
 
     /** {@inheritDoc} */
     @Override
-    public void stop() throws Exception {
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         if (channel != null) {
-            channel.close().await();
+            try {
+                channel.close().await();
+            } catch (InterruptedException e) {
+                return failedFuture(e);
+            }
 
             channel = null;
         }
+
+        return nullCompletedFuture();
     }
 
     /**

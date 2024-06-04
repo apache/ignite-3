@@ -30,7 +30,9 @@ import it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
@@ -152,10 +154,10 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
             return val;
         });
 
-        return cacheValue.mappedFragments.thenApply(mappedFragments -> applyPartitionPruning(mappedFragments, parameters));
+        return cacheValue.mappedFragments.thenApply(mappedFragments -> applyPartitionPruning(mappedFragments.fragments, parameters));
     }
 
-    private CompletableFuture<List<MappedFragment>> mapFragments(MappingContext context, FragmentsTemplate template) {
+    private CompletableFuture<MappedFragments> mapFragments(MappingContext context, FragmentsTemplate template) {
         IdGenerator idGenerator = new IdGenerator(template.nextId);
         List<Fragment> fragments = new ArrayList<>(template.fragments);
 
@@ -242,7 +244,8 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
                         throw new IgniteInternalException(Sql.MAPPING_ERR, "Unable to map query: " + ex.getMessage(), ex);
                     }
 
-                    List<MappedFragment> result = new ArrayList<>(fragmentsToMap.size());
+                    List<MappedFragment> mappedFragmentsList = new ArrayList<>(fragmentsToMap.size());
+                    Set<String> targetNodes = new HashSet<>();
                     for (Fragment fragment : fragmentsToMap) {
                         FragmentMapping mapping = mappingByFragmentId.get(fragment.fragmentId());
 
@@ -264,18 +267,20 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
                             sourcesByExchangeId.put(exchangeId, allSourcesByExchangeId.get(exchangeId));
                         }
 
-                        result.add(
-                                new MappedFragment(
-                                        fragment,
-                                        mapping.groups(),
-                                        sourcesByExchangeId,
-                                        targetGroup,
-                                        null
-                                )
+                        MappedFragment mappedFragment = new MappedFragment(
+                                fragment,
+                                mapping.groups(),
+                                sourcesByExchangeId,
+                                targetGroup,
+                                null
                         );
+
+                        mappedFragmentsList.add(mappedFragment);
+
+                        targetNodes.addAll(mappedFragment.nodes());
                     }
 
-                    return result;
+                    return new MappedFragments(mappedFragmentsList, targetNodes);
                 });
     }
 
@@ -287,6 +292,15 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
     @Override
     public void onNodeLeft(LogicalNode leftNode, LogicalTopologySnapshot newTopology) {
         topologyHolder.update(newTopology);
+
+        mappingsCache.removeIfValue(value -> {
+            if (value.mappedFragments.isDone()) {
+                return value.mappedFragments.join().nodes.contains(leftNode.name());
+            }
+
+            // Invalidate non-completed mappings to reduce the chance of getting stale value
+            return true;
+        });
     }
 
     @Override
@@ -412,12 +426,23 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
         }
     }
 
+    /** Wraps list of mapped fragments with target node names. */
+    private static class MappedFragments {
+        final List<MappedFragment> fragments;
+        final Set<String> nodes;
+
+        MappedFragments(List<MappedFragment> fragments, Set<String> nodes) {
+            this.fragments = fragments;
+            this.nodes = nodes;
+        }
+    }
+
     private static class MappingsCacheValue {
         private final long topVer;
         private final IntSet tableIds;
-        private final CompletableFuture<List<MappedFragment>> mappedFragments;
+        private final CompletableFuture<MappedFragments> mappedFragments;
 
-        MappingsCacheValue(long topVer, IntSet tableIds, CompletableFuture<List<MappedFragment>> mappedFragments) {
+        MappingsCacheValue(long topVer, IntSet tableIds, CompletableFuture<MappedFragments> mappedFragments) {
             this.topVer = topVer;
             this.tableIds = tableIds;
             this.mappedFragments = mappedFragments;

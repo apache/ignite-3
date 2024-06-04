@@ -1,0 +1,24 @@
+# name: test/sql/set/test_set_distinct.test
+# description: Optional keyword UNION DISTINCT, EXCEPT DISTINCT, or INTERSECT DISTINCT.
+# feature: SQL T551
+# [group] Set operations
+
+query I
+SELECT 1 UNION DISTINCT SELECT * FROM (values(1),(2),(2),(3),(3),(3),(4)) s(x)
+----
+1
+2
+3
+4
+
+query I
+SELECT * FROM (values(1),(2),(2),(3),(3),(3),(5)) s(x) EXCEPT DISTINCT SELECT * FROM (values (2),(2),(3),(3),(4)) s(x)
+----
+1
+5
+
+query I
+SELECT * FROM (values(1),(2),(2),(3),(3),(3),(5)) s(x) INTERSECT DISTINCT SELECT * FROM (values (2),(2),(3),(3),(4)) s(x)
+----
+2
+3

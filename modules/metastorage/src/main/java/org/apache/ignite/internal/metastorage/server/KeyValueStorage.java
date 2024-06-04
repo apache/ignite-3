@@ -24,11 +24,13 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.LongConsumer;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.metastorage.CommandId;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.RevisionUpdateListener;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
+import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 
@@ -36,6 +38,9 @@ import org.jetbrains.annotations.Nullable;
  * Defines key/value storage interface.
  */
 public interface KeyValueStorage extends ManuallyCloseable {
+    byte[] INVOKE_RESULT_TRUE_BYTES = {ByteUtils.booleanToByte(true)};
+    byte[] INVOKE_RESULT_FALSE_BYTES = {ByteUtils.booleanToByte(false)};
+
     /**
      * Starts the given storage, allocating the necessary resources.
      */
@@ -111,16 +116,6 @@ public interface KeyValueStorage extends ManuallyCloseable {
     void put(byte[] key, byte[] value, HybridTimestamp opTs);
 
     /**
-     * Inserts an entry with the given key and given value and returns previous entry.
-     *
-     * @param key The key.
-     * @param value The value.
-     * @param opTs Operation's timestamp.
-     * @return Previous entry corresponding to the given key.
-     */
-    Entry getAndPut(byte[] key, byte[] value, HybridTimestamp opTs);
-
-    /**
      * Inserts entries with given keys and given values.
      *
      * @param keys The key list.
@@ -128,16 +123,6 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * @param opTs Operation's timestamp.
      */
     void putAll(List<byte[]> keys, List<byte[]> values, HybridTimestamp opTs);
-
-    /**
-     * Inserts entries with given keys and given values and returns previous entries.
-     *
-     * @param keys The key list.
-     * @param values The values list.
-     * @param opTs Operation's timestamp.
-     * @return Collection of previous entries corresponding to given keys.
-     */
-    Collection<Entry> getAndPutAll(List<byte[]> keys, List<byte[]> values, HybridTimestamp opTs);
 
     /**
      * Removes an entry with the given key.
@@ -148,15 +133,6 @@ public interface KeyValueStorage extends ManuallyCloseable {
     void remove(byte[] key, HybridTimestamp opTs);
 
     /**
-     * Removes an entry with the given key and returns previous entry.
-     *
-     * @param key The key.
-     * @param opTs Operation's timestamp.
-     * @return Previous entry.
-     */
-    Entry getAndRemove(byte[] key, HybridTimestamp opTs);
-
-    /**
      * Remove all entries corresponding to given keys.
      *
      * @param keys The keys list.
@@ -165,35 +141,34 @@ public interface KeyValueStorage extends ManuallyCloseable {
     void removeAll(List<byte[]> keys, HybridTimestamp opTs);
 
     /**
-     * Remove all entries corresponding to given keys and returns previous entries.
-     *
-     * @param keys The keys list.
-     * @param opTs Operation's timestamp.
-     * @return Previous entries.
-     */
-    Collection<Entry> getAndRemoveAll(List<byte[]> keys, HybridTimestamp opTs);
-
-    /**
      * Performs {@code success} operation if condition is {@code true}, otherwise performs {@code failure} operations.
      *
      * @param condition Condition.
      * @param success Success operations.
      * @param failure Failure operations.
      * @param opTs Operation's timestamp.
+     * @param commandId Command Id.
      * @return Result of test condition.
      */
-    boolean invoke(Condition condition, Collection<Operation> success, Collection<Operation> failure, HybridTimestamp opTs);
+    boolean invoke(
+            Condition condition,
+            Collection<Operation> success,
+            Collection<Operation> failure,
+            HybridTimestamp opTs,
+            CommandId commandId
+    );
 
     /**
      * Invoke, which supports nested conditional statements with left and right branches of execution.
      *
      * @param iif {@link If} statement to invoke
      * @param opTs Operation's timestamp.
+     * @param commandId Command Id.
      * @return execution result
      * @see If
      * @see StatementResult
      */
-    StatementResult invoke(If iif, HybridTimestamp opTs);
+    StatementResult invoke(If iif, HybridTimestamp opTs, CommandId commandId);
 
     /**
      * Returns cursor by entries which correspond to the given keys range.

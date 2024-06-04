@@ -46,6 +46,7 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.lang.SafeTimeReorderException;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
@@ -53,6 +54,7 @@ import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.RaftNodeId;
+import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -258,9 +260,9 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
         CompletableFuture<Void> start() throws Exception {
             clusterService = ClusterServiceTestUtils.clusterService(nodeName, port.getAndIncrement(), NODE_FINDER);
 
-            clusterService.start();
+            assertThat(clusterService.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
-            raftManager = new Loza(
+            raftManager = TestLozaFactory.create(
                     clusterService,
                     raftConfiguration,
                     workDir.resolve(nodeName + "_loza"),
@@ -268,7 +270,7 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
                     new RaftGroupEventsClientListener()
             );
 
-            raftManager.start();
+            assertThat(raftManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
             TxManager txManagerMock = mock(TxManager.class);
 
@@ -300,8 +302,10 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
                     raftManager == null ? null : () -> raftManager.stopRaftNodes(GROUP_ID),
                     raftManager == null ? null : raftManager::beforeNodeStop,
                     clusterService == null ? null : clusterService::beforeNodeStop,
-                    raftManager == null ? null : raftManager::stop,
-                    clusterService == null ? null : clusterService::stop
+                    raftManager == null ? null :
+                            () -> assertThat(raftManager.stopAsync(new ComponentContext()), willCompleteSuccessfully()),
+                    clusterService == null ? null :
+                            () -> assertThat(clusterService.stopAsync(new ComponentContext()), willCompleteSuccessfully())
             );
         }
     }

@@ -26,7 +26,7 @@ import org.apache.ignite.internal.network.annotations.Transferable;
  * Represents invoke command for meta storage.
  */
 @Transferable(MetastorageCommandsMessageGroup.INVOKE)
-public interface InvokeCommand extends MetaStorageWriteCommand {
+public interface InvokeCommand extends IdempotentCommand {
     /**
      * Returns condition.
      *

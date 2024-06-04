@@ -27,8 +27,10 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
+import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.internal.marshaller.Marshaller;
 import org.apache.ignite.internal.marshaller.MarshallerSchema;
 import org.apache.ignite.internal.marshaller.MarshallersProvider;
@@ -464,7 +466,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
             List<BinaryRowEx> rows = new ArrayList<>(recs.size());
 
             for (R rec : recs) {
-                Row row = marsh.marshal(Objects.requireNonNull(rec));
+                BinaryRowEx row = marsh.marshal(Objects.requireNonNull(rec));
 
                 rows.add(row);
             }
@@ -483,7 +485,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
 
             for (R rec : recs) {
                 boolean isDeleted = deleted != null && deleted.get(rows.size());
-                Row row = isDeleted ? marsh.marshalKey(rec) : marsh.marshal(rec);
+                BinaryRowEx row = isDeleted ? marsh.marshalKey(rec) : marsh.marshal(rec);
 
                 rows.add(row);
             }
@@ -525,7 +527,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
             List<BinaryRowEx> rows = new ArrayList<>(recs.size());
 
             for (R rec : recs) {
-                Row row = marsh.marshalKey(Objects.requireNonNull(rec));
+                BinaryRowEx row = marsh.marshalKey(Objects.requireNonNull(rec));
 
                 rows.add(row);
             }
@@ -620,6 +622,20 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
 
             return convertToPublicFuture(future);
         });
+    }
+
+    @Override
+    public <E, V, R1> CompletableFuture<Void> streamData(
+            Publisher<E> publisher,
+            @Nullable DataStreamerOptions options,
+            Function<E, R> keyFunc,
+            Function<E, V> payloadFunc,
+            @Nullable Flow.Subscriber<R1> resultSubscriber,
+            List<DeploymentUnit> deploymentUnits,
+            String receiverClassName,
+            Object... receiverArgs) {
+        // TODO: IGNITE-22285 Embedded Data Streamer with Receiver
+        throw new UnsupportedOperationException("Not implemented yet");
     }
 
     /** {@inheritDoc} */

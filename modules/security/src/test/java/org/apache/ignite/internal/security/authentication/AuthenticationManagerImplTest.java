@@ -39,6 +39,7 @@ import java.util.function.Consumer;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.event.EventListener;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderChange;
 import org.apache.ignite.internal.security.authentication.event.AuthenticationEvent;
 import org.apache.ignite.internal.security.authentication.event.AuthenticationEventParameters;
@@ -82,14 +83,14 @@ class AuthenticationManagerImplTest extends BaseIgniteAbstractTest {
 
         Arrays.stream(AuthenticationEvent.values()).forEach(event -> manager.listen(event, listener));
 
-        manager.start();
+        assertThat(manager.startAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     @AfterEach
-    void tearDown() throws Exception {
+    void tearDown() {
         Arrays.stream(AuthenticationEvent.values()).forEach(event -> manager.removeListener(event, listener));
 
-        manager.stop();
+        assertThat(manager.stopAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     @Test

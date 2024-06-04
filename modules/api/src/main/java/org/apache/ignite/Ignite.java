@@ -25,7 +25,7 @@ import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.sql.IgniteSql;
-import org.apache.ignite.table.manager.IgniteTables;
+import org.apache.ignite.table.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
 
 /**
@@ -33,9 +33,9 @@ import org.apache.ignite.tx.IgniteTransactions;
  */
 public interface Ignite extends AutoCloseable {
     /**
-     * Returns the Ignite node name.
+     * Returns the unique name (consistent ID) of the Ignite node in the cluster.
      *
-     * @return Ignite node name.
+     * @return Unique Ignite node name in the cluster.
      */
     String name();
 

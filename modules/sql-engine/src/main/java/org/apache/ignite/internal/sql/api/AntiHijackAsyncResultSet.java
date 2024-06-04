@@ -23,6 +23,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import org.apache.ignite.internal.table.AntiHijackAsyncCursor;
 import org.apache.ignite.internal.thread.PublicApiThreading;
+import org.apache.ignite.internal.wrapper.Wrapper;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.jetbrains.annotations.Nullable;
@@ -32,7 +33,7 @@ import org.jetbrains.annotations.Nullable;
  *
  * @see PublicApiThreading
  */
-public class AntiHijackAsyncResultSet<T> extends AntiHijackAsyncCursor<T> implements AsyncResultSet<T> {
+public class AntiHijackAsyncResultSet<T> extends AntiHijackAsyncCursor<T> implements AsyncResultSet<T>, Wrapper {
     private final AsyncResultSet<T> resultSet;
     private final Executor asyncContinuationExecutor;
 
@@ -70,5 +71,10 @@ public class AntiHijackAsyncResultSet<T> extends AntiHijackAsyncCursor<T> implem
     public CompletableFuture<? extends AsyncResultSet<T>> fetchNextPage() {
         return preventThreadHijack(resultSet.fetchNextPage(), asyncContinuationExecutor)
                 .thenApply(resultSet -> new AntiHijackAsyncResultSet<>(resultSet, asyncContinuationExecutor));
+    }
+
+    @Override
+    public <T> T unwrap(Class<T> classToUnwrap) {
+        return classToUnwrap.cast(resultSet);
     }
 }

@@ -18,6 +18,9 @@
 package org.apache.ignite.internal.table;
 
 import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.convertToPublicFuture;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.marshaller.ValidationUtils.validateNullableOperation;
+import static org.apache.ignite.internal.marshaller.ValidationUtils.validateNullableValue;
 
 import java.util.ArrayList;
 import java.util.BitSet;
@@ -28,8 +31,10 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
+import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.marshaller.Marshaller;
 import org.apache.ignite.internal.marshaller.MarshallerException;
@@ -51,7 +56,6 @@ import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.internal.tracing.TracingManager;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.lang.UnexpectedNullValueException;
 import org.apache.ignite.sql.IgniteSql;
@@ -111,41 +115,57 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
     /** {@inheritDoc} */
     @Override
     public V get(@Nullable Transaction tx, K key) {
-        return sync(getAsync(tx, key));
+        Objects.requireNonNull(key, "key");
+
+        return sync(doGet(tx, key, "getNullable"));
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<V> getAsync(@Nullable Transaction tx, K key) {
-        Objects.requireNonNull(key);
+        Objects.requireNonNull(key, "key");
 
         return TracingManager.span("KeyValueViewImpl.getAsync", (span) -> {
-            return doOperation(tx, (schemaVersion) -> {
-                BinaryRowEx keyRow = marshal(key, schemaVersion);
+            return doGet(tx, key, "getNullableAsync");
+        });
+    }
 
-                return tbl.get(keyRow, (InternalTransaction) tx).thenApply(binaryRow -> unmarshalValue(binaryRow, schemaVersion));
-            });
+    private CompletableFuture<V> doGet(@Nullable Transaction tx, K key, String altMethod) {
+        return doOperation(tx, (schemaVersion) -> {
+            BinaryRowEx keyRow = marshal(key, schemaVersion);
+
+            return tbl.get(keyRow, (InternalTransaction) tx).thenApply(binaryRow -> unmarshalValue(binaryRow, schemaVersion, altMethod));
         });
     }
 
     /** {@inheritDoc} */
     @Override
     public NullableValue<V> getNullable(@Nullable Transaction tx, K key) {
-        return sync(getNullableAsync(tx, key));
+        Objects.requireNonNull(key, "key");
+
+        validateNullableOperation(valueMapper.targetType(), "getNullable");
+
+        return sync(doGetNullable(tx, key));
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<NullableValue<V>> getNullableAsync(@Nullable Transaction tx, K key) {
-        Objects.requireNonNull(key);
+        Objects.requireNonNull(key, "key");
+
+        validateNullableOperation(valueMapper.targetType(), "getNullableAsync");
 
         return TracingManager.span("KeyValueViewImpl.getNullableAsync", (span) -> {
-            return doOperation(tx, (schemaVersion) -> {
-                BinaryRowEx keyRow = marshal(key, schemaVersion);
+            return doGetNullable(tx, key);
+        });
+    }
 
-                return tbl.get(keyRow, (InternalTransaction) tx)
-                        .thenApply(r -> r == null ? null : NullableValue.of(unmarshalNullableValue(r, schemaVersion)));
-            });
+    private CompletableFuture<NullableValue<V>> doGetNullable(@Nullable Transaction tx, K key) {
+        return doOperation(tx, (schemaVersion) -> {
+            BinaryRowEx keyRow = marshal(key, schemaVersion);
+
+            return tbl.get(keyRow, (InternalTransaction) tx)
+                    .thenApply(r -> r == null ? null : NullableValue.of(unmarshalNullableValue(r, schemaVersion)));
         });
     }
 
@@ -158,7 +178,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<V> getOrDefaultAsync(@Nullable Transaction tx, K key, V defaultValue) {
-        Objects.requireNonNull(key);
+        Objects.requireNonNull(key, "key");
 
         return TracingManager.span("KeyValueViewImpl.getOrDefaultAsync", (span) -> {
             return doOperation(tx, (schemaVersion) -> {
@@ -191,10 +211,10 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
     }
 
     private static <K> void checkKeysForNulls(Collection<K> keys) {
-        Objects.requireNonNull(keys);
+        Objects.requireNonNull(keys, "keys");
 
         for (K key : keys) {
-            Objects.requireNonNull(key);
+            Objects.requireNonNull(key, "key");
         }
     }
 
@@ -207,7 +227,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Boolean> containsAsync(@Nullable Transaction tx, K key) {
-        Objects.requireNonNull(key);
+        Objects.requireNonNull(key, "key");
 
         return TracingManager.span("KeyValueViewImpl.containsAsync", (span) -> {
             return doOperation(tx, (schemaVersion) -> {
@@ -227,7 +247,9 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> putAsync(@Nullable Transaction tx, K key, @Nullable V val) {
-        Objects.requireNonNull(key);
+        Objects.requireNonNull(key, "key");
+
+        validateNullableValue(val, valueMapper.targetType());
 
         return TracingManager.span("KeyValueViewImpl.putAsync", (span) -> {
             return doOperation(tx, (schemaVersion) -> {
@@ -247,9 +269,14 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> putAllAsync(@Nullable Transaction tx, Map<K, V> pairs) {
-        Objects.requireNonNull(pairs);
+        Objects.requireNonNull(pairs, "pairs");
+
         for (Entry<K, V> entry : pairs.entrySet()) {
-            Objects.requireNonNull(entry.getKey());
+            K key = entry.getKey();
+            V val = entry.getValue();
+
+            Objects.requireNonNull(key, "key");
+            validateNullableValue(val, valueMapper.targetType());
         }
 
         return TracingManager.span("KeyValueViewImpl.putAllAsync", (span) -> {
@@ -264,41 +291,60 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
     /** {@inheritDoc} */
     @Override
     public V getAndPut(@Nullable Transaction tx, K key, @Nullable V val) {
-        return sync(getAndPutAsync(tx, key, val));
+        Objects.requireNonNull(key, "key");
+
+        validateNullableValue(val, valueMapper.targetType());
+
+        return sync(doGetAndPut(tx, key, val, "getNullableAndPut"));
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<V> getAndPutAsync(@Nullable Transaction tx, K key, @Nullable V val) {
-        Objects.requireNonNull(key);
-        Objects.requireNonNull(val);
+        Objects.requireNonNull(key, "key");
+
+        validateNullableValue(val, valueMapper.targetType());
 
         return TracingManager.span("KeyValueViewImpl.getAndPutAsync", (span) -> {
-            return doOperation(tx, (schemaVersion) -> {
-                return tbl.getAndUpsert(marshal(key, val, schemaVersion), (InternalTransaction) tx)
-                        .thenApply(binaryRow -> unmarshalValue(binaryRow, schemaVersion));
-            });
+            return doGetAndPut(tx, key, val, "getNullableAndPutAsync");
+        });
+    }
+
+    private CompletableFuture<V> doGetAndPut(@Nullable Transaction tx, K key, @Nullable V val, String altMethod) {
+        return doOperation(tx, (schemaVersion) -> {
+            return tbl.getAndUpsert(marshal(key, val, schemaVersion), (InternalTransaction) tx)
+                    .thenApply(binaryRow -> unmarshalValue(binaryRow, schemaVersion, altMethod));
         });
     }
 
     /** {@inheritDoc} */
     @Override
     public NullableValue<V> getNullableAndPut(@Nullable Transaction tx, K key, @Nullable V val) {
-        return sync(getNullableAndPutAsync(tx, key, val));
+        Objects.requireNonNull(key, "key");
+
+        validateNullableOperation(valueMapper.targetType(), "getNullableAndPut");
+
+        return sync(doGetNullableAndPut(tx, key, val));
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<NullableValue<V>> getNullableAndPutAsync(@Nullable Transaction tx, K key, @Nullable V val) {
-        Objects.requireNonNull(key);
+        Objects.requireNonNull(key, "key");
+
+        validateNullableOperation(valueMapper.targetType(), "getNullableAndPutAsync");
 
         return TracingManager.span("KeyValueViewImpl.getNullableAndPutAsync", (span) -> {
-            return doOperation(tx, (schemaVersion) -> {
-                BinaryRowEx row = marshal(key, val, schemaVersion);
+            return doGetNullableAndPut(tx, key, val);
+        });
+    }
 
-                return tbl.getAndUpsert(row, (InternalTransaction) tx)
-                        .thenApply(r -> r == null ? null : NullableValue.of(unmarshalNullableValue(r, schemaVersion)));
-            });
+    private CompletableFuture<NullableValue<V>> doGetNullableAndPut(@Nullable Transaction tx, K key, @Nullable V val) {
+        return doOperation(tx, (schemaVersion) -> {
+            BinaryRowEx row = marshal(key, val, schemaVersion);
+
+            return tbl.getAndUpsert(row, (InternalTransaction) tx)
+                    .thenApply(r -> r == null ? null : NullableValue.of(unmarshalNullableValue(r, schemaVersion)));
         });
     }
 
@@ -311,7 +357,9 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Boolean> putIfAbsentAsync(@Nullable Transaction tx, K key, @Nullable V val) {
-        Objects.requireNonNull(key);
+        Objects.requireNonNull(key, "key");
+
+        validateNullableValue(val, valueMapper.targetType());
 
         return TracingManager.span("KeyValueViewImpl.putIfAbsentAsync", (span) -> {
             return doOperation(tx, (schemaVersion) -> {
@@ -337,7 +385,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Boolean> removeAsync(@Nullable Transaction tx, K key) {
-        Objects.requireNonNull(key);
+        Objects.requireNonNull(key, "key");
 
         return TracingManager.span("KeyValueViewImpl.removeAsync", (span) -> {
             return doOperation(tx, (schemaVersion) -> {
@@ -351,7 +399,9 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Boolean> removeAsync(@Nullable Transaction tx, K key, @Nullable V val) {
-        Objects.requireNonNull(key);
+        Objects.requireNonNull(key, "key");
+
+        validateNullableValue(val, valueMapper.targetType());
 
         return TracingManager.span("KeyValueViewImpl.removeAsync", (span) -> {
             return doOperation(tx, (schemaVersion) -> {
@@ -385,7 +435,9 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
     /** {@inheritDoc} */
     @Override
     public V getAndRemove(@Nullable Transaction tx, K key) {
-        return sync(getAndRemoveAsync(tx, key));
+        Objects.requireNonNull(key);
+
+        return sync(doGetAndRemove(tx, key, "getNullableAndRemove"));
     }
 
     /** {@inheritDoc} */
@@ -394,33 +446,47 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
         Objects.requireNonNull(key);
 
         return TracingManager.span("KeyValueViewImpl.getAndRemoveAsync", (span) -> {
-            return doOperation(tx, (schemaVersion) -> {
-                BinaryRowEx keyRow = marshal(key, schemaVersion);
+            return doGetAndRemove(tx, key, "getNullableAndRemoveAsync");
+        });
+    }
 
-                return tbl.getAndDelete(keyRow, (InternalTransaction) tx)
-                        .thenApply(binaryRow -> unmarshalValue(binaryRow, schemaVersion));
-            });
+    private CompletableFuture<V> doGetAndRemove(@Nullable Transaction tx, K key, String altMethod) {
+        return doOperation(tx, (schemaVersion) -> {
+            BinaryRowEx keyRow = marshal(key, schemaVersion);
+
+            return tbl.getAndDelete(keyRow, (InternalTransaction) tx)
+                    .thenApply(binaryRow -> unmarshalValue(binaryRow, schemaVersion, altMethod));
         });
     }
 
     /** {@inheritDoc} */
     @Override
     public NullableValue<V> getNullableAndRemove(@Nullable Transaction tx, K key) {
-        return sync(getNullableAndRemoveAsync(tx, key));
+        Objects.requireNonNull(key, "key");
+
+        validateNullableOperation(valueMapper.targetType(), "getNullableAndRemove");
+
+        return sync(doGetNullableAndRemove(tx, key));
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<NullableValue<V>> getNullableAndRemoveAsync(@Nullable Transaction tx, K key) {
-        Objects.requireNonNull(key);
+        Objects.requireNonNull(key, "key");
+
+        validateNullableOperation(valueMapper.targetType(), "getNullableAndRemoveAsync");
 
         return TracingManager.span("KeyValueViewImpl.getNullableAndRemoveAsync", (span) -> {
-            return doOperation(tx, (schemaVersion) -> {
-                BinaryRowEx keyRow = marshal(key, schemaVersion);
+            return doGetNullableAndRemove(tx, key);
+        });
+    }
 
-                return tbl.getAndDelete(keyRow, (InternalTransaction) tx)
-                        .thenApply(r -> r == null ? null : NullableValue.of(unmarshalNullableValue(r, schemaVersion)));
-            });
+    private CompletableFuture<NullableValue<V>> doGetNullableAndRemove(@Nullable Transaction tx, K key) {
+        return doOperation(tx, (schemaVersion) -> {
+            BinaryRowEx keyRow = marshal(key, schemaVersion);
+
+            return tbl.getAndDelete(keyRow, (InternalTransaction) tx)
+                    .thenApply(r -> r == null ? null : NullableValue.of(unmarshalNullableValue(r, schemaVersion)));
         });
     }
 
@@ -439,7 +505,9 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, K key, @Nullable V val) {
-        Objects.requireNonNull(key);
+        Objects.requireNonNull(key, "key");
+
+        validateNullableValue(val, valueMapper.targetType());
 
         return TracingManager.span("KeyValueViewImpl.replaceAsync", (span) -> {
             return doOperation(tx, (schemaVersion) -> {
@@ -453,7 +521,10 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, K key, @Nullable V oldVal, @Nullable V newVal) {
-        Objects.requireNonNull(key);
+        Objects.requireNonNull(key, "key");
+
+        validateNullableValue(oldVal, valueMapper.targetType());
+        validateNullableValue(newVal, valueMapper.targetType());
 
         return TracingManager.span("KeyValueViewImpl.replaceAsync", (span) -> {
             return doOperation(tx, (schemaVersion) -> {
@@ -468,41 +539,60 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
     /** {@inheritDoc} */
     @Override
     public V getAndReplace(@Nullable Transaction tx, K key, @Nullable V val) {
-        return sync(getAndReplaceAsync(tx, key, val));
+        Objects.requireNonNull(key, "key");
+
+        validateNullableValue(val, valueMapper.targetType());
+
+        return sync(doGetAndReplace(tx, key, val, "getNullableAndReplace"));
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<V> getAndReplaceAsync(@Nullable Transaction tx, K key, @Nullable V val) {
-        Objects.requireNonNull(key);
-        Objects.requireNonNull(val);
+        Objects.requireNonNull(key, "key");
+
+        validateNullableValue(val, valueMapper.targetType());
 
         return TracingManager.span("KeyValueViewImpl.getAndReplaceAsync", (span) -> {
-            return doOperation(tx, (schemaVersion) -> {
-                return tbl.getAndReplace(marshal(key, val, schemaVersion), (InternalTransaction) tx)
-                        .thenApply(binaryRow -> unmarshalValue(binaryRow, schemaVersion));
-            });
+            return doGetAndReplace(tx, key, val, "getNullableAndReplaceAsync");
+        });
+    }
+
+    private CompletableFuture<V> doGetAndReplace(@Nullable Transaction tx, K key, @Nullable V val, String altMethod) {
+        return doOperation(tx, (schemaVersion) -> {
+            return tbl.getAndReplace(marshal(key, val, schemaVersion), (InternalTransaction) tx)
+                    .thenApply(binaryRow -> unmarshalValue(binaryRow, schemaVersion, altMethod));
         });
     }
 
     /** {@inheritDoc} */
     @Override
     public NullableValue<V> getNullableAndReplace(@Nullable Transaction tx, K key, @Nullable V val) {
-        return sync(getNullableAndReplaceAsync(tx, key, val));
+        Objects.requireNonNull(key, "key");
+
+        validateNullableOperation(valueMapper.targetType(), "getNullableAndReplaceAsync");
+
+        return sync(doGetNullableAndReplace(tx, key, val));
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<NullableValue<V>> getNullableAndReplaceAsync(@Nullable Transaction tx, K key, @Nullable V val) {
-        Objects.requireNonNull(key);
+        Objects.requireNonNull(key, "key");
+
+        validateNullableOperation(valueMapper.targetType(), "getNullableAndReplaceAsync");
 
         return TracingManager.span("KeyValueViewImpl.getNullableAndReplaceAsync", (span) -> {
-            return doOperation(tx, (schemaVersion) -> {
-                BinaryRowEx row = marshal(key, val, schemaVersion);
+            return doGetNullableAndReplace(tx, key, val);
+        });
+    }
 
-                return tbl.getAndReplace(row, (InternalTransaction) tx)
-                        .thenApply(r -> r == null ? null : NullableValue.of(unmarshalNullableValue(r, schemaVersion)));
-            });
+    private CompletableFuture<NullableValue<V>> doGetNullableAndReplace(@Nullable Transaction tx, K key, @Nullable V val) {
+        return doOperation(tx, (schemaVersion) -> {
+            BinaryRowEx row = marshal(key, val, schemaVersion);
+
+            return tbl.getAndReplace(row, (InternalTransaction) tx)
+                    .thenApply(r -> r == null ? null : NullableValue.of(unmarshalNullableValue(r, schemaVersion)));
         });
     }
 
@@ -539,7 +629,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
         try {
             return marsh.marshal(key);
         } catch (MarshallerException e) {
-            throw new IgniteException(e);
+            throw new org.apache.ignite.lang.MarshallerException(e);
         }
     }
 
@@ -709,10 +799,11 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
      *
      * @param binaryRow Binary row.
      * @param schemaVersion Schema version to use when unmarshalling.
+     * @param altMethod Alternative method name to use in exception message.
      * @return Value object or {@code null} if not exists.
      * @throws UnexpectedNullValueException if value object is null.
      */
-    private @Nullable V unmarshalValue(@Nullable BinaryRow binaryRow, int schemaVersion) {
+    private @Nullable V unmarshalValue(@Nullable BinaryRow binaryRow, int schemaVersion, String altMethod) {
         if (binaryRow == null) {
             return null;
         }
@@ -720,7 +811,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
         V v = unmarshalNullableValue(binaryRow, schemaVersion);
 
         if (v == null) {
-            throw new UnexpectedNullValueException("Got unexpected null value: use `getNullable` sibling method instead.");
+            throw new UnexpectedNullValueException(format("Got unexpected null value: use `{}` sibling method instead.", altMethod));
         }
 
         return v;
@@ -729,7 +820,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> streamData(Publisher<DataStreamerItem<Entry<K, V>>> publisher, @Nullable DataStreamerOptions options) {
-        Objects.requireNonNull(publisher);
+        Objects.requireNonNull(publisher, "publisher");
 
         return TracingManager.span("KeyValueViewImpl.streamData", (span) -> {
             // Taking latest schema version for marshaller here because it's only used to calculate colocation hash, and colocation
@@ -750,6 +841,20 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
                     tbl.streamerFlushExecutor());
             return convertToPublicFuture(future);
         });
+    }
+
+    @Override
+    public <E, V1, R> CompletableFuture<Void> streamData(
+            Publisher<E> publisher,
+            @Nullable DataStreamerOptions options,
+            Function<E, Entry<K, V>> keyFunc,
+            Function<E, V1> payloadFunc,
+            @Nullable Flow.Subscriber<R> resultSubscriber,
+            List<DeploymentUnit> deploymentUnits,
+            String receiverClassName,
+            Object... receiverArgs) {
+        // TODO: IGNITE-22285 Embedded Data Streamer with Receiver.
+        throw new UnsupportedOperationException("Not implemented yet");
     }
 
     /** {@inheritDoc} */

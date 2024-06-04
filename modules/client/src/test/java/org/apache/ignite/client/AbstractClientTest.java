@@ -17,10 +17,10 @@
 
 package org.apache.ignite.client;
 
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
-import io.netty.util.ResourceLeakDetector;
 import java.util.Arrays;
 import java.util.Set;
 import java.util.UUID;
@@ -31,7 +31,6 @@ import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.client.fakes.FakeSchemaRegistry;
 import org.apache.ignite.internal.client.ClientClusterNode;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.table.Tuple;
@@ -60,8 +59,6 @@ public abstract class AbstractClientTest extends BaseIgniteAbstractTest {
      */
     @BeforeAll
     public static void beforeAll() {
-        ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.PARANOID);
-
         server = new FakeIgnite("server-1");
 
         testServer = startServer(0, server);
@@ -76,11 +73,7 @@ public abstract class AbstractClientTest extends BaseIgniteAbstractTest {
      */
     @AfterAll
     public static void afterAll() throws Exception {
-        IgniteUtils.closeAll(client, testServer);
-
-        // Force GC to detect Netty buffer leaks.
-        //noinspection CallToSystemGC
-        System.gc();
+        closeAll(client, testServer);
     }
 
     /**

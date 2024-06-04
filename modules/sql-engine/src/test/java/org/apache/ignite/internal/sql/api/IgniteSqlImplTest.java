@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.cause;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
@@ -47,17 +48,18 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.util.ListToInternalSqlRowAdapter;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.async.AsyncResultSet;
-import org.apache.ignite.tx.IgniteTransactions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -81,7 +83,7 @@ class IgniteSqlImplTest extends BaseIgniteAbstractTest {
     void setUp() {
         clock.set(1L);
 
-        igniteSql = new IgniteSqlImpl(queryProcessor, mock(IgniteTransactions.class));
+        igniteSql = new IgniteSqlImpl(queryProcessor, mock(HybridTimestampTracker.class));
     }
 
     @Test
@@ -127,7 +129,7 @@ class IgniteSqlImplTest extends BaseIgniteAbstractTest {
         assertThat(rs, notNullValue());
         assertThat(igniteSql.openedCursors(), hasSize(1));
 
-        igniteSql.stop();
+        assertThat(igniteSql.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
         verify(result).closeAsync();
     }
@@ -147,7 +149,7 @@ class IgniteSqlImplTest extends BaseIgniteAbstractTest {
 
         assertThat(executeQueryLatch.await(5, TimeUnit.SECONDS), is(true));
 
-        igniteSql.stop();
+        assertThat(igniteSql.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
         AsyncSqlCursor<InternalSqlRow> cursor = mock(AsyncSqlCursor.class);
         cursorFuture.complete(cursor);
@@ -193,7 +195,7 @@ class IgniteSqlImplTest extends BaseIgniteAbstractTest {
 
         assertThat(executeQueryLatch.await(5, TimeUnit.SECONDS), is(true));
 
-        igniteSql.stop();
+        assertThat(igniteSql.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
         AsyncSqlCursor<InternalSqlRow> cursor = mock(AsyncSqlCursor.class);
         cursorFuture.complete(cursor);
@@ -339,9 +341,7 @@ class IgniteSqlImplTest extends BaseIgniteAbstractTest {
 
         Thread thread = new Thread(() -> {
             try {
-                igniteSql.stop();
-            } catch (Exception e) {
-                throw new RuntimeException(e);
+                assertThat(igniteSql.stopAsync(new ComponentContext()), willCompleteSuccessfully());
             } finally {
                 cursor2Fut.complete(cursor2);
             }

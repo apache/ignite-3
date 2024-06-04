@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
@@ -48,6 +49,7 @@ import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
 import org.apache.ignite.internal.event.EventListener;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
@@ -95,7 +97,7 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
     @BeforeEach
     void setUp() {
         metaStorageManager = spy(StandaloneMetaStorageManager.create(metaStorageKvStorage));
-        metaStorageManager.start();
+        assertThat(metaStorageManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         tableCreatedListener = ArgumentCaptor.forClass(EventListener.class);
         tableAlteredListener = ArgumentCaptor.forClass(EventListener.class);
@@ -105,15 +107,14 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
         doNothing().when(catalogService).listen(eq(CatalogEvent.TABLE_ALTER), tableAlteredListener.capture());
 
         schemaManager = new SchemaManager(registry, catalogService);
-        schemaManager.start();
+        assertThat(schemaManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         assertThat("Watches were not deployed", metaStorageManager.deployWatches(), willCompleteSuccessfully());
     }
 
     @AfterEach
-    void tearDown() throws Exception {
-        schemaManager.stop();
-        metaStorageManager.stop();
+    void tearDown() {
+        assertThat(stopAsync(new ComponentContext(), schemaManager, metaStorageManager), willCompleteSuccessfully());
     }
 
     private void createSomeTable() {
@@ -266,17 +267,17 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void loadingPreExistingSchemasWorks() throws Exception {
+    void loadingPreExistingSchemasWorks() {
         create2TableVersions();
 
-        schemaManager.stop();
+        assertThat(schemaManager.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
         when(catalogService.latestCatalogVersion()).thenReturn(2);
         when(catalogService.tables(anyInt())).thenReturn(List.of(tableDescriptorAfterColumnAddition()));
         doReturn(CompletableFuture.completedFuture(CAUSALITY_TOKEN_2)).when(metaStorageManager).recoveryFinishedFuture();
 
         schemaManager = new SchemaManager(registry, catalogService);
-        schemaManager.start();
+        assertThat(schemaManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         completeCausalityToken(CAUSALITY_TOKEN_2);
 

@@ -17,12 +17,12 @@
 
 package org.apache.ignite.internal.rebalance;
 
+import static java.util.Collections.reverse;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_TEST_PROFILE_NAME;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.REBALANCE_SCHEDULER_POOL_SIZE;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
@@ -37,6 +37,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.apache.ignite.internal.util.CollectionUtils.first;
+import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.apache.ignite.sql.ColumnType.INT64;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -128,6 +129,7 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.lowwatermark.LowWatermarkImpl;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -137,6 +139,8 @@ import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
+import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.DefaultMessagingService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
@@ -153,7 +157,9 @@ import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFacto
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
+import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
+import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
@@ -163,6 +169,7 @@ import org.apache.ignite.internal.rest.configuration.RestConfiguration;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.storage.StorageException;
@@ -199,7 +206,6 @@ import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateTableStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
-import org.apache.ignite.internal.util.ReverseIterator;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
 import org.apache.ignite.network.ClusterNode;
@@ -981,6 +987,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         private final ScheduledExecutorService rebalanceScheduler;
 
+        private final LogStorageFactory logStorageFactory;
+
         /**
          * Constructor that simply creates a subset of components of this node.
          */
@@ -1031,9 +1039,21 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             lockManager = new HeapLockManager();
 
+            MetricManager metricManager = new NoOpMetricManager();
+
             var raftGroupEventsClientListener = new RaftGroupEventsClientListener();
 
-            raftManager = spy(new Loza(clusterService, raftConfiguration, dir, hybridClock, raftGroupEventsClientListener));
+            logStorageFactory = SharedLogStorageFactoryUtils.create(clusterService.nodeName(), dir, raftConfiguration);
+
+            raftManager = spy(new Loza(
+                    clusterService,
+                    metricManager,
+                    raftConfiguration,
+                    dir,
+                    hybridClock,
+                    raftGroupEventsClientListener,
+                    logStorageFactory
+            ));
 
             var clusterStateStorage = new TestClusterStateStorage();
             var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
@@ -1044,6 +1064,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     new TestConfigurationValidator()
             );
 
+            failureProcessor = new FailureProcessor(name);
+
             cmgManager = new ClusterManagementGroupManager(
                     vaultManager,
                     clusterService,
@@ -1052,7 +1074,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     clusterStateStorage,
                     logicalTopology,
                     clusterManagementConfiguration,
-                    new NodeAttributesCollector(nodeAttributes, storageConfiguration)
+                    new NodeAttributesCollector(nodeAttributes, storageConfiguration),
+                    failureProcessor
             );
 
             LogicalTopologyServiceImpl logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
@@ -1076,6 +1099,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     keyValueStorage,
                     hybridClock,
                     topologyAwareRaftGroupServiceFactory,
+                    metricManager,
                     metaStorageConfiguration
             );
 
@@ -1089,7 +1113,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     clusterService.messagingService(),
                     hybridClock,
                     threadPoolsManager.partitionOperationsExecutor(),
-                    replicationConfiguration
+                    replicationConfiguration,
+                    threadPoolsManager.commonScheduler()
             );
 
             var resourcesRegistry = new RemotelyTriggeredResourceRegistry();
@@ -1132,7 +1157,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             Path storagePath = dir.resolve("storage");
 
-            failureProcessor = new FailureProcessor(name);
 
             dataStorageMgr = new DataStorageManager(
                     dataStorageModules.createStorageEngines(
@@ -1306,11 +1330,16 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     nodeCfgMgr,
                     failureProcessor,
                     clusterService,
+                    logStorageFactory,
                     raftManager,
                     cmgManager
             );
 
-            List<CompletableFuture<?>> componentFuts = firstComponents.stream().map(IgniteComponent::start).collect(Collectors.toList());
+            ComponentContext componentContext = new ComponentContext();
+            List<CompletableFuture<?>> componentFuts =
+                    firstComponents.stream()
+                            .map(component -> component.startAsync(componentContext))
+                            .collect(Collectors.toList());
 
             nodeComponents.addAll(firstComponents);
 
@@ -1330,7 +1359,9 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                         indexManager
                 );
 
-                componentFuts.addAll(secondComponents.stream().map(IgniteComponent::start).collect(Collectors.toList()));
+                componentFuts.addAll(secondComponents.stream()
+                        .map(component -> component.startAsync(componentContext))
+                        .collect(Collectors.toList()));
 
                 nodeComponents.addAll(secondComponents);
 
@@ -1361,21 +1392,18 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
          * Stops the created components.
          */
         void stop() {
-            new ReverseIterator<>(nodeComponents).forEachRemaining(component -> {
+            List<IgniteComponent> components = new ArrayList<>(nodeComponents);
+            reverse(components);
+
+            for (IgniteComponent component : components) {
                 try {
                     component.beforeNodeStop();
                 } catch (Exception e) {
                     LOG.error("Unable to execute before node stop [component={}]", e, component);
                 }
-            });
+            }
 
-            new ReverseIterator<>(nodeComponents).forEachRemaining(component -> {
-                try {
-                    component.stop();
-                } catch (Exception e) {
-                    LOG.error("Unable to stop component [component={}]", e, component);
-                }
-            });
+            assertThat(stopAsync(new ComponentContext(), components), willCompleteSuccessfully());
 
             nodeCfgGenerator.close();
             clusterCfgGenerator.close();
@@ -1538,7 +1566,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         TableTestUtils.createTable(
                 node.catalogManager,
-                DEFAULT_SCHEMA_NAME,
+                SqlCommon.DEFAULT_SCHEMA_NAME,
                 zoneName,
                 tableName,
                 List.of(

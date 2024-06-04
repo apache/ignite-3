@@ -48,6 +48,7 @@ namespace Apache.Ignite
             Catalog.GroupCode => Catalog.GroupName,
             PlacementDriver.GroupCode => PlacementDriver.GroupName,
             CriticalWorkers.GroupCode => CriticalWorkers.GroupName,
+            DisasterRecovery.GroupCode => DisasterRecovery.GroupName,
 
             _ => UnknownGroupName
         };
@@ -115,6 +116,9 @@ namespace Apache.Ignite
 
             /// <summary> SchemaVersionMismatch error. </summary>
             public const int SchemaVersionMismatch = (GroupCode << 16) | (7 & 0xFFFF);
+
+            /// <summary> UnsupportedPartitionType error. </summary>
+            public const int UnsupportedPartitionType = (GroupCode << 16) | (8 & 0xFFFF);
         }
 
         /// <summary> Client errors. </summary>
@@ -356,6 +360,9 @@ namespace Apache.Ignite
 
             /// <summary> AlreadyDestroyed error. </summary>
             public const int AlreadyDestroyed = (GroupCode << 16) | (5 & 0xFFFF);
+
+            /// <summary> IndexNotBuilt error. </summary>
+            public const int IndexNotBuilt = (GroupCode << 16) | (6 & 0xFFFF);
         }
 
         /// <summary> DistributionZones errors. </summary>
@@ -564,6 +571,25 @@ namespace Apache.Ignite
 
             /// <summary> SystemCriticalOperationTimeout error. </summary>
             public const int SystemCriticalOperationTimeout = (GroupCode << 16) | (2 & 0xFFFF);
+        }
+
+        /// <summary> DisasterRecovery errors. </summary>
+        public static class DisasterRecovery
+        {
+            /// <summary> DisasterRecovery group code. </summary>
+            public const short GroupCode = 20;
+
+            /// <summary> DisasterRecovery group name. </summary>
+            public const String GroupName = "RECOVERY";
+
+            /// <summary> IllegalPartitionId error. </summary>
+            public const int IllegalPartitionId = (GroupCode << 16) | (1 & 0xFFFF);
+
+            /// <summary> NodesNotFound error. </summary>
+            public const int NodesNotFound = (GroupCode << 16) | (2 & 0xFFFF);
+
+            /// <summary> PartitionState error. </summary>
+            public const int PartitionState = (GroupCode << 16) | (3 & 0xFFFF);
         }
     }
 }

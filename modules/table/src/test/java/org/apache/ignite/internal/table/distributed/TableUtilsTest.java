@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.table.distributed;
 
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.table.TableTestUtils.COLUMN_NAME;
@@ -52,6 +51,8 @@ import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -62,18 +63,18 @@ import org.junit.jupiter.api.Test;
 public class TableUtilsTest extends IgniteAbstractTest {
     private final HybridClock clock = new HybridClockImpl();
 
-    private final CatalogManager catalogManager = CatalogTestUtils.createTestCatalogManager("test-node", clock);
+    private final CatalogManager catalogManager = CatalogTestUtils.createCatalogManagerWithTestUpdateLog("test-node", clock);
 
     @BeforeEach
     void setUp() {
-        assertThat(catalogManager.start(), willCompleteSuccessfully());
+        assertThat(catalogManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     @AfterEach
     void tearDown() throws Exception {
         closeAll(
                 catalogManager::beforeNodeStop,
-                catalogManager::stop
+                () -> assertThat(catalogManager.stopAsync(new ComponentContext()), willCompleteSuccessfully())
         );
     }
 
@@ -106,7 +107,7 @@ public class TableUtilsTest extends IgniteAbstractTest {
         }
 
         for (String indexName : List.of(indexName3, indexName4)) {
-            dropIndex(catalogManager, DEFAULT_SCHEMA_NAME, indexName);
+            dropIndex(catalogManager, SqlCommon.DEFAULT_SCHEMA_NAME, indexName);
         }
 
         removeIndex(catalogManager, indexId4);

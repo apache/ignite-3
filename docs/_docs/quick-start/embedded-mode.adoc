@@ -1,0 +1,122 @@
+// Licensed to the Apache Software Foundation (ASF) under one or more
+// contributor license agreements.  See the NOTICE file distributed with
+// this work for additional information regarding copyright ownership.
+// The ASF licenses this file to You under the Apache License, Version 2.0
+// (the "License"); you may not use this file except in compliance with
+// the License.  You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+= Starting With Embedded Mode
+
+In most scenarios, you would use Ignite CLI tool to start and manage your Ignite cluster. However, in some scenarios it is preferable to manage the cluster from a Java project. Starting and working with the cluster from code is called "embedded mode".
+
+This tutorial covers how you can start Ignite 3 from your Java project.
+
+NOTE: Unlike in Ignite 2, nodes in Ignite 3 are not separated into client and server nodes. Nodes started from embedded mode will be used to store data by default. To avoid this,
+
+== Prerequisites
+
+Ignite 3 was tested on:
+
+include::includes/prereqs.adoc[]
+
+== Add Ignite to Your Project
+
+//TODO: Replace this with real maven later
+
+First, you need to add Ignite to your project. The easiest way to do this is add Ignite to your project is by using Maven:
+
+[source, xml]
+----
+
+<dependency>
+    <groupId>org.apache.ignite</groupId>
+    <artifactId>ignite-api</artifactId>
+    <version>3.0.0-beta2</version>
+    <scope>system</scope>
+    <systemPath>{path_to_jar}</systemPath>
+</dependency>
+
+<dependency>
+    <groupId>org.apache.ignite</groupId>
+    <artifactId>ignite-runner</artifactId>
+    <version>3.0.0-beta2</version>
+    <scope>system</scope>
+    <systemPath>{path_to_jar}</systemPath>
+</dependency>
+----
+
+== Prepare Ignite Configuration
+
+To start a Ignite node, you will need a Ignite configuration file that specifies all configuration properties of the node. For this tutorial, we recommend link:installation/installing-using-zip[installing] Ignite 3 and using a default configuration file from it. This file is stored in the `ignite-db-{version}/etc/ignite-config.conf` file.
+
+== Start Ignite Server Nodes
+
+To start a Ignite node, use the following code snippet:
+
+[source, java]
+----
+CompletableFuture<Ignite> igniteFuture = IgnitionManager.start(
+    "node1",
+    "{config_path}",
+    "{workdir_path}"
+);
+----
+
+This code snippet starts a Ignite node with the name `node1`, that uses the configuration from the file specified in the `{config_path}` path parameter and uses the folder specified in the `{workdir_path}` path parameter to store data. When the node is started, this method returns an instance of `Ignite` class that can be used to work with the node.
+
+== Initiate a Cluster
+
+Started nodes find each other by default, but they do not form an intractable cluster unless the cluster is initiated. You need to initiate the cluster to activate the node. If there are multiple nodes, once the cluster is activated, they will form a topology and automatically distribute workload between each other.
+
+Use the code snippet below to initiate a cluster:
+
+[source, java]
+----
+InitParameters initParameters = InitParameters.builder()
+    .destinationNodeName("node1")
+    .metaStorageNodeNames(List.of("node1"))
+    .clusterName("cluster")
+    .build();
+
+IgnitionManager.init(initParameters);
+----
+
+== Get an Ignite Instance
+
+Now that the cluster is started, you can get an instance of the `Ignite` class:
+
+[source, java]
+----
+Ignite ignite = igniteFuture.get();
+----
+
+This instance can be used to start working with the cluster. The future will be returned once the cluster is active.
+
+For example, here is how you can create a new table by using an SQL API:
+
+[source, java]
+----
+try (ResultSet rs = ignite.sql().createSession().execute(null,
+        "CREATE TABLE CREATE TABLE IF NOT EXISTS Person (id int primary key,city_id int,name varchar,age int,company varchar)")
+) {
+    // no-op
+}
+----
+
+NOTE: Session is closable, but it is safe to skip `close()` method for DDL and DML queries, as they do not keep cursor open.
+
+More examples of working with Ignite can be found in the link:https://github.com/apache/ignite-3/tree/main/examples[examples] repository.
+
+== Next Steps
+
+From here, you may want to:
+
+* Check out the link:developers-guide/table-api[Developers guide] page for more information on available APIs
+* Try out our link:https://github.com/apache/ignite-3/tree/main/examples[examples]

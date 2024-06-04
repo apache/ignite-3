@@ -18,6 +18,7 @@
 package org.apache.ignite.client.handler;
 
 import static org.apache.ignite.client.handler.ItClientHandlerTestUtils.MAGIC;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.lang.ErrorGroups.Authentication.INVALID_CREDENTIALS_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Authentication.UNSUPPORTED_AUTHENTICATION_TYPE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_COMPATIBILITY_ERR;
@@ -36,6 +37,7 @@ import java.net.Socket;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderChange;
 import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
@@ -75,8 +77,8 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
     }
 
     @AfterEach
-    public void tearDown() throws Exception {
-        serverModule.stop();
+    public void tearDown() {
+        assertThat(serverModule.stopAsync(new ComponentContext()), willCompleteSuccessfully());
         testServer.tearDown();
     }
 
@@ -134,6 +136,7 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             final var nodeName = unpacker.unpackString();
             unpacker.skipValue(); // Cluster id.
             unpacker.skipValue(); // Cluster name.
+            unpacker.skipValue(); // Observable timestamp.
 
             unpacker.skipValue(); // Major.
             unpacker.skipValue(); // Minor.
@@ -149,7 +152,7 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             unpacker.skipValue(extensionsLen);
 
             assertArrayEquals(MAGIC, magic);
-            assertEquals(72, len);
+            assertEquals(81, len);
             assertEquals(3, major);
             assertEquals(0, minor);
             assertEquals(0, patch);
@@ -269,32 +272,21 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             final var success = unpacker.tryUnpackNil();
             assertTrue(success);
 
-            final var idleTimeout = unpacker.unpackLong();
-            final var nodeId = unpacker.unpackString();
-            final var nodeName = unpacker.unpackString();
+            var idleTimeout = unpacker.unpackLong();
+            var nodeId = unpacker.unpackString();
+            var nodeName = unpacker.unpackString();
+
             unpacker.skipValue(); // Cluster id.
-            unpacker.skipValue(); // Cluster name.
-
-            unpacker.skipValue(); // Major.
-            unpacker.skipValue(); // Minor.
-            unpacker.skipValue(); // Maintenance.
-            unpacker.skipValue(); // Patch.
-            unpacker.skipValue(); // Pre release.
-
-            var featuresLen = unpacker.unpackBinaryHeader();
-            unpacker.skipValue(featuresLen);
-
-            var extensionsLen = unpacker.unpackInt();
-            unpacker.skipValue(extensionsLen);
+            var clusterName = unpacker.unpackString();
 
             assertArrayEquals(MAGIC, magic);
-            assertEquals(72, len);
             assertEquals(3, major);
             assertEquals(0, minor);
             assertEquals(0, patch);
             assertEquals(5000, idleTimeout);
             assertEquals("id", nodeId);
             assertEquals("consistent-id", nodeName);
+            assertEquals("Test Server", clusterName);
         }
     }
 

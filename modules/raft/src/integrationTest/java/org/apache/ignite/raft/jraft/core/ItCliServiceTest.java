@@ -20,8 +20,10 @@ package org.apache.ignite.raft.jraft.core;
 import static java.lang.Thread.sleep;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.raft.jraft.core.ItNodeTest.waitForTopologyOnEveryNode;
 import static org.apache.ignite.raft.jraft.core.TestCluster.ELECTION_TIMEOUT_MILLIS;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -47,6 +49,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -141,13 +144,13 @@ public class ItCliServiceTest extends BaseIgniteAbstractTest {
                 new StaticNodeFinder(addressList)
         );
 
-        clientSvc.start();
+        assertThat(clientSvc.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         IgniteRpcClient rpcClient = new IgniteRpcClient(clientSvc) {
             @Override public void shutdown() {
                 super.shutdown();
 
-                clientSvc.stop();
+                assertThat(clientSvc.stopAsync(new ComponentContext()), willCompleteSuccessfully());
             }
         };
 

@@ -114,6 +114,59 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest<Object[]> 
 
     @ParameterizedTest
     @EnumSource
+    public void countDistinct(TestAggregateType testAgg) {
+        ExecutionContext<Object[]> ctx = executionContext(false);
+        IgniteTypeFactory tf = ctx.getTypeFactory();
+        RelDataType rowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32));
+        ScanNode<Object[]> scan = new ScanNode<>(ctx, Arrays.asList(
+                row(0),
+                row(1),
+                row(1),
+                row(0),
+                row(2)
+        ));
+
+        AggregateCall call = AggregateCall.create(
+                SqlStdOperatorTable.COUNT,
+                true,
+                false,
+                false,
+                ImmutableList.of(),
+                ImmutableIntList.of(),
+                -1,
+                null,
+                RelCollations.EMPTY,
+                tf.createJavaType(int.class),
+                null);
+
+        List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of());
+
+        RelDataType aggRowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32));
+
+        SingleNode<Object[]> aggChain = createAggregateNodesChain(
+                testAgg,
+                ctx,
+                grpSets,
+                call,
+                rowType,
+                aggRowType,
+                rowFactory(),
+                scan,
+                false
+        );
+
+        RootNode<Object[]> root = new RootNode<>(ctx);
+        root.register(aggChain);
+
+        assertTrue(root.hasNext());
+
+        assertArrayEquals(row(3), root.next());
+
+        assertFalse(root.hasNext());
+    }
+
+    @ParameterizedTest
+    @EnumSource
     public void min(TestAggregateType testAgg) {
         ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
@@ -675,12 +728,26 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest<Object[]> 
             RowHandler.RowFactory<Object[]> rowFactory,
             ScanNode<Object[]> scan
     ) {
+        return createAggregateNodesChain(testAgg, ctx, grpSets, aggCall, inRowType, aggRowType, rowFactory, scan, true);
+    }
+
+    protected SingleNode<Object[]> createAggregateNodesChain(
+            TestAggregateType testAgg,
+            ExecutionContext<Object[]> ctx,
+            List<ImmutableBitSet> grpSets,
+            AggregateCall aggCall,
+            RelDataType inRowType,
+            RelDataType aggRowType,
+            RowHandler.RowFactory<Object[]> rowFactory,
+            ScanNode<Object[]> scan,
+            boolean group
+    ) {
         switch (testAgg) {
             case COLOCATED:
-                return createColocatedAggregateNodesChain(ctx, grpSets, aggCall, inRowType, rowFactory, scan);
+                return createColocatedAggregateNodesChain(ctx, grpSets, aggCall, inRowType, rowFactory, scan, group);
 
             case MAP_REDUCE:
-                return createMapReduceAggregateNodesChain(ctx, grpSets, aggCall, inRowType, aggRowType, rowFactory, scan);
+                return createMapReduceAggregateNodesChain(ctx, grpSets, aggCall, inRowType, aggRowType, rowFactory, scan, group);
 
             default:
                 assert false;
@@ -689,15 +756,40 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest<Object[]> 
         }
     }
 
+    /**
+     * Create colocation implemented aggregate node.
+     *
+     * @param ctx Execution context.
+     * @param grpSets Grouping fields
+     * @param aggCall Aggregate representation.
+     * @param inRowType Input row type.
+     * @param rowFactory Row factory.
+     * @param scan Scan node.
+     * @param group Append grouping operation.
+     * @return Aggregation nodes chain.
+     */
     protected abstract SingleNode<Object[]> createColocatedAggregateNodesChain(
             ExecutionContext<Object[]> ctx,
             List<ImmutableBitSet> grpSets,
             AggregateCall aggCall,
             RelDataType inRowType,
             RowHandler.RowFactory<Object[]> rowFactory,
-            ScanNode<Object[]> scan
+            ScanNode<Object[]> scan,
+            boolean group
     );
 
+    /**
+     * Create map reduce implemented aggregate node.
+     *
+     * @param ctx Execution context.
+     * @param grpSets Grouping fields
+     * @param call Aggregate representation.
+     * @param inRowType Input row type.
+     * @param rowFactory Row factory.
+     * @param scan Scan node.
+     * @param group Append grouping operation.
+     * @return Aggregation nodes chain.
+     */
     protected abstract SingleNode<Object[]> createMapReduceAggregateNodesChain(
             ExecutionContext<Object[]> ctx,
             List<ImmutableBitSet> grpSets,
@@ -705,7 +797,8 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest<Object[]> 
             RelDataType inRowType,
             RelDataType aggRowType,
             RowHandler.RowFactory<Object[]> rowFactory,
-            ScanNode<Object[]> scan
+            ScanNode<Object[]> scan,
+            boolean group
     );
 
     protected Supplier<List<AccumulatorWrapper<Object[]>>> accFactory(

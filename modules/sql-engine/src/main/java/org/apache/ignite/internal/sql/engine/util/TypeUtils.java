@@ -17,7 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
+import static org.apache.calcite.sql.type.SqlTypeName.CHAR_TYPES;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 
 import java.lang.reflect.Type;
 import java.math.BigDecimal;
@@ -39,6 +41,7 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.calcite.avatica.util.ByteString;
@@ -52,6 +55,9 @@ import org.apache.calcite.sql.type.IntervalSqlType;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.exec.RowHandler;
+import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowBuilder;
+import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.row.BaseTypeSpec;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchemaTypes;
@@ -70,6 +76,7 @@ import org.apache.ignite.internal.type.NumberNativeType;
 import org.apache.ignite.internal.type.TemporalNativeType;
 import org.apache.ignite.internal.type.VarlenNativeType;
 import org.apache.ignite.sql.ColumnType;
+import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -365,8 +372,7 @@ public class TypeUtils {
             case NULL:
                 return ColumnType.NULL;
             default:
-                assert false : "Unexpected type of result: " + type.getSqlTypeName();
-                return null;
+                throw new IllegalArgumentException("Unexpected type: " + type.getSqlTypeName());
         }
     }
 
@@ -659,5 +665,117 @@ public class TypeUtils {
         } else {
             throw new IllegalArgumentException("Unexpected type: " + type);
         }
+    }
+
+    /** Check limitation for character types and throws exception if row contains character sequence more than type defined.
+     *  <br>
+     *  Store assignment section defines:
+     *  If the declared type of T is fixed-length character string with length in characters L and
+     *   the length in characters M of V is larger than L, then:
+     *  <br>
+     *  1) If the rightmost M-L characters of V are all space(s), then the value of T is set to
+     *   the first L characters of V.
+     *  <br>
+     *  2) If one or more of the rightmost M-L characters of V are not space(s), then an
+     *   exception condition is raised: data exception — string data, right truncation.
+     */
+    public static <RowT> RowT validateCharactersOverflowAndTrimIfPossible(
+            RelDataType rowType,
+            RowHandler<RowT> rowHandler,
+            RowT row,
+            Supplier<RowSchema> schema
+    ) {
+        boolean containCharType = rowType.getFieldList().stream().anyMatch(t -> CHAR_TYPES.contains(t.getType().getSqlTypeName()));
+
+        if (!containCharType) {
+            return row;
+        }
+
+        int colCount = rowType.getFieldList().size();
+        RowBuilder<RowT> rowBldr = null;
+
+        for (int i = 0; i < colCount; ++i) {
+            RelDataType colType = rowType.getFieldList().get(i).getType();
+            Object data = rowHandler.get(i, row);
+
+            if (CHAR_TYPES.contains(colType.getSqlTypeName())) {
+                if (data == null) {
+                    continue;
+                }
+
+                assert data instanceof String;
+
+                String str = (String) data;
+
+                int colPrecision = colType.getPrecision();
+
+                assert colPrecision != RelDataType.PRECISION_NOT_SPECIFIED;
+
+                if (str.length() > colPrecision) {
+                    for (int pos = str.length(); pos > colPrecision; --pos) {
+                        if (str.charAt(pos - 1) != ' ') {
+                            throw new SqlException(STMT_VALIDATION_ERR, "Value too long for type: " + colType);
+                        }
+                    }
+
+                    str = str.substring(0, colPrecision);
+
+                    if (rowBldr == null) {
+                        rowBldr = buildPartialRow(rowHandler, schema, i, row);
+                    }
+                }
+
+                if (rowBldr != null) {
+                    rowBldr.addField(str);
+                }
+            } else {
+                if (rowBldr != null) {
+                    rowBldr.addField(data);
+                }
+            }
+        }
+
+        if (rowBldr != null) {
+            return rowBldr.build();
+        } else {
+            return row;
+        }
+    }
+
+    private static <RowT> RowBuilder<RowT> buildPartialRow(RowHandler<RowT> rowHandler, Supplier<RowSchema> schema, int endPos, RowT row) {
+        RowFactory<RowT> factory = rowHandler.factory(schema.get());
+        RowBuilder<RowT> bldr = factory.rowBuilder();
+
+        for (int i = 0; i < endPos; ++i) {
+            Object data = rowHandler.get(i, row);
+
+            bldr.addField(data);
+        }
+
+        return bldr;
+    }
+
+    /**
+     * Checks whether or not the given types represent the same column types.
+     *
+     * @param lhs Left type.
+     * @param rhs Right type.
+     * @return {@code true} if types represent the same {@link ColumnType} after conversion.
+     */
+    // TODO this method can be removed after https://issues.apache.org/jira/browse/IGNITE-22295
+    public static boolean typesRepresentTheSameColumnTypes(RelDataType lhs, RelDataType rhs) {
+        // IgniteCustomType: check for custom data type, otherwise this expression can fail when type is converted into column type.
+        if (isCustomType(lhs) && isCustomType(rhs) || SqlTypeUtil.isAtomic(lhs) && SqlTypeUtil.isAtomic(rhs)) {
+            ColumnType col1 = columnType(lhs);
+            ColumnType col2 = columnType(rhs);
+
+            return col1 == col2;
+        } else {
+            return false;
+        }
+    }
+
+    private static boolean isCustomType(RelDataType type) {
+        return type instanceof IgniteCustomType;
     }
 }

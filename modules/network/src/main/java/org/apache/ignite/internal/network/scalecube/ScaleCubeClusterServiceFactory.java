@@ -41,6 +41,7 @@ import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.AbstractClusterService;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
@@ -132,7 +133,7 @@ public class ScaleCubeClusterServiceFactory {
             private volatile CompletableFuture<Void> shutdownFuture;
 
             @Override
-            public CompletableFuture<Void> start() {
+            public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
                 var serializationService = new SerializationService(serializationRegistry, userObjectSerialization);
 
                 UUID launchId = UUID.randomUUID();
@@ -214,7 +215,7 @@ public class ScaleCubeClusterServiceFactory {
             }
 
             @Override
-            public void stop() {
+            public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
                 ConnectionManager localConnectionMgr = connectionMgr;
 
                 if (localConnectionMgr != null) {
@@ -247,11 +248,13 @@ public class ScaleCubeClusterServiceFactory {
                 // Messaging service checks connection manager's status before sending a message, so connection manager should be
                 // stopped before messaging service
                 messagingService.stop();
+
+                return nullCompletedFuture();
             }
 
             @Override
             public void beforeNodeStop() {
-                stop();
+                this.stopAsync(new ComponentContext()).join();
             }
 
             @Override

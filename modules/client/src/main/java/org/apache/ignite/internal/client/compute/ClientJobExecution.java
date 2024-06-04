@@ -75,7 +75,7 @@ class ClientJobExecution<R> implements JobExecution<R> {
         if (statusFuture.isDone()) {
             return statusFuture;
         }
-        return jobIdFuture.thenCompose(this::getJobStatus);
+        return jobIdFuture.thenCompose(jobId -> getJobStatus(ch, jobId));
     }
 
     @Override
@@ -83,7 +83,7 @@ class ClientJobExecution<R> implements JobExecution<R> {
         if (statusFuture.isDone()) {
             return falseCompletedFuture();
         }
-        return jobIdFuture.thenCompose(this::cancelJob);
+        return jobIdFuture.thenCompose(jobId -> cancelJob(ch, jobId));
     }
 
     @Override
@@ -91,10 +91,10 @@ class ClientJobExecution<R> implements JobExecution<R> {
         if (statusFuture.isDone()) {
             return falseCompletedFuture();
         }
-        return jobIdFuture.thenCompose(jobId -> changePriority(jobId, newPriority));
+        return jobIdFuture.thenCompose(jobId -> changePriority(ch, jobId, newPriority));
     }
 
-    private CompletableFuture<@Nullable JobStatus> getJobStatus(UUID jobId) {
+    static CompletableFuture<@Nullable JobStatus> getJobStatus(ReliableChannel ch, UUID jobId) {
         // Send the request to any node, the request will be broadcast since client doesn't know which particular node is running the job
         // especially in case of colocated execution.
         return ch.serviceAsync(
@@ -107,7 +107,7 @@ class ClientJobExecution<R> implements JobExecution<R> {
         );
     }
 
-    private CompletableFuture<@Nullable Boolean> cancelJob(UUID jobId) {
+    static CompletableFuture<@Nullable Boolean> cancelJob(ReliableChannel ch, UUID jobId) {
         // Send the request to any node, the request will be broadcast since client doesn't know which particular node is running the job
         // especially in case of colocated execution.
         return ch.serviceAsync(
@@ -120,7 +120,7 @@ class ClientJobExecution<R> implements JobExecution<R> {
         );
     }
 
-    private CompletableFuture<@Nullable Boolean> changePriority(UUID jobId, int newPriority) {
+    static CompletableFuture<@Nullable Boolean> changePriority(ReliableChannel ch, UUID jobId, int newPriority) {
         // Send the request to any node, the request will be broadcast since client doesn't know which particular node is running the job
         // especially in case of colocated execution.
         return ch.serviceAsync(
@@ -136,7 +136,7 @@ class ClientJobExecution<R> implements JobExecution<R> {
         );
     }
 
-    private static @Nullable JobStatus unpackJobStatus(PayloadInputChannel payloadInputChannel) {
+    static @Nullable JobStatus unpackJobStatus(PayloadInputChannel payloadInputChannel) {
         ClientMessageUnpacker unpacker = payloadInputChannel.in();
         if (unpacker.tryUnpackNil()) {
             return null;

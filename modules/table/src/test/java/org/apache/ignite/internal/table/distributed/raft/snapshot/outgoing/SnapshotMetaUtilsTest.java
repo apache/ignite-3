@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing;
 
-import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
+import static org.apache.ignite.internal.catalog.CatalogTestUtils.createCatalogManagerWithTestUpdateLog;
 import static org.apache.ignite.internal.table.TableTestUtils.INDEX_NAME;
 import static org.apache.ignite.internal.table.TableTestUtils.TABLE_NAME;
 import static org.apache.ignite.internal.table.TableTestUtils.createSimpleHashIndex;
@@ -44,6 +44,7 @@ import java.util.UUID;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionAccess;
@@ -90,10 +91,10 @@ class SnapshotMetaUtilsTest extends BaseIgniteAbstractTest {
     void testCollectNextRowIdToBuildIndexes() throws Exception {
         HybridClock clock = new HybridClockImpl();
 
-        CatalogManager catalogManager = createTestCatalogManager("test", clock);
+        CatalogManager catalogManager = createCatalogManagerWithTestUpdateLog("test", clock);
 
         try {
-            assertThat(catalogManager.start(), willCompleteSuccessfully());
+            assertThat(catalogManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
             String indexName0 = INDEX_NAME + 0;
             String indexName1 = INDEX_NAME + 1;
@@ -126,7 +127,10 @@ class SnapshotMetaUtilsTest extends BaseIgniteAbstractTest {
                     is(Map.of(indexId2, nextRowIdToBuildIndex2.uuid()))
             );
         } finally {
-            closeAll(catalogManager::beforeNodeStop, catalogManager::stop);
+            closeAll(
+                    catalogManager::beforeNodeStop,
+                    () -> assertThat(catalogManager.stopAsync(new ComponentContext()), willCompleteSuccessfully())
+            );
         }
     }
 }

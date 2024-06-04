@@ -54,6 +54,14 @@ public class ClientTransactions implements IgniteTransactions {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Transaction> beginAsync(@Nullable TransactionOptions options) {
+        return CompletableFuture.completedFuture(new ClientLazyTransaction(ch.observableTimestamp(), options));
+    }
+
+    static CompletableFuture<ClientTransaction> beginAsync(
+            ReliableChannel ch,
+            @Nullable String preferredNodeName,
+            @Nullable TransactionOptions options,
+            long observableTimestamp) {
         if (options != null && options.timeoutMillis() != 0) {
             // TODO: IGNITE-16193
             throw new UnsupportedOperationException("Timeouts are not supported yet");
@@ -65,9 +73,12 @@ public class ClientTransactions implements IgniteTransactions {
                 ClientOp.TX_BEGIN,
                 w -> {
                     w.out().packBoolean(readOnly);
-                    w.out().packLong(ch.observableTimestamp());
+                    w.out().packLong(observableTimestamp);
                 },
-                r -> readTx(r, readOnly));
+                r -> readTx(r, readOnly),
+                preferredNodeName,
+                null,
+                false);
     }
 
     private static ClientTransaction readTx(PayloadInputChannel r, boolean isReadOnly) {

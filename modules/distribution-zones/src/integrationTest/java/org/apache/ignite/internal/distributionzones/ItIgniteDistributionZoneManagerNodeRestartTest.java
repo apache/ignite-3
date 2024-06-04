@@ -41,13 +41,16 @@ import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.d
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.startsWith;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
@@ -77,6 +80,7 @@ import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.BaseIgniteRestartTest;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
+import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
@@ -100,6 +104,7 @@ import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.ByteArray;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -222,6 +227,9 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         when(cmgManager.logicalTopology()).thenAnswer(invocation -> completedFuture(logicalTopology.getLogicalTopology()));
 
+        when(cmgManager.startAsync(any())).thenReturn(nullCompletedFuture());
+        when(cmgManager.stopAsync(any())).thenReturn(nullCompletedFuture());
+
         metastore = spy(StandaloneMetaStorageManager.create(
                 new TestRocksDbKeyValueStorage(name, workDir.resolve("metastorage"))
         ));
@@ -277,11 +285,11 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         components.add(nodeCfgMgr);
 
         // Start.
-
-        vault.start();
+        ComponentContext componentContext = new ComponentContext();
+        assertThat(vault.startAsync(componentContext), willCompleteSuccessfully());
         vault.putName(name);
 
-        nodeCfgMgr.start();
+        assertThat(nodeCfgMgr.startAsync(componentContext), willCompleteSuccessfully());
 
         // Start the remaining components.
         List<IgniteComponent> otherComponents = List.of(
@@ -297,7 +305,8 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         );
 
         for (IgniteComponent component : otherComponents) {
-            component.start();
+            // TODO: IGNITE-22119 required to be able to wait on this future.
+            component.startAsync(componentContext);
 
             components.add(component);
         }
@@ -516,6 +525,8 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         assertValueInStorage(metastore, zonesLastHandledTopology(), (v) -> v, null, TIMEOUT_MILLIS);
 
         metastore = findComponent(node.startedComponents(), MetaStorageManager.class);
+
+        awaitDefaultZoneCreation(node);
 
         startGlobalStateUpdateBlocking = true;
         startScaleUpBlocking = true;
@@ -797,6 +808,8 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         String zoneName;
 
         if (useDefaultZone) {
+            awaitDefaultZoneCreation(node);
+
             CatalogZoneDescriptor defaultZone = getDefaultZone(getCatalogManager(node), node.clock().nowLong());
             zoneName = defaultZone.name();
 
@@ -921,5 +934,13 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 .rescheduleScaleDown(IMMEDIATE_TIMER_VALUE, dummyScaleDownTask, zoneId);
 
         return scaleDownLatch;
+    }
+
+    private static void awaitDefaultZoneCreation(PartialNode node) {
+        CatalogManager manager = findComponent(node.startedComponents(), CatalogManager.class);
+
+        assert manager != null;
+
+        CatalogTestUtils.awaitDefaultZoneCreation(manager);
     }
 }

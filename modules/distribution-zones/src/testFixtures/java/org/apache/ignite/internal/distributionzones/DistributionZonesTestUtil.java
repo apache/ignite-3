@@ -259,7 +259,7 @@ public class DistributionZonesTestUtil {
         assertValueInStorage(
                 keyValueStorage,
                 zoneScaleUpChangeTriggerKey(zoneId).bytes(),
-                ByteUtils::bytesToLong,
+                ByteUtils::bytesToLongKeepingOrder,
                 revision,
                 2000
         );
@@ -348,7 +348,7 @@ public class DistributionZonesTestUtil {
         assertValueInStorage(
                 keyValueStorage,
                 zonesLogicalTopologyVersionKey().bytes(),
-                ByteUtils::bytesToLong,
+                ByteUtils::bytesToLongKeepingOrder,
                 topVer,
                 1000
         );
@@ -577,7 +577,7 @@ public class DistributionZonesTestUtil {
 
         Objects.requireNonNull(catalog);
 
-        return catalog.defaultZone();
+        return Objects.requireNonNull(catalog.defaultZone());
     }
 
     /**

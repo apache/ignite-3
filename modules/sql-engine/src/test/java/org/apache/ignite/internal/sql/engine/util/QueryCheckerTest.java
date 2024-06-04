@@ -24,29 +24,26 @@ import static org.hamcrest.Matchers.containsString;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursorImpl;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.ignite.internal.sql.engine.exec.AsyncDataCursor;
 import org.apache.ignite.internal.sql.engine.framework.DataProvider;
-import org.apache.ignite.internal.sql.engine.framework.NoOpTransaction;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestCluster;
 import org.apache.ignite.internal.sql.engine.framework.TestNode;
 import org.apache.ignite.internal.sql.engine.prepare.QueryMetadata;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
-import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapperImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.type.NativeTypes;
-import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
-import org.apache.ignite.tx.IgniteTransactions;
-import org.apache.ignite.tx.Transaction;
-import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -277,7 +274,7 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
         return queryCheckerFactory.create(
                 NODE_NAME,
                 new TestQueryProcessor(testNode, false),
-                new TestIgniteTransactions(),
+                new HybridTimestampTracker(),
                 null,
                 qry
         );
@@ -289,7 +286,7 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
         return queryCheckerFactory.create(
                 NODE_NAME,
                 new TestQueryProcessor(testNode, true),
-                new TestIgniteTransactions(),
+                new HybridTimestampTracker(),
                 null,
                 qry
         );
@@ -318,7 +315,7 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
         @Override
         public CompletableFuture<AsyncSqlCursor<InternalSqlRow>> queryAsync(
                 SqlProperties properties,
-                IgniteTransactions transactions,
+                HybridTimestampTracker observableTimeTracker,
                 @Nullable InternalTransaction transaction,
                 String qry,
                 Object... params
@@ -327,7 +324,7 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
             assert !prepareOnly : "Expected that the query will only be prepared, but not executed";
 
             QueryPlan plan = node.prepare(qry);
-            AsyncCursor<InternalSqlRow> dataCursor = node.executePlan(plan);
+            AsyncDataCursor<InternalSqlRow> dataCursor = node.executePlan(plan);
 
             SqlQueryType type = plan.type();
 
@@ -336,9 +333,7 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
             AsyncSqlCursor<InternalSqlRow> sqlCursor = new AsyncSqlCursorImpl<>(
                     type,
                     plan.metadata(),
-                    new QueryTransactionWrapperImpl(new NoOpTransaction("test"), false),
                     dataCursor,
-                    nullCompletedFuture(),
                     null
             );
 
@@ -346,30 +341,16 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
         }
 
         @Override
-        public CompletableFuture<Void> start() {
+        public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
             // NO-OP
             return nullCompletedFuture();
         }
 
         @Override
-        public void stop() {
+        public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
             // NO-OP
-        }
-    }
 
-    private static class TestIgniteTransactions implements IgniteTransactions {
-        @Override
-        public Transaction begin(@Nullable TransactionOptions options) {
-            String name = "test";
-
-            return options != null && options.readOnly()
-                    ? NoOpTransaction.readOnly(name)
-                    : NoOpTransaction.readWrite(name);
-        }
-
-        @Override
-        public CompletableFuture<Transaction> beginAsync(@Nullable TransactionOptions options) {
-            return CompletableFuture.completedFuture(begin(options));
+            return nullCompletedFuture();
         }
     }
 }

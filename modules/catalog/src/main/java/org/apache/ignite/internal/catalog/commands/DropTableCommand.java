@@ -41,8 +41,8 @@ public class DropTableCommand extends AbstractTableCommand {
         return new Builder();
     }
 
-    private DropTableCommand(String schemaName, String tableName) throws CatalogValidationException {
-        super(schemaName, tableName);
+    private DropTableCommand(String schemaName, String tableName, boolean ifExists) throws CatalogValidationException {
+        super(schemaName, tableName, ifExists);
     }
 
     @Override
@@ -62,7 +62,7 @@ public class DropTableCommand extends AbstractTableCommand {
                     updateEntries.add(new RemoveIndexEntry(index.id()));
                 });
 
-        updateEntries.add(new DropTableEntry(table.id(), schemaName));
+        updateEntries.add(new DropTableEntry(table.id()));
 
         return updateEntries;
     }
@@ -74,6 +74,8 @@ public class DropTableCommand extends AbstractTableCommand {
         private String schemaName;
 
         private String tableName;
+
+        private boolean ifExists;
 
         @Override
         public DropTableCommandBuilder schemaName(String schemaName) {
@@ -90,10 +92,18 @@ public class DropTableCommand extends AbstractTableCommand {
         }
 
         @Override
+        public DropTableCommandBuilder ifTableExists(boolean ifTableExists) {
+            this.ifExists = ifTableExists;
+
+            return this;
+        }
+
+        @Override
         public CatalogCommand build() {
             return new DropTableCommand(
                     schemaName,
-                    tableName
+                    tableName,
+                    ifExists
             );
         }
     }

@@ -188,7 +188,7 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
 
                 logger().info("Start transferring primary.");
 
-                NodeUtils.transferPrimary(cluster.runningNodes().collect(toSet()), defaultTablePartitionId(node(0)), null);
+                NodeUtils.transferPrimary(cluster.runningNodes().collect(toSet()), defaultTablePartitionId(node(0)));
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             } finally {
@@ -287,7 +287,7 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
 
                 logger().info("Start transferring primary.");
 
-                NodeUtils.transferPrimary(cluster.runningNodes().collect(toSet()), defaultTablePartitionId(node(0)), null);
+                NodeUtils.transferPrimary(cluster.runningNodes().collect(toSet()), defaultTablePartitionId(node(0)));
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             } finally {
@@ -325,7 +325,7 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
                 asList(new TablePartitionId(tableImpl.tableId(), 0)),
                 null
         );
-        bypassingThreadAssertions(() -> storage.put(tx.id(), txMetaToSet));
+        bypassingThreadAssertions(() -> storage.putForRebalance(tx.id(), txMetaToSet));
     }
 
     @Test

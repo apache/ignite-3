@@ -46,6 +46,7 @@ import org.apache.ignite.configuration.annotation.PolymorphicId;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -53,7 +54,7 @@ import org.junit.jupiter.api.Test;
  */
 public class ConfigurationRegistryTest {
     @Test
-    void testValidationInternalConfigurationExtensions() throws Exception {
+    void testValidationInternalConfigurationExtensions() {
         assertThrows(
                 IllegalArgumentException.class,
                 () -> new ConfigurationRegistry(
@@ -80,11 +81,11 @@ public class ConfigurationRegistryTest {
                 new TestConfigurationValidator()
         );
 
-        configRegistry.stop();
+        assertThat(configRegistry.stopAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     @Test
-    void testValidationPolymorphicConfigurationExtensions() throws Exception {
+    void testValidationPolymorphicConfigurationExtensions() {
         // There is a polymorphic extension that is missing from the schema.
         assertThrows(
                 IllegalArgumentException.class,
@@ -133,7 +134,7 @@ public class ConfigurationRegistryTest {
                 new TestConfigurationValidator()
         );
 
-        configRegistry.stop();
+        assertThat(configRegistry.stopAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     @Test
@@ -174,7 +175,7 @@ public class ConfigurationRegistryTest {
                 new TestConfigurationValidator()
         );
 
-        registry.start();
+        assertThat(registry.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         try {
             registry.getConfiguration(SixthRootConfiguration.KEY).change(c -> c
@@ -187,12 +188,12 @@ public class ConfigurationRegistryTest {
                                     .changePolyNamed(c2 -> c2.create("5", toFirst0Polymorphic(5)))))
             ).get(1, SECONDS);
         } finally {
-            registry.stop();
+            assertThat(registry.stopAsync(new ComponentContext()), willCompleteSuccessfully());
         }
     }
 
     @Test
-    void testPolymorphicGet() throws Exception {
+    void testPolymorphicGet() {
         ConfigurationRegistry registry = new ConfigurationRegistry(
                 List.of(SixthRootConfiguration.KEY),
                 new TestConfigurationStorage(LOCAL),
@@ -205,7 +206,7 @@ public class ConfigurationRegistryTest {
                 ),
                 new TestConfigurationValidator()
         );
-        registry.start();
+        assertThat(registry.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         var configuration = registry.getConfiguration(SixthRootConfiguration.KEY).polyNamed();
         CompletableFuture<Void> future = configuration.change(c -> {
@@ -220,11 +221,11 @@ public class ConfigurationRegistryTest {
         UUID internalId = configuration.internalIds().get(0);
         assertThat(configuration.get(internalId), instanceOf(Fourth0PolymorphicConfiguration.class));
 
-        registry.stop();
+        assertThat(registry.stopAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     @Test
-    void testChangeSuperRoot() throws Exception {
+    void testChangeSuperRoot() {
         TestConfigurationStorage storage = new TestConfigurationStorage(LOCAL);
 
         var registry = new ConfigurationRegistry(
@@ -234,7 +235,7 @@ public class ConfigurationRegistryTest {
                 new TestConfigurationValidator()
         );
 
-        registry.start();
+        assertThat(registry.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         try {
             FirstRootConfiguration firstConfiguration = registry.getConfiguration(FirstRootConfiguration.KEY);
@@ -261,7 +262,7 @@ public class ConfigurationRegistryTest {
             assertEquals("foo", firstConfiguration.str().value());
             assertEquals("bar", secondConfiguration.str().value());
         } finally {
-            registry.stop();
+            assertThat(registry.stopAsync(new ComponentContext()), willCompleteSuccessfully());
         }
     }
 

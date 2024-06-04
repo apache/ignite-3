@@ -38,21 +38,27 @@ public class DropZoneCommand extends AbstractZoneCommand {
         return new Builder();
     }
 
+    private final boolean ifExists;
+
     /**
      * Constructor.
      *
      * @param zoneName Name of the zone.
+     * @param ifExists Flag indicating whether the {@code IF EXISTS} was specified.
      * @throws CatalogValidationException if any of restrictions above is violated.
      */
-    private DropZoneCommand(String zoneName) throws CatalogValidationException {
+    private DropZoneCommand(String zoneName, boolean ifExists) throws CatalogValidationException {
         super(zoneName);
+
+        this.ifExists = ifExists;
     }
 
     @Override
     public List<UpdateEntry> get(Catalog catalog) {
         CatalogZoneDescriptor zone = zoneOrThrow(catalog, zoneName);
+        CatalogZoneDescriptor defaultZone = catalog.defaultZone();
 
-        if (zone.id() == catalog.defaultZone().id()) {
+        if (defaultZone != null && zone.id() == defaultZone.id()) {
             throw new DistributionZoneCantBeDroppedValidationException("Default distribution zone can't be dropped: zoneName={}", zoneName);
         }
 
@@ -68,11 +74,16 @@ public class DropZoneCommand extends AbstractZoneCommand {
         return List.of(new DropZoneEntry(zone.id()));
     }
 
+    public boolean ifExists() {
+        return ifExists;
+    }
+
     /**
      * Implementation of {@link DropZoneCommandBuilder}.
      */
     private static class Builder implements DropZoneCommandBuilder {
         private String zoneName;
+        private boolean ifExists;
 
         @Override
         public DropZoneCommandBuilder zoneName(String zoneName) {
@@ -82,8 +93,15 @@ public class DropZoneCommand extends AbstractZoneCommand {
         }
 
         @Override
+        public DropZoneCommandBuilder ifExists(boolean ifExists) {
+            this.ifExists = ifExists;
+
+            return this;
+        }
+
+        @Override
         public CatalogCommand build() {
-            return new DropZoneCommand(zoneName);
+            return new DropZoneCommand(zoneName, ifExists);
         }
     }
 }

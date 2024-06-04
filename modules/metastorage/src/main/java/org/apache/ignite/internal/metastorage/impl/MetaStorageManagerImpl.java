@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.metastorage.impl;
 
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.cancelOrConsume;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
@@ -37,6 +38,7 @@ import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.RevisionUpdateListener;
@@ -46,12 +48,14 @@ import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
+import org.apache.ignite.internal.metastorage.metrics.MetaStorageMetricSource;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.OnRevisionAppliedCallback;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTime;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
@@ -118,6 +122,10 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
 
     private final TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory;
 
+    private final MetricManager metricManager;
+
+    private final MetaStorageMetricSource metaStorageMetricSource;
+
     private volatile long appliedRevision = 0;
 
     private volatile MetaStorageConfiguration metaStorageConfiguration;
@@ -131,6 +139,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
      * @param raftMgr Raft manager.
      * @param storage Storage. This component owns this resource and will manage its lifecycle.
      * @param clock A hybrid logical clock.
+     * @param metricManager Metric manager.
      */
     public MetaStorageManagerImpl(
             ClusterService clusterService,
@@ -139,7 +148,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
             RaftManager raftMgr,
             KeyValueStorage storage,
             HybridClock clock,
-            TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory
+            TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory,
+            MetricManager metricManager
     ) {
         this.clusterService = clusterService;
         this.raftMgr = raftMgr;
@@ -147,7 +157,9 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         this.logicalTopologyService = logicalTopologyService;
         this.storage = storage;
         this.clusterTime = new ClusterTimeImpl(clusterService.nodeName(), busyLock, clock);
+        metaStorageMetricSource = new MetaStorageMetricSource(clusterTime);
         this.topologyAwareRaftGroupServiceFactory = topologyAwareRaftGroupServiceFactory;
+        this.metricManager = metricManager;
     }
 
     /**
@@ -162,16 +174,17 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
             KeyValueStorage storage,
             HybridClock clock,
             TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory,
+            MetricManager metricManager,
             MetaStorageConfiguration configuration
     ) {
-        this(clusterService, cmgMgr, logicalTopologyService, raftMgr, storage, clock, topologyAwareRaftGroupServiceFactory);
+        this(clusterService, cmgMgr, logicalTopologyService, raftMgr, storage, clock, topologyAwareRaftGroupServiceFactory, metricManager);
 
         configure(configuration);
     }
 
     private CompletableFuture<Long> recover(MetaStorageServiceImpl service) {
         if (!busyLock.enterBusy()) {
-            return CompletableFuture.failedFuture(new NodeStoppingException());
+            return failedFuture(new NodeStoppingException());
         }
 
         try {
@@ -252,9 +265,15 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
                     ? startFollowerNode(metaStorageNodes, disruptorConfig)
                     : startLearnerNode(metaStorageNodes, disruptorConfig);
 
-            return raftServiceFuture.thenApply(raftService -> new MetaStorageServiceImpl(thisNodeName, raftService, busyLock, clusterTime));
+            return raftServiceFuture.thenApply(raftService -> new MetaStorageServiceImpl(
+                    thisNodeName,
+                    raftService,
+                    busyLock,
+                    clusterTime,
+                    () -> clusterService.topologyService().localMember().id())
+            );
         } catch (NodeStoppingException e) {
-            return CompletableFuture.failedFuture(e);
+            return failedFuture(e);
         }
     }
 
@@ -330,20 +349,20 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
      * <p>This method is needed to avoid the cyclic dependency between the Meta Storage and distributed configuration (built on top of the
      * Meta Storage).
      *
-     * <p>This method <b>must</b> always be called <b>before</b> calling {@link #start}.
+     * <p>This method <b>must</b> always be called <b>before</b> calling {@link #startAsync}.
      */
     public final void configure(MetaStorageConfiguration metaStorageConfiguration) {
         this.metaStorageConfiguration = metaStorageConfiguration;
     }
 
     @Override
-    public CompletableFuture<Void> start() {
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         storage.start();
 
         cmgMgr.metaStorageNodes()
                 .thenCompose(metaStorageNodes -> {
                     if (!busyLock.enterBusy()) {
-                        return CompletableFuture.failedFuture(new NodeStoppingException());
+                        return failedFuture(new NodeStoppingException());
                     }
 
                     try {
@@ -364,13 +383,15 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
                     }
                 });
 
+        metricManager.registerSource(metaStorageMetricSource);
+
         return nullCompletedFuture();
     }
 
     @Override
-    public void stop() throws Exception {
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         if (!isStopped.compareAndSet(false, true)) {
-            return;
+            return nullCompletedFuture();
         }
 
         busyLock.block();
@@ -379,12 +400,19 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
 
         recoveryFinishedFuture.cancel(true);
 
-        IgniteUtils.closeAllManually(
-                clusterTime,
-                () -> cancelOrConsume(metaStorageSvcFut, MetaStorageServiceImpl::close),
-                () -> raftMgr.stopRaftNodes(MetastorageGroupId.INSTANCE),
-                storage
-        );
+        try {
+            IgniteUtils.closeAllManually(
+                    () -> metricManager.unregisterSource(metaStorageMetricSource),
+                    clusterTime,
+                    () -> cancelOrConsume(metaStorageSvcFut, MetaStorageServiceImpl::close),
+                    () -> raftMgr.stopRaftNodes(MetastorageGroupId.INSTANCE),
+                    storage
+            );
+        } catch (Exception e) {
+            return failedFuture(e);
+        }
+
+        return nullCompletedFuture();
     }
 
     @Override
@@ -415,7 +443,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     @Override
     public CompletableFuture<Void> deployWatches() {
         if (!busyLock.enterBusy()) {
-            return CompletableFuture.failedFuture(new NodeStoppingException());
+            return failedFuture(new NodeStoppingException());
         }
 
         try {
@@ -448,7 +476,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     @Override
     public CompletableFuture<Entry> get(ByteArray key) {
         if (!busyLock.enterBusy()) {
-            return CompletableFuture.failedFuture(new NodeStoppingException());
+            return failedFuture(new NodeStoppingException());
         }
 
         try {
@@ -461,7 +489,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     @Override
     public CompletableFuture<Entry> get(ByteArray key, long revUpperBound) {
         if (!busyLock.enterBusy()) {
-            return CompletableFuture.failedFuture(new NodeStoppingException());
+            return failedFuture(new NodeStoppingException());
         }
 
         try {
@@ -526,7 +554,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     @Override
     public CompletableFuture<Map<ByteArray, Entry>> getAll(Set<ByteArray> keys) {
         if (!busyLock.enterBusy()) {
-            return CompletableFuture.failedFuture(new NodeStoppingException());
+            return failedFuture(new NodeStoppingException());
         }
 
         try {
@@ -543,7 +571,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
      */
     public CompletableFuture<Map<ByteArray, Entry>> getAll(Set<ByteArray> keys, long revUpperBound) {
         if (!busyLock.enterBusy()) {
-            return CompletableFuture.failedFuture(new NodeStoppingException());
+            return failedFuture(new NodeStoppingException());
         }
 
         try {
@@ -561,28 +589,11 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     @Override
     public CompletableFuture<Void> put(ByteArray key, byte[] val) {
         if (!busyLock.enterBusy()) {
-            return CompletableFuture.failedFuture(new NodeStoppingException());
+            return failedFuture(new NodeStoppingException());
         }
 
         try {
             return metaStorageSvcFut.thenCompose(svc -> svc.put(key, val));
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
-
-    /**
-     * Inserts or updates an entry with the given key and the given value and retrieves a previous entry for the given key.
-     *
-     * @see MetaStorageService#getAndPut(ByteArray, byte[])
-     */
-    public CompletableFuture<Entry> getAndPut(ByteArray key, byte[] val) {
-        if (!busyLock.enterBusy()) {
-            return CompletableFuture.failedFuture(new NodeStoppingException());
-        }
-
-        try {
-            return metaStorageSvcFut.thenCompose(svc -> svc.getAndPut(key, val));
         } finally {
             busyLock.leaveBusy();
         }
@@ -596,28 +607,11 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     @Override
     public CompletableFuture<Void> putAll(Map<ByteArray, byte[]> vals) {
         if (!busyLock.enterBusy()) {
-            return CompletableFuture.failedFuture(new NodeStoppingException());
+            return failedFuture(new NodeStoppingException());
         }
 
         try {
             return metaStorageSvcFut.thenCompose(svc -> svc.putAll(vals));
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
-
-    /**
-     * Inserts or updates entries with given keys and given values and retrieves a previous entries for given keys.
-     *
-     * @see MetaStorageService#getAndPutAll(Map)
-     */
-    public CompletableFuture<Map<ByteArray, Entry>> getAndPutAll(Map<ByteArray, byte[]> vals) {
-        if (!busyLock.enterBusy()) {
-            return CompletableFuture.failedFuture(new NodeStoppingException());
-        }
-
-        try {
-            return metaStorageSvcFut.thenCompose(svc -> svc.getAndPutAll(vals));
         } finally {
             busyLock.leaveBusy();
         }
@@ -631,28 +625,11 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     @Override
     public CompletableFuture<Void> remove(ByteArray key) {
         if (!busyLock.enterBusy()) {
-            return CompletableFuture.failedFuture(new NodeStoppingException());
+            return failedFuture(new NodeStoppingException());
         }
 
         try {
             return metaStorageSvcFut.thenCompose(svc -> svc.remove(key));
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
-
-    /**
-     * Removes an entry for the given key.
-     *
-     * @see MetaStorageService#getAndRemove(ByteArray)
-     */
-    public CompletableFuture<Entry> getAndRemove(ByteArray key) {
-        if (!busyLock.enterBusy()) {
-            return CompletableFuture.failedFuture(new NodeStoppingException());
-        }
-
-        try {
-            return metaStorageSvcFut.thenCompose(svc -> svc.getAndRemove(key));
         } finally {
             busyLock.leaveBusy();
         }
@@ -666,7 +643,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     @Override
     public CompletableFuture<Void> removeAll(Set<ByteArray> keys) {
         if (!busyLock.enterBusy()) {
-            return CompletableFuture.failedFuture(new NodeStoppingException());
+            return failedFuture(new NodeStoppingException());
         }
 
         try {
@@ -676,27 +653,10 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         }
     }
 
-    /**
-     * Removes entries for given keys and retrieves previous entries.
-     *
-     * @see MetaStorageService#getAndRemoveAll(Set)
-     */
-    public CompletableFuture<Map<ByteArray, Entry>> getAndRemoveAll(Set<ByteArray> keys) {
-        if (!busyLock.enterBusy()) {
-            return CompletableFuture.failedFuture(new NodeStoppingException());
-        }
-
-        try {
-            return metaStorageSvcFut.thenCompose(svc -> svc.getAndRemoveAll(keys));
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
-
     @Override
     public CompletableFuture<Boolean> invoke(Condition cond, Operation success, Operation failure) {
         if (!busyLock.enterBusy()) {
-            return CompletableFuture.failedFuture(new NodeStoppingException());
+            return failedFuture(new NodeStoppingException());
         }
 
         try {
@@ -709,7 +669,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     @Override
     public CompletableFuture<Boolean> invoke(Condition cond, Collection<Operation> success, Collection<Operation> failure) {
         if (!busyLock.enterBusy()) {
-            return CompletableFuture.failedFuture(new NodeStoppingException());
+            return failedFuture(new NodeStoppingException());
         }
 
         try {
@@ -722,7 +682,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     @Override
     public CompletableFuture<StatementResult> invoke(Iif iif) {
         if (!busyLock.enterBusy()) {
-            return CompletableFuture.failedFuture(new NodeStoppingException());
+            return failedFuture(new NodeStoppingException());
         }
 
         try {
@@ -797,7 +757,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
      */
     public CompletableFuture<Void> compact() {
         if (!busyLock.enterBusy()) {
-            return CompletableFuture.failedFuture(new NodeStoppingException());
+            return failedFuture(new NodeStoppingException());
         }
 
         try {

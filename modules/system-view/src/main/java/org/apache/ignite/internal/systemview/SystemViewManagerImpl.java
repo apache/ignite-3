@@ -44,6 +44,7 @@ import org.apache.ignite.internal.lang.InternalTuple;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.systemview.api.NodeSystemView;
@@ -99,7 +100,7 @@ public class SystemViewManagerImpl implements SystemViewManager, NodeAttributesP
     }
 
     @Override
-    public CompletableFuture<Void> start() {
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         inBusyLock(busyLock, () -> {
             if (!startGuard.compareAndSet(false, true)) {
                 throw new IllegalStateException("System view manager cannot be started twice");
@@ -117,8 +118,7 @@ public class SystemViewManagerImpl implements SystemViewManager, NodeAttributesP
                     .map(SystemViewUtils::toSystemViewCreateCommand)
                     .collect(Collectors.toList());
 
-            catalogManager.execute(commands).whenComplete(
-                    (r, t) -> {
+            catalogManager.catalogReadyFuture(1).thenCompose((x) -> catalogManager.execute(commands)).whenComplete((r, t) -> {
                         viewsRegistrationFuture.complete(null);
 
                         if (t != null) {
@@ -134,14 +134,16 @@ public class SystemViewManagerImpl implements SystemViewManager, NodeAttributesP
     }
 
     @Override
-    public void stop() throws Exception {
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         if (!stopGuard.compareAndSet(false, true)) {
-            return;
+            return nullCompletedFuture();
         }
 
         viewsRegistrationFuture.completeExceptionally(new NodeStoppingException());
 
         busyLock.block();
+
+        return nullCompletedFuture();
     }
 
     @Override

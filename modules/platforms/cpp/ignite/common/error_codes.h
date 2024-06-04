@@ -49,7 +49,8 @@ enum class group : underlying_t {
     COMPUTE = 0x10,
     CATALOG = 0x11,
     PLACEMENTDRIVER = 0x12,
-    WORKERS = 0x13
+    WORKERS = 0x13,
+    RECOVERY = 0x14
 };
 
 inline group get_group_by_error_code(const underlying_t code) {
@@ -76,6 +77,7 @@ enum class code : underlying_t {
     TABLE_STOPPING = 0x20005,
     TABLE_DEFINITION = 0x20006,
     SCHEMA_VERSION_MISMATCH = 0x20007,
+    UNSUPPORTED_PARTITION_TYPE = 0x20008,
 
     // Client group. Group code: 3
     CONNECTION = 0x30001,
@@ -147,6 +149,7 @@ enum class code : underlying_t {
     ALREADY_CLOSED = 0x90003,
     STORAGE_REBALANCE = 0x90004,
     ALREADY_DESTROYED = 0x90005,
+    INDEX_NOT_BUILT = 0x90006,
 
     // DistributionZones group. Group code: 10
     ZONE_NOT_FOUND = 0xa0001,
@@ -202,7 +205,12 @@ enum class code : underlying_t {
 
     // CriticalWorkers group. Group code: 19
     SYSTEM_WORKER_BLOCKED = 0x130001,
-    SYSTEM_CRITICAL_OPERATION_TIMEOUT = 0x130002
+    SYSTEM_CRITICAL_OPERATION_TIMEOUT = 0x130002,
+
+    // DisasterRecovery group. Group code: 20
+    ILLEGAL_PARTITION_ID = 0x140001,
+    NODES_NOT_FOUND = 0x140002,
+    PARTITION_STATE = 0x140003
 };
 
 } // namespace error

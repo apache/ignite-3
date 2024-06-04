@@ -20,6 +20,11 @@ package org.apache.ignite.internal.network.file;
 import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.clusterService;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.findLocalAddresses;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
+import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
+import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
+import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -29,12 +34,12 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NodeFinder;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.configuration.FileTransferConfiguration;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.TopologyEventHandler;
@@ -136,7 +141,7 @@ public class TestCluster {
      * Stops the cluster.
      */
     void shutdown() throws Exception {
-        IgniteUtils.closeAll(members.stream().map(it -> it::stop));
+        closeAll(members.stream().map(it -> it::stop));
     }
 
     /**
@@ -175,13 +180,13 @@ public class TestCluster {
         }
 
         void start() {
-            components.forEach(IgniteComponent::start);
+            assertThat(startAsync(new ComponentContext(), components), willCompleteSuccessfully());
         }
 
         void stop() throws Exception {
-            IgniteUtils.closeAll(Stream.concat(
+            closeAll(Stream.concat(
                     components.stream().map(c -> c::beforeNodeStop),
-                    components.stream().map(c -> c::stop)
+                    Stream.of(() -> assertThat(stopAsync(new ComponentContext(), components), willCompleteSuccessfully()))
             ));
         }
     }

@@ -19,10 +19,10 @@ package org.apache.ignite.internal.sql.engine.prepare;
 
 import java.util.Collections;
 import java.util.List;
-import org.apache.ignite.internal.sql.api.ColumnMetadataImpl;
-import org.apache.ignite.internal.sql.api.ResultSetMetadataImpl;
+import org.apache.ignite.internal.catalog.CatalogCommand;
+import org.apache.ignite.internal.sql.ColumnMetadataImpl;
+import org.apache.ignite.internal.sql.ResultSetMetadataImpl;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
-import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlCommand;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.ResultSetMetadata;
@@ -40,14 +40,14 @@ public class DdlPlan implements QueryPlan {
     private static final ParameterMetadata EMPTY_PARAMETERS = new ParameterMetadata(Collections.emptyList());
 
     private final PlanId id;
-    private final DdlCommand cmd;
+    private final CatalogCommand cmd;
 
-    DdlPlan(PlanId id, DdlCommand cmd) {
+    DdlPlan(PlanId id, CatalogCommand cmd) {
         this.id = id;
         this.cmd = cmd;
     }
 
-    public DdlCommand command() {
+    public CatalogCommand command() {
         return cmd;
     }
 

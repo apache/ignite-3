@@ -17,12 +17,14 @@
 
 package org.apache.ignite.internal.vault;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -36,17 +38,17 @@ public class VaultManagerTest {
 
     @BeforeEach
     void setUp() {
-        vaultManager.start();
+        assertThat(vaultManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     /**
      * After each.
      */
     @AfterEach
-    void tearDown() throws Exception {
+    void tearDown() {
         vaultManager.beforeNodeStop();
 
-        vaultManager.stop();
+        assertThat(vaultManager.stopAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     /**

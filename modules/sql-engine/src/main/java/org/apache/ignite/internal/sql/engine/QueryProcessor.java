@@ -21,9 +21,9 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.sql.engine.prepare.QueryMetadata;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.tx.IgniteTransactions;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -52,7 +52,7 @@ public interface QueryProcessor extends IgniteComponent {
      * Execute the query with given schema name and parameters.
      *
      * @param properties Query properties. See {@link QueryProperty} for available properties.
-     * @param transactions Transactions facade.
+     * @param observableTime Tracker of the latest time observed by client.
      * @param transaction A transaction to use for query execution. If null, an implicit transaction
      *      will be started by provided transactions facade.
      * @param qry SQL query.
@@ -64,7 +64,7 @@ public interface QueryProcessor extends IgniteComponent {
      */
     CompletableFuture<AsyncSqlCursor<InternalSqlRow>> queryAsync(
             SqlProperties properties,
-            IgniteTransactions transactions,
+            HybridTimestampTracker observableTime,
             @Nullable InternalTransaction transaction,
             String qry,
             Object... params

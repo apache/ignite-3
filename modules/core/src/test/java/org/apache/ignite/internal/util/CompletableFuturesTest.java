@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.util.CompletableFutures.booleanCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.completedOrFailedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.copyStateTo;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyCollectionCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyMapCompletedFuture;
@@ -164,5 +165,29 @@ public class CompletableFuturesTest {
         RuntimeException caught = assertWillThrowFast(completedOrFailedFuture(null, ex), RuntimeException.class);
 
         assertThat(caught, is(ex));
+    }
+
+    @Test
+    void testCopyStateToWithException() {
+        var future0 = new CompletableFuture<String>();
+        var future1 = new CompletableFuture<String>();
+
+        var exception = new Exception("test");
+
+        future0.whenComplete(copyStateTo(future1));
+        future0.completeExceptionally(exception);
+
+        assertThat(future1, willThrow(exception.getClass(), "test"));
+    }
+
+    @Test
+    void testCopyStateTo() {
+        var future0 = new CompletableFuture<String>();
+        var future1 = new CompletableFuture<String>();
+
+        future0.whenComplete(copyStateTo(future1));
+        future0.complete("test");
+
+        assertThat(future1, willBe("test"));
     }
 }

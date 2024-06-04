@@ -37,7 +37,6 @@ import org.apache.ignite.sql.Statement;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
 
@@ -72,7 +71,6 @@ public class ItSqlClientMetricsTest extends BaseSqlIntegrationTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18647")
     public void testNormalFlow() throws Exception {
         sql.execute(null, "SELECT * from " + DEFAULT_TABLE_NAME);
 
@@ -90,8 +88,9 @@ public class ItSqlClientMetricsTest extends BaseSqlIntegrationTest {
         rs1.forEachRemaining(c -> {});
         assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_OPEN_CURSORS, 0);
 
-        ResultSet<SqlRow> rs2 = sql.execute(null, "SELECT * from " + DEFAULT_TABLE_NAME);
-        ResultSet<SqlRow> rs3 = sql.execute(null, "SELECT * from " + DEFAULT_TABLE_NAME);
+        ResultSet<SqlRow> rs2 = sql.execute(null, statement);
+        ResultSet<SqlRow> rs3 = sql.execute(null, statement);
+
         assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_OPEN_CURSORS, 2);
 
         rs2.close();

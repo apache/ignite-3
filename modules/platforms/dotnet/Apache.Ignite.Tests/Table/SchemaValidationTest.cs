@@ -119,8 +119,7 @@ public class SchemaValidationTest : IgniteTestsBase
         };
 
         var ex = Assert.ThrowsAsync<MarshallerException>(async () => await TableRequiredVal.RecordBinaryView.UpsertAsync(null, igniteTuple));
-        StringAssert.StartsWith("Failed to set column (null was passed, but column is not null", ex!.Message);
-        StringAssert.Contains("name=VAL", ex.Message);
+        StringAssert.StartsWith("Column 'VAL' does not allow NULLs", ex!.Message);
     }
 
     [Test]
@@ -149,8 +148,7 @@ public class SchemaValidationTest : IgniteTestsBase
 
         var ex = Assert.ThrowsAsync<MarshallerException>(
             async () => await TableRequiredVal.KeyValueBinaryView.PutAsync(null, keyTuple, valTuple));
-        StringAssert.StartsWith("Failed to set column (null was passed, but column is not null", ex!.Message);
-        StringAssert.Contains("name=VAL", ex.Message);
+        StringAssert.StartsWith("Column 'VAL' does not allow NULLs", ex!.Message);
     }
 
     [Test]
@@ -259,8 +257,7 @@ public class SchemaValidationTest : IgniteTestsBase
         var ex = Assert.ThrowsAsync<MarshallerException>(
             async () => await TableRequiredVal.GetRecordView<KeyPoco>().UpsertAsync(null, new KeyPoco()));
 
-        StringAssert.StartsWith("Failed to set column (null was passed, but column is not null", ex!.Message);
-        StringAssert.Contains("name=VAL", ex.Message);
+        StringAssert.StartsWith("Column 'VAL' does not allow NULLs", ex!.Message);
     }
 
     [Test]
@@ -278,8 +275,7 @@ public class SchemaValidationTest : IgniteTestsBase
         var ex = Assert.ThrowsAsync<MarshallerException>(
             async () => await TableRequiredVal.GetKeyValueView<long, KeyPoco>().PutAsync(null, 1L, new KeyPoco()));
 
-        StringAssert.StartsWith("Failed to set column (null was passed, but column is not null", ex!.Message);
-        StringAssert.Contains("name=VAL", ex.Message);
+        StringAssert.StartsWith("Column 'VAL' does not allow NULLs", ex!.Message);
     }
 
     [Test]

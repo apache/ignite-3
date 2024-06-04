@@ -45,6 +45,9 @@ static inline const std::string identity{"identity"};
 /** Key for authentication secret. */
 static inline const std::string secret{"secret"};
 
+/** Key for timezone. */
+static inline const std::string timezone{"timezone"};
+
 } // namespace key
 
 namespace ignite {
@@ -93,6 +96,7 @@ void configuration::from_config_map(const config_map &config_params) {
     try_get_string_param(m_schema, config_params, key::schema);
     try_get_string_param(m_auth_identity, config_params, key::identity);
     try_get_string_param(m_auth_secret, config_params, key::secret);
+    try_get_string_param(m_timezone, config_params, key::timezone);
 }
 
 } // namespace ignite

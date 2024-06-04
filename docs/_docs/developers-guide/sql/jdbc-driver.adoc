@@ -1,0 +1,100 @@
+// Licensed to the Apache Software Foundation (ASF) under one or more
+// contributor license agreements.  See the NOTICE file distributed with
+// this work for additional information regarding copyright ownership.
+// The ASF licenses this file to You under the Apache License, Version 2.0
+// (the "License"); you may not use this file except in compliance with
+// the License.  You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+= JDBC Driver
+
+Ignite is shipped with JDBC driver that allows processing of distributed data using standard SQL statements like `SELECT`, `INSERT`, `UPDATE`, or `DELETE` directly from the JDBC side.
+
+This implementation of JDBC driver does not support the following functionality:
+
+* SSL/TLS connection;
+* Multiple Endpoints;
+* Multi-statement requests;
+* `CREATE TABLE`, `ALTER TABLE`, `WITH`, and `MERGE` commands.
+
+== Setting Up
+
+JDBC driver uses the client connector to work with the cluster. For more information on configuring client connector, see link:clients/overview#client-connector-configuration[Client Connector Configuration].
+
+Here is how you can open a JDBC connection to the cluster node listening on IP address `192.168.0.50`:
+
+[source, java]
+----
+Connection conn = DriverManager.getConnection("jdbc:ignite:thin://192.168.0.50:10800");
+----
+
+The driver connects to one of the cluster nodes and forwards all the queries to it for final execution. The node handles the query distribution and the result’s aggregations. Then the result is sent back to the client application.
+
+The JDBC connection string may be formatted with one of two patterns: `URL query` or `semicolon`:
+
+[source, java]
+----
+// URL query pattern
+jdbc:ignite:thin://<hostAndPortRange0>[,<hostAndPortRange1>]...[,<hostAndPortRangeN>][/schema][?<params>]
+
+hostAndPortRange := host[:port_from[..port_to]]
+
+params := param1=value1[&param2=value2]...[&paramN=valueN]
+
+// Semicolon pattern
+jdbc:ignite:thin://<hostAndPortRange0>[,<hostAndPortRange1>]...[,<hostAndPortRangeN>][;schema=<schema_name>][;param1=value1]...[;paramN=valueN]
+----
+
+* `host` is required and defines the host of the cluster node to connect to.
+* `port_from` is the beginning of the port range to use to open the connection. 10800 is used by default if this parameter is omitted.
+* `port_to` is optional. It is set to the `port_from` value by default if this parameter is omitted.
+* `schema` is the schema name to access. PUBLIC is used by default. This name should correspond to the SQL ANSI-99 standard. Non-quoted identifiers are not case sensitive. Quoted identifiers are case sensitive. When semicolon format is used, the schema may be defined as a parameter with name schema.
+* `<params>` are optional parameters. The following parameters are available:
+- `username` - user name for basic authentication to the cluster.
+- `password` - user password for basic authentication to the cluster.
+
+
+== Performing Transactions
+
+With the JDBC driver, you can  perform `commit` and `rollback` transactions. For more information about transactions, see link:transactions/performing-transactions[Performing Transactions].
+
+Here is how you can commit a transaction:
+
+[source, java]
+----
+// Open the JDBC connection.
+Connection conn = DriverManager.getConnection("jdbc:ignite:thin://192.168.0.50:10800");
+
+// Commit a transaction
+conn.commit();
+----
+
+You can also configure Ignite to automatically commit transactions by using the `setAutoCommit()` method.
+
+Here is how you can rollback a transaction:
+
+[source, java]
+----
+conn.rollback();
+----
+
+== Running an Example
+
+Examples are shipped as a separate Maven project, which is located in the `examples` folder. `SqlJdbcExample` demonstrates the usage of the Ignite JDBC driver.
+
+To run `SqlJdbcExample`, perform the following steps:
+
+. Import the examples project into your IDE;
+. Start a server node using the CLI tool:
++
+[source, shell]
+----
+ignite node start --config=$IGNITE_HOME/examples/config/ignite-config.json my-first-node
+----
+. Run `SqlJdbcExample` in the IDE.

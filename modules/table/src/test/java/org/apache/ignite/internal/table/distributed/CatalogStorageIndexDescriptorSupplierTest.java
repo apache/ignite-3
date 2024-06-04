@@ -17,8 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed;
 
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
-import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
+import static org.apache.ignite.internal.catalog.CatalogTestUtils.createCatalogManagerWithTestUpdateLog;
 import static org.apache.ignite.internal.hlc.TestClockService.TEST_MAX_CLOCK_SKEW_MILLIS;
 import static org.apache.ignite.internal.replicator.ReplicatorConstants.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
@@ -45,11 +44,12 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.schema.configuration.LowWatermarkConfiguration;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.AfterEach;
@@ -89,18 +89,18 @@ class CatalogStorageIndexDescriptorSupplierTest extends BaseIgniteAbstractTest {
     ) {
         String nodeName = testNodeName(testInfo, 0);
 
-        catalogManager = createTestCatalogManager(nodeName, clock);
+        catalogManager = createCatalogManagerWithTestUpdateLog(nodeName, clock);
 
         lowWatermark = new TestLowWatermark();
 
         indexDescriptorSupplier = new CatalogStorageIndexDescriptorSupplier(catalogManager, lowWatermark);
 
-        assertThat(catalogManager.start(), willCompleteSuccessfully());
+        assertThat(catalogManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     @AfterEach
-    void tearDown() throws Exception {
-        IgniteUtils.stopAll(catalogManager);
+    void tearDown() {
+        assertThat(catalogManager.stopAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     @Test
@@ -123,7 +123,7 @@ class CatalogStorageIndexDescriptorSupplierTest extends BaseIgniteAbstractTest {
         int indexId = createIndex();
 
         CatalogCommand dropIndexCommand = DropIndexCommand.builder()
-                .schemaName(DEFAULT_SCHEMA_NAME)
+                .schemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
                 .indexName(INDEX_NAME)
                 .build();
 
@@ -161,7 +161,7 @@ class CatalogStorageIndexDescriptorSupplierTest extends BaseIgniteAbstractTest {
         int indexId = createIndex();
 
         CatalogCommand dropIndexCommand = DropIndexCommand.builder()
-                .schemaName(DEFAULT_SCHEMA_NAME)
+                .schemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
                 .indexName(INDEX_NAME)
                 .build();
 
@@ -188,13 +188,13 @@ class CatalogStorageIndexDescriptorSupplierTest extends BaseIgniteAbstractTest {
 
         List<CatalogCommand> commands = List.of(
                 CreateTableCommand.builder()
-                        .schemaName(DEFAULT_SCHEMA_NAME)
+                        .schemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
                         .tableName(TABLE_NAME)
                         .columns(List.of(ColumnParams.builder().name("foo").type(ColumnType.INT32).build()))
                         .primaryKey(primaryKey)
                         .build(),
                 CreateHashIndexCommand.builder()
-                        .schemaName(DEFAULT_SCHEMA_NAME)
+                        .schemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
                         .tableName(TABLE_NAME)
                         .indexName(INDEX_NAME)
                         .columns(List.of("foo"))

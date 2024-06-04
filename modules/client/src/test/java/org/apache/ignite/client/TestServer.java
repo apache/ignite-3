@@ -18,6 +18,9 @@
 package org.apache.ignite.client;
 
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
@@ -55,8 +58,9 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
@@ -171,15 +175,20 @@ public class TestServer implements AutoCloseable {
                 new TestConfigurationValidator()
         );
 
-        cfg.start();
+        ComponentContext componentContext = new ComponentContext();
+
+        assertThat(cfg.startAsync(componentContext), willCompleteSuccessfully());
 
         cfg.getConfiguration(ClientConnectorConfiguration.KEY).change(
-                local -> local.changePort(port != null ? port : getFreePort()).changeIdleTimeout(idleTimeout)
+                local -> local
+                        .changePort(port != null ? port : getFreePort())
+                        .changeIdleTimeout(idleTimeout)
+                        .changeSendServerExceptionStackTraceToClient(true)
         ).join();
 
         bootstrapFactory = new NettyBootstrapFactory(cfg.getConfiguration(NetworkConfiguration.KEY), "TestServer-");
 
-        bootstrapFactory.start();
+        assertThat(bootstrapFactory.startAsync(componentContext), willCompleteSuccessfully());
 
         if (nodeName == null) {
             nodeName = "server-1";
@@ -195,7 +204,7 @@ public class TestServer implements AutoCloseable {
         Mockito.when(clusterService.topologyService().getByConsistentId(anyString())).thenAnswer(
                 i -> getClusterNode(i.getArgument(0, String.class)));
 
-        IgniteComputeInternal compute = new FakeCompute(nodeName);
+        IgniteComputeInternal compute = new FakeCompute(nodeName, ignite);
 
         metrics = new ClientHandlerMetricSource();
         metrics.enable();
@@ -208,7 +217,7 @@ public class TestServer implements AutoCloseable {
             authenticationManager = new DummyAuthenticationManager();
         } else {
             authenticationManager = new AuthenticationManagerImpl(securityConfiguration, ign -> {});
-            authenticationManager.start();
+            assertThat(authenticationManager.startAsync(componentContext), willCompleteSuccessfully());
         }
 
         ClusterTag tag = msgFactory.clusterTag()
@@ -240,7 +249,7 @@ public class TestServer implements AutoCloseable {
                         clusterService,
                         bootstrapFactory,
                         () -> CompletableFuture.completedFuture(tag),
-                        mock(MetricManager.class),
+                        mock(MetricManagerImpl.class),
                         metrics,
                         authenticationManager,
                         new TestClockService(clock),
@@ -251,7 +260,7 @@ public class TestServer implements AutoCloseable {
                         new TestLowWatermark()
                 );
 
-        module.start().join();
+        module.startAsync(componentContext).join();
     }
 
     /**
@@ -315,10 +324,8 @@ public class TestServer implements AutoCloseable {
     /** {@inheritDoc} */
     @Override
     public void close() throws Exception {
-        module.stop();
-        authenticationManager.stop();
-        bootstrapFactory.stop();
-        cfg.stop();
+        assertThat(stopAsync(new ComponentContext(), module, authenticationManager, bootstrapFactory, cfg), willCompleteSuccessfully());
+
         generator.close();
     }
 

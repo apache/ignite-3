@@ -46,7 +46,6 @@ import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.ColumnType;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -83,9 +82,13 @@ public class ItFunctionsTest extends BaseSqlIntegrationTest {
         assertQuery("SELECT OCTET_LENGTH(NULL)").returns(NULL_RESULT).check();
     }
 
+    /**
+     * SQL F051-06 feature. Basic date and time. CURRENT_DATE.
+     * SQL F051-07 feature. Basic date and time. LOCALTIME.
+     * SQL F051-08 feature. Basic date and time. LOCALTIMESTAMP.
+     */
     @ParameterizedTest(name = "use default time zone: {0}")
     @ValueSource(booleans = {true, false})
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18647")
     public void testCurrentDateTimeTimeStamp(boolean useDefaultTimeZone) {
         ZoneId zoneId = ZoneId.systemDefault();
 
@@ -171,10 +174,25 @@ public class ItFunctionsTest extends BaseSqlIntegrationTest {
 
         assertEquals(0, sql("SELECT * FROM table(system_range(null, 1))").size());
 
+        assertEquals(0, sql("SELECT * FROM table(system_range(1, null))").size());
+
         assertThrowsSqlException(
                 Sql.RUNTIME_ERR,
                 "Increment can't be 0",
                 () -> sql("SELECT * FROM table(system_range(1, 1, 0))"));
+
+        assertQuery("SELECT (SELECT * FROM table(system_range(4, 1)))")
+                .returns(null)
+                .check();
+
+        assertQuery("SELECT (SELECT * FROM table(system_range(1, 1)))")
+                .returns(1L)
+                .check();
+
+        assertThrowsSqlException(
+                Sql.RUNTIME_ERR,
+                "Subquery returned more than 1 value",
+                () -> sql("SELECT (SELECT * FROM table(system_range(1, 10)))"));
     }
 
     @Test

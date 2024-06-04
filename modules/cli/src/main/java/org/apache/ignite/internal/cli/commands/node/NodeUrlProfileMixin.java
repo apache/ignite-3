@@ -19,7 +19,6 @@ package org.apache.ignite.internal.cli.commands.node;
 
 import static org.apache.ignite.internal.cli.commands.Options.Constants.NODE_URL_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.NODE_URL_OPTION_DESC;
-import static org.apache.ignite.internal.cli.commands.Options.Constants.URL_OPTION_SHORT;
 
 import jakarta.inject.Inject;
 import java.net.URL;
@@ -36,7 +35,7 @@ import picocli.CommandLine.Option;
  */
 public class NodeUrlProfileMixin {
     /** Node URL option. */
-    @Option(names = {URL_OPTION_SHORT, NODE_URL_OPTION}, description = NODE_URL_OPTION_DESC, converter = UrlConverter.class)
+    @Option(names = NODE_URL_OPTION, description = NODE_URL_OPTION_DESC, converter = UrlConverter.class)
     private URL nodeUrl;
 
     /** Profile to get default values from. */

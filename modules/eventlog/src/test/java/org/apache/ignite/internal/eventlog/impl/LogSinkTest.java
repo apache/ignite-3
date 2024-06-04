@@ -37,12 +37,10 @@ import org.apache.ignite.internal.eventlog.ser.EventSerializerFactory;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 @ExtendWith(ConfigurationExtension.class)
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-21850")
 class LogSinkTest extends BaseIgniteAbstractTest {
 
     @InjectConfiguration
@@ -74,7 +72,7 @@ class LogSinkTest extends BaseIgniteAbstractTest {
         Sink logSink = new LogSinkFactory(new EventSerializerFactory().createEventSerializer())
                 .createSink(cfg.sinks().get("logSink").value());
         // And event.
-        Event event = IgniteEvents.USER_AUTHENTICATED.create(
+        Event event = IgniteEvents.USER_AUTHENTICATION_SUCCESS.create(
                 EventUser.of("user1", "basicProvider")
         );
 
@@ -85,7 +83,7 @@ class LogSinkTest extends BaseIgniteAbstractTest {
         await().untilAsserted(() -> assertThat(Files.readAllLines(eventlogPath), hasSize(1)));
         // And event is written in JSON format.
         var expectedEventJson = "{"
-                + "\"type\":\"USER_AUTHENTICATED\","
+                + "\"type\":\"USER_AUTHENTICATION_SUCCESS\","
                 + "\"timestamp\":" + event.getTimestamp() + ","
                 + "\"productVersion\":\"" + event.getProductVersion() + "\","
                 + "\"user\":{\"username\":\"user1\",\"authenticationProvider\":\"basicProvider\"},"
@@ -94,7 +92,7 @@ class LogSinkTest extends BaseIgniteAbstractTest {
         assertThat(Files.readAllLines(eventlogPath), hasItem(expectedEventJson));
 
         // When write one more event.
-        Event event2 = IgniteEvents.CONNECTION_CLOSED.create(
+        Event event2 = IgniteEvents.CLIENT_CONNECTION_CLOSED.create(
                 EventUser.of("user2", "basicProvider")
         );
 

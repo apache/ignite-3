@@ -17,9 +17,12 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZoneIdOpt;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.indexOrThrow;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceIndex;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceSchema;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.tableOrThrow;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import org.apache.ignite.internal.catalog.Catalog;
@@ -55,24 +58,14 @@ abstract class AbstractChangeIndexStatusEntry implements UpdateEntry {
                 catalog.objectIdGenState(),
                 catalog.zones(),
                 replaceSchema(replaceIndex(schema, newIndexDescriptor), catalog.schemas()),
-                catalog.defaultZone().id()
+                defaultZoneIdOpt(catalog)
         );
     }
 
     static CatalogSchemaDescriptor schemaByIndexId(Catalog catalog, int indexId) {
-        CatalogIndexDescriptor index = catalog.index(indexId);
-
-        assert index != null : indexId;
-
-        CatalogTableDescriptor table = catalog.table(index.tableId());
-
-        assert table != null : index.tableId();
-
-        CatalogSchemaDescriptor schema = catalog.schema(table.schemaId());
-
-        assert schema != null : table.schemaId();
-
-        return schema;
+        CatalogIndexDescriptor index = indexOrThrow(catalog, indexId);
+        CatalogTableDescriptor table = tableOrThrow(catalog, index.tableId());
+        return schemaOrThrow(catalog, table.schemaId());
     }
 
     private CatalogIndexDescriptor updateIndexStatus(

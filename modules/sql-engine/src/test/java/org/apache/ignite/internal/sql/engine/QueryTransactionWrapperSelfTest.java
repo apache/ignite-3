@@ -23,24 +23,21 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrowsExactly;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
-import java.util.EnumSet;
 import org.apache.ignite.internal.sql.engine.framework.NoOpTransaction;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlStartTransaction;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
+import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContextImpl;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapperImpl;
 import org.apache.ignite.internal.sql.engine.tx.ScriptTransactionContext;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
+import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.lang.ErrorGroups.Sql;
-import org.apache.ignite.tx.IgniteTransactions;
-import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -52,30 +49,27 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
     @Mock
-    private IgniteTransactions transactions;
+    private HybridTimestampTracker observableTimeTracker;
+    @Mock
+    private TxManager txManager;
 
     @Test
     public void testImplicitTransactionAttributes() {
-        when(transactions.begin(any())).thenAnswer(
+        when(txManager.begin(any(), anyBoolean())).thenAnswer(
                 inv -> {
-                    boolean readOnly = inv.getArgument(0, TransactionOptions.class).readOnly();
+                    boolean readOnly = inv.getArgument(1, Boolean.class);
 
                     return readOnly ? NoOpTransaction.readOnly("test-ro") : NoOpTransaction.readWrite("test-rw");
                 }
         );
 
-        QueryTransactionContext transactionHandler = new QueryTransactionContext(transactions, null);
-        QueryTransactionWrapper transactionWrapper = transactionHandler.getOrStartImplicit(SqlQueryType.DML);
+        QueryTransactionContext transactionHandler = new QueryTransactionContextImpl(txManager, observableTimeTracker, null);
+        QueryTransactionWrapper transactionWrapper = transactionHandler.getOrStartImplicit(false);
 
         assertThat(transactionWrapper.unwrap().isReadOnly(), equalTo(false));
 
-        for (SqlQueryType type : EnumSet.complementOf(EnumSet.of(SqlQueryType.DML))) {
-            transactionWrapper = transactionHandler.getOrStartImplicit(type);
-            assertThat(transactionWrapper.unwrap().isReadOnly(), equalTo(true));
-        }
-
-        verify(transactions, times(SqlQueryType.values().length)).begin(any());
-        verifyNoMoreInteractions(transactions);
+        transactionWrapper = transactionHandler.getOrStartImplicit(true);
+        assertThat(transactionWrapper.unwrap().isReadOnly(), equalTo(true));
     }
 
     @Test
@@ -110,41 +104,21 @@ public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void throwsExceptionForDdlWithExternalTransaction() {
-        QueryTransactionContext txCtx = new QueryTransactionContext(transactions, new NoOpTransaction("test"));
-
-        //noinspection ThrowableNotThrown
-        assertThrowsSqlException(Sql.RUNTIME_ERR, "DDL doesn't support transactions.",
-                () -> txCtx.getOrStartImplicit(SqlQueryType.DDL));
-
-        verifyNoInteractions(transactions);
-    }
-
-    @Test
-    public void throwsExceptionForDmlWithReadOnlyExternalTransaction() {
-        QueryTransactionContext txCtx = new QueryTransactionContext(transactions, new NoOpTransaction("test"));
-
-        //noinspection ThrowableNotThrown
-        assertThrowsSqlException(Sql.RUNTIME_ERR, "DML query cannot be started by using read only transactions.",
-                () -> txCtx.getOrStartImplicit(SqlQueryType.DML));
-
-        verifyNoInteractions(transactions);
-    }
-
-    @Test
     public void throwsExceptionForTxControlStatementInsideExternalTransaction() {
         ScriptTransactionContext txCtx = new ScriptTransactionContext(
-                new QueryTransactionContext(transactions, new NoOpTransaction("test")));
+                new QueryTransactionContextImpl(txManager, observableTimeTracker, new NoOpTransaction("test")));
 
         assertThrowsExactly(TxControlInsideExternalTxNotSupportedException.class, () -> txCtx.handleControlStatement(null));
     }
 
     @Test
     public void throwsExceptionForNestedScriptTransaction() {
-        ScriptTransactionContext txCtx = new ScriptTransactionContext(new QueryTransactionContext(transactions, null));
+        ScriptTransactionContext txCtx = new ScriptTransactionContext(
+                new QueryTransactionContextImpl(txManager, observableTimeTracker, null)
+        );
         IgniteSqlStartTransaction txStartStmt = mock(IgniteSqlStartTransaction.class);
 
-        when(transactions.begin(any())).thenReturn(new NoOpTransaction("test"));
+        when(txManager.begin(any(), anyBoolean())).thenReturn(new NoOpTransaction("test"));
 
         txCtx.handleControlStatement(txStartStmt);
 
