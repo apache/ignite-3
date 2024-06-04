@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_F
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_REPLICA_COUNT;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.MAX_PARTITION_COUNT;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 
 import org.apache.ignite.internal.catalog.CatalogCommand;
@@ -63,19 +62,7 @@ public class AlterZoneCommandValidationTest extends AbstractCommandValidationTes
     void zonePartitions() {
         assertThrows(
                 CatalogValidationException.class,
-                () -> alterZoneBuilder(ZONE_NAME).partitions(-1).build(),
-                "Partitions number cannot be altered"
-        );
-
-        assertThrows(
-                CatalogValidationException.class,
-                () -> alterZoneBuilder(ZONE_NAME).partitions(0).build(),
-                "Partitions number cannot be altered"
-        );
-
-        assertThrows(
-                CatalogValidationException.class,
-                () -> alterZoneBuilder(ZONE_NAME).partitions(MAX_PARTITION_COUNT + 1).build(),
+                () -> alterZoneBuilder(ZONE_NAME).partitions(42).build(),
                 "Partitions number cannot be altered"
         );
     }
