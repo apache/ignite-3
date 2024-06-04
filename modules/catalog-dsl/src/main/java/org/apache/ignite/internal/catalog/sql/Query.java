@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.catalog;
+package org.apache.ignite.internal.catalog.sql;
 
 import java.util.concurrent.CompletableFuture;
 

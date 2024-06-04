@@ -85,7 +85,7 @@ public interface Ignite extends AutoCloseable {
     CompletableFuture<Collection<ClusterNode>> clusterNodesAsync();
 
     /**
-     * Returns {@link IgniteCatalog} with default options, which can be used to create and execute SQL DDL queries from annotated classes or
+     * Returns {@link IgniteCatalog} which can be used to create and execute SQL DDL queries from annotated classes or
      * from fluent-style builders.
      *
      * @return Catalog object.

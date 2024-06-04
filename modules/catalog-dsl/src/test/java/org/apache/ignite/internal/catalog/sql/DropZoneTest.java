@@ -20,7 +20,6 @@ package org.apache.ignite.internal.catalog.sql;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
-import org.apache.ignite.catalog.Query;
 import org.junit.jupiter.api.Test;
 
 class DropZoneTest {

@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.catalog.sql;
 
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.catalog.Query;
 import org.apache.ignite.sql.IgniteSql;
 
 abstract class AbstractCatalogQuery<T> extends QueryPart implements Query<T> {

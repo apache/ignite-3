@@ -24,7 +24,6 @@ import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.apache.ignite.catalog.IndexType;
-import org.apache.ignite.catalog.Query;
 import org.junit.jupiter.api.Test;
 
 class CreateTableTest {
