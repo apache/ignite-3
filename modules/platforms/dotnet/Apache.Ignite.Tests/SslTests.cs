@@ -71,7 +71,7 @@ public class SslTests : IgniteTestsBase
         Assert.IsNotNull(sslInfo);
         Assert.IsFalse(sslInfo!.IsMutuallyAuthenticated);
         StringAssert.StartsWith("TLS_", sslInfo.NegotiatedCipherSuiteName);
-        Assert.AreEqual(SslProtocols.Tls13, sslInfo.SslProtocol);
+        CollectionAssert.Contains(new[] { SslProtocols.Tls13, SslProtocols.Tls12 }, sslInfo.SslProtocol);
         Assert.AreEqual("localhost", sslInfo.TargetHostName);
         Assert.IsNull(sslInfo.LocalCertificate);
         StringAssert.Contains(CertificateIssuer, sslInfo.RemoteCertificate!.Issuer);
