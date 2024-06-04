@@ -353,6 +353,7 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
 
     @Table(
             value = POJO_RECORD_TABLE_NAME,
+            zone = @Zone(value = ZONE_NAME, storageProfiles = DEFAULT_AIPERSIST_PROFILE_NAME),
             colocateBy = @ColumnRef("id"),
             indexes = @Index(value = "ix_pojo", columns = {
                     @ColumnRef("f_name"),
