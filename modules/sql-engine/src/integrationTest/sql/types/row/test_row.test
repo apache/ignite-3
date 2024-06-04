@@ -1,0 +1,45 @@
+# name: sql/types/row/test_row.test
+# description: SQL feature F561 Full value expressions
+# feature: F561
+# group: [row]
+
+statement ok
+CREATE TABLE emp (empid INTEGER PRIMARY KEY, empname VARCHAR, empage INTEGER, salary INTEGER)
+
+statement ok
+INSERT INTO emp VALUES(1, 'Johnah', 47, 1200)
+
+statement ok
+INSERT INTO emp VALUES(2, 'Maria', 47, 2000)
+
+statement ok
+INSERT INTO emp VALUES(3, 'Noah', 47, 1200)
+
+statement ok
+INSERT INTO emp VALUES(4, 'Dave', 42, 1700)
+
+query T
+SELECT empname FROM emp WHERE (empname, empage, salary) = ('Johnah', 47, 1200)
+----
+Johnah
+
+query T
+SELECT empname FROM emp WHERE ('Johnah', 47) IN ((empname, empage))
+----
+Johnah
+
+query T rowsort
+SELECT empname FROM emp WHERE ((salary)) IN ((1200)) OR ((salary)) IN ((2000))
+----
+Johnah
+Maria
+Noah
+
+skipif ignite3
+# https://issues.apache.org/jira/browse/IGNITE-22084: Sql. Add support for row data type.
+query T rowsort
+SELECT DISTINCT (empage, salary) FROM emp
+----
+(42,1700)
+(47,1200)
+(47,2000)

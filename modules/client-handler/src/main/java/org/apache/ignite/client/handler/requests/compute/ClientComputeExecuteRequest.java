@@ -19,7 +19,6 @@ package org.apache.ignite.client.handler.requests.compute;
 
 import static org.apache.ignite.client.handler.requests.compute.ClientComputeGetStatusRequest.packJobStatus;
 
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -58,7 +57,7 @@ public class ClientComputeExecuteRequest {
     ) {
         Set<ClusterNode> candidates = unpackCandidateNodes(in, cluster);
 
-        List<DeploymentUnit> deploymentUnits = unpackDeploymentUnits(in);
+        List<DeploymentUnit> deploymentUnits = in.unpackDeploymentUnits();
         String jobClassName = in.unpackString();
         JobExecutionOptions options = JobExecutionOptions.builder().priority(in.unpackInt()).maxRetries(in.unpackInt()).build();
         Object[] args = unpackArgs(in);
@@ -113,22 +112,5 @@ public class ClientComputeExecuteRequest {
      */
     static Object[] unpackArgs(ClientMessageUnpacker in) {
         return in.unpackObjectArrayFromBinaryTuple();
-    }
-
-    /**
-     * Unpacks deployment units.
-     *
-     * @param in Unpacker.
-     * @return Deployment units.
-     */
-    static List<DeploymentUnit> unpackDeploymentUnits(ClientMessageUnpacker in) {
-        int size = in.tryUnpackNil() ? 0 : in.unpackInt();
-        List<DeploymentUnit> res = new ArrayList<>(size);
-
-        for (int i = 0; i < size; i++) {
-            res.add(new DeploymentUnit(in.unpackString(), in.unpackString()));
-        }
-
-        return res;
     }
 }

@@ -21,11 +21,14 @@ import static org.apache.ignite.internal.storage.util.StorageUtils.initialRowIdT
 
 import java.util.Iterator;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageDestroyedException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.index.IndexStorage;
+import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
+import org.apache.ignite.internal.storage.util.StorageUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 
@@ -39,16 +42,20 @@ abstract class AbstractTestIndexStorage implements IndexStorage {
 
     private volatile @Nullable RowId nextRowIdToBuild;
 
-    private final int partitionId;
+    protected final int partitionId;
 
     private final boolean pk;
+
+    private final int indexId;
 
     /** Amount of cursors that opened and still do not close. */
     protected final AtomicInteger pendingCursors = new AtomicInteger();
 
-    AbstractTestIndexStorage(int partitionId, boolean pk) {
+    AbstractTestIndexStorage(int partitionId, StorageIndexDescriptor descriptor) {
         this.partitionId = partitionId;
-        this.pk = pk;
+        this.pk = descriptor.isPk();
+        this.indexId = descriptor.id();
+
         nextRowIdToBuild = pk ? null : initialRowIdToBuild(partitionId);
     }
 
@@ -64,6 +71,8 @@ abstract class AbstractTestIndexStorage implements IndexStorage {
     @Override
     public Cursor<RowId> get(BinaryTuple key) {
         checkStorageClosedOrInProcessOfRebalance(true);
+
+        throwExceptionIfIndexIsNotBuilt();
 
         Iterator<RowId> iterator = getRowIdIteratorForGetByBinaryTuple(key);
 
@@ -179,5 +188,13 @@ abstract class AbstractTestIndexStorage implements IndexStorage {
         if (rebalance) {
             throw new StorageRebalanceException("Storage in the process of rebalancing");
         }
+    }
+
+    private String createStorageInfo() {
+        return IgniteStringFormatter.format("indexId={}, partitionId={}", indexId, partitionId);
+    }
+
+    void throwExceptionIfIndexIsNotBuilt() {
+        StorageUtils.throwExceptionIfIndexIsNotBuilt(nextRowIdToBuild, this::createStorageInfo);
     }
 }

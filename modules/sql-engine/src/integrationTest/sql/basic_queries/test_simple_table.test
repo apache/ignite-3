@@ -1,0 +1,91 @@
+# name: test/sql/basic_queries/test_simple_table.test
+# description:  F661 Simple tables
+# group: [basic_queries]
+
+query II
+SELECT * FROM (VALUES ROW('a', 1));
+----
+a	1
+
+query II
+SELECT * FROM (VALUES ('a', 1));
+----
+a	1
+
+statement ok
+CREATE TABLE t(c varchar, i int);
+
+# table value constructor
+statement ok
+INSERT INTO t SELECT * FROM (VALUES ('a', 1));
+
+query II
+SELECT * FROM t UNION SELECT * FROM (VALUES ROW('a', 1));
+----
+a	1
+
+query II
+SELECT * FROM t UNION SELECT * FROM (VALUES ('a', 1));
+----
+a	1
+
+# query specification
+statement ok
+INSERT INTO t SELECT c, i + 1 FROM t;
+
+# explicit table
+statement ok
+INSERT INTO t SELECT * FROM t;
+
+query II rowsort
+SELECT * FROM t;
+----
+a	1
+a	1
+a	2
+a	2
+
+query II rowsort
+SELECT * FROM t UNION SELECT * FROM (VALUES ('a', 1));
+----
+a	1
+a	2
+
+statement ok
+UPDATE t SET c='b' WHERE c=(SELECT * FROM (VALUES ('a')));
+
+query II rowsort
+SELECT * FROM t;
+----
+b	1
+b	1
+b	2
+b	2
+
+query I rowsort
+SELECT * FROM (SELECT * FROM (VALUES ('a'))) NATURAL JOIN (SELECT * FROM (VALUES ('a')))
+----
+a
+
+query IIII rowsort
+SELECT * FROM t NATURAL JOIN (SELECT * FROM (VALUES ('a', 1)))
+----
+b	1	a	1
+b	1	a	1
+b	2	a	1
+b	2	a	1
+
+query II rowsort
+SELECT * FROM t WHERE i = ANY (VALUES (CAST(2 as BIGINT)), (CAST(1 as SMALLINT)))
+----
+b	1
+b	1
+b	2
+b	2
+
+skipif ignite3
+# https://issues.apache.org/jira/browse/IGNITE-22171
+query II rowsort
+SELECT * FROM (VALUES ROW(CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DECIMAL(2, 1)))));
+----
+1	2.0

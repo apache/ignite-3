@@ -193,7 +193,7 @@ public class ColocationHashTests : IgniteTestsBase
             var key = new IgniteTuple { ["id"] = 1 + i, ["id0"] = 2L + i, ["id1"] = "3" + i };
 
             using var writer = ProtoCommon.GetMessageWriter();
-            var clientColocationHash = ser.Write(writer, null, schema, key);
+            var (clientColocationHash, _) = ser.Write(writer, null, schema, key);
 
             var serverColocationHashExec = await Client.Compute.SubmitAsync<int>(
                 clusterNodes,

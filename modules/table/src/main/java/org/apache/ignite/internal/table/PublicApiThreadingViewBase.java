@@ -17,10 +17,14 @@
 
 package org.apache.ignite.internal.table;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Publisher;
+import java.util.function.Function;
 import java.util.function.Supplier;
+import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.lang.AsyncCursor;
 import org.apache.ignite.lang.Cursor;
@@ -52,6 +56,27 @@ abstract class PublicApiThreadingViewBase<T> implements DataStreamerTarget<T>, C
     @Override
     public CompletableFuture<Void> streamData(Publisher<DataStreamerItem<T>> publisher, @Nullable DataStreamerOptions options) {
         return executeAsyncOp(() -> streamerTarget.streamData(publisher, options));
+    }
+
+    @Override
+    public <E, V, R> CompletableFuture<Void> streamData(
+            Publisher<E> publisher,
+            @Nullable DataStreamerOptions options,
+            Function<E, T> keyFunc,
+            Function<E, V> payloadFunc,
+            @Nullable Flow.Subscriber<R> resultSubscriber,
+            List<DeploymentUnit> deploymentUnits,
+            String receiverClassName,
+            Object... receiverArgs) {
+        return executeAsyncOp(() -> streamerTarget.streamData(
+                publisher,
+                options,
+                keyFunc,
+                payloadFunc,
+                resultSubscriber,
+                deploymentUnits,
+                receiverClassName,
+                receiverArgs));
     }
 
     @Override

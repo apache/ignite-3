@@ -17,10 +17,12 @@
 
 package org.apache.ignite.internal.schemasync;
 
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.SessionUtils.executeUpdate;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -31,15 +33,21 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.table.distributed.replicator.IncompatibleSchemaException;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.lang.Cursor;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
+import org.apache.ignite.tx.TransactionException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Tests about basic Schema Synchronization properties that can be tested using just one Ignite node.
@@ -51,6 +59,8 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
     private static final String UNRELATED_TABLE_NAME = "unrelated_table";
 
     private static final int KEY = 1;
+
+    private static final int NON_EXISTENT_KEY = Integer.MAX_VALUE;
 
     private IgniteImpl node;
 
@@ -100,7 +110,7 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
                     ex.getMessage(),
                     containsString(String.format(
                             "Table schema was updated after the transaction was started [table=%s, startSchema=1, operationSchema=2]",
-                            tableId
+                            table.name()
                     ))
             );
         } else {
@@ -109,7 +119,7 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
                     ex.getMessage(),
                     is(String.format(
                             "Table schema was updated after the transaction was started [table=%s, startSchema=1, operationSchema=2]",
-                            tableId
+                            table.name()
                     ))
             );
         }
@@ -132,12 +142,12 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
     }
 
     private void enlistTableInTransaction(Table table, Transaction tx) {
-        executeRwReadOn(table, tx, cluster);
+        executeRwReadOn(table, tx, NON_EXISTENT_KEY, cluster);
     }
 
-    private static void executeRwReadOn(Table table, Transaction tx, Cluster cluster) {
+    private static void executeRwReadOn(Table table, Transaction tx, int key, Cluster cluster) {
         cluster.doInSession(0, session -> {
-            executeUpdate("SELECT * FROM " + table.name(), session, tx);
+            executeUpdate("SELECT * FROM " + table.name() + " WHERE id = " + key, session, tx);
         });
     }
 
@@ -180,7 +190,7 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
         SQL_READ {
             @Override
             void execute(Table table, Transaction tx, Cluster cluster) {
-                executeRwReadOn(table, tx, cluster);
+                executeRwReadOn(table, tx, KEY, cluster);
             }
 
             @Override
@@ -242,13 +252,15 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
             ex = assertThrows(IgniteException.class, () -> operation.execute(table, tx, cluster));
             assertThat(
                     ex.getMessage(),
-                    containsString(String.format("Table was dropped [table=%s]", tableId))
+                    // TODO https://issues.apache.org/jira/browse/IGNITE-22309 use tableName instead
+                    containsString(String.format("Table was dropped [tableId=%s]", tableId))
             );
         } else {
             ex = assertThrows(IncompatibleSchemaException.class, () -> operation.execute(table, tx, cluster));
             assertThat(
                     ex.getMessage(),
-                    is(String.format("Table was dropped [table=%s]", tableId))
+                    // TODO https://issues.apache.org/jira/browse/IGNITE-22309 use tableName instead
+                    is(String.format("Table was dropped [tableId=%s]", tableId))
             );
         }
 
@@ -261,5 +273,106 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
         cluster.doInSession(0, session -> {
             executeUpdate("DROP TABLE " + tableName, session);
         });
+    }
+
+    @ParameterizedTest
+    @EnumSource(CommitOperation.class)
+    void commitAfterDroppingTargetTableIsRejected(CommitOperation operation) {
+        createTable();
+
+        Table table = node.tables().table(TABLE_NAME);
+
+        InternalTransaction tx = (InternalTransaction) node.transactions().begin();
+
+        enlistTableInTransaction(table, tx);
+
+        dropTable(TABLE_NAME);
+
+        int tableId = unwrapTableViewInternal(table).tableId();
+
+        Throwable ex = assertThrows(Throwable.class, () -> operation.executeOn(tx));
+        ex = ExceptionUtils.unwrapCause(ex);
+
+        assertThat(ex, is(instanceOf(TransactionException.class)));
+        assertThat(
+                ex.getMessage(),
+                containsString(String.format("Commit failed because a table was already dropped [table=%s]", table.name()))
+        );
+
+        assertThat(((TransactionException) ex).code(), is(Transactions.TX_UNEXPECTED_STATE_ERR));
+
+        assertThat(tx.state(), is(TxState.ABORTED));
+    }
+
+    private enum CommitOperation {
+        COMMIT(tx -> tx.commit()),
+        COMMIT_ASYNC_GET(tx -> tx.commitAsync().get(10, SECONDS))
+        ;
+
+        private final ConsumerX<Transaction> commitOp;
+
+        CommitOperation(ConsumerX<Transaction> commitOp) {
+            this.commitOp = commitOp;
+        }
+
+        void executeOn(Transaction tx) throws Exception {
+            commitOp.accept(tx);
+        }
+    }
+
+    /**
+     * The scenario is like the following.
+     *
+     * <ol>
+     *     <li>tx1 starts and enlists table's partition</li>
+     *     <li>table's schema gets changed</li>
+     *     <li>tx2 starts, adds/updates a tuple for key k1 and commits (in this test tx2 is implicit)</li>
+     *     <li>tx1 tries to read k1 via get/scan: this must fail</li>
+     * </ol>
+     */
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void readingDataInFutureVersionsFails(boolean scan) {
+        createTable();
+
+        Table table = node.tables().table(TABLE_NAME);
+        KeyValueView<Tuple, Tuple> kvView = table.keyValueView();
+
+        InternalTransaction tx1 = (InternalTransaction) node.transactions().begin();
+
+        enlistTableInTransaction(table, tx1);
+
+        alterTable(TABLE_NAME);
+
+        Tuple keyTuple = Tuple.create().set("id", KEY);
+        kvView.put(null, keyTuple, Tuple.create().set("val", "put-in-tx2"));
+
+        int tableId = unwrapTableViewInternal(table).tableId();
+
+        Executable task = scan ? () -> consumeCursor(kvView.query(tx1, null)) : () -> kvView.get(tx1, keyTuple);
+
+        IgniteException ex = assertThrows(IgniteException.class, task);
+
+        assertThat(
+                ex.getMessage(),
+                containsString(String.format(
+                        "Operation failed because it tried to access a row with newer schema version than transaction's [table=%s, "
+                                + "txSchemaVersion=1, rowSchemaVersion=2]",
+                        table.name()
+                ))
+        );
+
+        assertThat(ex.code(), is(Transactions.TX_INCOMPATIBLE_SCHEMA_ERR));
+    }
+
+    private static void consumeCursor(Cursor<?> cursor) {
+        try (Cursor<?> c = cursor) {
+            c.forEachRemaining(obj -> {});
+        }
+    }
+
+    @FunctionalInterface
+    private interface ConsumerX<T> {
+        void accept(T obj) throws Exception;
     }
 }

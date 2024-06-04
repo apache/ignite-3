@@ -18,12 +18,14 @@
 package org.apache.ignite.internal.catalog;
 
 import static java.util.concurrent.CompletableFuture.allOf;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.Set;
@@ -52,9 +54,12 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
+import org.apache.ignite.internal.sql.SqlCommon;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
@@ -78,8 +83,12 @@ public class CatalogTestUtils {
 
         return new CatalogManagerImpl(new UpdateLogImpl(metastore), clockService) {
             @Override
-            public CompletableFuture<Void> start() {
-                return allOf(metastore.start(), clockWaiter.start(), super.start()).thenCompose(unused -> metastore.deployWatches());
+            public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
+                return allOf(
+                        metastore.startAsync(componentContext),
+                        clockWaiter.startAsync(componentContext),
+                        super.startAsync(componentContext)
+                ).thenComposeAsync(unused -> metastore.deployWatches(), componentContext.executor());
             }
 
             @Override
@@ -91,11 +100,12 @@ public class CatalogTestUtils {
             }
 
             @Override
-            public void stop() throws Exception {
-                super.stop();
-
-                clockWaiter.stop();
-                metastore.stop();
+            public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
+                return IgniteUtils.stopAsync(
+                        () -> super.stopAsync(componentContext),
+                        () -> clockWaiter.stopAsync(componentContext),
+                        () -> metastore.stopAsync(componentContext)
+                );
             }
         };
     }
@@ -114,8 +124,9 @@ public class CatalogTestUtils {
 
         return new CatalogManagerImpl(new UpdateLogImpl(metastore), new TestClockService(clock, clockWaiter)) {
             @Override
-            public CompletableFuture<Void> start() {
-                return allOf(metastore.start(), super.start()).thenCompose(unused -> metastore.deployWatches());
+            public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
+                return allOf(metastore.startAsync(componentContext), super.startAsync(componentContext))
+                        .thenComposeAsync(unused -> metastore.deployWatches(), componentContext.executor());
             }
 
             @Override
@@ -126,10 +137,11 @@ public class CatalogTestUtils {
             }
 
             @Override
-            public void stop() throws Exception {
-                super.stop();
-
-                metastore.stop();
+            public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
+                return IgniteUtils.stopAsync(
+                        () -> super.stopAsync(componentContext),
+                        () -> metastore.stopAsync(componentContext)
+                );
             }
         };
     }
@@ -148,8 +160,8 @@ public class CatalogTestUtils {
 
         return new CatalogManagerImpl(new UpdateLogImpl(metastore), new TestClockService(clock, clockWaiter)) {
             @Override
-            public CompletableFuture<Void> start() {
-                return allOf(clockWaiter.start(), super.start());
+            public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
+                return allOf(clockWaiter.startAsync(componentContext), super.startAsync(componentContext));
             }
 
             @Override
@@ -160,10 +172,11 @@ public class CatalogTestUtils {
             }
 
             @Override
-            public void stop() throws Exception {
-                super.stop();
-
-                clockWaiter.stop();
+            public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
+                return IgniteUtils.stopAsync(
+                        () -> super.stopAsync(componentContext),
+                        () -> clockWaiter.stopAsync(componentContext)
+                );
             }
         };
     }
@@ -196,8 +209,8 @@ public class CatalogTestUtils {
 
         return new CatalogManagerImpl(updateLog, new TestClockService(clock, clockWaiter)) {
             @Override
-            public CompletableFuture<Void> start() {
-                return allOf(clockWaiter.start(), super.start());
+            public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
+                return allOf(clockWaiter.startAsync(componentContext), super.startAsync(componentContext));
             }
 
             @Override
@@ -208,10 +221,11 @@ public class CatalogTestUtils {
             }
 
             @Override
-            public void stop() throws Exception {
-                super.stop();
-
-                clockWaiter.stop();
+            public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
+                return IgniteUtils.stopAsync(
+                        () -> super.stopAsync(componentContext),
+                        () -> clockWaiter.stopAsync(componentContext)
+                );
             }
         };
     }
@@ -234,8 +248,8 @@ public class CatalogTestUtils {
 
         return new CatalogManagerImpl(new TestUpdateLog(clock), new TestClockService(clock, clockWaiter)) {
             @Override
-            public CompletableFuture<Void> start() {
-                return allOf(clockWaiter.start(), super.start());
+            public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
+                return allOf(clockWaiter.startAsync(componentContext), super.startAsync(componentContext));
             }
 
             @Override
@@ -246,10 +260,11 @@ public class CatalogTestUtils {
             }
 
             @Override
-            public void stop() throws Exception {
-                super.stop();
-
-                clockWaiter.stop();
+            public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
+                return IgniteUtils.stopAsync(
+                        () -> super.stopAsync(componentContext),
+                        () -> clockWaiter.stopAsync(componentContext)
+                );
             }
         };
     }
@@ -329,15 +344,23 @@ public class CatalogTestUtils {
     }
 
     static CatalogCommand dropTableCommand(String tableName) {
-        return DropTableCommand.builder().schemaName(DEFAULT_SCHEMA_NAME).tableName(tableName).build();
+        return DropTableCommand.builder().schemaName(SqlCommon.DEFAULT_SCHEMA_NAME).tableName(tableName).build();
     }
 
     static CatalogCommand dropColumnParams(String tableName, String... columns) {
-        return AlterTableDropColumnCommand.builder().schemaName(DEFAULT_SCHEMA_NAME).tableName(tableName).columns(Set.of(columns)).build();
+        return AlterTableDropColumnCommand.builder()
+                .schemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
+                .tableName(tableName)
+                .columns(Set.of(columns))
+                .build();
     }
 
     static CatalogCommand addColumnParams(String tableName, ColumnParams... columns) {
-        return AlterTableAddColumnCommand.builder().schemaName(DEFAULT_SCHEMA_NAME).tableName(tableName).columns(List.of(columns)).build();
+        return AlterTableAddColumnCommand.builder()
+                .schemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
+                .tableName(tableName)
+                .columns(List.of(columns))
+                .build();
     }
 
     /**
@@ -391,7 +414,7 @@ public class CatalogTestUtils {
         }
 
         @Override
-        public CompletableFuture<Void> start() throws IgniteInternalException {
+        public CompletableFuture<Void> startAsync(ComponentContext componentContext) throws IgniteInternalException {
             if (onUpdateHandler == null) {
                 throw new IgniteInternalException(
                         Common.INTERNAL_ERR,
@@ -405,8 +428,8 @@ public class CatalogTestUtils {
         }
 
         @Override
-        public void stop() throws Exception {
-
+        public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
+            return nullCompletedFuture();
         }
     }
 
@@ -493,6 +516,30 @@ public class CatalogTestUtils {
             }
 
             return delegate().handle(update, metaStorageUpdateTimestamp, causalityToken);
+        }
+    }
+
+    /**
+     * Waits till default zone appears in latest version of catalog.
+     *
+     * @param manager Catalog manager to monitor.
+     */
+    public static void awaitDefaultZoneCreation(CatalogManager manager) {
+        try {
+            int[] versionHolder = new int[1];
+
+            assertTrue(waitForCondition(() -> {
+                int latestVersion = manager.latestCatalogVersion();
+
+                versionHolder[0] = latestVersion;
+
+                return manager.catalog(latestVersion).defaultZone() != null;
+            }, 5_000));
+
+            // additionally we have to wait till all listeners complete handling of event
+            await(manager.catalogReadyFuture(versionHolder[0]));
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
         }
     }
 }

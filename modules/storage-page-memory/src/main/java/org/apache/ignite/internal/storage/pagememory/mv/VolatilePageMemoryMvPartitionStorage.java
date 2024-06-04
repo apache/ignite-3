@@ -92,8 +92,7 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
                         tableStorage,
                         partitionId,
                         versionChainTree,
-                        tableStorage.dataRegion().rowVersionFreeList(),
-                        tableStorage.dataRegion().indexColumnsFreeList(),
+                        tableStorage.dataRegion().freeList(),
                         indexMetaTree,
                         gcQueue
                 ),
@@ -272,7 +271,7 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
         while (rowVersionLink != PageIdUtils.NULL_LINK) {
             RowVersion rowVersion = readRowVersion(rowVersionLink, NEVER_LOAD_VALUE);
 
-            renewableState.rowVersionFreeList().removeDataRowByLink(rowVersion.link());
+            renewableState.freeList().removeDataRowByLink(rowVersion.link());
 
             rowVersionLink = rowVersion.nextLink();
         }
@@ -340,8 +339,7 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
 
         updateRenewableState(
                 versionChainTree,
-                prevState.rowVersionFreeList(),
-                prevState.indexFreeList(),
+                prevState.freeList(),
                 indexMetaTree,
                 gcQueue
         );

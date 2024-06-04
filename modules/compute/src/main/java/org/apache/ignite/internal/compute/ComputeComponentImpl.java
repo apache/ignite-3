@@ -20,6 +20,8 @@ package org.apache.ignite.internal.compute;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.compute.ClassLoaderExceptionsMapper.mapClassLoaderExceptions;
+import static org.apache.ignite.internal.compute.ComputeUtils.jobClass;
+import static org.apache.ignite.internal.compute.ComputeUtils.taskClass;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
@@ -34,6 +36,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobStatus;
+import org.apache.ignite.compute.TaskExecution;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
 import org.apache.ignite.internal.compute.executor.ComputeExecutor;
@@ -42,11 +45,15 @@ import org.apache.ignite.internal.compute.loader.JobContext;
 import org.apache.ignite.internal.compute.loader.JobContextManager;
 import org.apache.ignite.internal.compute.messaging.ComputeMessaging;
 import org.apache.ignite.internal.compute.messaging.RemoteJobExecution;
+import org.apache.ignite.internal.compute.task.DelegatingTaskExecution;
+import org.apache.ignite.internal.compute.task.JobSubmitter;
+import org.apache.ignite.internal.compute.task.TaskExecutionInternal;
 import org.apache.ignite.internal.future.InFlightFutures;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -125,7 +132,7 @@ public class ComputeComponentImpl implements ComputeComponent {
             CompletableFuture<JobExecutionInternal<R>> future =
                     mapClassLoaderExceptions(jobContextManager.acquireClassLoader(units), jobClassName)
                             .thenApply(context -> {
-                                JobExecutionInternal<R> execution = exec(context, options, jobClassName, args);
+                                JobExecutionInternal<R> execution = execJob(context, options, jobClassName, args);
                                 execution.resultAsync().whenComplete((result, e) -> context.close());
                                 inFlightFutures.registerFuture(execution.resultAsync());
                                 return execution;
@@ -134,6 +141,39 @@ public class ComputeComponentImpl implements ComputeComponent {
             inFlightFutures.registerFuture(future);
 
             JobExecution<R> result = new DelegatingJobExecution<>(future);
+            result.idAsync().thenAccept(jobId -> executionManager.addExecution(jobId, result));
+            return result;
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    @Override
+    public <R> TaskExecution<R> executeTask(
+            JobSubmitter jobSubmitter,
+            List<DeploymentUnit> units,
+            String taskClassName,
+            Object... args
+    ) {
+        if (!busyLock.enterBusy()) {
+            return new DelegatingTaskExecution<>(
+                    failedFuture(new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException()))
+            );
+        }
+
+        try {
+            CompletableFuture<TaskExecutionInternal<R>> taskFuture =
+                    mapClassLoaderExceptions(jobContextManager.acquireClassLoader(units), taskClassName)
+                            .thenApply(context -> {
+                                TaskExecutionInternal<R> execution = execTask(context, jobSubmitter, taskClassName, args);
+                                execution.resultAsync().whenComplete((r, e) -> context.close());
+                                inFlightFutures.registerFuture(execution.resultAsync());
+                                return execution;
+                            });
+
+            inFlightFutures.registerFuture(taskFuture);
+
+            DelegatingTaskExecution<R> result = new DelegatingTaskExecution<>(taskFuture);
             result.idAsync().thenAccept(jobId -> executionManager.addExecution(jobId, result));
             return result;
         } finally {
@@ -227,7 +267,7 @@ public class ComputeComponentImpl implements ComputeComponent {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> start() {
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         executor.start();
         messaging.start(this::executeLocally);
         executionManager.start();
@@ -237,9 +277,9 @@ public class ComputeComponentImpl implements ComputeComponent {
 
     /** {@inheritDoc} */
     @Override
-    public void stop() throws Exception {
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         if (!stopGuard.compareAndSet(false, true)) {
-            return;
+            return nullCompletedFuture();
         }
 
         busyLock.block();
@@ -249,14 +289,31 @@ public class ComputeComponentImpl implements ComputeComponent {
         messaging.stop();
         executor.stop();
         IgniteUtils.shutdownAndAwaitTermination(failoverExecutor, 10, TimeUnit.SECONDS);
+
+        return nullCompletedFuture();
     }
 
-    private <R> JobExecutionInternal<R> exec(JobContext context, ExecutionOptions options, String jobClassName, Object[] args) {
-        return executor.executeJob(
-                options,
-                ComputeUtils.jobClass(context.classLoader(), jobClassName),
-                args
-        );
+    private <R> JobExecutionInternal<R> execJob(JobContext context, ExecutionOptions options, String jobClassName, Object... args) {
+        try {
+            return executor.executeJob(options, jobClass(context.classLoader(), jobClassName), context.classLoader(), args);
+        } catch (Throwable e) {
+            context.close();
+            throw e;
+        }
+    }
+
+    private <R> TaskExecutionInternal<R> execTask(
+            JobContext context,
+            JobSubmitter jobSubmitter,
+            String taskClassName,
+            Object... args
+    ) {
+        try {
+            return executor.executeTask(jobSubmitter, taskClass(context.classLoader(), taskClassName), args);
+        } catch (Throwable e) {
+            context.close();
+            throw e;
+        }
     }
 
     @TestOnly

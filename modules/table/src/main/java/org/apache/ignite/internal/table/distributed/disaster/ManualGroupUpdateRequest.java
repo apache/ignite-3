@@ -19,7 +19,7 @@ package org.apache.ignite.internal.table.distributed.disaster;
 
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.internal.util.IgniteUtils.copyStateTo;
+import static org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryRequestType.SINGLE_NODE;
 
 import java.util.Set;
 import java.util.UUID;
@@ -42,10 +42,13 @@ class ManualGroupUpdateRequest implements DisasterRecoveryRequest {
 
     private final int tableId;
 
-    ManualGroupUpdateRequest(UUID operationId, int zoneId, int tableId) {
+    private final Set<Integer> partitionIds;
+
+    ManualGroupUpdateRequest(UUID operationId, int zoneId, int tableId, Set<Integer> partitionIds) {
         this.operationId = operationId;
         this.zoneId = zoneId;
         this.tableId = tableId;
+        this.partitionIds = Set.copyOf(partitionIds);
     }
 
     @Override
@@ -58,16 +61,21 @@ class ManualGroupUpdateRequest implements DisasterRecoveryRequest {
         return zoneId;
     }
 
+    @Override
+    public DisasterRecoveryRequestType type() {
+        return SINGLE_NODE;
+    }
+
     public int tableId() {
         return tableId;
     }
 
+    public Set<Integer> partitionIds() {
+        return partitionIds;
+    }
+
     @Override
-    public CompletableFuture<Void> handle(
-            DisasterRecoveryManager disasterRecoveryManager,
-            long msRevision,
-            CompletableFuture<Void> operationFuture
-    ) {
+    public CompletableFuture<Void> handle(DisasterRecoveryManager disasterRecoveryManager, long msRevision) {
         HybridTimestamp msSafeTime = disasterRecoveryManager.metaStorageManager.timestampByRevision(msRevision);
 
         int catalogVersion = disasterRecoveryManager.catalogManager.activeCatalogVersion(msSafeTime.longValue());
@@ -87,15 +95,14 @@ class ManualGroupUpdateRequest implements DisasterRecoveryRequest {
             CompletableFuture<?>[] futures = RebalanceUtil.forceAssignmentsUpdate(
                     tableDescriptor,
                     zoneDescriptor,
+                    partitionIds,
                     dataNodes,
                     nodeConsistentIds,
                     msRevision,
                     disasterRecoveryManager.metaStorageManager
             );
 
-            allOf(futures).whenComplete(copyStateTo(operationFuture));
-
-            return operationFuture;
+            return allOf(futures);
         });
     }
 

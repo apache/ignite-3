@@ -20,7 +20,7 @@ package org.apache.ignite.client.handler.requests.table;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.table.TableViewInternal;
-import org.apache.ignite.table.manager.IgniteTables;
+import org.apache.ignite.table.IgniteTables;
 
 /**
  * Client tables retrieval request.

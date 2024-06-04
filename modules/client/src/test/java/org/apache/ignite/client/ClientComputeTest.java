@@ -24,10 +24,14 @@ import static org.apache.ignite.compute.JobState.FAILED;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.JobStatusMatcher.jobStatusWithState;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.lang.ErrorGroups.Table.TABLE_NOT_FOUND_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.everyItem;
+import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -44,11 +48,11 @@ import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobExecution;
+import org.apache.ignite.compute.TaskExecution;
 import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.client.table.ClientTable;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.table.Tuple;
@@ -72,7 +76,7 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
 
     @AfterEach
     void tearDown() throws Exception {
-        IgniteUtils.closeAll(server1, server2, server3);
+        closeAll(server1, server2, server3);
         FakeCompute.future = null;
     }
 
@@ -213,6 +217,49 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
 
             assertEquals("s3", res1);
             assertEquals("s3", res2);
+        }
+    }
+
+    @Test
+    void testMapReduceExecute() throws Exception {
+        initServers(reqId -> false);
+
+        try (var client = getClient(server1)) {
+            Object[] args = {"arg1", 2};
+            String res1 = client.compute().executeMapReduce(List.of(), "job", args);
+            assertEquals("s1", res1);
+        }
+    }
+
+    @Test
+    void testMapReduceSubmit() throws Exception {
+        initServers(reqId -> false);
+
+        try (var client = getClient(server1)) {
+            TaskExecution<Object> task = client.compute().submitMapReduce(List.of(), "job");
+
+            assertThat(task.resultAsync(), willBe("s1"));
+
+            assertThat(task.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
+            assertThat(task.statusesAsync(), willBe(everyItem(jobStatusWithState(COMPLETED))));
+
+            assertThat("compute task and sub tasks ids must be different",
+                    task.idsAsync(), willBe(not(hasItem(task.idAsync().get()))));
+        }
+    }
+
+    @Test
+    void testMapReduceException() throws Exception {
+        initServers(reqId -> false);
+
+        try (var client = getClient(server1)) {
+            FakeCompute.future = CompletableFuture.failedFuture(new RuntimeException("job failed"));
+
+            TaskExecution<Object> execution = client.compute().submitMapReduce(List.of(), "job");
+
+            assertThat(execution.resultAsync(), willThrowFast(IgniteException.class));
+            assertThat(execution.statusAsync(), willBe(jobStatusWithState(FAILED)));
+            assertThat(execution.statusesAsync(), willBe(everyItem(jobStatusWithState(FAILED))));
         }
     }
 

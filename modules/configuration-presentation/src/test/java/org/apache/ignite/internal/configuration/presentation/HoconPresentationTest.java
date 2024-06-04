@@ -20,6 +20,7 @@ package org.apache.ignite.internal.configuration.presentation;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.isA;
 import static org.hamcrest.Matchers.nullValue;
@@ -44,6 +45,7 @@ import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidatorImpl;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -89,7 +91,7 @@ public class HoconPresentationTest {
                 ConfigurationValidatorImpl.withDefaultValidators(generator, Set.of(validator))
         );
 
-        cfgRegistry.start();
+        assertThat(cfgRegistry.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         cfgPresentation = new HoconPresentation(cfgRegistry);
 
@@ -100,8 +102,8 @@ public class HoconPresentationTest {
      * After all.
      */
     @AfterAll
-    static void afterAll() throws Exception {
-        cfgRegistry.stop();
+    static void afterAll() {
+        assertThat(cfgRegistry.stopAsync(new ComponentContext()), willCompleteSuccessfully());
         cfgRegistry = null;
 
         generator.close();

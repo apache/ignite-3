@@ -20,6 +20,7 @@ package org.apache.ignite.internal.index;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.BUILDING;
 import static org.apache.ignite.internal.index.IndexManagementUtils.AWAIT_PRIMARY_REPLICA_TIMEOUT_SEC;
 import static org.apache.ignite.internal.index.IndexManagementUtils.isLocalNode;
@@ -27,6 +28,7 @@ import static org.apache.ignite.internal.index.IndexManagementUtils.isPrimaryRep
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.util.ArrayList;
 import java.util.Set;
@@ -36,12 +38,14 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.RemoveIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.StartBuildingIndexEventParameters;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.PrimaryReplicaAwaitTimeoutException;
@@ -55,6 +59,7 @@ import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Component is responsible for starting and stopping the building of indexes on primary replicas.
@@ -213,6 +218,13 @@ class IndexBuildController implements ManuallyCloseable {
             for (CatalogIndexDescriptor indexDescriptor : catalogService.indexes(catalogVersion, primaryReplicaId.tableId())) {
                 if (indexDescriptor.status() == BUILDING) {
                     scheduleBuildIndex(primaryReplicaId, indexDescriptor, mvTableStorage, enlistmentConsistencyToken(replicaMeta));
+                } else if (indexDescriptor.status() == AVAILABLE) {
+                    scheduleBuildIndexAfterDisasterRecovery(
+                            primaryReplicaId,
+                            indexDescriptor,
+                            mvTableStorage,
+                            enlistmentConsistencyToken(replicaMeta)
+                    );
                 }
             }
         });
@@ -251,7 +263,20 @@ class IndexBuildController implements ManuallyCloseable {
     }
 
     private CompletableFuture<MvTableStorage> getMvTableStorageFuture(long causalityToken, TablePartitionId replicaId) {
-        return indexManager.getMvTableStorage(causalityToken, replicaId.tableId());
+        return indexManager.getMvTableStorage(causalityToken, replicaId.tableId())
+                .thenApply(mvTableStorage -> requireMvTableStorageNonNull(mvTableStorage, replicaId.tableId()));
+    }
+
+    private static MvTableStorage requireMvTableStorageNonNull(@Nullable MvTableStorage mvTableStorage, int tableId) {
+        if (mvTableStorage == null) {
+            throw new IgniteInternalException(
+                    INTERNAL_ERR,
+                    "Table storage for the specified table cannot be null [tableId = {}]",
+                    tableId
+            );
+        }
+
+        return mvTableStorage;
     }
 
     private CompletableFuture<ReplicaMeta> awaitPrimaryReplica(TablePartitionId replicaId, HybridTimestamp timestamp) {
@@ -279,22 +304,47 @@ class IndexBuildController implements ManuallyCloseable {
             MvTableStorage mvTableStorage,
             long enlistmentConsistencyToken
     ) {
-        int partitionId = replicaId.partitionId();
+        MvPartitionStorage mvPartition = mvPartitionStorage(mvTableStorage, replicaId);
 
-        MvPartitionStorage mvPartition = mvTableStorage.getMvPartition(partitionId);
+        // TODO: IGNITE-22202 Deal with this situation
+        if (mvPartition == null) {
+            return;
+        }
 
-        assert mvPartition != null : replicaId;
-
-        int indexId = indexDescriptor.id();
-
-        IndexStorage indexStorage = mvTableStorage.getIndex(partitionId, indexId);
-
-        assert indexStorage != null : "replicaId=" + replicaId + ", indexId=" + indexId;
+        IndexStorage indexStorage = indexStorage(mvTableStorage, replicaId, indexDescriptor);
 
         indexBuilder.scheduleBuildIndex(
                 replicaId.tableId(),
-                partitionId,
-                indexId,
+                replicaId.partitionId(),
+                indexDescriptor.id(),
+                indexStorage,
+                mvPartition,
+                localNode(),
+                enlistmentConsistencyToken,
+                indexDescriptor.txWaitCatalogVersion()
+        );
+    }
+
+    /** Shortcut to schedule {@link CatalogIndexStatus#AVAILABLE available} index building after disaster recovery. */
+    private void scheduleBuildIndexAfterDisasterRecovery(
+            TablePartitionId replicaId,
+            CatalogIndexDescriptor indexDescriptor,
+            MvTableStorage mvTableStorage,
+            long enlistmentConsistencyToken
+    ) {
+        MvPartitionStorage mvPartition = mvPartitionStorage(mvTableStorage, replicaId);
+
+        // TODO: IGNITE-22202 Deal with this situation
+        if (mvPartition == null) {
+            return;
+        }
+
+        IndexStorage indexStorage = indexStorage(mvTableStorage, replicaId, indexDescriptor);
+
+        indexBuilder.scheduleBuildIndexAfterDisasterRecovery(
+                replicaId.tableId(),
+                replicaId.partitionId(),
+                indexDescriptor.id(),
                 indexStorage,
                 mvPartition,
                 localNode(),
@@ -313,5 +363,26 @@ class IndexBuildController implements ManuallyCloseable {
 
     private static long enlistmentConsistencyToken(ReplicaMeta replicaMeta) {
         return replicaMeta.getStartTime().longValue();
+    }
+
+    private static @Nullable MvPartitionStorage mvPartitionStorage(MvTableStorage mvTableStorage, TablePartitionId replicaId) {
+        MvPartitionStorage mvPartition = mvTableStorage.getMvPartition(replicaId.partitionId());
+
+        // TODO: IGNITE-22202 Deal with this situation
+        // assert mvPartition != null : replicaId;
+
+        return mvPartition;
+    }
+
+    private static IndexStorage indexStorage(
+            MvTableStorage mvTableStorage,
+            TablePartitionId replicaId,
+            CatalogIndexDescriptor indexDescriptor
+    ) {
+        IndexStorage indexStorage = mvTableStorage.getIndex(replicaId.partitionId(), indexDescriptor.id());
+
+        assert indexStorage != null : "replicaId=" + replicaId + ", indexId=" + indexDescriptor.id();
+
+        return indexStorage;
     }
 }

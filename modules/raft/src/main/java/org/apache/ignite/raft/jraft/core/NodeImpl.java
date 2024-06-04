@@ -44,7 +44,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.raft.JraftGroupEventsListener;
+import org.apache.ignite.internal.metrics.sources.RaftMetricSource;import org.apache.ignite.internal.raft.JraftGroupEventsListener;
 import org.apache.ignite.internal.raft.RaftNodeDisruptorConfiguration;
 import org.apache.ignite.internal.raft.storage.impl.RocksDbSharedLogStorage;
 import org.apache.ignite.internal.raft.storage.impl.StripeAwareLogManager;
@@ -66,7 +66,8 @@ import org.apache.ignite.raft.jraft.closure.SynchronizedClosure;
 import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.conf.ConfigurationEntry;
 import org.apache.ignite.raft.jraft.conf.ConfigurationManager;
-import org.apache.ignite.raft.jraft.disruptor.NodeIdAware;
+import org.apache.ignite.raft.jraft.disruptor.DisruptorEventType
+;import org.apache.ignite.raft.jraft.disruptor.NodeIdAware;
 import org.apache.ignite.raft.jraft.disruptor.StripedDisruptor;
 import org.apache.ignite.raft.jraft.entity.Ballot;
 import org.apache.ignite.raft.jraft.entity.EnumOutter;
@@ -260,22 +261,16 @@ public class NodeImpl implements Node, RaftServerService {
     /**
      * Node service event.
      */
-    public static class LogEntryAndClosure implements NodeIdAware {
-        /** Raft node id. */
-        NodeId nodeId;
-
+    public static class LogEntryAndClosure extends NodeIdAware {
         LogEntry entry;
         Closure done;
         long expectedTerm;
         CountDownLatch shutdownLatch;
 
         @Override
-        public NodeId nodeId() {
-            return nodeId;
-        }
-
         public void reset() {
-            this.nodeId = null;
+            super.reset();
+
             this.entry = null;
             this.done = null;
             this.expectedTerm = 0;
@@ -612,9 +607,9 @@ public class NodeImpl implements Node, RaftServerService {
     private boolean initLogStorage() {
         Requires.requireNonNull(this.fsmCaller, "Null fsm caller");
         this.logStorage = this.serviceFactory.createLogStorage(this.options.getLogUri(), this.raftOptions);
-        int stripe = options.getLogManagerDisruptor().getStripe(getNodeId());
-        this.logManager = new StripeAwareLogManager(options.getLogStripes().get(stripe));
-        final LogManagerOptions opts = new LogManagerOptions();
+        this.logManager = new StripeAwareLogManager();
+
+        LogManagerOptions opts = new LogManagerOptions();
         opts.setLogEntryCodecFactory(this.serviceFactory.createLogEntryCodecFactory());
         opts.setLogStorage(this.logStorage);
         opts.setConfigurationManager(this.configManager);
@@ -623,6 +618,7 @@ public class NodeImpl implements Node, RaftServerService {
         opts.setNodeMetrics(this.metrics);
         opts.setRaftOptions(this.raftOptions);
         opts.setLogManagerDisruptor(options.getLogManagerDisruptor());
+        opts.setLogStripes(options.getLogStripes());
 
         return this.logManager.init(opts);
     }
@@ -1239,6 +1235,10 @@ public class NodeImpl implements Node, RaftServerService {
         if (opts.getClientExecutor() == null && validateOption(opts, "clientExecutor"))
             opts.setClientExecutor(JRaftUtils.createClientExecutor(opts, opts.getServerName()));
 
+        if (opts.getRaftMetrics() == null) {
+            opts.setRaftMetrics(new RaftMetricSource(opts.getStripes(), opts.getLogStripesCount()));
+        }
+
         if (opts.getfSMCallerExecutorDisruptor() == null) {
             opts.setfSMCallerExecutorDisruptor(new StripedDisruptor<FSMCallerImpl.ApplyTask>(
                 opts.getServerName(),
@@ -1248,17 +1248,19 @@ public class NodeImpl implements Node, RaftServerService {
                 () -> new FSMCallerImpl.ApplyTask(),
                 opts.getStripes(),
                 false,
-                false
+                false,
+                opts.getRaftMetrics().disruptorMetrics("raft.fsmcaller.disruptor")
             ));
         } else if (ownFsmCallerExecutorDisruptorConfig != null) {
             opts.setfSMCallerExecutorDisruptor(new StripedDisruptor<FSMCallerImpl.ApplyTask>(
                 opts.getServerName(),
-                "JRaft-FSMCaller-Disruptor-" + ownFsmCallerExecutorDisruptorConfig.getThreadPostfix(),
+                "JRaft-FSMCaller-Disruptor" + ownFsmCallerExecutorDisruptorConfig.getThreadPostfix(),
                 opts.getRaftOptions().getDisruptorBufferSize(),
                 () -> new FSMCallerImpl.ApplyTask(),
                 ownFsmCallerExecutorDisruptorConfig.getStripes(),
                 false,
-                false
+                false,
+                null
             ));
         }
 
@@ -1270,7 +1272,8 @@ public class NodeImpl implements Node, RaftServerService {
                 () -> new NodeImpl.LogEntryAndClosure(),
                 opts.getStripes(),
                 false,
-                false
+                false,
+                opts.getRaftMetrics().disruptorMetrics("raft.nodeimpl.disruptor")
             ));
         }
 
@@ -1282,7 +1285,8 @@ public class NodeImpl implements Node, RaftServerService {
                 () -> new ReadOnlyServiceImpl.ReadIndexEvent(),
                 opts.getStripes(),
                 false,
-                false
+                false,
+                opts.getRaftMetrics().disruptorMetrics("raft.readonlyservice.disruptor")
             ));
         }
 
@@ -1294,7 +1298,8 @@ public class NodeImpl implements Node, RaftServerService {
                 () -> new LogManagerImpl.StableClosureEvent(),
                 opts.getLogStripesCount(),
                 logStorage instanceof RocksDbSharedLogStorage,
-                opts.isLogYieldStrategy()
+                opts.isLogYieldStrategy(),
+                opts.getRaftMetrics().disruptorMetrics("raft.logmanager.disruptor")
             ));
 
             opts.setLogStripes(IntStream.range(0, opts.getLogStripesCount()).mapToObj(i -> new Stripe()).collect(toList()));
@@ -1841,6 +1846,7 @@ public class NodeImpl implements Node, RaftServerService {
 
         final EventTranslator<LogEntryAndClosure> translator = (event, sequence) -> {
             event.reset();
+
             event.nodeId = getNodeId();
             event.done = task.getDone();
             event.entry = entry;
@@ -3129,6 +3135,8 @@ public class NodeImpl implements Node, RaftServerService {
                     Utils.runInThread(this.getOptions().getCommonExecutor(),
                         () -> this.applyQueue.publishEvent((event, sequence) -> {
                             event.nodeId = getNodeId();
+                            event.handler = null;
+                            event.evtType = DisruptorEventType.REGULAR;
                             event.shutdownLatch = latch;
                         }));
                 }

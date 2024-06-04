@@ -1,0 +1,86 @@
+# name: test/sql/set/test_intersect.test
+# description: INTERSECT [ALL] table operator.
+# feature: F302-02
+# group: [set]
+
+query I
+SELECT NULL INTERSECT SELECT NULL
+----
+NULL
+
+query II
+select x, count(*) from
+  (select * from (values(1),(2),(2),(2),(3),(3),(3),(3),(3),(3),(4),(4)) s(x)
+    intersect all
+    select * from (values(1),(2),(2),(3),(3),(3)) t(x))
+group by x order by x
+----
+1	1
+2	2
+3	3
+
+statement ok
+CREATE TABLE t_int(q1 bigint, q2 bigint);
+
+statement ok
+INSERT INTO t_int VALUES(123,456), (123,4567890123456789), (4567890123456789,123), (4567890123456789,4567890123456789), (4567890123456789,-4567890123456789);
+
+query I
+SELECT q2 FROM t_int INTERSECT SELECT q1 FROM t_int ORDER BY 1;
+----
+123
+4567890123456789
+
+query I
+SELECT q2 FROM t_int INTERSECT ALL SELECT q1 FROM t_int ORDER BY 1;
+----
+123
+4567890123456789
+4567890123456789
+
+# Operator precedence and (((((extra))))) parentheses
+
+query I
+SELECT q1 FROM t_int INTERSECT SELECT q2 FROM t_int UNION ALL SELECT q2 FROM t_int  ORDER BY 1;
+----
+-4567890123456789
+123
+123
+456
+4567890123456789
+4567890123456789
+4567890123456789
+
+query I
+SELECT q1 FROM t_int INTERSECT (((SELECT q2 FROM t_int UNION ALL SELECT q2 FROM t_int))) ORDER BY 1;
+----
+123
+4567890123456789
+
+query I rowsort
+(((SELECT q1 FROM t_int INTERSECT SELECT q2 FROM t_int ORDER BY 1))) UNION ALL SELECT q2 FROM t_int;
+----
+-4567890123456789
+123
+123
+456
+4567890123456789
+4567890123456789
+4567890123456789
+
+# Mixed types
+
+statement ok
+CREATE TABLE t_float(f1 float);
+
+statement ok
+INSERT INTO t_float(f1) VALUES (-1.2345678901234e+200), (-34.84),  (123), (456), (456.1), (-456);
+
+query I
+(SELECT f1 FROM t_float INTERSECT SELECT q1 FROM t_int)
+UNION
+(SELECT f1 FROM t_float INTERSECT SELECT q2 FROM t_int)
+ORDER BY 1;
+----
+123.0
+456.0

@@ -20,6 +20,7 @@ package org.apache.ignite.internal.configuration.hocon;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
 import static org.apache.ignite.internal.configuration.hocon.HoconConverter.hoconSource;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -51,6 +52,7 @@ import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -222,7 +224,7 @@ public class HoconConverterTest {
                 new TestConfigurationValidator()
         );
 
-        registry.start();
+        assertThat(registry.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         configuration = registry.getConfiguration(HoconRootConfiguration.KEY);
         injectedNameRootConfig = registry.getConfiguration(HoconInjectedNameRootConfiguration.KEY);
@@ -232,8 +234,8 @@ public class HoconConverterTest {
      * After all.
      */
     @AfterAll
-    public static void after() throws Exception {
-        registry.stop();
+    public static void after() {
+        assertThat(registry.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
         registry = null;
 

@@ -89,11 +89,12 @@ public class ReadOnlyServiceTest extends BaseIgniteAbstractTest {
         opts.setNode(this.node);
         opts.setRaftOptions(raftOptions);
         opts.setReadOnlyServiceDisruptor(disruptor = new StripedDisruptor<>("test", "TestReadOnlyServiceDisruptor",
-            1024,
-            () -> new ReadOnlyServiceImpl.ReadIndexEvent(),
-            1,
-            false,
-            false));
+                1024,
+                () -> new ReadOnlyServiceImpl.ReadIndexEvent(),
+                1,
+                false,
+                false,
+                null));
         NodeOptions nodeOptions = new NodeOptions();
         ExecutorService executor = JRaftUtils.createExecutor("test-executor", Utils.cpus());
         executors.add(executor);

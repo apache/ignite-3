@@ -32,6 +32,7 @@ import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.apache.ignite.internal.sql.engine.util.QueryCheckerExtension;
 import org.apache.ignite.internal.sql.engine.util.QueryCheckerFactory;
 import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.sql.ColumnMetadata;
@@ -75,7 +76,7 @@ public class BaseSqlIntegrationTest extends ClusterPerClassIntegrationTest {
     }
 
     protected static QueryChecker assertQuery(IgniteImpl node, @Nullable InternalTransaction tx, String qry) {
-        return queryCheckerFactory.create(node.name(), node.queryEngine(), node.transactions(), tx, qry);
+        return queryCheckerFactory.create(node.name(), node.queryEngine(), node.observableTimeTracker(), tx, qry);
     }
 
     /**
@@ -111,19 +112,29 @@ public class BaseSqlIntegrationTest extends ClusterPerClassIntegrationTest {
         NESTED_LOOP(
                 "CorrelatedNestedLoopJoin",
                 "JoinCommuteRule",
-                "MergeJoinConverter"
+                "MergeJoinConverter",
+                "HashJoinConverter"
         ),
 
         MERGE(
                 "CorrelatedNestedLoopJoin",
                 "JoinCommuteRule",
-                "NestedLoopJoinConverter"
+                "NestedLoopJoinConverter",
+                "HashJoinConverter"
         ),
 
         CORRELATED(
                 "MergeJoinConverter",
                 "JoinCommuteRule",
-                "NestedLoopJoinConverter"
+                "NestedLoopJoinConverter",
+                "HashJoinConverter"
+        ),
+
+        HASHJOIN(
+                "MergeJoinConverter",
+                "JoinCommuteRule",
+                "NestedLoopJoinConverter",
+                "CorrelatedNestedLoopJoin"
         );
 
         private final String[] disabledRules;
@@ -198,6 +209,13 @@ public class BaseSqlIntegrationTest extends ClusterPerClassIntegrationTest {
      */
     protected IgniteTransactions igniteTx() {
         return CLUSTER.aliveNode().transactions();
+    }
+
+    /**
+     * Returns observable time of first cluster node.
+     */
+    protected HybridTimestampTracker observableTimeTracker() {
+        return CLUSTER.aliveNode().observableTimeTracker();
     }
 
     /**

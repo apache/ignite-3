@@ -17,6 +17,10 @@
 
 package org.apache.ignite.internal.network;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.network.NodeMetadata;
@@ -53,8 +57,9 @@ public interface ClusterService extends IgniteComponent {
 
     /** {@inheritDoc} */
     @Override
-    default void stop() {
+    default CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         // TODO: IGNITE-15161 Implement component's stop.
+        return nullCompletedFuture();
     }
 
     /**

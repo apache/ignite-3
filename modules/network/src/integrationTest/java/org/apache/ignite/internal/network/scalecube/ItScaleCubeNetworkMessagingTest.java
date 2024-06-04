@@ -27,6 +27,8 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
+import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
+import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.either;
 import static org.hamcrest.Matchers.empty;
@@ -61,6 +63,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ChannelType;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.DefaultMessagingService;
@@ -289,7 +292,7 @@ class ItScaleCubeNetworkMessagingTest {
         ClusterService member0 = testCluster.members.get(0);
         ClusterService member1 = testCluster.members.get(1);
 
-        member0.stop();
+        assertThat(member0.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
         // Perform two invokes to test that multiple requests can get cancelled.
         CompletableFuture<NetworkMessage> invoke0 = member0.messagingService().invoke(
@@ -340,7 +343,7 @@ class ItScaleCubeNetworkMessagingTest {
                 1000
         );
 
-        member0.stop();
+        assertThat(member0.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
         ExecutionException e = assertThrows(ExecutionException.class, () -> invoke0.get(1, SECONDS));
 
@@ -387,7 +390,7 @@ class ItScaleCubeNetworkMessagingTest {
 
         assertTrue(receivedTestMessages.await(10, SECONDS), "Did not receive invocations on the receiver in time");
 
-        member0.stop();
+        assertThat(member0.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
         ExecutionException e = assertThrows(ExecutionException.class, () -> invoke0.get(1, SECONDS));
 
@@ -1058,7 +1061,7 @@ class ItScaleCubeNetworkMessagingTest {
                 receiver.topologyService().localMember()
         );
 
-        sender.stop();
+        assertThat(sender.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
         assertThat(sendFuture, willThrow(NodeStoppingException.class));
     }
@@ -1174,7 +1177,7 @@ class ItScaleCubeNetworkMessagingTest {
         if (forceful) {
             stopForcefully(alice);
         } else {
-            alice.stop();
+            assertThat(alice.stopAsync(new ComponentContext()), willCompleteSuccessfully());
         }
 
         boolean aliceShutdownReceived = aliceShutdownLatch.await(forceful ? 10 : 3, SECONDS);
@@ -1258,7 +1261,7 @@ class ItScaleCubeNetworkMessagingTest {
          * @throws AssertionError       If the cluster was unable to start in 3 seconds.
          */
         void startAwait() throws InterruptedException {
-            members.forEach(ClusterService::start);
+            assertThat(startAsync(new ComponentContext(), members), willCompleteSuccessfully());
 
             if (!waitForCondition(this::allMembersSeeEachOther, SECONDS.toMillis(3))) {
                 throw new AssertionError();
@@ -1276,7 +1279,7 @@ class ItScaleCubeNetworkMessagingTest {
          * Stops the cluster.
          */
         void shutdown() {
-            members.forEach(ClusterService::stop);
+            assertThat(stopAsync(new ComponentContext(), members), willCompleteSuccessfully());
         }
     }
 

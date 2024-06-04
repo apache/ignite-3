@@ -77,4 +77,8 @@ public class ColumnDefinitionDiff {
     public boolean defaultChanged() {
         return !Objects.equals(oldColumn.defaultValue(), newColumn.defaultValue());
     }
+
+    public String oldName() {
+        return oldColumn.name();
+    }
 }

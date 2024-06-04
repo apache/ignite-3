@@ -71,17 +71,15 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
     private static final String NODE_BOOTSTRAP_CFG_TEMPLATE = "{\n"
             + "  network: {\n"
             + "    port: {},\n"
-            + "    nodeFinder: {\n"
-            + "      netClusterNodes: [ {} ]\n"
-            + "    }\n"
+            + "    nodeFinder.netClusterNodes: [ {} ]\n"
             + "  },\n"
             + "  storage.profiles: {"
             + "        " + DEFAULT_TEST_PROFILE_NAME + ".engine: test, "
             + "        " + DEFAULT_AIPERSIST_PROFILE_NAME + ".engine: aipersist, "
             + "        " + DEFAULT_AIMEM_PROFILE_NAME + ".engine: aimem, "
-            + "        " + DEFAULT_ROCKSDB_PROFILE_NAME + ".engine: rocksDb"
+            + "        " + DEFAULT_ROCKSDB_PROFILE_NAME + ".engine: rocksdb"
             + "  },\n"
-            + "  clientConnector: { port:{} },\n"
+            + "  clientConnector.port: {},\n"
             + "  rest.port: {},\n"
             + "  compute.threadPoolSize: 1\n"
             + "}";
@@ -155,9 +153,10 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
         CatalogManager catalogManager = CLUSTER.aliveNode().catalogManager();
         int latestCatalogVersion = catalogManager.latestCatalogVersion();
         Catalog catalog = Objects.requireNonNull(catalogManager.catalog(latestCatalogVersion));
+        CatalogZoneDescriptor defaultZone = catalog.defaultZone();
         for (CatalogZoneDescriptor z : catalogManager.zones(latestCatalogVersion)) {
             String zoneName = z.name();
-            if (zoneName.equals(catalog.defaultZone().name())) {
+            if (defaultZone != null && zoneName.equals(defaultZone.name())) {
                 continue;
             }
             sql("DROP ZONE " + zoneName);

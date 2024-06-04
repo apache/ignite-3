@@ -20,8 +20,10 @@ package org.apache.ignite.raft.server;
 import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.raft.jraft.test.TestUtils.getLocalAddress;
 import static org.apache.ignite.raft.jraft.test.TestUtils.waitForTopology;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
@@ -34,6 +36,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.PeersAndLearners;
@@ -80,6 +83,8 @@ public abstract class JraftAbstractTest extends RaftServerAbstractTest {
      * Servers list.
      */
     protected final List<JraftServerImpl> servers = new ArrayList<>();
+
+    protected final List<ClusterService> serverServices = new ArrayList<>();
 
     /**
      * Clients list.
@@ -146,10 +151,13 @@ public abstract class JraftAbstractTest extends RaftServerAbstractTest {
 
             server.beforeNodeStop();
 
-            server.stop();
+            assertThat(server.stopAsync(new ComponentContext()), willCompleteSuccessfully());
         }
 
         servers.clear();
+
+        assertThat(IgniteUtils.stopAsync(new ComponentContext(), serverServices), willCompleteSuccessfully());
+        serverServices.clear();
     }
 
     /**
@@ -169,13 +177,14 @@ public abstract class JraftAbstractTest extends RaftServerAbstractTest {
 
         optionsUpdater.accept(opts);
 
-        JraftServerImpl server = jraftServer(servers, idx, service, opts);
+        JraftServerImpl server = jraftServer(idx, service, opts);
 
-        server.start();
+        assertThat(server.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         clo.accept(server);
 
         servers.add(server);
+        serverServices.add(service);
 
         assertTrue(waitForTopology(service, servers.size(), 15_000));
 

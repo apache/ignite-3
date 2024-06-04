@@ -24,13 +24,17 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
+import org.apache.ignite.compute.task.MapReduceTask;
 import org.apache.ignite.internal.compute.ComputeUtils;
 import org.apache.ignite.internal.compute.ExecutionOptions;
 import org.apache.ignite.internal.compute.JobExecutionContextImpl;
 import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
+import org.apache.ignite.internal.compute.loader.JobClassLoader;
 import org.apache.ignite.internal.compute.queue.PriorityQueueExecutor;
 import org.apache.ignite.internal.compute.queue.QueueExecution;
 import org.apache.ignite.internal.compute.state.ComputeStateMachine;
+import org.apache.ignite.internal.compute.task.JobSubmitter;
+import org.apache.ignite.internal.compute.task.TaskExecutionInternal;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
@@ -70,12 +74,13 @@ public class ComputeExecutorImpl implements ComputeExecutor {
     public <R> JobExecutionInternal<R> executeJob(
             ExecutionOptions options,
             Class<? extends ComputeJob<R>> jobClass,
+            JobClassLoader classLoader,
             Object[] args
     ) {
         assert executorService != null;
 
         AtomicBoolean isInterrupted = new AtomicBoolean();
-        JobExecutionContext context = new JobExecutionContextImpl(ignite, isInterrupted);
+        JobExecutionContext context = new JobExecutionContextImpl(ignite, isInterrupted, classLoader);
 
         QueueExecution<R> execution = executorService.submit(
                 () -> ComputeUtils.instantiateJob(jobClass).execute(context, args),
@@ -84,6 +89,17 @@ public class ComputeExecutorImpl implements ComputeExecutor {
         );
 
         return new JobExecutionInternal<>(execution, isInterrupted);
+    }
+
+    @Override
+    public <R> TaskExecutionInternal<R> executeTask(
+            JobSubmitter jobSubmitter,
+            Class<? extends MapReduceTask<R>> taskClass,
+            Object... args
+    ) {
+        assert executorService != null;
+
+        return new TaskExecutionInternal<>(executorService, jobSubmitter, taskClass, () -> ignite, args);
     }
 
     @Override

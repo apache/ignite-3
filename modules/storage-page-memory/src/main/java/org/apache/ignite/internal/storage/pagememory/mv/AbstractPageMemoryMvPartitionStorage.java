@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptio
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageStateOnRebalance;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInRunnableOrRebalanceState;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwStorageExceptionIfItCause;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.internal.tracing.TracingManager.span;
 
 import java.util.ArrayList;
@@ -37,6 +38,7 @@ import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.datapage.DataPageReader;
+import org.apache.ignite.internal.pagememory.freelist.FreeListImpl;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
 import org.apache.ignite.internal.pagememory.tree.BplusTree.TreeRowMapClosure;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.InvokeClosure;
@@ -55,11 +57,12 @@ import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.storage.pagememory.AbstractPageMemoryTableStorage;
-import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumnsFreeList;
 import org.apache.ignite.internal.storage.pagememory.index.hash.PageMemoryHashIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.PageMemorySortedIndexStorage;
+import org.apache.ignite.internal.storage.pagememory.mv.CommitWriteInvokeClosure.UpdateTimestampHandler;
 import org.apache.ignite.internal.storage.pagememory.mv.FindRowVersion.RowVersionFilter;
+import org.apache.ignite.internal.storage.pagememory.mv.RemoveWriteOnGcInvokeClosure.UpdateNextLinkHandler;
 import org.apache.ignite.internal.storage.pagememory.mv.gc.GcQueue;
 import org.apache.ignite.internal.storage.pagememory.mv.gc.GcRowVersion;
 import org.apache.ignite.internal.storage.util.LocalLocker;
@@ -69,7 +72,6 @@ import org.apache.ignite.internal.storage.util.StorageUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.CursorUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -113,6 +115,10 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     /** Busy lock. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
+    private final UpdateNextLinkHandler updateNextLinkHandler;
+
+    private final UpdateTimestampHandler updateTimestampHandler;
+
     /**
      * Constructor.
      *
@@ -134,6 +140,8 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         PageMemory pageMemory = tableStorage.dataRegion().pageMemory();
 
         rowVersionDataPageReader = new DataPageReader(pageMemory, tableStorage.getTableId(), IoStatisticsHolderNoOp.INSTANCE);
+        updateNextLinkHandler = new UpdateNextLinkHandler();
+        updateTimestampHandler = new UpdateTimestampHandler();
     }
 
     protected abstract GradualTaskExecutor createGradualTaskExecutor(ExecutorService threadPool);
@@ -194,8 +202,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
     void updateRenewableState(
             VersionChainTree versionChainTree,
-            RowVersionFreeList rowVersionFreeList,
-            IndexColumnsFreeList indexFreeList,
+            FreeListImpl freeList,
             IndexMetaTree indexMetaTree,
             GcQueue gcQueue
     ) {
@@ -203,8 +210,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                 tableStorage,
                 partitionId,
                 versionChainTree,
-                rowVersionFreeList,
-                indexFreeList,
+                freeList,
                 indexMetaTree,
                 gcQueue
         );
@@ -409,7 +415,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
     void insertRowVersion(RowVersion rowVersion) {
         try {
-            renewableState.rowVersionFreeList().insertDataRow(rowVersion);
+            renewableState.freeList().insertDataRow(rowVersion);
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException("Cannot store a row version: [row={}, {}]", e, rowVersion, createStorageInfo());
         }
@@ -480,7 +486,12 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             assert rowIsLocked(rowId);
 
             try {
-                CommitWriteInvokeClosure commitWrite = new CommitWriteInvokeClosure(rowId, timestamp, this);
+                CommitWriteInvokeClosure commitWrite = new CommitWriteInvokeClosure(
+                        rowId,
+                        timestamp,
+                        updateTimestampHandler,
+                        this
+                );
 
                 renewableState.versionChainTree().invoke(new VersionChainKey(rowId), null, commitWrite);
 
@@ -497,7 +508,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
     void removeRowVersion(RowVersion rowVersion) {
         try {
-            renewableState.rowVersionFreeList().removeDataRowByLink(rowVersion.link());
+            renewableState.freeList().removeDataRowByLink(rowVersion.link());
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException("Cannot remove row version: [row={}, {}]", e, rowVersion, createStorageInfo());
         }
@@ -608,7 +619,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      */
     public void closeResources() {
         try {
-            IgniteUtils.closeAll(getResourcesToClose());
+            closeAll(getResourcesToClose());
         } catch (Exception e) {
             throw new StorageException(e);
         }
@@ -710,7 +721,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         busyLock.block();
 
         try {
-            IgniteUtils.closeAll(getResourcesToCloseOnCleanup());
+            closeAll(getResourcesToCloseOnCleanup());
 
             indexes.startRebalance();
         } catch (Exception e) {
@@ -768,7 +779,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         busyLock.block();
 
         try {
-            IgniteUtils.closeAll(getResourcesToCloseOnCleanup());
+            closeAll(getResourcesToCloseOnCleanup());
 
             indexes.startCleanup();
         } finally {
@@ -861,7 +872,13 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     }
 
     private RowVersion removeWriteOnGc(RowId rowId, HybridTimestamp rowTimestamp, long rowLink) {
-        RemoveWriteOnGcInvokeClosure removeWriteOnGc = new RemoveWriteOnGcInvokeClosure(rowId, rowTimestamp, rowLink, this);
+        RemoveWriteOnGcInvokeClosure removeWriteOnGc = new RemoveWriteOnGcInvokeClosure(
+                rowId,
+                rowTimestamp,
+                rowLink,
+                updateNextLinkHandler,
+                this
+        );
 
         try {
             renewableState.versionChainTree().invoke(new VersionChainKey(rowId), null, removeWriteOnGc);

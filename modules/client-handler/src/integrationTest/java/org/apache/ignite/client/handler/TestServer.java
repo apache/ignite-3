@@ -17,6 +17,8 @@
 
 package org.apache.ignite.client.handler;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
 
@@ -29,7 +31,8 @@ import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
-import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
@@ -87,12 +90,14 @@ public class TestServer {
         this.idleTimeout = idleTimeout;
     }
 
-    void tearDown() throws Exception {
-        bootstrapFactory.stop();
+    void tearDown() {
+        assertThat(bootstrapFactory.stopAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     ClientHandlerModule start(TestInfo testInfo) {
-        authenticationManager.start();
+        ComponentContext componentContext = new ComponentContext();
+
+        assertThat(authenticationManager.startAsync(componentContext), willCompleteSuccessfully());
 
         clientConnectorConfiguration.change(
                 local -> local
@@ -108,7 +113,7 @@ public class TestServer {
 
         bootstrapFactory = new NettyBootstrapFactory(networkConfiguration, testInfo.getDisplayName());
 
-        bootstrapFactory.start();
+        assertThat(bootstrapFactory.startAsync(componentContext), willCompleteSuccessfully());
 
         ClusterService clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
         Mockito.when(clusterService.topologyService().localMember().id()).thenReturn("id");
@@ -122,7 +127,7 @@ public class TestServer {
                 clusterService,
                 bootstrapFactory,
                 () -> CompletableFuture.completedFuture(ClusterTag.clusterTag(msgFactory, "Test Server")),
-                mock(MetricManager.class),
+                mock(MetricManagerImpl.class),
                 metrics,
                 authenticationManager,
                 new TestClockService(new HybridClockImpl()),
@@ -133,7 +138,7 @@ public class TestServer {
                 new TestLowWatermark()
         );
 
-        module.start().join();
+        module.startAsync(componentContext).join();
 
         return module;
     }

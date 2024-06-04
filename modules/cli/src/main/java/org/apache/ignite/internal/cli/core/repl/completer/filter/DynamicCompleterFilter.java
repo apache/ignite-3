@@ -17,12 +17,10 @@
 
 package org.apache.ignite.internal.cli.core.repl.completer.filter;
 
-import static org.apache.ignite.internal.cli.commands.Options.Constants.CLUSTER_URL_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.HELP_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.HELP_OPTION_SHORT;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.NODE_URL_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.PROFILE_OPTION;
-import static org.apache.ignite.internal.cli.commands.Options.Constants.PROFILE_OPTION_SHORT;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.VERBOSE_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.VERBOSE_OPTION_SHORT;
 
@@ -73,7 +71,6 @@ public class DynamicCompleterFilter implements CompleterFilter {
         return !(HELP_OPTION.equals(candidate)
                 || HELP_OPTION_SHORT.equals(candidate)
                 || PROFILE_OPTION.equals(candidate)
-                || PROFILE_OPTION_SHORT.equals(candidate)
                 || VERBOSE_OPTION_SHORT.equals(candidate)
                 || VERBOSE_OPTION.equals(candidate));
     }
@@ -81,6 +78,6 @@ public class DynamicCompleterFilter implements CompleterFilter {
     private boolean filterClusterUrl(String[] words, String candidate) {
         return optionTyped(words)
                 || session.info() == null
-                || (!candidate.equals(CLUSTER_URL_OPTION) && !candidate.equals(NODE_URL_OPTION));
+                || (!candidate.equals(NODE_URL_OPTION));
     }
 }

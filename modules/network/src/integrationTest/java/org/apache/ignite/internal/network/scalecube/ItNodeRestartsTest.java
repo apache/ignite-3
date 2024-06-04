@@ -18,6 +18,9 @@
 package org.apache.ignite.internal.network.scalecube;
 
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.findLocalAddresses;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
@@ -25,6 +28,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NodeFinder;
 import org.apache.ignite.internal.network.StaticNodeFinder;
@@ -47,9 +51,7 @@ class ItNodeRestartsTest {
     /** Tear down method. */
     @AfterEach
     void tearDown() {
-        for (ClusterService service : services) {
-            service.stop();
-        }
+        assertThat(stopAsync(new ComponentContext(), services), willCompleteSuccessfully());
     }
 
     /**
@@ -76,10 +78,10 @@ class ItNodeRestartsTest {
         int idx1 = 2;
 
         LOG.info("Shutdown {}", addresses.get(idx0));
-        services.get(idx0).stop();
+        assertThat(services.get(idx0).stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
         LOG.info("Shutdown {}", addresses.get(idx1));
-        services.get(idx1).stop();
+        assertThat(services.get(idx1).stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
         LOG.info("Starting {}", addresses.get(idx0));
         ClusterService svc0 = startNetwork(testInfo, addresses.get(idx0), nodeFinder);
@@ -108,7 +110,7 @@ class ItNodeRestartsTest {
     private ClusterService startNetwork(TestInfo testInfo, NetworkAddress addr, NodeFinder nodeFinder) {
         ClusterService clusterService = ClusterServiceTestUtils.clusterService(testInfo, addr.port(), nodeFinder);
 
-        clusterService.start();
+        assertThat(clusterService.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         return clusterService;
     }

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.cluster.management.topology;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
@@ -51,6 +52,7 @@ import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorag
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -93,7 +95,7 @@ class LogicalTopologyImplTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void setUp() {
-        storage.start();
+        assertThat(storage.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         topology = new LogicalTopologyImpl(storage);
 
@@ -101,8 +103,8 @@ class LogicalTopologyImplTest extends BaseIgniteAbstractTest {
     }
 
     @AfterEach
-    void tearDown() throws Exception {
-        storage.stop();
+    void tearDown() {
+        assertThat(storage.stopAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     /**

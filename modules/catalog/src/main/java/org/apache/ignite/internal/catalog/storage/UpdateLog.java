@@ -20,6 +20,7 @@ package org.apache.ignite.internal.catalog.storage;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 
 /**
@@ -30,14 +31,12 @@ public interface UpdateLog extends IgniteComponent {
      * Appends the given update to the log if the update with that version does not exist.
      *
      * <p>The version of {@link VersionedUpdate} must be greater by 1 of the version of previously
-     * appended update, otherwise current update will be rejected. The versions of already appended
-     * updates should be tracked by registering {@link OnUpdateHandler update handler}
-     * (see {@link #registerUpdateHandler(OnUpdateHandler)}).
+     * appended update, otherwise current update will be rejected. The versions of already appended updates should be tracked by registering
+     * {@link OnUpdateHandler update handler} (see {@link #registerUpdateHandler(OnUpdateHandler)}).
      *
      * @param update An update to append to the log.
-     * @return A {@code true} if update has been successfully appended, {@code false} otherwise
-     *      if update with the same version already exists, and operation should be retried with
-     *      new version.
+     * @return A {@code true} if update has been successfully appended, {@code false} otherwise if update with the same version already
+     *         exists, and operation should be retried with new version.
      */
     CompletableFuture<Boolean> append(VersionedUpdate update);
 
@@ -45,8 +44,8 @@ public interface UpdateLog extends IgniteComponent {
      * Saves a snapshot entry and drop updates of previous versions from the log, if supported, otherwise do nothing.
      *
      * @param snapshotEntry An entry, which represents a result of merging updates of previous versions.
-     * @return A {@code true} if snapshot has been successfully written, {@code false} otherwise
-     *      if a snapshot with the same or greater version already exists.
+     * @return A {@code true} if snapshot has been successfully written, {@code false} otherwise if a snapshot with the same or greater
+     *         version already exists.
      */
     CompletableFuture<Boolean> saveSnapshot(SnapshotEntry snapshotEntry);
 
@@ -63,11 +62,12 @@ public interface UpdateLog extends IgniteComponent {
      * <p>Log replay is a part of a component start up process, thus the handler must
      * be registered prior to start is invoked, otherwise exception will be thrown.
      *
-     * @return Completable future.
+     * @param componentContext The component lifecycle context.
+     * @return Future that will be completed when the asynchronous part of the start is processed.
      * @throws IgniteInternalException If no handler has been registered.
      */
     @Override
-    CompletableFuture<Void> start() throws IgniteInternalException;
+    CompletableFuture<Void> startAsync(ComponentContext componentContext) throws IgniteInternalException;
 
     /** An interface describing a handler that will receive notification when a new update is added to the log. */
     @FunctionalInterface

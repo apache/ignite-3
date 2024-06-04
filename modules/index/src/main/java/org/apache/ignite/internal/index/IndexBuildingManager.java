@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.index;
 
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -36,6 +37,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.network.ClusterService;
@@ -127,7 +129,7 @@ public class IndexBuildingManager implements IgniteComponent {
     }
 
     @Override
-    public CompletableFuture<Void> start() {
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         return inBusyLockAsync(busyLock, () -> {
             CompletableFuture<Long> recoveryFinishedFuture = metaStorageManager.recoveryFinishedFuture();
 
@@ -142,20 +144,25 @@ public class IndexBuildingManager implements IgniteComponent {
     }
 
     @Override
-    public void stop() throws Exception {
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         if (!stopGuard.compareAndSet(false, true)) {
-            return;
+            return nullCompletedFuture();
         }
 
         busyLock.block();
 
-        closeAllManually(
-                indexBuilder,
-                indexAvailabilityController,
-                indexBuildController,
-                changeIndexStatusTaskController
-        );
+        try {
+            closeAllManually(
+                    indexBuilder,
+                    indexAvailabilityController,
+                    indexBuildController,
+                    changeIndexStatusTaskController,
+                    () -> shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS)
+            );
+        } catch (Exception e) {
+            return failedFuture(e);
+        }
 
-        shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
+        return nullCompletedFuture();
     }
 }

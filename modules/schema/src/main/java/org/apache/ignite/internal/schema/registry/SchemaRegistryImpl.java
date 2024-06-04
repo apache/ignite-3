@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.schema.registry;
 
-import static java.util.Collections.unmodifiableMap;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 
@@ -38,7 +37,6 @@ import org.apache.ignite.internal.schema.mapping.ColumnMapping;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.jetbrains.annotations.Nullable;
-import org.jetbrains.annotations.TestOnly;
 
 /**
  * Caching registry of actual schema descriptors for a table.
@@ -245,7 +243,7 @@ public class SchemaRegistryImpl implements SchemaRegistry {
      * @param rowSchema Row schema.
      * @return Column mapper for target schema.
      */
-    ColumnMapper resolveMapping(SchemaDescriptor curSchema, SchemaDescriptor rowSchema) {
+    private ColumnMapper resolveMapping(SchemaDescriptor curSchema, SchemaDescriptor rowSchema) {
         assert curSchema.version() > rowSchema.version();
 
         if (curSchema.version() == rowSchema.version() + 1) {
@@ -254,9 +252,9 @@ public class SchemaRegistryImpl implements SchemaRegistry {
 
         long mappingKey = (((long) curSchema.version()) << 32) | (rowSchema.version());
 
-        ColumnMapper mapping;
+        ColumnMapper mapping = mappingCache.get(mappingKey);
 
-        if ((mapping = mappingCache.get(mappingKey)) != null) {
+        if (mapping != null) {
             return mapping;
         }
 
@@ -290,34 +288,6 @@ public class SchemaRegistryImpl implements SchemaRegistry {
         }
 
         makeSchemaVersionAvailable(desc);
-    }
-
-    /**
-     * Cleanup given schema version from history.
-     *
-     * @param ver Schema version to remove.
-     * @throws SchemaRegistryException If incorrect schema version provided.
-     */
-    public void onSchemaDropped(int ver) {
-        int lastVer = schemaCache.lastKey();
-
-        if (ver <= 0 || ver >= lastVer || ver > schemaCache.keySet().first()) {
-            throw new SchemaRegistryException("Incorrect schema version to clean up to: " + ver);
-        }
-
-        if (schemaCache.remove(ver) != null) {
-            mappingCache.keySet().removeIf(k -> (k & 0xFFFF_FFFFL) == ver);
-        }
-    }
-
-    /**
-     * For test purposes only.
-     *
-     * @return ColumnMapping cache.
-     */
-    @TestOnly
-    Map<Long, ColumnMapper> mappingCache() {
-        return unmodifiableMap(mappingCache);
     }
 
     private CompletableFuture<SchemaDescriptor> tableSchemaAsync(int schemaVer) {

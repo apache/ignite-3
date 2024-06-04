@@ -24,7 +24,6 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.util.Cloner;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.sql.ResultSetMetadata;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Regular query or DML.
@@ -40,14 +39,18 @@ public class MultiStepPlan implements ExplainablePlan {
     private final IgniteRel root;
 
     private final ParameterMetadata parameterMetadata;
+    private final int catalogVersion;
 
     /** Constructor. */
-    public MultiStepPlan(PlanId id, SqlQueryType type, IgniteRel root, ResultSetMetadata meta, ParameterMetadata parameterMetadata) {
+    public MultiStepPlan(
+            PlanId id, SqlQueryType type, IgniteRel root, ResultSetMetadata meta, ParameterMetadata parameterMetadata, int catalogVersion
+    ) {
         this.id = id;
         this.type = type;
         this.root = root;
         this.meta = meta;
         this.parameterMetadata = parameterMetadata;
+        this.catalogVersion = catalogVersion;
     }
 
     /** {@inheritDoc} */
@@ -70,7 +73,6 @@ public class MultiStepPlan implements ExplainablePlan {
 
     /** {@inheritDoc} */
     @Override
-    @Nullable
     public SqlQueryType type() {
         return type;
     }
@@ -80,6 +82,10 @@ public class MultiStepPlan implements ExplainablePlan {
         IgniteRel clonedRoot = Cloner.clone(root, Commons.cluster());
 
         return RelOptUtil.toString(clonedRoot, SqlExplainLevel.ALL_ATTRIBUTES);
+    }
+
+    public int catalogVersion() {
+        return catalogVersion;
     }
 
     /** Returns root of the query tree. */

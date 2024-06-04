@@ -17,6 +17,9 @@
 
 package org.apache.ignite.client.handler;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -27,9 +30,9 @@ import java.util.concurrent.CompletionException;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
@@ -49,9 +52,10 @@ public class ItClientHandlerBindTest extends BaseIgniteAbstractTest {
 
     @AfterEach
     final void tearDown() throws Exception {
-        IgniteUtils.closeAll(
+        closeAll(
                 server == null ? null : () -> server.tearDown(),
-                serverModule == null ? null : () -> serverModule.stop()
+                serverModule == null ? null :
+                        () -> assertThat(serverModule.stopAsync(new ComponentContext()), willCompleteSuccessfully())
         );
     }
 

@@ -160,7 +160,7 @@ public class ImplicitCastsTest extends AbstractPlannerTest {
         assertPlan(query, igniteSchema, nodeOrAnyChild(isInstanceOf(IgniteMergeJoin.class)
                         .and(nodeOrAnyChild(new TableScanWithProjection(expected.lhs)))
                         .and(nodeOrAnyChild(new TableScanWithProjection(expected.rhs)))
-        ));
+        ), "HashJoinConverter", "NestedLoopJoinConverter");
     }
 
     /** Nested loop join - casts are added to condition operands. **/
@@ -479,7 +479,7 @@ public class ImplicitCastsTest extends AbstractPlannerTest {
                         .disableRules(DISABLE_KEY_VALUE_MODIFY_RULES)
                         .table("t3", "str_col", NativeTypes.stringOf(36))
                         .sql("INSERT INTO t3 VALUES('1111'::UUID)")
-                        .project("CAST(CAST(_UTF-8'1111'):UUID NOT NULL):VARCHAR(36) CHARACTER SET \"UTF-8\" NOT NULL"),
+                        .project("CAST(CAST(_UTF-8'1111'):UUID NOT NULL):VARCHAR CHARACTER SET \"UTF-8\" NOT NULL"),
 
                 checkStatement(setup)
                         .table("t3", "str_col", NativeTypes.stringOf(36))

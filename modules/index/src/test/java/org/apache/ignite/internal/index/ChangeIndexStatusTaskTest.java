@@ -17,11 +17,11 @@
 
 package org.apache.ignite.internal.index;
 
-import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.ignite.internal.catalog.CatalogTestUtils.awaitDefaultZoneCreation;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.BUILDING;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.REGISTERED;
@@ -40,6 +40,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
+import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
@@ -74,6 +75,7 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.index.message.IndexMessagesFactory;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
@@ -131,7 +133,9 @@ public class ChangeIndexStatusTaskTest extends IgniteAbstractTest {
 
         catalogManager = createTestCatalogManager(NODE_NAME, clockWaiter, clock);
 
-        assertThat(allOf(clockWaiter.start(), catalogManager.start()), willCompleteSuccessfully());
+        assertThat(startAsync(new ComponentContext(), clockWaiter, catalogManager), willCompleteSuccessfully());
+
+        awaitDefaultZoneCreation(catalogManager);
 
         createTable(catalogManager, TABLE_NAME, COLUMN_NAME);
         createIndex(catalogManager, TABLE_NAME, INDEX_NAME, COLUMN_NAME);
@@ -169,15 +173,16 @@ public class ChangeIndexStatusTaskTest extends IgniteAbstractTest {
 
     @AfterEach
     void tearDown() throws Exception {
+        ComponentContext componentContext = new ComponentContext();
+
         closeAll(
                 catalogManager::beforeNodeStop,
                 clockWaiter::beforeNodeStop,
-                catalogManager::stop,
-                clockWaiter::stop,
-                task == null ? null : task::stop
+                () -> assertThat(catalogManager.stopAsync(componentContext), willCompleteSuccessfully()),
+                () -> assertThat(clockWaiter.stopAsync(componentContext), willCompleteSuccessfully()),
+                task == null ? null : task::stop,
+                () -> shutdownAndAwaitTermination(executor, 1, SECONDS)
         );
-
-        shutdownAndAwaitTermination(executor, 1, SECONDS);
     }
 
     @Test

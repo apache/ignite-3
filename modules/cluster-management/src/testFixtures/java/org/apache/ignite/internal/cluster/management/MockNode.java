@@ -18,6 +18,12 @@
 package org.apache.ignite.internal.cluster.management;
 
 
+import static java.util.Collections.reverse;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
+import static org.hamcrest.MatcherAssert.assertThat;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -32,14 +38,17 @@ import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImp
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
-import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.ReverseIterator;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
@@ -51,25 +60,13 @@ import org.junit.jupiter.api.TestInfo;
  * Fake node for integration tests.
  */
 public class MockNode {
-    private ClusterManagementGroupManager clusterManager;
+    private final ClusterManagementGroupManager clusterManager;
 
-    private ClusterService clusterService;
-
-    private ClusterInitializer clusterInitializer;
-
-    private final TestInfo testInfo;
-
-    private final NodeFinder nodeFinder;
+    private final ClusterService clusterService;
 
     private final Path workDir;
 
-    private final RaftConfiguration raftConfiguration;
-
-    private final ClusterManagementConfiguration cmgConfiguration;
-
-    private final NodeAttributesCollector nodeAttributes;
-
-    private final List<IgniteComponent> components = new ArrayList<>();
+    private final List<IgniteComponent> components;
 
     private CompletableFuture<Void> startFuture;
 
@@ -86,69 +83,61 @@ public class MockNode {
             NodeAttributesConfiguration nodeAttributes,
             StorageConfiguration storageProfilesConfiguration
     ) {
-        this.testInfo = testInfo;
-        this.nodeFinder = nodeFinder;
-        this.workDir = workDir;
-        this.raftConfiguration = raftConfiguration;
-        this.cmgConfiguration = cmgConfiguration;
-        this.nodeAttributes = new NodeAttributesCollector(nodeAttributes, storageProfilesConfiguration);
+        String nodeName = testNodeName(testInfo, addr.port());
 
+        this.workDir = workDir.resolve(nodeName);
+
+        Path vaultDir;
         try {
-            init(addr.port());
+            vaultDir = Files.createDirectories(this.workDir.resolve("vault"));
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-    }
 
-    private void init(int port) throws IOException {
-        Path vaultDir = workDir.resolve("vault");
+        var vaultManager = new VaultManager(new PersistentVaultService(vaultDir));
 
-        var vaultManager = new VaultManager(new PersistentVaultService(Files.createDirectories(vaultDir)));
+        this.clusterService = ClusterServiceTestUtils.clusterService(nodeName, addr.port(), nodeFinder);
 
-        this.clusterService = ClusterServiceTestUtils.clusterService(testInfo, port, nodeFinder);
+        var raftManager = TestLozaFactory.create(clusterService, raftConfiguration, this.workDir, new HybridClockImpl());
 
-        Loza raftManager = new Loza(clusterService, raftConfiguration, workDir, new HybridClockImpl());
+        var clusterStateStorage = new RocksDbClusterStateStorage(this.workDir.resolve("cmg"), clusterService.nodeName());
 
-        var clusterStateStorage = new RocksDbClusterStateStorage(workDir.resolve("cmg"), clusterService.nodeName());
-
-        var logicalTopologyService = new LogicalTopologyImpl(clusterStateStorage);
-
-        this.clusterInitializer = new ClusterInitializer(
-                clusterService,
-                hocon -> hocon,
-                new TestConfigurationValidator()
-        );
+        FailureProcessor failureProcessor = new FailureProcessor(nodeName);
 
         this.clusterManager = new ClusterManagementGroupManager(
                 vaultManager,
                 clusterService,
-                clusterInitializer,
+                new ClusterInitializer(clusterService, hocon -> hocon, new TestConfigurationValidator()),
                 raftManager,
                 clusterStateStorage,
-                logicalTopologyService,
+                new LogicalTopologyImpl(clusterStateStorage),
                 cmgConfiguration,
-                nodeAttributes
+                new NodeAttributesCollector(nodeAttributes, storageProfilesConfiguration),
+                failureProcessor
         );
 
-        components.add(vaultManager);
-        components.add(clusterService);
-        components.add(raftManager);
-        components.add(clusterStateStorage);
-        components.add(clusterManager);
+        components = List.of(
+                vaultManager,
+                clusterService,
+                raftManager,
+                clusterStateStorage,
+                failureProcessor,
+                clusterManager
+        );
     }
 
     /**
      * Start fake node.
      */
-    public void startComponents() {
-        components.forEach(IgniteComponent::start);
+    public CompletableFuture<Void> startAsync() {
+        return IgniteUtils.startAsync(new ComponentContext(), components);
     }
 
     /**
      * Start fake node.
      */
-    public void start() {
-        startComponents();
+    public void startAndJoin() {
+        assertThat(startAsync(), willCompleteSuccessfully());
 
         startFuture = clusterManager.onJoinReady();
     }
@@ -166,31 +155,11 @@ public class MockNode {
      * Stop fake node.
      */
     public void stop() {
-        ReverseIterator<IgniteComponent> it = new ReverseIterator<>(components);
+        List<IgniteComponent> componentsToStop = new ArrayList<>(components);
 
-        it.forEachRemaining(component -> {
-            try {
-                component.stop();
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-        });
-    }
+        reverse(componentsToStop);
 
-    /**
-     * Restart fake node.
-     */
-    public void restart() throws Exception {
-        int port = localMember().address().port();
-
-        beforeNodeStop();
-        stop();
-
-        components.clear();
-
-        init(port);
-
-        start();
+        assertThat(stopAsync(new ComponentContext(), componentsToStop), willCompleteSuccessfully());
     }
 
     public ClusterNode localMember() {
@@ -199,10 +168,6 @@ public class MockNode {
 
     public String name() {
         return localMember().name();
-    }
-
-    public ClusterInitializer clusterInitializer() {
-        return clusterInitializer;
     }
 
     public ClusterManagementGroupManager clusterManager() {
@@ -215,6 +180,10 @@ public class MockNode {
 
     public ClusterService clusterService() {
         return clusterService;
+    }
+
+    public Path workDir() {
+        return workDir;
     }
 
     CompletableFuture<Set<LogicalNode>> logicalTopologyNodes() {

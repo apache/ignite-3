@@ -19,6 +19,7 @@ package org.apache.ignite.internal.configuration.direct;
 
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
@@ -46,6 +47,7 @@ import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -111,12 +113,12 @@ public class DirectPropertiesTest {
                 new TestConfigurationValidator()
         );
 
-        registry.start();
+        assertThat(registry.startAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     @AfterEach
-    void tearDown() throws Exception {
-        registry.stop();
+    void tearDown() {
+        assertThat(registry.stopAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     /**

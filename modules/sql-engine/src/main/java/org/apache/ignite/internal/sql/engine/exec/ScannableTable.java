@@ -103,7 +103,7 @@ public interface ScannableTable {
      *
      * @param <RowT> A type of row.
      * @param ctx Execution context.
-     * @param tx Transaction to use to perform lookup.
+     * @param explicitTx Transaction to use to perform lookup.
      * @param rowFactory Row factory.
      * @param key A key to lookup.
      * @param requiredColumns Required columns.
@@ -111,7 +111,7 @@ public interface ScannableTable {
      */
     <RowT> CompletableFuture<@Nullable RowT> primaryKeyLookup(
             ExecutionContext<RowT> ctx,
-            InternalTransaction tx,
+            @Nullable InternalTransaction explicitTx,
             RowFactory<RowT> rowFactory,
             RowT key,
             @Nullable BitSet requiredColumns

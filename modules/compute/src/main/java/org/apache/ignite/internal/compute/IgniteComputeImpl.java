@@ -46,9 +46,12 @@ import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.compute.NodeNotFoundException;
+import org.apache.ignite.compute.TaskExecution;
+import org.apache.ignite.compute.task.ComputeJobRunner;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.util.CompletableFutures;
@@ -67,8 +70,6 @@ import org.jetbrains.annotations.TestOnly;
  * Implementation of {@link IgniteCompute}.
  */
 public class IgniteComputeImpl implements IgniteComputeInternal {
-    private static final String DEFAULT_SCHEMA_NAME = "PUBLIC";
-
     private final TopologyService topologyService;
 
     private final IgniteTablesInternal tables;
@@ -92,7 +93,6 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
         this.clock = clock;
     }
 
-    /** {@inheritDoc} */
     @Override
     public <R> JobExecution<R> submit(
             Set<ClusterNode> nodes,
@@ -148,7 +148,6 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
                 ));
     }
 
-    /** {@inheritDoc} */
     @Override
     public <R> R execute(
             Set<ClusterNode> nodes,
@@ -157,11 +156,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
             JobExecutionOptions options,
             Object... args
     ) {
-        try {
-            return this.<R>submit(nodes, units, jobClassName, options, args).resultAsync().join();
-        } catch (CompletionException e) {
-            throw ExceptionUtils.sneakyThrow(mapToPublicException(unwrapCause(e)));
-        }
+        return sync(executeAsync(nodes, units, jobClassName, options, args));
     }
 
     private static ClusterNode randomNode(Set<ClusterNode> nodes) {
@@ -212,7 +207,6 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
         return targetNode.equals(topologyService.localMember());
     }
 
-    /** {@inheritDoc} */
     @Override
     public <R> JobExecution<R> submitColocated(
             String tableName,
@@ -234,7 +228,6 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
         );
     }
 
-    /** {@inheritDoc} */
     @Override
     public <K, R> JobExecution<R> submitColocated(
             String tableName,
@@ -263,7 +256,6 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
         );
     }
 
-    /** {@inheritDoc} */
     @Override
     public <R> R executeColocated(
             String tableName,
@@ -273,14 +265,9 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
             JobExecutionOptions options,
             Object... args
     ) {
-        try {
-            return this.<R>submitColocated(tableName, key, units, jobClassName, options, args).resultAsync().join();
-        } catch (CompletionException e) {
-            throw ExceptionUtils.sneakyThrow(mapToPublicException(unwrapCause(e)));
-        }
+        return sync(executeColocatedAsync(tableName, key, units, jobClassName, options, args));
     }
 
-    /** {@inheritDoc} */
     @Override
     public <K, R> R executeColocated(
             String tableName,
@@ -291,15 +278,9 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
             JobExecutionOptions options,
             Object... args
     ) {
-        try {
-            return this.<K, R>submitColocated(tableName, key, keyMapper, units, jobClassName, options, args).resultAsync()
-                    .join();
-        } catch (CompletionException e) {
-            throw ExceptionUtils.sneakyThrow(mapToPublicException(unwrapCause(e)));
-        }
+        return sync(executeColocatedAsync(tableName, key, keyMapper, units, jobClassName, options, args));
     }
 
-    /** {@inheritDoc} */
     @Override
     public <R> CompletableFuture<JobExecution<R>> submitColocatedInternal(
             TableViewInternal table,
@@ -322,7 +303,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
         return tables.tableViewAsync(parsedName)
                 .thenApply(table -> {
                     if (table == null) {
-                        throw new TableNotFoundException(DEFAULT_SCHEMA_NAME, parsedName);
+                        throw new TableNotFoundException(SqlCommon.DEFAULT_SCHEMA_NAME, parsedName);
                     }
                     return table;
                 });
@@ -353,7 +334,6 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
                 });
     }
 
-    /** {@inheritDoc} */
     @Override
     public <R> Map<ClusterNode, JobExecution<R>> submitBroadcast(
             Set<ClusterNode> nodes,
@@ -381,6 +361,23 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
     }
 
     @Override
+    public <R> TaskExecution<R> submitMapReduce(List<DeploymentUnit> units, String taskClassName, Object... args) {
+        Objects.requireNonNull(units);
+        Objects.requireNonNull(taskClassName);
+
+        return new TaskExecutionWrapper<>(computeComponent.executeTask(this::submitJob, units, taskClassName, args));
+    }
+
+    @Override
+    public <R> R executeMapReduce(List<DeploymentUnit> units, String taskClassName, Object... args) {
+        return sync(executeMapReduceAsync(units, taskClassName, args));
+    }
+
+    private JobExecution<Object> submitJob(ComputeJobRunner runner) {
+        return submit(runner.nodes(), runner.units(), runner.jobClassName(), runner.options(), runner.args());
+    }
+
+    @Override
     public CompletableFuture<Collection<JobStatus>> statusesAsync() {
         return computeComponent.statusesAsync();
     }
@@ -403,5 +400,13 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
     @TestOnly
     ComputeComponent computeComponent() {
         return computeComponent;
+    }
+
+    private static <R> R sync(CompletableFuture<R> future) {
+        try {
+            return future.join();
+        } catch (CompletionException e) {
+            throw ExceptionUtils.sneakyThrow(mapToPublicException(unwrapCause(e)));
+        }
     }
 }

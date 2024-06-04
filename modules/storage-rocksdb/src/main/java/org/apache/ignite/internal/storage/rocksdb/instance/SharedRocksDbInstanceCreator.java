@@ -20,6 +20,7 @@ package org.apache.ignite.internal.storage.rocksdb.instance;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.toStringName;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -33,13 +34,12 @@ import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils;
 import org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.ColumnFamilyType;
 import org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper;
-import org.apache.ignite.internal.storage.rocksdb.RocksDbDataRegion;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
+import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageProfile;
 import org.apache.ignite.internal.storage.rocksdb.index.AbstractRocksDbIndexStorage;
 import org.apache.ignite.internal.storage.rocksdb.index.RocksDbHashIndexStorage;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.rocksdb.BlockBasedTableConfig;
 import org.rocksdb.BloomFilter;
 import org.rocksdb.ColumnFamilyDescriptor;
@@ -63,7 +63,7 @@ public class SharedRocksDbInstanceCreator {
      */
     public SharedRocksDbInstance create(
             RocksDbStorageEngine engine,
-            RocksDbDataRegion region,
+            RocksDbStorageProfile profile,
             Path path
     ) throws RocksDBException, IOException {
         var busyLock = new IgniteSpinBusyLock();
@@ -90,10 +90,11 @@ public class SharedRocksDbInstanceCreator {
                     // Atomic flush must be enabled to guarantee consistency between different column families when WAL is disabled.
                     .setAtomicFlush(true)
                     .setListeners(List.of(flusher.listener()))
-                    .setWriteBufferManager(region.writeBufferManager())
+                    .setWriteBufferManager(profile.writeBufferManager())
             );
 
             RocksDB db = add(RocksDB.open(dbOptions, path.toAbsolutePath().toString(), cfDescriptors, cfHandles));
+            this.resources.addAll(cfHandles);
 
             RocksDbMetaStorage meta = null;
             ColumnFamily partitionCf = null;
@@ -148,13 +149,14 @@ public class SharedRocksDbInstanceCreator {
                     requireNonNull(partitionCf, "partitionCf"),
                     requireNonNull(gcQueueCf, "gcQueueCf"),
                     requireNonNull(hashIndexCf, "hashIndexCf"),
-                    sortedIndexCfs
+                    sortedIndexCfs,
+                    resources // Trusts the inner class to copy the resources!!
             );
         } catch (Throwable t) {
             Collections.reverse(resources);
 
             try {
-                IgniteUtils.closeAll(resources);
+                closeAll(resources);
             } catch (Exception e) {
                 t.addSuppressed(e);
             }

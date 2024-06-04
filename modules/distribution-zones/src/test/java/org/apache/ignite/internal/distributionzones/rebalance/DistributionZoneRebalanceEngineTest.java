@@ -22,7 +22,6 @@ import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.affinity.AffinityUtils.calculateAssignmentForPartition;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.getDefaultZone;
@@ -35,6 +34,7 @@ import static org.apache.ignite.internal.table.TableTestUtils.getTableIdStrict;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.apache.ignite.sql.ColumnType.STRING;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -59,6 +59,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
@@ -79,6 +80,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -88,6 +90,7 @@ import org.apache.ignite.internal.metastorage.command.MetaStorageCommandsFactory
 import org.apache.ignite.internal.metastorage.command.MetaStorageWriteCommand;
 import org.apache.ignite.internal.metastorage.command.MultiInvokeCommand;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
+import org.apache.ignite.internal.metastorage.impl.CommandIdGenerator;
 import org.apache.ignite.internal.metastorage.impl.EntryImpl;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
@@ -100,11 +103,11 @@ import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -143,7 +146,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
         String nodeName = "test";
 
         catalogManager = createTestCatalogManager(nodeName, clock);
-        assertThat(catalogManager.start(), willCompleteSuccessfully());
+        assertThat(catalogManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         createZone(ZONE_NAME_0, 1, 128);
         createZone(ZONE_NAME_1, 2, 128);
@@ -227,10 +230,12 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         MetaStorageCommandsFactory commandsFactory = new MetaStorageCommandsFactory();
 
+        CommandIdGenerator commandIdGenerator = new CommandIdGenerator(() -> UUID.randomUUID().toString());
+
         lenient().doAnswer(invocationClose -> {
             Iif iif = invocationClose.getArgument(0);
 
-            MultiInvokeCommand multiInvokeCommand = commandsFactory.multiInvokeCommand().iif(iif).build();
+            MultiInvokeCommand multiInvokeCommand = commandsFactory.multiInvokeCommand().iif(iif).id(commandIdGenerator.newId()).build();
 
             return metaStorageService.run(multiInvokeCommand);
         }).when(metaStorageManager).invoke(any());
@@ -262,8 +267,9 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
     @AfterEach
     public void tearDown() throws Exception {
-        IgniteUtils.closeAll(
-                catalogManager == null ? null : catalogManager::stop,
+        closeAll(
+                catalogManager == null ? null :
+                        () -> assertThat(catalogManager.stopAsync(new ComponentContext()), willCompleteSuccessfully()),
                 keyValueStorage == null ? null : keyValueStorage::close,
                 rebalanceEngine == null ? null : rebalanceEngine::stop,
                 () -> shutdownAndAwaitTermination(rebalanceScheduler, 10, TimeUnit.SECONDS)
@@ -295,7 +301,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         checkAssignments(zoneNodes, RebalanceUtil::pendingPartAssignmentsKey);
 
-        verify(keyValueStorage, timeout(1000).times(8)).invoke(any(), any());
+        verify(keyValueStorage, timeout(1000).times(8)).invoke(any(), any(), any());
     }
 
     @Test
@@ -318,7 +324,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         checkAssignments(zoneNodes, RebalanceUtil::pendingPartAssignmentsKey);
 
-        verify(keyValueStorage, timeout(1000).times(1)).invoke(any(), any());
+        verify(keyValueStorage, timeout(1000).times(1)).invoke(any(), any(), any());
 
         nodes = Set.of("node3", "node4", "node5");
 
@@ -329,7 +335,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         checkAssignments(zoneNodes, RebalanceUtil::plannedPartAssignmentsKey);
 
-        verify(keyValueStorage, timeout(1000).times(2)).invoke(any(), any());
+        verify(keyValueStorage, timeout(1000).times(2)).invoke(any(), any(), any());
     }
 
     @Test
@@ -354,7 +360,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         checkAssignments(zoneNodes, RebalanceUtil::pendingPartAssignmentsKey);
 
-        verify(keyValueStorage, timeout(1000).times(1)).invoke(any(), any());
+        verify(keyValueStorage, timeout(1000).times(1)).invoke(any(), any(), any());
 
         Set<String> emptyNodes = emptySet();
 
@@ -365,7 +371,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         checkAssignments(zoneNodes, RebalanceUtil::plannedPartAssignmentsKey);
 
-        verify(keyValueStorage, timeout(1000).times(1)).invoke(any(), any());
+        verify(keyValueStorage, timeout(1000).times(1)).invoke(any(), any(), any());
     }
 
     @Test
@@ -388,7 +394,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         checkAssignments(zoneNodes, RebalanceUtil::pendingPartAssignmentsKey);
 
-        verify(keyValueStorage, timeout(1000).times(1)).invoke(any(), any());
+        verify(keyValueStorage, timeout(1000).times(1)).invoke(any(), any(), any());
 
         Set<String> nodes2 = Set.of("node3", "node4", "node5");
 
@@ -400,7 +406,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         assertNull(keyValueStorage.get(RebalanceUtil.plannedPartAssignmentsKey(partId).bytes()).value());
 
-        verify(keyValueStorage, timeout(1000).times(2)).invoke(any(), any());
+        verify(keyValueStorage, timeout(1000).times(2)).invoke(any(), any(), any());
     }
 
     @Test
@@ -418,7 +424,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         MetaStorageManager realMetaStorageManager = StandaloneMetaStorageManager.create(keyValueStorage);
 
-        realMetaStorageManager.start();
+        assertThat(realMetaStorageManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         try {
             createRebalanceEngine(realMetaStorageManager);
@@ -429,7 +435,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
             assertTrue(waitForCondition(() -> keyValueStorage.get("assignments.pending.1_part_0".getBytes(UTF_8)) != null, 10_000));
         } finally {
-            realMetaStorageManager.stop();
+            assertThat(realMetaStorageManager.stopAsync(new ComponentContext()), willCompleteSuccessfully());
         }
     }
 
@@ -450,7 +456,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         MetaStorageManager realMetaStorageManager = StandaloneMetaStorageManager.create(keyValueStorage);
 
-        realMetaStorageManager.start();
+        assertThat(realMetaStorageManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         try {
             createRebalanceEngine(realMetaStorageManager);
@@ -461,7 +467,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
             assertTrue(waitForCondition(() -> keyValueStorage.get("assignments.pending.1_part_0".getBytes(UTF_8)) != null, 10_000));
         } finally {
-            realMetaStorageManager.stop();
+            assertThat(realMetaStorageManager.stopAsync(new ComponentContext()), willCompleteSuccessfully());
         }
     }
 
@@ -547,7 +553,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
     private void createTable(String zoneName, String tableName) {
         TableTestUtils.createTable(
                 catalogManager,
-                DEFAULT_SCHEMA_NAME,
+                SqlCommon.DEFAULT_SCHEMA_NAME,
                 zoneName,
                 tableName,
                 List.of(ColumnParams.builder().name("k1").type(STRING).length(100).build()),

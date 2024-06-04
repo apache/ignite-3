@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.cluster.management.raft;
 
 import static org.apache.ignite.internal.cluster.management.ClusterTag.clusterTag;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.empty;
@@ -49,6 +50,7 @@ import org.apache.ignite.internal.cluster.management.raft.commands.JoinRequestCo
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.service.CommandClosure;
@@ -85,14 +87,14 @@ public class CmgRaftGroupListenerTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void setUp() {
-        storage.start();
+        assertThat(storage.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         listener = new CmgRaftGroupListener(storage, logicalTopology, onLogicalTopologyChanged);
     }
 
     @AfterEach
-    void tearDown() throws Exception {
-        storage.stop();
+    void tearDown() {
+        assertThat(storage.stopAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     /**

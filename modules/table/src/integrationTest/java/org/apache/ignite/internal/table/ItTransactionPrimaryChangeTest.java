@@ -17,13 +17,13 @@
 
 package org.apache.ignite.internal.table;
 
-import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.SessionUtils.executeUpdate;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteTransaction;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.tx.test.ItTransactionTestUtils.waitAndGetPrimaryReplica;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -33,8 +33,6 @@ import java.util.stream.IntStream;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.placementdriver.ReplicaMeta;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
 import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
@@ -87,7 +85,8 @@ public class ItTransactionPrimaryChangeTest extends ClusterPerTestIntegrationTes
 
         builder.clusterConfiguration("{"
                 + "  transaction: {"
-                + "      implicitTransactionTimeout: 30000"
+                + "      implicitTransactionTimeout: 30000,"
+                + "      txnResourceTtl: 2"
                 + "  },"
                 + "  replication: {"
                 + "      rpcTimeout: 30000"
@@ -204,18 +203,5 @@ public class ItTransactionPrimaryChangeTest extends ClusterPerTestIntegrationTes
 
     private IgniteImpl findNodeByName(String leaseholder) {
         return findNode(0, initialNodes(), n -> leaseholder.equals(n.name()));
-    }
-
-    private static ReplicaMeta waitAndGetPrimaryReplica(IgniteImpl node, ReplicationGroupId tblReplicationGrp) {
-        CompletableFuture<ReplicaMeta> primaryReplicaFut = node.placementDriver().awaitPrimaryReplica(
-                tblReplicationGrp,
-                node.clock().now(),
-                10,
-                SECONDS
-        );
-
-        assertThat(primaryReplicaFut, willCompleteSuccessfully());
-
-        return primaryReplicaFut.join();
     }
 }

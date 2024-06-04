@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.raft;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
@@ -37,6 +38,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
@@ -99,7 +101,7 @@ public class ItLozaTest extends BaseIgniteAbstractTest {
     private static ClusterService clusterService(TestInfo testInfo, int port, List<NetworkAddress> srvs) {
         var network = ClusterServiceTestUtils.clusterService(testInfo, port, new StaticNodeFinder(srvs));
 
-        network.start();
+        assertThat(network.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         return network;
     }
@@ -124,9 +126,9 @@ public class ItLozaTest extends BaseIgniteAbstractTest {
 
             CompletableFuture<NetworkMessage> exception = CompletableFuture.failedFuture(new IOException());
 
-            loza = new Loza(service, raftConfiguration, dataPath, new HybridClockImpl());
+            loza = TestLozaFactory.create(service, raftConfiguration, dataPath, new HybridClockImpl());
 
-            loza.start();
+            assertThat(loza.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
             for (int i = 0; i < grpSrvcs.length; i++) {
                 // return an error on first invocation
@@ -154,11 +156,11 @@ public class ItLozaTest extends BaseIgniteAbstractTest {
             }
 
             if (loza != null) {
-                loza.stop();
+                assertThat(loza.stopAsync(new ComponentContext()), willCompleteSuccessfully());
             }
 
             if (service != null) {
-                service.stop();
+                assertThat(service.stopAsync(new ComponentContext()), willCompleteSuccessfully());
             }
         }
     }

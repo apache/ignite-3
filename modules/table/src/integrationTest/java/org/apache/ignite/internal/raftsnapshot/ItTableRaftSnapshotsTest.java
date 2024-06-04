@@ -65,6 +65,7 @@ import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
+import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryStorageEngine;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.incoming.IncomingSnapshotCopier;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMetaResponse;
@@ -120,16 +121,14 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
      */
     private static final String NODE_BOOTSTRAP_CFG = "{\n"
             + "  network: {\n"
-            + "    port:{},\n"
-            + "    nodeFinder:{\n"
-            + "      netClusterNodes: [ {} ]\n"
-            + "    }\n"
+            + "    port: {},\n"
+            + "    nodeFinder.netClusterNodes: [ {} ]\n"
             + "  },\n"
             + "  raft.rpcInstallSnapshotTimeout: 10000,\n"
             + "  storage.profiles: {"
             + "        " + DEFAULT_AIPERSIST_PROFILE_NAME + ".engine: aipersist, "
             + "        " + DEFAULT_AIMEM_PROFILE_NAME + ".engine: aimem, "
-            + "        " + DEFAULT_ROCKSDB_PROFILE_NAME + ".engine: rocksDb"
+            + "        " + DEFAULT_ROCKSDB_PROFILE_NAME + ".engine: rocksdb"
             + "  },\n"
             + "  clientConnector.port: {},\n"
             + "  rest.port: {}\n"
@@ -174,9 +173,8 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
     @ParameterizedTest
     @ValueSource(strings = {
             RocksDbStorageEngine.ENGINE_NAME,
-            PersistentPageMemoryStorageEngine.ENGINE_NAME
-            // TODO: uncomment when https://issues.apache.org/jira/browse/IGNITE-19234 is fixed
-//            VolatilePageMemoryStorageEngine.ENGINE_NAME
+            PersistentPageMemoryStorageEngine.ENGINE_NAME,
+            VolatilePageMemoryStorageEngine.ENGINE_NAME
     })
     void leaderFeedsFollowerWithSnapshot(String storageEngine) throws Exception {
         testLeaderFeedsFollowerWithSnapshot(storageEngine);

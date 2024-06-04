@@ -27,7 +27,7 @@ import org.junit.jupiter.api.Test;
 public class ItHashSpoolIntegrationTest extends BaseSqlIntegrationTest {
     @Test
     public void testNullsInSearchRow() {
-        sql("CREATE TABLE t(pk varchar default gen_random_uuid PRIMARY KEY, i1 INTEGER, i2 INTEGER)");
+        sql("CREATE TABLE t(pk uuid default rand_uuid PRIMARY KEY, i1 INTEGER, i2 INTEGER)");
         sql("INSERT INTO t (i1, i2) VALUES (null, 0), (1, 1), (2, 2), (3, null)");
 
         assertQuery("SELECT i1, (SELECT i2 FROM t WHERE i1=t1.i1) FROM t t1")
@@ -48,8 +48,8 @@ public class ItHashSpoolIntegrationTest extends BaseSqlIntegrationTest {
     @Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-21286")
     public void testNullsInSearchRowMultipleColumns() {
-        sql("CREATE TABLE t0(pk varchar default gen_random_uuid PRIMARY KEY, i1 INTEGER, i2 INTEGER)");
-        sql("CREATE TABLE t1(pk varchar default gen_random_uuid PRIMARY KEY, i1 INTEGER, i2 INTEGER)");
+        sql("CREATE TABLE t0(pk UUID default rand_uuid PRIMARY KEY, i1 INTEGER, i2 INTEGER)");
+        sql("CREATE TABLE t1(pk UUID default rand_uuid PRIMARY KEY, i1 INTEGER, i2 INTEGER)");
         sql("INSERT INTO t0(i1, i2) VALUES (null, 0), (1, null), (null, 2), (3, null), (1, 1)");
         sql("INSERT INTO t1(i1, i2) VALUES (null, 0), (null, 1), (2, null), (3, null), (1, 1)");
 
@@ -57,7 +57,8 @@ public class ItHashSpoolIntegrationTest extends BaseSqlIntegrationTest {
                 + "FROM t0 JOIN t1 ON t0.i1=t1.i1 AND t0.i2=t1.i2";
 
         assertQuery(sql)
-                .disableRules("MergeJoinConverter", "NestedLoopJoinConverter", "FilterSpoolMergeToSortedIndexSpoolRule")
+                .disableRules("HashJoinConverter", "MergeJoinConverter", "NestedLoopJoinConverter",
+                        "FilterSpoolMergeToSortedIndexSpoolRule")
                 .returns(1, 1, 1, 1)
                 .check();
     }

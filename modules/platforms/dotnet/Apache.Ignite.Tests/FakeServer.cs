@@ -93,6 +93,8 @@ namespace Apache.Ignite.Tests
 
         public Guid ClusterId { get; set; }
 
+        public string ClusterName { get; set; } = "fake-cluster";
+
         public string[] PartitionAssignment { get; set; }
 
         public long PartitionAssignmentTimestamp { get; set; }
@@ -164,7 +166,19 @@ namespace Apache.Ignite.Tests
             handshakeWriter.Write(0); // Idle timeout.
             handshakeWriter.Write(Node.Id); // Node id.
             handshakeWriter.Write(Node.Name); // Node name (consistent id).
+
             handshakeWriter.Write(ClusterId);
+            handshakeWriter.Write(ClusterName);
+
+            handshakeWriter.Write(ObservableTimestamp);
+
+            // Cluster version.
+            handshakeWriter.Write(1);
+            handshakeWriter.Write(2);
+            handshakeWriter.Write(3);
+            handshakeWriter.Write(4);
+            handshakeWriter.Write("-abcd");
+
             handshakeWriter.WriteBinaryHeader(0); // Features.
             handshakeWriter.Write(0); // Extensions.
 
@@ -332,10 +346,37 @@ namespace Apache.Ignite.Tests
 
                     case ClientOp.StreamerBatchSend:
                         reader.Skip(4);
-                        StreamerRowCount += reader.ReadInt32();
+                        var batchSize = reader.ReadInt32();
+                        StreamerRowCount += batchSize;
+
+                        if (MultiRowOperationDelayPerRow > TimeSpan.Zero)
+                        {
+                            Thread.Sleep(MultiRowOperationDelayPerRow * batchSize);
+                        }
 
                         Send(handler, requestId, Array.Empty<byte>());
                         continue;
+
+                    case ClientOp.StreamerWithReceiverBatchSend:
+                    {
+                        reader.ReadInt32(); // table
+                        reader.ReadInt32(); // partition
+                        var unitCount = reader.ReadInt32();
+                        reader.Skip(unitCount);
+                        reader.ReadBoolean(); // returnResults.
+
+                        var payloadTupleSize = reader.ReadInt32();
+                        var payloadItemCount = payloadTupleSize - 4; // NOTE: Ignores args.
+                        StreamerRowCount += payloadItemCount;
+
+                        if (MultiRowOperationDelayPerRow > TimeSpan.Zero)
+                        {
+                            Thread.Sleep(MultiRowOperationDelayPerRow * payloadItemCount);
+                        }
+
+                        Send(handler, requestId, Array.Empty<byte>());
+                        continue;
+                    }
                 }
 
                 // Fake error message for any other op code.
@@ -427,6 +468,7 @@ namespace Apache.Ignite.Tests
             props["timeoutMs"] = timeoutMs;
 
             props["sessionTimeoutMs"] = reader.TryReadNil() ? (long?)null : reader.ReadInt64();
+            props["timeZoneId"] = reader.TryReadNil() ? null : reader.ReadString();
 
             // ReSharper restore RedundantCast
             var propCount = reader.ReadInt32();
@@ -536,7 +578,8 @@ namespace Apache.Ignite.Tests
                 ["schema"] = reader.TryReadNil() ? null : reader.ReadString(),
                 ["pageSize"] = reader.TryReadNil() ? null : reader.ReadInt32(),
                 ["timeoutMs"] = reader.TryReadNil() ? null : reader.ReadInt64(),
-                ["sessionTimeoutMs"] = reader.TryReadNil() ? null : reader.ReadInt64()
+                ["sessionTimeoutMs"] = reader.TryReadNil() ? null : reader.ReadInt64(),
+                ["timeZoneId"] = reader.TryReadNil() ? null : reader.ReadString()
             };
 
             var propCount = reader.ReadInt32();

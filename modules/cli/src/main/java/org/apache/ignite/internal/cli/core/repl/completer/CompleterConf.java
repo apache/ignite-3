@@ -171,7 +171,7 @@ public class CompleterConf {
 
         /**
          * If called than all enable options of current configuration will become disable options for all other completers. For example,
-         * --node-name should be completed by only one completer.
+         * --name should be completed by only one completer.
          */
         public CompleterConfBuilder exclusiveEnableOptions() {
             this.exclusiveEnableOptions = true;

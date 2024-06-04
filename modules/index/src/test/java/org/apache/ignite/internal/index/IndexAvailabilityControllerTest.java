@@ -17,9 +17,8 @@
 
 package org.apache.ignite.internal.index;
 
-import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
+import static org.apache.ignite.internal.catalog.CatalogTestUtils.awaitDefaultZoneCreation;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
@@ -34,6 +33,7 @@ import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
+import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.nullValue;
@@ -54,10 +54,12 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.ByteArray;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.index.IndexStorage;
@@ -95,8 +97,13 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void setUp() {
-        assertThat(allOf(metaStorageManager.start(), catalogManager.start()), willCompleteSuccessfully());
-        assertThat(metaStorageManager.deployWatches(), willCompleteSuccessfully());
+        assertThat(
+                startAsync(new ComponentContext(), metaStorageManager, catalogManager)
+                        .thenCompose(unused -> metaStorageManager.deployWatches()),
+                willCompleteSuccessfully()
+        );
+
+        awaitDefaultZoneCreation(catalogManager);
 
         Catalog catalog = catalogManager.catalog(catalogManager.activeCatalogVersion(clock.nowLong()));
 
@@ -115,11 +122,12 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
     @AfterEach
     void tearDown() throws Exception {
+        ComponentContext componentContext = new ComponentContext();
         closeAll(
                 indexAvailabilityController::close,
                 indexBuilder::close,
-                catalogManager::stop,
-                metaStorageManager::stop,
+                () -> assertThat(catalogManager.stopAsync(componentContext), willCompleteSuccessfully()),
+                () -> assertThat(metaStorageManager.stopAsync(componentContext), willCompleteSuccessfully()),
                 () -> shutdownAndAwaitTermination(executorService, 1, TimeUnit.SECONDS)
         );
     }
@@ -326,7 +334,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
     }
 
     private void createIndex(String indexName) {
-        TableTestUtils.createHashIndex(catalogManager, DEFAULT_SCHEMA_NAME, TABLE_NAME, indexName, List.of(COLUMN_NAME), false);
+        TableTestUtils.createHashIndex(catalogManager, SqlCommon.DEFAULT_SCHEMA_NAME, TABLE_NAME, indexName, List.of(COLUMN_NAME), false);
     }
 
     private void startBuildIndex(int indexId) {
@@ -334,7 +342,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
     }
 
     private void dropIndex(String indexName) {
-        TableTestUtils.dropIndex(catalogManager, DEFAULT_SCHEMA_NAME, indexName);
+        TableTestUtils.dropIndex(catalogManager, SqlCommon.DEFAULT_SCHEMA_NAME, indexName);
     }
 
     private int indexId(String indexName) {
@@ -383,9 +391,12 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
         CompletableFuture<Void> finishBuildIndexFuture = new CompletableFuture<>();
 
-        indexBuilder.listen((indexId1, tableId, partitionId1) -> {
-            if (indexId1 == indexId && partitionId1 == partitionId) {
-                finishBuildIndexFuture.complete(null);
+        indexBuilder.listen(new IndexBuildCompletionListener() {
+            @Override
+            public void onBuildCompletion(int indexId1, int tableId1, int partitionId1) {
+                if (indexId1 == indexId && partitionId1 == partitionId) {
+                    finishBuildIndexFuture.complete(null);
+                }
             }
         });
 

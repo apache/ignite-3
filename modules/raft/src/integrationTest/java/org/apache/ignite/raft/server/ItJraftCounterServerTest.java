@@ -21,12 +21,14 @@ import static java.util.Comparator.comparing;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.raft.server.RaftGroupOptions.defaults;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.raft.jraft.core.State.STATE_ERROR;
 import static org.apache.ignite.raft.jraft.core.State.STATE_LEADER;
 import static org.apache.ignite.raft.jraft.test.TestUtils.waitForCondition;
 import static org.apache.ignite.raft.jraft.test.TestUtils.waitForTopology;
 import static org.apache.ignite.raft.server.counter.GetValueCommand.getValueCommand;
 import static org.apache.ignite.raft.server.counter.IncrementAndGetCommand.incrementAndGetCommand;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -51,6 +53,7 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.ReadCommand;
@@ -782,7 +785,12 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
 
         toStop.beforeNodeStop();
 
-        toStop.stop();
+        ComponentContext componentContext = new ComponentContext();
+
+        assertThat(toStop.stopAsync(componentContext), willCompleteSuccessfully());
+        assertThat(serverServices.get(stopIdx).stopAsync(componentContext), willCompleteSuccessfully());
+        servers.remove(stopIdx);
+        serverServices.remove(stopIdx);
 
         applyIncrements(client1, 11, 20);
         applyIncrements(client2, 21, 30);
@@ -814,7 +822,11 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
 
         svc2.beforeNodeStop();
 
-        svc2.stop();
+        int sv2Idx = servers.size() - 1;
+        assertThat(svc2.stopAsync(componentContext), willCompleteSuccessfully());
+        assertThat(serverServices.get(sv2Idx).stopAsync(componentContext), willCompleteSuccessfully());
+        servers.remove(sv2Idx);
+        serverServices.remove(sv2Idx);
 
         var svc3 = startServer(stopIdx, r -> {
             String localNodeName = r.clusterService().topologyService().localMember().name();

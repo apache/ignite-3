@@ -17,11 +17,13 @@
 
 package org.apache.ignite.internal.tx.storage.state.test;
 
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_REBALANCE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_STOPPED_ERR;
 
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.Objects;
 import java.util.UUID;
@@ -30,6 +32,8 @@ import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.tostring.IgniteToStringInclude;
+import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
@@ -41,6 +45,7 @@ import org.jetbrains.annotations.Nullable;
  * Test implementation of {@link TxStateStorage} based on {@link ConcurrentSkipListMap}.
  */
 public class TestTxStateStorage implements TxStateStorage {
+    @IgniteToStringInclude
     private final ConcurrentSkipListMap<UUID, TxMeta> storage = new ConcurrentSkipListMap<>(new UnsignedUuidComparator());
 
     private volatile long lastAppliedIndex;
@@ -60,7 +65,7 @@ public class TestTxStateStorage implements TxStateStorage {
     }
 
     @Override
-    public void put(UUID txId, TxMeta txMeta) {
+    public void putForRebalance(UUID txId, TxMeta txMeta) {
         checkStorageClosed();
 
         storage.put(txId, txMeta);
@@ -99,10 +104,31 @@ public class TestTxStateStorage implements TxStateStorage {
     }
 
     @Override
-    public void remove(UUID txId) {
+    public void remove(UUID txId, long commandIndex, long commandTerm) {
         checkStorageClosedOrInProgressOfRebalance();
 
         storage.remove(txId);
+
+        if (rebalanceFutureReference.get() == null) {
+            lastAppliedIndex = commandIndex;
+            lastAppliedTerm = commandTerm;
+        }
+    }
+
+    @Override
+    public void removeAll(Collection<UUID> txIds, long commandIndex, long commandTerm) {
+        requireNonNull(txIds, "Collection of the transaction IDs intended for removal cannot be null.");
+
+        checkStorageClosedOrInProgressOfRebalance();
+
+        for (UUID txId : txIds) {
+            storage.remove(txId);
+        }
+
+        if (rebalanceFutureReference.get() == null) {
+            lastAppliedIndex = commandIndex;
+            lastAppliedTerm = commandTerm;
+        }
     }
 
     @Override
@@ -240,6 +266,11 @@ public class TestTxStateStorage implements TxStateStorage {
         lastAppliedTerm = 0;
 
         return nullCompletedFuture();
+    }
+
+    @Override
+    public String toString() {
+        return S.toString(TestTxStateStorage.class, this);
     }
 
     private void checkStorageInProgreesOfRebalance() {

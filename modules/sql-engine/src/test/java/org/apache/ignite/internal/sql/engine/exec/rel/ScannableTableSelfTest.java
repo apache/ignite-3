@@ -817,7 +817,12 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
         }
 
         @Override
-        public <RowT> BinaryRowEx toBinaryRow(ExecutionContext<RowT> ectx, RowT row, boolean key) {
+        public <RowT> BinaryRowEx toFullRow(ExecutionContext<RowT> ectx, RowT row) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public <RowT> BinaryRowEx toKeyRow(ExecutionContext<RowT> ectx, RowT row) {
             throw new UnsupportedOperationException();
         }
 

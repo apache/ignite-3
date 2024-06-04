@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.index;
 
-import static java.util.concurrent.CompletableFuture.allOf;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
 import static org.apache.ignite.internal.index.IndexManagementUtils.getPartitionCountFromCatalog;
 import static org.apache.ignite.internal.index.IndexManagementUtils.inProgressBuildIndexMetastoreKey;
@@ -38,6 +37,8 @@ import static org.apache.ignite.internal.index.TestIndexManagementUtils.startBui
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
+import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -51,6 +52,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
@@ -59,7 +61,6 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.TopologyService;
 import org.junit.jupiter.api.AfterEach;
@@ -93,7 +94,7 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
 
         catalogManager = createTestCatalogManager(NODE_NAME, clock, metaStorageManager);
 
-        assertThat(allOf(metaStorageManager.start(), catalogManager.start()), willCompleteSuccessfully());
+        assertThat(startAsync(new ComponentContext(), metaStorageManager, catalogManager), willCompleteSuccessfully());
 
         deployWatches();
 
@@ -102,10 +103,14 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
 
     @AfterEach
     void tearDown() throws Exception {
-        IgniteUtils.closeAll(
+        ComponentContext componentContext = new ComponentContext();
+
+        closeAll(
                 controller == null ? null : controller::close,
-                catalogManager == null ? null : catalogManager::stop,
-                metaStorageManager == null ? null : metaStorageManager::stop
+                catalogManager == null ? null :
+                        () -> assertThat(catalogManager.stopAsync(componentContext), willCompleteSuccessfully()),
+                metaStorageManager == null ? null :
+                        () -> assertThat(metaStorageManager.stopAsync(componentContext), willCompleteSuccessfully())
         );
     }
 
@@ -191,9 +196,12 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
     private void stopAndRestartComponentsNoDeployWatches() throws Exception {
         awaitTillGlobalMetastoreRevisionIsApplied(metaStorageManager);
 
-        IgniteUtils.closeAll(
-                catalogManager == null ? null : catalogManager::stop,
-                metaStorageManager == null ? null : metaStorageManager::stop
+        ComponentContext componentContext = new ComponentContext();
+        closeAll(
+                catalogManager == null ? null :
+                        () -> assertThat(catalogManager.stopAsync(componentContext), willCompleteSuccessfully()),
+                metaStorageManager == null ? null :
+                        () -> assertThat(metaStorageManager.stopAsync(componentContext), willCompleteSuccessfully())
         );
 
         keyValueStorage = new TestRocksDbKeyValueStorage(NODE_NAME, workDir);
@@ -202,7 +210,7 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
 
         catalogManager = spy(createTestCatalogManager(NODE_NAME, clock, metaStorageManager));
 
-        assertThat(allOf(metaStorageManager.start(), catalogManager.start()), willCompleteSuccessfully());
+        assertThat(startAsync(new ComponentContext(), metaStorageManager, catalogManager), willCompleteSuccessfully());
     }
 
     private void deployWatches() throws Exception {

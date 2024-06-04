@@ -21,8 +21,10 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.lang.management.GarbageCollectorMXBean;
 import java.lang.management.MemoryMXBean;
 import java.lang.management.MemoryUsage;
+import java.util.List;
 import javax.management.ObjectName;
 import org.apache.ignite.internal.metrics.LongMetric;
 import org.junit.jupiter.api.Test;
@@ -30,10 +32,11 @@ import org.junit.jupiter.api.Test;
 /** Tests for jvm system metrics. */
 public class JvmMetricSourceTest {
     @Test
-    void testMemoryMetric() {
+    void testMemoryMetrics() {
         var memoryBean = new MemoryBean(5, 15, 20, 90,
                 100, 115, 120, 200);
-        var metricSource = new JvmMetricSource(memoryBean);
+        var gcBean = new GarbageCollectorBean(10, 100);
+        var metricSource = new JvmMetricSource(memoryBean, List.of(gcBean));
 
         var metricSet = metricSource.enable();
 
@@ -70,6 +73,24 @@ public class JvmMetricSourceTest {
         assertEquals(memoryBean.nonHeapUsed, metricSet.<LongMetric>get("memory.non-heap.Used").value());
         assertEquals(memoryBean.nonHeapCommitted, metricSet.<LongMetric>get("memory.non-heap.Committed").value());
         assertEquals(memoryBean.nonHeapMax, metricSet.<LongMetric>get("memory.non-heap.Max").value());
+    }
+
+    @Test
+    void testGcMetrics() {
+        var memoryBean = new MemoryBean(5, 15, 20, 90,
+                100, 115, 120, 200);
+        var gcBean1 = new GarbageCollectorBean(10, 100);
+        var gcBean2 = new GarbageCollectorBean(20, 200);
+        var metricSource = new JvmMetricSource(memoryBean, List.of(gcBean1, gcBean2));
+
+        var metricSet = metricSource.enable();
+
+        assertEquals(300, metricSet.<LongMetric>get("gc.CollectionTime").value());
+
+        gcBean1.changeCollectionMetrics(1, 10);
+        gcBean2.changeCollectionMetrics(1, 15);
+
+        assertEquals(325, metricSet.<LongMetric>get("gc.CollectionTime").value());
     }
 
     /**
@@ -134,6 +155,51 @@ public class JvmMetricSourceTest {
         @Override
         public ObjectName getObjectName() {
             throw new UnsupportedOperationException("Not supported in test implementation");
+        }
+    }
+
+    private static class GarbageCollectorBean implements GarbageCollectorMXBean {
+        private long collectionCount;
+        private long collectionTime;
+
+        private GarbageCollectorBean(long collectionCount, long collectionTime) {
+            this.collectionCount = collectionCount;
+            this.collectionTime = collectionTime;
+        }
+
+        @Override
+        public long getCollectionCount() {
+            return collectionCount;
+        }
+
+        @Override
+        public long getCollectionTime() {
+            return collectionTime;
+        }
+
+        @Override
+        public String getName() {
+            return "Fictional Collector";
+        }
+
+        @Override
+        public boolean isValid() {
+            return true;
+        }
+
+        @Override
+        public String[] getMemoryPoolNames() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public ObjectName getObjectName() {
+            throw new UnsupportedOperationException();
+        }
+
+        private void changeCollectionMetrics(int countDelta, int timeDelta) {
+            collectionCount += countDelta;
+            collectionTime += timeDelta;
         }
     }
 }

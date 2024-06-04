@@ -53,6 +53,8 @@ public class ClientSqlExecuteScriptRequest {
         HybridTimestamp clientTs = HybridTimestamp.nullableHybridTimestamp(in.unpackLong());
         transactions.updateObservableTimestamp(clientTs);
 
-        return IgniteSqlImpl.executeScriptCore(sql, transactions, () -> true, () -> {}, script, arguments, props.toSqlProps());
+        return IgniteSqlImpl.executeScriptCore(
+                sql, transactions.observableTimestampTracker(), () -> true, () -> {}, script, arguments, props.toSqlProps()
+        );
     }
 }

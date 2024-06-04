@@ -21,12 +21,15 @@ import static org.apache.ignite.internal.cluster.management.topology.LogicalTopo
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertLogicalTopology;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertLogicalTopologyVersion;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.Set;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.Test;
@@ -41,7 +44,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
 
     @Test
     void testMetaStorageKeysInitializedOnStartWhenTopVerEmpty() throws Exception {
-        distributionZoneManager.start();
+        assertThat(distributionZoneManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         topology.putNode(NODE_1);
 
@@ -52,9 +55,9 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
 
     @Test
     void testMetaStorageKeysInitializedOnStartWhenTopVerEqualsToCmgTopVer() throws Exception {
-        keyValueStorage.put(zonesLogicalTopologyVersionKey().bytes(), ByteUtils.longToBytes(2L), HybridTimestamp.MIN_VALUE);
+        keyValueStorage.put(zonesLogicalTopologyVersionKey().bytes(), ByteUtils.longToBytesKeepingOrder(2L), HybridTimestamp.MIN_VALUE);
 
-        distributionZoneManager.start();
+        assertThat(distributionZoneManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         assertLogicalTopologyVersion(2L, keyValueStorage);
 
@@ -63,9 +66,9 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
 
     @Test
     void testMetaStorageKeysInitializedOnStartWhenTopVerGreaterThanCmgTopVer() throws Exception {
-        keyValueStorage.put(zonesLogicalTopologyVersionKey().bytes(), ByteUtils.longToBytes(3L), HybridTimestamp.MIN_VALUE);
+        keyValueStorage.put(zonesLogicalTopologyVersionKey().bytes(), ByteUtils.longToBytesKeepingOrder(3L), HybridTimestamp.MIN_VALUE);
 
-        distributionZoneManager.start();
+        assertThat(distributionZoneManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         assertLogicalTopologyVersion(3L, keyValueStorage);
 
@@ -74,7 +77,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
 
     @Test
     void testNodeAddingUpdatesLogicalTopologyInMetaStorage() throws Exception {
-        distributionZoneManager.start();
+        assertThat(distributionZoneManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         topology.putNode(NODE_1);
 
@@ -89,7 +92,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
 
     @Test
     void testNodeStaleAddingDoNotUpdatesLogicalTopologyInMetaStorage() throws Exception {
-        distributionZoneManager.start();
+        assertThat(distributionZoneManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         topology.putNode(NODE_1);
 
@@ -98,7 +101,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
         // Wait for Zone Manager to initialize Meta Storage on start.
         assertLogicalTopologyVersion(1L, keyValueStorage);
 
-        keyValueStorage.put(zonesLogicalTopologyVersionKey().bytes(), ByteUtils.longToBytes(4L), HybridTimestamp.MIN_VALUE);
+        keyValueStorage.put(zonesLogicalTopologyVersionKey().bytes(), ByteUtils.longToBytesKeepingOrder(4L), HybridTimestamp.MIN_VALUE);
 
         topology.putNode(NODE_2);
 
@@ -111,7 +114,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
 
     @Test
     void testNodeRemovingUpdatesLogicalTopologyInMetaStorage() throws Exception {
-        distributionZoneManager.start();
+        assertThat(distributionZoneManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         topology.putNode(NODE_1);
 
@@ -132,7 +135,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
 
     @Test
     void testNodeStaleRemovingDoNotUpdatesLogicalTopologyInMetaStorage() throws Exception {
-        distributionZoneManager.start();
+        assertThat(distributionZoneManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         topology.putNode(NODE_1);
 
@@ -145,7 +148,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
         // Wait for Zone Manager to initialize Meta Storage on start.
         assertLogicalTopologyVersion(2L, keyValueStorage);
 
-        keyValueStorage.put(zonesLogicalTopologyVersionKey().bytes(), ByteUtils.longToBytes(4L), HybridTimestamp.MIN_VALUE);
+        keyValueStorage.put(zonesLogicalTopologyVersionKey().bytes(), ByteUtils.longToBytesKeepingOrder(4L), HybridTimestamp.MIN_VALUE);
 
         topology.removeNodes(Set.of(NODE_2));
 
@@ -156,7 +159,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
 
     @Test
     void testTopologyLeapUpdatesLogicalTopologyInMetaStorage() throws Exception {
-        distributionZoneManager.start();
+        assertThat(distributionZoneManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         topology.putNode(NODE_1);
 
@@ -177,7 +180,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
 
     @Test
     void testStaleTopologyLeapDoNotUpdatesLogicalTopologyInMetaStorage() throws Exception {
-        distributionZoneManager.start();
+        assertThat(distributionZoneManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         topology.putNode(NODE_1);
 
@@ -189,7 +192,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
 
         clusterStateStorage.put(LOGICAL_TOPOLOGY_KEY, ByteUtils.toBytes(new LogicalTopologySnapshot(10L, clusterNodes2)));
 
-        keyValueStorage.put(zonesLogicalTopologyVersionKey().bytes(), ByteUtils.longToBytes(11L), HybridTimestamp.MIN_VALUE);
+        keyValueStorage.put(zonesLogicalTopologyVersionKey().bytes(), ByteUtils.longToBytesKeepingOrder(11L), HybridTimestamp.MIN_VALUE);
 
         topology.fireTopologyLeap();
 

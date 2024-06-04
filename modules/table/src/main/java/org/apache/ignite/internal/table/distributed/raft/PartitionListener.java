@@ -81,6 +81,7 @@ import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.UpdateCommandResult;
+import org.apache.ignite.internal.tx.message.VacuumTxStatesCommand;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.TrackerClosedException;
@@ -222,6 +223,8 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
                     handleBuildIndexCommand((BuildIndexCommand) command, commandIndex, commandTerm);
                 } else if (command instanceof PrimaryReplicaChangeCommand) {
                     handlePrimaryReplicaChangeCommand((PrimaryReplicaChangeCommand) command, commandIndex, commandTerm);
+                } else if (command instanceof VacuumTxStatesCommand) {
+                    handleVacuumTxStatesCommand((VacuumTxStatesCommand) command, commandIndex, commandTerm);
                 } else {
                     assert false : "Command was not found [cmd=" + command + ']';
                 }
@@ -403,7 +406,10 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
                     commandTerm
             );
 
-            markFinished(txId, cmd.commit(), cmd.commitTimestamp());
+            // Assume that we handle the finish command only on the commit partition.
+            TablePartitionId commitPartitionId = new TablePartitionId(storage.tableId(), storage.partitionId());
+
+            markFinished(txId, cmd.commit(), cmd.commitTimestamp(), commitPartitionId);
 
             LOG.debug("Finish the transaction txId = {}, state = {}, txStateChangeRes = {}", txId, txMetaToSet, txStateChangeRes);
 
@@ -440,7 +446,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
         UUID txId = cmd.txId();
 
-        markFinished(txId, cmd.commit(), cmd.commitTimestamp());
+        markFinished(txId, cmd.commit(), cmd.commitTimestamp(), null);
 
         storageUpdateHandler.switchWriteIntents(
                 txId,
@@ -646,6 +652,22 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         });
     }
 
+    /**
+     * Handler for {@link VacuumTxStatesCommand}.
+     *
+     * @param cmd Command.
+     * @param commandIndex Command index.
+     * @param commandTerm Command term.
+     */
+    private void handleVacuumTxStatesCommand(VacuumTxStatesCommand cmd, long commandIndex, long commandTerm) {
+        // Skips the write command because the storage has already executed it.
+        if (commandIndex <= storage.lastAppliedIndex()) {
+            return;
+        }
+
+        txStateStorage.removeAll(cmd.txIds(), commandIndex, commandTerm);
+    }
+
     private static void onTxStateStorageCasFail(UUID txId, TxMeta txMetaBeforeCas, TxMeta txMetaToSet) {
         String errorMsg = format("Failed to update tx state in the storage, transaction txId = {} because of inconsistent state,"
                         + " expected state = {}, state to set = {}",
@@ -704,12 +726,14 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         ));
     }
 
-    private void markFinished(UUID txId, boolean commit, @Nullable HybridTimestamp commitTimestamp) {
+    private void markFinished(UUID txId, boolean commit, @Nullable HybridTimestamp commitTimestamp, @Nullable TablePartitionId partId) {
         txManager.updateTxMeta(txId, old -> new TxStateMeta(
                 commit ? COMMITTED : ABORTED,
                 old == null ? null : old.txCoordinatorId(),
-                old == null ? null : old.commitPartitionId(),
-                commit ? commitTimestamp : null
+                old == null ? partId : old.commitPartitionId(),
+                commit ? commitTimestamp : null,
+                old == null ? null : old.initialVacuumObservationTimestamp(),
+                old == null ? null : old.cleanupCompletionTimestamp()
         ));
     }
 

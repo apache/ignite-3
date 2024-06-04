@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.network;
 
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
@@ -31,6 +32,7 @@ import io.netty.util.concurrent.EventExecutor;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.network.configuration.InboundView;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
@@ -150,7 +152,7 @@ public class NettyBootstrapFactory implements IgniteComponent, ChannelEventLoops
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> start() {
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         bossGroup = NamedNioEventLoopGroup.create(eventLoopGroupNamePrefix + "-srv-accept");
         workerGroup = NamedNioEventLoopGroup.create(eventLoopGroupNamePrefix + "-srv-worker");
         clientWorkerGroup = NamedNioEventLoopGroup.create(eventLoopGroupNamePrefix + "-client");
@@ -185,14 +187,20 @@ public class NettyBootstrapFactory implements IgniteComponent, ChannelEventLoops
 
     /** {@inheritDoc} */
     @Override
-    public void stop() throws Exception {
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         NetworkView configurationView = networkConfiguration.value();
         long quietPeriod = configurationView.shutdownQuietPeriod();
         long shutdownTimeout = configurationView.shutdownTimeout();
 
-        clientWorkerGroup.shutdownGracefully(quietPeriod, shutdownTimeout, MILLISECONDS).sync();
-        workerGroup.shutdownGracefully(quietPeriod, shutdownTimeout, MILLISECONDS).sync();
-        bossGroup.shutdownGracefully(quietPeriod, shutdownTimeout, MILLISECONDS).sync();
+        try {
+            clientWorkerGroup.shutdownGracefully(quietPeriod, shutdownTimeout, MILLISECONDS).sync();
+            workerGroup.shutdownGracefully(quietPeriod, shutdownTimeout, MILLISECONDS).sync();
+            bossGroup.shutdownGracefully(quietPeriod, shutdownTimeout, MILLISECONDS).sync();
+        } catch (InterruptedException e) {
+            return failedFuture(e);
+        }
+
+        return nullCompletedFuture();
     }
 
 

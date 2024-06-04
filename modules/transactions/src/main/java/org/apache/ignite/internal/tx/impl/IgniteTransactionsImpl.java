@@ -56,6 +56,10 @@ public class IgniteTransactionsImpl implements IgniteTransactions {
         observableTimestampTracker.update(ts);
     }
 
+    public HybridTimestampTracker observableTimestampTracker() {
+        return observableTimestampTracker;
+    }
+
     /**
      * Gets current value of observable timestamp.
      *

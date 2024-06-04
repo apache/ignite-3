@@ -47,6 +47,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
@@ -98,7 +99,7 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
     @BeforeEach
     public void setUp() {
         metaStorageManager = StandaloneMetaStorageManager.create();
-        metaStorageManager.start();
+        assertThat(metaStorageManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
         metaStorageManager.deployWatches();
 
         pdLogicalTopologyService = mock(LogicalTopologyService.class);

@@ -14,38 +14,51 @@
 // limitations under the License.
 = Distribution Zones
 
-This section describes Apache Ignite distribution zones. In Ignite 3, you can fine tune distribution of your partitions on nodes for better performance and stability.
+This section describes Ignite 3 distribution zones. In Ignite 3, you can fine-tune distribution of your partitions on nodes for better performance and stability.
 
 == CREATE ZONE
 
 Creates a new distribution zone.
 
-[source,sql]
-----
-CREATE ZONE [IF NOT EXISTS] qualified_zone_name [ENGINE engine_name]
-[WITH
-    [PARTITIONS = partitionNumber],
-    [REPLICAS = replicaNumber],
-    {[DATA_NODES_AUTO_ADJUST_SCALE_UP = scale_up_value |
-    DATA_NODES_AUTO_ADJUST_SCALE_DOWN = scale_down_value |
-    (DATA_NODES_AUTO_ADJUST_SCALE_UP = scale_up_value & DATA_NODES_AUTO_ADJUST_SCALE_DOWN = scale_down_value)]},
-    [DATA_NODES_FILTER = jsonPathFilter]
-]
-[;]
-----
+NOTE: This can also be done via the link:developers-guide/java-to-tables[Java API].
 
-Parameters:
+[.diagram-container]
+Diagram(
+Terminal('CREATE ZONE'),
+Optional(Terminal('IF NOT EXISTS')),
+NonTerminal('qualified_zone_name'),
+Optional(Sequence(Terminal('ENGINE'),
+NonTerminal('engine_name'))),
+End({type:'complex'})
+)
+
+[.diagram-container]
+Diagram(
+Start({type:'complex'}),
+Optional(Sequence(
+Terminal('WITH'),
+Optional('('),
+OneOrMore(
+NonTerminal('parameter', {href:'./grammar-reference/#parameter'}),
+','),
+Optional(')'))))
 
 
-* `qualified_zone_name` - name of the distribution zone. Can be schema-qualified.
+Keywords and parameters:
+
 * `IF NOT EXISTS` - create a zone only if a different zone with the same name does not exist.
-* `ENGINE` - selects the storage engine to use. Currently `aipersist`, `aimem` and `rocksdb` are available.
+* `qualified_zone_name` - a name of the distribution zone.
+* `ENGINE` - selects the storage engine (`engine_name`) to use. Currently available are:
+** `aipersist`
+** `aimem`
+** `rocksdb`
 * `WITH` - accepts the following additional parameters:
-- `PARTITIONS` - the number of parts data is divinded into. Partitions are then split between nodes for storage.
-- `REPLICAS` - the number of copies of each partition.
-- `DATA_NODES_AUTO_ADJUST_SCALE_UP` - the delay in seconds between the new node joining and the start of data zone adjustment.
-- `DATA_NODES_AUTO_ADJUST_SCALE_DOWN` - the delay in seconds between the node leaving the cluster and the start of data zone adjustment.
-- `DATA_NODES_FILTER` - specifies the nodes that can be used to store data in the distribution zone based on node attributes. You can configure node attributes by using cli.  Filter uses JSONPath rules. If the attribute is not found, all negative comparisons will be valid. For example, `$[?(@.storage != 'SSD']}` will also include nodes without the `storage` attribute specified.
+** `PARTITIONS` - the number of partition the data is divided into. Partitions are then split between nodes for storage.
+** `REPLICAS` - the number of copies of each partition.
+** `DATA_NODES_FILTER` - specifies the nodes that can be used to store data in the distribution zone based on node attributes. You can configure node attributes by using cli. Filter uses JSONPath rules. If the attribute is not found, all negative comparisons will be valid. For example, `$[?(@.storage != 'SSD']}` will also include nodes without the `storage` attribute specified.
+** `DATA_NODES_AUTO_ADJUST_SCALE_UP` - the delay in seconds between the new node joining and the start of data zone adjustment.
+** `DATA_NODES_AUTO_ADJUST_SCALE_DOWN` - the delay in seconds between the node leaving the cluster and the start of data zone adjustment.
+** `DATA_STORAGE_ENGINE` - the name of the data storage engine.
 
 Examples:
 
@@ -56,55 +69,77 @@ Creates an `exampleZone` distribution zone:
 CREATE ZONE IF NOT EXISTS exampleZone
 ----
 
-
 Creates an `exampleZone` distribution zone that will only use nodes with SSD attribute and adjust 300 seconds after cluster topology changes:
 
 [source,sql]
 ----
-CREATE ZONE IF NOT EXISTS exampleZone WITH DATA_NODES_FILTER="$[?(@.storage == 'SSD')]", DATA_NODES_AUTO_ADJUST=300
+CREATE ZONE IF NOT EXISTS exampleZone WITH DATA_NODES_FILTER=SSD, DATA_NODES_AUTO_ADJUST_SCALE_UP=300
 ----
 
 == ALTER ZONE
 
-Renames a distribution zone.
+Modifies a distribution zone.
 
-[source,sql]
-----
-ALTER ZONE IF EXISTS { 'qualified_zone_name' } [RENAME TO {new_qualified_zone_name}]
-[WITH
-    [PARTITIONS = partitionNumber],
-    [REPLICAS = replicaNumber],
-    {[DATA_NODES_AUTO_ADJUST_SCALE_UP = scale_up_value |
-    DATA_NODES_AUTO_ADJUST_SCALE_DOWN = scale_down_value |
-    (DATA_NODES_AUTO_ADJUST_SCALE_UP = scale_up_value & DATA_NODES_AUTO_ADJUST_SCALE_DOWN = scale_down_value)]},
-    [DATA_NODES_FILTER = jsonPathFilter]
-]
-[;]
-----
+=== ALTER ZONE RENAME TO new_qualified_zone_name
 
-Parameters:
+[.diagram-container]
+Diagram(
+Terminal('ALTER ZONE'),
+Optional(Terminal('IF EXISTS')),
+NonTerminal('qualified_zone_name'),
+Terminal('RENAME TO'),
+NonTerminal('new_qualified_zone_name'),
+)
 
-* `qualified_zone_name` - name of the distribution zone. Can be schema-qualified.
+Keywords and parameters:
+
 * `IF EXISTS` - do not throw an error if a zone with the specified name does not exist.
-* `WITH` - accepts the following additional parameters:
-- `PARTITIONS` - the number of parts data is divinded into. Partitions are then split between nodes for storage.
-- `REPLICAS` - the number of copies of each partition.
-- `DATA_NODES_AUTO_ADJUST_SCALE_UP` - the delay in seconds between the new node joining and the start of data zone adjustment.
-- `DATA_NODES_AUTO_ADJUST_SCALE_DOWN` - the delay in seconds between the node leaving the cluster and the start of data zone adjustment.
-- `DATA_NODES_FILTER` - specifies the nodes that can be used to store data in the distribution zone based on node attributes.
+* `qualified_zone_name` - the current name of the distribution zone.
+* `RENAME TO` - renames the selected zone to the new name.
+* `new_qualified_zone_name` - the new name of the distribution zone (assigned by `RENAME`).
+
+=== ALTER ZONE SET
+
+[.diagram-container]
+Diagram(
+Terminal('ALTER ZONE'),
+Optional(Terminal('IF EXISTS')),
+NonTerminal('qualified_zone_name'),
+Sequence(Terminal('SET'),
+Optional('('),
+OneOrMore(
+NonTerminal('parameter', {href:'./grammar-reference/#parameter'}),
+','),
+Optional(')')))
+
+Keywords and parameters:
+
+* `IF EXISTS` - do not throw an error if a zone with the specified name does not exist.
+* `qualified_zone_name` - a name of the distribution zone.
+* `SET` - assigns values to any or all of the following parameters:
+** `PARTITIONS` - the number of partitions
+** `REPLICAS` - the number of copies of each partition.
+** `DATA_NODES_FILTER` - specifies the nodes that can be used to store data in the distribution zone based on node attributes.
+** `DATA_NODES_AUTO_ADJUST_SCALE_UP` - the delay in seconds between the new node joining and the start of data zone adjustment.
+** `DATA_NODES_AUTO_ADJUST_SCALE_DOWN` - the delay in seconds between the node leaving the cluster and the start of data zone adjustment.
 
 == DROP ZONE
 
-The `DROP ZONE` command drops an existing distribution zone.
+Drops an existing distribution zone.
 
-----
-DROP ZONE IF EXISTS qualified_zone_name
-----
+NOTE: This can also be done via the link:developers-guide/java-to-tables[Java API].
 
-Parameters:
+[.diagram-container]
+Diagram(
+Terminal('DROP ZONE'),
+Terminal('IF EXISTS'),
+NonTerminal('qualified_zone_name')
+)
 
-- `IF EXISTS` - do not throw an error if a zone with the specified name does not exist.
-- `qualified_zone_name` - the name of the distribution zone. Can be schema-qualified.
+Keywords and parameters:
+
+* `IF EXISTS` - do not throw an error if a zone with the specified name does not exist.
+* `qualified_zone_name` - the name of the distribution zone.
 
 
 Examples:

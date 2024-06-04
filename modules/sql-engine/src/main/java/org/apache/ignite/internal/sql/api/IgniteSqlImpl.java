@@ -28,6 +28,7 @@ import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -43,7 +44,10 @@ import java.util.function.Supplier;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.sql.StatementBuilderImpl;
+import org.apache.ignite.internal.sql.StatementImpl;
 import org.apache.ignite.internal.sql.SyncResultSetAdapter;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
@@ -52,6 +56,7 @@ import org.apache.ignite.internal.sql.engine.QueryProperty;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.AsyncCursor;
@@ -68,7 +73,6 @@ import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.Statement.StatementBuilder;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.table.mapper.Mapper;
-import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -78,9 +82,8 @@ import org.jetbrains.annotations.TestOnly;
  */
 @SuppressWarnings("rawtypes")
 public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
-    public static final int DEFAULT_PAGE_SIZE = 1024;
-
     private static final IgniteLogger LOG = Loggers.forClass(IgniteSqlImpl.class);
+
     private static final int AWAIT_CURSOR_CLOSE_ON_STOP_IN_SECONDS = 10;
 
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -91,23 +94,22 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
 
     private final ConcurrentMap<Integer, AsyncSqlCursor<?>> openedCursors = new ConcurrentHashMap<>();
 
-
     private final QueryProcessor queryProcessor;
 
-    private final IgniteTransactions transactions;
+    private final HybridTimestampTracker observableTimestampTracker;
 
     /**
      * Constructor.
      *
      * @param queryProcessor Query processor.
-     * @param transactions Transactions facade.
+     * @param observableTimestampTracker Tracker of the latest time observed by client.
      */
     public IgniteSqlImpl(
             QueryProcessor queryProcessor,
-            IgniteTransactions transactions
+            HybridTimestampTracker observableTimestampTracker
     ) {
         this.queryProcessor = queryProcessor;
-        this.transactions = transactions;
+        this.observableTimestampTracker = observableTimestampTracker;
     }
 
     /** {@inheritDoc} */
@@ -123,14 +125,14 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
     }
 
     @Override
-    public CompletableFuture<Void> start() {
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         return nullCompletedFuture();
     }
 
     @Override
-    public void stop() throws Exception {
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         if (!closed.compareAndSet(false, true)) {
-            return;
+            return nullCompletedFuture();
         }
 
         busyLock.block();
@@ -169,6 +171,8 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
                 // this future has timeout of AWAIT_CURSOR_CLOSE_ON_STOP_IN_SECONDS,
                 // so we won't be waiting forever on this join() call
                 .join();
+
+        return nullCompletedFuture();
     }
 
     private static @Nullable Throwable gatherExceptions(CompletableFuture<?>... futures) {
@@ -264,7 +268,11 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
     /** {@inheritDoc} */
     @Override
     public long[] executeBatch(@Nullable Transaction transaction, Statement dmlStatement, BatchedArguments batch) {
-        throw new UnsupportedOperationException("Not implemented yet.");
+        try {
+            return executeBatchAsync(transaction, dmlStatement, batch).join();
+        } catch (CompletionException e) {
+            throw ExceptionUtils.sneakyThrow(ExceptionUtils.copyExceptionWithCause(e));
+        }
     }
 
     /** {@inheritDoc} */
@@ -286,7 +294,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
             String query,
             @Nullable Object... arguments
     ) {
-        return executeAsyncInternal(transaction, query, DEFAULT_PAGE_SIZE, arguments);
+        return executeAsyncInternal(transaction, createStatement(query), arguments);
     }
 
     /** {@inheritDoc} */
@@ -296,14 +304,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
             Statement statement,
             @Nullable Object... arguments
     ) {
-        int pageSize = statement.pageSize();
-
-        if (pageSize <= 0) {
-            pageSize = DEFAULT_PAGE_SIZE;
-        }
-
-        // TODO: IGNITE-17440 use all statement properties.
-        return executeAsyncInternal(transaction, statement.query(), pageSize, arguments);
+        return executeAsyncInternal(transaction, statement, arguments);
     }
 
     /** {@inheritDoc} */
@@ -327,11 +328,12 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
 
     private CompletableFuture<AsyncResultSet<SqlRow>> executeAsyncInternal(
             @Nullable Transaction transaction,
-            String query,
-            int pageSize,
+            Statement statement,
             @Nullable Object... arguments
     ) {
-        assert pageSize > 0 : pageSize;
+        assert statement.pageSize() > 0 : statement.pageSize();
+
+        int pageSize = statement.pageSize();
 
         if (!busyLock.enterBusy()) {
             return CompletableFuture.failedFuture(nodeIsStoppingException());
@@ -340,36 +342,28 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
         CompletableFuture<AsyncResultSet<SqlRow>> result;
 
         try {
-            SqlProperties properties = SqlPropertiesHelper.newBuilder()
-                    .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.SINGLE_STMT_TYPES)
-                    .build();
+            SqlProperties properties = createPropertiesFromStatement(SqlQueryType.SINGLE_STMT_TYPES, statement);
 
-            result = queryProcessor.queryAsync(properties, transactions, (InternalTransaction) transaction, query, arguments)
-                    .thenCompose(cur -> {
-                                if (!busyLock.enterBusy()) {
-                                    cur.closeAsync();
+            result = queryProcessor.queryAsync(
+                    properties, observableTimestampTracker, (InternalTransaction) transaction, statement.query(), arguments
+            ).thenCompose(cur -> {
+                if (!busyLock.enterBusy()) {
+                    cur.closeAsync();
 
-                                    return CompletableFuture.failedFuture(nodeIsStoppingException());
-                                }
+                    return CompletableFuture.failedFuture(nodeIsStoppingException());
+                }
 
-                                try {
-                                    int cursorId = registerCursor(cur);
+                try {
+                    int cursorId = registerCursor(cur);
 
-                                    cur.onClose().whenComplete((r, e) -> openedCursors.remove(cursorId));
+                    cur.onClose().whenComplete((r, e) -> openedCursors.remove(cursorId));
 
-                                    return cur.requestNextAsync(pageSize)
-                                            .thenApply(
-                                                    batchRes -> new AsyncResultSetImpl<>(
-                                                            cur,
-                                                            batchRes,
-                                                            pageSize
-                                                    )
-                                            );
-                                } finally {
-                                    busyLock.leaveBusy();
-                                }
-                            }
-                    );
+                    return cur.requestNextAsync(pageSize)
+                            .thenApply(batchRes -> new AsyncResultSetImpl<>(cur, batchRes, pageSize));
+                } finally {
+                    busyLock.leaveBusy();
+                }
+            });
         } catch (Exception e) {
             return CompletableFuture.failedFuture(mapToPublicSqlException(e));
         } finally {
@@ -387,20 +381,24 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<long[]> executeBatchAsync(@Nullable Transaction transaction, String query, BatchedArguments batch) {
+        return executeBatchAsync(transaction, createStatement(query), batch);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<long[]> executeBatchAsync(@Nullable Transaction transaction, Statement statement, BatchedArguments batch) {
         if (!busyLock.enterBusy()) {
             return CompletableFuture.failedFuture(nodeIsStoppingException());
         }
 
         try {
-            SqlProperties properties = SqlPropertiesHelper.newBuilder()
-                    .set(QueryProperty.ALLOWED_QUERY_TYPES, EnumSet.of(SqlQueryType.DML))
-                    .build();
+            SqlProperties properties = createPropertiesFromStatement(EnumSet.of(SqlQueryType.DML), statement);
 
             return executeBatchCore(
                     queryProcessor,
-                    transactions,
+                    observableTimestampTracker,
                     (InternalTransaction) transaction,
-                    query,
+                    statement.query(),
                     batch,
                     properties,
                     busyLock::enterBusy,
@@ -414,18 +412,11 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
         }
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<long[]> executeBatchAsync(@Nullable Transaction transaction, Statement statement, BatchedArguments batch) {
-        // TODO: IGNITE-21872 - implement.
-        throw new UnsupportedOperationException("Not implemented yet.");
-    }
-
     /**
      * Execute batch of DML statements.
      *
      * @param queryProcessor Query processor.
-     * @param transactions Transactions facade.
+     * @param observableTimestampTracker Tracker of the latest time observed by client.
      * @param transaction Transaction.
      * @param query Query.
      * @param batch Batch of arguments.
@@ -439,7 +430,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
      */
     public static CompletableFuture<long[]> executeBatchCore(
             QueryProcessor queryProcessor,
-            IgniteTransactions transactions,
+            HybridTimestampTracker observableTimestampTracker,
             @Nullable InternalTransaction transaction,
             String query,
             BatchedArguments batch,
@@ -461,7 +452,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
                 }
 
                 try {
-                    return queryProcessor.queryAsync(properties, transactions, transaction, query, args)
+                    return queryProcessor.queryAsync(properties, observableTimestampTracker, transaction, query, args)
                             .thenCompose(cursor -> {
                                 if (!enterBusy.get()) {
                                     cursor.closeAsync();
@@ -541,7 +532,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
         try {
             return executeScriptCore(
                     queryProcessor,
-                    transactions,
+                    observableTimestampTracker,
                     busyLock::enterBusy,
                     busyLock::leaveBusy,
                     query,
@@ -556,7 +547,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
      * Execute SQL script.
      *
      * @param queryProcessor Query processor.
-     * @param transactions Transactions facade.
+     * @param observableTimestampTracker Tracker of the latest time observed by client.
      * @param enterBusy Enter busy lock action.
      * @param leaveBusy Leave busy lock action.
      * @param query SQL script.
@@ -566,7 +557,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
      */
     public static CompletableFuture<Void> executeScriptCore(
             QueryProcessor queryProcessor,
-            IgniteTransactions transactions,
+            HybridTimestampTracker observableTimestampTracker,
             Supplier<Boolean> enterBusy,
             Runnable leaveBusy,
             String query,
@@ -578,7 +569,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
                 .build());
 
         CompletableFuture<AsyncSqlCursor<InternalSqlRow>> f =
-                queryProcessor.queryAsync(properties0, transactions, null, query, arguments);
+                queryProcessor.queryAsync(properties0, observableTimestampTracker, null, query, arguments);
 
         CompletableFuture<Void> resFut = new CompletableFuture<>();
         ScriptHandler handler = new ScriptHandler(resFut, enterBusy, leaveBusy);
@@ -599,6 +590,14 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
                 || page.hasMore()) {
             throw new IgniteInternalException(INTERNAL_ERR, "Invalid DML results: " + page);
         }
+    }
+
+    private static SqlProperties createPropertiesFromStatement(Set<SqlQueryType> queryType, Statement statement) {
+        return SqlPropertiesHelper.newBuilder()
+                .set(QueryProperty.ALLOWED_QUERY_TYPES, queryType)
+                .set(QueryProperty.TIME_ZONE_ID, statement.timeZoneId())
+                .set(QueryProperty.DEFAULT_SCHEMA, statement.defaultSchema())
+                .build();
     }
 
     private int registerCursor(AsyncSqlCursor<?> cursor) {

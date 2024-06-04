@@ -18,7 +18,9 @@
 package org.apache.ignite.raft.jraft.rpc;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.raft.jraft.test.TestUtils.INIT_PORT;
+import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -27,6 +29,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.network.ClusterNode;
@@ -82,11 +85,11 @@ public class IgniteRpcTest extends AbstractRpcTest {
             @Override public void shutdown() {
                 super.shutdown();
 
-                service.stop();
+                assertThat(service.stopAsync(new ComponentContext()), willCompleteSuccessfully());
             }
         };
 
-        service.start();
+        assertThat(service.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         return server;
     }
@@ -105,11 +108,11 @@ public class IgniteRpcTest extends AbstractRpcTest {
             @Override public void shutdown() {
                 super.shutdown();
 
-                service.stop();
+                assertThat(service.stopAsync(new ComponentContext()), willCompleteSuccessfully());
             }
         };
 
-        service.start();
+        assertThat(service.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         waitForTopology(client, 1 + i, 5_000);
 

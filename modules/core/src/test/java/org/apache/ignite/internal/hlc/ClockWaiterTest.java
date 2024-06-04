@@ -26,10 +26,7 @@ import static org.hamcrest.Matchers.is;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.internal.hlc.ClockWaiter;
-import org.apache.ignite.internal.hlc.HybridClock;
-import org.apache.ignite.internal.hlc.HybridClockImpl;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -43,13 +40,13 @@ class ClockWaiterTest {
     void createWaiter() {
         waiter = new ClockWaiter("test", clock);
 
-        waiter.start();
+        assertThat(waiter.startAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     @AfterEach
-    void cleanup() throws Exception {
+    void cleanup() {
         if (waiter != null) {
-            waiter.stop();
+            assertThat(waiter.stopAsync(new ComponentContext()), willCompleteSuccessfully());
         }
     }
 
@@ -87,12 +84,12 @@ class ClockWaiterTest {
     }
 
     @Test
-    void futureGetsCancelledOnStop() throws Exception {
+    void futureGetsCancelledOnStop() {
         HybridTimestamp oneYearAhead = getOneYearAhead();
 
         CompletableFuture<Void> future = waiter.waitFor(oneYearAhead);
 
-        waiter.stop();
+        assertThat(waiter.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
         assertThat(future, willThrow(CancellationException.class));
     }

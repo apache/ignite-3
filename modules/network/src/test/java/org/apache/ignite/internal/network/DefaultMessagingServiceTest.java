@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.anEmptyMap;
 import static org.hamcrest.Matchers.contains;
@@ -52,6 +53,7 @@ import java.util.regex.Pattern;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.messages.AllTypesMessageImpl;
 import org.apache.ignite.internal.network.messages.InstantContainer;
@@ -497,7 +499,7 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
         String eventLoopGroupNamePrefix = node.name() + "-event-loop";
 
         NettyBootstrapFactory bootstrapFactory = new NettyBootstrapFactory(networkConfig, eventLoopGroupNamePrefix);
-        bootstrapFactory.start();
+        assertThat(bootstrapFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         ConnectionManager connectionManager = new ConnectionManager(
                 networkConfig.value(),
@@ -566,10 +568,11 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
 
         @Override
         public void close() throws Exception {
-            IgniteUtils.closeAll(
+            closeAll(
                     connectionManager::initiateStopping, connectionManager::stop,
                     messagingService::stop,
-                    bootstrapFactory::beforeNodeStop, bootstrapFactory::stop
+                    bootstrapFactory::beforeNodeStop,
+                    () -> assertThat(bootstrapFactory.stopAsync(new ComponentContext()), willCompleteSuccessfully())
             );
         }
     }

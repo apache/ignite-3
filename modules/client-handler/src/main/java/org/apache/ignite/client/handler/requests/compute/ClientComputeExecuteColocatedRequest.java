@@ -19,7 +19,6 @@ package org.apache.ignite.client.handler.requests.compute;
 
 import static org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteRequest.sendResultAndStatus;
 import static org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteRequest.unpackArgs;
-import static org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteRequest.unpackDeploymentUnits;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTuple;
 
@@ -33,7 +32,7 @@ import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.network.ClusterService;
-import org.apache.ignite.table.manager.IgniteTables;
+import org.apache.ignite.table.IgniteTables;
 
 /**
  * Compute execute colocated request.
@@ -57,7 +56,7 @@ public class ClientComputeExecuteColocatedRequest {
             ClusterService cluster,
             NotificationSender notificationSender) {
         return readTableAsync(in, tables).thenCompose(table -> readTuple(in, table, true).thenCompose(keyTuple -> {
-            List<DeploymentUnit> deploymentUnits = unpackDeploymentUnits(in);
+            List<DeploymentUnit> deploymentUnits = in.unpackDeploymentUnits();
             String jobClassName = in.unpackString();
             JobExecutionOptions options = JobExecutionOptions.builder().priority(in.unpackInt()).maxRetries(in.unpackInt()).build();
             Object[] args = unpackArgs(in);

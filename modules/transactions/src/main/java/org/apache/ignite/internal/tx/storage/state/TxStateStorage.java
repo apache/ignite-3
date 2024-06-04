@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.tx.storage.state;
 
+import java.util.Collection;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.close.ManuallyCloseable;
@@ -48,13 +49,15 @@ public interface TxStateStorage extends ManuallyCloseable {
     @Nullable TxMeta get(UUID txId);
 
     /**
-     * Puts the tx meta into the storage.
+     * Puts the tx meta into the storage. WARNING: this method should be used only within the rebalance, because it doesn't update
+     * the index and the term in the storage. Index and term are updated after the rebalance is finished,
+     * see {@link #finishRebalance(long, long)}.
      *
      * @param txId Tx id.
      * @param txMeta Tx meta.
      * @throws IgniteInternalException with {@link Transactions#TX_STATE_STORAGE_ERR} error code in case when the operation has failed.
      */
-    void put(UUID txId, TxMeta txMeta);
+    void putForRebalance(UUID txId, TxMeta txMeta);
 
     /**
      * Atomically changes the tx meta in the storage. If transaction meta that is already in the storage, is equal to {@code txMeta}, the
@@ -74,9 +77,21 @@ public interface TxStateStorage extends ManuallyCloseable {
      * Removes the tx meta from the storage.
      *
      * @param txId Tx id.
+     * @param commandIndex New value for {@link #lastAppliedIndex()}.
+     * @param commandTerm New value for {@link #lastAppliedTerm()}.
      * @throws IgniteInternalException with {@link Transactions#TX_STATE_STORAGE_ERR} error code in case when the operation has failed.
      */
-    void remove(UUID txId);
+    void remove(UUID txId, long commandIndex, long commandTerm);
+
+    /**
+     * Removes all the given transaction metas from the storage.
+     *
+     * @param txIds Tx ids.
+     * @param commandIndex New value for {@link #lastAppliedIndex()}.
+     * @param commandTerm New value for {@link #lastAppliedTerm()}.
+     * @throws IgniteInternalException with {@link Transactions#TX_STATE_STORAGE_ERR} error code in case when the operation has failed.
+     */
+    void removeAll(Collection<UUID> txIds, long commandIndex, long commandTerm);
 
     /**
      * Creates a cursor to scan all data in the storage.
@@ -137,7 +152,7 @@ public interface TxStateStorage extends ManuallyCloseable {
      *     {@link Cursor#next()} will throw {@link IgniteInternalException} with {@link Transactions#TX_STATE_STORAGE_REBALANCE_ERR};</li>
      *     <li>For a transaction state storage, methods for reading and writing data will throw {@link IgniteInternalException} with
      *     {@link Transactions#TX_STATE_STORAGE_REBALANCE_ERR} except:<ul>
-     *         <li>{@link TxStateStorage#put(UUID, TxMeta)};</li>
+     *         <li>{@link TxStateStorage#putForRebalance(UUID, TxMeta)};</li>
      *         <li>{@link TxStateStorage#lastAppliedIndex()};</li>
      *         <li>{@link TxStateStorage#lastAppliedTerm()}} ()};</li>
      *     </ul></li>

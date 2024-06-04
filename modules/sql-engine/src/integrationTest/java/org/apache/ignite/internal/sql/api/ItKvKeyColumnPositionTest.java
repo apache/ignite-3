@@ -33,13 +33,11 @@ import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.lang.NullableValue;
+import org.apache.ignite.table.IgniteTables;
 import org.apache.ignite.table.KeyValueView;
-import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.table.mapper.Mapper;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Named;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -178,35 +176,6 @@ public class ItKvKeyColumnPositionTest extends BaseSqlIntegrationTest {
             BoolInt retrieved = kvView.get(null, key);
             assertEquals(val, retrieved);
         }
-    }
-
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21836")
-    @ParameterizedTest
-    @MethodSource("nullableKvsSimple")
-    public void testNotNullableGetSimple(KeyValueView<String, IntBoolDate> kvView) {
-        String key = String.valueOf(ID_NUM.incrementAndGet());
-        kvView.put(null, key, null);
-
-        NullableValue<IntBoolDate> nullable = kvView.getNullable(null, key);
-        assertNull(nullable.get());
-    }
-
-    private List<Arguments> nullableKvsSimple() {
-        return List.of(
-                Arguments.of(Named.named("server", serverSimpleValKey)),
-                Arguments.of(Named.named("client", clientSimpleKeyVal))
-        );
-    }
-
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21836")
-    @ParameterizedTest
-    @MethodSource("complexKeyKvs")
-    public void testNotNullableGetComplex(KeyValueView<IntString, BoolInt> kvView) {
-        IntString key = newKey();
-        kvView.put(null, key, null);
-
-        NullableValue<BoolInt> nullable = kvView.getNullable(null, key);
-        assertNull(nullable.get());
     }
 
     @ParameterizedTest

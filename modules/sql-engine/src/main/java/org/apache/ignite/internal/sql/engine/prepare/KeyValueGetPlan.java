@@ -63,20 +63,20 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
     private static final IgniteLogger LOG = Loggers.forClass(KeyValueGetPlan.class);
 
     private final PlanId id;
-    private final int schemaVersion;
+    private final int catalogVersion;
     private final IgniteKeyValueGet lookupNode;
     private final ResultSetMetadata meta;
     private final ParameterMetadata parameterMetadata;
 
     KeyValueGetPlan(
             PlanId id,
-            int schemaVersion,
+            int catalogVersion,
             IgniteKeyValueGet lookupNode,
             ResultSetMetadata meta,
             ParameterMetadata parameterMetadata
     ) {
         this.id = id;
-        this.schemaVersion = schemaVersion;
+        this.catalogVersion = catalogVersion;
         this.lookupNode = lookupNode;
         this.meta = meta;
         this.parameterMetadata = parameterMetadata;
@@ -129,13 +129,13 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
     @Override
     public <RowT> AsyncCursor<InternalSqlRow> execute(
             ExecutionContext<RowT> ctx,
-            InternalTransaction tx,
+            @Nullable InternalTransaction tx,
             ExecutableTableRegistry tableRegistry,
             @Nullable QueryPrefetchCallback firstPageReadyCallback
     ) {
         IgniteTable sqlTable = table();
 
-        CompletableFuture<Iterator<InternalSqlRow>> result = tableRegistry.getTable(schemaVersion, sqlTable.id())
+        CompletableFuture<Iterator<InternalSqlRow>> result = tableRegistry.getTable(catalogVersion, sqlTable.id())
                 .thenCompose(execTable -> {
 
                     ImmutableBitSet requiredColumns = lookupNode.requiredColumns();
@@ -206,5 +206,9 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
         }
 
         return new AsyncWrapper<>(result, Runnable::run);
+    }
+
+    public int catalogVersion() {
+        return catalogVersion;
     }
 }

@@ -80,3 +80,7 @@ configurations {
 artifacts {
     jdbcRelease shadowJar
 }
+
+tasks.withType(Test).configureEach {
+    jvmArgs += '-Dio.netty.leakDetectionLevel=paranoid'
+}

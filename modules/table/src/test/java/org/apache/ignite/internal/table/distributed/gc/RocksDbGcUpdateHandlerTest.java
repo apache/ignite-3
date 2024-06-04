@@ -52,7 +52,7 @@ class RocksDbGcUpdateHandlerTest extends AbstractGcUpdateHandlerTest {
     void setUp(
             TestInfo testInfo,
             @InjectConfiguration RocksDbStorageEngineConfiguration engineConfig,
-            @InjectConfiguration("mock.profiles.default = {engine = \"rocksDb\"}")
+            @InjectConfiguration("mock.profiles.default.engine = rocksdb")
             StorageConfiguration storageConfiguration
     ) {
         engine = new RocksDbStorageEngine(testNodeName(testInfo, 0), engineConfig, storageConfiguration, workDir, mock(LogSyncer.class));

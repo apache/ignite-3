@@ -28,6 +28,8 @@ import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionOptions;
+import org.apache.ignite.compute.TaskExecution;
+import org.apache.ignite.internal.compute.task.AntiHijackTaskExecution;
 import org.apache.ignite.internal.wrapper.Wrapper;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
@@ -132,6 +134,16 @@ public class AntiHijackIgniteCompute implements IgniteCompute, Wrapper {
 
         return results.entrySet().stream()
                 .collect(toMap(Entry::getKey, entry -> preventThreadHijack(entry.getValue())));
+    }
+
+    @Override
+    public <R> TaskExecution<R> submitMapReduce(List<DeploymentUnit> units, String taskClassName, Object... args) {
+        return new AntiHijackTaskExecution<>(compute.submitMapReduce(units, taskClassName, args), asyncContinuationExecutor);
+    }
+
+    @Override
+    public <R> R executeMapReduce(List<DeploymentUnit> units, String taskClassName, Object... args) {
+        return compute.executeMapReduce(units, taskClassName, args);
     }
 
     private <R> JobExecution<R> preventThreadHijack(JobExecution<R> execution) {

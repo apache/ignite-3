@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.table.distributed.raft.snapshot;
 
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.BUILDING;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.REGISTERED;
@@ -55,6 +54,8 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
+import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.AfterEach;
@@ -85,11 +86,11 @@ public class FullStateTransferIndexChooserTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void setUp() {
-        catalogManager = CatalogTestUtils.createTestCatalogManager("test", clock);
+        catalogManager = CatalogTestUtils.createCatalogManagerWithTestUpdateLog("test", clock);
 
         indexChooser = new FullStateTransferIndexChooser(catalogManager, lowWatermark);
 
-        assertThat(catalogManager.start(), willCompleteSuccessfully());
+        assertThat(catalogManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         indexChooser.start();
 
@@ -101,7 +102,7 @@ public class FullStateTransferIndexChooserTest extends BaseIgniteAbstractTest {
         closeAllManually(
                 indexChooser,
                 catalogManager::beforeNodeStop,
-                catalogManager::stop
+                () -> assertThat(catalogManager.stopAsync(new ComponentContext()), willCompleteSuccessfully())
         );
     }
 
@@ -443,7 +444,7 @@ public class FullStateTransferIndexChooserTest extends BaseIgniteAbstractTest {
     }
 
     private void dropIndex(String indexName) {
-        TableTestUtils.dropIndex(catalogManager, DEFAULT_SCHEMA_NAME, indexName);
+        TableTestUtils.dropIndex(catalogManager, SqlCommon.DEFAULT_SCHEMA_NAME, indexName);
     }
 
     private int latestCatalogVersion() {
@@ -475,7 +476,7 @@ public class FullStateTransferIndexChooserTest extends BaseIgniteAbstractTest {
     }
 
     private void dropTable() {
-        TableTestUtils.dropTable(catalogManager, DEFAULT_SCHEMA_NAME, TABLE_NAME);
+        TableTestUtils.dropTable(catalogManager, SqlCommon.DEFAULT_SCHEMA_NAME, TABLE_NAME);
     }
 
     private static List<Integer> indexIds(List<IndexIdAndTableVersion> indexIdAndTableVersionList) {
@@ -491,7 +492,7 @@ public class FullStateTransferIndexChooserTest extends BaseIgniteAbstractTest {
 
         CatalogCommand command = AlterTableAddColumnCommand.builder()
                 .tableName(TABLE_NAME)
-                .schemaName(DEFAULT_SCHEMA_NAME)
+                .schemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
                 .columns(List.of(columnParams))
                 .build();
 

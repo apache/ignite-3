@@ -40,7 +40,7 @@ public interface ExecutablePlan {
      */
     <RowT> AsyncCursor<InternalSqlRow> execute(
             ExecutionContext<RowT> ctx,
-            InternalTransaction tx,
+            @Nullable InternalTransaction tx,
             ExecutableTableRegistry tableRegistry,
             @Nullable QueryPrefetchCallback firstPageReadyCallback
     );

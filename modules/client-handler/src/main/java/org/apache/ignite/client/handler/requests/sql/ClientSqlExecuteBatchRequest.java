@@ -69,7 +69,7 @@ public class ClientSqlExecuteBatchRequest {
 
         return IgniteSqlImpl.executeBatchCore(
                 sql,
-                        transactions,
+                        transactions.observableTimestampTracker(),
                         tx,
                         statement,
                         arguments,
