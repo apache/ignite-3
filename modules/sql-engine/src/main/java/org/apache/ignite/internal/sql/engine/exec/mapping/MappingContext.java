@@ -20,7 +20,6 @@ package org.apache.ignite.internal.sql.engine.exec.mapping;
 import java.util.List;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.ignite.internal.sql.engine.exec.mapping.bigcluster.BigClusterFactory;
-import org.apache.ignite.internal.sql.engine.exec.mapping.smallcluster.SmallClusterFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 
 /**
@@ -38,11 +37,7 @@ class MappingContext {
         this.localNode = localNode;
         this.nodes = nodes;
 
-        if (nodes.size() > 63) {
-            this.targetFactory = new BigClusterFactory(nodes);
-        } else {
-            this.targetFactory = new SmallClusterFactory(nodes);
-        }
+        this.targetFactory = new BigClusterFactory(nodes);
     }
 
     public RelOptCluster cluster() {
