@@ -174,6 +174,7 @@ public class ReplicaService {
                                 }
                         );
 
+                        // we use flag here instead of sending network message in the computeIfAbsent lambda to avoid deadlocks
                         if (flag[0]) {
                             AwaitReplicaRequest awaitReplicaReq = REPLICA_MESSAGES_FACTORY.awaitReplicaRequest()
                                     .groupId(req.groupId())
@@ -192,6 +193,7 @@ public class ReplicaService {
                             });
                         }
 
+                        // use handleAsync to avoid interaction in the network thread
                         awaitReplicaFut.handleAsync((response0, throwable0) -> {
                             pendingInvokes.remove(targetNodeConsistentId, awaitReplicaFut);
 
