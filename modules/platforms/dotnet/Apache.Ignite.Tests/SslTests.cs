@@ -180,6 +180,10 @@ public class SslTests : IgniteTestsBase
     [Test]
     public async Task TestCustomCipherSuite()
     {
+        var cipherSuite = Environment.OSVersion.Platform == PlatformID.MacOSX
+            ? TlsCipherSuite.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+            : TlsCipherSuite.TLS_AES_128_GCM_SHA256;
+
         var cfg = new IgniteClientConfiguration
         {
             Endpoints = { SslEndpoint },
@@ -188,10 +192,7 @@ public class SslTests : IgniteTestsBase
                 SslClientAuthenticationOptions = new SslClientAuthenticationOptions
                 {
                     RemoteCertificateValidationCallback = (_, _, _, _) => true,
-                    CipherSuitesPolicy = new CipherSuitesPolicy(new[]
-                    {
-                        TlsCipherSuite.TLS_AES_128_GCM_SHA256
-                    })
+                    CipherSuitesPolicy = new CipherSuitesPolicy(new[] { cipherSuite })
                 }
             }
         };
@@ -203,7 +204,7 @@ public class SslTests : IgniteTestsBase
 
         Assert.IsNotNull(sslInfo);
         Assert.IsFalse(sslInfo!.IsMutuallyAuthenticated);
-        Assert.AreEqual(TlsCipherSuite.TLS_AES_128_GCM_SHA256.ToString(), sslInfo.NegotiatedCipherSuiteName);
+        Assert.AreEqual(cipherSuite.ToString(), sslInfo.NegotiatedCipherSuiteName);
     }
 
     private class NullSslStreamFactory : ISslStreamFactory
