@@ -47,7 +47,7 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 /**
  * A micro-benchmark of sql execution.
  */
-@Warmup(iterations = 10, time = 1, timeUnit = TimeUnit.SECONDS)
+@Warmup(iterations = 20, time = 1, timeUnit = TimeUnit.SECONDS)
 @Measurement(iterations = 20, time = 1, timeUnit = TimeUnit.SECONDS)
 @BenchmarkMode(Mode.Throughput)
 @OutputTimeUnit(TimeUnit.SECONDS)

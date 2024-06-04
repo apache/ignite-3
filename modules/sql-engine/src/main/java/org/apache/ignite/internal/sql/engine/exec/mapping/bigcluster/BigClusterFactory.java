@@ -27,15 +27,15 @@ import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTarget;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTargetFactory;
 
 /**
- * A factory that able to create targets for cluster with up to 64 nodes.
+ * A factory that able to create targets for more than 64 nodes.
  */
 public class BigClusterFactory implements ExecutionTargetFactory {
-    private final List<String> nodes;
+    private final List<String> participatingNodes;
     private final Object2IntMap<String> nodeNameToId;
 
     /** Constructor. */
     public BigClusterFactory(List<String> nodes) {
-        this.nodes = nodes;
+        participatingNodes = nodes;
 
         nodeNameToId = new Object2IntOpenHashMap<>(nodes.size());
         nodeNameToId.defaultReturnValue(-1);
@@ -83,18 +83,18 @@ public class BigClusterFactory implements ExecutionTargetFactory {
     public List<String> resolveNodes(ExecutionTarget target) {
         assert target instanceof AbstractTarget : target == null ? "<null>" : target.getClass().getCanonicalName();
 
-        return ((AbstractTarget) target).nodes(nodes);
+        return ((AbstractTarget) target).nodes(participatingNodes);
     }
 
     @Override
     public Int2ObjectMap<NodeWithConsistencyToken> resolveAssignments(ExecutionTarget target) {
         assert target instanceof AbstractTarget : target == null ? "<null>" : target.getClass().getCanonicalName();
 
-        return ((AbstractTarget) target).assignments(nodes);
+        return ((AbstractTarget) target).assignments(participatingNodes);
     }
 
     private BitSet nodeListToMap(List<String> incNodes) {
-        BitSet nodesMap = new BitSet(nodes.size());
+        BitSet nodesMap = new BitSet(participatingNodes.size());
 
         for (String nodeName : incNodes) {
             int idx = nodeNameToId.getInt(nodeName);

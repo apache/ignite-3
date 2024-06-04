@@ -48,7 +48,7 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
  * linux: echo "1" | sudo tee /sys/devices/system/cpu/intel_pstate/no_turbo
  */
 @Warmup(iterations = 10, time = 1, timeUnit = TimeUnit.SECONDS)
-@Measurement(iterations = 20, time = 1, timeUnit = TimeUnit.SECONDS)
+@Measurement(iterations = 10, time = 1, timeUnit = TimeUnit.SECONDS)
 @BenchmarkMode(Mode.Throughput)
 @OutputTimeUnit(TimeUnit.SECONDS)
 @Fork(1)
