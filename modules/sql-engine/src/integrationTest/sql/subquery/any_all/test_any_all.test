@@ -1,5 +1,6 @@
 # name: test/sql/subquery/any_all/test_any_all.test
 # description: Test ANY/ALL queries
+# feature: SQL E061-07(Basic predicates and search conditions. Quantified comparison predicate)
 # group: [any_all]
 
 statement ok
@@ -11,6 +12,7 @@ CREATE TABLE integers(i INTEGER)
 statement ok
 INSERT INTO integers VALUES (1), (2), (3)
 
+# <row value constructor predicand> is a single <common value expression>
 # ANY is like EXISTS without NULL values
 query T
 SELECT 2 > ANY(SELECT * FROM integers)
