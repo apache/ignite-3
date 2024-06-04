@@ -26,7 +26,6 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import org.apache.ignite.catalog.ColumnSorted;
 import org.apache.ignite.catalog.ColumnType;
 import org.apache.ignite.catalog.IndexType;
@@ -103,7 +102,7 @@ class CreateFromAnnotationsImpl extends AbstractCatalogQuery {
     private void processZone(Table table) {
         Zone zone = table.zone();
 
-        if (zone != null && !Objects.equals(zone.value(), DEFAULT_ZONE)) {
+        if (zone != null && !DEFAULT_ZONE.equalsIgnoreCase(zone.value())) {
             createZone = new CreateZoneImpl(sql, options).ifNotExists();
 
             String zoneName = zone.value();
