@@ -27,9 +27,9 @@ import static org.apache.ignite.internal.table.distributed.replicator.action.Req
 import static org.apache.ignite.internal.table.distributed.replicator.action.RequestType.RW_GET;
 import static org.apache.ignite.internal.table.distributed.replicator.action.RequestType.RW_GET_ALL;
 import static org.apache.ignite.internal.table.distributed.storage.RowBatch.allResultFutures;
-import static org.apache.ignite.internal.util.CompletableFutures.completedOrFailedFuture;
 import static org.apache.ignite.internal.tracing.TracingManager.asyncSpan;
 import static org.apache.ignite.internal.tracing.TracingManager.span;
+import static org.apache.ignite.internal.util.CompletableFutures.completedOrFailedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.matchAny;
@@ -627,70 +627,70 @@ public class InternalTableImpl implements InternalTable {
                     || request instanceof SwapRowReplicaRequest;
 
             if (full) { // Full transaction retries are handled in postEnlist.
-            return replicaSvc.invoke(primaryReplicaAndConsistencyToken.get1(), request);
-        } else {
+                return replicaSvc.invoke(primaryReplicaAndConsistencyToken.get1(), request);
+            } else {
                 if (write) {// Track only write requests from explicit transactions.
-                if (!transactionInflights.addInflight(tx.id(), false)) {
-                    return failedFuture(
-                            new TransactionException(TX_ALREADY_FINISHED_ERR, format(
-                                    "Transaction is already finished [tableName={}, partId={}, txState={}].",
-                                    tableName,
-                                    partId,
-                                    tx.state()
-                            )));
+                    if (!transactionInflights.addInflight(tx.id(), false)) {
+                        return failedFuture(
+                                new TransactionException(TX_ALREADY_FINISHED_ERR, format(
+                                        "Transaction is already finished [tableName={}, partId={}, txState={}].",
+                                        tableName,
+                                        partId,
+                                        tx.state()
+                                )));
+                    }
+
+                    return replicaSvc.<R>invoke(primaryReplicaAndConsistencyToken.get1(), request).thenApply(res -> {
+                        assert noWriteChecker != null;
+
+                        // Remove inflight if no replication was scheduled, otherwise inflight will be removed by delayed response.
+                        if (noWriteChecker.test(res, request)) {
+                            transactionInflights.removeInflight(tx.id());
+                        }
+
+                        return res;
+                    }).handle((r, e) -> {
+                        if (e != null) {
+                            if (retryOnLockConflict > 0 && matchAny(unwrapCause(e), ACQUIRE_LOCK_ERR)) {
+                                transactionInflights.removeInflight(tx.id()); // Will be retried.
+
+                                return trackingInvoke(
+                                        tx,
+                                        partId,
+                                        ignored -> request,
+                                        false,
+                                        primaryReplicaAndConsistencyToken,
+                                        noWriteChecker,
+                                        retryOnLockConflict - 1
+                                );
+                            }
+
+                            sneakyThrow(e);
+                        }
+
+                        return completedFuture(r);
+                    }).thenCompose(identity());
+                } else { // Explicit reads should be retried too.
+                    return replicaSvc.<R>invoke(primaryReplicaAndConsistencyToken.get1(), request).handle((r, e) -> {
+                        if (e != null) {
+                            if (retryOnLockConflict > 0 && matchAny(unwrapCause(e), ACQUIRE_LOCK_ERR)) {
+                                return trackingInvoke(
+                                        tx,
+                                        partId,
+                                        ignored -> request,
+                                        false,
+                                        primaryReplicaAndConsistencyToken,
+                                        noWriteChecker,
+                                        retryOnLockConflict - 1
+                                );
+                            }
+
+                            sneakyThrow(e);
+                        }
+
+                        return completedFuture(r);
+                    }).thenCompose(identity());
                 }
-
-                return replicaSvc.<R>invoke(primaryReplicaAndConsistencyToken.get1(), request).thenApply(res -> {
-                    assert noWriteChecker != null;
-
-                    // Remove inflight if no replication was scheduled, otherwise inflight will be removed by delayed response.
-                    if (noWriteChecker.test(res, request)) {
-                        transactionInflights.removeInflight(tx.id());
-                    }
-
-                    return res;
-                }).handle((r, e) -> {
-                    if (e != null) {
-                        if (retryOnLockConflict > 0 && matchAny(unwrapCause(e), ACQUIRE_LOCK_ERR)) {
-                            transactionInflights.removeInflight(tx.id()); // Will be retried.
-
-                            return trackingInvoke(
-                                    tx,
-                                    partId,
-                                    ignored -> request,
-                                    false,
-                                    primaryReplicaAndConsistencyToken,
-                                    noWriteChecker,
-                                    retryOnLockConflict - 1
-                            );
-                        }
-
-                        sneakyThrow(e);
-                    }
-
-                    return completedFuture(r);
-                }).thenCompose(identity());
-            } else { // Explicit reads should be retried too.
-                return replicaSvc.<R>invoke(primaryReplicaAndConsistencyToken.get1(), request).handle((r, e) -> {
-                    if (e != null) {
-                        if (retryOnLockConflict > 0 && matchAny(unwrapCause(e), ACQUIRE_LOCK_ERR)) {
-                            return trackingInvoke(
-                                    tx,
-                                    partId,
-                                    ignored -> request,
-                                    false,
-                                    primaryReplicaAndConsistencyToken,
-                                    noWriteChecker,
-                                    retryOnLockConflict - 1
-                            );
-                        }
-
-                        sneakyThrow(e);
-                    }
-
-                    return completedFuture(r);
-                }).thenCompose(identity());
-            }
             }
         });
     }
@@ -722,7 +722,7 @@ public class InternalTableImpl implements InternalTable {
                             e.addSuppressed(err);
                         }
                         sneakyThrow(e);
-                    return null;
+                        return null;
                     }); // Preserve failed state.
                 } else {
                     if (autoCommit) {
@@ -1968,20 +1968,20 @@ public class InternalTableImpl implements InternalTable {
     private CompletableFuture<ReplicaMeta> partitionMeta(ReplicationGroupId tablePartitionId) {
         HybridTimestamp now = clock.now();
 
-            CompletableFuture<ReplicaMeta> primaryReplicaFuture = placementDriver.awaitPrimaryReplica(
-                    tablePartitionId,
-                    now,
-                    AWAIT_PRIMARY_REPLICA_TIMEOUT,
-                    SECONDS
-            );
+        CompletableFuture<ReplicaMeta> primaryReplicaFuture = placementDriver.awaitPrimaryReplica(
+                tablePartitionId,
+                now,
+                AWAIT_PRIMARY_REPLICA_TIMEOUT,
+                SECONDS
+        );
 
-            return primaryReplicaFuture.handle((primaryReplica, e) -> {
-                if (e != null) {
-                    throw withCause(TransactionException::new, REPLICA_UNAVAILABLE_ERR, "Failed to get the primary replica"
-                            + " [tablePartitionId=" + tablePartitionId + ", awaitTimestamp=" + now + ']', e);
-                }
+        return primaryReplicaFuture.handle((primaryReplica, e) -> {
+            if (e != null) {
+                throw withCause(TransactionException::new, REPLICA_UNAVAILABLE_ERR, "Failed to get the primary replica"
+                        + " [tablePartitionId=" + tablePartitionId + ", awaitTimestamp=" + now + ']', e);
+            }
 
-                return primaryReplica;
+            return primaryReplica;
         });
     }
 

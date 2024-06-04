@@ -407,9 +407,9 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
             );
 
             // Assume that we handle the finish command only on the commit partition.
-        TablePartitionId commitPartitionId = new TablePartitionId(storage.tableId(), storage.partitionId());
+            TablePartitionId commitPartitionId = new TablePartitionId(storage.tableId(), storage.partitionId());
 
-        markFinished(txId, cmd.commit(), cmd.commitTimestamp(), commitPartitionId);
+            markFinished(txId, cmd.commit(), cmd.commitTimestamp(), commitPartitionId);
 
             LOG.debug("Finish the transaction txId = {}, state = {}, txStateChangeRes = {}", txId, txMetaToSet, txStateChangeRes);
 

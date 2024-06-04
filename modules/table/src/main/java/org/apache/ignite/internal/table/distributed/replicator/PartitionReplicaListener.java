@@ -779,8 +779,8 @@ public class PartitionReplicaListener implements ReplicaListener {
             } else if (request instanceof TxStateCommitPartitionRequest) {
                 return processTxStateCommitPartitionRequest((TxStateCommitPartitionRequest) request);
             } else if (request instanceof VacuumTxStateReplicaRequest) {
-            return processVacuumTxStateReplicaRequest((VacuumTxStateReplicaRequest) request);
-        } else {
+                return processVacuumTxStateReplicaRequest((VacuumTxStateReplicaRequest) request);
+            } else {
                 throw new UnsupportedReplicaRequestException(request.getClass());
             }
         });
