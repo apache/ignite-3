@@ -57,10 +57,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -73,7 +72,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
-import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.affinity.Assignments;
 import org.apache.ignite.internal.catalog.CatalogManager;
@@ -151,6 +149,7 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
 /** Tests scenarios for table manager. */
+// TODO: test demands for reworking https://issues.apache.org/jira/browse/IGNITE-22388
 @ExtendWith({MockitoExtension.class, ConfigurationExtension.class})
 @MockitoSettings(strictness = Strictness.LENIENT)
 public class TableManagerTest extends IgniteAbstractTest {
@@ -176,6 +175,7 @@ public class TableManagerTest extends IgniteAbstractTest {
     private static final String ZONE_NAME = "zone1";
 
     /** Topology service. */
+    // TODO: useless field for now https://issues.apache.org/jira/browse/IGNITE-22388
     @Mock
     private TopologyService ts;
 
@@ -720,21 +720,14 @@ public class TableManagerTest extends IgniteAbstractTest {
                 new NetworkAddress("localhost", 47500)
         ));
 
+        // TODO: should be removed or reworked https://issues.apache.org/jira/browse/IGNITE-22388
         try (MockedStatic<SchemaUtils> schemaServiceMock = mockStatic(SchemaUtils.class)) {
             schemaServiceMock.when(() -> SchemaUtils.prepareSchemaDescriptor(any()))
                     .thenReturn(mock(SchemaDescriptor.class));
         }
 
-        try (MockedStatic<AffinityUtils> affinityServiceMock = mockStatic(AffinityUtils.class)) {
-            ArrayList<List<ClusterNode>> assignment = new ArrayList<>(PARTITIONS);
-
-            for (int part = 0; part < PARTITIONS; part++) {
-                assignment.add(new ArrayList<>(Collections.singleton(node)));
-            }
-
-            affinityServiceMock.when(() -> AffinityUtils.calculateAssignments(any(), anyInt(), anyInt()))
-                    .thenReturn(assignment);
-        }
+        when(distributionZoneManager.dataNodes(anyLong(), anyInt(), anyInt()))
+                .thenReturn(completedFuture(Set.of(NODE_NAME)));
 
         TableManager tableManager = createTableManager(tblManagerFut);
 
