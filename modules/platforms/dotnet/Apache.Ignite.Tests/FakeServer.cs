@@ -356,6 +356,27 @@ namespace Apache.Ignite.Tests
 
                         Send(handler, requestId, Array.Empty<byte>());
                         continue;
+
+                    case ClientOp.StreamerWithReceiverBatchSend:
+                    {
+                        reader.ReadInt32(); // table
+                        reader.ReadInt32(); // partition
+                        var unitCount = reader.ReadInt32();
+                        reader.Skip(unitCount);
+                        reader.ReadBoolean(); // returnResults.
+
+                        var payloadTupleSize = reader.ReadInt32();
+                        var payloadItemCount = payloadTupleSize - 4; // NOTE: Ignores args.
+                        StreamerRowCount += payloadItemCount;
+
+                        if (MultiRowOperationDelayPerRow > TimeSpan.Zero)
+                        {
+                            Thread.Sleep(MultiRowOperationDelayPerRow * payloadItemCount);
+                        }
+
+                        Send(handler, requestId, Array.Empty<byte>());
+                        continue;
+                    }
                 }
 
                 // Fake error message for any other op code.

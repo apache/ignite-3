@@ -1669,7 +1669,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     private CompletableFuture<?> beginAndAbortTx() {
-        when(txManager.cleanup(any(Map.class), anyBoolean(), any(), any())).thenReturn(nullCompletedFuture());
+        when(txManager.cleanup(any(), any(Map.class), anyBoolean(), any(), any())).thenReturn(nullCompletedFuture());
 
         HybridTimestamp beginTimestamp = clock.now();
         UUID txId = transactionIdFor(beginTimestamp);
@@ -1731,7 +1731,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     private CompletableFuture<?> beginAndCommitTx() {
-        when(txManager.cleanup(any(Map.class), anyBoolean(), any(), any())).thenReturn(nullCompletedFuture());
+        when(txManager.cleanup(any(), any(Map.class), anyBoolean(), any(), any())).thenReturn(nullCompletedFuture());
 
         HybridTimestamp beginTimestamp = clock.now();
         UUID txId = transactionIdFor(beginTimestamp);
@@ -2072,7 +2072,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         doAnswer(invocation -> nullCompletedFuture()).when(txManager).executeWriteIntentSwitchAsync(any(Runnable.class));
 
         doAnswer(invocation -> nullCompletedFuture()).when(txManager).finish(any(), any(), anyBoolean(), any(), any());
-        doAnswer(invocation -> nullCompletedFuture()).when(txManager).cleanup(anyString(), any());
+        doAnswer(invocation -> nullCompletedFuture()).when(txManager).cleanup(any(), anyString(), any());
     }
 
     private void testWritesAreSuppliedWithRequiredCatalogVersion(RequestType requestType, RwListenerInvocation listenerInvocation) {
@@ -2473,7 +2473,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 .thenReturn(List.of(
                         tableSchema(CURRENT_SCHEMA_VERSION, List.of(nullableColumn("col")))
                 ));
-        when(txManager.cleanup(any(Map.class), anyBoolean(), any(), any())).thenReturn(nullCompletedFuture());
+        when(txManager.cleanup(any(), any(Map.class), anyBoolean(), any(), any())).thenReturn(nullCompletedFuture());
 
         AtomicReference<Boolean> committed = interceptFinishTxCommand();
 

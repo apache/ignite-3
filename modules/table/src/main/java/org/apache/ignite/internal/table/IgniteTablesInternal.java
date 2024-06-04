@@ -20,7 +20,7 @@ package org.apache.ignite.internal.table;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.table.manager.IgniteTables;
+import org.apache.ignite.table.IgniteTables;
 import org.jetbrains.annotations.Nullable;
 
 /**

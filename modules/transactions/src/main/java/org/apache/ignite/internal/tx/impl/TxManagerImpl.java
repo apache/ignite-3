@@ -822,27 +822,29 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     @Override
     public CompletableFuture<Void> cleanup(
+            TablePartitionId commitPartitionId,
             Map<TablePartitionId, String> enlistedPartitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId
     ) {
-        return txCleanupRequestSender.cleanup(enlistedPartitions, commit, commitTimestamp, txId);
+        return txCleanupRequestSender.cleanup(commitPartitionId, enlistedPartitions, commit, commitTimestamp, txId);
     }
 
     @Override
     public CompletableFuture<Void> cleanup(
+            TablePartitionId commitPartitionId,
             Collection<TablePartitionId> enlistedPartitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId
     ) {
-        return txCleanupRequestSender.cleanup(enlistedPartitions, commit, commitTimestamp, txId);
+        return txCleanupRequestSender.cleanup(commitPartitionId, enlistedPartitions, commit, commitTimestamp, txId);
     }
 
     @Override
-    public CompletableFuture<Void> cleanup(String node, UUID txId) {
-        return txCleanupRequestSender.cleanup(node, txId);
+    public CompletableFuture<Void> cleanup(TablePartitionId commitPartitionId, String node, UUID txId) {
+        return txCleanupRequestSender.cleanup(commitPartitionId, node, txId);
     }
 
     @Override

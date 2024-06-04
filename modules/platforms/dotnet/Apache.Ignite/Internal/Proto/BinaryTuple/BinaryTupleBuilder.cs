@@ -1006,6 +1006,193 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         }
 
         /// <summary>
+        /// Appends an object.
+        /// </summary>
+        /// <param name="collection">Value.</param>
+        /// <typeparam name="T">Element type.</typeparam>
+        public void AppendObjectCollectionWithType<T>(Span<T> collection)
+        {
+            var firstValue = collection[0];
+
+            switch (firstValue)
+            {
+                case bool:
+                    AppendTypeAndSize(ColumnType.Boolean, collection.Length);
+                    foreach (var item in collection)
+                    {
+                        AppendBool((bool)(object)item!);
+                    }
+
+                    break;
+
+                case int:
+                    AppendTypeAndSize(ColumnType.Int32, collection.Length);
+                    foreach (var item in collection)
+                    {
+                        AppendInt((int)(object)item!);
+                    }
+
+                    break;
+
+                case long:
+                    AppendTypeAndSize(ColumnType.Int64, collection.Length);
+                    foreach (var item in collection)
+                    {
+                        AppendLong((long)(object)item!);
+                    }
+
+                    break;
+
+                case string:
+                    AppendTypeAndSize(ColumnType.String, collection.Length);
+                    foreach (var item in collection)
+                    {
+                        AppendString((string)(object)item!);
+                    }
+
+                    break;
+
+                case Guid:
+                    AppendTypeAndSize(ColumnType.Uuid, collection.Length);
+                    foreach (var item in collection)
+                    {
+                        AppendGuid((Guid)(object)item!);
+                    }
+
+                    break;
+
+                case sbyte:
+                    AppendTypeAndSize(ColumnType.Int8, collection.Length);
+                    foreach (var item in collection)
+                    {
+                        AppendByte((sbyte)(object)item!);
+                    }
+
+                    break;
+
+                case short:
+                    AppendTypeAndSize(ColumnType.Int16, collection.Length);
+                    foreach (var item in collection)
+                    {
+                        AppendShort((short)(object)item!);
+                    }
+
+                    break;
+
+                case float:
+                    AppendTypeAndSize(ColumnType.Float, collection.Length);
+                    foreach (var item in collection)
+                    {
+                        AppendFloat((float)(object)item!);
+                    }
+
+                    break;
+
+                case double:
+                    AppendTypeAndSize(ColumnType.Double, collection.Length);
+                    foreach (var item in collection)
+                    {
+                        AppendDouble((double)(object)item!);
+                    }
+
+                    break;
+
+                case (byte[]):
+                    AppendTypeAndSize(ColumnType.ByteArray, collection.Length);
+                    foreach (var item in collection)
+                    {
+                        AppendBytes((byte[])(object)item!);
+                    }
+
+                    break;
+
+                case decimal:
+                    AppendTypeAndSize(ColumnType.Decimal, collection.Length);
+                    foreach (var item in collection)
+                    {
+                        AppendDecimal((decimal)(object)item!, int.MaxValue);
+                    }
+
+                    break;
+
+                case BigInteger:
+                    AppendTypeAndSize(ColumnType.Number, collection.Length);
+                    foreach (var item in collection)
+                    {
+                        AppendNumber((BigInteger)(object)item!);
+                    }
+
+                    break;
+
+                case LocalDate:
+                    AppendTypeAndSize(ColumnType.Date, collection.Length);
+                    foreach (var item in collection)
+                    {
+                        AppendDate((LocalDate)(object)item!);
+                    }
+
+                    break;
+
+                case LocalTime:
+                    AppendTypeAndSize(ColumnType.Time, collection.Length);
+                    foreach (var item in collection)
+                    {
+                        AppendTime((LocalTime)(object)item!, TemporalTypes.MaxTimePrecision);
+                    }
+
+                    break;
+
+                case LocalDateTime:
+                    AppendTypeAndSize(ColumnType.Datetime, collection.Length);
+                    foreach (var item in collection)
+                    {
+                        AppendDateTime((LocalDateTime)(object)item!, TemporalTypes.MaxTimePrecision);
+                    }
+
+                    break;
+
+                case Instant:
+                    AppendTypeAndSize(ColumnType.Timestamp, collection.Length);
+                    foreach (var item in collection)
+                    {
+                        AppendTimestamp((Instant)(object)item!, TemporalTypes.MaxTimePrecision);
+                    }
+
+                    break;
+
+                case BitArray:
+                    AppendTypeAndSize(ColumnType.Bitmask, collection.Length);
+                    foreach (var item in collection)
+                    {
+                        AppendBitmask((BitArray)(object)item!);
+                    }
+
+                    break;
+
+                case Period:
+                    AppendTypeAndSize(ColumnType.Period, collection.Length);
+                    foreach (var item in collection)
+                    {
+                        AppendPeriod((Period)(object)item!);
+                    }
+
+                    break;
+
+                case Duration:
+                    AppendTypeAndSize(ColumnType.Duration, collection.Length);
+                    foreach (var item in collection)
+                    {
+                        AppendDuration((Duration)(object)item!);
+                    }
+
+                    break;
+
+                default:
+                    throw new IgniteClientException(ErrorGroups.Client.Protocol, "Unsupported type: " + firstValue?.GetType());
+            }
+        }
+
+        /// <summary>
         /// Builds the tuple.
         /// <para />
         /// NOTE: This should be called only once as it messes up with accumulated internal data.
@@ -1260,6 +1447,12 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         {
             AppendInt((int)type);
             AppendInt(scale);
+        }
+
+        private void AppendTypeAndSize(ColumnType type, int size)
+        {
+            AppendInt((int)type);
+            AppendInt(size);
         }
 
         private void OnWrite()
