@@ -163,22 +163,36 @@ public class ReplicaService {
                     var errResp = (ErrorReplicaResponse) response;
 
                     if (errResp.throwable() instanceof ReplicaUnavailableException) {
+                        boolean[] flag = new boolean[1];
+
                         CompletableFuture<NetworkMessage> awaitReplicaFut = pendingInvokes.computeIfAbsent(
                                 targetNodeConsistentId,
                                 consistentId -> {
-                                    AwaitReplicaRequest awaitReplicaReq = REPLICA_MESSAGES_FACTORY.awaitReplicaRequest()
-                                            .groupId(req.groupId())
-                                            .build();
+                                    flag[0] = true;
 
-                                    return messagingService.invoke(
-                                            targetNodeConsistentId,
-                                            awaitReplicaReq,
-                                            replicationConfiguration.rpcTimeout().value()
-                                    );
+                                    return new CompletableFuture<>();
                                 }
                         );
 
-                        awaitReplicaFut.handle((response0, throwable0) -> {
+                        if (flag[0]) {
+                            AwaitReplicaRequest awaitReplicaReq = REPLICA_MESSAGES_FACTORY.awaitReplicaRequest()
+                                    .groupId(req.groupId())
+                                    .build();
+
+                            messagingService.invoke(
+                                    targetNodeConsistentId,
+                                    awaitReplicaReq,
+                                    replicationConfiguration.rpcTimeout().value()
+                            ).whenComplete((networkMessage, e) -> {
+                                if (e != null) {
+                                    awaitReplicaFut.completeExceptionally(e);
+                                } else {
+                                    awaitReplicaFut.complete(networkMessage);
+                                }
+                            });
+                        }
+
+                        awaitReplicaFut.handleAsync((response0, throwable0) -> {
                             pendingInvokes.remove(targetNodeConsistentId, awaitReplicaFut);
 
                             if (throwable0 != null) {
@@ -223,7 +237,7 @@ public class ReplicaService {
                             }
 
                             return null;
-                        });
+                        }, partitionOperationsExecutor);
                     } else {
                         if (retryExecutor != null && matchAny(unwrapCause(errResp.throwable()), ACQUIRE_LOCK_ERR, REPLICA_MISS_ERR)) {
                             retryExecutor.schedule(
