@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
+import static org.apache.ignite.internal.type.NativeTypes.BOOLEAN;
 import static org.apache.ignite.internal.type.NativeTypes.BYTES;
 import static org.apache.ignite.internal.type.NativeTypes.DATE;
 import static org.apache.ignite.internal.type.NativeTypes.DOUBLE;
@@ -43,9 +44,10 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
-import org.apache.ignite.table.AbstractMutableTupleSelfTest;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.SchemaAware;
@@ -55,7 +57,11 @@ import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
+import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.sql.ColumnType;
+import org.apache.ignite.table.AbstractMutableTupleTest;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Test;
 
@@ -64,7 +70,7 @@ import org.junit.jupiter.api.Test;
  *
  * <p>The class contains implementation-specific tests. Tuple interface contract conformance/violation tests are inherited from the base class.
  */
-public class MutableRowTupleAdapterTest extends AbstractMutableTupleSelfTest {
+public class MutableRowTupleAdapterTest extends AbstractMutableTupleTest {
     /** Schema descriptor for default test tuple. */
     private final SchemaDescriptor schema = new SchemaDescriptor(
             42,
@@ -81,6 +87,7 @@ public class MutableRowTupleAdapterTest extends AbstractMutableTupleSelfTest {
     /** Schema descriptor for tuple with columns of all the supported types. */
     private final SchemaDescriptor fullSchema = new SchemaDescriptor(42,
             List.of(
+                    new Column("valBoolCol".toUpperCase(), BOOLEAN, true),
                     new Column("valByteCol".toUpperCase(), INT8, true),
                     new Column("valShortCol".toUpperCase(), INT16, true),
                     new Column("valIntCol".toUpperCase(), INT32, true),
@@ -454,6 +461,27 @@ public class MutableRowTupleAdapterTest extends AbstractMutableTupleSelfTest {
         Row row = marshaller.marshal(tuple);
 
         assertEquals(expected, deserializeTuple(serializeTuple(TableRow.tuple(row))));
+    }
+
+    @Test
+    public void testFullSchemaHasAllTypes() {
+        Set<ColumnType> schemaTypes = fullSchema.columns().stream()
+                .map(Column::type)
+                .map(NativeType::spec)
+                .map(NativeTypeSpec::asColumnType)
+                .collect(Collectors.toSet());
+
+        for (ColumnType columnType : ColumnType.values()) {
+            if (columnType == ColumnType.NULL) {
+                continue;
+            }
+
+            if (columnType == ColumnType.PERIOD || columnType == ColumnType.DURATION) {
+                continue; //TODO https://issues.apache.org/jira/browse/IGNITE-15200: Not supported yet.
+            }
+
+            assertTrue(schemaTypes.contains(columnType), "Schema does not contain " + columnType);
+        }
     }
 
     @Override

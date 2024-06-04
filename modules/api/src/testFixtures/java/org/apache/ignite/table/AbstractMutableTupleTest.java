@@ -29,9 +29,32 @@ import java.util.stream.IntStream;
 import org.junit.jupiter.api.Test;
 
 /**
- * Tuple interface test.
+ * Base test class for mutable Tuple implementation.
  */
-public abstract class AbstractMutableTupleSelfTest extends AbstractTupleSelfTest {
+public abstract class AbstractMutableTupleTest extends AbstractImmutableTupleTest {
+    @Test
+    @Override
+    public void testColumnCount() {
+        assertEquals(4, getTuple().columnCount());
+        assertEquals(4, getTuple().set("id", -1).columnCount());
+        assertEquals(4, getTuple().set("simplename", null).columnCount());
+        assertEquals(4, getTuple().set("\"QuotedName\"", "foo").columnCount());
+        assertEquals(4, getTuple().set("novalue", "foo").columnCount());
+
+        Tuple tuple = getTuple();
+        tuple.valueOrDefault("SimpleName", "foo");
+        assertEquals(4, tuple.columnCount());
+
+        tuple.valueOrDefault("foo", "bar");
+        assertEquals(4, tuple.columnCount());
+
+        tuple.set("foo", "bar");
+        assertEquals(5, tuple.columnCount());
+
+        tuple.set("nullColumn", null);
+        assertEquals(6, tuple.columnCount());
+    }
+
     @Test
     public void testValueReturnsOverwrittenValue() {
         assertEquals("foo", getTuple().set("SimpleName", "foo").value("SimpleName"));
@@ -39,7 +62,6 @@ public abstract class AbstractMutableTupleSelfTest extends AbstractTupleSelfTest
 
         assertEquals("foo", getTuple().set("\"QuotedName\"", "foo").value("\"QuotedName\""));
         assertNull(getTuple().set("\"QuotedName\"", null).value("\"QuotedName\""));
-
     }
 
     @Test
@@ -49,22 +71,6 @@ public abstract class AbstractMutableTupleSelfTest extends AbstractTupleSelfTest
 
         assertEquals("foo", getTuple().set("\"QuotedName\"", "foo").valueOrDefault("\"QuotedName\"", "bar"));
         assertNull(getTuple().set("\"QuotedName\"", null).valueOrDefault("\"QuotedName\"", "foo"));
-    }
-
-    @Test
-    public void testColumnCountReturnsActualSchemaSize() {
-        Tuple tuple = getTuple();
-
-        assertEquals(4, tuple.columnCount());
-
-        tuple.valueOrDefault("SimpleName", "foo");
-        assertEquals(4, tuple.columnCount());
-
-        tuple.valueOrDefault("foo", "bar");
-        assertEquals(4, tuple.columnCount());
-
-        tuple.set("foo", "bar");
-        assertEquals(5, tuple.columnCount());
     }
 
     @Test
@@ -87,6 +93,7 @@ public abstract class AbstractMutableTupleSelfTest extends AbstractTupleSelfTest
 
         assertNotEquals(createTuple().set("foo", "foo"), createTuple().set("\"foo\"", "bar"));
         assertNotEquals(createTuple().set("FOO", "foo"), createTuple().set("\"foo\"", "bar"));
+        assertNotEquals(createTuple().set("\"FOO\"", "foo"), createTuple().set("\"foo\"", "bar"));
 
         Tuple tuple = createTuple();
         Tuple tuple2 = createTuple();

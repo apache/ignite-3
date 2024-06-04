@@ -42,9 +42,9 @@ import java.util.function.Function;
 import org.junit.jupiter.api.Test;
 
 /**
- * Base test class for Tuple interface contract.
+ * Base test class for immutable Tuple implementation.
  */
-public abstract class AbstractTupleSelfTest {
+public abstract class AbstractImmutableTupleTest {
     protected static final int NANOS_IN_SECOND = 9;
     protected static final int TIMESTAMP_PRECISION = 6;
     protected static final int TIME_PRECISION = 0;
@@ -85,11 +85,11 @@ public abstract class AbstractTupleSelfTest {
     }
 
     protected Tuple getTuple() {
-        return createTuple(AbstractTupleSelfTest::addColumnsForDefaultSchema);
+        return createTuple(AbstractImmutableTupleTest::addColumnsForDefaultSchema);
     }
 
     protected Tuple getTupleWithColumnOfAllTypes() {
-        return createTuple(AbstractTupleSelfTest::addColumnOfAllTypes);
+        return createTuple(AbstractImmutableTupleTest::addColumnOfAllTypes);
     }
 
     @Test
@@ -179,18 +179,15 @@ public abstract class AbstractTupleSelfTest {
 
     @Test
     public void testColumnCount() {
-        assertEquals(4, getTuple().columnCount());
-        assertEquals(4, getTuple().set("id", -1).columnCount());
-        assertEquals(4, getTuple().set("simplename", null).columnCount());
-        assertEquals(4, getTuple().set("\"QuotedName\"", "foo").columnCount());
-        assertEquals(4, getTuple().set("novalue", "foo").columnCount());
-
         Tuple tuple = getTuple();
+
+        int columnCount = tuple.columnCount();
+
         tuple.valueOrDefault("SimpleName", "foo");
-        assertEquals(4, tuple.columnCount());
+        assertEquals(columnCount, tuple.columnCount());
 
         tuple.valueOrDefault("foo", "bar");
-        assertEquals(4, tuple.columnCount());
+        assertEquals(columnCount, tuple.columnCount());
 
     }
 
@@ -291,7 +288,9 @@ public abstract class AbstractTupleSelfTest {
     }
 
     protected static Tuple addColumnOfAllTypes(Tuple tuple) {
-        return tuple.set("valByteCol", (byte) 1)
+        return tuple
+                .set("valBoolCol", true)
+                .set("valByteCol", (byte) 1)
                 .set("valShortCol", (short) 2)
                 .set("valIntCol", 3)
                 .set("valLongCol", 4L)

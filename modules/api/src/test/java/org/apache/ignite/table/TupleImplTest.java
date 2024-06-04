@@ -26,7 +26,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Tests server tuple builder implementation.
  */
-public class TupleImplTest extends AbstractTupleSelfTest {
+public class TupleImplTest extends AbstractImmutableTupleTest {
     @Override
     protected Tuple createTuple(Function<Tuple, Tuple> transformer) {
         return transformer.apply(new TupleImpl());
@@ -37,13 +37,19 @@ public class TupleImplTest extends AbstractTupleSelfTest {
         assertEquals(Tuple.create(), Tuple.create(10));
         assertEquals(Tuple.create().set("id", 42L), Tuple.create(10).set("id", 42L));
 
-        assertEquals(Tuple.create().set("id", 42L).set("name", "universe"),
-                Tuple.create(Map.of("id", 42L, "name", "universe")));
+        assertEquals(getTuple(), Tuple.copy(getTuple()));
+        assertEquals(getTupleWithColumnOfAllTypes(), Tuple.copy(getTupleWithColumnOfAllTypes()));
 
-        assertEquals(Tuple.create().set("id", 42L).set("name", "universe"),
-                Tuple.copy(Tuple.create().set("id", 42L).set("name", "universe")));
+        assertEquals(Tuple.create().set("id", 42L).set("NAME", "universe"),
+                Tuple.create(Map.of("ID", 42L, "name", "universe")));
 
-        assertEquals(getTuple(), Tuple.create(getTuple()));
-        assertEquals(getTupleWithColumnOfAllTypes(), Tuple.create(getTupleWithColumnOfAllTypes()));
+        assertEquals(Tuple.create().set("ID", 42L).set("\"name\"", "universe"),
+                Tuple.create(Map.of("\"ID\"", 42L, "\"name\"", "universe")));
+
+        assertEquals(Tuple.create().set("id", 42L).set("NAME", "universe"),
+                Tuple.copy(Tuple.create().set("ID", 42L).set("name", "universe")));
+
+        assertEquals(Tuple.create().set("id", 42L).set("\"name\"", "universe"),
+                Tuple.copy(Tuple.create().set("\"ID\"", 42L).set("\"name\"", "universe")));
     }
 }

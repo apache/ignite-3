@@ -37,7 +37,7 @@ import org.apache.ignite.internal.client.table.ClientSchema;
 import org.apache.ignite.internal.client.table.ClientTuple;
 import org.apache.ignite.internal.marshaller.ReflectionMarshallersProvider;
 import org.apache.ignite.sql.ColumnType;
-import org.apache.ignite.table.AbstractMutableTupleSelfTest;
+import org.apache.ignite.table.AbstractMutableTupleTest;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
@@ -47,7 +47,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 /**
  * Tests client tuple builder implementation.
  */
-public class ClientTupleTest extends AbstractMutableTupleSelfTest {
+public class ClientTupleTest extends AbstractMutableTupleTest {
     private static final ReflectionMarshallersProvider marshallers = new ReflectionMarshallersProvider();
 
     private static final ClientSchema SCHEMA = new ClientSchema(1, new ClientColumn[]{
