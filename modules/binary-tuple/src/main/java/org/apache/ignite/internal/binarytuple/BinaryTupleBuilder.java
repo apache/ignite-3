@@ -19,7 +19,6 @@ package org.apache.ignite.internal.binarytuple;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.math.RoundingMode;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.CharBuffer;
@@ -315,15 +314,7 @@ public class BinaryTupleBuilder {
      * @return {@code this} for chaining.
      */
     public BinaryTupleBuilder appendDecimalNotNull(BigDecimal value, int scale) {
-        if (value.scale() > scale) {
-            value = value.setScale(scale, RoundingMode.HALF_UP);
-        }
-
-        BigDecimal noZeros = value.stripTrailingZeros();
-        if (noZeros.scale() <= Short.MAX_VALUE && noZeros.scale() >= Short.MIN_VALUE) {
-            // Use more compact representation if possible.
-            value = noZeros;
-        }
+        value = BinaryTupleCommon.shrinkDecimal(value, scale);
 
         // See CatalogUtils.MAX_DECIMAL_SCALE = Short.MAX_VALUE
         if (value.scale() > Short.MAX_VALUE) {
