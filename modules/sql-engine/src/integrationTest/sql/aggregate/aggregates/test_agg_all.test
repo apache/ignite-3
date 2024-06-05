@@ -1,0 +1,29 @@
+# name: test/sql/aggregate/aggregates/test_agg_all.test
+# description: Test aggregations on strings
+# group: [aggregates]
+# feature: E091-06 Set functions. ALL quantifier
+
+query I
+SELECT sum(ALL s1) FROM (VALUES (1),(2),(3)) t1(s1)
+----
+6
+
+query I
+SELECT AVG(ALL s1) FROM (VALUES (1),(2),(3)) t1(s1)
+----
+2
+
+query I
+SELECT MIN(ALL s1) FROM (VALUES (1),(2),(3)) t1(s1)
+----
+1
+
+query I
+SELECT MAX(ALL s1) FROM (VALUES (1),(2),(3)) t1(s1)
+----
+3
+
+query I
+SELECT COUNT(ALL s1) FROM (VALUES (1),(2),(3)) t1(s1)
+----
+3
