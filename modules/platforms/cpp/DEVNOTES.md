@@ -15,6 +15,8 @@ The CMake project supports multiple configuration options that can be used to de
 built. You can check the list of available CMake options with the `cmake -LAH` command. 
 Following are the project-specific options:
 
+* USE_LOCAL_DEPS={ON|OFF} - OFF by default. Indicates that build system at first will try to use locally installed 
+libraries and will try to download dependencies only if it will not be found locally.
 * ENABLE_CLIENT={ON|OFF} - ON by default. Indicates whether the C++ client should be built.
 * ENABLE_ODBC={ON|OFF} - OFF by default. Indicates whether the ODBC driver should be built.
 * ENABLE_TESTS={ON|OFF} - OFF by default. Indicates whether the tests for the selected components should be built.

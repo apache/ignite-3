@@ -35,14 +35,7 @@ function(ignite_test TEST_NAME)
 
     add_executable(${TEST_NAME} ${IGNITE_TEST_SOURCES})
 
-    # Older versions of CMake provide the GTest::Main target while newer versions
-    # provide the GTest::gtest_main target. The old target is deprecated but still
-    # available for now.
-    if (TARGET GTest::gtest_main)
-        target_link_libraries(${TEST_NAME} ${IGNITE_TEST_LIBS} GTest::gtest GTest::gtest_main GTest::gmock_main)
-    else()
-        target_link_libraries(${TEST_NAME} ${IGNITE_TEST_LIBS} GTest::GTest GTest::Main GTest::gmock_main)
-    endif()
+    target_link_libraries(${TEST_NAME} ${IGNITE_TEST_LIBS} GTest::gtest_main GTest::gmock_main)
 
     if(${IGNITE_TEST_DISCOVER})
         gtest_discover_tests(${TEST_NAME} XML_OUTPUT_DIR ${CMAKE_BINARY_DIR}/Testing/Result)

@@ -23,6 +23,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(CMAKE_PROJECT_VERSION ${PROJECT_VERSION})
 
+option(USE_LOCAL_DEPS "Prefer locally installed dependencies over downloaded." OFF)
 option(ENABLE_CLIENT "Build Ignite.C++ Client module" ON)
 option(ENABLE_ODBC "Build Ignite ODBC driver module" OFF)
 option(ENABLE_TESTS "Build Ignite.C++ tests" OFF)
@@ -37,35 +38,7 @@ list(APPEND CMAKE_PREFIX_PATH ${CMAKE_BINARY_DIR})
 
 get_property(is_multi_config GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
 
-if (CMAKE_VERSION VERSION_GREATER_EQUAL "3.24.0")
-    # Avoid warning about DOWNLOAD_EXTRACT_TIMESTAMP:
-    cmake_policy(SET CMP0135 NEW)
-endif()
-
-set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
-
-set(MSGPACK_BUILD_TESTS OFF)
-set(MSGPACK_GEN_COVERAGE OFF)
-set(MSGPACK_BUILD_EXAMPLES OFF)
-
-include(FetchContent)
-FetchContent_Declare(
-        msgpack-c
-        URL https://github.com/msgpack/msgpack-c/releases/download/c-6.0.1/msgpack-c-6.0.1.tar.gz
-        URL_HASH MD5=090df53a59b845767fcfc48221b30ee9
-)
-
-FetchContent_MakeAvailable(msgpack-c)
-
-if (${ENABLE_TESTS})
-    FetchContent_Declare(
-            googletest
-            URL https://github.com/google/googletest/archive/refs/tags/v1.14.0.tar.gz
-            URL_HASH MD5=c8340a482851ef6a3fe618a082304cfc
-    )
-
-    FetchContent_MakeAvailable(googletest)
-endif()
+include(dependencies)
 
 # Configure build paths.
 if (is_multi_config)
