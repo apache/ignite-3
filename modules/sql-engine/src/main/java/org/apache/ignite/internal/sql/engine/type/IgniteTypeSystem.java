@@ -61,6 +61,9 @@ public class IgniteTypeSystem extends RelDataTypeSystemImpl {
     @Override
     public int getDefaultPrecision(SqlTypeName typeName) {
         switch (typeName) {
+            case VARCHAR:
+            case VARBINARY:
+                return 1;
             case TIMESTAMP: // DATETIME
             case TIMESTAMP_WITH_LOCAL_TIME_ZONE: // TIMESTAMP
                 // SQL`16 part 2 section 6.1 syntax rule 36
