@@ -1,6 +1,7 @@
 # name: test/sql/set/test_intersect.test
 # description: INTERSECT [ALL] table operator.
 # feature: F302-02
+# feature: E091-06 Set functions. ALL quantifier
 # group: [set]
 
 query I

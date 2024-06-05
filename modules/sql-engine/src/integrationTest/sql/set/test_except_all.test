@@ -1,6 +1,7 @@
 # name: test/sql/set/test_except_all.test
 # description: EXCEPT ALL table operator
 # feature: F304
+# feature: E091-06 Set functions. ALL quantifier
 # group: [set]
 
 query II

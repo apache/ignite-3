@@ -1,6 +1,7 @@
 # name: test/sql/set/test_union.test
 # description: Basic union tests
 # feature: E071-01
+# feature: E091-06 Set functions. ALL quantifier
 # group: [set]
 
 statement ok
