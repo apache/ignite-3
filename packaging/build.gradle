@@ -73,7 +73,7 @@ def tokens = [
 ]
 
 task replaceVars(type: Copy) {
-    from "$rootDir/packaging/common"
+    from "$rootDir/packaging/common/lin"
     from "$rootDir/packaging/docker/docker-entrypoint.sh"
     filter(ReplaceTokens, tokens: tokens)
     into "$buildDir/docker"
