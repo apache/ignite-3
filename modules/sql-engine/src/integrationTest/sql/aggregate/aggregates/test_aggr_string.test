@@ -1,5 +1,6 @@
 # name: test/sql/aggregate/aggregates/test_aggr_string.test
-# description: Test aggregations on strings
+# description:  Set functions. ALL quantifier
+# feature SQL E091-06 - Set functions. ALL quantifier
 # group: [aggregates]
 
 query TTTTI
