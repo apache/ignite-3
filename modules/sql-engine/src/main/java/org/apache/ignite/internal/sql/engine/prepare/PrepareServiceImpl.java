@@ -567,7 +567,7 @@ public class PrepareServiceImpl implements PrepareService {
                         ColumnMetadataImpl fldMeta = new ColumnMetadataImpl(
                                 alias != null ? alias : fld.getName(),
                                 TypeUtils.columnType(fld.getType()),
-                                TypeUtils.columnPrecision(fld.getType()),
+                                fld.getType().getPrecision(),
                                 fld.getType().getScale(),
                                 fld.getType().isNullable(),
                                 origins == null ? null : ColumnMetadataImpl.originFromList(origins.get(i))

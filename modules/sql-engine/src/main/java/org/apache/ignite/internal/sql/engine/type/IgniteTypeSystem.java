@@ -61,19 +61,19 @@ public class IgniteTypeSystem extends RelDataTypeSystemImpl {
     @Override
     public int getDefaultPrecision(SqlTypeName typeName) {
         switch (typeName) {
-            case VARCHAR:
-            case VARBINARY:
-                return 1;
             case TIMESTAMP: // DATETIME
             case TIMESTAMP_WITH_LOCAL_TIME_ZONE: // TIMESTAMP
                 // SQL`16 part 2 section 6.1 syntax rule 36
                 return 6;
-            // FLOAT is an alias for REAL, When choosing between a real and a float, let's always choose a real.
-            // getDefaultPrecision for types that do not have precision only affects results of TypeFactory::leastRestrictive
-            case REAL:
-                return 8;
             case FLOAT:
-                return 7;
+                // Although FLOAT is an alias for REAL, we cannot use the same precision for them, w/o making
+                // results of TypeFactory::LeastRestrictiveType() non-deterministic. 
+                // We need to change the FLOAT precision, because by default calcite uses the precision for FLOAT and DOUBLE.
+                // Assigning FLOAT a precision that is less than DOUBLE's works because:
+                // - LeastRestrictiveType between REAL and FLOAT is FLOAT - OK, but both types are the same type.
+                // - LeastRestrictiveType between FLOAT and DOUBLE is DOUBLE - OK, since FLOAT is an alias for REAL, and DOUBLE
+                // represents a wider range of values.
+                return super.getDefaultPrecision(typeName) - 1;
             default:
                 return super.getDefaultPrecision(typeName);
         }

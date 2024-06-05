@@ -152,7 +152,7 @@ public class LeastRestrictiveTypesTest {
         tests.add(Arguments.arguments(FLOAT, SMALLINT, new LeastRestrictiveType(FLOAT)));
         tests.add(Arguments.arguments(FLOAT, INTEGER, new LeastRestrictiveType(FLOAT)));
         tests.add(Arguments.arguments(FLOAT, FLOAT, new LeastRestrictiveType(FLOAT)));
-        tests.add(Arguments.arguments(FLOAT, REAL, new LeastRestrictiveType(REAL)));
+        tests.add(Arguments.arguments(FLOAT, REAL, new LeastRestrictiveType(FLOAT)));
         tests.add(Arguments.arguments(FLOAT, DOUBLE, new LeastRestrictiveType(DOUBLE)));
         tests.add(Arguments.arguments(FLOAT, DECIMAL, new LeastRestrictiveType(DOUBLE)));
         tests.add(Arguments.arguments(FLOAT, BIGINT, new LeastRestrictiveType(FLOAT)));

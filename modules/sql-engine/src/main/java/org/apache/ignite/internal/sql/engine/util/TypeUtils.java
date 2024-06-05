@@ -377,17 +377,6 @@ public class TypeUtils {
         }
     }
 
-
-    /** Returns precision for the given type. */
-    public static int columnPrecision(RelDataType type) {
-        // REAL has the same precision as FLOAT.
-        if (type.getSqlTypeName() == SqlTypeName.REAL) {
-            return IgniteTypeSystem.INSTANCE.getDefaultPrecision(SqlTypeName.FLOAT);
-        } else {
-            return type.getPrecision();
-        }
-    }
-
     /**
      * Converts a {@link NativeType native type} to {@link RelDataType relational type}.
      *
