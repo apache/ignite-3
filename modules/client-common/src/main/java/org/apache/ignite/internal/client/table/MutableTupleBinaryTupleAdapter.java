@@ -372,7 +372,7 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
     @Override
     public Tuple set(String columnName, @Nullable Object value) {
         if (tuple == null) {
-            tuple = Tuple.create(this);
+            tuple = Tuple.copy(this);
 
             //noinspection DataFlowIssue
             binaryTuple = null;
