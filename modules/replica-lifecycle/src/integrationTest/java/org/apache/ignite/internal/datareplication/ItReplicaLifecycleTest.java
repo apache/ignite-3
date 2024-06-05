@@ -22,7 +22,7 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static org.apache.ignite.internal.BaseIgniteRestartTest.createVault;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_TEST_PROFILE_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
-import static org.apache.ignite.internal.datareplication.ReplicaLifecycleManager.FEATURE_FLAG_NAME;
+import static org.apache.ignite.internal.datareplication.PartitionReplicaLifecycleManager.FEATURE_FLAG_NAME;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.REBALANCE_SCHEDULER_POOL_SIZE;
 import static org.apache.ignite.internal.sql.SqlCommon.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
@@ -361,7 +361,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
 
         private final CatalogManager catalogManager;
 
-        private final ReplicaLifecycleManager replicaLifecycleManager;
+        private final PartitionReplicaLifecycleManager partitionReplicaLifecycleManager;
 
         private final SchemaSyncService schemaSyncService;
 
@@ -630,7 +630,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     rebalanceScheduler
             );
 
-            replicaLifecycleManager = new ReplicaLifecycleManager(
+            partitionReplicaLifecycleManager = new PartitionReplicaLifecycleManager(
                     catalogManager,
                     raftManager,
                     replicaManager,
@@ -732,7 +732,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                         txManager,
                         dataStorageMgr,
                         schemaManager,
-                        replicaLifecycleManager,
+                        partitionReplicaLifecycleManager,
                         tableManager,
                         indexManager
                 );

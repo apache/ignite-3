@@ -88,7 +88,7 @@ import org.apache.ignite.network.TopologyService;
  * - Stop the same entities on the zone removing.
  * - Support the rebalance mechanism and start the new replication entities when the rebalance triggers occurred.
  */
-public class ReplicaLifecycleManager implements IgniteComponent {
+public class PartitionReplicaLifecycleManager implements IgniteComponent {
     public static final String FEATURE_FLAG_NAME = "IGNITE_ZONE_BASED_REPLICATION";
     /* Feature flag for zone based collocation track */
     // TODO IGNITE-22115 remove it
@@ -111,7 +111,7 @@ public class ReplicaLifecycleManager implements IgniteComponent {
     private final Marshaller raftCommandsMarshaller;
 
     /** The logger. */
-    private static final IgniteLogger LOG = Loggers.forClass(ReplicaLifecycleManager.class);
+    private static final IgniteLogger LOG = Loggers.forClass(PartitionReplicaLifecycleManager.class);
 
     private final Set<ReplicationGroupId> replicationGroupIds = ConcurrentHashMap.newKeySet();
 
@@ -130,7 +130,7 @@ public class ReplicaLifecycleManager implements IgniteComponent {
      * @param topologyService Topology service.
      * @param messageSerializationRegistry Message serialization registry.
      */
-    public ReplicaLifecycleManager(CatalogManager catalogMgr,
+    public PartitionReplicaLifecycleManager(CatalogManager catalogMgr,
             RaftManager raftMgr,
             ReplicaManager replicaMgr,
             TopologyAwareRaftGroupServiceFactory raftGroupServiceFactory,

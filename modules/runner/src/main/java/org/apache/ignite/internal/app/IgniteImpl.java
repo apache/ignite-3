@@ -106,7 +106,7 @@ import org.apache.ignite.internal.configuration.storage.LocalFileConfigurationSt
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidator;
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidatorImpl;
-import org.apache.ignite.internal.datareplication.ReplicaLifecycleManager;
+import org.apache.ignite.internal.datareplication.PartitionReplicaLifecycleManager;
 import org.apache.ignite.internal.datareplication.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.deployunit.DeploymentManagerImpl;
 import org.apache.ignite.internal.deployunit.IgniteDeployment;
@@ -364,7 +364,7 @@ public class IgniteImpl implements Ignite {
 
     private final DistributionZoneManager distributionZoneManager;
 
-    private final ReplicaLifecycleManager replicaLifecycleManager;
+    private final PartitionReplicaLifecycleManager partitionReplicaLifecycleManager;
 
     /** Creator for volatile {@link org.apache.ignite.internal.raft.storage.LogStorageFactory} instances. */
     private final VolatileLogStorageFactoryCreator volatileLogStorageFactoryCreator;
@@ -710,7 +710,7 @@ public class IgniteImpl implements Ignite {
                 rebalanceScheduler
         );
 
-        replicaLifecycleManager = new ReplicaLifecycleManager(
+        partitionReplicaLifecycleManager = new PartitionReplicaLifecycleManager(
                 catalogManager,
                 raftMgr,
                 replicaMgr,
@@ -1117,7 +1117,7 @@ public class IgniteImpl implements Ignite {
                                     schemaManager,
                                     volatileLogStorageFactoryCreator,
                                     outgoingSnapshotsManager,
-                                    replicaLifecycleManager,
+                                    partitionReplicaLifecycleManager,
                                     distributedTblMgr,
                                     disasterRecoveryManager,
                                     indexManager,
