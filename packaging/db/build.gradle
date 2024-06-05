@@ -32,8 +32,6 @@ java {
 import org.apache.tools.ant.filters.ReplaceTokens
 import org.gradle.crypto.checksum.Checksum
 
-apply from: '../common/common.gradle'
-
 configurations {
     dbArtifacts
     defaultsGenerator.extendsFrom(dbArtifacts)
@@ -63,7 +61,7 @@ def tokens = [
         PRODUCT_DISPLAY_NAME: 'Apache Ignite',
         APP_JAR             : "${project(':ignite-runner').name}-${project(':ignite-runner').version}.jar".toString(),
         MAIN_CLASS          : 'org.apache.ignite.internal.app.IgniteRunner',
-        ADD_OPENS           : project.addOpens
+        ADD_OPENS           : project.addOpens.join(' ')
 ]
 
 def tokensLin = tokens + [
@@ -330,19 +328,11 @@ setupBuilder {
 
         jvm = '%JAVA_HOME%\\bin\\server\\jvm.dll'
 
-        javaVMArguments = ["--add-opens=java.base/java.lang=ALL-UNNAMED",
-                           "--add-opens=java.base/java.lang.invoke=ALL-UNNAMED",
-                           "--add-opens=java.base/java.lang.reflect=ALL-UNNAMED",
-                           "--add-opens=java.base/java.io=ALL-UNNAMED",
-                           "--add-opens=java.base/java.nio=ALL-UNNAMED",
-                           "--add-opens=java.base/java.math=ALL-UNNAMED",
-                           "--add-opens=java.base/java.util=ALL-UNNAMED",
-                           "--add-opens=java.base/jdk.internal.misc=ALL-UNNAMED",
-                           "--add-opens=java.base/jdk.internal.access=ALL-UNNAMED",
-                           "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED",
-                           "-Dio.netty.tryReflectionSetAccessible=true",
-                           "-Djava.util.logging.config.file=etc\\ignite.java.util.logging.properties",
-                           "-Dio.netty.tryReflectionSetAccessible=true"]
+        javaVMArguments = project.addOpens + [
+                "-Dio.netty.tryReflectionSetAccessible=true",
+                "-Djava.util.logging.config.file=etc\\ignite.java.util.logging.properties",
+                "-Dio.netty.tryReflectionSetAccessible=true"
+        ]
 
         startArguments = "--node-name node1 --work-dir work --config-path etc\\ignite-config.conf"
     }
