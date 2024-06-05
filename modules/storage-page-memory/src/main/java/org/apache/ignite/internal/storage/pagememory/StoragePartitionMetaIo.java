@@ -32,7 +32,7 @@ public class StoragePartitionMetaIo extends PartitionMetaIo {
     /** Page IO type. */
     public static final short T_TABLE_PARTITION_META_IO = 7;
 
-    private static final int LAST_APPLIED_INDEX_OFF = COMMON_HEADER_END;
+    private static final int LAST_APPLIED_INDEX_OFF = PARTITION_META_HEADER_END;
 
     private static final int LAST_APPLIED_TERM_OFF = LAST_APPLIED_INDEX_OFF + Long.BYTES;
 
@@ -46,9 +46,7 @@ public class StoragePartitionMetaIo extends PartitionMetaIo {
 
     private static final int GC_QUEUE_META_PAGE_ID_OFF = INDEX_TREE_META_PAGE_ID_OFF + Long.BYTES;
 
-    private static final int PAGE_COUNT_OFF = GC_QUEUE_META_PAGE_ID_OFF + Long.BYTES;
-
-    private static final int LEASE_START_TIME_OFF = PAGE_COUNT_OFF + Integer.BYTES;
+    private static final int LEASE_START_TIME_OFF = GC_QUEUE_META_PAGE_ID_OFF + Long.BYTES;
 
 
     /** I/O versions. */
@@ -60,7 +58,7 @@ public class StoragePartitionMetaIo extends PartitionMetaIo {
      * @param ver Page format version.
      */
     protected StoragePartitionMetaIo(int ver) {
-        super(T_TABLE_PARTITION_META_IO, ver, PAGE_COUNT_OFF);
+        super(T_TABLE_PARTITION_META_IO, ver);
     }
 
     /** {@inheritDoc} */

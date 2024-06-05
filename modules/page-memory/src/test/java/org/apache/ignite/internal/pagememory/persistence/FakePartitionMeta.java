@@ -81,7 +81,7 @@ public class FakePartitionMeta extends PartitionMeta {
          * @param ver Page format version.
          */
         protected FakePartitionMetaIo(int type, int ver) {
-            super(type, ver, 0);
+            super(type, ver);
         }
 
         @Override

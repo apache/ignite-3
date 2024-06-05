@@ -27,16 +27,17 @@ import org.apache.ignite.internal.pagememory.io.PageIo;
  * Base Io for partition metadata pages.
  */
 public abstract class PartitionMetaIo extends PageIo {
-    private final int getPageCountOffset;
+    private static final int PAGE_COUNT_OFF = COMMON_HEADER_END;
+
+    protected static final int PARTITION_META_HEADER_END = PAGE_COUNT_OFF + Integer.BYTES;
 
     /**
      * Constructor.
      *
      * @param ver Page format version.
      */
-    protected PartitionMetaIo(int type, int ver, int getPageCountOffset) {
+    protected PartitionMetaIo(int type, int ver) {
         super(type, ver, FLAG_AUX);
-        this.getPageCountOffset = getPageCountOffset;
     }
 
     /** {@inheritDoc} */
@@ -56,7 +57,7 @@ public abstract class PartitionMetaIo extends PageIo {
     public void setPageCount(long pageAddr, int pageCount) {
         assertPageType(pageAddr);
 
-        putInt(pageAddr, getPageCountOffset, pageCount);
+        putInt(pageAddr, PAGE_COUNT_OFF, pageCount);
     }
 
     /**
@@ -65,6 +66,6 @@ public abstract class PartitionMetaIo extends PageIo {
      * @param pageAddr Page address.
      */
     public int getPageCount(long pageAddr) {
-        return getInt(pageAddr, getPageCountOffset);
+        return getInt(pageAddr, PAGE_COUNT_OFF);
     }
 }
