@@ -221,7 +221,7 @@ public class ReplicaLifecycleManager implements IgniteComponent {
         RaftGroupListener raftGroupListener = new PartitionGroupListener();
 
         try {
-            CompletableFuture<TopologyAwareRaftGroupService> raftClient =  ((Loza) raftMgr).startRaftGroupNode(
+            CompletableFuture<TopologyAwareRaftGroupService> raftClient = ((Loza) raftMgr).startRaftGroupNode(
                     raftNodeId,
                     realConfiguration,
                     raftGroupListener,
@@ -368,7 +368,7 @@ public class ReplicaLifecycleManager implements IgniteComponent {
     }
 
     /**
-     * Check if the table already has assignments in the meta storage locally.
+     * Check if the zone already has assignments in the meta storage locally.
      * So, it means, that it is a recovery process and we should use the meta storage local assignments instead of calculation
      * of the new ones.
      */

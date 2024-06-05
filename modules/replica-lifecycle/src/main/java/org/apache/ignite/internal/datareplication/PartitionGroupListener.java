@@ -26,7 +26,7 @@ import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 
 /**
- * Listener for the zone partitoin.
+ * Listener for the zone partition.
  */
 public class PartitionGroupListener implements RaftGroupListener {
 

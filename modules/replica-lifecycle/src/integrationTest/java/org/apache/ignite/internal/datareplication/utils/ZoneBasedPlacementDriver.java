@@ -34,7 +34,7 @@ import org.apache.ignite.network.ClusterNode;
 /**
  * Trivial placement driver for tests.
  */
-public class ZoneBasedPlacementDriver  extends AbstractEventProducer<PrimaryReplicaEvent, PrimaryReplicaEventParameters>  implements
+public class ZoneBasedPlacementDriver extends AbstractEventProducer<PrimaryReplicaEvent, PrimaryReplicaEventParameters>  implements
         PlacementDriver {
 
     private final ClusterService topologyService;
