@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.storage.pagememory;
 
 import java.util.UUID;
-import org.apache.ignite.internal.pagememory.persistence.PartitionMeta;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaFactory;
 import org.apache.ignite.internal.pagememory.persistence.io.PartitionMetaIo;
 import org.jetbrains.annotations.Nullable;
@@ -28,12 +27,26 @@ import org.jetbrains.annotations.Nullable;
  */
 public class StoragePartitionMetaFactory implements PartitionMetaFactory {
     @Override
-    public PartitionMeta createPartitionMeta(@Nullable UUID checkpointId, PartitionMetaIo metaIo, long pageAddr) {
-        return new StoragePartitionMeta(checkpointId, metaIo, pageAddr);
+    public StoragePartitionMeta createPartitionMeta(@Nullable UUID checkpointId, PartitionMetaIo abstractMetaIo, long pageAddr) {
+        StoragePartitionMetaIo metaIo = (StoragePartitionMetaIo) abstractMetaIo;
+
+        var result = new StoragePartitionMeta(
+                metaIo.getPageCount(pageAddr),
+                metaIo.getLastAppliedIndex(pageAddr),
+                metaIo.getLastAppliedTerm(pageAddr),
+                metaIo.getLastReplicationProtocolGroupConfigFirstPageId(pageAddr),
+                metaIo.getLeaseStartTime(pageAddr),
+                StoragePartitionMetaIo.getFreeListRootPageId(pageAddr),
+                metaIo.getVersionChainTreeRootPageId(pageAddr),
+                metaIo.getIndexTreeMetaPageId(pageAddr),
+                metaIo.getGcQueueMetaPageId(pageAddr)
+        );
+
+        return result.init(checkpointId);
     }
 
     @Override
-    public PartitionMetaIo partitionMetaIo() {
+    public StoragePartitionMetaIo partitionMetaIo() {
         return StoragePartitionMetaIo.VERSIONS.latest();
     }
 }

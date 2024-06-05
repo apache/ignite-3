@@ -38,7 +38,7 @@ import org.junit.jupiter.api.Test;
 public class StoragePartitionMetaTest {
     @Test
     void testLastAppliedIndex() {
-        StoragePartitionMeta meta = new StoragePartitionMeta();
+        StoragePartitionMeta meta = createMeta();
 
         assertEquals(0, meta.lastAppliedIndex());
 
@@ -53,7 +53,7 @@ public class StoragePartitionMetaTest {
 
     @Test
     void testLastAppliedTerm() {
-        StoragePartitionMeta meta = new StoragePartitionMeta();
+        StoragePartitionMeta meta = createMeta();
 
         assertEquals(0, meta.lastAppliedTerm());
 
@@ -68,7 +68,7 @@ public class StoragePartitionMetaTest {
 
     @Test
     void testLastGroupConfig() {
-        StoragePartitionMeta meta = new StoragePartitionMeta();
+        StoragePartitionMeta meta = createMeta();
 
         assertThat(meta.lastReplicationProtocolGroupConfigFirstPageId(), is(0L));
 
@@ -83,7 +83,7 @@ public class StoragePartitionMetaTest {
 
     @Test
     void testPageCount() {
-        StoragePartitionMeta meta = new StoragePartitionMeta();
+        StoragePartitionMeta meta = createMeta();
 
         assertEquals(0, meta.pageCount());
 
@@ -98,7 +98,7 @@ public class StoragePartitionMetaTest {
 
     @Test
     void testVersionChainTreeRootPageId() {
-        StoragePartitionMeta meta = new StoragePartitionMeta();
+        StoragePartitionMeta meta = createMeta();
 
         assertEquals(0, meta.versionChainTreeRootPageId());
 
@@ -113,7 +113,7 @@ public class StoragePartitionMetaTest {
 
     @Test
     void testFreeListRootPageId() {
-        StoragePartitionMeta meta = new StoragePartitionMeta();
+        StoragePartitionMeta meta = createMeta();
 
         assertEquals(0, meta.freeListRootPageId());
 
@@ -128,9 +128,9 @@ public class StoragePartitionMetaTest {
 
     @Test
     void testSnapshot() {
-        UUID checkpointId = null;
+        StoragePartitionMeta meta = createMeta();
 
-        StoragePartitionMeta meta = new StoragePartitionMeta(checkpointId, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+        UUID checkpointId = null;
 
         checkSnapshot(meta.metaSnapshot(checkpointId), 0, 0, 0, 0, 0, 0);
         checkSnapshot(meta.metaSnapshot(checkpointId = UUID.randomUUID()), 0, 0, 0, 0, 0, 0);
@@ -184,5 +184,10 @@ public class StoragePartitionMetaTest {
         assertThat(snapshot.versionChainTreeRootPageId(), equalTo(expVersionChainTreeRootPageId));
         assertThat(snapshot.freeListRootPageId(), equalTo(expFreeListRootPageId));
         assertThat(snapshot.pageCount(), equalTo(expPageCount));
+    }
+
+    private static StoragePartitionMeta createMeta() {
+        return new StoragePartitionMeta(0, 0, 0, 0, 0, 0, 0, 0, 0)
+                .init(null);
     }
 }

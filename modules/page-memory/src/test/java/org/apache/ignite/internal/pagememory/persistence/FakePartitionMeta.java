@@ -32,11 +32,15 @@ public class FakePartitionMeta extends PartitionMeta {
 
     /**
      * Constructor.
-     *
-     * @param checkpointId Checkpoint ID.
      */
-    public FakePartitionMeta(@Nullable UUID checkpointId) {
-        super(checkpointId);
+    public FakePartitionMeta() {
+        super(0);
+    }
+
+    public FakePartitionMeta init(@Nullable UUID checkpointId) {
+        initSnapshot(checkpointId);
+
+        return this;
     }
 
     @Override
@@ -82,7 +86,7 @@ public class FakePartitionMeta extends PartitionMeta {
 
         @Override
         protected void printPage(long addr, int pageSize, IgniteStringBuilder sb) {
-            sb.app("TestPartitionMeta [").nl()
+            sb.app("FakePartitionMeta [").nl()
                     .app("pageCount=").app(getPageCount(addr)).nl()
                     .app(']');
         }
@@ -92,12 +96,13 @@ public class FakePartitionMeta extends PartitionMeta {
      * Simple implementation of {@link PartitionMetaFactory} for testing purposes.
      */
     public static class FakePartitionMetaFactory implements PartitionMetaFactory {
-        @Override public PartitionMeta createPartitionMeta(UUID checkpointId, PartitionMetaIo metaIo, long pageAddr) {
-            return new FakePartitionMeta(checkpointId);
+        @Override
+        public FakePartitionMeta createPartitionMeta(UUID checkpointId, PartitionMetaIo metaIo, long pageAddr) {
+            return new FakePartitionMeta().init(checkpointId);
         }
 
         @Override
-        public PartitionMetaIo partitionMetaIo() {
+        public FakePartitionMetaIo partitionMetaIo() {
             return FakePartitionMetaIo.VERSIONS.latest();
         }
     }

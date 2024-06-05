@@ -23,7 +23,6 @@ import org.apache.ignite.internal.pagememory.persistence.PartitionMetaFactory;
 import org.apache.ignite.internal.pagememory.persistence.io.PartitionMetaIo;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
-import org.jetbrains.annotations.TestOnly;
 
 /**
  * Storage partition meta information.
@@ -49,24 +48,19 @@ public class StoragePartitionMeta extends PartitionMeta {
     private volatile long gcQueueMetaPageId;
 
     /**
-     * Default constructor.
-     */
-    @TestOnly
-    public StoragePartitionMeta() {
-        super(null);
-    }
-
-    /**
      * Constructor.
      *
-     * @param checkpointId Checkpoint ID.
+     * @param pageCount Count of pages in the partition.
      * @param lastAppliedIndex Last applied index value.
+     * @param lastAppliedTerm Last applied term value.
+     * @param lastReplicationProtocolGroupConfigFirstPageId ID of the first page in a chain storing a blob representing.
+     * @param leaseStartTime Lease start time.
      * @param freeListRootPageId Free list root page ID.
      * @param versionChainTreeRootPageId Version chain tree root page ID.
-     * @param pageCount Count of pages in the partition.
+     * @param indexTreeMetaPageId Index tree meta page ID.
+     * @param gcQueueMetaPageId Garbage collection queue meta page ID.
      */
     public StoragePartitionMeta(
-            @Nullable UUID checkpointId,
             int pageCount,
             long lastAppliedIndex,
             long lastAppliedTerm,
@@ -77,7 +71,7 @@ public class StoragePartitionMeta extends PartitionMeta {
             long indexTreeMetaPageId,
             long gcQueueMetaPageId
     ) {
-        super(checkpointId, pageCount);
+        super(pageCount);
         this.lastAppliedIndex = lastAppliedIndex;
         this.lastAppliedTerm = lastAppliedTerm;
         this.lastReplicationProtocolGroupConfigFirstPageId = lastReplicationProtocolGroupConfigFirstPageId;
@@ -88,30 +82,10 @@ public class StoragePartitionMeta extends PartitionMeta {
         this.gcQueueMetaPageId = gcQueueMetaPageId;
     }
 
-    /**
-     * Constructor.
-     *
-     * @param checkpointId Checkpoint ID.
-     * @param metaIo Partition meta IO.
-     * @param pageAddr Address of the page with the partition meta.
-     */
-    StoragePartitionMeta(@Nullable UUID checkpointId, PartitionMetaIo metaIo, long pageAddr) {
-        this(checkpointId, (StoragePartitionMetaIo) metaIo, pageAddr);
-    }
+    StoragePartitionMeta init(@Nullable UUID checkpointId) {
+        initSnapshot(checkpointId);
 
-    private StoragePartitionMeta(@Nullable UUID checkpointId, StoragePartitionMetaIo metaIo, long pageAddr) {
-        this(
-                checkpointId,
-                metaIo.getPageCount(pageAddr),
-                metaIo.getLastAppliedIndex(pageAddr),
-                metaIo.getLastAppliedTerm(pageAddr),
-                metaIo.getLastReplicationProtocolGroupConfigFirstPageId(pageAddr),
-                metaIo.getLeaseStartTime(pageAddr),
-                StoragePartitionMetaIo.getFreeListRootPageId(pageAddr),
-                metaIo.getVersionChainTreeRootPageId(pageAddr),
-                metaIo.getIndexTreeMetaPageId(pageAddr),
-                metaIo.getGcQueueMetaPageId(pageAddr)
-        );
+        return this;
     }
 
     /**
@@ -239,7 +213,18 @@ public class StoragePartitionMeta extends PartitionMeta {
 
     @Override
     protected StoragePartitionMetaSnapshot buildSnapshot(@Nullable UUID checkpointId) {
-        return new StoragePartitionMetaSnapshot(checkpointId, this);
+        return new StoragePartitionMetaSnapshot(
+                checkpointId,
+                lastAppliedIndex,
+                lastAppliedTerm,
+                lastReplicationProtocolGroupConfigFirstPageId,
+                versionChainTreeRootPageId,
+                freeListRootPageId,
+                indexTreeMetaPageId,
+                gcQueueMetaPageId,
+                pageCount(),
+                leaseStartTime
+        );
     }
 
     @Override
@@ -301,23 +286,28 @@ public class StoragePartitionMeta extends PartitionMeta {
 
         private final long leaseStartTime;
 
-        /**
-         * Private constructor.
-         *
-         * @param checkpointId Checkpoint ID.
-         * @param partitionMeta Partition meta.
-         */
-        private StoragePartitionMetaSnapshot(@Nullable UUID checkpointId, StoragePartitionMeta partitionMeta) {
+        private StoragePartitionMetaSnapshot(
+                @Nullable UUID checkpointId,
+                long lastAppliedIndex,
+                long lastAppliedTerm,
+                long lastReplicationProtocolGroupConfigFirstPageId,
+                long versionChainTreeRootPageId,
+                long freeListRootPageId,
+                long indexTreeMetaPageId,
+                long gcQueueMetaPageId,
+                int pageCount,
+                long leaseStartTime
+        ) {
             this.checkpointId = checkpointId;
-            lastAppliedIndex = partitionMeta.lastAppliedIndex;
-            lastAppliedTerm = partitionMeta.lastAppliedTerm;
-            lastReplicationProtocolGroupConfigFirstPageId = partitionMeta.lastReplicationProtocolGroupConfigFirstPageId;
-            versionChainTreeRootPageId = partitionMeta.versionChainTreeRootPageId;
-            freeListRootPageId = partitionMeta.freeListRootPageId;
-            indexTreeMetaPageId = partitionMeta.indexTreeMetaPageId;
-            gcQueueMetaPageId = partitionMeta.gcQueueMetaPageId;
-            pageCount = partitionMeta.pageCount();
-            leaseStartTime = partitionMeta.leaseStartTime;
+            this.lastAppliedIndex = lastAppliedIndex;
+            this.lastAppliedTerm = lastAppliedTerm;
+            this.lastReplicationProtocolGroupConfigFirstPageId = lastReplicationProtocolGroupConfigFirstPageId;
+            this.versionChainTreeRootPageId = versionChainTreeRootPageId;
+            this.freeListRootPageId = freeListRootPageId;
+            this.indexTreeMetaPageId = indexTreeMetaPageId;
+            this.gcQueueMetaPageId = gcQueueMetaPageId;
+            this.pageCount = pageCount;
+            this.leaseStartTime = leaseStartTime;
         }
 
         /**

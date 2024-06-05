@@ -126,7 +126,9 @@ public class StoragePartitionMetaManagerTest extends BaseIgniteAbstractTest {
             try (FilePageStore filePageStore = createFilePageStore(testFilePath)) {
                 manager.writeMetaToBuffer(
                         partId,
-                        new StoragePartitionMeta(UUID.randomUUID(), 4, 100, 10, 34, 1000, 900, 300, 200, 400).metaSnapshot(null),
+                        new StoragePartitionMeta(4, 100, 10, 34, 1000, 900, 300, 200, 400)
+                                .init(null)
+                                .metaSnapshot(null),
                         buffer.rewind()
                 );
 
