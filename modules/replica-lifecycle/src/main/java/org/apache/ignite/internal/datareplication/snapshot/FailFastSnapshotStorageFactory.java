@@ -30,7 +30,7 @@ import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
  * Temporary snapshot factory, which must help to identify the unexpected snapshots,
  * while zone based replicas is not support snapshotting yet.
  */
-// TODO https://issues.apache.org/jira/browse/IGNITE-22115 remove it
+// TODO https://issues.apache.org/jira/browse/IGNITE-22416 remove it
 public class FailFastSnapshotStorageFactory implements SnapshotStorageFactory {
     @Override
     public SnapshotStorage createSnapshotStorage(String uri, RaftOptions raftOptions) {
