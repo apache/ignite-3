@@ -68,7 +68,7 @@ public class IgniteTypeSystem extends RelDataTypeSystemImpl {
             case FLOAT:
                 // Although FLOAT is an alias for REAL, we cannot use the same precision for them, w/o making
                 // results of TypeFactory::LeastRestrictiveType() non-deterministic. 
-                // We need to change the FLOAT precision, because by default calcite uses the precision for FLOAT and DOUBLE.
+                // We need to change the FLOAT precision, because by default calcite uses the same precision for FLOAT and DOUBLE.
                 // Assigning FLOAT a precision that is less than DOUBLE's works because:
                 // - LeastRestrictiveType between REAL and FLOAT is FLOAT - OK, but both types are the same type.
                 // - LeastRestrictiveType between FLOAT and DOUBLE is DOUBLE - OK, since FLOAT is an alias for REAL, and DOUBLE
