@@ -1,7 +1,7 @@
 # name: test/sql/aggregate/aggregates/test_agg_all.test
-# description: Test aggregations on strings
+# description:  Set functions. ALL quantifier
+# feature SQL E091-06 - Set functions. ALL quantifier
 # group: [aggregates]
-# feature: E091-06 Set functions. ALL quantifier
 
 query I
 SELECT sum(ALL s1) FROM (VALUES (1),(2),(3)) t1(s1)
