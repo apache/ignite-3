@@ -23,7 +23,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(CMAKE_PROJECT_VERSION ${PROJECT_VERSION})
 
-option(USE_LOCAL_DEPS "Prefer locally installed dependencies over downloaded." OFF)
+option(PREFER_LOCAL_DEPS "Prefer locally installed dependencies over downloaded." OFF)
 option(ENABLE_CLIENT "Build Ignite.C++ Client module" ON)
 option(ENABLE_ODBC "Build Ignite ODBC driver module" OFF)
 option(ENABLE_TESTS "Build Ignite.C++ tests" OFF)
