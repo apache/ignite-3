@@ -25,7 +25,6 @@ import static org.apache.ignite.internal.replicator.ReplicatorConstants.DEFAULT_
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.thread.ThreadOperation.TX_STATE_STORAGE_ACCESS;
-import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.isCompletedSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
@@ -67,8 +66,6 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessageHandler;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
-import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
-import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessageGroup;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverReplicaMessage;
@@ -661,8 +658,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         localNodeId = clusterNetSvc.topologyService().localMember().id();
 
-        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, this::onPrimaryReplicaExpired);
-
         return nullCompletedFuture();
     }
 
@@ -825,12 +820,19 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         return replicaFuture != null && isCompletedSuccessfully(replicaFuture);
     }
 
-    private CompletableFuture<Boolean> onPrimaryReplicaExpired(PrimaryReplicaEventParameters parameters) {
-        if (localNodeId.equals(parameters.leaseholderId())) {
-            replicaLifecycle.weakReplicaStop(parameters.groupId(), WeakReplicaStopReason.PRIMARY_EXPIRED, () -> null);
-        }
+    public CompletableFuture<Void> weakReplicaStart(
+            ReplicationGroupId replicationGroupId,
+            Supplier<CompletableFuture<Void>> startOperation
+    ) {
+        return replicaLifecycle.weakReplicaStart(replicationGroupId, startOperation);
+    }
 
-        return falseCompletedFuture();
+    public CompletableFuture<Void> weakReplicaStop(
+            ReplicationGroupId replicationGroupId,
+            WeakReplicaStopReason weakReplicaStopReason,
+            Supplier<CompletableFuture<Void>> stopOperation
+    ) {
+        return replicaLifecycle.weakReplicaStop(replicationGroupId, weakReplicaStopReason, stopOperation);
     }
 
     /**
@@ -878,31 +880,35 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
          * @param groupId Group id.
          * @param startOperation Replica start operation.
          */
-        void weakReplicaStart(ReplicationGroupId groupId, Supplier<CompletableFuture<Void>> startOperation) {
+        CompletableFuture<Void> weakReplicaStart(ReplicationGroupId groupId, Supplier<CompletableFuture<Void>> startOperation) {
             ReplicaLifecycleContext context = getContext(groupId);
 
             synchronized (context) {
                 ReplicaState state = context.replicaState;
 
                 if (state == ReplicaState.STOPPED || state == ReplicaState.STOPPING) {
-                    startReplica(context, startOperation);
+                    return startReplica(context, startOperation);
                 } else if (state == ReplicaState.PRIMARY_ONLY) {
-                    context.replicaState = ReplicaState.IN_ASSIGNMENTS;
+                    context.replicaState = ReplicaState.ASSIGNED;
                 } // else no-op.
+
+                return nullCompletedFuture();
             }
         }
 
-        private void startReplica(ReplicaLifecycleContext context, Supplier<CompletableFuture<Void>> startOperation) {
+        private CompletableFuture<Void> startReplica(ReplicaLifecycleContext context, Supplier<CompletableFuture<Void>> startOperation) {
             context.replicaState = ReplicaState.STARTING;
             context.previousOperationFuture = context.previousOperationFuture
                     .handleAsync((v, e) -> startOperation.get(), replicaStartStopPool)
                     .thenCompose(future -> {
                         synchronized (context) {
-                            context.replicaState = ReplicaState.IN_ASSIGNMENTS;
+                            context.replicaState = ReplicaState.ASSIGNED;
                         }
 
                         return future;
                     });
+
+            return context.previousOperationFuture;
         }
 
         /**
@@ -915,11 +921,14 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
          * @param reason Reason to stop replica.
          * @param stopOperation Replica stop operation.
          */
-        void weakReplicaStop(ReplicationGroupId groupId, WeakReplicaStopReason reason, Supplier<CompletableFuture<Void>> stopOperation) {
-            weakReplicaStop(groupId, reason, null, stopOperation);
+        CompletableFuture<Void> weakReplicaStop(
+                ReplicationGroupId groupId,
+                WeakReplicaStopReason reason,
+                Supplier<CompletableFuture<Void>> stopOperation) {
+            return weakReplicaStop(groupId, reason, null, stopOperation);
         }
 
-        private void weakReplicaStop(
+        CompletableFuture<Void> weakReplicaStop(
                 ReplicationGroupId groupId,
                 WeakReplicaStopReason reason,
                 @Nullable Boolean isPrimaryLocal,
@@ -931,28 +940,30 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 ReplicaState state = context.replicaState;
 
                 if (reason == WeakReplicaStopReason.EXCLUDED_FROM_ASSIGNMENTS) {
-                    if (state == ReplicaState.IN_ASSIGNMENTS) {
+                    if (state == ReplicaState.ASSIGNED) {
                         if (isPrimaryLocal == null) {
-                            isPrimaryLocal(groupId).thenAccept(ipl -> weakReplicaStop(groupId, reason, ipl, stopOperation));
+                            return isPrimaryLocal(groupId).thenCompose(ipl -> weakReplicaStop(groupId, reason, ipl, stopOperation));
                         } else if (isPrimaryLocal) {
                             context.replicaState = ReplicaState.PRIMARY_ONLY;
                         } else {
-                            stopReplica(groupId, context, stopOperation);
+                            return stopReplica(groupId, context, stopOperation);
                         }
                     } else if (state == ReplicaState.STARTING) {
-                        stopReplica(groupId, context, stopOperation);
+                        return stopReplica(groupId, context, stopOperation);
                     } // else: no-op.
                 } else {
                     assert reason == WeakReplicaStopReason.PRIMARY_EXPIRED : "Unknown replica stop reason: " + reason;
 
                     if (state == ReplicaState.PRIMARY_ONLY) {
-                        stopReplica(groupId, context, stopOperation);
+                        return stopReplica(groupId, context, stopOperation);
                     } // else: no-op.
                 }
+
+                return nullCompletedFuture();
             }
         }
 
-        private void stopReplica(
+        private CompletableFuture<Void> stopReplica(
                 ReplicationGroupId groupId,
                 ReplicaLifecycleContext context,
                 Supplier<CompletableFuture<Void>> stopOperation
@@ -968,6 +979,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
                         return future;
                     });
+
+            return context.previousOperationFuture;
         }
 
         private CompletableFuture<Boolean> isPrimaryLocal(ReplicationGroupId groupId) {
@@ -997,7 +1010,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
          * Local node, where the replica is located, is included into the union of stable and pending assignments. The replica can
          * be either primary or non-primary.
          */
-        IN_ASSIGNMENTS,
+        ASSIGNED,
 
         /**
          * Local node is excluded from the union of stable and pending assignments but the replica is a primary replica and hence
@@ -1018,7 +1031,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     /**
      * Reasons to stop a replica.
      */
-    private enum WeakReplicaStopReason {
+    public enum WeakReplicaStopReason {
         /** If the local node is excluded from the union of stable and pending assignments. */
         EXCLUDED_FROM_ASSIGNMENTS,
 

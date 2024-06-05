@@ -140,6 +140,8 @@ import org.apache.ignite.internal.metastorage.dsl.SimpleCondition;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
+import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.raft.ExecutorInclinedRaftCommandRunner;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Marshaller;
@@ -156,6 +158,7 @@ import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.raft.storage.impl.LogStorageFactoryCreator;
 import org.apache.ignite.internal.replicator.ReplicaManager;
+import org.apache.ignite.internal.replicator.ReplicaManager.WeakReplicaStopReason;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.SchemaManager;
@@ -633,8 +636,18 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             implicitTransactionTimeout = txCfg.implicitTransactionTimeout().value();
             attemptsObtainLock = txCfg.attemptsObtainLock().value();
 
+            executorInclinedPlacementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, this::onPrimaryReplicaExpired);
+
             return nullCompletedFuture();
         });
+    }
+
+    private CompletableFuture<Boolean> onPrimaryReplicaExpired(PrimaryReplicaEventParameters parameters) {
+        if (topologyService.localMember().id().equals(parameters.leaseholderId())) {
+            replicaMgr.weakReplicaStop(parameters.groupId(), WeakReplicaStopReason.PRIMARY_EXPIRED, () -> null);
+        }
+
+        return falseCompletedFuture();
     }
 
     private void processAssignmentsOnRecovery(long recoveryRevision) {
@@ -878,6 +891,26 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private CompletableFuture<Void> startPartitionAndStartClient(
+            TableImpl table,
+            int partId,
+            Assignments assignments,
+            @Nullable Assignments nonStableNodeAssignments,
+            int zoneId,
+            boolean isRecovery
+    ) {
+        TablePartitionId replicaGrpId = new TablePartitionId(table.tableId(), partId);
+
+        return replicaMgr.weakReplicaStart(replicaGrpId, () -> startPartitionAndStartClient0(
+                table,
+                partId,
+                assignments,
+                nonStableNodeAssignments,
+                zoneId,
+                isRecovery
+        ));
+    }
+
+    private CompletableFuture<Void> startPartitionAndStartClient0(
             TableImpl table,
             int partId,
             Assignments assignments,
@@ -2368,6 +2401,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @return Future that will be completed after all resources have been closed.
      */
     private CompletableFuture<Void> stopPartition(TablePartitionId tablePartitionId, TableImpl table) {
+        return replicaMgr.weakReplicaStop(tablePartitionId, WeakReplicaStopReason.EXCLUDED_FROM_ASSIGNMENTS, () -> stopPartition0(
+                tablePartitionId, table
+        ));
+    }
+
+    private CompletableFuture<Void> stopPartition0(TablePartitionId tablePartitionId, TableImpl table) {
         if (table != null) {
             closePartitionTrackers(table.internalTable(), tablePartitionId.partitionId());
         }
