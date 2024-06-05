@@ -11,32 +11,25 @@ set(MSGPACK_BUILD_TESTS OFF)
 set(MSGPACK_GEN_COVERAGE OFF)
 set(MSGPACK_BUILD_EXAMPLES OFF)
 
-set(DOWNLOAD_MSGPACK TRUE)
-set(DOWNLOAD_GTEST TRUE)
-
-if (${PREFER_LOCAL_DEPS})
-    find_package(msgpack QUIET)
+if (${USE_LOCAL_DEPS})
+    find_package(msgpack REQUIRED)
     if (${msgpack_FOUND})
         # ALIAS for the msgpack-c version lower than 6.0.0
         add_library(msgpack-c-static ALIAS msgpackc-static)
         message(STATUS "SYSTEM MSGPACK FOUND: " ${msgpack_VERSION})
-        set(DOWNLOAD_MSGPACK FALSE)
     endif()
 
     if (${ENABLE_TESTS})
-        find_package(GTest QUIET)
+        find_package(GTest REQUIRED)
         if (${GTest_FOUND})
             if (TARGET GTest::Main AND NOT TARGET GTest::gtest_main)
                 add_library(GTest::gtest_main ALIAS GTest::Main)
             endif()
             message(STATUS "SYSTEM GTEST FOUND: " ${GTest_VERSION})
-            set(DOWNLOAD_GTEST FALSE)
         endif()
     endif()
-endif()
-
-include(FetchContent)
-if (${DOWNLOAD_MSGPACK})
+else()
+    include(FetchContent)
     message(STATUS "DOWNLOAD MSGPACK")
     FetchContent_Declare(
             msgpack-c
@@ -44,10 +37,8 @@ if (${DOWNLOAD_MSGPACK})
             URL_HASH MD5=090df53a59b845767fcfc48221b30ee9
     )
     FetchContent_MakeAvailable(msgpack-c)
-endif()
 
-if (${ENABLE_TESTS})
-    if (${DOWNLOAD_GTEST})
+    if (${ENABLE_TESTS})
         message(STATUS "DOWNLOAD GTEST")
         FetchContent_Declare(
                 googletest
