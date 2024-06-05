@@ -456,7 +456,7 @@ public class MutableRowTupleAdapterTest {
                 .set("valNumberCol", BigInteger.valueOf(rnd.nextLong()))
                 .set("valDecimalCol", BigDecimal.valueOf(rnd.nextLong(), 5));
 
-        Tuple tuple = Tuple.create(valTuple).set(keyTuple.columnName(0), keyTuple.value(0));
+        Tuple tuple = Tuple.copy(valTuple).set(keyTuple.columnName(0), keyTuple.value(0));
 
         // Check tuples backed with Row.
         TupleMarshaller marshaller = new TupleMarshallerImpl(fullSchema);
