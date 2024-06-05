@@ -60,3 +60,11 @@ NULL
 
 statement error: Subquery returned more than 1 value.
 SELECT (SELECT * FROM (values (1), (2), (3)) s(x) INTERSECT DISTINCT SELECT * FROM (values (1), (2)) s(x))
+
+query I
+SELECT * FROM (values (null)) s(x) INTERSECT DISTINCT SELECT * FROM (values (2),(2),(3),(3),(4)) s(x)
+----
+
+query I
+SELECT * FROM (values (1)) s(x) INTERSECT DISTINCT SELECT * FROM (values (2),(null),(3),(3),(4)) s(x)
+----
