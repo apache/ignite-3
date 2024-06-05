@@ -344,7 +344,6 @@ public class CatalogZoneTest extends BaseCatalogManagerTest {
 
         CatalogCommand alterCmd = AlterZoneCommand.builder()
                 .zoneName(zoneName)
-                .partitions(10)
                 .replicas(2)
                 .dataNodesAutoAdjustScaleUp(3)
                 .dataNodesAutoAdjustScaleDown(4)
@@ -361,7 +360,7 @@ public class CatalogZoneTest extends BaseCatalogManagerTest {
         assertSame(zone, manager.zone(zone.id(), clock.nowLong()));
 
         assertEquals(zoneName, zone.name());
-        assertEquals(10, zone.partitions());
+        assertEquals(42, zone.partitions());
         assertEquals(2, zone.replicas());
         assertEquals(INFINITE_TIMER_VALUE, zone.dataNodesAutoAdjust());
         assertEquals(3, zone.dataNodesAutoAdjustScaleUp());

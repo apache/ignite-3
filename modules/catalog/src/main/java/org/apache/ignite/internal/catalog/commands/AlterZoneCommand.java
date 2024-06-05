@@ -18,10 +18,10 @@
 package org.apache.ignite.internal.catalog.commands;
 
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateField;
+import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validatePartition;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateZoneDataNodesAutoAdjustParametersCompatibility;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateZoneFilter;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.MAX_PARTITION_COUNT;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParams;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.zoneOrThrow;
 
@@ -144,7 +144,7 @@ public class AlterZoneCommand extends AbstractZoneCommand {
     }
 
     private void validate() {
-        validateField(partitions, 1, MAX_PARTITION_COUNT, "Invalid number of partitions");
+        validatePartition(partitions);
         validateField(replicas, 1, null, "Invalid number of replicas");
         validateField(dataNodesAutoAdjust, 0, null, "Invalid data nodes auto adjust");
         validateField(dataNodesAutoAdjustScaleUp, 0, null, "Invalid data nodes auto adjust scale up");
