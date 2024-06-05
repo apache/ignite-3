@@ -59,12 +59,16 @@ public class MappingBenchmark {
     private ExecutionTarget someOfSmall;
     private ExecutionTarget part1Small;
     private ExecutionTarget part2Small;
+    private ExecutionTarget part1SmallMore;
+    private ExecutionTarget part2SmallMore;
     private ExecutionTarget allOfSmall;
 
     private ExecutionTarget oneOfBig;
     private ExecutionTarget someOfBig;
     private ExecutionTarget part1Big;
     private ExecutionTarget part2Big;
+    private ExecutionTarget part1BigMore;
+    private ExecutionTarget part2BigMore;
     private ExecutionTarget allOfBig;
 
     /** Prepare the plan of the query. */
@@ -74,6 +78,10 @@ public class MappingBenchmark {
         List<String> oneOfNodes = List.of("n1", "n3");
         List<NodeWithConsistencyToken> partNodes =
                 List.of(new NodeWithConsistencyToken("n3", 1));
+        List<NodeWithConsistencyToken> partNodesMore =
+                List.of(new NodeWithConsistencyToken("n3", 1),
+                        new NodeWithConsistencyToken("n4", 2),
+                        new NodeWithConsistencyToken("n5", 3));
 
         ExecutionTargetFactory targetFactorySmall = new SmallClusterFactory(nodes);
         ExecutionTargetFactory targetFactoryBig = new BigClusterFactory(nodes);
@@ -83,12 +91,16 @@ public class MappingBenchmark {
         allOfSmall = targetFactorySmall.allOf(List.of("n3"));
         part1Small = targetFactorySmall.partitioned(partNodes);
         part2Small = targetFactorySmall.partitioned(partNodes);
+        part1SmallMore = targetFactorySmall.partitioned(partNodesMore);
+        part2SmallMore = targetFactorySmall.partitioned(partNodesMore);
 
         oneOfBig = targetFactoryBig.oneOf(oneOfNodes);
         someOfBig = targetFactoryBig.someOf(nodes);
         allOfBig = targetFactoryBig.allOf(List.of("n3"));
         part1Big = targetFactoryBig.partitioned(partNodes);
         part2Big = targetFactoryBig.partitioned(partNodes);
+        part1BigMore = targetFactoryBig.partitioned(partNodesMore);
+        part2BigMore = targetFactoryBig.partitioned(partNodesMore);
     }
 
     /** Measure small cluster mapping implementation. */
@@ -104,6 +116,12 @@ public class MappingBenchmark {
         finalise(someOfSmall.colocateWith(allOfSmall), bh);
 
         finalise(part1Small.colocateWith(part2Small), bh);
+    }
+
+    /** Measure small cluster mapping partitioned only implementation. */
+    @Benchmark
+    public void benchSmallPartitionedOnly(Blackhole bh) throws ColocationMappingException {
+        finalise(part1SmallMore.colocateWith(part2SmallMore), bh);
     }
 
     private static void finalise(ExecutionTarget target, Blackhole bh) {
@@ -123,6 +141,12 @@ public class MappingBenchmark {
         bh.consume(someOfBig.colocateWith(allOfBig));
 
         bh.consume(part1Big.colocateWith(part2Big));
+    }
+
+    /** Measure huge cluster mapping partitioned only implementation. */
+    @Benchmark
+    public void benchBigPartitionedOnly(Blackhole bh) throws ColocationMappingException {
+        bh.consume(part1BigMore.colocateWith(part2BigMore));
     }
 
     /**
