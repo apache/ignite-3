@@ -110,8 +110,6 @@ public class ReplicaLifecycleManager implements IgniteComponent {
 
     private final Marshaller raftCommandsMarshaller;
 
-    public static final String ZONE_STABLE_ASSIGNMENTS_PREFIX = "zone.assignments.stable.";
-
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(ReplicaLifecycleManager.class);
 
@@ -132,10 +130,15 @@ public class ReplicaLifecycleManager implements IgniteComponent {
      * @param topologyService Topology service.
      * @param messageSerializationRegistry Message serialization registry.
      */
-    public ReplicaLifecycleManager(CatalogManager catalogMgr, RaftManager raftMgr, ReplicaManager replicaMgr,
-            TopologyAwareRaftGroupServiceFactory raftGroupServiceFactory, DistributionZoneManager distributionZoneMgr,
-            MetaStorageManager metaStorageMgr, TopologyService topologyService,
-            MessageSerializationRegistry messageSerializationRegistry) {
+    public ReplicaLifecycleManager(CatalogManager catalogMgr,
+            RaftManager raftMgr,
+            ReplicaManager replicaMgr,
+            TopologyAwareRaftGroupServiceFactory raftGroupServiceFactory,
+            DistributionZoneManager distributionZoneMgr,
+            MetaStorageManager metaStorageMgr,
+            TopologyService topologyService,
+            MessageSerializationRegistry messageSerializationRegistry
+    ) {
         this.catalogMgr = catalogMgr;
         this.raftMgr = raftMgr;
         this.replicaMgr = replicaMgr;
