@@ -107,7 +107,7 @@ task replaceZipScriptVarsCommon(type: Copy) {
 
 task replaceZipScriptVarsLin(type: Copy) {
     from "$rootDir/packaging/common/lin"
-    from "$rootDir/packaging/zip/lin"
+    from 'zip/linux'
 
     filter(ReplaceTokens, tokens: zipStartScriptTokensLin)
 
@@ -116,7 +116,7 @@ task replaceZipScriptVarsLin(type: Copy) {
 
 task replaceZipScriptVarsWin(type: Copy) {
     from "$rootDir/packaging/common/win"
-    from "$rootDir/packaging/zip/win"
+    from 'zip/windows'
 
     filter(ReplaceTokens, tokens: zipStartScriptTokensWin)
 
@@ -219,8 +219,8 @@ def packageTokens = tokens + tokensLin + [
 
 
 task replacePackageScriptVars(type: Copy) {
-    from "$rootDir/packaging/linux"
-    from "$rootDir/packaging/db/ignite.java.util.logging.properties"
+    from 'linux'
+    from 'ignite.java.util.logging.properties'
     from "$rootDir/packaging/common/lin"
     filter(ReplaceTokens, tokens: packageTokens)
     into "$buildDir/linux"
