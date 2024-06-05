@@ -32,7 +32,7 @@ set(SOURCES
 )
 
 add_library(${TARGET} OBJECT ${SOURCES})
-target_link_libraries(${TARGET} ignite-common msgpack-c)
+target_link_libraries(${TARGET} ignite-common msgpack-c-static)
 
 set_target_properties(${TARGET} PROPERTIES VERSION ${CMAKE_PROJECT_VERSION})
 set_target_properties(${TARGET} PROPERTIES POSITION_INDEPENDENT_CODE 1)
