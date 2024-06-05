@@ -35,11 +35,11 @@ public class ClusterStatusDecorator implements Decorator<ClusterStatus, Terminal
                 ? () -> ansi(
                         "[name: %s, nodes: %d, status: %s, cmgNodes: %s, msNodes: %s]",
                         data.getName(),
-                        data.getNodeCount(),
+                        data.nodeCount(),
                         fg(Color.GREEN).mark("active"),
                         data.getCmgNodes(),
                         data.getMsNodes()
                 )
-                : () -> ansi("[nodes: %d, status: %s]", data.getNodeCount(), fg(Color.RED).mark("not initialized"));
+                : () -> ansi("[nodes: %d, status: %s]", data.nodeCount(), fg(Color.RED).mark("not initialized"));
     }
 }
