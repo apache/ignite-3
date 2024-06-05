@@ -141,9 +141,9 @@ class CreateFromAnnotationsTest {
                         + " AFFINITY_FUNCTION='affinity',"
                         + " DATA_NODES_AUTO_ADJUST=1, DATA_NODES_AUTO_ADJUST_SCALE_UP=3, DATA_NODES_AUTO_ADJUST_SCALE_DOWN=2,"
                         + " DATA_NODES_FILTER='filter';"
-                        + "CREATE TABLE IF NOT EXISTS \"PUBLIC\".\"pojo_value_test\" (\"id\" int, \"id_str\" varchar(20), \"f_name\" varchar,"
-                        + " \"l_name\" varchar, \"str\" varchar, PRIMARY KEY (\"id\", \"id_str\")) COLOCATE BY (\"id\", \"id_str\")"
-                        + " WITH PRIMARY_ZONE='ZONE_TEST';"
+                        + "CREATE TABLE IF NOT EXISTS \"PUBLIC\".\"pojo_value_test\" (\"id\" int, \"id_str\" varchar(20), "
+                        + "\"f_name\" varchar, \"l_name\" varchar, \"str\" varchar, PRIMARY KEY (\"id\", \"id_str\")) "
+                        + "COLOCATE BY (\"id\", \"id_str\") WITH PRIMARY_ZONE='ZONE_TEST';"
                         + "CREATE INDEX IF NOT EXISTS \"ix_pojo\" ON \"PUBLIC\".\"pojo_value_test\" (\"f_name\", \"l_name\" desc);")
         );
     }
@@ -156,7 +156,8 @@ class CreateFromAnnotationsTest {
                         + " AFFINITY_FUNCTION='affinity',"
                         + " DATA_NODES_AUTO_ADJUST=1, DATA_NODES_AUTO_ADJUST_SCALE_UP=3, DATA_NODES_AUTO_ADJUST_SCALE_DOWN=2,"
                         + " DATA_NODES_FILTER='filter';"
-                        + "CREATE TABLE IF NOT EXISTS PUBLIC.pojo_test (id int, id_str varchar(20), f_name varchar(20) not null default 'a',"
+                        + "CREATE TABLE IF NOT EXISTS PUBLIC.pojo_test"
+                        + " (id int, id_str varchar(20), f_name varchar(20) not null default 'a',"
                         + " l_name varchar, str varchar, PRIMARY KEY (id, id_str))"
                         + " COLOCATE BY (id, id_str) WITH PRIMARY_ZONE='ZONE_TEST';"
                         + "CREATE INDEX IF NOT EXISTS ix_pojo ON PUBLIC.pojo_test (f_name, l_name desc);")
