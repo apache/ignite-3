@@ -156,6 +156,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
     private String localNodeId;
 
+    /* Temporary converter to support the zone based partitions in tests. **/
     private Function<ReplicationGroupId, ReplicationGroupId> groupIdConverter = Function.identity();
 
     /**
