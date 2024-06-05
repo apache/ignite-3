@@ -869,7 +869,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
             JdbcMetaTablesResult res
                     = conn.handler().tablesMetaAsync(new JdbcMetaTablesRequest(schemaPtrn, tblNamePtrn, tblTypes)).get();
 
-            if (!res.hasResults()) {
+            if (!res.success()) {
                 throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
             }
 
@@ -912,7 +912,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
         try {
             JdbcMetaSchemasResult res = conn.handler().schemasMetaAsync(new JdbcMetaSchemasRequest(schemaPtrn)).get();
 
-            if (!res.hasResults()) {
+            if (!res.success()) {
                 throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
             }
 
@@ -994,7 +994,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
             JdbcMetaColumnsResult res = conn.handler().columnsMetaAsync(new JdbcMetaColumnsRequest(schemaPtrn, tblNamePtrn, colNamePtrn))
                     .get();
 
-            if (!res.hasResults()) {
+            if (!res.success()) {
                 throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
             }
 
@@ -1096,7 +1096,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
         try {
             JdbcMetaPrimaryKeysResult res = conn.handler().primaryKeysMetaAsync(new JdbcMetaPrimaryKeysRequest(schema, tbl)).get();
 
-            if (!res.hasResults()) {
+            if (!res.success()) {
                 throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
             }
 

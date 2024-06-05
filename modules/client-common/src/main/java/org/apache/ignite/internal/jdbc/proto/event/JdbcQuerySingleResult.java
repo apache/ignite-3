@@ -25,41 +25,45 @@ import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.sql.ColumnType;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * JDBC query execute result.
  */
 public class JdbcQuerySingleResult extends Response {
-    /** Cursor ID. */
-    private Long cursorId;
+    // === Common attributes ===
+
+    /** Id of the cursor in case it was registered on server. */
+    private @Nullable Long cursorId;
+
+    private boolean hasResultSet;
+
+    /** Result is part of multi-statement query, there is at least one more result. */
+    private boolean hasNextResult;
+
+    // === Attributes of response with result set ===
 
     /** Serialized query result rows. */
-    private List<BinaryTupleReader> rowTuples;
+    private @Nullable List<BinaryTupleReader> rowTuples;
 
-    /** Flag indicating the query has no unfetched results. */
-    private boolean last;
-
-    /** Flag indicating the query is SELECT/EXPLAIN query. {@code false} for DML/DDL/TX queries. */
-    private boolean isQuery;
-
-    /** Update count. */
-    private long updateCnt;
+    /** Flag indicating the query has un-fetched results. */
+    private boolean hasMoreData;
 
     /** Ordered list of types of columns in serialized rows. */
-    private List<ColumnType> columnTypes;
+    private @Nullable List<ColumnType> columnTypes;
 
     /** Decimal scales in appearance order. Can be empty in case no any decimal columns. */
-    private int[] decimalScales;
+    private int @Nullable [] decimalScales;
 
-    /** {@code true} if results are available, {@code false} otherwise. */
-    private boolean resultsAvailable;
+    // === Attributes of response without result set ===
+
+    private long updateCnt = -1;
+
 
     /**
      * Constructor.
      */
-    public JdbcQuerySingleResult() {
-        resultsAvailable = false;
-    }
+    public JdbcQuerySingleResult() { }
 
     /**
      * Constructor.
@@ -69,23 +73,27 @@ public class JdbcQuerySingleResult extends Response {
      */
     public JdbcQuerySingleResult(int status, String err) {
         super(status, err);
-
-        resultsAvailable = false;
     }
 
     /**
      * Constructor.
      *
-     * @param cursorId Cursor ID.
+     * @param cursorId Id of the cursor in case it was registered on server.
      * @param rowTuples Serialized SQL result rows.
      * @param columnTypes Ordered list of types of columns in serialized rows.
      * @param decimalScales Decimal scales in appearance order.
-     * @param last     Flag indicates the query has no unfetched results.
+     * @param hasMoreData Flag indicates the query has un-fetched results.
+     * @param hasNextResult Flag indicates that current result is part of multi-statement query, there is at least one more result.
      */
-    public JdbcQuerySingleResult(long cursorId, List<BinaryTupleReader> rowTuples, List<ColumnType> columnTypes, int[] decimalScales,
-            boolean last) {
-        super();
-
+    @SuppressWarnings("NullableProblems")
+    public JdbcQuerySingleResult(
+            @Nullable Long cursorId,
+            List<BinaryTupleReader> rowTuples,
+            List<ColumnType> columnTypes,
+            int[] decimalScales,
+            boolean hasMoreData,
+            boolean hasNextResult
+    ) {
         Objects.requireNonNull(rowTuples);
 
         this.cursorId = cursorId;
@@ -93,11 +101,10 @@ public class JdbcQuerySingleResult extends Response {
         this.columnTypes = columnTypes;
         this.decimalScales = decimalScales;
 
-        this.last = last;
-        this.isQuery = true;
+        this.hasMoreData = hasMoreData;
+        this.hasNextResult = hasNextResult;
 
-        hasResults = true;
-        resultsAvailable = true;
+        hasResultSet = true;
 
         assert decimalScales != null;
     }
@@ -105,16 +112,14 @@ public class JdbcQuerySingleResult extends Response {
     /**
      * Constructor.
      *
+     * @param cursorId Id of the cursor in case it was registered on server.
      * @param updateCnt Update count for DML queries.
+     * @param hasNextResult Flag indicates that current result is part of multi-statement query, there is at least one more result.
      */
-    public JdbcQuerySingleResult(long cursorId, long updateCnt) {
-        super();
-
+    public JdbcQuerySingleResult(@Nullable Long cursorId, long updateCnt, boolean hasNextResult) {
         this.updateCnt = updateCnt;
         this.cursorId = cursorId;
-
-        hasResults = false;
-        resultsAvailable = true;
+        this.hasNextResult = hasNextResult;
     }
 
     /**
@@ -122,7 +127,7 @@ public class JdbcQuerySingleResult extends Response {
      *
      * @return Cursor ID.
      */
-    public Long cursorId() {
+    public @Nullable Long cursorId() {
         return cursorId;
     }
 
@@ -131,7 +136,7 @@ public class JdbcQuerySingleResult extends Response {
      *
      * @return Serialized query result rows.
      */
-    public List<BinaryTupleReader> items() {
+    public @Nullable List<BinaryTupleReader> items() {
         return rowTuples;
     }
 
@@ -140,7 +145,7 @@ public class JdbcQuerySingleResult extends Response {
      *
      * @return Ordered list of types of columns in serialized rows.
      */
-    public List<ColumnType> columnTypes() {
+    public @Nullable List<ColumnType> columnTypes() {
         return columnTypes;
     }
 
@@ -149,33 +154,24 @@ public class JdbcQuerySingleResult extends Response {
      *
      * @return Decimal scales in appearance order in columns. Can be empty in case no any decimal columns.
      */
-    public int[] decimalScales() {
+    public int @Nullable [] decimalScales() {
         return decimalScales;
     }
 
-    /**
-     * Get the last flag.
-     *
-     * @return Flag indicating the query has no unfetched results.
-     */
-    public boolean last() {
-        return last;
+    /** Returns {@code true} if there is more data available in current result set. */
+    @SuppressWarnings("BooleanMethodIsAlwaysInverted")
+    public boolean hasMoreData() {
+        return hasMoreData;
     }
 
-    /**
-     * Get the isQuery flag.
-     *
-     * @return Flag indicating the query is SELECT query. {@code false} for DML/DDL queries.
-     */
-    public boolean isQuery() {
-        return isQuery;
+    /** Returns {@code true} if result contains rows. */
+    public boolean hasResultSet() {
+        return hasResultSet;
     }
 
-    /** Results availability flag.
-     * If no more results available, returns {@code false}
-     */
-    public boolean resultAvailable() {
-        return resultsAvailable;
+    /** Returns {@code true} if result is part of multi-statement query and there is at least one more result. */
+    public boolean hasNextResult() {
+        return hasNextResult;
     }
 
     /**
@@ -192,29 +188,30 @@ public class JdbcQuerySingleResult extends Response {
     public void writeBinary(ClientMessagePacker packer) {
         super.writeBinary(packer);
 
-        packer.packBoolean(resultsAvailable);
-        if (resultsAvailable) {
-            packer.packLong(updateCnt);
-
-            if (cursorId != null) {
-                packer.packLong(cursorId);
-            } else {
-                packer.packNil();
-            }
-        }
-
-        if (!hasResults) {
+        if (!success()) {
             return;
         }
 
-        packer.packBoolean(isQuery);
-        packer.packBoolean(last);
+        packer.packLongNullable(cursorId);
+        packer.packBoolean(hasResultSet);
+        packer.packBoolean(hasNextResult);
 
+        if (!hasResultSet) {
+            packer.packLong(updateCnt);
+
+            return;
+        }
+
+        assert decimalScales != null;
+        assert columnTypes != null;
+        assert rowTuples != null;
+
+        packer.packBoolean(hasMoreData);
         packer.packIntArray(decimalScales);
 
         packer.packInt(this.columnTypes.size());
-        for (int i = 0; i < this.columnTypes.size(); i++) {
-            packer.packInt(this.columnTypes.get(i).id());
+        for (ColumnType columnType : this.columnTypes) {
+            packer.packInt(columnType.id());
         }
 
         packer.packInt(rowTuples.size());
@@ -228,24 +225,27 @@ public class JdbcQuerySingleResult extends Response {
     @Override
     public void readBinary(ClientMessageUnpacker unpacker) {
         super.readBinary(unpacker);
-        resultsAvailable = unpacker.unpackBoolean();
-        if (resultsAvailable) {
-            updateCnt = unpacker.unpackLong();
 
-            if (unpacker.tryUnpackNil()) {
-                cursorId = null;
-            } else {
-                cursorId = unpacker.unpackLong();
-            }
-        }
-
-        if (!hasResults) {
+        if (!success()) {
             return;
         }
 
-        isQuery = unpacker.unpackBoolean();
-        last = unpacker.unpackBoolean();
+        if (unpacker.tryUnpackNil()) {
+            cursorId = null;
+        } else {
+            cursorId = unpacker.unpackLong();
+        }
 
+        hasResultSet = unpacker.unpackBoolean();
+        hasNextResult = unpacker.unpackBoolean();
+
+        if (!hasResultSet) {
+            updateCnt = unpacker.unpackLong();
+
+            return;
+        }
+
+        hasMoreData = unpacker.unpackBoolean();
         decimalScales = unpacker.unpackIntArray();
 
         int count = unpacker.unpackInt();
