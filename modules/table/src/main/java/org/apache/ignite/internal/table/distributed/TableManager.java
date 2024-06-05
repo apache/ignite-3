@@ -1042,8 +1042,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         return new PartitionMover(busyLock, () -> {
             CompletableFuture<Replica> replicaFut = replicaMgr.replica(replicaGrpId);
             if (replicaFut == null) {
-                throw new IgniteInternalException("No such replica for partition " + replicaGrpId.partitionId()
-                        + " in table " + replicaGrpId.tableId());
+                return failedFuture(new IgniteInternalException("No such replica for partition " + replicaGrpId.partitionId()
+                        + " in table " + replicaGrpId.tableId()));
             }
             return replicaFut.thenApply(Replica::raftClient);
         });

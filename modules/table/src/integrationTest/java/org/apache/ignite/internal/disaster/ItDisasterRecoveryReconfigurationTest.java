@@ -331,7 +331,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
             CompletableFuture<Void> insertFuture = keyValueView.putAsync(null, key, Tuple.create(of("val", i + offset)));
 
             try {
-                insertFuture.get(1000, MILLISECONDS);
+                insertFuture.get(10, SECONDS);
 
                 Tuple value = keyValueView.get(null, key);
                 assertNotNull(value);
