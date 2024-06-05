@@ -163,19 +163,16 @@ public class ReplicaService {
                     var errResp = (ErrorReplicaResponse) response;
 
                     if (errResp.throwable() instanceof ReplicaUnavailableException) {
-                        boolean[] flag = new boolean[1];
+                        CompletableFuture<NetworkMessage> requestFuture = new CompletableFuture<>();
 
                         CompletableFuture<NetworkMessage> awaitReplicaFut = pendingInvokes.computeIfAbsent(
                                 targetNodeConsistentId,
-                                consistentId -> {
-                                    flag[0] = true;
-
-                                    return new CompletableFuture<>();
-                                }
+                                consistentId -> requestFuture
                         );
 
-                        // we use flag here instead of sending network message in the computeIfAbsent lambda to avoid deadlocks
-                        if (flag[0]) {
+                        // Means we have put this future, so proceed with the call.
+                        // We use such approach here instead of sending network message in the computeIfAbsent lambda to avoid deadlocks.
+                        if (awaitReplicaFut == requestFuture) {
                             AwaitReplicaRequest awaitReplicaReq = REPLICA_MESSAGES_FACTORY.awaitReplicaRequest()
                                     .groupId(req.groupId())
                                     .build();
@@ -193,7 +190,7 @@ public class ReplicaService {
                             });
                         }
 
-                        // use handleAsync to avoid interaction in the network thread
+                        // Use handleAsync to avoid interaction in the network thread
                         awaitReplicaFut.handleAsync((response0, throwable0) -> {
                             pendingInvokes.remove(targetNodeConsistentId, awaitReplicaFut);
 
