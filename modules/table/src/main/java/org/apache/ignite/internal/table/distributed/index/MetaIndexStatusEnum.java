@@ -21,20 +21,43 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 
 /** Enumeration the index status stored in the {@link IndexMeta}. */
 public enum MetaIndexStatusEnum {
-    /** @see CatalogIndexStatus#REGISTERED */
+    /**
+     * Index has been created in the catalog.
+     *
+     * @see CatalogIndexStatus#REGISTERED
+     */
     REGISTERED,
 
-    /** @see CatalogIndexStatus#BUILDING */
+    /**
+     * Index was in the process of being built.
+     *
+     * @see CatalogIndexStatus#BUILDING
+     */
     BUILDING,
 
-    /** @see CatalogIndexStatus#AVAILABLE */
+    /**
+     * Index has been successfully built and is available for reading from it.
+     *
+     * @see CatalogIndexStatus#AVAILABLE
+     */
     AVAILABLE,
 
-    /** @see CatalogIndexStatus#STOPPING */
+    /**
+     * Available index has started preparing to be removed from the catalog.
+     *
+     * @see CatalogIndexStatus#STOPPING
+     */
     STOPPING,
 
     /**
-     * Index has been removed from the catalog, but has not yet been destroyed due to a low watermark.
+     * Index has been removed from the catalog, with {@link CatalogIndexStatus#REGISTERED}/{@link CatalogIndexStatus#BUILDING} statuses, but
+     * has not yet been destroyed due to a low watermark.
+     */
+    REMOVED,
+
+    /**
+     * Index has been removed from the catalog, with statuses {@link CatalogIndexStatus#AVAILABLE} (on table destruction) or
+     * {@link CatalogIndexStatus#STOPPING}, but has not yet been destroyed due to a low watermark.
      *
      * <p>Such an index cannot be used by RW transactions, only by RO transactions with the correct readTimestamp.</p>
      */
@@ -52,7 +75,21 @@ public enum MetaIndexStatusEnum {
             case STOPPING:
                 return STOPPING;
             default:
-                throw new AssertionError("Unknown catalog index status: " + catalogIndexStatus);
+                throw new AssertionError("Unknown status: " + catalogIndexStatus);
+        }
+    }
+
+    /** Returns the index status on an index removal event from a catalog, based on the status from the previous catalog version. */
+    static MetaIndexStatusEnum statusOnRemoveIndex(CatalogIndexStatus catalogIndexStatus) {
+        switch (catalogIndexStatus) {
+            case REGISTERED:
+            case BUILDING:
+                return REMOVED;
+            case AVAILABLE:
+            case STOPPING:
+                return READ_ONLY;
+            default:
+                throw new AssertionError("Unknown status: " + catalogIndexStatus);
         }
     }
 }

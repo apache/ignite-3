@@ -90,16 +90,6 @@ public class IndexMeta implements Serializable {
         return indexName;
     }
 
-    /** Returns the current status of the index. */
-    public MetaIndexStatusEnum status() {
-        return status;
-    }
-
-    /** Returns a map of index statuses with change info (for example catalog version) in which they appeared. */
-    public Map<MetaIndexStatusEnum, MetaIndexStatusChangeInfo> statuses() {
-        return statuses;
-    }
-
     /**
      * Changes the index name.
      *
@@ -108,6 +98,11 @@ public class IndexMeta implements Serializable {
      */
     IndexMeta indexName(String newIndexName) {
         return new IndexMeta(indexId, tableId, newIndexName, status, new EnumMap<>(statuses));
+    }
+
+    /** Returns the current status of the index. */
+    public MetaIndexStatusEnum status() {
+        return status;
     }
 
     /**
@@ -126,6 +121,11 @@ public class IndexMeta implements Serializable {
         newStatuses.put(newStatus, new MetaIndexStatusChangeInfo(catalogVersion, activationTs));
 
         return new IndexMeta(indexId, tableId, indexName, newStatus, newStatuses);
+    }
+
+    /** Returns a map of index statuses with change info (for example catalog version) in which they appeared. */
+    public Map<MetaIndexStatusEnum, MetaIndexStatusChangeInfo> statuses() {
+        return statuses;
     }
 
     @Override

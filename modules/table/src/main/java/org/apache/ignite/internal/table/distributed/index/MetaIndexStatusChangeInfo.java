@@ -50,6 +50,27 @@ public class MetaIndexStatusChangeInfo implements Serializable {
     }
 
     @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        MetaIndexStatusChangeInfo that = (MetaIndexStatusChangeInfo) o;
+
+        return catalogVersion == that.catalogVersion && activationTs == that.activationTs;
+    }
+
+    @Override
+    public int hashCode() {
+        int result = catalogVersion;
+        result = 31 * result + (int) (activationTs ^ (activationTs >>> 32));
+        return result;
+    }
+
+    @Override
     public String toString() {
         return S.toString(this);
     }
