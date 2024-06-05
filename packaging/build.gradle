@@ -30,6 +30,8 @@ java {
 import org.apache.tools.ant.filters.ReplaceTokens
 import org.gradle.crypto.checksum.Checksum
 
+apply from: 'common/common.gradle'
+
 configurations {
     dbArtifacts
     cliArtifacts
@@ -69,7 +71,8 @@ def tokens = [
         APP_JAR             : "${project(':ignite-runner').name}-${project(':ignite-runner').version}.jar".toString(),
         MAIN_CLASS          : 'org.apache.ignite.internal.app.IgniteRunner',
         BOOTSTRAP_FILE_NAME : 'bootstrap-functions.sh',
-        SETUP_JAVA_FILE_NAME: 'setup-java.sh'
+        SETUP_JAVA_FILE_NAME: 'setup-java.sh',
+        ADD_OPENS           : project.addOpens
 ]
 
 task replaceVars(type: Copy) {
