@@ -17,6 +17,11 @@
 
 package org.apache.ignite.internal.tracing;
 
+import static java.lang.Double.compare;
+import static org.apache.ignite.internal.tracing.otel.DynamicRatioSampler.SAMPLING_RATE_NEVER;
+
+import java.util.ServiceLoader;
+import java.util.ServiceLoader.Provider;
 import org.apache.ignite.internal.tracing.configuration.TracingConfiguration;
 
 /**
@@ -30,12 +35,21 @@ public class GridTracingManager {
      * @param tracingConfiguration Tracing configuration.
      */
     public static void initialize(String name, TracingConfiguration tracingConfiguration) {
-        SpanManager spanManager = TracingManager.getSpanManager();
+        if (compare(tracingConfiguration.ratio().value(), SAMPLING_RATE_NEVER) != 0) {
+            SpanManager spanManager = ServiceLoader
+                    .load(SpanManager.class)
+                    .stream()
+                    .map(Provider::get)
+                    .findFirst()
+                    .orElse(NoopSpanManager.INSTANCE);
 
-        if (spanManager instanceof Tracing) {
-            Tracing tracing = (Tracing) spanManager;
+            if (spanManager instanceof Tracing) {
+                Tracing tracing = (Tracing) spanManager;
 
-            tracing.initialize(name, tracingConfiguration);
+                tracing.initialize(name, tracingConfiguration);
+            }
+
+            TracingManager.initialize(spanManager);
         }
     }
 }

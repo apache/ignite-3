@@ -33,7 +33,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public class TracingManager {
     /** Instance. */
-    private static final SpanManager SPAN_MANAGER = loadManager();
+    private static SpanManager SPAN_MANAGER = NoopSpanManager.INSTANCE;
 
     /**
      * Load tracing manager by {@link ServiceLoader} mechanism.
@@ -49,8 +49,8 @@ public class TracingManager {
                 .orElse(NoopSpanManager.INSTANCE);
     }
 
-    public static SpanManager getSpanManager() {
-        return SPAN_MANAGER;
+    public static void initialize(SpanManager spanManager) {
+        SPAN_MANAGER = spanManager;
     }
 
     /**
