@@ -50,7 +50,7 @@ public abstract class PartitionMeta {
     private volatile int pageCount;
 
     /**
-     * Protected Constructor. {@link #initSnapshot(UUID)} should be called after the instance is created.
+     * Protected Constructor. {@link #initSnapshot(UUID)} should be called right after the instance is created.
      *
      * @param pageCount Page count.
      */
@@ -58,6 +58,11 @@ public abstract class PartitionMeta {
         this.pageCount = pageCount;
     }
 
+    /**
+     * Initializes the snapshot of the partition meta. Should be called right after the instance is created.
+     *
+     * @param checkpointId Checkpoint ID.
+     */
     protected final void initSnapshot(@Nullable UUID checkpointId) {
         assert metaSnapshot == null : "Snapshot is already initialized";
 

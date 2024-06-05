@@ -82,6 +82,12 @@ public class StoragePartitionMeta extends PartitionMeta {
         this.gcQueueMetaPageId = gcQueueMetaPageId;
     }
 
+    /**
+     * Initializes the storage partition meta. Should be called right after the instance is created.
+     *
+     * @param checkpointId Checkpoint ID.
+     * @return This instance.
+     */
     StoragePartitionMeta init(@Nullable UUID checkpointId) {
         initSnapshot(checkpointId);
 

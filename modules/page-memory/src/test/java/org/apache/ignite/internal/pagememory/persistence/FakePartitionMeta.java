@@ -37,6 +37,12 @@ public class FakePartitionMeta extends PartitionMeta {
         super(0);
     }
 
+    /**
+     * Initializes the partition meta. Should be called right after the instance is created.
+     *
+     * @param checkpointId Checkpoint ID.
+     * @return This instance.
+     */
     public FakePartitionMeta init(@Nullable UUID checkpointId) {
         initSnapshot(checkpointId);
 
