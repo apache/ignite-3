@@ -66,6 +66,8 @@ import org.apache.calcite.rex.RexCorrelVariable;
 import org.apache.calcite.rex.RexDynamicParam;
 import org.apache.calcite.rex.RexFieldAccess;
 import org.apache.calcite.rex.RexInputRef;
+import org.apache.calcite.rex.RexLambda;
+import org.apache.calcite.rex.RexLambdaRef;
 import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexLocalRef;
 import org.apache.calcite.rex.RexNode;
@@ -1529,6 +1531,16 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
 
     @Override public Result visitPatternFieldRef(RexPatternFieldRef fieldRef) {
         return visitInputRef(fieldRef);
+    }
+
+    @Override
+    public Result visitLambda(RexLambda lambda) {
+        throw new RuntimeException("cannot translate expression " + lambda);
+    }
+
+    @Override
+    public Result visitLambdaRef(RexLambdaRef lambdaRef) {
+        throw new RuntimeException("cannot translate expression " + lambdaRef);
     }
 
     Expression checkNull(Expression expr) {
