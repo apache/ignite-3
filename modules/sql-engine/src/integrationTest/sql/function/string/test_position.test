@@ -1,58 +1,96 @@
 # name: test/sql/function/string/test_position.test
 # description: Just simple test to check support of POSITION function.
+# feature: SQL E021-11(POSITION function)
 # group: [string]
 
 query T
-select position('g' in 'Gridgain.com')
+SELECT POSITION('c' IN 'Concrete')
 ----
-5
+4
 
 query T
-select position('G' in 'Gridgain.com')
+SELECT POSITION('C' IN 'Concrete')
 ----
 1
 
 query T
-select position('Z' in 'Gridgain.com')
+SELECT POSITION('Z' IN 'Concrete')
 ----
 0
 
 query T
-select position('i' in 'Gridgain.com')
+SELECT POSITION('e' IN 'Concrete')
 ----
-3
+6
 
 query T
-select position('i' in null)
-----
-NULL
-
-query T
-select position(NULL in 'Gridgain.com')
+SELECT POSITION('e' IN null)
 ----
 NULL
 
 query T
-select position(NULL in null)
+SELECT POSITION(NULL IN 'Concrete')
 ----
 NULL
 
 query T
-select position('i' in 'Gridgain.com' FROM 5)
+select position(NULL IN null)
 ----
-7
+NULL
 
 query T
-select position('i' in 'Gridgain.com' FROM 8)
+SELECT POSITION('e' IN 'Concrete' FROM 7)
+----
+8
+
+query T
+SELECT POSITION('i' IN 'Concrete' FROM 8)
 ----
 0
 
 query T
-select position('i' in 'Gridgain.com' FROM 100)
+SELECT POSITION('e' IN 'Concrete' FROM 100)
 ----
 0
 
 query T
-select position('i' in null FROM 8)
+SELECT POSITION('e' IN null FROM 8)
 ----
 NULL
+
+query IIT
+SELECT i, p, c FROM 
+  (SELECT i, POSITION(c IN 'abc') as p, c FROM (VALUES (1, 'a'), (2, 'b'), (3, 'c'), (4, null), (5, 'x') ) t(i, c))
+  t (i, p, c) ORDER BY i
+----
+1	1	a
+2	2	b
+3	3	c
+4	NULL	NULL
+5	0	x
+
+
+#TODO https://issues.apache.org/jira/browse/IGNITE-22417
+#The Actual error i while resolving method 'position[class java.lang.String, class java.lang.Object, long]
+statement error: while resolving method 'position
+SELECT POSITION('i' IN null FROM 0::BIGINT)
+
+#TODO https://issues.apache.org/jira/browse/IGNITE-22417
+#The Actual error i while resolving method 'position[class java.lang.String, class java.lang.String, long]
+statement error: while resolving method 'position
+SELECT POSITION('a' IN 'abc' FROM p) FROM (VALUES (0::BIGINT), (1)) t(p)
+
+
+skipif ignite3
+#https://issues.apache.org/jira/browse/IGNITE-22418 parser does not expect USING clause
+query T
+SELECT POSITION('C' IN 'Concrete' USING CHARACTERS)
+----
+1
+
+skipif ignite3
+#https://issues.apache.org/jira/browse/IGNITE-22418 parser does not expect USING clause
+query T
+SELECT POSITION('C' IN 'Concrete' USING OCTETS)
+----
+1
