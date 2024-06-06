@@ -75,4 +75,4 @@ dependencies {
     integrationTestImplementation project(':ignite-affinity')
 }
 
-description = 'ignite-replica-lifecycle'
+description = 'ignite-partition-replica'

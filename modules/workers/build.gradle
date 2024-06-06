@@ -45,7 +45,7 @@ dependencies {
     integrationTestImplementation project(':ignite-network')
     integrationTestImplementation project(':ignite-table')
     integrationTestImplementation project(':ignite-raft')
-    integrationTestImplementation project(':ignite-replica-lifecycle')
+    integrationTestImplementation project(':ignite-partition-replica')
     integrationTestImplementation testFixtures(project(':ignite-runner'))
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation libs.netty.transport

@@ -39,7 +39,7 @@ dependencies {
     implementation project(':ignite-replicator')
     implementation project(':ignite-cluster-management')
     implementation project(':ignite-low-watermark')
-    implementation project(':ignite-replica-lifecycle')
+    implementation project(':ignite-partition-replica')
     implementation libs.jetbrains.annotations
 
     testImplementation(testFixtures(project(':ignite-configuration')))
@@ -72,7 +72,7 @@ dependencies {
     integrationTestImplementation project(':ignite-storage-page-memory')
     integrationTestImplementation project(':ignite-storage-rocksdb')
     integrationTestImplementation project(':ignite-page-memory')
-    integrationTestImplementation project(':ignite-replica-lifecycle')
+    integrationTestImplementation project(':ignite-partition-replica')
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-runner'))
     integrationTestImplementation testFixtures(project(':ignite-sql-engine'))
