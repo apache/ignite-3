@@ -372,7 +372,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
         streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
 
         for (long i = 0; i < count; i++) {
-            assertEquals("recv_arg", view.get(null, tupleKey(i)).stringValue("name"));
+            assertEquals("recv_arg_" + i, view.get(null, tupleKey(i)).stringValue("name"));
         }
     }
 
@@ -441,7 +441,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
         streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
 
         for (long i = 0; i < count; i++) {
-            assertEquals("recv_arg", view.get(null, new PersonPojo(i)).name);
+            assertEquals("recv_arg_" + i, view.get(null, new PersonPojo(i)).name);
         }
     }
 
@@ -470,7 +470,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
         streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
 
         for (long i = 0; i < count; i++) {
-            assertEquals("recv_arg", view.get(null, tupleKey(i)).stringValue(0));
+            assertEquals("recv_arg_" + i, view.get(null, tupleKey(i)).stringValue(0));
         }
     }
 
@@ -499,7 +499,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
         streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
 
         for (long i = 0; i < count; i++) {
-            assertEquals("recv_arg", view.get(null, i).name);
+            assertEquals("recv_arg_" + i, view.get(null, i).name);
         }
     }
 
