@@ -542,12 +542,15 @@ public class DataStreamerTest extends AbstractClientTableTest {
         public CompletableFuture<List<String>> receive(List<Long> page, DataStreamerReceiverContext ctx, Object... args) {
             // noinspection resource
             RecordView<Tuple> view = ctx.ignite().tables().table(DEFAULT_TABLE).recordView();
+            List<String> res = new ArrayList<>(page.size());
 
             for (Long id : page) {
-                view.upsert(null, tuple(id, "recv_" + args[0]));
+                String name = "recv_" + args[0];
+                view.upsert(null, tuple(id, name));
+                res.add(name);
             }
 
-            return CompletableFuture.completedFuture(null);
+            return CompletableFuture.completedFuture(res);
         }
     }
 
