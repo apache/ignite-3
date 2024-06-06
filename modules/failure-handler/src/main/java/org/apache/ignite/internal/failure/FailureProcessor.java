@@ -29,11 +29,11 @@ import org.apache.ignite.internal.failure.handlers.FailureHandler;
 import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
 import org.apache.ignite.internal.failure.handlers.StopNodeFailureHandler;
 import org.apache.ignite.internal.failure.handlers.StopNodeOrHaltFailureHandler;
-import org.apache.ignite.internal.failure.handlers.configuration.FailureHandlerConfiguration;
+import org.apache.ignite.internal.failure.handlers.configuration.FailureHandlerView;
 import org.apache.ignite.internal.failure.handlers.configuration.NoOpFailureHandlerConfigurationSchema;
 import org.apache.ignite.internal.failure.handlers.configuration.StopNodeFailureHandlerConfigurationSchema;
-import org.apache.ignite.internal.failure.handlers.configuration.StopNodeOrHaltFailureHandlerConfiguration;
 import org.apache.ignite.internal.failure.handlers.configuration.StopNodeOrHaltFailureHandlerConfigurationSchema;
+import org.apache.ignite.internal.failure.handlers.configuration.StopNodeOrHaltFailureHandlerView;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -170,32 +170,28 @@ public class FailureProcessor implements IgniteComponent {
 
         AbstractFailureHandler hnd;
 
-        FailureHandlerConfiguration handlerConfiguration = configuration.failureHandler();
+        FailureHandlerView handlerView = configuration.failureHandler().value();
 
-        switch (handlerConfiguration.failureHandlerType().value()) {
+        switch (handlerView.failureHandlerType()) {
             case NoOpFailureHandlerConfigurationSchema.TYPE:
                 hnd = new NoOpFailureHandler();
                 break;
+
             case StopNodeFailureHandlerConfigurationSchema.TYPE:
                 hnd = new StopNodeFailureHandler();
                 break;
+
             case StopNodeOrHaltFailureHandlerConfigurationSchema.TYPE:
-                StopNodeOrHaltFailureHandlerConfiguration stopNodeOrHaltConfiguration =
-                        (StopNodeOrHaltFailureHandlerConfiguration) handlerConfiguration;
-
-                boolean tryToStop = stopNodeOrHaltConfiguration.tryStop().value();
-                long timeoutToStop = stopNodeOrHaltConfiguration.timeout().value();
-
-                hnd = new StopNodeOrHaltFailureHandler(tryToStop, timeoutToStop);
-
+                hnd = new StopNodeOrHaltFailureHandler((StopNodeOrHaltFailureHandlerView) handlerView);
                 break;
+
             default:
                 throw new IgniteException(
                         COMPONENT_NOT_STARTED_ERR,
-                        "Unknown failure handler type: " + handlerConfiguration.failureHandlerType());
+                        "Unknown failure handler type: " + handlerView.failureHandlerType());
         }
 
-        String[] ignoredFailureTypes = handlerConfiguration.ignoredFailureTypes().value();
+        String[] ignoredFailureTypes = handlerView.ignoredFailureTypes();
 
         Set<FailureType> ignoredFailureTypesSet = EnumSet.noneOf(FailureType.class);
         for (String ignoredFailureType : ignoredFailureTypes) {
