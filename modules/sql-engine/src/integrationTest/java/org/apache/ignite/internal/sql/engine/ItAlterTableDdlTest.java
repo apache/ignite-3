@@ -183,7 +183,7 @@ public class ItAlterTableDdlTest extends BaseSqlIntegrationTest {
                 .check();
     }
 
-
+    // TODO https://issues.apache.org/jira/browse/IGNITE-19162 Fix test to ensure time/timestamp columns created with desired precision.
     @Test
     public void addColumnWithConstantDefault() {
         sql("CREATE TABLE test(id BIGINT DEFAULT 1 PRIMARY KEY)");
