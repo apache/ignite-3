@@ -22,7 +22,9 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_ALTER;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.DISTRIBUTION_ZONE_DATA_NODES_VALUE_PREFIX;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.filterDataNodes;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.findNonEmptyTablesByZoneId;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.findTablesByZoneId;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.getZoneFromCatalog;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.parseDataNodes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceRaftGroupEventsListener.doStableKeySwitch;
@@ -257,7 +259,7 @@ public class DistributionZoneRebalanceEngine {
 
                     int counter = ((Set<Integer>) fromBytes(event.entryEvent().newEntry().value())).size();
 
-                    assert counter >= 0 : "Tables counter for rabalances cannot be negative.";
+                    assert counter >= 0 : "Tables counter for rebalances cannot be negative.";
 
                     if (counter > 0) {
                         return nullCompletedFuture();
@@ -266,7 +268,9 @@ public class DistributionZoneRebalanceEngine {
                     int zoneId = RebalanceUtil.extractZoneIdFromTablesCounter(event.entryEvent().newEntry().key());
 
                     // TODO: https://issues.apache.org/jira/browse/IGNITE-21254 tables here must be the same as they were on rebalance start
-                    List<CatalogTableDescriptor> tables = findTablesByZoneId(zoneId, catalogService.latestCatalogVersion(), catalogService);
+                    List<CatalogTableDescriptor> tables = findNonEmptyTablesByZoneId(zoneId, catalogService);
+
+                    assert !tables.isEmpty() : "Empty tables from the zone = " + zoneId;
 
                     rebalanceScheduler.schedule(() -> {
                         if (!busyLock.enterBusy()) {
@@ -303,7 +307,7 @@ public class DistributionZoneRebalanceEngine {
 
                         } catch (Exception e) {
                             LOG.error(
-                                    "Failed to update stable keys for tables [{}]",
+                                    "Failed to update stable keys for tables [{}]", e,
                                     tables.stream().map(CatalogObjectDescriptor::name).collect(Collectors.toSet())
                             );
                         } finally {
@@ -336,15 +340,15 @@ public class DistributionZoneRebalanceEngine {
             CatalogService catalogService,
             DistributionZoneManager distributionZoneManager
     ) {
-        int catalogVersion = catalogService.latestCatalogVersion();
+        VersionedTableZoneDescriptor zoneFromCatalog = getZoneFromCatalog(tablePartitionId.tableId(), catalogService);
 
-        CatalogTableDescriptor tableDescriptor = catalogService.table(tablePartitionId.tableId(), catalogVersion);
+        CatalogTableDescriptor tableDescriptor = zoneFromCatalog.tableDescriptor();
 
-        CatalogZoneDescriptor zoneDescriptor = catalogService.zone(tableDescriptor.zoneId(), catalogVersion);
+        CatalogZoneDescriptor zoneDescriptor = zoneFromCatalog.zoneDescriptor();
 
         return distributionZoneManager.dataNodes(
                 zoneDescriptor.updateToken(),
-                catalogVersion,
+                zoneFromCatalog.catalogVersion(),
                 tableDescriptor.zoneId()
         ).thenApply(dataNodes ->
                 AffinityUtils.calculateAssignmentForPartition(

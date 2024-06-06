@@ -52,6 +52,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager.ZoneState;
+import org.apache.ignite.internal.distributionzones.rebalance.VersionedTableZoneDescriptor;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.dsl.CompoundCondition;
@@ -596,6 +597,65 @@ public class DistributionZonesUtil {
         return catalogService.tables(catalogVersion).stream()
                 .filter(table -> table.zoneId() == zoneId)
                 .collect(toList());
+    }
+
+    /**
+     * Returns list of table descriptors bound to the zone.
+     *
+     * <p>Looks for the descriptors in the catalog starting from the latest catalog version.
+     * If not found in the latest version, tries again in the previous one until finds or we reach the earliest available version.
+     *
+     * @param zoneId Zone id.
+     * @param catalogService Catalog service
+     * @return List of table descriptors from the zone.
+     */
+    public static List<CatalogTableDescriptor> findNonEmptyTablesByZoneId(int zoneId, CatalogService catalogService) {
+        int latestCatalogVersion = catalogService.latestCatalogVersion();
+
+        for (int catalogVersion = latestCatalogVersion, minVersion = catalogService.earliestCatalogVersion();
+                catalogVersion >= minVersion;
+                catalogVersion--
+        ) {
+            List<CatalogTableDescriptor> tablesByZoneId = findTablesByZoneId(zoneId, catalogVersion, catalogService);
+
+            if (!tablesByZoneId.isEmpty()) {
+                return tablesByZoneId;
+            }
+        }
+
+        throw new AssertionError("Failed to find tables for zone " + zoneId + ", latestCatalogVersion " + latestCatalogVersion);
+    }
+
+    /**
+     * Looks for a table and zone in the catalog starting from the latest catalog version.
+     *
+     * <p>If the table or zone is not found in the latest version, tries again in the previous one until finds or we reach the earliest
+     * available version.
+     *
+     * @param tableId Table id.
+     * @param catalogService Catalog service.
+     * @return Table zone descriptor from the particular catalog version.
+     */
+    public static VersionedTableZoneDescriptor getZoneFromCatalog(int tableId, CatalogService catalogService) {
+        int latestCatalogVersion = catalogService.latestCatalogVersion();
+
+        for (int catalogVersion = latestCatalogVersion, minVersion = catalogService.earliestCatalogVersion();
+                catalogVersion >= minVersion;
+                catalogVersion--
+        ) {
+            CatalogTableDescriptor tableDescriptor = catalogService.table(tableId, catalogVersion);
+
+            CatalogZoneDescriptor zoneDescriptor = null;
+            if (tableDescriptor != null) {
+                zoneDescriptor = catalogService.zone(tableDescriptor.zoneId(), catalogVersion);
+            }
+
+            if (zoneDescriptor != null) {
+                return new VersionedTableZoneDescriptor(zoneDescriptor, tableDescriptor, catalogVersion);
+            }
+        }
+
+        throw new AssertionError("Failed to find zone id for table " + tableId + ", latestCatalogVersion " + latestCatalogVersion);
     }
 
     /** Key prefix for zone's scale up change trigger key. */

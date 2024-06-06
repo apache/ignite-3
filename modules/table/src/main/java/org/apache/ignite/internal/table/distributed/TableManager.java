@@ -31,6 +31,7 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.causality.IncrementalVersionedValue.dependingOn;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.findTablesByZoneId;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.getZoneFromCatalog;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.ASSIGNMENTS_SWITCH_REDUCE_PREFIX;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.PENDING_ASSIGNMENTS_PREFIX;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
@@ -117,6 +118,7 @@ import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.rebalance.PartitionMover;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceRaftGroupEventsListener;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
+import org.apache.ignite.internal.distributionzones.rebalance.VersionedTableZoneDescriptor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -1865,7 +1867,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             );
                         }
 
-                        int zoneId = getTableDescriptor(tbl.tableId(), catalogService.latestCatalogVersion()).zoneId();
+                        VersionedTableZoneDescriptor zoneFromCatalog = getZoneFromCatalog(tbl.tableId(), catalogService);
+
+                        int zoneId = zoneFromCatalog.tableDescriptor().zoneId();
 
                         return startPartitionAndStartClient(
                                 tbl,
@@ -1899,13 +1903,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private CompletableFuture<Void> setTablesPartitionCountersForRebalance(TablePartitionId replicaGrpId, long revision, boolean force) {
-        int catalogVersion = catalogService.latestCatalogVersion();
+        VersionedTableZoneDescriptor zoneIdFromCatalog = getZoneFromCatalog(replicaGrpId.tableId(), catalogService);
 
-        int tableId = replicaGrpId.tableId();
+        int catalogVersion = zoneIdFromCatalog.catalogVersion();
 
-        CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(getTableDescriptor(tableId, catalogVersion), catalogVersion);
-
-        int zoneId = zoneDescriptor.id();
+        int zoneId = zoneIdFromCatalog.zoneDescriptor().id();
 
         int partId = replicaGrpId.partitionId();
 
@@ -2068,14 +2070,16 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                     TablePartitionId replicaGrpId = new TablePartitionId(tableId, partitionId);
 
-                    // It is safe to get the latest version of the catalog as we are in the metastore thread.
-                    int catalogVersion = catalogService.latestCatalogVersion();
-
                     return tablesById(evt.revision())
                             .thenCompose(tables -> inBusyLockAsync(busyLock, () -> {
-                                CatalogTableDescriptor tableDescriptor = getTableDescriptor(tableId, catalogVersion);
 
-                                CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor, catalogVersion);
+                                VersionedTableZoneDescriptor zoneFromCatalog = getZoneFromCatalog(tableId, catalogService);
+
+                                CatalogTableDescriptor tableDescriptor = zoneFromCatalog.tableDescriptor();
+
+                                CatalogZoneDescriptor zoneDescriptor = zoneFromCatalog.zoneDescriptor();
+
+                                int catalogVersion = zoneFromCatalog.catalogVersion();
 
                                 long causalityToken = zoneDescriptor.updateToken();
 
@@ -2542,7 +2546,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                 assert stableAssignments != null : "tablePartitionId=" + tablePartitionId + ", revision=" + revision;
 
-                int zoneId = getTableDescriptor(tablePartitionId.tableId(), catalogService.latestCatalogVersion()).zoneId();
+                VersionedTableZoneDescriptor zoneFromCatalog = getZoneFromCatalog(tablePartitionId.tableId(), catalogService);
+
+                int zoneId = zoneFromCatalog.tableDescriptor().zoneId();
 
                 return startPartitionAndStartClient(
                         table,
