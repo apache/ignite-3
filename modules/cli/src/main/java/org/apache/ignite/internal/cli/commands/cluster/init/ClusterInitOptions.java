@@ -49,7 +49,7 @@ import picocli.CommandLine.Option;
 public class ClusterInitOptions {
     /**
      * List of names of the nodes (each represented by a separate command line argument) that will host the Meta Storage. If the
-     * "--cmg-nodes" parameter is omitted, the same nodes will also host the Cluster Management Group.
+     * "--cluster-management-group" parameter is omitted, the same nodes will also host the Cluster Management Group.
      */
     @Option(names = META_STORAGE_NODE_NAME_OPTION, required = true,
             description = META_STORAGE_NODE_NAME_OPTION_DESC, split = ",",
