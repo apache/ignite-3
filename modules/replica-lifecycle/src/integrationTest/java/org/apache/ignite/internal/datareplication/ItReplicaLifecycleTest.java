@@ -55,6 +55,8 @@ import java.util.function.Consumer;
 import java.util.function.LongFunction;
 import java.util.function.LongSupplier;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.affinity.AffinityUtils;
+import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.app.ThreadPoolsManager;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
@@ -78,7 +80,7 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.datareplication.network.PartitionReplicationMessageGroup;
-import org.apache.ignite.internal.datareplication.utils.ZoneBasedPlacementDriver;
+import org.apache.ignite.internal.datareplication.utils.TestPlacementDriver;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
 import org.apache.ignite.internal.failure.FailureProcessor;
@@ -173,7 +175,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
     private static final IgniteLogger LOG = Loggers.forClass(ItReplicaLifecycleTest.class);
 
-    private static final int NODE_COUNT = 1;
+    private static final int NODE_COUNT = 3;
 
     private static final int BASE_PORT = 20_000;
 
@@ -209,6 +211,8 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
 
     private List<Node> nodes;
 
+    private TestPlacementDriver placementDriver;
+
     private static String featureFlagOldValue = System.getProperty(FEATURE_FLAG_NAME);
 
     @BeforeAll
@@ -228,6 +232,8 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
     @BeforeEach
     void before(TestInfo testInfo) throws Exception {
         nodes = new ArrayList<>();
+
+        placementDriver = new TestPlacementDriver();
 
         List<NetworkAddress> nodeAddresses = new ArrayList<>();
 
@@ -273,13 +279,14 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
         nodes.forEach(Node::stop);
     }
 
-    private Node getNode(int nodeIndex) {
-        return nodes.get(nodeIndex);
-    }
-
     @Test
     public void testEmptyReplicaListener() throws NodeStoppingException {
-        Node node = getNode(0);
+        Assignment replicaAssignment = (Assignment) AffinityUtils.calculateAssignmentForPartition(
+                nodes.stream().map(n -> n.name).collect(Collectors.toList()), 0, 1).toArray()[0];
+
+        Node node = getNode(replicaAssignment.consistentId());
+
+        placementDriver.setPrimary(node.clusterService.topologyService().localMember());
 
         createZone(node, "test_zone", 1, 1);
         int zoneId = DistributionZonesTestUtil.getZoneId(node.catalogManager, "test_zone", node.hybridClock.nowLong());
@@ -295,6 +302,14 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
 
         // Actually we are testing not the fair put value, but the hardcoded one from temporary noop replica listener
         assertEquals(-1, keyValueView.get(null, 1L));
+    }
+
+    private Node getNode(int nodeIndex) {
+        return nodes.get(nodeIndex);
+    }
+
+    private Node getNode(String nodeName) {
+        return nodes.stream().filter(n -> n.name.equals(nodeName)).findFirst().get();
     }
 
     private static void createZone(Node node, String zoneName, int partitions, int replicas) {
@@ -508,8 +523,6 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     raftConfiguration.retryTimeout(),
                     completedFuture(() -> DEFAULT_MAX_CLOCK_SKEW_MS)
             );
-
-            var placementDriver = new ZoneBasedPlacementDriver(clusterService);
 
             threadPoolsManager = new ThreadPoolsManager(name);
 

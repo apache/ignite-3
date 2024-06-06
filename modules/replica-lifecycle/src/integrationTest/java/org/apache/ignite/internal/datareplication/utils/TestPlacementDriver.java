@@ -19,12 +19,10 @@ package org.apache.ignite.internal.datareplication.utils;
 
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
-import java.util.Comparator;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
@@ -35,24 +33,29 @@ import org.apache.ignite.network.ClusterNode;
 /**
  * Trivial placement driver for tests.
  */
-public class ZoneBasedPlacementDriver extends AbstractEventProducer<PrimaryReplicaEvent, PrimaryReplicaEventParameters>  implements
+public class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEvent, PrimaryReplicaEventParameters>  implements
         PlacementDriver {
 
-    private final ClusterService topologyService;
+    private ClusterNode primary;
 
-    public ZoneBasedPlacementDriver(ClusterService topologyService) {
-        this.topologyService = topologyService;
+    /**
+     * Set the primary replica.
+     *
+     * @param node Primary replica node.
+     */
+    public void setPrimary(ClusterNode node) {
+        primary = node;
     }
 
     @Override
     public CompletableFuture<ReplicaMeta> awaitPrimaryReplica(ReplicationGroupId groupId, HybridTimestamp timestamp, long timeout,
             TimeUnit unit) {
-        return getFirst();
+        return getPrimaryReplicaMeta();
     }
 
     @Override
     public CompletableFuture<ReplicaMeta> getPrimaryReplica(ReplicationGroupId replicationGroupId, HybridTimestamp timestamp) {
-        return getFirst();
+        return getPrimaryReplicaMeta();
     }
 
     @Override
@@ -60,22 +63,20 @@ public class ZoneBasedPlacementDriver extends AbstractEventProducer<PrimaryRepli
         return nullCompletedFuture();
     }
 
-    private CompletableFuture<ReplicaMeta> getFirst() {
-        ClusterNode node = topologyService.topologyService().allMembers().stream().min(Comparator.comparing(ClusterNode::id)).get();
-
-        if (node == null) {
-            throw new IllegalStateException("No members in topology");
+    private CompletableFuture<ReplicaMeta> getPrimaryReplicaMeta() {
+        if (primary == null) {
+            throw new IllegalStateException("Primary replica is not defined in test PlacementDriver");
         }
 
         return CompletableFuture.completedFuture(new ReplicaMeta() {
             @Override
             public String getLeaseholder() {
-                return node.name();
+                return primary.name();
             }
 
             @Override
             public String getLeaseholderId() {
-                return node.id();
+                return primary.id();
             }
 
             @Override
