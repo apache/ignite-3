@@ -70,8 +70,8 @@ public class SslTests : IgniteTestsBase
 
         Assert.IsNotNull(sslInfo);
         Assert.IsFalse(sslInfo!.IsMutuallyAuthenticated);
-        StringAssert.StartsWith("TLS_AES_", sslInfo.NegotiatedCipherSuiteName);
-        Assert.AreEqual(SslProtocols.Tls13, sslInfo.SslProtocol);
+        StringAssert.StartsWith("TLS_", sslInfo.NegotiatedCipherSuiteName);
+        CollectionAssert.Contains(new[] { SslProtocols.Tls13, SslProtocols.Tls12 }, sslInfo.SslProtocol);
         Assert.AreEqual("localhost", sslInfo.TargetHostName);
         Assert.IsNull(sslInfo.LocalCertificate);
         StringAssert.Contains(CertificateIssuer, sslInfo.RemoteCertificate!.Issuer);
@@ -101,7 +101,7 @@ public class SslTests : IgniteTestsBase
 
         Assert.IsNotNull(sslInfo);
         Assert.IsTrue(sslInfo!.IsMutuallyAuthenticated);
-        StringAssert.StartsWith("TLS_AES_", sslInfo.NegotiatedCipherSuiteName);
+        StringAssert.StartsWith("TLS_", sslInfo.NegotiatedCipherSuiteName);
         Assert.AreEqual("127.0.0.1", sslInfo.TargetHostName);
         StringAssert.Contains(CertificateIssuer, sslInfo.RemoteCertificate!.Issuer);
         StringAssert.Contains(CertificateIssuer, sslInfo.LocalCertificate!.Issuer);
@@ -180,6 +180,10 @@ public class SslTests : IgniteTestsBase
     [Test]
     public async Task TestCustomCipherSuite()
     {
+        var cipherSuite = OperatingSystem.IsMacOS()
+            ? TlsCipherSuite.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+            : TlsCipherSuite.TLS_AES_128_GCM_SHA256;
+
         var cfg = new IgniteClientConfiguration
         {
             Endpoints = { SslEndpoint },
@@ -188,10 +192,7 @@ public class SslTests : IgniteTestsBase
                 SslClientAuthenticationOptions = new SslClientAuthenticationOptions
                 {
                     RemoteCertificateValidationCallback = (_, _, _, _) => true,
-                    CipherSuitesPolicy = new CipherSuitesPolicy(new[]
-                    {
-                        TlsCipherSuite.TLS_AES_128_GCM_SHA256
-                    })
+                    CipherSuitesPolicy = new CipherSuitesPolicy(new[] { cipherSuite })
                 }
             }
         };
@@ -203,7 +204,7 @@ public class SslTests : IgniteTestsBase
 
         Assert.IsNotNull(sslInfo);
         Assert.IsFalse(sslInfo!.IsMutuallyAuthenticated);
-        Assert.AreEqual(TlsCipherSuite.TLS_AES_128_GCM_SHA256.ToString(), sslInfo.NegotiatedCipherSuiteName);
+        Assert.AreEqual(cipherSuite.ToString(), sslInfo.NegotiatedCipherSuiteName);
     }
 
     private class NullSslStreamFactory : ISslStreamFactory

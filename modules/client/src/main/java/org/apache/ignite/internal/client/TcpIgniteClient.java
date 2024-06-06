@@ -24,7 +24,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.catalog.IgniteCatalog;
-import org.apache.ignite.catalog.Options;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.compute.IgniteCompute;
@@ -45,7 +44,7 @@ import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.sql.IgniteSql;
-import org.apache.ignite.table.manager.IgniteTables;
+import org.apache.ignite.table.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -207,8 +206,8 @@ public class TcpIgniteClient implements IgniteClient {
     }
 
     @Override
-    public IgniteCatalog catalog(Options options) {
-        return new IgniteCatalogSqlImpl(sql(), options);
+    public IgniteCatalog catalog() {
+        return new IgniteCatalogSqlImpl(sql(), tables);
     }
 
     /** {@inheritDoc} */

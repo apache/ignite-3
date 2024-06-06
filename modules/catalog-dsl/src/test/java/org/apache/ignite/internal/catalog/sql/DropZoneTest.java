@@ -20,31 +20,21 @@ package org.apache.ignite.internal.catalog.sql;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
-import org.apache.ignite.catalog.Options;
 import org.junit.jupiter.api.Test;
 
 class DropZoneTest {
     @Test
     void testDropZone() {
-        String sql = dropZone().name("zone1").toSqlString();
+        Query query2 = dropZone().name("zone1");
+        String sql = query2.toString();
         assertThat(sql, is("DROP ZONE zone1;"));
 
-        sql = dropZone().ifExists().name("zone1").toSqlString();
+        Query query1 = dropZone().ifExists().name("zone1");
+        sql = query1.toString();
         assertThat(sql, is("DROP ZONE IF EXISTS zone1;"));
-
-        sql = dropZoneQuoted().ifExists().name("zone1").toSqlString();
-        assertThat(sql, is("DROP ZONE IF EXISTS \"zone1\";"));
     }
 
     private static DropZoneImpl dropZone() {
-        return dropZone(Options.DEFAULT);
-    }
-
-    private static DropZoneImpl dropZone(Options options) {
-        return new DropZoneImpl(null, options);
-    }
-
-    private static DropZoneImpl dropZoneQuoted() {
-        return dropZone(Options.builder().quoteIdentifiers().build());
+        return new DropZoneImpl(null);
     }
 }

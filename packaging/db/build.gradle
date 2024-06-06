@@ -61,29 +61,70 @@ def tokens = [
         PRODUCT_DISPLAY_NAME: 'Apache Ignite',
         APP_JAR             : "${project(':ignite-runner').name}-${project(':ignite-runner').version}.jar".toString(),
         MAIN_CLASS          : 'org.apache.ignite.internal.app.IgniteRunner',
+        ADD_OPENS           : project.addOpens.join(' ')
+]
+
+def tokensLin = tokens + [
         VARS_FILE_NAME      : 'vars.env',
         BOOTSTRAP_FILE_NAME : 'bootstrap-functions.sh',
         SETUP_JAVA_FILE_NAME: 'setup-java.sh'
 ]
 
-// ZIP packaging
-
-def zipStartScriptTokens = tokens + [
-        LOG_DIR             : '${IGNITE_HOME}/log',
-        APP_LOG_DIR         : 'log', // java logging does not support env variables, using relative path here
-        LIB_DIR             : '${IGNITE_HOME}/lib',
-        CONF_DIR            : '${IGNITE_HOME}/etc',
-        INSTALL_DIR         : '${IGNITE_HOME}'
+def tokensWin = tokens + [
+        VARS_FILE_NAME  : 'vars.bat',
+        BOOTSTRAP_FILE_NAME : 'bootstrap-functions.bat'
 ]
 
-task replaceZipScriptVars(type: Copy) {
-    from "$rootDir/packaging/common"
-    from "$rootDir/packaging/zip"
+// ZIP packaging
+
+def zipStartScriptTokensCommon = [
+        APP_LOG_DIR         : 'log', // java logging does not support env variables, using relative path here
+]
+
+def zipStartScriptTokensLin = tokensLin + [
+        LOG_DIR             : '${IGNITE_HOME}/log',
+        LIB_DIR             : '${IGNITE_HOME}/lib',
+        CONF_DIR            : '${IGNITE_HOME}/etc',
+        INSTALL_DIR         : '${IGNITE_HOME}',
+]
+
+def zipStartScriptTokensWin = tokensWin + [
+        LOG_DIR         : '%IGNITE_HOME%\\log',
+        LIB_DIR         : '%IGNITE_HOME%\\lib',
+        CONF_DIR        : '%IGNITE_HOME%\\etc',
+        INSTALL_DIR     : '%IGNITE_HOME%',
+]
+
+task replaceZipScriptVarsCommon(type: Copy) {
     from "$rootDir/packaging/db/ignite.java.util.logging.properties"
 
-    filter(ReplaceTokens, tokens: zipStartScriptTokens)
+    filter(ReplaceTokens, tokens: zipStartScriptTokensCommon)
 
     into "$buildDir/zip/"
+}
+
+task replaceZipScriptVarsLin(type: Copy) {
+    from "$rootDir/packaging/common/linux"
+    from 'zip/linux'
+
+    filter(ReplaceTokens, tokens: zipStartScriptTokensLin)
+
+    into "$buildDir/zip/"
+}
+
+task replaceZipScriptVarsWin(type: Copy) {
+    from "$rootDir/packaging/common/windows"
+    from 'zip/windows'
+
+    filter(ReplaceTokens, tokens: zipStartScriptTokensWin)
+
+    into "$buildDir/zip/"
+}
+
+tasks.register('replaceZipScriptVars') {
+    dependsOn replaceZipScriptVarsCommon
+    dependsOn replaceZipScriptVarsLin
+    dependsOn replaceZipScriptVarsWin
 }
 
 def copyConfig = tasks.register('copyConfig', Copy) {
@@ -118,18 +159,21 @@ distributions {
                 from "$rootDir/assembly/README.md"
             }
             into('etc') {
-                from "$buildDir/zip/${zipStartScriptTokens.VARS_FILE_NAME}"
+                from "$buildDir/zip/${zipStartScriptTokensLin.VARS_FILE_NAME}"
+                from "$buildDir/zip/${zipStartScriptTokensWin.VARS_FILE_NAME}"
                 from generateConfigDefaults
                 from "$buildDir/zip/ignite.java.util.logging.properties"
             }
             into('bin') {
                 fileMode 0755
                 from "$buildDir/zip/ignite3db"
+                from "$buildDir/zip/ignite3db.bat"
             }
             into('lib') {
                 from configurations.dbArtifacts
-                from "$buildDir/zip/${zipStartScriptTokens.BOOTSTRAP_FILE_NAME}"
-                from "$buildDir/zip/${zipStartScriptTokens.SETUP_JAVA_FILE_NAME}"
+                from "$buildDir/zip/${zipStartScriptTokensLin.BOOTSTRAP_FILE_NAME}"
+                from "$buildDir/zip/${zipStartScriptTokensLin.SETUP_JAVA_FILE_NAME}"
+                from "$buildDir/zip/${zipStartScriptTokensWin.BOOTSTRAP_FILE_NAME}"
             }
         }
     }
@@ -137,6 +181,7 @@ distributions {
 
 distZip.dependsOn replaceZipScriptVars
 distTar.dependsOn replaceZipScriptVars
+installDist.dependsOn replaceZipScriptVars
 
 task createChecksums(type: Checksum) {
     dependsOn distZip
@@ -157,7 +202,7 @@ tasks.register('signDbZip', Sign) {
 
 // RPM/DEB packaging
 
-def packageTokens = tokens + [
+def packageTokens = tokens + tokensLin + [
         USERNAME            : 'ignite3',
         GROUPNAME           : 'ignite3',
         INSTALL_DIR         : '/usr/share/ignite3db',
@@ -172,9 +217,9 @@ def packageTokens = tokens + [
 
 
 task replacePackageScriptVars(type: Copy) {
-    from "$rootDir/packaging/linux"
-    from "$rootDir/packaging/db/ignite.java.util.logging.properties"
-    from "$rootDir/packaging/common"
+    from 'linux'
+    from 'ignite.java.util.logging.properties'
+    from "$rootDir/packaging/common/linux"
     filter(ReplaceTokens, tokens: packageTokens)
     into "$buildDir/linux"
 }
@@ -226,8 +271,8 @@ ospackage {
 
         into('lib') {
             from configurations.dbArtifacts
-            from "$buildDir/linux/${zipStartScriptTokens.BOOTSTRAP_FILE_NAME}"
-            from "$buildDir/linux/${zipStartScriptTokens.SETUP_JAVA_FILE_NAME}"
+            from "$buildDir/linux/${tokensLin.BOOTSTRAP_FILE_NAME}"
+            from "$buildDir/linux/${tokensLin.SETUP_JAVA_FILE_NAME}"
         }
 
         into('etc') {
@@ -283,19 +328,11 @@ setupBuilder {
 
         jvm = '%JAVA_HOME%\\bin\\server\\jvm.dll'
 
-        javaVMArguments = ["--add-opens=java.base/java.lang=ALL-UNNAMED",
-                           "--add-opens=java.base/java.lang.invoke=ALL-UNNAMED",
-                           "--add-opens=java.base/java.lang.reflect=ALL-UNNAMED",
-                           "--add-opens=java.base/java.io=ALL-UNNAMED",
-                           "--add-opens=java.base/java.nio=ALL-UNNAMED",
-                           "--add-opens=java.base/java.math=ALL-UNNAMED",
-                           "--add-opens=java.base/java.util=ALL-UNNAMED",
-                           "--add-opens=java.base/jdk.internal.misc=ALL-UNNAMED",
-                           "--add-opens=java.base/jdk.internal.access=ALL-UNNAMED",
-                           "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED",
-                           "-Dio.netty.tryReflectionSetAccessible=true",
-                           "-Djava.util.logging.config.file=etc\\ignite.java.util.logging.properties",
-                           "-Dio.netty.tryReflectionSetAccessible=true"]
+        javaVMArguments = project.addOpens + [
+                "-Dio.netty.tryReflectionSetAccessible=true",
+                "-Djava.util.logging.config.file=etc\\ignite.java.util.logging.properties",
+                "-Dio.netty.tryReflectionSetAccessible=true"
+        ]
 
         startArguments = "--node-name node1 --work-dir work --config-path etc\\ignite-config.conf"
     }

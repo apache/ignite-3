@@ -21,7 +21,6 @@ import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.catalog.IgniteCatalog;
-import org.apache.ignite.catalog.Options;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.catalog.sql.IgniteCatalogSqlImpl;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -31,7 +30,7 @@ import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.sql.IgniteSql;
-import org.apache.ignite.table.manager.IgniteTables;
+import org.apache.ignite.table.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
 
 /**
@@ -107,8 +106,8 @@ public class FakeIgnite implements Ignite {
     }
 
     @Override
-    public IgniteCatalog catalog(Options options) {
-        return new IgniteCatalogSqlImpl(sql(), options);
+    public IgniteCatalog catalog() {
+        return new IgniteCatalogSqlImpl(sql(), tables);
     }
 
     /** {@inheritDoc} */

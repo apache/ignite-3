@@ -54,7 +54,6 @@ import java.util.function.Supplier;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.catalog.IgniteCatalog;
-import org.apache.ignite.catalog.Options;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientHandlerModule;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
@@ -157,6 +156,7 @@ import org.apache.ignite.internal.network.wrapper.JumpToExecutorByConsistentIdAf
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.PlacementDriverManager;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
@@ -207,6 +207,7 @@ import org.apache.ignite.internal.table.distributed.schema.CheckCatalogVersionOn
 import org.apache.ignite.internal.table.distributed.schema.CheckCatalogVersionOnAppendEntries;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncServiceImpl;
+import org.apache.ignite.internal.table.distributed.schema.ThreadLocalPartitionCommandsMarshaller;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
@@ -234,7 +235,7 @@ import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeMetadata;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.apache.ignite.sql.IgniteSql;
-import org.apache.ignite.table.manager.IgniteTables;
+import org.apache.ignite.table.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -631,6 +632,14 @@ public class IgniteImpl implements Ignite {
 
         LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier = partitionIdleSafeTimePropagationPeriodMsSupplier(replicationConfig);
 
+        ScheduledExecutorService rebalanceScheduler = new ScheduledThreadPoolExecutor(REBALANCE_SCHEDULER_POOL_SIZE,
+                NamedThreadFactory.create(name, "rebalance-scheduler", LOG));
+
+        // TODO: IGNITE-22222 this instantiation should be moved inside ReplicaManager's constructor
+        Marshaller raftMarshaller = new ThreadLocalPartitionCommandsMarshaller(clusterSvc.serializationRegistry());
+
+        volatileLogStorageFactoryCreator = new VolatileLogStorageFactoryCreator(name, workDir.resolve("volatile-log-spillout"));
+
         replicaMgr = new ReplicaManager(
                 name,
                 clusterSvc,
@@ -640,7 +649,11 @@ public class IgniteImpl implements Ignite {
                 placementDriverMgr.placementDriver(),
                 threadPoolsManager.partitionOperationsExecutor(),
                 partitionIdleSafeTimePropagationPeriodMsSupplier,
-                failureProcessor
+                failureProcessor,
+                raftMarshaller,
+                topologyAwareRaftGroupServiceFactory,
+                raftMgr,
+                volatileLogStorageFactoryCreator
         );
 
         metricManager.configure(clusterConfigRegistry.getConfiguration(MetricConfiguration.KEY));
@@ -671,8 +684,6 @@ public class IgniteImpl implements Ignite {
                 nodeConfigRegistry.getConfiguration(StorageConfiguration.KEY)
         );
 
-        volatileLogStorageFactoryCreator = new VolatileLogStorageFactoryCreator(name, workDir.resolve("volatile-log-spillout"));
-
         outgoingSnapshotsManager = new OutgoingSnapshotsManager(name, clusterSvc.messagingService());
 
         LongSupplier delayDurationMsSupplier = delayDurationMsSupplier(schemaSyncConfig);
@@ -697,9 +708,6 @@ public class IgniteImpl implements Ignite {
         SchemaSyncService schemaSyncService = new SchemaSyncServiceImpl(metaStorageMgr.clusterTime(), delayDurationMsSupplier);
 
         schemaManager = new SchemaManager(registry, catalogManager);
-
-        ScheduledExecutorService rebalanceScheduler = new ScheduledThreadPoolExecutor(REBALANCE_SCHEDULER_POOL_SIZE,
-                NamedThreadFactory.create(name, "rebalance-scheduler", LOG));
 
         distributionZoneManager = new DistributionZoneManager(
                 name,
@@ -772,7 +780,6 @@ public class IgniteImpl implements Ignite {
                 messagingServiceReturningToStorageOperationsPool,
                 clusterSvc.topologyService(),
                 clusterSvc.serializationRegistry(),
-                raftMgr,
                 replicaMgr,
                 lockMgr,
                 replicaSvc,
@@ -781,13 +788,12 @@ public class IgniteImpl implements Ignite {
                 storagePath,
                 metaStorageMgr,
                 schemaManager,
-                volatileLogStorageFactoryCreator,
                 threadPoolsManager.tableIoExecutor(),
                 threadPoolsManager.partitionOperationsExecutor(),
+                rebalanceScheduler,
                 clock,
                 clockService,
                 outgoingSnapshotsManager,
-                topologyAwareRaftGroupServiceFactory,
                 distributionZoneManager,
                 schemaSyncService,
                 catalogManager,
@@ -795,7 +801,6 @@ public class IgniteImpl implements Ignite {
                 placementDriverMgr.placementDriver(),
                 this::bareSql,
                 resourcesRegistry,
-                rebalanceScheduler,
                 lowWatermark,
                 transactionInflights
         );
@@ -1333,8 +1338,8 @@ public class IgniteImpl implements Ignite {
     }
 
     @Override
-    public IgniteCatalog catalog(Options options) {
-        return new IgniteCatalogSqlImpl(sql, options);
+    public IgniteCatalog catalog() {
+        return new IgniteCatalogSqlImpl(sql, distributedTblMgr);
     }
 
     /**

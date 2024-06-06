@@ -294,7 +294,16 @@ public partial class LinqTests
 
         Assert.Multiple(() =>
         {
-            Assert.AreEqual(expectedRes, res);
+            if (expectedRes is double expectedDoubleRes)
+            {
+                // Double-precision results can be a bit different depending on OS and hardware.
+                Assert.AreEqual(expectedDoubleRes, (double)(object)res!, 1e-15);
+            }
+            else
+            {
+                Assert.AreEqual(expectedRes, res);
+            }
+
             StringAssert.Contains(expectedQuery, sql);
         });
     }

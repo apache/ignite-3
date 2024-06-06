@@ -64,10 +64,10 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
     private static final String NODE_URL = "http://localhost:" + Cluster.BASE_HTTP_PORT;
 
     private static final String FIRST_ZONE = "first_ZONE";
+
     private static final String QUALIFIED_TABLE_NAME = "PUBLIC.first_ZONE_table";
 
     private static final Set<String> ZONES = Set.of(FIRST_ZONE, "second_ZONE", "third_ZONE");
-
 
     private static final Set<String> MIXED_CASE_ZONES = Set.of("mixed_first_zone", "MIXED_FIRST_ZONE", "mixed_second_zone",
             "MIXED_SECOND_ZONE");
