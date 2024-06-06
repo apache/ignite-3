@@ -21,6 +21,9 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Publisher;
+import java.util.concurrent.Flow.Subscription;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import org.apache.ignite.client.RetryLimitPolicy;
 import org.apache.ignite.compute.DeploymentUnit;
@@ -73,6 +76,8 @@ class ClientDataStreamer {
             List<DeploymentUnit> deploymentUnits,
             String receiverClassName,
             Object... receiverArgs) {
+        ResultSubscription subscription = resultSubscriber == null ? null : new ResultSubscription();
+
         StreamerBatchSender<V, Integer> batchSender = (partitionId, items, deleted) ->
                 tbl.getPartitionAssignment().thenCompose(
                         partitionAssignment -> tbl.channel().serviceAsync(
@@ -89,9 +94,17 @@ class ClientDataStreamer {
                                     StreamerReceiverSerializer.serialize(w, receiverClassName, receiverArgs, items);
                                 },
                                 in -> {
-                                    if (resultSubscriber != null) {
-                                        // TODO: IGNITE-22302 Add resultSubscriber support.
-                                        StreamerReceiverSerializer.deserializeResults(in.in());
+                                    if (resultSubscriber != null && !subscription.cancelled.get()) {
+                                        List<Object> results = StreamerReceiverSerializer.deserializeResults(in.in());
+
+                                        if(results != null) {
+                                            for (Object result : results) {
+                                                resultSubscriber.onNext((R) result);
+
+                                                // TODO: Backpressure control?
+                                                subscription.requested.decrementAndGet();
+                                            }
+                                        }
                                     }
 
                                     return null;
@@ -157,5 +170,20 @@ class ClientDataStreamer {
                 return options.autoFlushFrequency();
             }
         };
+    }
+
+    private static class ResultSubscription implements Subscription {
+        AtomicLong requested = new AtomicLong();
+        AtomicBoolean cancelled = new AtomicBoolean();
+
+        @Override
+        public void request(long n) {
+            requested.addAndGet(n);
+        }
+
+        @Override
+        public void cancel() {
+            cancelled.set(true);
+        }
     }
 }
