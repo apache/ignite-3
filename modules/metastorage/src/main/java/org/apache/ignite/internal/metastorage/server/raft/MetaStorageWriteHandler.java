@@ -18,13 +18,18 @@
 package org.apache.ignite.internal.metastorage.server.raft;
 
 import static java.util.Arrays.copyOfRange;
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.util.ByteUtils.byteToBoolean;
 
 import java.io.Serializable;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.LongSupplier;
+import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -61,6 +66,7 @@ import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
+import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
@@ -81,9 +87,20 @@ public class MetaStorageWriteHandler {
 
     private final Map<CommandId, IdempotentCommandCachedResult> idempotentCommandCache = new ConcurrentHashMap<>();
 
-    MetaStorageWriteHandler(KeyValueStorage storage, ClusterTimeImpl clusterTime) {
+    private final ConfigurationValue<Long> idempotentCacheTtl;
+
+    private final CompletableFuture<LongSupplier> maxClockSkewMillisFuture;
+
+    MetaStorageWriteHandler(
+            KeyValueStorage storage,
+            ClusterTimeImpl clusterTime,
+            ConfigurationValue<Long> idempotentCacheTtl,
+            CompletableFuture<LongSupplier> maxClockSkewMillisFuture
+    ) {
         this.storage = storage;
         this.clusterTime = clusterTime;
+        this.idempotentCacheTtl = idempotentCacheTtl;
+        this.maxClockSkewMillisFuture = maxClockSkewMillisFuture;
     }
 
     /**
@@ -95,7 +112,14 @@ public class MetaStorageWriteHandler {
         CommandClosure<WriteCommand> resultClosure;
 
         if (command instanceof IdempotentCommand) {
-            CommandId commandId = ((IdempotentCommand) command).id();
+            IdempotentCommand idempotentCommand = ((IdempotentCommand) command);
+            CommandId commandId = idempotentCommand.id();
+
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-19417 Remove.
+            if (idempotentCommand.safeTime().getPhysical() % 100 == 0) {
+                evictIdempotentCommandsCache(((IdempotentCommand) command).safeTime());
+            }
+
             IdempotentCommandCachedResult cachedResult = idempotentCommandCache.get(commandId);
 
             if (cachedResult != null) {
@@ -350,6 +374,39 @@ public class MetaStorageWriteHandler {
                 }
             }
         }
+    }
+
+    /**
+     * Removes obsolete entries from both volatile and persistent idempotent command cache.
+     *
+     * @param safeTime Trigger operation safe time. TODO: https://issues.apache.org/jira/browse/IGNITE-19417 Remove.
+     */
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-19417 Call on meta storage compaction.
+    void evictIdempotentCommandsCache(HybridTimestamp safeTime) {
+        HybridTimestamp cleanupTimestamp = clusterTime.now();
+        LOG.info("Idempotent command cache cleanup started [cleanupTimestamp={}].", cleanupTimestamp);
+
+        maxClockSkewMillisFuture.thenAccept(maxClockSkewMillis -> {
+            List<CommandId> commandIdsToRemove = idempotentCommandCache.entrySet().stream()
+                    .filter(entry -> entry.getValue().commandStartTime.getPhysical()
+                            <= cleanupTimestamp.getPhysical() - (idempotentCacheTtl.value() + maxClockSkewMillis.getAsLong()))
+                    .map(entry -> entry.getKey())
+                    .collect(toList());
+
+            if (!commandIdsToRemove.isEmpty()) {
+                List<byte[]> commandIdStorageKeys = commandIdsToRemove.stream()
+                        .map(commandId -> ArrayUtils.concat(new byte[]{}, ByteUtils.toBytes(commandId)))
+                        .collect(toList());
+
+                storage.removeAll(commandIdStorageKeys, safeTime);
+
+                commandIdsToRemove.forEach(idempotentCommandCache.keySet()::remove);
+            }
+
+            LOG.info("Idempotent command cache cleanup finished [cleanupTimestamp={}, cleanupCompletionTimestamp={},"
+                            + " removedEntriesCount={}, cacheSize={}].", cleanupTimestamp, clusterTime.now(), commandIdsToRemove.size(),
+                    idempotentCommandCache.size());
+        });
     }
 
     private static class IdempotentCommandCachedResult {

@@ -417,6 +417,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         InvokeInterceptor metaStorageInvokeInterceptor = metaStorageInvokeInterceptorByNode.get(idx);
 
+        CompletableFuture<LongSupplier> maxClockSkewFuture = new CompletableFuture<>();
+
         var metaStorageMgr = new MetaStorageManagerImpl(
                 clusterSvc,
                 cmgManager,
@@ -426,7 +428,9 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 hybridClock,
                 topologyAwareRaftGroupServiceFactory,
                 metricManager,
-                metaStorageConfiguration
+                metaStorageConfiguration,
+                raftConfiguration.retryTimeout(),
+                maxClockSkewFuture
         ) {
             @Override
             public CompletableFuture<Boolean> invoke(Condition condition, Collection<Operation> success, Collection<Operation> failure) {
@@ -464,11 +468,14 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         SchemaSynchronizationConfiguration schemaSyncConfiguration = clusterConfigRegistry.getConfiguration(
                 SchemaSynchronizationConfiguration.KEY
         );
+
         ClockService clockService = new ClockServiceImpl(
                 hybridClock,
                 clockWaiter,
                 () -> schemaSyncConfiguration.maxClockSkew().value()
         );
+
+        maxClockSkewFuture.complete(clockService::maxClockSkewMillis);
 
         var placementDriverManager = new PlacementDriverManager(
                 name,

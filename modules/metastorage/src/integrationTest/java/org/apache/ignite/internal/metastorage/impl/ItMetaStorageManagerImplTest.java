@@ -20,6 +20,7 @@ package org.apache.ignite.internal.metastorage.impl;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.hlc.TestClockService.TEST_MAX_CLOCK_SKEW_MILLIS;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.clusterService;
 import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.subscribeToList;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
@@ -99,10 +100,12 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
 
     private MetaStorageManagerImpl metaStorageManager;
 
+    @InjectConfiguration
+    private RaftConfiguration raftConfiguration;
+
     @BeforeEach
     void setUp(
             TestInfo testInfo,
-            @InjectConfiguration RaftConfiguration raftConfiguration,
             @InjectConfiguration("mock.idleSyncTimeInterval = 100") MetaStorageConfiguration metaStorageConfiguration
     ) {
         var addr = new NetworkAddress("localhost", 10_000);
@@ -143,7 +146,9 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
                 clock,
                 topologyAwareRaftGroupServiceFactory,
                 new NoOpMetricManager(),
-                metaStorageConfiguration
+                metaStorageConfiguration,
+                raftConfiguration.retryTimeout(),
+                completedFuture(() -> TEST_MAX_CLOCK_SKEW_MILLIS)
         );
 
         assertThat(
@@ -230,7 +235,9 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
                 storage,
                 new HybridClockImpl(),
                 mock(TopologyAwareRaftGroupServiceFactory.class),
-                new NoOpMetricManager()
+                new NoOpMetricManager(),
+                raftConfiguration.retryTimeout(),
+                completedFuture(() -> TEST_MAX_CLOCK_SKEW_MILLIS)
         );
 
         assertThat(metaStorageManager.stopAsync(new ComponentContext()), willCompleteSuccessfully());
