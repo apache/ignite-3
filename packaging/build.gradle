@@ -69,11 +69,12 @@ def tokens = [
         APP_JAR             : "${project(':ignite-runner').name}-${project(':ignite-runner').version}.jar".toString(),
         MAIN_CLASS          : 'org.apache.ignite.internal.app.IgniteRunner',
         BOOTSTRAP_FILE_NAME : 'bootstrap-functions.sh',
-        SETUP_JAVA_FILE_NAME: 'setup-java.sh'
+        SETUP_JAVA_FILE_NAME: 'setup-java.sh',
+        ADD_OPENS           : project.addOpens.join(' ')
 ]
 
 task replaceVars(type: Copy) {
-    from "$rootDir/packaging/common"
+    from "$rootDir/packaging/common/linux"
     from "$rootDir/packaging/docker/docker-entrypoint.sh"
     filter(ReplaceTokens, tokens: tokens)
     into "$buildDir/docker"

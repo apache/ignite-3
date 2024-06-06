@@ -18,11 +18,11 @@
 package org.apache.ignite.internal.replicator.listener;
 
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.replicator.ReplicaResult;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 
 /** Replica listener. */
-@FunctionalInterface
 public interface ReplicaListener {
     /**
      * Invokes a replica listener to process request.
@@ -32,6 +32,9 @@ public interface ReplicaListener {
      * @return Listener response.
      */
     CompletableFuture<ReplicaResult> invoke(ReplicaRequest request, String senderId);
+
+    /** Returns Raft-client. */
+    RaftCommandRunner raftClient();
 
     /** Callback on replica shutdown. */
     default void onShutdown() {
