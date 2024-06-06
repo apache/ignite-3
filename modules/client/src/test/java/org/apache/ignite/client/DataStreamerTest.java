@@ -27,16 +27,23 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Flow;
+import java.util.concurrent.Flow.Subscriber;
+import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.SubmissionPublisher;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import org.apache.ignite.client.IgniteClient.Builder;
 import org.apache.ignite.client.fakes.FakeIgnite;
@@ -367,6 +374,43 @@ public class DataStreamerTest extends AbstractClientTableTest {
         }
     }
 
+    @ParameterizedTest
+    @ValueSource(ints = {1, 2, 3})
+    public void testBasicStreamingWithReceiverAndSubscriberRecordBinaryView(int batchSize) {
+        RecordView<Tuple> view = defaultTable().recordView();
+        CompletableFuture<Void> streamerFut;
+        int count = 3;
+
+        var resultSubscriber = new TestSubscriber<String>();
+
+        try (var publisher = new SubmissionPublisher<Tuple>()) {
+            var options = DataStreamerOptions.builder().pageSize(batchSize).build();
+            streamerFut = view.streamData(
+                    publisher,
+                    options,
+                    t -> t,
+                    t -> t.longValue("id"),
+                    resultSubscriber,
+                    new ArrayList<>(),
+                    TestReceiver.class.getName(),
+                    "arg");
+
+            for (long i = 0; i < count; i++) {
+                publisher.submit(tuple(i));
+            }
+        }
+
+        streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
+
+        assertTrue(resultSubscriber.completed.get());
+        assertNull(resultSubscriber.error);
+        assertEquals(count, resultSubscriber.items.size());
+
+        for (long i = 0; i < count; i++) {
+            assertEquals("recv_arg", view.get(null, tupleKey(i)).stringValue("name"));
+        }
+    }
+
     @Test
     public void testBasicStreamingWithReceiverRecordPojoView() {
         RecordView<PersonPojo> view = defaultTable().recordView(PersonPojo.class);
@@ -519,6 +563,32 @@ public class DataStreamerTest extends AbstractClientTableTest {
             }
 
             return null;
+        }
+    }
+
+    private static class TestSubscriber<T> implements Subscriber<T> {
+        List<T> items = Collections.synchronizedList(new ArrayList<>());
+        AtomicReference<Throwable> error = new AtomicReference<>();
+        AtomicBoolean completed = new AtomicBoolean();
+
+        @Override
+        public void onSubscribe(Subscription subscription) {
+            subscription.request(Long.MAX_VALUE);
+        }
+
+        @Override
+        public void onNext(T item) {
+            items.add(item);
+        }
+
+        @Override
+        public void onError(Throwable throwable) {
+            error.set(throwable);
+        }
+
+        @Override
+        public void onComplete() {
+            completed.set(true);
         }
     }
 }
