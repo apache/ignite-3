@@ -73,6 +73,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.affinity.Assignments;
@@ -282,6 +283,14 @@ public class TableManagerTest extends IgniteAbstractTest {
         when(distributionZoneManager.dataNodes(anyLong(), anyInt(), anyInt())).thenReturn(emptySetCompletedFuture());
 
         when(replicaMgr.stopReplica(any())).thenReturn(trueCompletedFuture());
+        when(replicaMgr.weakReplicaStart(any(), any())).thenAnswer(inv -> {
+            Supplier<CompletableFuture<Void>> startOperation = inv.getArgument(1);
+            return startOperation.get();
+        });
+        when(replicaMgr.weakReplicaStop(any(), any(), any())).thenAnswer(inv -> {
+            Supplier<CompletableFuture<Void>> stopOperation = inv.getArgument(2);
+            return stopOperation.get();
+        });
 
         tblManagerFut = new CompletableFuture<>();
 
