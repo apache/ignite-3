@@ -395,7 +395,8 @@ public class DataStreamerTest extends AbstractClientTableTest {
                     resultSubscriber,
                     new ArrayList<>(),
                     TestReceiver.class.getName(),
-                    "arg");
+                    "arg",
+                    "returnResults");
 
             for (long i = 0; i < count; i++) {
                 publisher.submit(tuple(i));
@@ -555,7 +556,8 @@ public class DataStreamerTest extends AbstractClientTableTest {
                 res.add(name);
             }
 
-            return CompletableFuture.completedFuture(res);
+            boolean returnResults = args.length > 1 && "returnResults".equals(args[1]);
+            return CompletableFuture.completedFuture(returnResults ? res : null);
         }
     }
 
