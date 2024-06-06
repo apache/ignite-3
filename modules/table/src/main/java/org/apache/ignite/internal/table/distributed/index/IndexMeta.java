@@ -25,6 +25,7 @@ import java.util.Map;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
+import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 
 /**
@@ -44,6 +45,7 @@ public class IndexMeta implements Serializable {
 
     private final MetaIndexStatusEnum status;
 
+    @IgniteToStringInclude
     private final Map<MetaIndexStatusEnum, MetaIndexStatusChangeInfo> statuses;
 
     /** Constructor. */

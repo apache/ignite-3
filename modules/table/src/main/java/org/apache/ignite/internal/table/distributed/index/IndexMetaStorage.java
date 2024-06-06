@@ -33,7 +33,9 @@ import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.StringUtils.incrementLastChar;
 
+import java.util.Collection;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -61,6 +63,7 @@ import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * {@link IndexMeta Index meta} storage, and is also responsible for their life cycle.
@@ -123,6 +126,12 @@ public class IndexMetaStorage implements IgniteComponent {
         return indexMetaByIndexId.get(indexId);
     }
 
+    /** Returns a snapshot of all {@link IndexMeta}. */
+    @TestOnly
+    Collection<IndexMeta> snapshotIndexMetas() {
+        return List.copyOf(indexMetaByIndexId.values());
+    }
+
     private void onIndexCreate(CreateIndexEventParameters parameters) {
         CatalogIndexDescriptor catalogIndexDescriptor = parameters.indexDescriptor();
 
@@ -142,8 +151,6 @@ public class IndexMetaStorage implements IgniteComponent {
 
         Catalog catalog = catalog(catalogVersion);
 
-        CatalogIndexDescriptor catalogIndexDescriptor = catalogIndexDescriptor(indexId, catalogVersion - 1);
-
         lowWatermark.getLowWatermarkSafe(lwm -> {
             int lwmCatalogVersion = catalogService.activeCatalogVersion(hybridTimestampToLong(lwm));
 
@@ -158,7 +165,7 @@ public class IndexMetaStorage implements IgniteComponent {
                 updateAndSaveToVaultIndexMeta(indexId, indexMeta -> {
                     assert indexMeta != null : indexId;
 
-                    return setNewStatus(indexMeta, statusOnRemoveIndex(catalogIndexDescriptor.status()), catalog);
+                    return setNewStatus(indexMeta, statusOnRemoveIndex(indexMeta.status()), catalog);
                 });
             }
         });
@@ -264,11 +271,11 @@ public class IndexMetaStorage implements IgniteComponent {
         for (IndexMeta indexMeta : fromVault.values()) {
             int indexId = indexMeta.indexId();
 
-            if (!fromCatalogLatest.containsKey(indexId)) {
+            if (indexMetaByIndexId.containsKey(indexId)) {
                 continue;
             }
 
-            if (indexMeta.status() == READ_ONLY) {
+            if (indexMeta.status() == READ_ONLY || indexMeta.status() == REMOVED) {
                 if (isShouldToRemove(indexMeta, lwmCatalogVersion)) {
                     // We did not have time to process the lwm change event.
                     removeFromVault(indexMeta);
@@ -281,7 +288,10 @@ public class IndexMetaStorage implements IgniteComponent {
                     // There is no need to add a read-only indexes, since the index should be destroyed under the updated low watermark.
                     removeFromVault(indexMeta);
                 } else {
-                    updateAndSaveToVaultIndexMeta(indexId, meta -> setNewStatus(indexMeta, READ_ONLY, catalog));
+                    updateAndSaveToVaultIndexMeta(
+                            indexId,
+                            meta -> setNewStatus(indexMeta, statusOnRemoveIndex(indexMeta.status()), catalog)
+                    );
                 }
             }
         }

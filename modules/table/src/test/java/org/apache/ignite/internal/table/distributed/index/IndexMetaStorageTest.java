@@ -18,16 +18,12 @@
 package org.apache.ignite.internal.table.distributed.index;
 
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.table.TableTestUtils.INDEX_NAME;
 import static org.apache.ignite.internal.table.TableTestUtils.PK_INDEX_NAME;
 import static org.apache.ignite.internal.table.TableTestUtils.TABLE_NAME;
 import static org.apache.ignite.internal.table.TableTestUtils.createSimpleHashIndex;
-import static org.apache.ignite.internal.table.TableTestUtils.createSimpleTable;
 import static org.apache.ignite.internal.table.TableTestUtils.dropSimpleIndex;
 import static org.apache.ignite.internal.table.TableTestUtils.dropSimpleTable;
-import static org.apache.ignite.internal.table.TableTestUtils.getIndexIdStrict;
-import static org.apache.ignite.internal.table.TableTestUtils.getTableIdStrict;
 import static org.apache.ignite.internal.table.TableTestUtils.makeIndexAvailable;
 import static org.apache.ignite.internal.table.TableTestUtils.removeIndex;
 import static org.apache.ignite.internal.table.TableTestUtils.renameSimpleTable;
@@ -38,64 +34,28 @@ import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus
 import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatusEnum.REGISTERED;
 import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatusEnum.REMOVED;
 import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatusEnum.STOPPING;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
-import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.util.Map;
-import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.hlc.HybridClock;
-import org.apache.ignite.internal.hlc.HybridClockImpl;
-import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
-import org.apache.ignite.internal.manager.ComponentContext;
-import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
-import org.jetbrains.annotations.Nullable;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
+import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
+import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /** For {@link IndexMetaStorage} testing. */
-public class IndexMetaStorageTest {
-    private final HybridClock clock = new HybridClockImpl();
-
-    private final CatalogManager catalogManager = createTestCatalogManager("test", clock);
-
-    private final TestLowWatermark lowWatermark = new TestLowWatermark();
-
-    private final VaultManager vaultManager = new VaultManager(new InMemoryVaultService());
-
-    private final IndexMetaStorage indexMetaStorage = new IndexMetaStorage(catalogManager, lowWatermark, vaultManager);
-
-    @BeforeEach
-    void setUp() {
-        var componentContext = new ComponentContext();
-
-        assertThat(startAsync(componentContext, vaultManager, catalogManager, indexMetaStorage), willCompleteSuccessfully());
-
-        assertThat(catalogManager.catalogInitializationFuture(), willCompleteSuccessfully());
-
-        createSimpleTable(catalogManager, TABLE_NAME);
+public class IndexMetaStorageTest extends BaseIndexMetaStorageTest {
+    @Override
+    MetaStorageManager createMetastore() {
+        return StandaloneMetaStorageManager.create(new SimpleInMemoryKeyValueStorage(NODE_NAME));
     }
 
-    @AfterEach
-    void tearDown() throws Exception {
-        var componentContext = new ComponentContext();
-
-        IgniteUtils.closeAll(
-                indexMetaStorage::beforeNodeStop,
-                catalogManager::beforeNodeStop,
-                vaultManager::beforeNodeStop,
-                () -> assertThat(stopAsync(componentContext, indexMetaStorage, catalogManager, vaultManager), willCompleteSuccessfully())
-        );
+    @Override
+    CatalogManager createCatalogManager() {
+        return createTestCatalogManager(NODE_NAME, clock, metastore);
     }
 
     @Test
@@ -110,8 +70,10 @@ public class IndexMetaStorageTest {
         int catalogVersion = catalogManager.latestCatalogVersion();
 
         IndexMeta indexMeta = indexMetaStorage.indexMeta(indexId);
+        IndexMeta fromVault = fromVault(indexId);
 
         checkFields(indexMeta, indexId, tableId, PK_INDEX_NAME, AVAILABLE, Map.of(AVAILABLE, toChangeInfo(catalogVersion)));
+        checkFields(fromVault, indexId, tableId, PK_INDEX_NAME, AVAILABLE, Map.of(AVAILABLE, toChangeInfo(catalogVersion)));
     }
 
     @Test
@@ -120,64 +82,63 @@ public class IndexMetaStorageTest {
         int tableId = tableId(TABLE_NAME);
         int catalogVersion = catalogManager.latestCatalogVersion();
 
-        String newTableName = TABLE_NAME + "_FOO";
-        String newPkIndexName = pkIndexName(newTableName);
-
-        renameSimpleTable(catalogManager, TABLE_NAME, newTableName);
+        renameSimpleTable(catalogManager, TABLE_NAME, NEW_TABLE_NAME);
 
         IndexMeta indexMeta = indexMetaStorage.indexMeta(indexId);
+        IndexMeta fromVault = fromVault(indexId);
 
-        checkFields(indexMeta, indexId, tableId, newPkIndexName, AVAILABLE, Map.of(AVAILABLE, toChangeInfo(catalogVersion)));
+        checkFields(indexMeta, indexId, tableId, NEW_PK_INDEX_NAME, AVAILABLE, Map.of(AVAILABLE, toChangeInfo(catalogVersion)));
+        checkFields(fromVault, indexId, tableId, NEW_PK_INDEX_NAME, AVAILABLE, Map.of(AVAILABLE, toChangeInfo(catalogVersion)));
     }
 
     @Test
     void testRegisteredIndex() {
-        createSimpleHashIndex(catalogManager, TABLE_NAME, INDEX_NAME);
+        int catalogVersion = executeCatalogUpdate(() -> createSimpleHashIndex(catalogManager, TABLE_NAME, INDEX_NAME));
 
         int indexId = indexId(INDEX_NAME);
         int tableId = tableId(TABLE_NAME);
-        int catalogVersion = catalogManager.latestCatalogVersion();
 
         IndexMeta indexMeta = indexMetaStorage.indexMeta(indexId);
+        IndexMeta fromVault = fromVault(indexId);
 
         checkFields(indexMeta, indexId, tableId, INDEX_NAME, REGISTERED, Map.of(REGISTERED, toChangeInfo(catalogVersion)));
+        checkFields(fromVault, indexId, tableId, INDEX_NAME, REGISTERED, Map.of(REGISTERED, toChangeInfo(catalogVersion)));
     }
 
     @Test
     void testBuildingIndex() {
-        createSimpleHashIndex(catalogManager, TABLE_NAME, INDEX_NAME);
+        int registeredIndexCatalogVersion = executeCatalogUpdate(() -> createSimpleHashIndex(catalogManager, TABLE_NAME, INDEX_NAME));
 
         int indexId = indexId(INDEX_NAME);
         int tableId = tableId(TABLE_NAME);
-        int catalogVersion = catalogManager.latestCatalogVersion();
 
         startBuildingIndex(catalogManager, indexId);
 
         IndexMeta indexMeta = indexMetaStorage.indexMeta(indexId);
+        IndexMeta fromVault = fromVault(indexId);
 
         Map<MetaIndexStatusEnum, MetaIndexStatusChangeInfo> expectedStatuses = Map.of(
-                REGISTERED, toChangeInfo(catalogVersion),
+                REGISTERED, toChangeInfo(registeredIndexCatalogVersion),
                 BUILDING, toChangeInfo(catalogManager.latestCatalogVersion())
         );
 
         checkFields(indexMeta, indexId, tableId, INDEX_NAME, BUILDING, expectedStatuses);
+        checkFields(fromVault, indexId, tableId, INDEX_NAME, BUILDING, expectedStatuses);
     }
 
     @Test
     void testAvailableIndex() {
-        createSimpleHashIndex(catalogManager, TABLE_NAME, INDEX_NAME);
+        int registeredIndexCatalogVersion = executeCatalogUpdate(() -> createSimpleHashIndex(catalogManager, TABLE_NAME, INDEX_NAME));
 
         int indexId = indexId(INDEX_NAME);
         int tableId = tableId(TABLE_NAME);
-        int registeredIndexCatalogVersion = catalogManager.latestCatalogVersion();
 
-        startBuildingIndex(catalogManager, indexId);
-
-        int buildingIndexCatalogVersion = catalogManager.latestCatalogVersion();
+        int buildingIndexCatalogVersion = executeCatalogUpdate(() -> startBuildingIndex(catalogManager, indexId));
 
         makeIndexAvailable(catalogManager, indexId);
 
         IndexMeta indexMeta = indexMetaStorage.indexMeta(indexId);
+        IndexMeta fromVault = fromVault(indexId);
 
         Map<MetaIndexStatusEnum, MetaIndexStatusChangeInfo> expectedStatuses = Map.of(
                 REGISTERED, toChangeInfo(registeredIndexCatalogVersion),
@@ -186,27 +147,23 @@ public class IndexMetaStorageTest {
         );
 
         checkFields(indexMeta, indexId, tableId, INDEX_NAME, AVAILABLE, expectedStatuses);
+        checkFields(fromVault, indexId, tableId, INDEX_NAME, AVAILABLE, expectedStatuses);
     }
 
     @Test
     void testStoppingIndex() {
-        createSimpleHashIndex(catalogManager, TABLE_NAME, INDEX_NAME);
+        int registeredIndexCatalogVersion = executeCatalogUpdate(() -> createSimpleHashIndex(catalogManager, TABLE_NAME, INDEX_NAME));
 
         int indexId = indexId(INDEX_NAME);
         int tableId = tableId(TABLE_NAME);
-        int registeredIndexCatalogVersion = catalogManager.latestCatalogVersion();
 
-        startBuildingIndex(catalogManager, indexId);
-
-        int buildingIndexCatalogVersion = catalogManager.latestCatalogVersion();
-
-        makeIndexAvailable(catalogManager, indexId);
-
-        int availableIndexCatalogVersion = catalogManager.latestCatalogVersion();
+        int buildingIndexCatalogVersion = executeCatalogUpdate(() -> startBuildingIndex(catalogManager, indexId));
+        int availableIndexCatalogVersion = executeCatalogUpdate(() -> makeIndexAvailable(catalogManager, indexId));
 
         dropSimpleIndex(catalogManager, INDEX_NAME);
 
         IndexMeta indexMeta = indexMetaStorage.indexMeta(indexId);
+        IndexMeta fromVault = fromVault(indexId);
 
         Map<MetaIndexStatusEnum, MetaIndexStatusChangeInfo> expectedStatuses = Map.of(
                 REGISTERED, toChangeInfo(registeredIndexCatalogVersion),
@@ -216,19 +173,20 @@ public class IndexMetaStorageTest {
         );
 
         checkFields(indexMeta, indexId, tableId, INDEX_NAME, STOPPING, expectedStatuses);
+        checkFields(fromVault, indexId, tableId, INDEX_NAME, STOPPING, expectedStatuses);
     }
 
     @Test
     void testRemoveRegisteredIndex() {
-        createSimpleHashIndex(catalogManager, TABLE_NAME, INDEX_NAME);
+        int registeredIndexCatalogVersion = executeCatalogUpdate(() -> createSimpleHashIndex(catalogManager, TABLE_NAME, INDEX_NAME));
 
         int indexId = indexId(INDEX_NAME);
         int tableId = tableId(TABLE_NAME);
-        int registeredIndexCatalogVersion = catalogManager.latestCatalogVersion();
 
         dropSimpleIndex(catalogManager, INDEX_NAME);
 
         IndexMeta indexMeta = indexMetaStorage.indexMeta(indexId);
+        IndexMeta fromVault = fromVault(indexId);
 
         Map<MetaIndexStatusEnum, MetaIndexStatusChangeInfo> expectedStatuses = Map.of(
                 REGISTERED, toChangeInfo(registeredIndexCatalogVersion),
@@ -236,23 +194,22 @@ public class IndexMetaStorageTest {
         );
 
         checkFields(indexMeta, indexId, tableId, INDEX_NAME, REMOVED, expectedStatuses);
+        checkFields(fromVault, indexId, tableId, INDEX_NAME, REMOVED, expectedStatuses);
     }
 
     @Test
     void testRemoveBuildingIndex() {
-        createSimpleHashIndex(catalogManager, TABLE_NAME, INDEX_NAME);
+        int registeredIndexCatalogVersion = executeCatalogUpdate(() -> createSimpleHashIndex(catalogManager, TABLE_NAME, INDEX_NAME));
 
         int indexId = indexId(INDEX_NAME);
         int tableId = tableId(TABLE_NAME);
-        int registeredIndexCatalogVersion = catalogManager.latestCatalogVersion();
 
-        startBuildingIndex(catalogManager, indexId);
-
-        int buildingIndexCatalogVersion = catalogManager.latestCatalogVersion();
+        int buildingIndexCatalogVersion = executeCatalogUpdate(() -> startBuildingIndex(catalogManager, indexId));
 
         dropSimpleIndex(catalogManager, INDEX_NAME);
 
         IndexMeta indexMeta = indexMetaStorage.indexMeta(indexId);
+        IndexMeta fromVault = fromVault(indexId);
 
         Map<MetaIndexStatusEnum, MetaIndexStatusChangeInfo> expectedStatuses = Map.of(
                 REGISTERED, toChangeInfo(registeredIndexCatalogVersion),
@@ -261,31 +218,24 @@ public class IndexMetaStorageTest {
         );
 
         checkFields(indexMeta, indexId, tableId, INDEX_NAME, REMOVED, expectedStatuses);
+        checkFields(fromVault, indexId, tableId, INDEX_NAME, REMOVED, expectedStatuses);
     }
 
     @Test
     void testRemoveStoppingIndex() {
-        createSimpleHashIndex(catalogManager, TABLE_NAME, INDEX_NAME);
+        int registeredIndexCatalogVersion = executeCatalogUpdate(() -> createSimpleHashIndex(catalogManager, TABLE_NAME, INDEX_NAME));
 
         int indexId = indexId(INDEX_NAME);
         int tableId = tableId(TABLE_NAME);
-        int registeredIndexCatalogVersion = catalogManager.latestCatalogVersion();
 
-        startBuildingIndex(catalogManager, indexId);
-
-        int buildingIndexCatalogVersion = catalogManager.latestCatalogVersion();
-
-        makeIndexAvailable(catalogManager, indexId);
-
-        int availableIndexCatalogVersion = catalogManager.latestCatalogVersion();
-
-        dropSimpleIndex(catalogManager, INDEX_NAME);
-
-        int stoppingIndexCatalogVersion = catalogManager.latestCatalogVersion();
+        int buildingIndexCatalogVersion = executeCatalogUpdate(() -> startBuildingIndex(catalogManager, indexId));
+        int availableIndexCatalogVersion = executeCatalogUpdate(() -> makeIndexAvailable(catalogManager, indexId));
+        int stoppingIndexCatalogVersion = executeCatalogUpdate(() -> dropSimpleIndex(catalogManager, INDEX_NAME));
 
         removeIndex(catalogManager, indexId);
 
         IndexMeta indexMeta = indexMetaStorage.indexMeta(indexId);
+        IndexMeta fromVault = fromVault(indexId);
 
         Map<MetaIndexStatusEnum, MetaIndexStatusChangeInfo> expectedStatuses = Map.of(
                 REGISTERED, toChangeInfo(registeredIndexCatalogVersion),
@@ -296,6 +246,7 @@ public class IndexMetaStorageTest {
         );
 
         checkFields(indexMeta, indexId, tableId, INDEX_NAME, READ_ONLY, expectedStatuses);
+        checkFields(fromVault, indexId, tableId, INDEX_NAME, READ_ONLY, expectedStatuses);
     }
 
     @Test
@@ -307,6 +258,7 @@ public class IndexMetaStorageTest {
         dropSimpleTable(catalogManager, TABLE_NAME);
 
         IndexMeta indexMeta = indexMetaStorage.indexMeta(indexId);
+        IndexMeta fromVault = fromVault(indexId);
 
         Map<MetaIndexStatusEnum, MetaIndexStatusChangeInfo> expectedStatuses = Map.of(
                 AVAILABLE, toChangeInfo(afterCreateTableCatalogVersion),
@@ -314,6 +266,7 @@ public class IndexMetaStorageTest {
         );
 
         checkFields(indexMeta, indexId, tableId, PK_INDEX_NAME, READ_ONLY, expectedStatuses);
+        checkFields(fromVault, indexId, tableId, PK_INDEX_NAME, READ_ONLY, expectedStatuses);
     }
 
     @ParameterizedTest
@@ -324,16 +277,17 @@ public class IndexMetaStorageTest {
         int indexId = indexId(INDEX_NAME);
 
         if (updateLwmBeforeOrAfterDropIndex) {
-            assertThat(lowWatermark.updateAndNotify(clock.now().addPhysicalTime(1_000_000)), willCompleteSuccessfully());
+            updateLwm(clock.now().addPhysicalTime(1_000_000));
         }
 
         dropSimpleIndex(catalogManager, INDEX_NAME);
 
         if (!updateLwmBeforeOrAfterDropIndex) {
-            assertThat(lowWatermark.updateAndNotify(clock.now()), willCompleteSuccessfully());
+            updateLwm(clock.now());
         }
 
         assertNull(indexMetaStorage.indexMeta(indexId));
+        assertNull(fromVault(indexId));
     }
 
     @ParameterizedTest
@@ -346,16 +300,17 @@ public class IndexMetaStorageTest {
         startBuildingIndex(catalogManager, indexId);
 
         if (updateLwmBeforeOrAfterDropIndex) {
-            assertThat(lowWatermark.updateAndNotify(clock.now().addPhysicalTime(1_000_000)), willCompleteSuccessfully());
+            updateLwm(clock.now().addPhysicalTime(1_000_000));
         }
 
         dropSimpleIndex(catalogManager, INDEX_NAME);
 
         if (!updateLwmBeforeOrAfterDropIndex) {
-            assertThat(lowWatermark.updateAndNotify(clock.now()), willCompleteSuccessfully());
+            updateLwm(clock.now());
         }
 
         assertNull(indexMetaStorage.indexMeta(indexId));
+        assertNull(fromVault(indexId));
     }
 
     @ParameterizedTest
@@ -369,16 +324,17 @@ public class IndexMetaStorageTest {
         makeIndexAvailable(catalogManager, indexId);
 
         if (updateLwmBeforeOrAfterDropIndex) {
-            assertThat(lowWatermark.updateAndNotify(clock.now().addPhysicalTime(1_000_000)), willCompleteSuccessfully());
+            updateLwm(clock.now().addPhysicalTime(1_000_000));
         }
 
         dropSimpleIndex(catalogManager, INDEX_NAME);
 
         if (!updateLwmBeforeOrAfterDropIndex) {
-            assertThat(lowWatermark.updateAndNotify(clock.now()), willCompleteSuccessfully());
+            updateLwm(clock.now());
         }
 
         assertNotNull(indexMetaStorage.indexMeta(indexId));
+        assertNotNull(fromVault(indexId));
     }
 
     @ParameterizedTest
@@ -393,16 +349,17 @@ public class IndexMetaStorageTest {
         dropSimpleIndex(catalogManager, INDEX_NAME);
 
         if (updateLwmBeforeOrAfterDropIndex) {
-            assertThat(lowWatermark.updateAndNotify(clock.now().addPhysicalTime(1_000_000)), willCompleteSuccessfully());
+            updateLwm(clock.now().addPhysicalTime(1_000_000));
         }
 
         removeIndex(catalogManager, indexId);
 
         if (!updateLwmBeforeOrAfterDropIndex) {
-            assertThat(lowWatermark.updateAndNotify(clock.now()), willCompleteSuccessfully());
+            updateLwm(clock.now());
         }
 
         assertNull(indexMetaStorage.indexMeta(indexId));
+        assertNull(fromVault(indexId));
     }
 
     @ParameterizedTest
@@ -411,48 +368,16 @@ public class IndexMetaStorageTest {
         int indexId = indexId(PK_INDEX_NAME);
 
         if (updateLwmBeforeOrAfterDropIndex) {
-            assertThat(lowWatermark.updateAndNotify(clock.now().addPhysicalTime(1_000_000)), willCompleteSuccessfully());
+            updateLwm(clock.now().addPhysicalTime(1_000_000));
         }
 
         dropSimpleTable(catalogManager, TABLE_NAME);
 
         if (!updateLwmBeforeOrAfterDropIndex) {
-            assertThat(lowWatermark.updateAndNotify(clock.now()), willCompleteSuccessfully());
+            updateLwm(clock.now());
         }
 
         assertNull(indexMetaStorage.indexMeta(indexId));
-    }
-
-    private int indexId(String indexName) {
-        return getIndexIdStrict(catalogManager, indexName, clock.nowLong());
-    }
-
-    private int tableId(String tableName) {
-        return getTableIdStrict(catalogManager, tableName, clock.nowLong());
-    }
-
-    private MetaIndexStatusChangeInfo toChangeInfo(int catalogVersion) {
-        Catalog catalog = catalogManager.catalog(catalogVersion);
-
-        assertNotNull(catalog, "catalogVersion=" + catalogVersion);
-
-        return new MetaIndexStatusChangeInfo(catalog.version(), catalog.time());
-    }
-
-    private static void checkFields(
-            @Nullable IndexMeta indexMeta,
-            int expIndexId,
-            int expTableId,
-            String expIndexName,
-            MetaIndexStatusEnum expStatus,
-            Map<MetaIndexStatusEnum, MetaIndexStatusChangeInfo> expStatuses
-    ) {
-        assertNotNull(indexMeta);
-
-        assertEquals(expIndexId, indexMeta.indexId());
-        assertEquals(expTableId, indexMeta.tableId());
-        assertEquals(expIndexName, indexMeta.indexName());
-        assertEquals(expStatus, indexMeta.status());
-        assertEquals(expStatuses, indexMeta.statuses());
+        assertNull(fromVault(indexId));
     }
 }

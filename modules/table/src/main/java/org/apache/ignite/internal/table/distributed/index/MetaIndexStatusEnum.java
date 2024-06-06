@@ -79,9 +79,9 @@ public enum MetaIndexStatusEnum {
         }
     }
 
-    /** Returns the index status on an index removal event from a catalog, based on the status from the previous catalog version. */
-    static MetaIndexStatusEnum statusOnRemoveIndex(CatalogIndexStatus catalogIndexStatus) {
-        switch (catalogIndexStatus) {
+    /** Returns the index status on an index removal event from a catalog, based on the previous status. */
+    static MetaIndexStatusEnum statusOnRemoveIndex(MetaIndexStatusEnum previousStatus) {
+        switch (previousStatus) {
             case REGISTERED:
             case BUILDING:
                 return REMOVED;
@@ -89,7 +89,7 @@ public enum MetaIndexStatusEnum {
             case STOPPING:
                 return READ_ONLY;
             default:
-                throw new AssertionError("Unknown status: " + catalogIndexStatus);
+                throw new AssertionError("Unknown status: " + previousStatus);
         }
     }
 }
