@@ -17,35 +17,26 @@
 
 package org.apache.ignite.internal.catalog.sql;
 
-import org.apache.ignite.catalog.Options;
-import org.apache.ignite.catalog.Query;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.sql.IgniteSql;
 
-abstract class AbstractCatalogQuery extends QueryPart implements Query {
+abstract class AbstractCatalogQuery<T> extends QueryPart implements Query<T> {
     protected final IgniteSql sql;
 
-    protected final Options options;
-
-    AbstractCatalogQuery(IgniteSql sql, Options options) {
+    AbstractCatalogQuery(IgniteSql sql) {
         this.sql = sql;
-        this.options = options;
     }
 
     @Override
-    public void execute() {
-        sql.executeScript(toSqlString());
+    public CompletableFuture<T> executeAsync() {
+        return sql.executeScriptAsync(toString()).thenApply(unused -> result());
     }
 
-    @Override
-    public String toSqlString() {
-        return new QueryContext(options)
-                .visit(this)
-                .getSql();
-    }
+    protected abstract T result();
 
     @Override
     public String toString() {
-        return new QueryContext(Options.builder().prettyPrint().build())
+        return new QueryContext()
                 .visit(this)
                 .getSql();
     }

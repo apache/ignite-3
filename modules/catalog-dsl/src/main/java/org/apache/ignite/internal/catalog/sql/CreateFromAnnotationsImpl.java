@@ -29,7 +29,6 @@ import org.apache.ignite.catalog.ColumnSorted;
 import org.apache.ignite.catalog.ColumnType;
 import org.apache.ignite.catalog.DefaultZone;
 import org.apache.ignite.catalog.IndexType;
-import org.apache.ignite.catalog.Options;
 import org.apache.ignite.catalog.annotations.Column;
 import org.apache.ignite.catalog.annotations.ColumnRef;
 import org.apache.ignite.catalog.annotations.Id;
@@ -38,15 +37,24 @@ import org.apache.ignite.catalog.annotations.Table;
 import org.apache.ignite.catalog.annotations.Zone;
 import org.apache.ignite.sql.IgniteSql;
 
-class CreateFromAnnotationsImpl extends AbstractCatalogQuery {
+class CreateFromAnnotationsImpl extends AbstractCatalogQuery<TableZoneId> {
     private CreateZoneImpl createZone;
+
+    private String zoneName;
 
     private CreateTableImpl createTable;
 
+    private String tableName;
+
     private IndexType pkType;
 
-    CreateFromAnnotationsImpl(IgniteSql sql, Options options) {
-        super(sql, options);
+    CreateFromAnnotationsImpl(IgniteSql sql) {
+        super(sql);
+    }
+
+    @Override
+    protected TableZoneId result() {
+        return new TableZoneId(tableName, zoneName);
     }
 
     CreateFromAnnotationsImpl processKeyValueClasses(Class<?> keyClass, Class<?> valueClass) {
@@ -84,13 +92,14 @@ class CreateFromAnnotationsImpl extends AbstractCatalogQuery {
 
     private void processAnnotations(Class<?> clazz, boolean isKeyClass) {
         if (createTable == null) {
-            createTable = new CreateTableImpl(sql, options).ifNotExists();
+            createTable = new CreateTableImpl(sql).ifNotExists();
         }
 
         Table table = clazz.getAnnotation(Table.class);
         if (table != null) {
             String tableName = table.value().isEmpty() ? clazz.getSimpleName() : table.value();
             createTable.name(table.schemaName(), tableName);
+            this.tableName = tableName;
 
             processZone(table);
             processTable(table);
@@ -106,9 +115,10 @@ class CreateFromAnnotationsImpl extends AbstractCatalogQuery {
         }
         Zone zone = zoneRef.getAnnotation(Zone.class);
         if (zone != null) {
-            createZone = new CreateZoneImpl(sql, options).ifNotExists();
+            createZone = new CreateZoneImpl(sql).ifNotExists();
 
             String zoneName = zone.value().isEmpty() ? zoneRef.getSimpleName() : zone.value();
+            this.zoneName = zoneName;
             createTable.zone(zoneName);
             createZone.name(zoneName);
             createZone.storageProfiles(zone.storageProfiles());
@@ -213,4 +223,5 @@ class CreateFromAnnotationsImpl extends AbstractCatalogQuery {
             }
         }
     }
+
 }

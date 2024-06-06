@@ -54,7 +54,6 @@ import java.util.function.Supplier;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.catalog.IgniteCatalog;
-import org.apache.ignite.catalog.Options;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientHandlerModule;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
@@ -1333,8 +1332,8 @@ public class IgniteImpl implements Ignite {
     }
 
     @Override
-    public IgniteCatalog catalog(Options options) {
-        return new IgniteCatalogSqlImpl(sql, options);
+    public IgniteCatalog catalog() {
+        return new IgniteCatalogSqlImpl(sql, distributedTblMgr);
     }
 
     /**
