@@ -40,6 +40,36 @@ class ClusterInitTest extends IgniteCliInterfaceTestBase {
     @Test
     @DisplayName("--url http://localhost:10300 --meta-storage-node node1ConsistentId"
             + " --meta-storage-node node2ConsistentId --cmg-node node2ConsistentId --cmg-node node3ConsistentId --cluster-name cluster")
+    void duplicatedOption() {
+        var expectedSentContent = "{\"metaStorageNodes\":[\"node1ConsistentId\",\"node2ConsistentId\"],"
+                + "\"cmgNodes\":[\"node2ConsistentId\",\"node3ConsistentId\"],"
+                + "\"clusterName\":\"cluster\"}";
+
+        clientAndServer
+                .when(request()
+                        .withMethod("POST")
+                        .withPath("/management/v1/cluster/init")
+                        .withBody(json(expectedSentContent, ONLY_MATCHING_FIELDS))
+                        .withContentType(MediaType.APPLICATION_JSON_UTF_8)
+                )
+                .respond(response(null));
+
+        execute(
+                "cluster", "init",
+                "--url", mockUrl,
+                "--metastorage-group", "node1ConsistentId",
+                "--metastorage-group", "node2ConsistentId", // we do not allow repeating options
+                "--cluster-management-group", "node2ConsistentId",
+                "--cluster-management-group", "node3ConsistentId", // and here
+                "--name", "cluster"
+        );
+
+        assertErrOutputContains("");
+
+    }
+    @Test
+    @DisplayName("--url http://localhost:10300 --meta-storage-node node1ConsistentId"
+            + " --meta-storage-node node2ConsistentId --cmg-node node2ConsistentId --cmg-node node3ConsistentId --cluster-name cluster")
     void initSuccess() {
         var expectedSentContent = "{\"metaStorageNodes\":[\"node1ConsistentId\",\"node2ConsistentId\"],"
                 + "\"cmgNodes\":[\"node2ConsistentId\",\"node3ConsistentId\"],"
@@ -57,10 +87,8 @@ class ClusterInitTest extends IgniteCliInterfaceTestBase {
         execute(
                 "cluster", "init",
                 "--url", mockUrl,
-                "--meta-storage-node", "node1ConsistentId",
-                "--meta-storage-node", "node2ConsistentId",
-                "--cmg-node", "node2ConsistentId",
-                "--cmg-node", "node3ConsistentId",
+                "--metastorage-group", "node1ConsistentId, node2ConsistentId",
+                "--cluster-management-group", "node2ConsistentId,node3ConsistentId",
                 "--name", "cluster"
         );
 
@@ -101,10 +129,8 @@ class ClusterInitTest extends IgniteCliInterfaceTestBase {
         execute(
                 "cluster", "init",
                 "--url", mockUrl,
-                "--meta-storage-node", "node1ConsistentId",
-                "--meta-storage-node", "node2ConsistentId",
-                "--cmg-node", "node2ConsistentId",
-                "--cmg-node", "node3ConsistentId",
+                "--metastorage-group", "node1ConsistentId,node2ConsistentId",
+                "--cluster-management-group", " node2ConsistentId , node3ConsistentId",
                 "--name", "cluster",
                 "--config-file", clusterConfigurationFile.toString()
         );
@@ -127,10 +153,8 @@ class ClusterInitTest extends IgniteCliInterfaceTestBase {
         execute(
                 "cluster", "init",
                 "--url", mockUrl,
-                "--meta-storage-node", "node1ConsistentId",
-                "--meta-storage-node", "node2ConsistentId",
-                "--cmg-node", "node2ConsistentId",
-                "--cmg-node", "node3ConsistentId",
+                "--metastorage-group", "node1ConsistentId, node2ConsistentId",
+                "--cluster-management-group", "node2ConsistentId, node3ConsistentId",
                 "--name", "cluster"
         );
 
@@ -147,15 +171,14 @@ class ClusterInitTest extends IgniteCliInterfaceTestBase {
         execute(
                 "cluster", "init",
                 "--url", mockUrl,
-                "--cmg-node", "node2ConsistentId",
-                "--cmg-node", "node3ConsistentId",
+                "--cluster-management-group", "node2ConsistentId, node3ConsistentId",
                 "--name", "cluster"
         );
 
         assertAll(
                 () -> assertExitCodeIs(2),
                 this::assertOutputIsEmpty,
-                () -> assertErrOutputContains("Missing required option: '--meta-storage-node=<metaStorageNodes>'")
+                () -> assertErrOutputContains("Missing required option: '--metastorage-group=<metaStorageNodes>'")
         );
     }
 
@@ -172,8 +195,7 @@ class ClusterInitTest extends IgniteCliInterfaceTestBase {
         execute(
                 "cluster", "init",
                 "--url", mockUrl,
-                "--meta-storage-node", "node1ConsistentId",
-                "--meta-storage-node", "node2ConsistentId",
+                "--metastorage-group", "node1ConsistentId, node2ConsistentId",
                 "--name", "cluster"
         );
 
@@ -186,8 +208,8 @@ class ClusterInitTest extends IgniteCliInterfaceTestBase {
         execute(
                 "cluster", "init",
                 "--url", mockUrl,
-                "--meta-storage-node", "node1ConsistentId",
-                "--cmg-node", "node2ConsistentId"
+                "--metastorage-group", "node1ConsistentId",
+                "--cluster-management-group", "node2ConsistentId"
         );
 
         assertAll(
