@@ -236,7 +236,7 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
             return raftClient.thenCompose(client ->
                 replicaMgr.startReplica(
                         replicaGrpId,
-                        new ZonePartitionReplicaListener(),
+                        new ZonePartitionReplicaListener(client),
                         client
                 )).thenRun(() -> replicationGroupIds.add(replicaGrpId));
         } catch (NodeStoppingException e) {

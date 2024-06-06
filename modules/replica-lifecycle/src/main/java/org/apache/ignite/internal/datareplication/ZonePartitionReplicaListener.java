@@ -30,6 +30,17 @@ import org.apache.ignite.internal.schema.BinaryRowImpl;
  */
 public class ZonePartitionReplicaListener implements ReplicaListener {
 
+    private final RaftCommandRunner raftClient;
+
+    /**
+     * The constructor.
+     *
+     * @param raftClient Raft client.
+     */
+    ZonePartitionReplicaListener(RaftCommandRunner raftClient) {
+        this.raftClient = raftClient;
+    }
+
     @Override
     public CompletableFuture<ReplicaResult> invoke(ReplicaRequest request, String senderId) {
         var res =
@@ -42,6 +53,6 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
 
     @Override
     public RaftCommandRunner raftClient() {
-        return null;
+        return raftClient;
     }
 }

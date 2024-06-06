@@ -19,6 +19,7 @@ package org.apache.ignite.internal.datareplication.utils;
 
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import java.util.Comparator;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.event.AbstractEventProducer;
@@ -60,7 +61,7 @@ public class ZoneBasedPlacementDriver extends AbstractEventProducer<PrimaryRepli
     }
 
     private CompletableFuture<ReplicaMeta> getFirst() {
-        ClusterNode node = topologyService.topologyService().allMembers().stream().sorted().findFirst().get();
+        ClusterNode node = topologyService.topologyService().allMembers().stream().min(Comparator.comparing(ClusterNode::id)).get();
 
         if (node == null) {
             throw new IllegalStateException("No members in topology");
