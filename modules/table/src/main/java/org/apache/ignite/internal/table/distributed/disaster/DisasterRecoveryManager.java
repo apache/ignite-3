@@ -34,7 +34,6 @@ import static org.apache.ignite.internal.table.distributed.disaster.GlobalPartit
 import static org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionStateEnum.READ_ONLY;
 import static org.apache.ignite.internal.table.distributed.disaster.LocalPartitionStateEnum.CATCHING_UP;
 import static org.apache.ignite.internal.table.distributed.disaster.LocalPartitionStateEnum.HEALTHY;
-import static org.apache.ignite.internal.table.distributed.disaster.LocalPartitionStateEnumWithLogIndex.of;
 import static org.apache.ignite.internal.util.CompletableFutures.copyStateTo;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.DisasterRecovery.PARTITION_STATE_ERR;
@@ -555,7 +554,8 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                         return;
                     }
 
-                    LocalPartitionStateEnumWithLogIndex localPartitionStateWithLogIndex = of(raftGroupService.getRaftNode());
+                    LocalPartitionStateEnumWithLogIndex localPartitionStateWithLogIndex =
+                            LocalPartitionStateEnumWithLogIndex.of(raftGroupService.getRaftNode());
 
                     statesList.add(MSG_FACTORY.localPartitionStateMessage()
                             .partitionId(MSG_FACTORY.tablePartitionIdMessage()

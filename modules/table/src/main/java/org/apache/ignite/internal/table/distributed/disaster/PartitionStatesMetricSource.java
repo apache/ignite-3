@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.table.distributed.disaster.LocalPartiti
 import static org.apache.ignite.internal.table.distributed.disaster.LocalPartitionStateEnum.INITIALIZING;
 import static org.apache.ignite.internal.table.distributed.disaster.LocalPartitionStateEnum.INSTALLING_SNAPSHOT;
 import static org.apache.ignite.internal.table.distributed.disaster.LocalPartitionStateEnum.UNAVAILABLE;
-import static org.apache.ignite.internal.table.distributed.disaster.LocalPartitionStateEnumWithLogIndex.of;
 
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.metrics.MetricSet;
@@ -111,12 +110,16 @@ class PartitionStatesMetricSource implements MetricSource {
     private long calculatePartitionCountByLocalState(LocalPartitionStateEnum state) {
         long[] count = {0};
 
+        // When receiving/loading metrics for all tables, the total complexity will be O(N*N) where N is the number of tables (for
+        // simplicity). While this is done intentionally, in the future it will be necessary to optimize this or wait for the collocation
+        // of table partitions within one distribution zone.
         disasterRecoveryManager.raftManager.forEach((raftNodeId, raftGroupService) -> {
             if (raftNodeId.groupId() instanceof TablePartitionId) {
                 var tablePartitionId = (TablePartitionId) raftNodeId.groupId();
 
                 if (tablePartitionId.tableId() == tableId) {
-                    LocalPartitionStateEnumWithLogIndex localPartitionStateWithLogIndex = of(raftGroupService.getRaftNode());
+                    LocalPartitionStateEnumWithLogIndex localPartitionStateWithLogIndex =
+                            LocalPartitionStateEnumWithLogIndex.of(raftGroupService.getRaftNode());
 
                     if (localPartitionStateWithLogIndex.state == state) {
                         count[0]++;
