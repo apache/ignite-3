@@ -33,21 +33,21 @@ public class ItServerDataStreamerTest extends ItAbstractDataStreamerTest {
 
     @Test
     @Override
-    @Disabled("IGNITE-22302 Add resultSubscriber support")
+    @Disabled("IGNITE-22285 Embedded Data Streamer with Receiver")
     public void testWithReceiver() {
         super.testWithReceiver();
     }
 
     @Test
     @Override
-    @Disabled("IGNITE-22302 Add resultSubscriber support")
+    @Disabled("IGNITE-22285 Embedded Data Streamer with Receiver")
     public void testReceiverException(boolean async) {
         super.testReceiverException(async);
     }
 
     @Test
     @Override
-    @Disabled("IGNITE-22302 Add resultSubscriber support")
+    @Disabled("IGNITE-22285 Embedded Data Streamer with Receiver")
     public void testReceivedIsExecutedOnTargetNode() {
         super.testReceivedIsExecutedOnTargetNode();
     }
