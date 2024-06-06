@@ -29,9 +29,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -407,7 +409,10 @@ public class DataStreamerTest extends AbstractClientTableTest {
         assertEquals(count, resultSubscriber.items.size());
 
         for (long i = 0; i < count; i++) {
-            assertEquals("recv_arg", view.get(null, tupleKey(i)).stringValue("name"));
+            String expectedName = "recv_arg_" + i;
+            assertEquals(expectedName, view.get(null, tupleKey(i)).stringValue("name"));
+
+            assertTrue(resultSubscriber.items.contains(expectedName));
         }
     }
 
@@ -545,7 +550,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
             List<String> res = new ArrayList<>(page.size());
 
             for (Long id : page) {
-                String name = "recv_" + args[0];
+                String name = "recv_" + args[0] + "_" + id;
                 view.upsert(null, tuple(id, name));
                 res.add(name);
             }
@@ -570,7 +575,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
     }
 
     private static class TestSubscriber<T> implements Subscriber<T> {
-        List<T> items = Collections.synchronizedList(new ArrayList<>());
+        Set<T> items = Collections.synchronizedSet(new HashSet<>());
         AtomicReference<Throwable> error = new AtomicReference<>();
         AtomicBoolean completed = new AtomicBoolean();
 
