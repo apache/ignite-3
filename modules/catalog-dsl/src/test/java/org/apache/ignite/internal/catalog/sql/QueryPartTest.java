@@ -47,7 +47,6 @@ import java.math.BigDecimal;
 import java.util.List;
 import org.apache.ignite.catalog.ColumnType;
 import org.apache.ignite.catalog.IndexType;
-import org.apache.ignite.catalog.Options;
 import org.apache.ignite.catalog.SortOrder;
 import org.junit.jupiter.api.Test;
 
@@ -56,37 +55,30 @@ class QueryPartTest {
     void namePart() {
         Name name = new Name("a");
         assertThat(sql(name), is("a"));
-        assertThat(sqlQuoted(name), is("\"a\""));
 
         name = new Name("a", "b", "c");
         assertThat(sql(name), is("a.b.c"));
-        assertThat(sqlQuoted(name), is("\"a\".\"b\".\"c\""));
     }
 
     @Test
     void colocatePart() {
         Colocate colocate = new Colocate("a");
         assertThat(sql(colocate), is("COLOCATE BY (a)"));
-        assertThat(sqlQuoted(colocate), is("COLOCATE BY (\"a\")"));
 
         colocate = new Colocate("a", "b");
         assertThat(sql(colocate), is("COLOCATE BY (a, b)"));
-        assertThat(sqlQuoted(colocate), is("COLOCATE BY (\"a\", \"b\")"));
     }
 
     @Test
     void columnPart() {
         Column column = new Column("a", wrap(VARCHAR));
         assertThat(sql(column), is("a varchar"));
-        assertThat(sqlQuoted(column), is("\"a\" varchar"));
 
         column = new Column("a", wrap(ColumnType.varchar(3)));
         assertThat(sql(column), is("a varchar(3)"));
-        assertThat(sqlQuoted(column), is("\"a\" varchar(3)"));
 
         column = new Column("a", wrap(ColumnType.decimal(2, 3)));
         assertThat(sql(column), is("a decimal(2, 3)"));
-        assertThat(sqlQuoted(column), is("\"a\" decimal(2, 3)"));
     }
 
     @Test
@@ -133,34 +125,27 @@ class QueryPartTest {
     void constraintPart() {
         Constraint constraint = new Constraint().primaryKey(column("a"));
         assertThat(sql(constraint), is("PRIMARY KEY (a)"));
-        assertThat(sqlQuoted(constraint), is("PRIMARY KEY (\"a\")"));
 
         constraint = new Constraint().primaryKey(IndexType.SORTED, List.of(column("a")));
         assertThat(sql(constraint), is("PRIMARY KEY USING SORTED (a)"));
-        assertThat(sqlQuoted(constraint), is("PRIMARY KEY USING SORTED (\"a\")"));
 
         constraint = new Constraint().primaryKey(column("a"), column("b"));
         assertThat(sql(constraint), is("PRIMARY KEY (a, b)"));
-        assertThat(sqlQuoted(constraint), is("PRIMARY KEY (\"a\", \"b\")"));
 
         constraint = new Constraint().primaryKey(IndexType.SORTED, List.of(column("a"), column("b")));
         assertThat(sql(constraint), is("PRIMARY KEY USING SORTED (a, b)"));
-        assertThat(sqlQuoted(constraint), is("PRIMARY KEY USING SORTED (\"a\", \"b\")"));
     }
 
     @Test
     void withOptionPart() {
         WithOption withOption = WithOption.primaryZone("z");
         assertThat(sql(withOption), is("PRIMARY_ZONE='Z'"));
-        assertThat(sqlQuoted(withOption), is("PRIMARY_ZONE='Z'"));
 
         withOption = WithOption.partitions(1);
         assertThat(sql(withOption), is("PARTITIONS=1"));
-        assertThat(sqlQuoted(withOption), is("PARTITIONS=1"));
 
         withOption = WithOption.replicas(1);
         assertThat(sql(withOption), is("REPLICAS=1"));
-        assertThat(sqlQuoted(withOption), is("REPLICAS=1"));
     }
 
     @Test
@@ -168,22 +153,18 @@ class QueryPartTest {
         QueryPartCollection<Name> collection = QueryPartCollection.partsList(new Name("a"), new Name("b"));
 
         assertThat(sql(collection), is("a, b"));
-        assertThat(sqlQuoted(collection), is("\"a\", \"b\""));
     }
 
     @Test
     void indexColumnPart() {
         IndexColumnImpl column = IndexColumnImpl.wrap(column("col1"));
         assertThat(sql(column), is("col1"));
-        assertThat(sqlQuoted(column), is("\"col1\""));
 
         column = IndexColumnImpl.wrap(column("col1", SortOrder.ASC_NULLS_FIRST));
         assertThat(sql(column), is("col1 asc nulls first"));
-        assertThat(sqlQuoted(column), is("\"col1\" asc nulls first"));
 
         column = IndexColumnImpl.wrap(column("col1", SortOrder.DESC_NULLS_LAST));
         assertThat(sql(column), is("col1 desc nulls last"));
-        assertThat(sqlQuoted(column), is("\"col1\" desc nulls last"));
     }
 
     @Test
@@ -223,14 +204,6 @@ class QueryPartTest {
     }
 
     private static String sql(QueryPart part) {
-        return ctx(Options.DEFAULT).visit(part).getSql();
-    }
-
-    private static String sqlQuoted(QueryPart part) {
-        return ctx(Options.builder().quoteIdentifiers().build()).visit(part).getSql();
-    }
-
-    private static QueryContext ctx(Options options) {
-        return new QueryContext(options);
+        return new QueryContext().visit(part).getSql();
     }
 }

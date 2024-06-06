@@ -18,16 +18,20 @@
 package org.apache.ignite.internal.catalog.sql;
 
 import java.util.Objects;
-import org.apache.ignite.catalog.Options;
 import org.apache.ignite.sql.IgniteSql;
 
-class DropTableImpl extends AbstractCatalogQuery {
+class DropTableImpl extends AbstractCatalogQuery<Name> {
     private Name tableName;
 
     private boolean ifExists;
 
-    DropTableImpl(IgniteSql sql, Options options) {
-        super(sql, options);
+    DropTableImpl(IgniteSql sql) {
+        super(sql);
+    }
+
+    @Override
+    protected Name result() {
+        return tableName;
     }
 
     DropTableImpl name(String... names) {
