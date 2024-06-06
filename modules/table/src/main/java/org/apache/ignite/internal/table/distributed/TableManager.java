@@ -145,7 +145,6 @@ import org.apache.ignite.internal.raft.ExecutorInclinedRaftCommandRunner;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
-import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -966,6 +965,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 MvTableStorage mvTableStorage = internalTable.storage();
 
                 try {
+                    // TODO: remove
                     LOG.info("!!! node={} starts replication group with config {}", localNode().name(), newConfiguration);
                     return replicaMgr.startReplica(
                             raftGroupEventsListener,
@@ -1856,6 +1856,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         }
 
         return localServicesStartFuture.thenRunAsync(() -> {
+            // TODO: remove
             LOG.info("!!! node={} was there", localNode().name());
             if (!replicaMgr.isReplicaTouched(replicaGrpId)) {
                 return;
@@ -1867,6 +1868,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     ? pendingAssignmentsNodes
                     : union(pendingAssignmentsNodes, stableAssignments);
 
+            // TODO: remove
             LOG.info("!!! node={} updates configuration on {}", localNode().name(), cfg);
 
             tbl.internalTable()
