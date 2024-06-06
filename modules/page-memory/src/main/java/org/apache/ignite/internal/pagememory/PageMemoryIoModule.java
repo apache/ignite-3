@@ -25,20 +25,17 @@ import org.apache.ignite.internal.pagememory.freelist.io.PagesListNodeIo;
 import org.apache.ignite.internal.pagememory.io.DataPageIo;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.pagememory.io.PageIoModule;
-import org.apache.ignite.internal.pagememory.persistence.io.PartitionMetaIo;
 
 /**
  * {@link PageIoModule} implementation in page-memory module.
  */
 @AutoService(PageIoModule.class)
 public class PageMemoryIoModule implements PageIoModule {
-    /** {@inheritDoc} */
     @Override
     public Collection<IoVersions<?>> ioVersions() {
         return List.of(
                 PagesListMetaIo.VERSIONS,
                 PagesListNodeIo.VERSIONS,
-                PartitionMetaIo.VERSIONS,
                 DataPageIo.VERSIONS
         );
     }

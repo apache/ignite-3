@@ -41,12 +41,12 @@ public class PartitionMover {
 
     private final IgniteSpinBusyLock busyLock;
 
-    private final Supplier<RaftGroupService> raftGroupServiceSupplier;
+    private final Supplier<CompletableFuture<RaftGroupService>> raftGroupServiceSupplier;
 
     /**
      * Constructor.
      */
-    public PartitionMover(IgniteSpinBusyLock busyLock, Supplier<RaftGroupService> raftGroupServiceSupplier) {
+    public PartitionMover(IgniteSpinBusyLock busyLock, Supplier<CompletableFuture<RaftGroupService>> raftGroupServiceSupplier) {
         this.busyLock = busyLock;
         this.raftGroupServiceSupplier = raftGroupServiceSupplier;
     }
@@ -64,8 +64,9 @@ public class PartitionMover {
         }
 
         try {
-            return raftGroupServiceSupplier.get()
-                    .changePeersAsync(peersAndLearners, term)
+            return raftGroupServiceSupplier
+                    .get()
+                    .thenCompose(raftGroupService -> raftGroupService.changePeersAsync(peersAndLearners, term))
                     .handle((resp, err) -> {
                         if (!busyLock.enterBusy()) {
                             throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());

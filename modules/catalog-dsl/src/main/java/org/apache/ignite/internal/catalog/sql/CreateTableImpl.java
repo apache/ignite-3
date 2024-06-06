@@ -27,10 +27,9 @@ import java.util.Objects;
 import org.apache.ignite.catalog.ColumnSorted;
 import org.apache.ignite.catalog.ColumnType;
 import org.apache.ignite.catalog.IndexType;
-import org.apache.ignite.catalog.Options;
 import org.apache.ignite.sql.IgniteSql;
 
-class CreateTableImpl extends AbstractCatalogQuery {
+class CreateTableImpl extends AbstractCatalogQuery<Name> {
     private Name tableName;
 
     private boolean ifNotExists;
@@ -50,8 +49,13 @@ class CreateTableImpl extends AbstractCatalogQuery {
      *
      * @see CreateFromAnnotationsImpl
      */
-    CreateTableImpl(IgniteSql sql, Options options) {
-        super(sql, options);
+    CreateTableImpl(IgniteSql sql) {
+        super(sql);
+    }
+
+    @Override
+    protected Name result() {
+        return tableName;
     }
 
     CreateTableImpl name(String... names) {
@@ -135,7 +139,7 @@ class CreateTableImpl extends AbstractCatalogQuery {
         Objects.requireNonNull(name, "Index name must not be null.");
         Objects.requireNonNull(columns, "Index columns list must not be null.");
 
-        indexes.add(new CreateIndexImpl(sql, options).ifNotExists().name(name).using(type).on(tableName, columns));
+        indexes.add(new CreateIndexImpl(sql).ifNotExists().name(name).using(type).on(tableName, columns));
         return this;
     }
 
@@ -155,22 +159,22 @@ class CreateTableImpl extends AbstractCatalogQuery {
 
         ctx.sqlIndentStart(" (");
 
-        ctx.visit(partsList(columns).formatSeparator());
+        ctx.visit(partsList(columns));
 
         if (!constraints.isEmpty()) {
-            ctx.sql(", ").formatSeparator();
-            ctx.visit(partsList(constraints).formatSeparator());
+            ctx.sql(", ");
+            ctx.visit(partsList(constraints));
         }
 
-        ctx.sqlIndentEnd(")");
+        ctx.sql(")");
 
         if (colocate != null) {
-            ctx.sql(" ").formatSeparator().visit(colocate);
+            ctx.sql(" ").visit(colocate);
         }
 
         if (!withOptions.isEmpty()) {
-            ctx.sql(" ").formatSeparator().sql("WITH ");
-            ctx.visit(partsList(withOptions).formatSeparator());
+            ctx.sql(" ").sql("WITH ");
+            ctx.visit(partsList(withOptions));
         }
 
         ctx.sql(";");
