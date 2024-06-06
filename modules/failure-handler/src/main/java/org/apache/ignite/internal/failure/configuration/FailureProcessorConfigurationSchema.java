@@ -25,8 +25,8 @@ import org.apache.ignite.internal.failure.handlers.configuration.FailureHandlerC
 /**
  * Failure processor configuration schema.
  */
-@ConfigurationRoot(rootName = "failureProcessor", type = ConfigurationType.LOCAL)
+@ConfigurationRoot(rootName = "failureHandler", type = ConfigurationType.LOCAL)
 public class FailureProcessorConfigurationSchema {
     @ConfigValue
-    public FailureHandlerConfigurationSchema failureHandler;
+    public FailureHandlerConfigurationSchema handler;
 }

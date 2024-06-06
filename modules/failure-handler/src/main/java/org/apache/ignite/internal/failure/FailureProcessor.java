@@ -170,9 +170,9 @@ public class FailureProcessor implements IgniteComponent {
 
         AbstractFailureHandler hnd;
 
-        FailureHandlerView handlerView = configuration.failureHandler().value();
+        FailureHandlerView handlerView = configuration.handler().value();
 
-        switch (handlerView.failureHandlerType()) {
+        switch (handlerView.type()) {
             case NoOpFailureHandlerConfigurationSchema.TYPE:
                 hnd = new NoOpFailureHandler();
                 break;
@@ -188,7 +188,7 @@ public class FailureProcessor implements IgniteComponent {
             default:
                 throw new IgniteException(
                         COMPONENT_NOT_STARTED_ERR,
-                        "Unknown failure handler type: " + handlerView.failureHandlerType());
+                        "Unknown failure handler type: " + handlerView.type());
         }
 
         String[] ignoredFailureTypes = handlerView.ignoredFailureTypes();

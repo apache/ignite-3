@@ -34,7 +34,7 @@ public class FailureHandlerConfigurationSchema {
      * TODO https://issues.apache.org/jira/browse/IGNITE-21456
      */
     @PolymorphicId(hasDefault = true)
-    public String failureHandlerType = NoOpFailureHandlerConfigurationSchema.TYPE;
+    public String type = NoOpFailureHandlerConfigurationSchema.TYPE;
 
     @Value(hasDefault = true)
     @IgnoredFailureTypes
