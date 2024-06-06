@@ -403,7 +403,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
         streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
 
         assertTrue(resultSubscriber.completed.get());
-        assertNull(resultSubscriber.error);
+        assertNull(resultSubscriber.error.get());
         assertEquals(count, resultSubscriber.items.size());
 
         for (long i = 0; i < count; i++) {
