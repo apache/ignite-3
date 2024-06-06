@@ -28,8 +28,9 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
-import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
+import static org.apache.ignite.internal.util.ByteUtils.bytesToLongKeepingOrder;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
+import static org.apache.ignite.internal.util.ByteUtils.longToBytesKeepingOrder;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -434,7 +435,7 @@ public class DistributionZoneManagerScaleUpScaleDownTest extends BaseDistributio
 
         assertTrue(waitForCondition(() -> keyValueStorage.get(zoneScaleUpChangeTriggerKey(zoneId).bytes()).value() != null, 5000));
 
-        long revisionOfScaleUp = bytesToLong(keyValueStorage.get(zoneScaleUpChangeTriggerKey(zoneId).bytes()).value());
+        long revisionOfScaleUp = bytesToLongKeepingOrder(keyValueStorage.get(zoneScaleUpChangeTriggerKey(zoneId).bytes()).value());
 
         doAnswer(invocation -> {
             If iif = invocation.getArgument(0);
@@ -445,9 +446,11 @@ public class DistributionZoneManagerScaleUpScaleDownTest extends BaseDistributio
             byte[] keyDataNodes = zoneDataNodesKey(zoneId).bytes();
 
             if (Arrays.stream(iif.cond().keys()).anyMatch(k -> Arrays.equals(keyScaleUp, k))) {
+                byte[] value = keyValueStorage.get(zoneDataNodesKey(zoneId).bytes()).value();
+
                 keyValueStorage.putAll(
                         List.of(keyScaleUp, keyDataNodes),
-                        List.of(longToBytes(revisionOfScaleUp + 100L), keyValueStorage.get(zoneDataNodesKey(zoneId).bytes()).value()),
+                        List.of(longToBytesKeepingOrder(revisionOfScaleUp + 100L), value),
                         HybridTimestamp.MIN_VALUE
                 );
             }
@@ -484,7 +487,7 @@ public class DistributionZoneManagerScaleUpScaleDownTest extends BaseDistributio
 
         assertTrue(waitForCondition(() -> keyValueStorage.get(zoneScaleDownChangeTriggerKey(zoneId).bytes()).value() != null, 5000));
 
-        long revisionOfScaleDown = bytesToLong(keyValueStorage.get(zoneScaleDownChangeTriggerKey(zoneId).bytes()).value());
+        long revisionOfScaleDown = bytesToLongKeepingOrder(keyValueStorage.get(zoneScaleDownChangeTriggerKey(zoneId).bytes()).value());
 
         doAnswer(invocation -> {
             If iif = invocation.getArgument(0);
@@ -1050,11 +1053,11 @@ public class DistributionZoneManagerScaleUpScaleDownTest extends BaseDistributio
 
         assertDataNodesFromLogicalNodesInStorage(zoneId, clusterNodes, keyValueStorage);
 
-        long scaleUpChangeTriggerKey = bytesToLong(
+        long scaleUpChangeTriggerKey = bytesToLongKeepingOrder(
                 keyValueStorage.get(zoneScaleUpChangeTriggerKey(zoneId).bytes()).value()
         );
 
-        long scaleDownChangeTriggerKey = bytesToLong(
+        long scaleDownChangeTriggerKey = bytesToLongKeepingOrder(
                 keyValueStorage.get(zoneScaleDownChangeTriggerKey(zoneId).bytes()).value()
         );
 

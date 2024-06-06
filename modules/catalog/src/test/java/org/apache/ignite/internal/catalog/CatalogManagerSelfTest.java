@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_P
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_REPLICA_COUNT;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
@@ -250,7 +251,13 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         CatalogCommand catalogCommand = spy(TestCommand.ok());
 
+        int initialVersion = manager.latestCatalogVersion();
+
         CompletableFuture<Integer> createTableFuture1 = manager.execute(catalogCommand);
+
+        // we should wait until command will be applied to catalog to avoid races
+        // on next command execution
+        await(manager.catalogReadyFuture(initialVersion + 1));
 
         assertFalse(createTableFuture1.isDone());
 

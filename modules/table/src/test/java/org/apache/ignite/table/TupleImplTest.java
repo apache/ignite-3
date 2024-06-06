@@ -299,7 +299,7 @@ public class TupleImplTest {
                 Tuple.create(Map.of("id", 42L, "name", "universe")));
 
         assertEquals(Tuple.create().set("id", 42L).set("name", "universe"),
-                Tuple.create(Tuple.create().set("id", 42L).set("name", "universe")));
+                Tuple.copy(Tuple.create().set("id", 42L).set("name", "universe")));
     }
 
     private static TupleImpl createTuple() {

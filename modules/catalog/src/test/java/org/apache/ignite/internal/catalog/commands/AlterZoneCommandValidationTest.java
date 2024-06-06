@@ -19,11 +19,9 @@ package org.apache.ignite.internal.catalog.commands;
 
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.alterZoneBuilder;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_REPLICA_COUNT;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.MAX_PARTITION_COUNT;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 
 import org.apache.ignite.internal.catalog.CatalogCommand;
@@ -64,27 +62,9 @@ public class AlterZoneCommandValidationTest extends AbstractCommandValidationTes
     void zonePartitions() {
         assertThrows(
                 CatalogValidationException.class,
-                () -> alterZoneBuilder(ZONE_NAME).partitions(-1).build(),
-                "Invalid number of partitions"
+                () -> alterZoneBuilder(ZONE_NAME).partitions(42).build(),
+                "Partitions number cannot be altered"
         );
-
-        assertThrows(
-                CatalogValidationException.class,
-                () -> alterZoneBuilder(ZONE_NAME).partitions(0).build(),
-                "Invalid number of partitions"
-        );
-
-        assertThrows(
-                CatalogValidationException.class,
-                () -> alterZoneBuilder(ZONE_NAME).partitions(MAX_PARTITION_COUNT + 1).build(),
-                "Invalid number of partitions"
-        );
-
-        // Let's check the success cases.
-        alterZoneBuilder(ZONE_NAME).partitions(1).build();
-        alterZoneBuilder(ZONE_NAME).partitions(MAX_PARTITION_COUNT).build();
-        alterZoneBuilder(ZONE_NAME).partitions(10).build();
-        alterZoneBuilder(ZONE_NAME).partitions(DEFAULT_PARTITION_COUNT).build();
     }
 
     @Test

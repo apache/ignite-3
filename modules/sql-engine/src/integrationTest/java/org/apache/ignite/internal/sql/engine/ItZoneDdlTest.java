@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -28,6 +29,7 @@ import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.DistributionZoneCantBeDroppedValidationException;
 import org.apache.ignite.internal.catalog.DistributionZoneExistsValidationException;
 import org.apache.ignite.internal.catalog.DistributionZoneNotFoundValidationException;
@@ -171,6 +173,39 @@ public class ItZoneDdlTest extends ClusterPerClassIntegrationTest {
         );
 
         tryToAlterZone("not_existing_" + ZONE_NAME, 200, false);
+    }
+
+    @Test
+    public void testAlterZoneWithPartition() {
+        sql(String.format("CREATE ZONE %s WITH STORAGE_PROFILES='%s', PARTITIONS = 11", ZONE_NAME, DEFAULT_STORAGE_PROFILE));
+
+        IgniteTestUtils.assertThrowsWithCause(
+                () -> sql(String.format("ALTER ZONE %s SET PARTITIONS = 111", ZONE_NAME)),
+                CatalogValidationException.class,
+                "Partitions number cannot be altered"
+        );
+    }
+
+    @Test
+    public void testAlterZoneWithPartitionWhenPartitionIsNotSetWhenCreate() {
+        sql(String.format("CREATE ZONE %s WITH STORAGE_PROFILES='%s'", ZONE_NAME, DEFAULT_STORAGE_PROFILE));
+
+        IgniteTestUtils.assertThrowsWithCause(
+                () -> sql(String.format("ALTER ZONE %s SET PARTITIONS = %s", ZONE_NAME, DEFAULT_PARTITION_COUNT + 123)),
+                CatalogValidationException.class,
+                "Partitions number cannot be altered"
+        );
+    }
+
+    @Test
+    public void testAlterZoneWithTheSamePartition() {
+        sql(String.format("CREATE ZONE %s WITH STORAGE_PROFILES='%s', PARTITIONS = 11", ZONE_NAME, DEFAULT_STORAGE_PROFILE));
+
+        IgniteTestUtils.assertThrowsWithCause(
+                () -> sql(String.format("ALTER ZONE %s SET PARTITIONS = 11", ZONE_NAME)),
+                CatalogValidationException.class,
+                "Partitions number cannot be altered"
+        );
     }
 
     @Test
