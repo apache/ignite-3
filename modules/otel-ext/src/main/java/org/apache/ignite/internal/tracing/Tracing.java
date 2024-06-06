@@ -17,11 +17,11 @@
 
 package org.apache.ignite.internal.tracing;
 
-import org.apache.ignite.internal.tracing.configuration.TracingConfiguration;
+import org.apache.ignite.internal.tracing.configuration.TracingView;
 
 /**
  * Tracing sub-system interface.
  */
 public interface Tracing extends SpanManager {
-    void initialize(String name, TracingConfiguration tracingConfiguration);
+    void refreshTracers(String name, TracingView tracingConfiguration);
 }

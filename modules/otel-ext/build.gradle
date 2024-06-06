@@ -50,8 +50,8 @@ dependencies {
     testImplementation libs.mockito.core
     testImplementation libs.mockito.junit
     testImplementation libs.jmh.core
-    testImplementation project(':ignite-core')
-    testImplementation project(':ignite-configuration')
+    //testImplementation project(':ignite-core')
+    //testImplementation project(':ignite-configuration')
     testImplementation testFixtures(project(':ignite-core'))
     testImplementation testFixtures(project(':ignite-configuration'))
 

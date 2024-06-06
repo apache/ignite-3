@@ -19,10 +19,13 @@ package org.apache.ignite.internal.tracing;
 
 import static java.lang.Double.compare;
 import static org.apache.ignite.internal.tracing.otel.DynamicRatioSampler.SAMPLING_RATE_NEVER;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.ServiceLoader;
 import java.util.ServiceLoader.Provider;
 import org.apache.ignite.internal.tracing.configuration.TracingConfiguration;
+import org.apache.ignite.internal.tracing.configuration.TracingView;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Tracing Manager.
@@ -35,21 +38,27 @@ public class GridTracingManager {
      * @param tracingConfiguration Tracing configuration.
      */
     public static void initialize(String name, TracingConfiguration tracingConfiguration) {
-        if (compare(tracingConfiguration.ratio().value(), SAMPLING_RATE_NEVER) != 0) {
-            SpanManager spanManager = ServiceLoader
-                    .load(SpanManager.class)
-                    .stream()
-                    .map(Provider::get)
-                    .findFirst()
-                    .orElse(NoopSpanManager.INSTANCE);
+        tracingConfiguration.listen((ctx) -> {
+            @Nullable TracingView view = ctx.newValue();
 
-            if (spanManager instanceof Tracing) {
-                Tracing tracing = (Tracing) spanManager;
+            if (view != null && compare(view.ratio(), SAMPLING_RATE_NEVER) != 0) {
+                SpanManager spanManager = ServiceLoader
+                        .load(SpanManager.class)
+                        .stream()
+                        .map(Provider::get)
+                        .findFirst()
+                        .orElse(NoopSpanManager.INSTANCE);
 
-                tracing.initialize(name, tracingConfiguration);
+                if (spanManager instanceof Tracing) {
+                    Tracing tracing = (Tracing) spanManager;
+
+                    tracing.refreshTracers(name, view);
+                }
+
+                TracingManager.initialize(spanManager);
             }
 
-            TracingManager.initialize(spanManager);
-        }
+            return nullCompletedFuture();
+        });
     }
 }

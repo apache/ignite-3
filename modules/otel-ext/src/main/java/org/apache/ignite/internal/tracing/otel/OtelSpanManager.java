@@ -19,7 +19,6 @@ package org.apache.ignite.internal.tracing.otel;
 
 import static io.opentelemetry.api.GlobalOpenTelemetry.getPropagators;
 import static org.apache.ignite.internal.tracing.otel.DynamicRatioSampler.SAMPLING_RATE_NEVER;
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.capacity;
 
 import com.google.auto.service.AutoService;
@@ -50,7 +49,6 @@ import org.apache.ignite.internal.tracing.SpanManager;
 import org.apache.ignite.internal.tracing.TraceSpan;
 import org.apache.ignite.internal.tracing.Tracing;
 import org.apache.ignite.internal.tracing.configuration.FileZipkinExporterView;
-import org.apache.ignite.internal.tracing.configuration.TracingConfiguration;
 import org.apache.ignite.internal.tracing.configuration.TracingExporterView;
 import org.apache.ignite.internal.tracing.configuration.TracingView;
 import org.apache.ignite.internal.tracing.configuration.ZipkinExporterView;
@@ -188,24 +186,12 @@ public class OtelSpanManager implements Tracing {
         return new TracingFuture<>(fut);
     }
 
-    @Override
-    public void initialize(String name, TracingConfiguration tracingConfiguration) {
-        tracingConfiguration.listen((ctx) -> {
-            @Nullable TracingView view = ctx.newValue();
-
-            if (view != null) {
-                refreshTracers(name, view);
-            }
-
-            return nullCompletedFuture();
-        });
-    }
-
     private Tracer forNode(String name) {
         return tracerProviders.get(name).get(null);
     }
 
-    private void refreshTracers(String name, TracingView view) {
+    @Override
+    public void refreshTracers(String name, TracingView view) {
         double ratio = view.ratio();
 
         rwLock.writeLock().lock();

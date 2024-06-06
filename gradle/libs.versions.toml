@@ -83,8 +83,8 @@ jna = "5.14.0"
 tree-sitter = "0.22.5"
 tree-sitter-json = "0.21.0"
 tree-sitter-sql = "gh-pages"
-opentelemetrySdk = "1.35.0"
-opentelemetryJavaagent = "2.1.0-alpha"
+opentelemetrySdk = "1.38.0"
+opentelemetryJavaagent = "2.4.0-alpha"
 
 #Tools
 pmdTool = "6.55.0"

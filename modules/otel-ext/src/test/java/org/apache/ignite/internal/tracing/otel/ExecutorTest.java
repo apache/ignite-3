@@ -24,38 +24,48 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
+import org.apache.ignite.internal.tracing.GridTracingManager;
+import org.apache.ignite.internal.tracing.configuration.TracingConfiguration;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /** Tests for ExecutorService. */
-class ExecutorTest {
-    private static final IgniteLogger LOG = Loggers.forClass(ExecutorTest.class);
+@ExtendWith(ConfigurationExtension.class)
+public class ExecutorTest extends IgniteAbstractTest {
+    private ExecutorService executorService;
 
-    private static ExecutorService executorService;
+    private StripedThreadPoolExecutor stripedThreadPoolExecutor;
 
-    private static StripedThreadPoolExecutor stripedThreadPoolExecutor;
+    @InjectConfiguration
+    private TracingConfiguration tracingConfiguration;
 
-    @BeforeAll
-    static void setUp() {
-        executorService = Executors.newSingleThreadExecutor(new NamedThreadFactory("single-thread-pool", LOG));
+    @BeforeEach
+    void before() {
+        executorService = Executors.newSingleThreadExecutor(new NamedThreadFactory("single-thread-pool", log));
 
         stripedThreadPoolExecutor = new StripedThreadPoolExecutor(
                 2,
-                new NamedThreadFactory("striped-thread-pool", LOG),
+                new NamedThreadFactory("striped-thread-pool", log),
                 false,
                 0
         );
 
-        // TracingManager.initialize("ignite-node-0", 1.0d);
+        GridTracingManager.initialize("ignite-node-0", tracingConfiguration);
+
+        tracingConfiguration.change(tracingChange -> {
+            tracingChange.changeRatio(1.);
+        });
     }
 
-    @AfterAll
-    static void tearDown() {
+    @AfterEach
+    void after() {
         executorService.shutdown();
         stripedThreadPoolExecutor.shutdown();
     }
