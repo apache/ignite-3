@@ -22,10 +22,9 @@ import static org.apache.ignite.internal.catalog.sql.QueryPartCollection.partsLi
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import org.apache.ignite.catalog.Options;
 import org.apache.ignite.sql.IgniteSql;
 
-class CreateZoneImpl extends AbstractCatalogQuery {
+class CreateZoneImpl extends AbstractCatalogQuery<Name> {
     private Name zoneName;
 
     private boolean ifNotExists;
@@ -37,8 +36,13 @@ class CreateZoneImpl extends AbstractCatalogQuery {
      *
      * @see CreateFromAnnotationsImpl
      */
-    CreateZoneImpl(IgniteSql sql, Options options) {
-        super(sql, options);
+    CreateZoneImpl(IgniteSql sql) {
+        super(sql);
+    }
+
+    @Override
+    protected Name result() {
+        return zoneName;
     }
 
     CreateZoneImpl name(String... names) {
@@ -121,8 +125,8 @@ class CreateZoneImpl extends AbstractCatalogQuery {
         ctx.visit(zoneName);
 
         if (!withOptions.isEmpty()) {
-            ctx.sql(" ").formatSeparator().sql("WITH ");
-            ctx.visit(partsList(withOptions).formatSeparator());
+            ctx.sql(" ").sql("WITH ");
+            ctx.visit(partsList(withOptions));
         }
 
         ctx.sql(";");

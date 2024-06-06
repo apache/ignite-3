@@ -47,6 +47,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.event.AbstractEventProducer;
@@ -655,6 +656,30 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     return null;
                 })
                 .thenCompose(v -> replicaFuture);
+    }
+
+    /**
+     * Temporary public method for RAFT-client starting.
+     * TODO: will be removed after https://issues.apache.org/jira/browse/IGNITE-22315
+     *
+     * @param replicaGrpId Replication Group ID.
+     * @param newConfiguration Peers and learners nodes for a raft group.
+     * @param raftClientCache Temporal supplier that returns RAFT-client from TableRaftService if it's already exists and was put into the
+     *      service's map.
+     * @return Future that returns started RAFT-client.
+     * @throws NodeStoppingException In case if node was stopping.
+     */
+    @Deprecated
+    public CompletableFuture<TopologyAwareRaftGroupService> startRaftClient(
+            ReplicationGroupId replicaGrpId,
+            PeersAndLearners newConfiguration,
+            Supplier<RaftGroupService> raftClientCache)
+            throws NodeStoppingException {
+        RaftGroupService cachedRaftClient = raftClientCache.get();
+        return cachedRaftClient != null
+                ? CompletableFuture.completedFuture((TopologyAwareRaftGroupService) cachedRaftClient)
+                // TODO IGNITE-19614 This procedure takes 10 seconds if there's no majority online.
+                : raftManager.startRaftGroupService(replicaGrpId, newConfiguration, raftGroupServiceFactory, raftCommandsMarshaller);
     }
 
     /**

@@ -105,7 +105,7 @@ public class ItPkOnlyTableCrossApiTest extends BaseSqlIntegrationTest {
 
         env.runInTransaction(
                 rwTx -> {
-                    assertThrows(IgniteException.class, () -> view.upsert(rwTx, Tuple.create(key).set("val", 1)));
+                    assertThrows(IgniteException.class, () -> view.upsert(rwTx, Tuple.copy(key).set("val", 1)));
 
                     view.upsert(rwTx, key);
 
@@ -216,7 +216,7 @@ public class ItPkOnlyTableCrossApiTest extends BaseSqlIntegrationTest {
                     binView.put(rwTx, key, emptyVal);
                 },
                 tx -> {
-                    assertNull(binView.get(tx, Tuple.create(key).set("name", "Mary")));
+                    assertNull(binView.get(tx, Tuple.copy(key).set("name", "Mary")));
                     assertEquals(emptyVal, binView.get(tx, key));
                     assertTrue(binView.contains(tx, key));
                     assertEquals(1, binView.getAll(tx, Collections.singleton(key)).size());

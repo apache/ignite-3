@@ -15,21 +15,30 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.catalog;
+package org.apache.ignite.internal.pagememory.persistence;
+
+import java.util.UUID;
+import org.apache.ignite.internal.pagememory.persistence.io.PartitionMetaIo;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Represents the query generated from the definition or annotation. Can be executed directly or converted to the string representation.
+ * Factory for creating {@link PartitionMeta} instances.
  */
-public interface Query {
+public interface PartitionMetaFactory {
     /**
-     * Executes the query.
+     * Creates a new {@link PartitionMeta} instance.
+     *
+     * @param checkpointId Checkpoint ID.
+     * @param metaIo Partition meta IO.
+     * @param pageAddr Page address.
+     * @return Partition meta.
      */
-    void execute();
+    PartitionMeta createPartitionMeta(@Nullable UUID checkpointId, PartitionMetaIo metaIo, long pageAddr);
 
     /**
-     * Converts the query to string.
+     * Returns an instance of {@link PartitionMetaIo} suitable for current {@link PartitionMetaFactory#createPartitionMeta} implementation.
      *
-     * @return String representation of the query.
+     * @return Partition meta IO.
      */
-    String toSqlString();
+    PartitionMetaIo partitionMetaIo();
 }
