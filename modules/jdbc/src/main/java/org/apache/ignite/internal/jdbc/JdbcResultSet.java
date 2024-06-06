@@ -2143,6 +2143,8 @@ public class JdbcResultSet implements ResultSet {
         ensureHasCurrentRow();
 
         try {
+            assert curRow != null;
+
             Object val = curRow.get(colIdx - 1);
 
             wasNull = val == null;

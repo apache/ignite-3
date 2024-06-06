@@ -43,16 +43,16 @@ public class JdbcQuerySingleResult extends Response {
 
     // === Attributes of response with result set ===
 
-    /** Serialized query result rows. */
+    /** Serialized query result rows. Null only when result has no resultSet. */
     private @Nullable List<BinaryTupleReader> rowTuples;
 
     /** Flag indicating the query has un-fetched results. */
     private boolean hasMoreData;
 
-    /** Ordered list of types of columns in serialized rows. */
+    /** Ordered list of types of columns in serialized rows. Null only when result has no resultSet. */
     private @Nullable List<ColumnType> columnTypes;
 
-    /** Decimal scales in appearance order. Can be empty in case no any decimal columns. */
+    /** Decimal scales in appearance order. Can be empty in case no any decimal columns, or null when result has no resultSet. */
     private int @Nullable [] decimalScales;
 
     // === Attributes of response without result set ===
@@ -122,38 +122,22 @@ public class JdbcQuerySingleResult extends Response {
         this.hasNextResult = hasNextResult;
     }
 
-    /**
-     * Get the cursor id.
-     *
-     * @return Cursor ID.
-     */
+    /** Return id of the cursor in case it was registered on server, returns null otherwise. */
     public @Nullable Long cursorId() {
         return cursorId;
     }
 
-    /**
-     * Get the items.
-     *
-     * @return Serialized query result rows.
-     */
+    /** Return result rows in serialized form, return null if result has no result set. */
     public @Nullable List<BinaryTupleReader> items() {
         return rowTuples;
     }
 
-    /**
-     * Types of columns in serialized rows.
-     *
-     * @return Ordered list of types of columns in serialized rows.
-     */
+    /** Return types of columns in serialized rows if result has result set, return null otherwise. */
     public @Nullable List<ColumnType> columnTypes() {
         return columnTypes;
     }
 
-    /**
-     * Decimal scales.
-     *
-     * @return Decimal scales in appearance order in columns. Can be empty in case no any decimal columns.
-     */
+    /** Return decimal scales in appearance order in columns if result has result set, return null otherwise. */
     public int @Nullable [] decimalScales() {
         return decimalScales;
     }
