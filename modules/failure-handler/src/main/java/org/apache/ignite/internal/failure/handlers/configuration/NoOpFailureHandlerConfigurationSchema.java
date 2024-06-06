@@ -25,5 +25,5 @@ import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 @PolymorphicConfigInstance(NoOpFailureHandlerConfigurationSchema.TYPE)
 public class NoOpFailureHandlerConfigurationSchema extends FailureHandlerConfigurationSchema {
     /** Failure handler type name. */
-    public static final String TYPE = "noOp";
+    public static final String TYPE = "noop";
 }
