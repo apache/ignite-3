@@ -91,8 +91,8 @@ public class ClusterInitOptions {
     }
 
     /**
-     * Consistent IDs of the nodes that will host the Cluster Management Group; if empty,
-     * {@code metaStorageNodeIds} will be used to host the CMG as well.
+     * Consistent IDs of the nodes that will host the Cluster Management Group; if empty, {@code metaStorageNodeIds} will be used to host
+     * the CMG as well.
      *
      * @return Cluster management node ids.
      */
@@ -140,13 +140,13 @@ public class ClusterInitOptions {
         }
 
         private boolean hasDuplicate(Stack<String> args) {
-           var arr = args.toArray(String[]::new);
-           for (var str: arr) {
-               if (optionToCheck.equals(str.trim())) {
-                   return true;
-               }
-           }
-           return false;
+            var arr = args.toArray(String[]::new);
+            for (var str : arr) {
+                if (optionToCheck.equals(str.trim())) {
+                    return true;
+                }
+            }
+            return false;
         }
     }
 
