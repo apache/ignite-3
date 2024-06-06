@@ -161,7 +161,7 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
             throw new StorageException("Error starting file page store manager", e);
         }
 
-        partitionMetaManager = new PartitionMetaManager(ioRegistry, pageSize);
+        partitionMetaManager = new PartitionMetaManager(ioRegistry, pageSize, StoragePartitionMeta.FACTORY);
 
         try {
             checkpointManager = new CheckpointManager(

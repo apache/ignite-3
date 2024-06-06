@@ -15,28 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory;
+package org.apache.ignite.internal.storage.pagememory;
 
 import com.google.auto.service.AutoService;
 import java.util.Collection;
 import java.util.List;
-import org.apache.ignite.internal.pagememory.freelist.io.PagesListMetaIo;
-import org.apache.ignite.internal.pagememory.freelist.io.PagesListNodeIo;
-import org.apache.ignite.internal.pagememory.io.DataPageIo;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.pagememory.io.PageIoModule;
 
 /**
- * {@link PageIoModule} implementation in page-memory module.
+ * {@link PageIoModule} implementation in storage-page-memory module.
  */
 @AutoService(PageIoModule.class)
-public class PageMemoryIoModule implements PageIoModule {
+public class StorageMemoryIoModule implements PageIoModule {
     @Override
     public Collection<IoVersions<?>> ioVersions() {
-        return List.of(
-                PagesListMetaIo.VERSIONS,
-                PagesListNodeIo.VERSIONS,
-                DataPageIo.VERSIONS
-        );
+        return List.of(StoragePartitionMetaIo.VERSIONS);
     }
 }
