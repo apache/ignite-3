@@ -17,24 +17,28 @@
 
 package org.apache.ignite.internal.catalog.sql;
 
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.is;
+import org.jetbrains.annotations.Nullable;
 
-import org.junit.jupiter.api.Test;
+/**
+ * Composite class for table and zone names.
+ */
+public class TableZoneId {
+    private final String tableName;
 
-class DropZoneTest {
-    @Test
-    void testDropZone() {
-        Query query2 = dropZone().name("zone1");
-        String sql = query2.toString();
-        assertThat(sql, is("DROP ZONE zone1;"));
+    @Nullable
+    private final String zoneName;
 
-        Query query1 = dropZone().ifExists().name("zone1");
-        sql = query1.toString();
-        assertThat(sql, is("DROP ZONE IF EXISTS zone1;"));
+    public TableZoneId(String tableName, @Nullable String zoneName) {
+        this.tableName = tableName;
+        this.zoneName = zoneName;
     }
 
-    private static DropZoneImpl dropZone() {
-        return new DropZoneImpl(null);
+    public String tableName() {
+        return tableName;
+    }
+
+    @Nullable
+    public String zoneName() {
+        return zoneName;
     }
 }

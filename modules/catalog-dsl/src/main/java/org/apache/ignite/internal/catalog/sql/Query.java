@@ -17,24 +17,14 @@
 
 package org.apache.ignite.internal.catalog.sql;
 
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.is;
+import java.util.concurrent.CompletableFuture;
 
-import org.junit.jupiter.api.Test;
-
-class DropZoneTest {
-    @Test
-    void testDropZone() {
-        Query query2 = dropZone().name("zone1");
-        String sql = query2.toString();
-        assertThat(sql, is("DROP ZONE zone1;"));
-
-        Query query1 = dropZone().ifExists().name("zone1");
-        sql = query1.toString();
-        assertThat(sql, is("DROP ZONE IF EXISTS zone1;"));
-    }
-
-    private static DropZoneImpl dropZone() {
-        return new DropZoneImpl(null);
-    }
+/**
+ * Represents the query generated from the definition or annotation. Can be executed directly or converted to the string representation.
+ */
+public interface Query<T> {
+    /**
+     * Executes the query.
+     */
+    CompletableFuture<T> executeAsync();
 }

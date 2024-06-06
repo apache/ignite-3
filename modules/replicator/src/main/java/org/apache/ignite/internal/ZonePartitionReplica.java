@@ -36,7 +36,7 @@ public class ZonePartitionReplica extends Replica {
     public ZonePartitionReplica(
             ReplicationGroupId replicaGrpId, ReplicaListener listener,
             TopologyAwareRaftGroupService raftClient)  {
-        super(replicaGrpId, listener, null, raftClient, null, null, null, null);
+        super(replicaGrpId, listener, null, null, null, null, null);
     }
 
     @TestOnly

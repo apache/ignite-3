@@ -19,6 +19,7 @@ package org.apache.ignite.internal.datareplication;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
+import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.replicator.ReplicaResult;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
@@ -37,5 +38,10 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
         return CompletableFuture.completedFuture(new ReplicaResult(
                 res,
                 CompletableFuture.completedFuture(res)));
+    }
+
+    @Override
+    public RaftCommandRunner raftClient() {
+        return null;
     }
 }

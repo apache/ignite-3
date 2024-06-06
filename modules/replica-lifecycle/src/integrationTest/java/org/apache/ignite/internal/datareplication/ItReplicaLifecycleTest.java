@@ -19,6 +19,7 @@ package org.apache.ignite.internal.datareplication;
 
 import static java.util.Collections.reverse;
 import static java.util.concurrent.CompletableFuture.allOf;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.BaseIgniteRestartTest.createVault;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_TEST_PROFILE_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
@@ -27,6 +28,7 @@ import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUt
 import static org.apache.ignite.internal.sql.SqlCommon.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.TestIgnitionManager.DEFAULT_MAX_CLOCK_SKEW_MS;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
@@ -132,6 +134,7 @@ import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncServiceImpl;
+import org.apache.ignite.internal.table.distributed.schema.ThreadLocalPartitionCommandsMarshaller;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -501,7 +504,9 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     hybridClock,
                     topologyAwareRaftGroupServiceFactory,
                     new NoOpMetricManager(),
-                    metaStorageConfiguration
+                    metaStorageConfiguration,
+                    raftConfiguration.retryTimeout(),
+                    completedFuture(() -> DEFAULT_MAX_CLOCK_SKEW_MS)
             );
 
             var placementDriver = new ZoneBasedPlacementDriver(clusterService);
@@ -601,7 +606,12 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     Set.of(PartitionReplicationMessageGroup.class, TxMessageGroup.class),
                     placementDriver,
                     threadPoolsManager.partitionOperationsExecutor(),
+                    partitionIdleSafeTimePropagationPeriodMsSupplier,
                     new NoOpFailureProcessor(),
+                    new ThreadLocalPartitionCommandsMarshaller(clusterService.serializationRegistry()),
+                    topologyAwareRaftGroupServiceFactory,
+                    raftManager,
+                    view -> new LocalLogStorageFactory(),
                     t -> (converter.get(t) != null) ? converter.get(t) : t
             );
 
@@ -654,7 +664,6 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     clusterService.messagingService(),
                     clusterService.topologyService(),
                     clusterService.serializationRegistry(),
-                    raftManager,
                     replicaManager,
                     mock(LockManager.class),
                     replicaSvc,
@@ -663,13 +672,12 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     storagePath,
                     metaStorageManager,
                     schemaManager,
-                    view -> new LocalLogStorageFactory(),
                     threadPoolsManager.tableIoExecutor(),
                     threadPoolsManager.partitionOperationsExecutor(),
+                    rebalanceScheduler,
                     clock,
                     clockService,
                     new OutgoingSnapshotsManager(clusterService.messagingService()),
-                    topologyAwareRaftGroupServiceFactory,
                     distributionZoneManager,
                     schemaSyncService,
                     catalogManager,
@@ -677,7 +685,6 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     placementDriver,
                     () -> mock(IgniteSql.class),
                     resourcesRegistry,
-                    rebalanceScheduler,
                     lowWatermark,
                     transactionInflights
             );
