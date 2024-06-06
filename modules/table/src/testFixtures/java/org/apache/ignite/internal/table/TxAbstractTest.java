@@ -119,6 +119,7 @@ import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.Pair;
+import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.jraft.RaftGroupService;
@@ -563,6 +564,14 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
                     IgniteTestUtils.getFieldValue(volatileTxState, VolatileTxStateMetaStorage.class, "txStateMap");
             logger().info("Volatile tx state data [node={}, data={}]", name, txStateMap);
         });
+
+        TxManager txManager = txTestCluster.clientTxManager();
+        VolatileTxStateMetaStorage volatileTxState =
+                IgniteTestUtils.getFieldValue(txManager, TxManagerImpl.class, "txStateVolatileStorage");
+
+        ConcurrentHashMap<UUID, TxStateMeta> txStateMap =
+                IgniteTestUtils.getFieldValue(volatileTxState, VolatileTxStateMetaStorage.class, "txStateMap");
+        logger().info("Volatile client tx state data [node={}, data={}]", "client", txStateMap);
     }
 
     private void printReplicaInfo(String name, ReplicationGroupId replicationGroupId, CompletableFuture<Replica> replicaCompletableFuture) {
@@ -583,7 +592,13 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         TestMvPartitionStorage storage = IgniteTestUtils.getFieldValue(listener, PartitionReplicaListener.class, "mvDataStorage");
         Map<RowId, ?> map = IgniteTestUtils.getFieldValue(storage, TestMvPartitionStorage.class, "map");
 
-        logger().info("Partition data [node={}, groupId={}, data={}]", name, replicationGroupId, map);
+        PendingComparableValuesTracker<HybridTimestamp, Void> safeTime =
+                IgniteTestUtils.getFieldValue(listener, PartitionReplicaListener.class, "safeTime");
+
+        logger().info("Partition data "
+                        + "[node={}, groupId={}, data={}, lastAppliedIndex={}, lastAppliedTerm={}, leaseStartTime={}, safeTime = {}]",
+                name, replicationGroupId, map, storage.lastAppliedIndex(), storage.lastAppliedTerm(), storage.leaseStartTime(),
+                safeTime.current());
 
         Lazy<TableSchemaAwareIndexStorage> indexStorageLazy =
                 IgniteTestUtils.getFieldValue(listener, PartitionReplicaListener.class, "pkIndexStorage");
