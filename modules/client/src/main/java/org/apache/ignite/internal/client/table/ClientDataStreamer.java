@@ -97,7 +97,7 @@ class ClientDataStreamer {
                                     if (resultSubscriber != null && !subscription.cancelled.get()) {
                                         List<Object> results = StreamerReceiverSerializer.deserializeResults(in.in());
 
-                                        if(results != null) {
+                                        if (results != null) {
                                             for (Object result : results) {
                                                 resultSubscriber.onNext((R) result);
 
@@ -113,7 +113,7 @@ class ClientDataStreamer {
                                 new RetryLimitPolicy().retryLimit(options.retryLimit()),
                                 false));
 
-        return streamData(
+        CompletableFuture<Void> resFut = streamData(
                 publisher,
                 keyFunc,
                 payloadFunc,
@@ -122,6 +122,22 @@ class ClientDataStreamer {
                 batchSender,
                 partitionAwarenessProvider,
                 tbl);
+
+        if (subscription != null) {
+            resFut.handle((res, err) -> {
+                if (!subscription.cancelled.get()) {
+                    if (err == null) {
+                        resultSubscriber.onComplete();
+                    } else {
+                        resultSubscriber.onError(err);
+                    }
+                }
+
+                return null;
+            });
+        }
+
+        return resFut;
     }
 
     // T = key, E = element, V = payload, R = result.
