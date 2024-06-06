@@ -123,22 +123,27 @@ class ClientDataStreamer {
                 partitionAwarenessProvider,
                 tbl);
 
-        if (subscription != null) {
-            resFut.handle((res, err) -> {
-                if (!subscription.cancelled.get()) {
-                    if (err == null) {
-                        resultSubscriber.onComplete();
-                    } else {
-                        resultSubscriber.onError(err);
-                    }
-                }
-
-                return null;
-            });
+        if (subscription == null) {
+            return resFut;
         }
 
-        return resFut;
+        return resFut.handle((res, err) -> {
+            if (!subscription.cancelled.get()) {
+                if (err == null) {
+                    resultSubscriber.onComplete();
+                } else {
+                    resultSubscriber.onError(err);
+                }
+            }
+
+            if (err != null) {
+                throw new RuntimeException(err);
+            }
+
+            return res;
+        });
     }
+
 
     // T = key, E = element, V = payload, R = result.
     @SuppressWarnings("resource")
