@@ -22,8 +22,8 @@ import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
-import org.apache.ignite.internal.datareplication.network.replication.ReadWriteReplicaRequest;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.partition.replica.network.replication.ReadWriteReplicaRequest;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.jetbrains.annotations.Nullable;
 

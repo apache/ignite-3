@@ -34,7 +34,7 @@ import static org.mockito.Mockito.verify;
 
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.datareplication.network.replication.BuildIndexReplicaRequest;
+import org.apache.ignite.internal.partition.replica.network.replication.BuildIndexReplicaRequest;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TableTestUtils;

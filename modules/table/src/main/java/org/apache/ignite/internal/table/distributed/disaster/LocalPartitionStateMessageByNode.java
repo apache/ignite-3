@@ -22,7 +22,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-import org.apache.ignite.internal.datareplication.network.disaster.LocalPartitionStateMessage;
+import org.apache.ignite.internal.partition.replica.network.disaster.LocalPartitionStateMessage;
 
 /** Container for LocalPartitionStateMessage to node name map. */
 public class LocalPartitionStateMessageByNode {
