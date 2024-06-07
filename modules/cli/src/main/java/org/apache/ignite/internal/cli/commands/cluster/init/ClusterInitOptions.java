@@ -25,8 +25,10 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.CLUSTER_
 import static org.apache.ignite.internal.cli.commands.Options.Constants.CLUSTER_NAME_OPTION_DESC;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.CMG_NODE_NAME_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.CMG_NODE_NAME_OPTION_DESC;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.CMG_NODE_NAME_PARAM_LABEL;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.META_STORAGE_NODE_NAME_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.META_STORAGE_NODE_NAME_OPTION_DESC;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.META_STORAGE_NODE_NAME_PARAM_LABEL;
 
 import java.io.File;
 import java.io.IOException;
@@ -51,8 +53,11 @@ public class ClusterInitOptions {
      * List of names of the nodes (each represented by a separate command line argument) that will host the Meta Storage. If the
      * "--cluster-management-group" parameter is omitted, the same nodes will also host the Cluster Management Group.
      */
-    @Option(names = META_STORAGE_NODE_NAME_OPTION, required = true,
-            description = META_STORAGE_NODE_NAME_OPTION_DESC, split = ",",
+    @Option(names = META_STORAGE_NODE_NAME_OPTION,
+            required = true,
+            description = META_STORAGE_NODE_NAME_OPTION_DESC,
+            split = ",",
+            paramLabel = META_STORAGE_NODE_NAME_PARAM_LABEL,
             preprocessor = SingleOccurrenceMetastorageConsumer.class
     )
     private List<String> metaStorageNodes;
@@ -61,7 +66,9 @@ public class ClusterInitOptions {
      * List of names of the nodes (each represented by a separate command line argument) that will host the Cluster Management Group.
      */
     @Option(names = CMG_NODE_NAME_OPTION,
-            description = CMG_NODE_NAME_OPTION_DESC, split = ",",
+            description = CMG_NODE_NAME_OPTION_DESC,
+            split = ",",
+            paramLabel = CMG_NODE_NAME_PARAM_LABEL,
             preprocessor = SingleOccurrenceClusterManagementConsumer.class
     )
     private List<String> cmgNodes = new ArrayList<>();

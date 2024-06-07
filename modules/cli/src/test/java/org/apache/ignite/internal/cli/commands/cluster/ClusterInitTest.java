@@ -49,7 +49,7 @@ class ClusterInitTest extends IgniteCliInterfaceTestBase {
                 "--name", "cluster"
         );
 
-        assertErrOutputContains("asdf");
+        assertErrOutputContains("Unmatched arguments");
     }
 
     @Test
@@ -163,7 +163,7 @@ class ClusterInitTest extends IgniteCliInterfaceTestBase {
         assertAll(
                 () -> assertExitCodeIs(2),
                 this::assertOutputIsEmpty,
-                () -> assertErrOutputContains("Missing required option: '--metastorage-group=<metaStorageNodes>'")
+                () -> assertErrOutputContains("Missing required option: '--metastorage-group=<node name>'")
         );
     }
 

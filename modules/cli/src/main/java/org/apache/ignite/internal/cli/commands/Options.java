@@ -167,6 +167,9 @@ public enum Options {
         /** Cluster management node name option long name. */
         public static final String CMG_NODE_NAME_OPTION = "--cluster-management-group";
 
+        /** Label for cluster-management-group parameter. --cluster-management-group=label. */
+        public static final String CMG_NODE_NAME_PARAM_LABEL = "<node name>";
+
         /** Cluster management node name option description. */
         public static final String CMG_NODE_NAME_OPTION_DESC = "Names of nodes (use comma-separated list of node names "
                 + "'--cluster-management-group node1, node2' "
@@ -175,6 +178,9 @@ public enum Options {
 
         /** Meta storage management node name option long name. */
         public static final String META_STORAGE_NODE_NAME_OPTION = "--metastorage-group";
+
+        /** Label for metastorage-group parameter. --metastorage-group=label. */
+        public static final String META_STORAGE_NODE_NAME_PARAM_LABEL = "<node name>";
 
         /** Meta storage node name option description. */
         public static final String META_STORAGE_NODE_NAME_OPTION_DESC = "Metastorage group nodes (use comma-separated list of node names "
