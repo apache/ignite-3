@@ -76,14 +76,14 @@ abstract class FieldAccessor {
                 validateColumnType(col, field.getType());
             }
 
-            BinaryMode mode = BinaryMode.forClass(field.getType());
+            BinaryMode fieldAccessMode = BinaryMode.forClass(field.getType());
             MethodHandles.Lookup lookup = MethodHandles.privateLookupIn(type, MethodHandles.lookup());
 
             VarHandle varHandle = lookup.unreflectVarHandle(field);
 
-            assert mode != null : "Invalid mode for type: " + field.getType();
+            assert fieldAccessMode != null : "Invalid fieldAccessMode for type: " + field.getType();
 
-            switch (mode) {
+            switch (fieldAccessMode) {
                 case P_BOOLEAN:
                     return new BooleanPrimitiveAccessor(varHandle, colIdx);
 
@@ -123,10 +123,10 @@ abstract class FieldAccessor {
                 case DATETIME:
                 case TIMESTAMP:
                 case POJO:
-                    return new ReferenceFieldAccessor(varHandle, colIdx, mode, col.scale(), typeConverter);
+                    return new ReferenceFieldAccessor(varHandle, colIdx, col.type(), col.scale(), typeConverter);
 
                 default:
-                    assert false : "Invalid mode " + mode;
+                    assert false : "Invalid field access mode " + fieldAccessMode;
             }
 
             throw new IllegalArgumentException("Failed to create accessor for field [name=" + field.getName() + ']');
