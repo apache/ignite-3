@@ -19,8 +19,8 @@ package org.apache.ignite.internal.table.distributed.index;
 
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 
-/** Enumeration the index status stored in the {@link IndexMeta}. */
-public enum MetaIndexStatusEnum {
+/** Index status as stored in the {@link IndexMeta}. */
+public enum MetaIndexStatus {
     /**
      * Index has been created in the catalog.
      *
@@ -63,8 +63,8 @@ public enum MetaIndexStatusEnum {
      */
     READ_ONLY;
 
-    /** Converts {@link CatalogIndexStatus} to {@link MetaIndexStatusEnum}. */
-    static MetaIndexStatusEnum convert(CatalogIndexStatus catalogIndexStatus) {
+    /** Converts {@link CatalogIndexStatus} to {@link MetaIndexStatus}. */
+    static MetaIndexStatus convert(CatalogIndexStatus catalogIndexStatus) {
         switch (catalogIndexStatus) {
             case REGISTERED:
                 return REGISTERED;
@@ -80,7 +80,7 @@ public enum MetaIndexStatusEnum {
     }
 
     /** Returns the index status on an index removal event from a catalog, based on the previous status. */
-    static MetaIndexStatusEnum statusOnRemoveIndex(MetaIndexStatusEnum previousStatus) {
+    static MetaIndexStatus statusOnRemoveIndex(MetaIndexStatus previousStatus) {
         switch (previousStatus) {
             case REGISTERED:
             case BUILDING:

@@ -28,12 +28,12 @@ import static org.apache.ignite.internal.table.TableTestUtils.makeIndexAvailable
 import static org.apache.ignite.internal.table.TableTestUtils.removeIndex;
 import static org.apache.ignite.internal.table.TableTestUtils.renameSimpleTable;
 import static org.apache.ignite.internal.table.TableTestUtils.startBuildingIndex;
-import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatusEnum.AVAILABLE;
-import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatusEnum.BUILDING;
-import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatusEnum.READ_ONLY;
-import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatusEnum.REGISTERED;
-import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatusEnum.REMOVED;
-import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatusEnum.STOPPING;
+import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.AVAILABLE;
+import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.BUILDING;
+import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.READ_ONLY;
+import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.REGISTERED;
+import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.REMOVED;
+import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.STOPPING;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
@@ -117,7 +117,7 @@ public class IndexMetaStorageTest extends BaseIndexMetaStorageTest {
         IndexMeta indexMeta = indexMetaStorage.indexMeta(indexId);
         IndexMeta fromVault = fromVault(indexId);
 
-        Map<MetaIndexStatusEnum, MetaIndexStatusChangeInfo> expectedStatuses = Map.of(
+        Map<MetaIndexStatus, MetaIndexStatusChange> expectedStatuses = Map.of(
                 REGISTERED, toChangeInfo(registeredIndexCatalogVersion),
                 BUILDING, toChangeInfo(catalogManager.latestCatalogVersion())
         );
@@ -140,7 +140,7 @@ public class IndexMetaStorageTest extends BaseIndexMetaStorageTest {
         IndexMeta indexMeta = indexMetaStorage.indexMeta(indexId);
         IndexMeta fromVault = fromVault(indexId);
 
-        Map<MetaIndexStatusEnum, MetaIndexStatusChangeInfo> expectedStatuses = Map.of(
+        Map<MetaIndexStatus, MetaIndexStatusChange> expectedStatuses = Map.of(
                 REGISTERED, toChangeInfo(registeredIndexCatalogVersion),
                 BUILDING, toChangeInfo(buildingIndexCatalogVersion),
                 AVAILABLE, toChangeInfo(catalogManager.latestCatalogVersion())
@@ -165,7 +165,7 @@ public class IndexMetaStorageTest extends BaseIndexMetaStorageTest {
         IndexMeta indexMeta = indexMetaStorage.indexMeta(indexId);
         IndexMeta fromVault = fromVault(indexId);
 
-        Map<MetaIndexStatusEnum, MetaIndexStatusChangeInfo> expectedStatuses = Map.of(
+        Map<MetaIndexStatus, MetaIndexStatusChange> expectedStatuses = Map.of(
                 REGISTERED, toChangeInfo(registeredIndexCatalogVersion),
                 BUILDING, toChangeInfo(buildingIndexCatalogVersion),
                 AVAILABLE, toChangeInfo(availableIndexCatalogVersion),
@@ -188,7 +188,7 @@ public class IndexMetaStorageTest extends BaseIndexMetaStorageTest {
         IndexMeta indexMeta = indexMetaStorage.indexMeta(indexId);
         IndexMeta fromVault = fromVault(indexId);
 
-        Map<MetaIndexStatusEnum, MetaIndexStatusChangeInfo> expectedStatuses = Map.of(
+        Map<MetaIndexStatus, MetaIndexStatusChange> expectedStatuses = Map.of(
                 REGISTERED, toChangeInfo(registeredIndexCatalogVersion),
                 REMOVED, toChangeInfo(catalogManager.latestCatalogVersion())
         );
@@ -211,7 +211,7 @@ public class IndexMetaStorageTest extends BaseIndexMetaStorageTest {
         IndexMeta indexMeta = indexMetaStorage.indexMeta(indexId);
         IndexMeta fromVault = fromVault(indexId);
 
-        Map<MetaIndexStatusEnum, MetaIndexStatusChangeInfo> expectedStatuses = Map.of(
+        Map<MetaIndexStatus, MetaIndexStatusChange> expectedStatuses = Map.of(
                 REGISTERED, toChangeInfo(registeredIndexCatalogVersion),
                 BUILDING, toChangeInfo(buildingIndexCatalogVersion),
                 REMOVED, toChangeInfo(catalogManager.latestCatalogVersion())
@@ -237,7 +237,7 @@ public class IndexMetaStorageTest extends BaseIndexMetaStorageTest {
         IndexMeta indexMeta = indexMetaStorage.indexMeta(indexId);
         IndexMeta fromVault = fromVault(indexId);
 
-        Map<MetaIndexStatusEnum, MetaIndexStatusChangeInfo> expectedStatuses = Map.of(
+        Map<MetaIndexStatus, MetaIndexStatusChange> expectedStatuses = Map.of(
                 REGISTERED, toChangeInfo(registeredIndexCatalogVersion),
                 BUILDING, toChangeInfo(buildingIndexCatalogVersion),
                 AVAILABLE, toChangeInfo(availableIndexCatalogVersion),
@@ -260,7 +260,7 @@ public class IndexMetaStorageTest extends BaseIndexMetaStorageTest {
         IndexMeta indexMeta = indexMetaStorage.indexMeta(indexId);
         IndexMeta fromVault = fromVault(indexId);
 
-        Map<MetaIndexStatusEnum, MetaIndexStatusChangeInfo> expectedStatuses = Map.of(
+        Map<MetaIndexStatus, MetaIndexStatusChange> expectedStatuses = Map.of(
                 AVAILABLE, toChangeInfo(afterCreateTableCatalogVersion),
                 READ_ONLY, toChangeInfo(catalogManager.latestCatalogVersion())
         );
@@ -277,7 +277,7 @@ public class IndexMetaStorageTest extends BaseIndexMetaStorageTest {
         int indexId = indexId(INDEX_NAME);
 
         if (updateLwmBeforeOrAfterDropIndex) {
-            updateLwm(clock.now().addPhysicalTime(1_000_000));
+            updateLwm(clock.now().addPhysicalTime(DELTA_TO_TRIGGER_DESTROY));
         }
 
         dropSimpleIndex(catalogManager, INDEX_NAME);
@@ -300,7 +300,7 @@ public class IndexMetaStorageTest extends BaseIndexMetaStorageTest {
         startBuildingIndex(catalogManager, indexId);
 
         if (updateLwmBeforeOrAfterDropIndex) {
-            updateLwm(clock.now().addPhysicalTime(1_000_000));
+            updateLwm(clock.now().addPhysicalTime(DELTA_TO_TRIGGER_DESTROY));
         }
 
         dropSimpleIndex(catalogManager, INDEX_NAME);
@@ -324,7 +324,7 @@ public class IndexMetaStorageTest extends BaseIndexMetaStorageTest {
         makeIndexAvailable(catalogManager, indexId);
 
         if (updateLwmBeforeOrAfterDropIndex) {
-            updateLwm(clock.now().addPhysicalTime(1_000_000));
+            updateLwm(clock.now().addPhysicalTime(DELTA_TO_TRIGGER_DESTROY));
         }
 
         dropSimpleIndex(catalogManager, INDEX_NAME);
@@ -349,7 +349,7 @@ public class IndexMetaStorageTest extends BaseIndexMetaStorageTest {
         dropSimpleIndex(catalogManager, INDEX_NAME);
 
         if (updateLwmBeforeOrAfterDropIndex) {
-            updateLwm(clock.now().addPhysicalTime(1_000_000));
+            updateLwm(clock.now().addPhysicalTime(DELTA_TO_TRIGGER_DESTROY));
         }
 
         removeIndex(catalogManager, indexId);
@@ -368,7 +368,7 @@ public class IndexMetaStorageTest extends BaseIndexMetaStorageTest {
         int indexId = indexId(PK_INDEX_NAME);
 
         if (updateLwmBeforeOrAfterDropIndex) {
-            updateLwm(clock.now().addPhysicalTime(1_000_000));
+            updateLwm(clock.now().addPhysicalTime(DELTA_TO_TRIGGER_DESTROY));
         }
 
         dropSimpleTable(catalogManager, TABLE_NAME);

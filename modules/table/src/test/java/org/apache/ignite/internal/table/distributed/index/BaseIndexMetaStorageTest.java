@@ -53,6 +53,8 @@ import org.junit.jupiter.api.BeforeEach;
 
 /** Base class for testing {@link IndexMetaStorage}. */
 abstract class BaseIndexMetaStorageTest extends BaseIgniteAbstractTest {
+    static final int DELTA_TO_TRIGGER_DESTROY = 1_000_000;
+
     static final String NODE_NAME = "test";
 
     static final String NEW_TABLE_NAME = TABLE_NAME + "_NEW";
@@ -128,16 +130,16 @@ abstract class BaseIndexMetaStorageTest extends BaseIgniteAbstractTest {
         return vaultEntry == null ? null : ByteUtils.fromBytes(vaultEntry.value());
     }
 
-    MetaIndexStatusChangeInfo toChangeInfo(int catalogVersion) {
+    MetaIndexStatusChange toChangeInfo(int catalogVersion) {
         Catalog catalog = catalogManager.catalog(catalogVersion);
 
         assertNotNull(catalog, "catalogVersion=" + catalogVersion);
 
-        return new MetaIndexStatusChangeInfo(catalog.version(), catalog.time());
+        return new MetaIndexStatusChange(catalog.version(), catalog.time());
     }
 
     List<String> allIndexNamesFromSnapshotIndexMetas() {
-        return indexMetaStorage.snapshotIndexMetas().stream()
+        return indexMetaStorage.indexMetasSnapshot().stream()
                 .map(IndexMeta::indexName)
                 .collect(toList());
     }
@@ -157,8 +159,8 @@ abstract class BaseIndexMetaStorageTest extends BaseIgniteAbstractTest {
             int expIndexId,
             int expTableId,
             String expIndexName,
-            MetaIndexStatusEnum expStatus,
-            Map<MetaIndexStatusEnum, MetaIndexStatusChangeInfo> expStatuses
+            MetaIndexStatus expStatus,
+            Map<MetaIndexStatus, MetaIndexStatusChange> expStatuses
     ) {
         assertNotNull(indexMeta);
 
@@ -166,6 +168,6 @@ abstract class BaseIndexMetaStorageTest extends BaseIgniteAbstractTest {
         assertEquals(expTableId, indexMeta.tableId());
         assertEquals(expIndexName, indexMeta.indexName());
         assertEquals(expStatus, indexMeta.status());
-        assertEquals(expStatuses, indexMeta.statuses());
+        assertEquals(expStatuses, indexMeta.statusChanges());
     }
 }

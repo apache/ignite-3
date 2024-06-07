@@ -37,10 +37,10 @@ public class IndexMeta implements Serializable {
 
     private final String indexName;
 
-    private final MetaIndexStatusEnum status;
+    private final MetaIndexStatus currentStatus;
 
     @IgniteToStringInclude
-    private final Map<MetaIndexStatusEnum, MetaIndexStatusChangeInfo> statuses;
+    private final Map<MetaIndexStatus, MetaIndexStatusChange> statusChanges;
 
     /** Constructor. */
     IndexMeta(CatalogIndexDescriptor catalogIndexDescriptor, Catalog catalog) {
@@ -48,27 +48,35 @@ public class IndexMeta implements Serializable {
                 catalogIndexDescriptor.id(),
                 catalogIndexDescriptor.tableId(),
                 catalogIndexDescriptor.name(),
-                MetaIndexStatusEnum.convert(catalogIndexDescriptor.status()),
+                MetaIndexStatus.convert(catalogIndexDescriptor.status()),
                 Map.of(
-                        MetaIndexStatusEnum.convert(catalogIndexDescriptor.status()),
-                        new MetaIndexStatusChangeInfo(catalog.version(), catalog.time())
+                        MetaIndexStatus.convert(catalogIndexDescriptor.status()),
+                        new MetaIndexStatusChange(catalog.version(), catalog.time())
                 )
         );
     }
 
-    /** Constructor. */
+    /**
+     * Constructor.
+     *
+     * @param indexId Index ID.
+     * @param tableId Table ID to which the index belongs.
+     * @param indexName Index name.
+     * @param currentStatus Current status of the index
+     * @param statusChanges <b>Immutable</b> map of index statuses with change info (for example catalog version) in which they appeared.
+     */
     private IndexMeta(
             int indexId,
             int tableId,
             String indexName,
-            MetaIndexStatusEnum status,
-            Map<MetaIndexStatusEnum, MetaIndexStatusChangeInfo> statuses
+            MetaIndexStatus currentStatus,
+            Map<MetaIndexStatus, MetaIndexStatusChange> statusChanges
     ) {
         this.indexId = indexId;
         this.tableId = tableId;
         this.indexName = indexName;
-        this.status = status;
-        this.statuses = unmodifiableMap(statuses);
+        this.currentStatus = currentStatus;
+        this.statusChanges = unmodifiableMap(statusChanges);
     }
 
     /** Returns index ID. */
@@ -90,38 +98,38 @@ public class IndexMeta implements Serializable {
      * Changes the index name.
      *
      * @param newIndexName New index name.
-     * @return New instance of the index meta.
+     * @return New instance of the index meta with only a new index name.
      */
     IndexMeta indexName(String newIndexName) {
-        return new IndexMeta(indexId, tableId, newIndexName, status, new EnumMap<>(statuses));
+        return new IndexMeta(indexId, tableId, newIndexName, currentStatus, new EnumMap<>(statusChanges));
     }
 
     /** Returns the current status of the index. */
-    public MetaIndexStatusEnum status() {
-        return status;
+    public MetaIndexStatus status() {
+        return currentStatus;
     }
 
     /**
-     * Sets the new current index status and adds to {@link #statuses()}.
+     * Sets the new current index status and adds to {@link #statusChanges()}.
      *
      * @param newStatus New current status of the index.
      * @param catalogVersion Catalog version in which the new index status appeared.
      * @param activationTs Activation timestamp of the catalog version in which the new status appeared.
-     * @return New instance of the index meta.
+     * @return New instance of the index meta with a change in the current status and status history updates.
      * @see Catalog#time()
      */
-    IndexMeta status(MetaIndexStatusEnum newStatus, int catalogVersion, long activationTs) {
-        assert !statuses.containsKey(newStatus) : "newStatus=" + newStatus + ", catalogVersion=" + catalogVersion;
+    IndexMeta status(MetaIndexStatus newStatus, int catalogVersion, long activationTs) {
+        assert !statusChanges.containsKey(newStatus) : "newStatus=" + newStatus + ", catalogVersion=" + catalogVersion;
 
-        var newStatuses = new EnumMap<>(statuses);
-        newStatuses.put(newStatus, new MetaIndexStatusChangeInfo(catalogVersion, activationTs));
+        var newStatuses = new EnumMap<>(statusChanges);
+        newStatuses.put(newStatus, new MetaIndexStatusChange(catalogVersion, activationTs));
 
         return new IndexMeta(indexId, tableId, indexName, newStatus, newStatuses);
     }
 
     /** Returns a map of index statuses with change info (for example catalog version) in which they appeared. */
-    public Map<MetaIndexStatusEnum, MetaIndexStatusChangeInfo> statuses() {
-        return statuses;
+    public Map<MetaIndexStatus, MetaIndexStatusChange> statusChanges() {
+        return statusChanges;
     }
 
     @Override

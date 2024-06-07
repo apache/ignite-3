@@ -21,8 +21,8 @@ import java.io.Serializable;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.tostring.S;
 
-/** Information about {@link MetaIndexStatusEnum index status} changes. */
-public class MetaIndexStatusChangeInfo implements Serializable {
+/** Information about {@link MetaIndexStatus index status} changes. */
+public class MetaIndexStatusChange implements Serializable {
     private static final long serialVersionUID = -2837971110813775936L;
 
     private final int catalogVersion;
@@ -30,12 +30,12 @@ public class MetaIndexStatusChangeInfo implements Serializable {
     private final long activationTs;
 
     /** Constructor. */
-    MetaIndexStatusChangeInfo(int catalogVersion, long activationTs) {
+    MetaIndexStatusChange(int catalogVersion, long activationTs) {
         this.catalogVersion = catalogVersion;
         this.activationTs = activationTs;
     }
 
-    /** Returns the catalog version in which the {@link MetaIndexStatusEnum status} appeared. */
+    /** Returns the catalog version in which the {@link MetaIndexStatus status} appeared. */
     public int catalogVersion() {
         return catalogVersion;
     }
@@ -58,7 +58,7 @@ public class MetaIndexStatusChangeInfo implements Serializable {
             return false;
         }
 
-        MetaIndexStatusChangeInfo that = (MetaIndexStatusChangeInfo) o;
+        MetaIndexStatusChange that = (MetaIndexStatusChange) o;
 
         return catalogVersion == that.catalogVersion && activationTs == that.activationTs;
     }

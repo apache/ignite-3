@@ -27,9 +27,9 @@ import static org.apache.ignite.internal.catalog.events.CatalogEvent.TABLE_ALTER
 import static org.apache.ignite.internal.event.EventListener.fromConsumer;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
 import static org.apache.ignite.internal.lowwatermark.event.LowWatermarkEvent.LOW_WATERMARK_CHANGED;
-import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatusEnum.READ_ONLY;
-import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatusEnum.REMOVED;
-import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatusEnum.statusOnRemoveIndex;
+import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.READ_ONLY;
+import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.REMOVED;
+import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.statusOnRemoveIndex;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.StringUtils.incrementLastChar;
 
@@ -77,19 +77,19 @@ import org.jetbrains.annotations.TestOnly;
  * <ul>
  *     <li>{@link CatalogEvent#INDEX_CREATE} - creates metadata for the new index.</li>
  *     <li>{@link CatalogEvent#INDEX_BUILDING} - changes the {@link IndexMeta#status()} in the metadata to
- *     {@link MetaIndexStatusEnum#BUILDING}.</li>
+ *     {@link MetaIndexStatus#BUILDING}.</li>
  *     <li>{@link CatalogEvent#INDEX_AVAILABLE} - changes the {@link IndexMeta#status()} in the metadata to
- *     {@link MetaIndexStatusEnum#AVAILABLE}.</li>
+ *     {@link MetaIndexStatus#AVAILABLE}.</li>
  *     <li>{@link CatalogEvent#INDEX_STOPPING} - changes the {@link IndexMeta#status()} in the metadata to
- *     {@link MetaIndexStatusEnum#STOPPING}.</li>
+ *     {@link MetaIndexStatus#STOPPING}.</li>
  *     <li>{@link CatalogEvent#INDEX_REMOVED} - changes the {@link IndexMeta#status()} in the metadata depending on the previous status:<ul>
- *         <li>{@link MetaIndexStatusEnum#STOPPING} or {@link MetaIndexStatusEnum#AVAILABLE} (on table deletion) -
- *         {@link MetaIndexStatusEnum#READ_ONLY}</li>
- *         <li>{@link MetaIndexStatusEnum#REGISTERED} or {@link MetaIndexStatusEnum#BUILDING} - {@link MetaIndexStatusEnum#REMOVED}</li>
+ *         <li>{@link MetaIndexStatus#STOPPING} or {@link MetaIndexStatus#AVAILABLE} (on table deletion) -
+ *         {@link MetaIndexStatus#READ_ONLY}</li>
+ *         <li>{@link MetaIndexStatus#REGISTERED} or {@link MetaIndexStatus#BUILDING} - {@link MetaIndexStatus#REMOVED}</li>
  *     </ul></li>
  *     <li>{@link CatalogEvent#TABLE_ALTER} (only table rename) - changes the {@link IndexMeta#indexName() index name} in the metadata.</li>
  *     <li>{@link LowWatermarkEvent#LOW_WATERMARK_CHANGED} - deletes metadata of indexes that were in status
- *     {@link MetaIndexStatusEnum#READ_ONLY} or {@link MetaIndexStatusEnum#REMOVED} and catalog versions in which their status was updated
+ *     {@link MetaIndexStatus#READ_ONLY} or {@link MetaIndexStatus#REMOVED} and catalog versions in which their status was updated
  *     less than or equal to the active catalog version for the new watermark.</li>
  * </ul>
  */
@@ -117,13 +117,13 @@ public class IndexMetaStorage implements IgniteComponent {
 
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
-        catalogService.listen(INDEX_CREATE, fromConsumer(this::onIndexCreate));
-        catalogService.listen(INDEX_REMOVED, fromConsumer(this::onIndexRemoved));
-        catalogService.listen(INDEX_BUILDING, fromConsumer(this::onIndexBuilding));
-        catalogService.listen(INDEX_AVAILABLE, fromConsumer(this::onIndexAvailable));
-        catalogService.listen(INDEX_STOPPING, fromConsumer(this::onIndexStopping));
+        catalogService.listen(INDEX_CREATE, fromConsumer(this::onCatalogIndexCreateEvent));
+        catalogService.listen(INDEX_REMOVED, fromConsumer(this::onCatalogIndexRemovedEvent));
+        catalogService.listen(INDEX_BUILDING, fromConsumer(this::onCatalogIndexBuildingEvent));
+        catalogService.listen(INDEX_AVAILABLE, fromConsumer(this::onCatalogIndexAvailableEvent));
+        catalogService.listen(INDEX_STOPPING, fromConsumer(this::onCatalogIndexStoppingEvent));
 
-        catalogService.listen(TABLE_ALTER, fromConsumer(this::onTableAlter));
+        catalogService.listen(TABLE_ALTER, fromConsumer(this::onCatalogTableAlterEvent));
 
         lowWatermark.listen(LOW_WATERMARK_CHANGED, fromConsumer(this::onLwmChanged));
 
@@ -148,43 +148,43 @@ public class IndexMetaStorage implements IgniteComponent {
         return indexMetaByIndexId.get(indexId);
     }
 
-    /** Returns a snapshot of all {@link IndexMeta}. */
+    /** Returns a snapshot of all {@link IndexMeta}s. */
     @TestOnly
-    Collection<IndexMeta> snapshotIndexMetas() {
+    Collection<IndexMeta> indexMetasSnapshot() {
         return List.copyOf(indexMetaByIndexId.values());
     }
 
-    private void onIndexCreate(CreateIndexEventParameters parameters) {
+    private void onCatalogIndexCreateEvent(CreateIndexEventParameters parameters) {
         CatalogIndexDescriptor catalogIndexDescriptor = parameters.indexDescriptor();
 
         Catalog catalog = catalog(parameters.catalogVersion());
 
-        updateAndSaveToVaultIndexMeta(catalogIndexDescriptor.id(), indexMeta -> {
+        updateAndSaveIndexMetaToVault(catalogIndexDescriptor.id(), indexMeta -> {
             assert indexMeta == null : catalogIndexDescriptor.id();
 
             return new IndexMeta(catalogIndexDescriptor, catalog);
         });
     }
 
-    private void onIndexRemoved(RemoveIndexEventParameters parameters) {
+    private void onCatalogIndexRemovedEvent(RemoveIndexEventParameters parameters) {
         int indexId = parameters.indexId();
 
-        int catalogVersion = parameters.catalogVersion();
+        int eventCatalogVersion = parameters.catalogVersion();
 
-        Catalog catalog = catalog(catalogVersion);
+        Catalog catalog = catalog(eventCatalogVersion);
 
         lowWatermark.getLowWatermarkSafe(lwm -> {
             int lwmCatalogVersion = catalogService.activeCatalogVersion(hybridTimestampToLong(lwm));
 
-            if (catalogVersion <= lwmCatalogVersion) {
-                // There is no need to add a read-only indexes, since the index should be destroyed under the updated low watermark.
+            if (eventCatalogVersion <= lwmCatalogVersion) {
+                // There is no need to add a read-only index, since the index should be destroyed under the updated low watermark.
                 IndexMeta removed = indexMetaByIndexId.remove(indexId);
 
                 assert removed != null : indexId;
 
                 removeFromVault(removed);
             } else {
-                updateAndSaveToVaultIndexMeta(indexId, indexMeta -> {
+                updateAndSaveIndexMetaToVault(indexId, indexMeta -> {
                     assert indexMeta != null : indexId;
 
                     return setNewStatus(indexMeta, statusOnRemoveIndex(indexMeta.status()), catalog);
@@ -193,11 +193,11 @@ public class IndexMetaStorage implements IgniteComponent {
         });
     }
 
-    private void onIndexBuilding(StartBuildingIndexEventParameters parameters) {
+    private void onCatalogIndexBuildingEvent(StartBuildingIndexEventParameters parameters) {
         updateIndexStatus(parameters);
     }
 
-    private void onIndexAvailable(MakeIndexAvailableEventParameters parameters) {
+    private void onCatalogIndexAvailableEvent(MakeIndexAvailableEventParameters parameters) {
         int catalogVersion = parameters.catalogVersion();
         int indexId = parameters.indexId();
 
@@ -209,7 +209,7 @@ public class IndexMetaStorage implements IgniteComponent {
         }
     }
 
-    private void onIndexStopping(StoppingIndexEventParameters parameters) {
+    private void onCatalogIndexStoppingEvent(StoppingIndexEventParameters parameters) {
         updateIndexStatus(parameters);
     }
 
@@ -218,14 +218,14 @@ public class IndexMetaStorage implements IgniteComponent {
 
         Catalog catalog = catalog(parameters.catalogVersion());
 
-        updateAndSaveToVaultIndexMeta(catalogIndexDescriptor.id(), indexMeta -> {
+        updateAndSaveIndexMetaToVault(catalogIndexDescriptor.id(), indexMeta -> {
             assert indexMeta != null : catalogIndexDescriptor.id();
 
-            return setNewStatus(indexMeta, MetaIndexStatusEnum.convert(catalogIndexDescriptor.status()), catalog);
+            return setNewStatus(indexMeta, MetaIndexStatus.convert(catalogIndexDescriptor.status()), catalog);
         });
     }
 
-    private void onTableAlter(TableEventParameters parameters) {
+    private void onCatalogTableAlterEvent(TableEventParameters parameters) {
         if (parameters instanceof RenameTableEventParameters) {
             int catalogVersion = parameters.catalogVersion();
 
@@ -235,7 +235,7 @@ public class IndexMetaStorage implements IgniteComponent {
 
             CatalogIndexDescriptor catalogIndexDescriptor = catalogIndexDescriptor(indexId, catalogVersion);
 
-            updateAndSaveToVaultIndexMeta(indexId, indexMeta -> {
+            updateAndSaveIndexMetaToVault(indexId, indexMeta -> {
                 assert indexMeta != null : indexId;
 
                 return indexMeta.indexName(catalogIndexDescriptor.name());
@@ -251,7 +251,7 @@ public class IndexMetaStorage implements IgniteComponent {
         while (it.hasNext()) {
             IndexMeta indexMeta = it.next();
 
-            if (isShouldToRemove(indexMeta, lwmCatalogVersion)) {
+            if (shouldBeRemoved(indexMeta, lwmCatalogVersion)) {
                 it.remove();
 
                 removeFromVault(indexMeta);
@@ -272,15 +272,15 @@ public class IndexMetaStorage implements IgniteComponent {
 
             if (indexMetaFromVault == null) {
                 // We did not have time to save at the index creation event.
-                updateAndSaveToVaultIndexMeta(indexId, indexMeta -> new IndexMeta(catalogIndexDescriptor, catalog));
+                updateAndSaveIndexMetaToVault(indexId, indexMeta -> new IndexMeta(catalogIndexDescriptor, catalog));
             } else if (!catalogIndexDescriptor.name().equals(indexMetaFromVault.indexName())) {
                 // We did not have time to process the index renaming event.
-                updateAndSaveToVaultIndexMeta(indexId, indexMeta -> indexMetaFromVault.indexName(catalogIndexDescriptor.name()));
-            } else if (MetaIndexStatusEnum.convert(catalogIndexDescriptor.status()) != indexMetaFromVault.status()) {
+                updateAndSaveIndexMetaToVault(indexId, indexMeta -> indexMetaFromVault.indexName(catalogIndexDescriptor.name()));
+            } else if (MetaIndexStatus.convert(catalogIndexDescriptor.status()) != indexMetaFromVault.status()) {
                 // We did not have time to process the index status change event.
-                updateAndSaveToVaultIndexMeta(
+                updateAndSaveIndexMetaToVault(
                         indexId,
-                        indexMeta -> setNewStatus(indexMetaFromVault, MetaIndexStatusEnum.convert(catalogIndexDescriptor.status()), catalog)
+                        indexMeta -> setNewStatus(indexMetaFromVault, MetaIndexStatus.convert(catalogIndexDescriptor.status()), catalog)
                 );
             } else {
                 indexMetaByIndexId.put(indexId, indexMetaFromVault);
@@ -298,19 +298,19 @@ public class IndexMetaStorage implements IgniteComponent {
             }
 
             if (indexMeta.status() == READ_ONLY || indexMeta.status() == REMOVED) {
-                if (isShouldToRemove(indexMeta, lwmCatalogVersion)) {
+                if (shouldBeRemoved(indexMeta, lwmCatalogVersion)) {
                     // We did not have time to process the lwm change event.
                     removeFromVault(indexMeta);
                 } else {
                     indexMetaByIndexId.put(indexId, indexMeta);
                 }
             } else {
-                // We did not have time to process the index removing event.
+                // We did not have time to process the index removal event.
                 if (catalog.version() <= lwmCatalogVersion) {
                     // There is no need to add a read-only indexes, since the index should be destroyed under the updated low watermark.
                     removeFromVault(indexMeta);
                 } else {
-                    updateAndSaveToVaultIndexMeta(
+                    updateAndSaveIndexMetaToVault(
                             indexId,
                             meta -> setNewStatus(indexMeta, statusOnRemoveIndex(indexMeta.status()), catalog)
                     );
@@ -343,7 +343,7 @@ public class IndexMetaStorage implements IgniteComponent {
         return catalog;
     }
 
-    private void updateAndSaveToVaultIndexMeta(int indexId, Function<@Nullable IndexMeta, IndexMeta> updateFunction) {
+    private void updateAndSaveIndexMetaToVault(int indexId, Function<@Nullable IndexMeta, IndexMeta> updateFunction) {
         IndexMeta newMeta = indexMetaByIndexId.compute(indexId, (id, indexMeta) -> updateFunction.apply(indexMeta));
 
         saveToVault(newMeta);
@@ -373,7 +373,7 @@ public class IndexMetaStorage implements IgniteComponent {
                 .collect(toMap(CatalogObjectDescriptor::id, Function.identity()));
     }
 
-    private static IndexMeta setNewStatus(IndexMeta indexMeta, MetaIndexStatusEnum newStatus, Catalog catalog) {
+    private static IndexMeta setNewStatus(IndexMeta indexMeta, MetaIndexStatus newStatus, Catalog catalog) {
         return indexMeta.status(newStatus, catalog.version(), catalog.time());
     }
 
@@ -381,9 +381,9 @@ public class IndexMetaStorage implements IgniteComponent {
         return ByteArray.fromString(INDEX_META_KEY_PREFIX + indexMeta.indexId());
     }
 
-    private static boolean isShouldToRemove(IndexMeta indexMeta, int lwmCatalogVersion) {
-        MetaIndexStatusEnum status = indexMeta.status();
+    private static boolean shouldBeRemoved(IndexMeta indexMeta, int lwmCatalogVersion) {
+        MetaIndexStatus status = indexMeta.status();
 
-        return (status == READ_ONLY || status == REMOVED) && indexMeta.statuses().get(status).catalogVersion() <= lwmCatalogVersion;
+        return (status == READ_ONLY || status == REMOVED) && indexMeta.statusChanges().get(status).catalogVersion() <= lwmCatalogVersion;
     }
 }

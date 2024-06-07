@@ -28,12 +28,12 @@ import static org.apache.ignite.internal.table.TableTestUtils.makeIndexAvailable
 import static org.apache.ignite.internal.table.TableTestUtils.removeIndex;
 import static org.apache.ignite.internal.table.TableTestUtils.renameSimpleTable;
 import static org.apache.ignite.internal.table.TableTestUtils.startBuildingIndex;
-import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatusEnum.AVAILABLE;
-import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatusEnum.BUILDING;
-import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatusEnum.READ_ONLY;
-import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatusEnum.REGISTERED;
-import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatusEnum.REMOVED;
-import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatusEnum.STOPPING;
+import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.AVAILABLE;
+import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.BUILDING;
+import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.READ_ONLY;
+import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.REGISTERED;
+import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.REMOVED;
+import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.STOPPING;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
@@ -133,7 +133,7 @@ public class IndexMetaStorageRecoveryTest extends BaseIndexMetaStorageTest {
         IndexMeta indexMeta = indexMetaStorage.indexMeta(indexId);
         IndexMeta fromVault = fromVault(indexId);
 
-        Map<MetaIndexStatusEnum, MetaIndexStatusChangeInfo> expectedStatuses = Map.of(
+        Map<MetaIndexStatus, MetaIndexStatusChange> expectedStatuses = Map.of(
                 REGISTERED, toChangeInfo(registeredIndexCatalogVersion),
                 BUILDING, toChangeInfo(catalogManager.latestCatalogVersion())
         );
@@ -160,7 +160,7 @@ public class IndexMetaStorageRecoveryTest extends BaseIndexMetaStorageTest {
         IndexMeta indexMeta = indexMetaStorage.indexMeta(indexId);
         IndexMeta fromVault = fromVault(indexId);
 
-        Map<MetaIndexStatusEnum, MetaIndexStatusChangeInfo> expectedStatuses = Map.of(
+        Map<MetaIndexStatus, MetaIndexStatusChange> expectedStatuses = Map.of(
                 REGISTERED, toChangeInfo(registeredIndexCatalogVersion),
                 BUILDING, toChangeInfo(buildingIndexCatalogVersion),
                 AVAILABLE, toChangeInfo(catalogManager.latestCatalogVersion())
@@ -189,7 +189,7 @@ public class IndexMetaStorageRecoveryTest extends BaseIndexMetaStorageTest {
         IndexMeta indexMeta = indexMetaStorage.indexMeta(indexId);
         IndexMeta fromVault = fromVault(indexId);
 
-        Map<MetaIndexStatusEnum, MetaIndexStatusChangeInfo> expectedStatuses = Map.of(
+        Map<MetaIndexStatus, MetaIndexStatusChange> expectedStatuses = Map.of(
                 REGISTERED, toChangeInfo(registeredIndexCatalogVersion),
                 BUILDING, toChangeInfo(buildingIndexCatalogVersion),
                 AVAILABLE, toChangeInfo(availableIndexCatalogVersion),
@@ -220,7 +220,7 @@ public class IndexMetaStorageRecoveryTest extends BaseIndexMetaStorageTest {
         IndexMeta indexMeta = indexMetaStorage.indexMeta(indexId);
         IndexMeta fromVault = fromVault(indexId);
 
-        Map<MetaIndexStatusEnum, MetaIndexStatusChangeInfo> expectedStatuses = Map.of(
+        Map<MetaIndexStatus, MetaIndexStatusChange> expectedStatuses = Map.of(
                 REGISTERED, toChangeInfo(registeredIndexCatalogVersion),
                 BUILDING, toChangeInfo(buildingIndexCatalogVersion),
                 AVAILABLE, toChangeInfo(availableIndexCatalogVersion),
@@ -247,7 +247,7 @@ public class IndexMetaStorageRecoveryTest extends BaseIndexMetaStorageTest {
         IndexMeta indexMeta = indexMetaStorage.indexMeta(indexId);
         IndexMeta fromVault = fromVault(indexId);
 
-        Map<MetaIndexStatusEnum, MetaIndexStatusChangeInfo> expectedStatuses = Map.of(
+        Map<MetaIndexStatus, MetaIndexStatusChange> expectedStatuses = Map.of(
                 AVAILABLE, toChangeInfo(availableIndexCatalogVersion),
                 READ_ONLY, toChangeInfo(catalogManager.latestCatalogVersion())
         );
@@ -272,7 +272,7 @@ public class IndexMetaStorageRecoveryTest extends BaseIndexMetaStorageTest {
         IndexMeta indexMeta = indexMetaStorage.indexMeta(indexId);
         IndexMeta fromVault = fromVault(indexId);
 
-        Map<MetaIndexStatusEnum, MetaIndexStatusChangeInfo> expectedStatuses = Map.of(
+        Map<MetaIndexStatus, MetaIndexStatusChange> expectedStatuses = Map.of(
                 REGISTERED, toChangeInfo(registeredIndexCatalogVersion),
                 REMOVED, toChangeInfo(catalogManager.latestCatalogVersion())
         );
@@ -299,7 +299,7 @@ public class IndexMetaStorageRecoveryTest extends BaseIndexMetaStorageTest {
         IndexMeta indexMeta = indexMetaStorage.indexMeta(indexId);
         IndexMeta fromVault = fromVault(indexId);
 
-        Map<MetaIndexStatusEnum, MetaIndexStatusChangeInfo> expectedStatuses = Map.of(
+        Map<MetaIndexStatus, MetaIndexStatusChange> expectedStatuses = Map.of(
                 REGISTERED, toChangeInfo(registeredIndexCatalogVersion),
                 BUILDING, toChangeInfo(buildingIndexCatalogVersion),
                 REMOVED, toChangeInfo(catalogManager.latestCatalogVersion())
@@ -317,7 +317,7 @@ public class IndexMetaStorageRecoveryTest extends BaseIndexMetaStorageTest {
 
         executeCatalogUpdateWithDropEvents(() -> dropSimpleIndex(catalogManager, INDEX_NAME));
 
-        updateLwm(clock.now().addPhysicalTime(1_000_000));
+        updateLwm(clock.now().addPhysicalTime(DELTA_TO_TRIGGER_DESTROY));
 
         restartComponents();
 
@@ -335,7 +335,7 @@ public class IndexMetaStorageRecoveryTest extends BaseIndexMetaStorageTest {
 
         executeCatalogUpdateWithDropEvents(() -> dropSimpleIndex(catalogManager, INDEX_NAME));
 
-        updateLwm(clock.now().addPhysicalTime(1_000_000));
+        updateLwm(clock.now().addPhysicalTime(DELTA_TO_TRIGGER_DESTROY));
 
         restartComponents();
 
@@ -354,7 +354,7 @@ public class IndexMetaStorageRecoveryTest extends BaseIndexMetaStorageTest {
 
         executeCatalogUpdateWithDropEvents(() -> dropSimpleIndex(catalogManager, INDEX_NAME));
 
-        updateLwm(clock.now().addPhysicalTime(1_000_000));
+        updateLwm(clock.now().addPhysicalTime(DELTA_TO_TRIGGER_DESTROY));
 
         restartComponents();
 
@@ -374,7 +374,7 @@ public class IndexMetaStorageRecoveryTest extends BaseIndexMetaStorageTest {
 
         executeCatalogUpdateWithDropEvents(() -> removeIndex(catalogManager, indexId));
 
-        updateLwm(clock.now().addPhysicalTime(1_000_000));
+        updateLwm(clock.now().addPhysicalTime(DELTA_TO_TRIGGER_DESTROY));
 
         restartComponents();
 
@@ -388,7 +388,7 @@ public class IndexMetaStorageRecoveryTest extends BaseIndexMetaStorageTest {
 
         executeCatalogUpdateWithDropEvents(() -> dropSimpleTable(catalogManager, TABLE_NAME));
 
-        updateLwm(clock.now().addPhysicalTime(1_000_000));
+        updateLwm(clock.now().addPhysicalTime(DELTA_TO_TRIGGER_DESTROY));
 
         restartComponents();
 
