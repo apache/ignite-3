@@ -38,7 +38,7 @@ class MappingContext {
         this.localNode = localNode;
         this.nodes = nodes;
 
-        if (nodes.size() > 63) {
+        if (nodes.size() > 64) {
             this.targetFactory = new BigClusterFactory(nodes);
         } else {
             this.targetFactory = new SmallClusterFactory(nodes);

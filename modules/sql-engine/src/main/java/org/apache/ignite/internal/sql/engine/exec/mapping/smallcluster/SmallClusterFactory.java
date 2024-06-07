@@ -34,8 +34,8 @@ public class SmallClusterFactory implements ExecutionTargetFactory {
 
     /** Constructor. */
     public SmallClusterFactory(List<String> nodes) {
-        if (nodes.size() > 63) {
-            throw new IllegalArgumentException("Supported up to 63 nodes, but was " + nodes.size());
+        if (nodes.size() > 64) {
+            throw new IllegalArgumentException("Supported up to 64 nodes, but was " + nodes.size());
         }
 
         this.nodes = nodes;
