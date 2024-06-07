@@ -25,8 +25,8 @@ import picocli.CommandLine.Help.Ansi;
 public final class AnsiStringSupport {
     private AnsiStringSupport() {}
 
-    public static String ansi(String markupText, Object... args) {
-        return Ansi.AUTO.string(String.format(markupText, args));
+    public static String ansi(String markupText) {
+        return Ansi.AUTO.string(markupText);
     }
 
     public static Fg fg(Color color) {

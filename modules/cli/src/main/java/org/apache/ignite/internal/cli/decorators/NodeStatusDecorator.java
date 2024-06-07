@@ -34,10 +34,11 @@ public class NodeStatusDecorator implements Decorator<NodeStatus, TerminalOutput
     public TerminalOutput decorate(NodeStatus data) {
         Color c = data.state().equals(State.STARTED) ? Color.GREEN : Color.YELLOW;
 
-        return () -> ansi(
-                "[name: %s, state: %s]",
-                data.name(),
-                fg(c).mark(data.state().name().toLowerCase())
+        return () -> ansi(String.format(
+                        "[name: %s, state: %s]",
+                        data.name(),
+                        fg(c).mark(data.state().name().toLowerCase())
+                )
         );
     }
 }
