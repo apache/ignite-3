@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.client.table;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow;
@@ -108,12 +110,12 @@ class ClientDataStreamer {
                                         for (Object result : results) {
                                             resultSubscriber.onNext((R) result);
 
-                                            // TODO: Backpressure control
+                                            // TODO: Backpressure control - return delayed future when requested is 0.
                                             subscription.requested.decrementAndGet();
                                         }
                                     }
 
-                                    return null;
+                                    return nullCompletedFuture();
                                 })
                 );
 
