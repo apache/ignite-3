@@ -259,6 +259,7 @@ public class IndexMetaStorage implements IgniteComponent {
         }
     }
 
+    // TODO: IGNITE-22442 Improve recovery
     private void recoverIndexMetas() {
         Catalog catalog = catalog(catalogService.latestCatalogVersion());
 

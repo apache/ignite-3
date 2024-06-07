@@ -53,6 +53,7 @@ public enum MetaIndexStatus {
      * Index has been removed from the catalog, with {@link CatalogIndexStatus#REGISTERED}/{@link CatalogIndexStatus#BUILDING} statuses, but
      * has not yet been destroyed due to a low watermark.
      */
+    // TODO: IGNITE-20934 Get rid of such indexes immediately
     REMOVED,
 
     /**
