@@ -34,8 +34,8 @@ public class ItServerDataStreamerTest extends ItAbstractDataStreamerTest {
     @Test
     @Override
     @Disabled("IGNITE-22285 Embedded Data Streamer with Receiver")
-    public void testWithReceiver() {
-        super.testWithReceiver();
+    public void testWithReceiver(boolean returnResults) {
+        super.testWithReceiver(returnResults);
     }
 
     @Test
