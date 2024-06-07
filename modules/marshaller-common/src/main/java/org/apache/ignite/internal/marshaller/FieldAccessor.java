@@ -820,5 +820,16 @@ abstract class FieldAccessor {
                 throw new IllegalArgumentException(e);
             }
         }
+
+        @Override
+        Object value(Object obj) {
+            Object value = get(Objects.requireNonNull(obj));
+
+            try {
+                return typeConverter == null ? value : typeConverter.toColumnType(value);
+            } catch (Exception e) {
+                throw new IllegalArgumentException(e);
+            }
+        }
     }
 }
