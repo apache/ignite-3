@@ -49,8 +49,8 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Integration tests for DDL statements that affect tables.
- * <p>
- * SQL F031-01 feature. CREATE TABLE statement to create persistent base tables
+ *
+ * <p>SQL F031-01 feature. CREATE TABLE statement to create persistent base tables
  */
 public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
     @AfterEach

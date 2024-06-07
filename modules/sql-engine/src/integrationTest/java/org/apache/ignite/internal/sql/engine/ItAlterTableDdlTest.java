@@ -22,8 +22,6 @@ import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThro
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_PARSE_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -44,8 +42,8 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Integration tests for ALTER TABLE DDL statements.
- * <p>
- * SQL F031-04 feature. ALTER TABLE statement: ADD COLUMN clause
+ *
+ * <p>SQL F031-04 feature. ALTER TABLE statement: ADD COLUMN clause
  * SQL F033 feature. ALTER TABLE statement: DROP COLUMN clause
  */
 public class ItAlterTableDdlTest extends BaseSqlIntegrationTest {
@@ -60,39 +58,45 @@ public class ItAlterTableDdlTest extends BaseSqlIntegrationTest {
     public void testDropAndAddColumns() {
         sql("CREATE TABLE my (c1 INT PRIMARY KEY, c2 INT, c3 VARCHAR)");
 
-        sql("INSERT INTO my VALUES (1, 2, '3')");
+        sql("INSERT INTO my VALUES (11, 2, '3')");
+        assertQuery("SELECT * FROM my")
+                .returns(11, 2, "3")
+                .check();
 
-        List<List<Object>> res = sql("SELECT c1, c3 FROM my");
-
-        assertFalse(res.isEmpty());
-
+        // Drop column. Table columns: c1, c3
         sql("ALTER TABLE my DROP COLUMN c2");
+        assertQuery("SELECT * FROM my")
+                .returns(11, "3")
+                .check();
 
-        res = sql("SELECT c1, c3 FROM my");
+        // Add columns. Table columns: c1, c3, c2, c4
+        sql("ALTER TABLE my ADD COLUMN (c2 INT DEFAULT -1, c4 VARCHAR)");
 
-        assertFalse(res.isEmpty());
+        sql("INSERT INTO my VALUES (12, '2', 3, '4')");
+        assertQuery("SELECT * FROM my")
+                .returns(11, "3", -1, null)
+                .returns(12, "2", 3, "4")
+                .check();
 
-        sql("ALTER TABLE my ADD COLUMN (c2 INT, c4 VARCHAR)");
+        // Re-create column with the same name. Table columns: c1, c3, c4, c2
+        sql("ALTER TABLE my DROP COLUMN c2");
+        sql("ALTER TABLE my ADD COLUMN (c2 VARCHAR)");
 
-        sql("INSERT INTO my VALUES (2, '2', 2, '3')");
-
-        res = sql("SELECT c2, c4 FROM my WHERE c1=2");
-
-        assertEquals(2, res.get(0).get(0));
-
-        sql("ALTER TABLE my DROP COLUMN c4");
-        sql("ALTER TABLE my ADD COLUMN (c4 INT)");
-        sql("INSERT INTO my VALUES (3, '2', 3, 3)");
-
-        res = sql("SELECT c4 FROM my WHERE c1=3");
-
-        assertEquals(3, res.get(0).get(0));
+        sql("INSERT INTO my VALUES (13, '2', '3', '4')");
+        assertQuery("SELECT * FROM my")
+                .returns(11, "3", null, null)
+                .returns(12, "2", "4", null)
+                .returns(13, "2", "3", "4")
+                .check();
 
         // Checking the correctness of reading a row created on a different version of the schema.
-        sql("ALTER TABLE my ADD COLUMN (c5 VARCHAR, c6 BOOLEAN)");
+        sql("ALTER TABLE my ADD COLUMN (c5 INT, c6 BOOLEAN)");
         sql("ALTER TABLE my DROP COLUMN c4");
-        assertQuery("SELECT * FROM my WHERE c1=3")
-                .returns(3, "2", 3, null, null)
+        // Table columns: c1, c3, c2, c5, c6
+        assertQuery("SELECT * FROM my")
+                .returns(11, "3", null, null, null)
+                .returns(12, "2", null, null, null)
+                .returns(13, "2", "4", null, null)
                 .check();
     }
 
@@ -106,14 +110,21 @@ public class ItAlterTableDdlTest extends BaseSqlIntegrationTest {
 
         sql("INSERT INTO my (c1, c2, c3) VALUES (1, 2, '3')");
 
+        // Table columns: c1, c2, c3, c4, c5
+        assertQuery("SELECT * FROM my")
+                .returns(1, 2, "3", -1, null)
+                .check();
+
         sql("ALTER TABLE my DROP c2");
 
+        // Table columns: c1, c3, c4, c5
         assertQuery("SELECT * FROM my")
                 .returns(1, "3", -1, null)
                 .check();
 
-        sql("ALTER TABLE my DROP c3, c5");
+        sql("ALTER TABLE my DROP (c3, c5)");
 
+        // Table columns: c1, c4
         assertQuery("SELECT * FROM my")
                 .returns(1, -1)
                 .check();
