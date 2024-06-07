@@ -2,16 +2,16 @@ package org.apache.ignite.compute;
 
 import java.util.List;
 
-public class TaskInfo {
+public class TaskDescriptor {
     private final String taskClassName;
 
     private final List<DeploymentUnit> units;
 
-    public TaskInfo(String taskClassName) {
+    public TaskDescriptor(String taskClassName) {
         this(taskClassName, List.of());
     }
 
-    public TaskInfo(String taskClassName, List<DeploymentUnit> units) {
+    public TaskDescriptor(String taskClassName, List<DeploymentUnit> units) {
         this.taskClassName = taskClassName;
         this.units = units;
     }
