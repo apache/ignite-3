@@ -2,6 +2,7 @@
 # description: Function test cases from PG docs
 # group: [numeric]
 # feature: SQL T621(Enhanced numeric functions)
+# feature: SQL T624(Common logarithm functions)
 
 # see https://www.postgresql.org/docs/10/functions-math.html
 
@@ -49,6 +50,35 @@ query R
 select log10(100.0)
 ----
 2.000000
+
+# LOG10 Need to be implemented in a different way https://issues.apache.org/jira/browse/IGNITE-22405
+query R
+select log10(0.1)
+----
+-0.9999999999999998
+
+query R
+select log10(0)
+----
+-Infinity
+
+query R
+select log10(10e8)
+----
+8.999999999999998
+
+query R
+select log10(cast(10e2 as float))
+----
+2.9999999999999996
+
+query R
+select log10(cast(10e-3 as real))
+----
+-2.000000009707238
+
+statement error: Character N is neither a decimal digit number
+select log10('NaN')
 
 query R
 select CAST(sqrt(2.0) AS FLOAT)
