@@ -35,7 +35,7 @@ import org.jetbrains.annotations.Nullable;
  * Column name arguments passed to the tuple methods must use SQL-parser style notation; e.g.,
  * "myColumn" - column named "MYCOLUMN", "\"MyColumn\"" - "MyColumn", etc.
  *
- * <p>Note: case sensitive name "\"MYCOLUMN\"" is equivalent to case sensitive name "MYCOLUMN".
+ * <p>Note: "\"MYCOLUMN\"" is equivalent to a normalized name "MYCOLUMN".
  *
  * <p>Provides a specialized method for some value-types to avoid boxing/unboxing.
  */
