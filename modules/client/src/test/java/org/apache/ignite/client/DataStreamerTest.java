@@ -572,6 +572,16 @@ public class DataStreamerTest extends AbstractClientTableTest {
                 + "current item: class java.lang.String"));
     }
 
+    @Test
+    public void testReceiverWithSubscriberAllTypesRoundtrip() {
+        assertFalse(true, "TODO");
+    }
+
+    @Test
+    public void testReceiverWithSubscriberNoResults() {
+        assertFalse(true, "TODO");
+    }
+
     private static RecordView<Tuple> defaultTableView(FakeIgnite server, IgniteClient client) {
         ((FakeIgniteTables) server.tables()).createTable(DEFAULT_TABLE);
 
