@@ -150,15 +150,11 @@ public class JdbcStatement implements Statement {
             throw new SQLException("Query execution canceled.", SqlStateCode.QUERY_CANCELLED, e);
         }
 
-        if (!res.hasResult()) {
+        if (!res.success()) {
             throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
         }
 
         JdbcQuerySingleResult executeResult = res.result();
-
-        if (!executeResult.resultAvailable()) {
-            throw IgniteQueryErrorCode.createJdbcSqlException(executeResult.err(), executeResult.status());
-        }
 
         resSets = new ArrayList<>();
 
@@ -170,9 +166,9 @@ public class JdbcStatement implements Statement {
 
         Function<BinaryTupleReader, List<Object>> transformer = createTransformer(columnTypes, decimalScales);
 
-        resSets.add(new JdbcResultSet(handler, this, executeResult.cursorId(), pageSize,
-                executeResult.last(), executeResult.items(), executeResult.isQuery(), executeResult.updateCount(),
-                closeOnCompletion, columnTypes.size(), transformer));
+        resSets.add(new JdbcResultSet(handler, this, executeResult.cursorId(), pageSize, !executeResult.hasMoreData(),
+                executeResult.items(), executeResult.hasResultSet(), executeResult.hasNextResult(),
+                executeResult.updateCount(), closeOnCompletion, columnTypes.size(), transformer));
     }
 
     /** {@inheritDoc} */
@@ -399,7 +395,7 @@ public class JdbcStatement implements Statement {
 
         @Nullable JdbcResultSet rs = resSets.get(curRes);
 
-        if (rs == null || !rs.isQuery()) {
+        if (rs == null || !rs.hasResultSet()) {
             return null;
         }
 
@@ -417,7 +413,7 @@ public class JdbcStatement implements Statement {
 
         @Nullable JdbcResultSet rs = resSets.get(curRes);
 
-        if (rs == null || rs.isQuery()) {
+        if (rs == null || rs.hasResultSet()) {
             return -1;
         }
 
@@ -577,7 +573,7 @@ public class JdbcStatement implements Statement {
         try {
             JdbcBatchExecuteResult res = conn.handler().batchAsync(conn.connectionId(), req).get();
 
-            if (!res.hasResults()) {
+            if (!res.success()) {
                 throw new BatchUpdateException(res.err(),
                         IgniteQueryErrorCode.codeToSqlState(res.getErrorCode()),
                         res.getErrorCode(),
@@ -690,7 +686,7 @@ public class JdbcStatement implements Statement {
      * @return isQuery flag.
      */
     protected boolean isQuery() {
-        return Objects.requireNonNull(resSets).get(0).isQuery();
+        return Objects.requireNonNull(resSets).get(0).hasResultSet();
     }
 
     /**
