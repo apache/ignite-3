@@ -20,6 +20,11 @@ SELECT 2 > ANY(SELECT * FROM integers)
 true
 
 query T
+SELECT 2 > SOME(SELECT * FROM integers)
+----
+true
+
+query T
 SELECT 1 > ANY(SELECT * FROM integers)
 ----
 false
