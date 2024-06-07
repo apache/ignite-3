@@ -460,11 +460,14 @@ public class DataStreamerTest extends AbstractClientTableTest {
         }
     }
 
-    @Test
-    public void testBasicStreamingWithReceiverKvBinaryView() {
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testBasicStreamingWithReceiverKvBinaryView(boolean withSubscriber) {
         KeyValueView<Tuple, Tuple> view = defaultTable().keyValueView();
         CompletableFuture<Void> streamerFut;
         int count = 3;
+
+        var resultSubscriber = withSubscriber ? new TestSubscriber<String>() : null;
 
         try (var publisher = new SubmissionPublisher<Entry<Tuple, Tuple>>()) {
             streamerFut = view.streamData(
@@ -472,7 +475,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
                     null,
                     t -> t,
                     t -> t.getKey().longValue(0),
-                    null,
+                    resultSubscriber,
                     new ArrayList<>(),
                     TestReceiver.class.getName(),
                     "arg");
@@ -484,16 +487,29 @@ public class DataStreamerTest extends AbstractClientTableTest {
 
         streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
 
+        if (withSubscriber) {
+            assertTrue(resultSubscriber.completed.get());
+            assertNull(resultSubscriber.error.get());
+            assertEquals(count, resultSubscriber.items.size());
+        }
+
         for (long i = 0; i < count; i++) {
             assertEquals("recv_arg_" + i, view.get(null, tupleKey(i)).stringValue(0));
+
+            if (withSubscriber) {
+                assertTrue(resultSubscriber.items.contains("recv_arg_" + i));
+            }
         }
     }
 
-    @Test
-    public void testBasicStreamingWithReceiverKvPojoView() {
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testBasicStreamingWithReceiverKvPojoView(boolean withSubscriber) {
         KeyValueView<Long, PersonValPojo> view = defaultTable().keyValueView(Mapper.of(Long.class), Mapper.of(PersonValPojo.class));
         CompletableFuture<Void> streamerFut;
         int count = 3;
+
+        var resultSubscriber = withSubscriber ? new TestSubscriber<String>() : null;
 
         try (var publisher = new SubmissionPublisher<Entry<Long, PersonValPojo>>()) {
             streamerFut = view.streamData(
@@ -501,7 +517,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
                     null,
                     t -> t,
                     Entry::getKey,
-                    null,
+                    resultSubscriber,
                     new ArrayList<>(),
                     TestReceiver.class.getName(),
                     "arg");
@@ -513,8 +529,18 @@ public class DataStreamerTest extends AbstractClientTableTest {
 
         streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
 
+        if (withSubscriber) {
+            assertTrue(resultSubscriber.completed.get());
+            assertNull(resultSubscriber.error.get());
+            assertEquals(count, resultSubscriber.items.size());
+        }
+
         for (long i = 0; i < count; i++) {
             assertEquals("recv_arg_" + i, view.get(null, i).name);
+
+            if (withSubscriber) {
+                assertTrue(resultSubscriber.items.contains("recv_arg_" + i));
+            }
         }
     }
 
