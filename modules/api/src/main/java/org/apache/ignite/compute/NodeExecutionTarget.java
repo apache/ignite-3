@@ -17,24 +17,19 @@
 
 package org.apache.ignite.compute;
 
+import java.util.Objects;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.table.Tuple;
-import org.apache.ignite.table.mapper.Mapper;
 
-public interface ExecutionTarget {
-    ExecutionTarget ANY_NODE = new ExecutionTarget() { };
+public class NodeExecutionTarget implements ExecutionTarget {
+    private final ClusterNode node;
 
-    ExecutionTarget ALL_NODES = new ExecutionTarget() { };
+    NodeExecutionTarget(ClusterNode node) {
+        Objects.requireNonNull(node);
 
-    static ExecutionTarget fromNode(ClusterNode node) {
-        return new NodeExecutionTarget(node);
+        this.node = node;
     }
 
-    static ExecutionTarget fromColocationKey(String tableName, Tuple key) {
-        return new ColocationKeyExecutionTarget(tableName, key, null);
-    }
-
-    static <K> ExecutionTarget fromColocationKey(String tableName, K key, Mapper<K> keyMapper) {
-        return new ColocationKeyExecutionTarget(tableName, key, keyMapper);
+    public ClusterNode node() {
+        return node;
     }
 }

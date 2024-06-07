@@ -17,24 +17,35 @@
 
 package org.apache.ignite.compute;
 
-import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.table.Tuple;
+import java.util.Objects;
 import org.apache.ignite.table.mapper.Mapper;
+import org.jetbrains.annotations.Nullable;
 
-public interface ExecutionTarget {
-    ExecutionTarget ANY_NODE = new ExecutionTarget() { };
+public class ColocationKeyExecutionTarget implements ExecutionTarget {
+    private final String tableName;
 
-    ExecutionTarget ALL_NODES = new ExecutionTarget() { };
+    private final Object colocationKey;
 
-    static ExecutionTarget fromNode(ClusterNode node) {
-        return new NodeExecutionTarget(node);
+    private final @Nullable Mapper<?> keyMapper;
+
+    ColocationKeyExecutionTarget(String tableName, Object colocationKey, @Nullable Mapper<?> keyMapper) {
+        Objects.requireNonNull(tableName);
+        Objects.requireNonNull(colocationKey);
+
+        this.tableName = tableName;
+        this.colocationKey = colocationKey;
+        this.keyMapper = keyMapper;
     }
 
-    static ExecutionTarget fromColocationKey(String tableName, Tuple key) {
-        return new ColocationKeyExecutionTarget(tableName, key, null);
+    public String tableName() {
+        return tableName;
     }
 
-    static <K> ExecutionTarget fromColocationKey(String tableName, K key, Mapper<K> keyMapper) {
-        return new ColocationKeyExecutionTarget(tableName, key, keyMapper);
+    public Object colocationKey() {
+        return colocationKey;
+    }
+
+    public @Nullable Mapper<?> keyMapper() {
+        return keyMapper;
     }
 }
