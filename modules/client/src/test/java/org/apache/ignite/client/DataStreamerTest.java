@@ -478,7 +478,8 @@ public class DataStreamerTest extends AbstractClientTableTest {
                     resultSubscriber,
                     new ArrayList<>(),
                     TestReceiver.class.getName(),
-                    "arg");
+                    "arg",
+                    withSubscriber ? "returnResults" : "noResults");
 
             for (long i = 0; i < count; i++) {
                 publisher.submit(Map.entry(tupleKey(i), tupleVal("foo")));
@@ -520,7 +521,8 @@ public class DataStreamerTest extends AbstractClientTableTest {
                     resultSubscriber,
                     new ArrayList<>(),
                     TestReceiver.class.getName(),
-                    "arg");
+                    "arg",
+                    withSubscriber ? "returnResults" : "noResults");
 
             for (long i = 0; i < count; i++) {
                 publisher.submit(Map.entry(i, new PersonValPojo("foo")));
