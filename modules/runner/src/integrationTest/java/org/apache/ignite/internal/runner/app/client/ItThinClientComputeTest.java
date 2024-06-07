@@ -126,8 +126,9 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     @Test
     void testExecuteOnSpecificNodeAsync() {
-        JobExecution<String> execution1 = client().compute().submit(Set.of(node(0)), List.of(), NodeNameJob.class.getName());
-        JobExecution<String> execution2 = client().compute().submit(Set.of(node(1)), List.of(), NodeNameJob.class.getName());
+        JobDescriptor job = JobDescriptor.builder().jobClass(NodeNameJob.class).build();
+        JobExecution<String> execution1 = client().compute().submit(ExecutionTarget.fromNode(node(0)), job);
+        JobExecution<String> execution2 = client().compute().submit(ExecutionTarget.fromNode(node(1)), job);
 
         assertThat(execution1.resultAsync(), willBe("itcct_n_3344"));
         assertThat(execution2.resultAsync(), willBe("itcct_n_3345"));
