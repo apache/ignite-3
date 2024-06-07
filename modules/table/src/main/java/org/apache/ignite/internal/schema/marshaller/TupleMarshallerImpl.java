@@ -180,7 +180,6 @@ public class TupleMarshallerImpl implements TupleMarshaller {
         for (Column col : columns) {
             NativeType colType = col.type();
 
-            // fix this hack
             Object val = tuple.valueOrDefault(IgniteNameUtils.quote(col.name()), POISON_OBJECT);
 
             if (val == POISON_OBJECT && col.positionInKey() != -1) {
