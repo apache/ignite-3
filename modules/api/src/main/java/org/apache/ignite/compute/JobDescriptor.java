@@ -19,22 +19,22 @@ package org.apache.ignite.compute;
 
 import java.util.List;
 
-public class JobInfo {
+public class JobDescriptor {
     private final String jobClassName;
 
     private final List<DeploymentUnit> units;
 
     private final JobExecutionOptions options;
 
-    public JobInfo(String jobClassName) {
+    public JobDescriptor(String jobClassName) {
         this(jobClassName, List.of(), JobExecutionOptions.DEFAULT);
     }
 
-    public JobInfo(String jobClassName, List<DeploymentUnit> units) {
+    public JobDescriptor(String jobClassName, List<DeploymentUnit> units) {
         this(jobClassName, units, JobExecutionOptions.DEFAULT);
     }
 
-    public JobInfo(String jobClassName, List<DeploymentUnit> units, JobExecutionOptions options) {
+    public JobDescriptor(String jobClassName, List<DeploymentUnit> units, JobExecutionOptions options) {
         this.jobClassName = jobClassName;
         this.units = units;
         this.options = options;

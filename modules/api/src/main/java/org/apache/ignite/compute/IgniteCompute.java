@@ -20,10 +20,8 @@ package org.apache.ignite.compute;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
-import static org.apache.ignite.compute.JobExecutionOptions.DEFAULT;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -51,7 +49,7 @@ public interface IgniteCompute {
      */
     <R> JobExecution<R> submit(
             Set<ClusterNode> nodes,
-            JobInfo job,
+            JobDescriptor job,
             Object... args
     );
 
@@ -67,7 +65,7 @@ public interface IgniteCompute {
      */
     default <R> CompletableFuture<R> executeAsync(
             Set<ClusterNode> nodes,
-            JobInfo job,
+            JobDescriptor job,
             Object... args
     ) {
         return this.<R>submit(nodes, job, args).resultAsync();
@@ -85,7 +83,7 @@ public interface IgniteCompute {
      */
     <R> R execute(
             Set<ClusterNode> nodes,
-            JobInfo job,
+            JobDescriptor job,
             Object... args
     );
 
@@ -103,7 +101,7 @@ public interface IgniteCompute {
     <R> JobExecution<R> submitColocated(
             String tableName,
             Tuple key,
-            JobInfo job,
+            JobDescriptor job,
             Object... args
     );
 
@@ -123,7 +121,7 @@ public interface IgniteCompute {
             String tableName,
             K key,
             Mapper<K> keyMapper,
-            JobInfo job,
+            JobDescriptor job,
             Object... args
     );
 
@@ -141,7 +139,7 @@ public interface IgniteCompute {
     default <R> CompletableFuture<R> executeColocatedAsync(
             String tableName,
             Tuple key,
-            JobInfo job,
+            JobDescriptor job,
             Object... args
     ) {
         return this.<R>submitColocated(tableName, key, job, args).resultAsync();
@@ -163,7 +161,7 @@ public interface IgniteCompute {
             String tableName,
             K key,
             Mapper<K> keyMapper,
-            JobInfo job,
+            JobDescriptor job,
             Object... args
     ) {
         return this.<K, R>submitColocated(tableName, key, keyMapper, job, args).resultAsync();
@@ -183,7 +181,7 @@ public interface IgniteCompute {
     <R> R executeColocated(
             String tableName,
             Tuple key,
-            JobInfo job,
+            JobDescriptor job,
             Object... args);
 
     /**
@@ -202,7 +200,7 @@ public interface IgniteCompute {
             String tableName,
             K key,
             Mapper<K> keyMapper,
-            JobInfo job,
+            JobDescriptor job,
             Object... args);
 
     /**
@@ -216,7 +214,7 @@ public interface IgniteCompute {
      */
     <R> Map<ClusterNode, JobExecution<R>> submitBroadcast(
             Set<ClusterNode> nodes,
-            JobInfo job,
+            JobDescriptor job,
             Object... args
     );
 
@@ -231,7 +229,7 @@ public interface IgniteCompute {
      */
     default <R> CompletableFuture<Map<ClusterNode, R>> executeBroadcastAsync(
             Set<ClusterNode> nodes,
-            JobInfo job,
+            JobDescriptor job,
             Object... args
     ) {
         Map<ClusterNode, CompletableFuture<R>> futures = nodes.stream()
@@ -262,7 +260,7 @@ public interface IgniteCompute {
      */
     default <R> Map<ClusterNode, R> executeBroadcast(
             Set<ClusterNode> nodes,
-            JobInfo job,
+            JobDescriptor job,
             Object... args
     ) {
         Map<ClusterNode, R> map = new HashMap<>();
