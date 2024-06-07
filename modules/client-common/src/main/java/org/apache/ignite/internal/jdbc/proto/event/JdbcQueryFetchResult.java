@@ -64,8 +64,6 @@ public class JdbcQueryFetchResult extends Response {
 
         this.rowTuples = rowTuples;
         this.last = last;
-
-        hasResults = true;
     }
 
     /**
@@ -91,7 +89,7 @@ public class JdbcQueryFetchResult extends Response {
     public void writeBinary(ClientMessagePacker packer) {
         super.writeBinary(packer);
 
-        if (!hasResults) {
+        if (!success()) {
             return;
         }
 
@@ -109,7 +107,7 @@ public class JdbcQueryFetchResult extends Response {
     public void readBinary(ClientMessageUnpacker unpacker) {
         super.readBinary(unpacker);
 
-        if (!hasResults) {
+        if (!success()) {
             return;
         }
 

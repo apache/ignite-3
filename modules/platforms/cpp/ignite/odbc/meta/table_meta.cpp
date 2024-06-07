@@ -20,9 +20,6 @@
 namespace ignite {
 
 void table_meta::read(protocol::reader &reader) {
-    auto has_data = reader.read_bool();
-    assert(has_data);
-
     auto status = reader.read_int32();
     assert(status == 0);
 

@@ -45,15 +45,23 @@ public class PartitionMetaManager {
 
     private final int pageSize;
 
+    private final PartitionMetaFactory partitionMetaFactory;
+
     /**
      * Constructor.
      *
      * @param ioRegistry Page IO Registry.
      * @param pageSize Page size in bytes.
+     * @param partitionMetaFactory Partition meta factory.
      */
-    public PartitionMetaManager(PageIoRegistry ioRegistry, int pageSize) {
+    public PartitionMetaManager(
+            PageIoRegistry ioRegistry,
+            int pageSize,
+            PartitionMetaFactory partitionMetaFactory
+    ) {
         this.ioRegistry = ioRegistry;
         this.pageSize = pageSize;
+        this.partitionMetaFactory = partitionMetaFactory;
     }
 
     /**
@@ -100,14 +108,14 @@ public class PartitionMetaManager {
             try {
                 filePageStore.readWithoutPageIdCheck(partitionMetaPageId, buffer, false);
 
-                return new PartitionMeta(checkpointId, ioRegistry.resolve(bufferAddr), bufferAddr);
+                return partitionMetaFactory.createPartitionMeta(checkpointId, ioRegistry.resolve(bufferAddr), bufferAddr);
             } catch (IgniteInternalDataIntegrityViolationException e) {
                 LOG.info(() -> "Error reading partition meta page, will be recreated: " + groupPartitionId, e);
             }
         }
 
         // Creates and writes a partition meta.
-        PartitionMetaIo io = PartitionMetaIo.VERSIONS.latest();
+        PartitionMetaIo io = partitionMetaFactory.partitionMetaIo();
 
         io.initNewPage(bufferAddr, partitionMetaPageId, pageSize);
 
@@ -122,7 +130,7 @@ public class PartitionMetaManager {
 
         filePageStore.sync();
 
-        return new PartitionMeta(checkpointId, io, bufferAddr);
+        return partitionMetaFactory.createPartitionMeta(checkpointId, io, bufferAddr);
     }
 
     /**
@@ -143,7 +151,7 @@ public class PartitionMetaManager {
 
         long pageAddr = bufferAddress(writeToBuffer);
 
-        PartitionMetaIo io = PartitionMetaIo.VERSIONS.latest();
+        PartitionMetaIo io = partitionMetaFactory.partitionMetaIo();
 
         io.initNewPage(pageAddr, partitionMetaPageId, pageSize);
 

@@ -58,8 +58,6 @@ public class JdbcMetaColumnsResult extends Response {
         Objects.requireNonNull(meta);
 
         this.meta = new ArrayList<>(meta);
-
-        this.hasResults = true;
     }
 
     /**
@@ -76,7 +74,7 @@ public class JdbcMetaColumnsResult extends Response {
     public void writeBinary(ClientMessagePacker packer) {
         super.writeBinary(packer);
 
-        if (!hasResults) {
+        if (!success()) {
             return;
         }
 
@@ -92,7 +90,7 @@ public class JdbcMetaColumnsResult extends Response {
     public void readBinary(ClientMessageUnpacker unpacker) {
         super.readBinary(unpacker);
 
-        if (!hasResults) {
+        if (!success()) {
             return;
         }
 

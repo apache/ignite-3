@@ -58,10 +58,9 @@ class Name extends QueryPart {
 
     @Override
     protected void accept(QueryContext ctx) {
-        String quote = ctx.isQuoteNames() ? "\"" : "";
         String separator = "";
         for (String name : names) {
-            ctx.sql(separator).sql(quote).sql(name).sql(quote);
+            ctx.sql(separator).sql(name);
             separator = ".";
         }
     }

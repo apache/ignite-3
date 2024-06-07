@@ -163,22 +163,35 @@ public class ReplicaService {
                     var errResp = (ErrorReplicaResponse) response;
 
                     if (errResp.throwable() instanceof ReplicaUnavailableException) {
+                        CompletableFuture<NetworkMessage> requestFuture = new CompletableFuture<>();
+
                         CompletableFuture<NetworkMessage> awaitReplicaFut = pendingInvokes.computeIfAbsent(
                                 targetNodeConsistentId,
-                                consistentId -> {
-                                    AwaitReplicaRequest awaitReplicaReq = REPLICA_MESSAGES_FACTORY.awaitReplicaRequest()
-                                            .groupId(req.groupId())
-                                            .build();
-
-                                    return messagingService.invoke(
-                                            targetNodeConsistentId,
-                                            awaitReplicaReq,
-                                            replicationConfiguration.rpcTimeout().value()
-                                    );
-                                }
+                                consistentId -> requestFuture
                         );
 
-                        awaitReplicaFut.handle((response0, throwable0) -> {
+                        // Means we have put this future, so proceed with the call.
+                        // We use such approach here instead of sending network message in the computeIfAbsent lambda to avoid deadlocks.
+                        if (awaitReplicaFut == requestFuture) {
+                            AwaitReplicaRequest awaitReplicaReq = REPLICA_MESSAGES_FACTORY.awaitReplicaRequest()
+                                    .groupId(req.groupId())
+                                    .build();
+
+                            messagingService.invoke(
+                                    targetNodeConsistentId,
+                                    awaitReplicaReq,
+                                    replicationConfiguration.rpcTimeout().value()
+                            ).whenComplete((networkMessage, e) -> {
+                                if (e != null) {
+                                    awaitReplicaFut.completeExceptionally(e);
+                                } else {
+                                    awaitReplicaFut.complete(networkMessage);
+                                }
+                            });
+                        }
+
+                        // Use handleAsync to avoid interaction in the network thread
+                        awaitReplicaFut.handleAsync((response0, throwable0) -> {
                             pendingInvokes.remove(targetNodeConsistentId, awaitReplicaFut);
 
                             if (throwable0 != null) {
@@ -223,7 +236,7 @@ public class ReplicaService {
                             }
 
                             return null;
-                        });
+                        }, partitionOperationsExecutor);
                     } else {
                         if (retryExecutor != null && matchAny(unwrapCause(errResp.throwable()), ACQUIRE_LOCK_ERR, REPLICA_MISS_ERR)) {
                             retryExecutor.schedule(

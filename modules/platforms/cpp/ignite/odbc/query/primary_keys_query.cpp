@@ -130,15 +130,13 @@ sql_result primary_keys_query::make_request_get_primary_keys() {
             });
 
         protocol::reader reader{response.get_bytes_view()};
-        bool has_result_set = reader.read_bool();
 
         auto status = reader.read_int32();
         auto err_msg = reader.read_string_nullable();
         if (err_msg)
             throw odbc_error(response_status_to_sql_state(status), *err_msg);
 
-        if (has_result_set)
-            m_meta = read_key_meta(reader);
+        m_meta = read_key_meta(reader);
 
         m_executed = true;
     });

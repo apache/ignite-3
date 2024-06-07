@@ -32,7 +32,6 @@ import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.freelist.FreeListImpl;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
-import org.apache.ignite.internal.pagememory.persistence.PartitionMeta;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointListener;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager;
@@ -46,6 +45,7 @@ import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryTableStorage;
+import org.apache.ignite.internal.storage.pagememory.StoragePartitionMeta;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineView;
 import org.apache.ignite.internal.storage.pagememory.index.hash.PageMemoryHashIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
@@ -65,7 +65,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     private final CheckpointTimeoutLock checkpointTimeoutLock;
 
     /** Partition meta instance. */
-    private volatile PartitionMeta meta;
+    private volatile StoragePartitionMeta meta;
 
     /** Checkpoint listener. */
     private final CheckpointListener checkpointListener;
@@ -89,7 +89,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     public PersistentPageMemoryMvPartitionStorage(
             PersistentPageMemoryTableStorage tableStorage,
             int partitionId,
-            PartitionMeta meta,
+            StoragePartitionMeta meta,
             FreeListImpl freeList,
             VersionChainTree versionChainTree,
             IndexMetaTree indexMetaTree,
@@ -233,11 +233,11 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     }
 
     /**
-     * Closure interface for {@link #update(UUID, PartitionMeta)}.
+     * Closure interface for {@link #update(UUID, StoragePartitionMeta)}.
      */
     @FunctionalInterface
     private interface MetaUpdateClosure {
-        void update(UUID lastCheckpointId, PartitionMeta meta);
+        void update(UUID lastCheckpointId, StoragePartitionMeta meta);
     }
 
     /**
@@ -398,7 +398,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
      * @throws StorageException If failed.
      */
     public void updateDataStructures(
-            PartitionMeta meta,
+            StoragePartitionMeta meta,
             FreeListImpl freeList,
             VersionChainTree versionChainTree,
             IndexMetaTree indexMetaTree,
