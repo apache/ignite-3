@@ -33,6 +33,7 @@ import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -56,6 +57,7 @@ import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.raft.jraft.rpc.CliRequests.ChangePeersAsyncRequest;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
@@ -208,6 +210,44 @@ public class ItRebalanceTest extends IgniteIntegrationTest {
         waitForTablesCounterInMetastore(0, zoneId, 2);
     }
 
+    @Test
+    void testRebalanceTablesCounterForZonePrevCatalogVersion() throws Exception {
+        cluster.startAndInit(3);
+
+        String zoneName = "ZONE";
+
+        createZone(zoneName, 3, 3);
+
+        Set<Integer> tableIds = new HashSet<>();
+
+        tableIds.add(createTestTable("TEST1", zoneName));
+
+        Set<String> allNodes = cluster.runningNodes().map(IgniteImpl::name).collect(Collectors.toSet());
+
+        for (Integer tableId : tableIds) {
+            waitForStableAssignmentsInMetastore(allNodes, tableId);
+        }
+
+        // Block low watermark change with an open ro tx.
+        cluster.aliveNode().transactions().begin(new TransactionOptions().readOnly(true));
+
+        alterZone(zoneName, 2);
+
+        dropTestTable("TEST1");
+
+        CatalogManager catalogManager = cluster.aliveNode().catalogManager();
+
+        int zoneId = catalogManager.catalog(catalogManager.latestCatalogVersion()).zone(zoneName).id();
+
+        for (Integer tableId : tableIds) {
+            waitForStableAssignmentsInMetastore(2, tableId);
+        }
+
+        waitForTablesCounterInMetastore(0, zoneId, 0);
+        waitForTablesCounterInMetastore(0, zoneId, 1);
+        waitForTablesCounterInMetastore(0, zoneId, 2);
+    }
+
     private static Row marshalTuple(TableViewInternal table, Tuple tuple) {
         SchemaRegistry schemaReg = table.schemaView();
         var marshaller = new TupleMarshallerImpl(schemaReg.lastKnownSchema());
@@ -244,7 +284,7 @@ public class ItRebalanceTest extends IgniteIntegrationTest {
             lastAssignmentsHolderForLog[0] = assignments;
 
             return assignments.size() == expectedNodesNumber;
-        }, 30000), "Expected nodes: " + expectedNodesNumber + ", actual nodes size: " + lastAssignmentsHolderForLog[0].size());
+        }, 30000), "Expected nodes: " + expectedNodesNumber + ", actual nodes size: " + actualSize(lastAssignmentsHolderForLog));
     }
 
     private void waitForTablesCounterInMetastore(int expectedTablesNumber, int zoneId, int partitionNumber) throws InterruptedException {
@@ -257,7 +297,12 @@ public class ItRebalanceTest extends IgniteIntegrationTest {
 
             return tablesCounter != null && tablesCounter.size() == expectedTablesNumber;
 
-        }, 30000), "Expected tables number: " + expectedTablesNumber + ", actual tables number: " + lastAssignmentsHolderForLog[0].size());
+        }, 30000),
+                "Expected tables number: " + expectedTablesNumber + ", actual tables number: " + actualSize(lastAssignmentsHolderForLog));
+    }
+
+    private static String actualSize(Collection<?>[] collection) {
+        return collection[0] == null ? "null" : Integer.toString(collection[0].size());
     }
 
     private static CompletableFuture<Set<Integer>> tablesCounter(
@@ -310,5 +355,13 @@ public class ItRebalanceTest extends IgniteIntegrationTest {
         return catalogManager.catalog(catalogManager.latestCatalogVersion()).tables().stream()
                 .filter(t -> t.name().equals(tableName))
                 .findFirst().get().id();
+    }
+
+    private void dropTestTable(String tableName) {
+        String sql2 = "drop table if exists " + tableName;
+
+        cluster.doInSession(1, session -> {
+            executeUpdate(sql2, session);
+        });
     }
 }
