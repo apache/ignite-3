@@ -72,6 +72,8 @@ import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.DeploymentUnit;
+import org.apache.ignite.compute.ExecutionTarget;
+import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.TaskExecution;
@@ -114,8 +116,9 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     @Test
     void testExecuteOnSpecificNode() {
-        String res1 = client().compute().execute(Set.of(node(0)), List.of(), NodeNameJob.class.getName());
-        String res2 = client().compute().execute(Set.of(node(1)), List.of(), NodeNameJob.class.getName());
+        JobDescriptor job = JobDescriptor.builder().jobClass(NodeNameJob.class).build();
+        String res1 = client().compute().execute(ExecutionTarget.fromNode(node(0)), job);
+        String res2 = client().compute().execute(ExecutionTarget.fromNode(node(1)), job);
 
         assertEquals("itcct_n_3344", res1);
         assertEquals("itcct_n_3345", res2);

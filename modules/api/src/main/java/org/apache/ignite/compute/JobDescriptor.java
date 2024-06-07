@@ -26,15 +26,7 @@ public class JobDescriptor {
 
     private final JobExecutionOptions options;
 
-    public JobDescriptor(String jobClassName) {
-        this(jobClassName, List.of(), JobExecutionOptions.DEFAULT);
-    }
-
-    public JobDescriptor(String jobClassName, List<DeploymentUnit> units) {
-        this(jobClassName, units, JobExecutionOptions.DEFAULT);
-    }
-
-    public JobDescriptor(String jobClassName, List<DeploymentUnit> units, JobExecutionOptions options) {
+    private JobDescriptor(String jobClassName, List<DeploymentUnit> units, JobExecutionOptions options) {
         this.jobClassName = jobClassName;
         this.units = units;
         this.options = options;
@@ -50,5 +42,39 @@ public class JobDescriptor {
 
     public JobExecutionOptions options() {
         return options;
+    }
+
+    public static Builder builder() {
+        return new Builder();
+    }
+
+    public static class Builder {
+        private String jobClassName;
+        private List<DeploymentUnit> units;
+        private JobExecutionOptions options;
+
+        public Builder jobClassName(String jobClassName) {
+            this.jobClassName = jobClassName;
+            return this;
+        }
+
+        public Builder jobClass(Class<?> jobClass) {
+            this.jobClassName = jobClass.getName();
+            return this;
+        }
+
+        public Builder units(List<DeploymentUnit> units) {
+            this.units = units;
+            return this;
+        }
+
+        public Builder options(JobExecutionOptions options) {
+            this.options = options;
+            return this;
+        }
+
+        public JobDescriptor build() {
+            return new JobDescriptor(jobClassName, units, options);
+        }
     }
 }

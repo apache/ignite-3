@@ -1,5 +1,6 @@
 package org.apache.ignite.compute;
 
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 
@@ -12,7 +13,7 @@ public interface ExecutionTarget {
         return null; // TODO
     }
 
-    static ExecutionTarget fromNodeName(String name) {
+    static ExecutionTarget fromNode(ClusterNode node) {
         return null; // TODO
     }
 
