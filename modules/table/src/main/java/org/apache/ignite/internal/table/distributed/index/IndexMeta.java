@@ -24,16 +24,10 @@ import java.util.EnumMap;
 import java.util.Map;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
-import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 
-/**
- * Immutable index meta, based on the {@link CatalogIndexDescriptor}, tracks its changes and is stored in vault.
- *
- * <p>Unlike the {@link CatalogIndexDescriptor}, the index meta is not affected by catalog compaction and will store the necessary
- * data until the index is destroyed under a {@link LowWatermark}.</p>
- */
+/** Immutable index meta, based on the {@link CatalogIndexDescriptor}. */
 public class IndexMeta implements Serializable {
     private static final long serialVersionUID = 1044129530453957897L;
 

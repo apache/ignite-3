@@ -45,6 +45,7 @@ import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.IndexEventParameters;
 import org.apache.ignite.internal.catalog.events.MakeIndexAvailableEventParameters;
@@ -56,6 +57,7 @@ import org.apache.ignite.internal.catalog.events.TableEventParameters;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.lowwatermark.event.ChangeLowWatermarkEventParameters;
+import org.apache.ignite.internal.lowwatermark.event.LowWatermarkEvent;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.util.ByteUtils;
@@ -66,11 +68,31 @@ import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
- * {@link IndexMeta Index meta} storage, and is also responsible for their life cycle.
+ * Local storage of {@link IndexMeta index metadata}, based on a {@link CatalogIndexDescriptor} and stored in vault, is responsible for
+ * their life cycle, as well as recovery when the node is restarted. Any change to index metadata is saved in vault. The main difference
+ * from the {@link CatalogIndexDescriptor} is that index metadata is independent of catalog compaction and stores all the necessary
+ * information for the user when working with indexes.
  *
- * @see IndexMeta
+ * <p>Events that affect changes to index metadata:</p>
+ * <ul>
+ *     <li>{@link CatalogEvent#INDEX_CREATE} - creates metadata for the new index.</li>
+ *     <li>{@link CatalogEvent#INDEX_BUILDING} - changes the {@link IndexMeta#status()} in the metadata to
+ *     {@link MetaIndexStatusEnum#BUILDING}.</li>
+ *     <li>{@link CatalogEvent#INDEX_AVAILABLE} - changes the {@link IndexMeta#status()} in the metadata to
+ *     {@link MetaIndexStatusEnum#AVAILABLE}.</li>
+ *     <li>{@link CatalogEvent#INDEX_STOPPING} - changes the {@link IndexMeta#status()} in the metadata to
+ *     {@link MetaIndexStatusEnum#STOPPING}.</li>
+ *     <li>{@link CatalogEvent#INDEX_REMOVED} - changes the {@link IndexMeta#status()} in the metadata depending on the previous status:<ul>
+ *         <li>{@link MetaIndexStatusEnum#STOPPING} or {@link MetaIndexStatusEnum#AVAILABLE} (on table deletion) -
+ *         {@link MetaIndexStatusEnum#READ_ONLY}</li>
+ *         <li>{@link MetaIndexStatusEnum#REGISTERED} or {@link MetaIndexStatusEnum#BUILDING} - {@link MetaIndexStatusEnum#REMOVED}</li>
+ *     </ul></li>
+ *     <li>{@link CatalogEvent#TABLE_ALTER} (only table rename) - changes the {@link IndexMeta#indexName() index name} in the metadata.</li>
+ *     <li>{@link LowWatermarkEvent#LOW_WATERMARK_CHANGED} - deletes metadata of indexes that were in status
+ *     {@link MetaIndexStatusEnum#READ_ONLY} or {@link MetaIndexStatusEnum#REMOVED} and catalog versions in which their status was updated
+ *     less than or equal to the active catalog version for the new watermark.</li>
+ * </ul>
  */
-// TODO: IGNITE-22367 реализовать, протестировать улучшить документацию?
 public class IndexMetaStorage implements IgniteComponent {
     private static final String INDEX_META_KEY_PREFIX = "index.meta.";
 
