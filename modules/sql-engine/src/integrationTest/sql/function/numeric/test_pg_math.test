@@ -58,6 +58,11 @@ select log10(0.1)
 -0.9999999999999998
 
 query R
+select log10(0)
+----
+-Infinity
+
+query R
 select log10(10e8)
 ----
 8.999999999999998
