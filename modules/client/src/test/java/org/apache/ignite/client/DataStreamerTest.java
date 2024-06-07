@@ -208,7 +208,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
     }
 
     @Test
-    public void testBackpressureFromResultSSubscriber() {
+    public void testBackpressureFromResultSubscriber() {
         assertFalse(true, "TODO");
     }
 

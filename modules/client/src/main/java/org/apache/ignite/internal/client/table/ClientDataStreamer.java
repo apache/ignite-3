@@ -95,23 +95,27 @@ class ClientDataStreamer {
                                 },
                                 in -> {
                                     if (resultSubscriber != null && !subscription.cancelled.get()) {
-                                        List<Object> results = StreamerReceiverSerializer.deserializeResults(in.in());
-
-                                        if (results != null) {
-                                            for (Object result : results) {
-                                                resultSubscriber.onNext((R) result);
-
-                                                // TODO: Backpressure control?
-                                                subscription.requested.decrementAndGet();
-                                            }
-                                        }
+                                        return StreamerReceiverSerializer.deserializeResults(in.in());
                                     }
 
                                     return null;
                                 },
                                 partitionAssignment.get(partitionId),
                                 new RetryLimitPolicy().retryLimit(options.retryLimit()),
-                                false));
+                                false)
+                                .thenCompose(results -> {
+                                    if (results != null) {
+                                        for (Object result : results) {
+                                            resultSubscriber.onNext((R) result);
+
+                                            // TODO: Backpressure control
+                                            subscription.requested.decrementAndGet();
+                                        }
+                                    }
+
+                                    return null;
+                                })
+                );
 
         CompletableFuture<Void> resFut = streamData(
                 publisher,
