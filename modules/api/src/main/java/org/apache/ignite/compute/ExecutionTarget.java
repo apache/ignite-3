@@ -17,6 +17,8 @@
 
 package org.apache.ignite.compute;
 
+import java.util.Collection;
+import java.util.List;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
@@ -27,7 +29,15 @@ public interface ExecutionTarget {
     ExecutionTarget ALL_NODES = new ExecutionTarget() { };
 
     static ExecutionTarget fromNode(ClusterNode node) {
-        return new NodeExecutionTarget(node);
+        return new NodesExecutionTarget(List.of(node));
+    }
+
+    static ExecutionTarget fromNodes(Collection<ClusterNode> nodes) {
+        return new NodesExecutionTarget(nodes);
+    }
+
+    static ExecutionTarget fromNodes(ClusterNode... nodes) {
+        return new NodesExecutionTarget(List.of(nodes));
     }
 
     static ExecutionTarget fromColocationKey(String tableName, Tuple key) {

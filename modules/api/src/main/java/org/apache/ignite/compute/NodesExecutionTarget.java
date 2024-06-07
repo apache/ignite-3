@@ -17,19 +17,24 @@
 
 package org.apache.ignite.compute;
 
+import java.util.Collection;
 import java.util.Objects;
 import org.apache.ignite.network.ClusterNode;
 
-public class NodeExecutionTarget implements ExecutionTarget {
-    private final ClusterNode node;
+public class NodesExecutionTarget implements ExecutionTarget {
+    private final Collection<ClusterNode> nodes;
 
-    NodeExecutionTarget(ClusterNode node) {
-        Objects.requireNonNull(node);
+    NodesExecutionTarget(Collection<ClusterNode> nodes) {
+        Objects.requireNonNull(nodes);
 
-        this.node = node;
+        if (nodes.isEmpty()) {
+            throw new IllegalArgumentException("Nodes collection must not be empty");
+        }
+
+        this.nodes = nodes;
     }
 
-    public ClusterNode node() {
-        return node;
+    public Collection<ClusterNode> nodes() {
+        return nodes;
     }
 }

@@ -513,14 +513,11 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     @ParameterizedTest
     @CsvSource({"1,3344", "2,3345", "3,3345", "10,3344"})
     void testExecuteColocatedTupleRunsComputeJobOnKeyNode(int key, int port) {
-        var keyTuple = Tuple.create().set(COLUMN_KEY, key);
+        Tuple keyTuple = Tuple.create().set(COLUMN_KEY, key);
+        JobDescriptor job = JobDescriptor.builder().jobClass(NodeNameJob.class).build();
+        ExecutionTarget target = ExecutionTarget.fromColocationKey(TABLE_NAME, keyTuple);
 
-        JobExecution<String> tupleExecution = client().compute().submitColocated(
-                TABLE_NAME,
-                keyTuple,
-                List.of(),
-                NodeNameJob.class.getName()
-        );
+        JobExecution<String> tupleExecution = client().compute().submit(target, job);
 
         String expectedNode = "itcct_n_" + port;
         assertThat(tupleExecution.resultAsync(), willBe(expectedNode));
