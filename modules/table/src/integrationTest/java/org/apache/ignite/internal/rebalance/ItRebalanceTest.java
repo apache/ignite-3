@@ -189,7 +189,7 @@ public class ItRebalanceTest extends IgniteIntegrationTest {
                 n -> n.dropMessages((nodeName, msg) -> msg instanceof ChangePeersAsyncRequest && dropMessages.get())
         );
 
-        alterZone(zoneName, 3, 2);
+        alterZone(zoneName, 2);
 
         CatalogManager catalogManager = cluster.aliveNode().catalogManager();
 
@@ -288,11 +288,11 @@ public class ItRebalanceTest extends IgniteIntegrationTest {
         });
     }
 
-    private void alterZone(String zoneName, int partitions, int replicas) {
+    private void alterZone(String zoneName, int replicas) {
         String sql1 = String.format("alter zone %s set "
-                + "partitions=%d, replicas=%d, "
+                + "replicas=%d, "
                 + "data_nodes_auto_adjust_scale_up=0, "
-                + "data_nodes_auto_adjust_scale_down=0", zoneName, partitions, replicas);
+                + "data_nodes_auto_adjust_scale_down=0", zoneName, replicas);
 
         cluster.doInSession(0, session -> {
             executeUpdate(sql1, session);

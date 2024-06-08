@@ -71,12 +71,8 @@ public class JdbcQueryExecuteResponse extends Response {
 
     /** {@inheritDoc} */
     @Override
-    public boolean hasResults() {
-        return result.hasResults();
-    }
-
-    boolean hasResult() {
-        return result.resultAvailable();
+    public boolean success() {
+        return result.success();
     }
 
     /**

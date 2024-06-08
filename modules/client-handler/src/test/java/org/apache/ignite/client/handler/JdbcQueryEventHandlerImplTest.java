@@ -107,7 +107,7 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
 
         assertThat(result, notNullValue());
         assertThat(result.status(), is(STATUS_FAILED));
-        assertThat(result.hasResults(), is(false));
+        assertThat(result.success(), is(false));
         assertThat(result.err(), containsString("Unable to connect"));
     }
 
@@ -137,7 +137,7 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
         JdbcBatchExecuteResult res = fut.get();
 
         assertThat(res.status(), is(STATUS_FAILED));
-        assertThat(res.hasResults(), is(false));
+        assertThat(res.success(), is(false));
         assertThat(res.err(), containsString("Connection is closed"));
     }
 
@@ -204,7 +204,7 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
 
         assertThat(result, notNullValue());
         assertThat(result.status(), is(STATUS_SUCCESS));
-        assertThat(result.hasResults(), is(true));
+        assertThat(result.success(), is(true));
 
         return result.connectionId();
     }

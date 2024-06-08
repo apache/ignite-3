@@ -17,8 +17,10 @@
 
 package org.apache.ignite.internal.metastorage.server.raft;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.hlc.TestClockService.TEST_MAX_CLOCK_SKEW_MILLIS;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.findLocalAddresses;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.waitForTopology;
 import static org.apache.ignite.internal.raft.server.RaftGroupOptions.defaults;
@@ -406,18 +408,45 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
 
         var raftNodeId1 = new RaftNodeId(MetastorageGroupId.INSTANCE, membersConfiguration.peer(localMemberName(cluster.get(0))));
 
-        metaStorageRaftSrv1.startRaftNode(raftNodeId1, membersConfiguration,
-                new MetaStorageListener(mockStorage, mock(ClusterTimeImpl.class)), defaults());
+        metaStorageRaftSrv1.startRaftNode(
+                raftNodeId1,
+                membersConfiguration,
+                new MetaStorageListener(
+                        mockStorage,
+                        mock(ClusterTimeImpl.class),
+                        raftConfiguration.retryTimeout(),
+                        completedFuture(() -> TEST_MAX_CLOCK_SKEW_MILLIS)
+                ),
+                defaults()
+        );
 
         var raftNodeId2 = new RaftNodeId(MetastorageGroupId.INSTANCE, membersConfiguration.peer(localMemberName(cluster.get(1))));
 
-        metaStorageRaftSrv2.startRaftNode(raftNodeId2, membersConfiguration,
-                new MetaStorageListener(mockStorage, mock(ClusterTimeImpl.class)), defaults());
+        metaStorageRaftSrv2.startRaftNode(
+                raftNodeId2,
+                membersConfiguration,
+                new MetaStorageListener(
+                        mockStorage,
+                        mock(ClusterTimeImpl.class),
+                        raftConfiguration.retryTimeout(),
+                        completedFuture(() -> TEST_MAX_CLOCK_SKEW_MILLIS)
+                ),
+                defaults()
+        );
 
         var raftNodeId3 = new RaftNodeId(MetastorageGroupId.INSTANCE, membersConfiguration.peer(localMemberName(cluster.get(2))));
 
-        metaStorageRaftSrv3.startRaftNode(raftNodeId3, membersConfiguration,
-                new MetaStorageListener(mockStorage, mock(ClusterTimeImpl.class)), defaults());
+        metaStorageRaftSrv3.startRaftNode(
+                raftNodeId3,
+                membersConfiguration,
+                new MetaStorageListener(
+                        mockStorage,
+                        mock(ClusterTimeImpl.class),
+                        raftConfiguration.retryTimeout(),
+                        completedFuture(() -> TEST_MAX_CLOCK_SKEW_MILLIS)
+                ),
+                defaults()
+        );
 
         metaStorageRaftGrpSvc1 = waitForRaftGroupServiceSafely(RaftGroupServiceImpl.start(
                 MetastorageGroupId.INSTANCE,

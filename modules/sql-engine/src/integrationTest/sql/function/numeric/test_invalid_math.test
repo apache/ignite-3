@@ -1,5 +1,6 @@
 # name: test/sql/function/numeric/test_invalid_math.test
 # description: Test invalid input for math functions
+# feature: SQL T624(Common logarithm functions)
 # group: [numeric]
 
 query RR

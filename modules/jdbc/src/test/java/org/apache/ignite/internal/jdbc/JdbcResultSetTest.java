@@ -19,13 +19,14 @@ package org.apache.ignite.internal.jdbc;
 
 import static org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode.codeToSqlState;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import java.sql.SQLException;
@@ -39,6 +40,8 @@ import org.apache.ignite.internal.jdbc.proto.event.Response;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -46,21 +49,16 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 public class JdbcResultSetTest extends BaseIgniteAbstractTest {
     @Test
-    public void getNextResultSetTest() throws SQLException {
+    public void exceptionIsPropagatedFromGetNextResultResponse() throws SQLException {
         String errorStr = "Failed to fetch query results";
 
         JdbcQueryCursorHandler handler = mock(JdbcQueryCursorHandler.class);
         JdbcStatement stmt = mock(JdbcStatement.class);
 
-        JdbcResultSet rs = spy(new JdbcResultSet(handler, stmt, 1L, 1, true, List.of(), true, 0, false, 1, null));
+        JdbcResultSet rs = createResultSet(handler, stmt, true);
 
         when(handler.getMoreResultsAsync(any())).thenReturn(CompletableFuture.completedFuture(
                 new JdbcQuerySingleResult(Response.STATUS_FAILED, errorStr)));
-
-        JdbcQueryCloseResult closeRes = mock(JdbcQueryCloseResult.class);
-
-        when(handler.closeAsync(any())).thenReturn(CompletableFuture.completedFuture(closeRes));
-        when(closeRes.hasResults()).thenReturn(true);
 
         SQLException ex = assertThrows(SQLException.class, rs::getNextResultSet);
 
@@ -69,21 +67,65 @@ public class JdbcResultSetTest extends BaseIgniteAbstractTest {
         assertEquals(errorStr, actualMessage);
         assertEquals(codeToSqlState(Response.STATUS_FAILED), ex.getSQLState());
 
-        verify(rs).close0(anyBoolean());
+        verify(handler).getMoreResultsAsync(any());
+        verifyNoMoreInteractions(handler);
+
+        assertTrue(rs.isClosed());
     }
 
     @Test
-    public void checkClose() throws SQLException {
+    public void getNextResultWhenNextResultAvailable() throws SQLException {
         JdbcQueryCursorHandler handler = mock(JdbcQueryCursorHandler.class);
         JdbcStatement stmt = mock(JdbcStatement.class);
 
-        JdbcResultSet rs = spy(new JdbcResultSet(handler, stmt, 1L, 1, true, List.of(), true, 0, false, 1, null));
+        JdbcResultSet rs = createResultSet(handler, stmt, true);
 
-        JdbcQueryCloseResult closeRequest = mock(JdbcQueryCloseResult.class);
+        int expectedUpdateCount = 10;
 
-        when(closeRequest.hasResults()).thenReturn(true);
+        when(handler.getMoreResultsAsync(any()))
+                .thenReturn(CompletableFuture.completedFuture(new JdbcQuerySingleResult(null, expectedUpdateCount, false)));
 
-        when(handler.closeAsync(any())).thenReturn(CompletableFuture.completedFuture(closeRequest));
+        JdbcResultSet nextRs = rs.getNextResultSet();
+
+        assertNotNull(nextRs);
+        assertEquals(expectedUpdateCount, nextRs.updatedCount());
+
+        verify(handler).getMoreResultsAsync(any());
+        verifyNoMoreInteractions(handler);
+
+        assertTrue(rs.isClosed());
+    }
+
+    @Test
+    public void getNextResultWhenNextResultIsNotAvailable() throws SQLException {
+        JdbcQueryCursorHandler handler = mock(JdbcQueryCursorHandler.class);
+        JdbcStatement stmt = mock(JdbcStatement.class);
+
+        JdbcResultSet rs = createResultSet(handler, stmt, false);
+
+        when(handler.closeAsync(any()))
+                .thenReturn(CompletableFuture.completedFuture(new JdbcQueryCloseResult()));
+
+        JdbcResultSet nextRs = rs.getNextResultSet();
+
+        assertNull(nextRs);
+
+        verify(handler).closeAsync(any());
+        verifyNoMoreInteractions(handler);
+
+        assertTrue(rs.isClosed());
+    }
+
+    @ParameterizedTest(name = "hasNextResult: {0}")
+    @ValueSource(booleans = {true, false})
+    public void checkClose(boolean hasNextResult) throws SQLException {
+        JdbcQueryCursorHandler handler = mock(JdbcQueryCursorHandler.class);
+        JdbcStatement stmt = mock(JdbcStatement.class);
+
+        JdbcResultSet rs = createResultSet(handler, stmt, hasNextResult);
+
+        when(handler.closeAsync(any()))
+                .thenReturn(CompletableFuture.completedFuture(new JdbcQueryCloseResult()));
 
         rs.close();
 
@@ -91,6 +133,14 @@ public class JdbcResultSetTest extends BaseIgniteAbstractTest {
 
         verify(handler).closeAsync(argument.capture());
 
-        assertFalse(argument.getValue().removeFromResources());
+        assertEquals(!hasNextResult, argument.getValue().removeFromResources());
+    }
+
+    private static JdbcResultSet createResultSet(
+            JdbcQueryCursorHandler handler,
+            JdbcStatement statement,
+            boolean hasNextResult
+    ) {
+        return new JdbcResultSet(handler, statement, 1L, 1, true, List.of(), true, hasNextResult, 0, false, 1, r -> List.of());
     }
 }

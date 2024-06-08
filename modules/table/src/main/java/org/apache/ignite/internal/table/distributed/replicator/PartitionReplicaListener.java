@@ -91,6 +91,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.raft.Command;
+import org.apache.ignite.internal.raft.ExecutorInclinedRaftCommandRunner;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.replicator.ReplicaResult;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -450,6 +451,15 @@ public class PartitionReplicaListener implements ReplicaListener {
                         return new ReplicaResult(res, null);
                     }
                 });
+    }
+
+    /** Returns Raft-client. */
+    @Override
+    public RaftCommandRunner raftClient() {
+        if (raftClient instanceof ExecutorInclinedRaftCommandRunner) {
+            return ((ExecutorInclinedRaftCommandRunner) raftClient).decoratedCommandRunner();
+        }
+        return raftClient;
     }
 
     private CompletableFuture<?> processRequest(ReplicaRequest request, @Nullable Boolean isPrimary, String senderId,

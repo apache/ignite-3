@@ -15,13 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.catalog;
+package org.apache.ignite.internal.storage.pagememory;
 
-
-import org.apache.ignite.catalog.annotations.Table;
+import com.google.auto.service.AutoService;
+import java.util.Collection;
+import java.util.List;
+import org.apache.ignite.internal.pagememory.io.IoVersions;
+import org.apache.ignite.internal.pagememory.io.PageIoModule;
 
 /**
- * Marker interface for {@link Table} annotation.
+ * {@link PageIoModule} implementation in storage-page-memory module.
  */
-public interface DefaultZone {
+@AutoService(PageIoModule.class)
+public class StorageMemoryIoModule implements PageIoModule {
+    @Override
+    public Collection<IoVersions<?>> ioVersions() {
+        return List.of(StoragePartitionMetaIo.VERSIONS);
+    }
 }

@@ -17,10 +17,15 @@
 
 package org.apache.ignite.internal.sql.engine.tx;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
+
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.impl.TransactionInflights;
+import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -30,16 +35,19 @@ public class QueryTransactionContextImpl implements QueryTransactionContext {
     private final TxManager txManager;
     private final HybridTimestampTracker observableTimeTracker;
     private final @Nullable QueryTransactionWrapper tx;
+    private final TransactionInflights transactionInflights;
 
     /** Constructor. */
     public QueryTransactionContextImpl(
             TxManager txManager,
             HybridTimestampTracker observableTimeTracker,
-            @Nullable InternalTransaction tx
+            @Nullable InternalTransaction tx,
+            TransactionInflights transactionInflights
     ) {
         this.txManager = txManager;
         this.observableTimeTracker = observableTimeTracker;
-        this.tx = tx != null ? new QueryTransactionWrapperImpl(tx, false) : null;
+        this.tx = tx != null ? new QueryTransactionWrapperImpl(tx, false, transactionInflights) : null;
+        this.transactionInflights = transactionInflights;
     }
 
     /**
@@ -50,13 +58,23 @@ public class QueryTransactionContextImpl implements QueryTransactionContext {
      */
     @Override
     public QueryTransactionWrapper getOrStartImplicit(boolean readOnly) {
+        InternalTransaction transaction;
+        QueryTransactionWrapper result;
+
         if (tx == null) {
-            return new QueryTransactionWrapperImpl(
-                    txManager.begin(observableTimeTracker, readOnly), true
-            );
+            transaction = txManager.begin(observableTimeTracker, readOnly);
+            result = new QueryTransactionWrapperImpl(transaction, true, transactionInflights);
+        } else {
+            transaction = tx.unwrap();
+            result = tx;
         }
 
-        return tx;
+        // Adding inflights only for read-only transactions. See TransactionInflights.ReadOnlyTxContext for details.
+        if (transaction.isReadOnly() && !transactionInflights.addInflight(transaction.id(), transaction.isReadOnly())) {
+            throw new TransactionException(TX_ALREADY_FINISHED_ERR, format("Transaction is already finished [tx={}]", transaction));
+        }
+
+        return result;
     }
 
     @Override

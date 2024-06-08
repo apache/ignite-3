@@ -176,6 +176,7 @@ import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncServiceImpl;
+import org.apache.ignite.internal.table.distributed.schema.ThreadLocalPartitionCommandsMarshaller;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.test.WatchListenerInhibitor;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
@@ -416,6 +417,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         InvokeInterceptor metaStorageInvokeInterceptor = metaStorageInvokeInterceptorByNode.get(idx);
 
+        CompletableFuture<LongSupplier> maxClockSkewFuture = new CompletableFuture<>();
+
         var metaStorageMgr = new MetaStorageManagerImpl(
                 clusterSvc,
                 cmgManager,
@@ -425,7 +428,9 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 hybridClock,
                 topologyAwareRaftGroupServiceFactory,
                 metricManager,
-                metaStorageConfiguration
+                metaStorageConfiguration,
+                raftConfiguration.retryTimeout(),
+                maxClockSkewFuture
         ) {
             @Override
             public CompletableFuture<Boolean> invoke(Condition condition, Collection<Operation> success, Collection<Operation> failure) {
@@ -463,11 +468,14 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         SchemaSynchronizationConfiguration schemaSyncConfiguration = clusterConfigRegistry.getConfiguration(
                 SchemaSynchronizationConfiguration.KEY
         );
+
         ClockService clockService = new ClockServiceImpl(
                 hybridClock,
                 clockWaiter,
                 () -> schemaSyncConfiguration.maxClockSkew().value()
         );
+
+        maxClockSkewFuture.complete(clockService::maxClockSkewMillis);
 
         var placementDriverManager = new PlacementDriverManager(
                 name,
@@ -481,6 +489,9 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 clockService
         );
 
+        ScheduledExecutorService rebalanceScheduler = new ScheduledThreadPoolExecutor(REBALANCE_SCHEDULER_POOL_SIZE,
+                NamedThreadFactory.create(name, "test-rebalance-scheduler", logger()));
+
         ReplicaManager replicaMgr = new ReplicaManager(
                 name,
                 clusterSvc,
@@ -491,6 +502,10 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 threadPoolsManager.partitionOperationsExecutor(),
                 partitionIdleSafeTimePropagationPeriodMsSupplier,
                 failureProcessor,
+                new ThreadLocalPartitionCommandsMarshaller(clusterSvc.serializationRegistry()),
+                topologyAwareRaftGroupServiceFactory,
+                raftMgr,
+                view -> new LocalLogStorageFactory(),
                 threadPoolsManager.tableIoExecutor()
         );
 
@@ -571,9 +586,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         var dataNodesMock = dataNodesMockByNode.get(idx);
 
-        ScheduledExecutorService rebalanceScheduler = new ScheduledThreadPoolExecutor(REBALANCE_SCHEDULER_POOL_SIZE,
-                NamedThreadFactory.create(name, "test-rebalance-scheduler", logger()));
-
         DistributionZoneManager distributionZoneManager = new DistributionZoneManager(
                 name,
                 registry,
@@ -605,7 +617,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 messagingServiceReturningToStorageOperationsPool,
                 clusterSvc.topologyService(),
                 clusterSvc.serializationRegistry(),
-                raftMgr,
                 replicaMgr,
                 lockManager,
                 replicaService,
@@ -614,13 +625,12 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 storagePath,
                 metaStorageMgr,
                 schemaManager,
-                view -> new LocalLogStorageFactory(),
                 threadPoolsManager.tableIoExecutor(),
                 threadPoolsManager.partitionOperationsExecutor(),
+                rebalanceScheduler,
                 hybridClock,
                 clockService,
                 new OutgoingSnapshotsManager(clusterSvc.messagingService()),
-                topologyAwareRaftGroupServiceFactory,
                 distributionZoneManager,
                 schemaSyncService,
                 catalogManager,
@@ -628,7 +638,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 placementDriverManager.placementDriver(),
                 sqlRef::get,
                 resourcesRegistry,
-                rebalanceScheduler,
                 lowWatermark,
                 transactionInflights
         );

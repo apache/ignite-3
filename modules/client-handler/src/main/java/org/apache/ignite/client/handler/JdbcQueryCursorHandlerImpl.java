@@ -95,7 +95,7 @@ public class JdbcQueryCursorHandlerImpl extends JdbcHandlerBase implements JdbcQ
     public CompletableFuture<JdbcQuerySingleResult> getMoreResultsAsync(JdbcFetchQueryResultsRequest req) {
         AsyncSqlCursor<InternalSqlRow> asyncSqlCursor;
         try {
-            asyncSqlCursor = resources.get(req.cursorId()).get(AsyncSqlCursor.class);
+            asyncSqlCursor = resources.remove(req.cursorId()).get(AsyncSqlCursor.class);
         } catch (IgniteInternalCheckedException e) {
             StringWriter sw = getWriterWithStackTrace(e);
 
@@ -103,11 +103,15 @@ public class JdbcQueryCursorHandlerImpl extends JdbcHandlerBase implements JdbcQ
                     "Failed to find query cursor [curId=" + req.cursorId() + "]. Error message:" + sw));
         }
 
+        CompletableFuture<Void> cursorCloseFuture = asyncSqlCursor.closeAsync();
+
         if (!asyncSqlCursor.hasNextResult()) {
-            return CompletableFuture.completedFuture(new JdbcQuerySingleResult());
+            // driver should check presence of next result set on client side and avoid unnecessary calls
+            return CompletableFuture.completedFuture(new JdbcQuerySingleResult(Response.STATUS_FAILED,
+                    "Cursor doesn't have next result"));
         }
 
-        return asyncSqlCursor.closeAsync().thenCompose(c -> asyncSqlCursor.nextResult())
+        return cursorCloseFuture.thenCompose(c -> asyncSqlCursor.nextResult())
                 .thenCompose(cur -> createJdbcResult(cur, req.fetchSize()))
                 .exceptionally(t -> {
                     iterateThroughResultsAndCloseThem(asyncSqlCursor);
