@@ -3,27 +3,27 @@
 # group: [char]
 
 query T
-SELECT 'a' > 'b';
+SELECT 'a'::char > 'b'::varchar;
 ----
 false
 
 query T
-SELECT 'a' < 'b';
+SELECT 'a'::char < 'b'::varchar;
 ----
 true
 
 query T
-SELECT 'a' = 'b';
+SELECT 'a'::char = 'b'::varchar;
 ----
 false
 
 query T
-SELECT 'a' >= 'b';
+SELECT 'a'::char >= 'b'::varchar;
 ----
 false
 
 query T
-SELECT 'a' <= 'b';
+SELECT 'a'::char <= 'b'::varchar;
 ----
 true
 
@@ -79,3 +79,58 @@ query T
 SELECT * FROM tiny WHERE v < '300';
 ----
 127
+
+query T
+SELECT length('a'::CHAR(10) || 'abc'::VARCHAR(10));
+----
+13
+
+# ASSIGNMENT
+
+statement ok
+CREATE TABLE chars(c5 VARCHAR(5), c10 VARCHAR(10), c15 VARCHAR(15));
+
+# Preserve trailing whitespace
+statement ok
+INSERT INTO chars (c5) VALUES('a'::CHAR(5));
+
+query T
+SELECT length(c5) FROM chars;
+----
+5
+
+statement ok
+UPDATE chars SET c10 = c5, c15 = c5
+
+query TTT
+SELECT length(c5), length(c10), length(c15) FROM chars;
+----
+5	5	5
+
+
+statement ok
+INSERT INTO chars VALUES(repeat('b', 5), repeat('b', 10), repeat('b', 15));
+
+# Trailing whitespace is ignored
+statement ok
+UPDATE chars SET c5=c5::CHAR(10), c10 = c10::CHAR(15), c15 = c15::CHAR(20)
+
+query TTT
+SELECT length(c5), length(c10), length(c15) FROM chars WHERE c5 = 'bbbbb';
+----
+5	10	15
+
+statement ok
+CREATE TABLE tmp (c5 VARCHAR(5), c10 VARCHAR(10));
+
+statement ok
+INSERT INTO tmp (c5) VALUES('a'::CHAR(5));
+
+statement ok
+INSERT INTO tmp (c5) VALUES('a'::CHAR(3));
+
+# https://issues.apache.org/jira/browse/IGNITE-22451 
+# Error: Row has not been fully built. Index: 2, fields: 3
+skipif ignite3
+statement ok
+UPDATE tmp SET c5=c5::CHAR(6)
