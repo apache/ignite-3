@@ -586,8 +586,8 @@ public class DataStreamerTest extends AbstractClientTableTest {
             streamerFut = defaultTable().recordView().streamData(
                     publisher,
                     options,
-                    t -> t,
-                    t -> 1L, // Same partition for all items.
+                    t -> tuple(), // Same key for all items to execute receiver with one batch.
+                    t -> t.longValue("id"),
                     resultSubscriber,
                     new ArrayList<>(),
                     TestReceiver.class.getName(),
@@ -642,6 +642,10 @@ public class DataStreamerTest extends AbstractClientTableTest {
                 if (resultCount-- > 0) {
                     res.add(name);
                 }
+            }
+
+            while (resultCount-- > 0) {
+                res.add("extra_" + resultCount);
             }
 
             return CompletableFuture.completedFuture(returnResults ? res : null);
