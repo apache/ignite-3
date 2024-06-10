@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Function;
@@ -48,6 +49,7 @@ class DataStreamer {
                 x -> x.operationType() == DataStreamerOperationType.REMOVE,
                 options,
                 batchSender,
+                null,
                 partitionAwarenessProvider,
                 flushExecutor);
     }
@@ -60,11 +62,13 @@ class DataStreamer {
             Function<E, Boolean> deleteFunc,
             @Nullable DataStreamerOptions options,
             StreamerBatchSender<V, Integer, R> batchSender,
+            @Nullable Flow.Subscriber<R> resultSubscriber,
             StreamerPartitionAwarenessProvider<T, Integer> partitionAwarenessProvider,
             ScheduledExecutorService flushExecutor) {
         StreamerOptions streamerOpts = streamerOptions(options);
         StreamerSubscriber<T, E, V, R, Integer> subscriber = new StreamerSubscriber<>(
                 batchSender,
+                resultSubscriber,
                 keyFunc,
                 payloadFunc,
                 deleteFunc,

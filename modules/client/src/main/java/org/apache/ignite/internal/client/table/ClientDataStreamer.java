@@ -58,6 +58,7 @@ class ClientDataStreamer {
                 x -> x.operationType() == DataStreamerOperationType.REMOVE,
                 options,
                 batchSender,
+                null,
                 partitionAwarenessProvider,
                 tbl);
     }
@@ -112,6 +113,7 @@ class ClientDataStreamer {
                 deleteFunc,
                 options,
                 batchSender,
+                resultSubscriber,
                 partitionAwarenessProvider,
                 tbl);
 
@@ -146,12 +148,14 @@ class ClientDataStreamer {
             Function<E, Boolean> deleteFunc,
             DataStreamerOptions options,
             StreamerBatchSender<V, Integer, R> batchSender,
+            @Nullable Flow.Subscriber<R> resultSubscriber,
             StreamerPartitionAwarenessProvider<T, Integer> partitionAwarenessProvider,
             ClientTable tbl) {
         IgniteLogger log = ClientUtils.logger(tbl.channel().configuration(), StreamerSubscriber.class);
         StreamerOptions streamerOpts = streamerOptions(options);
         StreamerSubscriber<T, E, V, R, Integer> subscriber = new StreamerSubscriber<>(
                 batchSender,
+                resultSubscriber,
                 keyFunc,
                 payloadFunc,
                 deleteFunc,

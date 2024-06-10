@@ -47,6 +47,8 @@ import org.jetbrains.annotations.Nullable;
 public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
     private final StreamerBatchSender<V, P, R> batchSender;
 
+    private final @Nullable Subscriber<R> resultSubscriber;
+
     private final Function<E, T> keyFunc;
 
     private final Function<E, V> payloadFunc;
@@ -85,10 +87,19 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
      * Constructor.
      *
      * @param batchSender Batch sender.
-     * @param options Data streamer options.
+     * @param resultSubscriber Result subscriber.
+     * @param keyFunc Key function.
+     * @param payloadFunc Payload function.
+     * @param deleteFunc Delete function.
+     * @param partitionAwarenessProvider Partition awareness provider.
+     * @param options Streamer options.
+     * @param flushExecutor Flush executor.
+     * @param log Logger.
+     * @param metrics Metrics.
      */
     public StreamerSubscriber(
             StreamerBatchSender<V, P, R> batchSender,
+            @Nullable Flow.Subscriber<R> resultSubscriber,
             Function<E, T> keyFunc,
             Function<E, V> payloadFunc,
             Function<E, Boolean> deleteFunc,
@@ -106,6 +117,7 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
         assert log != null;
 
         this.batchSender = batchSender;
+        this.resultSubscriber = resultSubscriber;
         this.keyFunc = keyFunc;
         this.payloadFunc = payloadFunc;
         this.deleteFunc = deleteFunc;
