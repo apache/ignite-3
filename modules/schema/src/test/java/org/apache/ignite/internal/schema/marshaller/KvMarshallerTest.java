@@ -96,6 +96,7 @@ import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.ObjectFactory;
 import org.apache.ignite.table.mapper.Mapper;
+import org.apache.ignite.table.mapper.TypeConverter;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DynamicNode;
@@ -283,7 +284,7 @@ public class KvMarshallerTest {
 
         Mapper<TestObject> valMapper = Mapper.builder(TestObject.class)
                 .map("longCol", "col1")
-                .map("stringCol", "col3")
+                .map("dateCol", "col3", new TestTypeConverter())
                 .build();
 
         KvMarshaller<TestKeyObject, TestObject> marshaller = factory.create(schema, keyMapper, valMapper);
@@ -937,7 +938,7 @@ public class KvMarshallerTest {
 
             obj.longCol = rnd.nextLong();
             obj.longCol2 = rnd.nextLong();
-            obj.stringCol = IgniteTestUtils.randomString(rnd, 100);
+            obj.dateCol = LocalDate.now();
 
             return obj;
         }
@@ -946,7 +947,7 @@ public class KvMarshallerTest {
 
         private Long longCol2;
 
-        private String stringCol;
+        private LocalDate dateCol;
 
         @Override
         public boolean equals(Object o) {
@@ -962,12 +963,12 @@ public class KvMarshallerTest {
 
             return longCol == that.longCol
                     && Objects.equals(longCol2, that.longCol2)
-                    && Objects.equals(stringCol, that.stringCol);
+                    && Objects.equals(dateCol, that.dateCol);
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(longCol, longCol2, stringCol);
+            return Objects.hash(longCol, longCol2, dateCol);
         }
     }
 
@@ -1148,6 +1149,18 @@ public class KvMarshallerTest {
             int result = Objects.hash(pojoField);
             result = 31 * result + Arrays.hashCode(rawField);
             return result;
+        }
+    }
+
+    private static class TestTypeConverter implements TypeConverter<LocalDate, String> {
+        @Override
+        public String toColumnType(LocalDate val) {
+            return val.toString();
+        }
+
+        @Override
+        public LocalDate toObjectType(String val) {
+            return LocalDate.parse(val);
         }
     }
 }
