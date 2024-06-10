@@ -46,6 +46,8 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Integration test for ALTER TABLE ALTER COLUMN command.
+ *
+ * <p>SQL F381 feature. Extended schema manipulation.
  */
 public class ItAlterTableAlterColumnTest extends BaseSqlIntegrationTest {
     @AfterEach
