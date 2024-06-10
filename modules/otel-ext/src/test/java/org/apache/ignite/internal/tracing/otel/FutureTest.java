@@ -20,19 +20,34 @@ package org.apache.ignite.internal.tracing.otel;
 import static org.apache.ignite.internal.tracing.TracingManager.rootSpan;
 import static org.apache.ignite.internal.tracing.TracingManager.span;
 import static org.apache.ignite.internal.tracing.TracingManager.wrap;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 import io.opentelemetry.api.trace.Span;
 import java.util.concurrent.CompletableFuture;
-import org.junit.jupiter.api.BeforeAll;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher;
+import org.apache.ignite.internal.tracing.GridTracingManager;
+import org.apache.ignite.internal.tracing.configuration.TracingConfiguration;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /** Tests for CompletableFuture wrapper. */
+@ExtendWith(ConfigurationExtension.class)
 public class FutureTest {
-    @BeforeAll
-    static void setUp() {
-        // TracingManager.initialize("ignite-node-0", 1.0d);
+    @InjectConfiguration
+    private TracingConfiguration tracingConfiguration;
+
+    @BeforeEach
+    void before() {
+        GridTracingManager.initialize("ignite-node-0", tracingConfiguration);
+
+        assertThat(tracingConfiguration.change(tracingChange -> {
+            tracingChange.changeRatio(1.);
+        }), CompletableFutureMatcher.willCompleteSuccessfully());
     }
 
     @Test

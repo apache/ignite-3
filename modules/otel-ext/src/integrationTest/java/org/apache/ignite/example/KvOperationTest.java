@@ -17,13 +17,20 @@
 
 package org.apache.ignite.example;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.tracing.TracingManager.getSpanManager;
 import static org.apache.ignite.internal.tracing.TracingManager.rootSpan;
 import static org.apache.ignite.internal.tracing.TracingManager.span;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertSame;
 
 import java.util.Map;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.tracing.NoopSpanManager;
 import org.apache.ignite.internal.tracing.TraceSpan;
+import org.apache.ignite.internal.tracing.configuration.TracingConfiguration;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.BeforeAll;
@@ -42,10 +49,21 @@ public class KvOperationTest extends ClusterPerClassIntegrationTest {
         createZoneAndTable(zoneName(DEFAULT_TABLE_NAME), DEFAULT_TABLE_NAME, 1, 1);
 
         insertPeople(DEFAULT_TABLE_NAME, new Person(0, "0", 10.0));
+
+        assertSame(getSpanManager(), NoopSpanManager.INSTANCE);
     }
 
     @Test
     void delayTracing() {
+        IgniteImpl ignite = CLUSTER.aliveNode();
+
+        assertThat(
+                ignite.clusterConfiguration().getConfiguration(TracingConfiguration.KEY).change(change -> change.changeRatio(1.0d)),
+                willCompleteSuccessfully()
+        );
+
+        assertNotSame(getSpanManager(), NoopSpanManager.INSTANCE);
+
         try (TraceSpan parentSpan = rootSpan("try-span")) {
             try (TraceSpan ignored = span("childSpan")) {
                 try {
@@ -70,10 +88,15 @@ public class KvOperationTest extends ClusterPerClassIntegrationTest {
     }
 
     @Test
-    void kvGetWithTracing() throws Exception {
+    void kvGetWithTracing() {
         IgniteImpl ignite = CLUSTER.aliveNode();
 
-        // ignite.clusterConfiguration().getConfiguration(TracingConfiguration.KEY).change(change -> change.changeRatio(1.0d)).get();
+        assertThat(
+                ignite.clusterConfiguration().getConfiguration(TracingConfiguration.KEY).change(change -> change.changeRatio(1.0d)),
+                willCompleteSuccessfully()
+        );
+
+        assertNotSame(getSpanManager(), NoopSpanManager.INSTANCE);
 
         KeyValueView<Tuple, Tuple> keyValueView = ignite.tables().table(DEFAULT_TABLE_NAME).keyValueView();
 

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.tracing.otel;
 
 import static org.apache.ignite.internal.tracing.TracingManager.asyncSpan;
 import static org.apache.ignite.internal.tracing.TracingManager.rootSpan;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -29,12 +30,32 @@ import io.opentelemetry.sdk.trace.data.SpanData;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher;
+import org.apache.ignite.internal.tracing.GridTracingManager;
 import org.apache.ignite.internal.tracing.TraceSpan;
 import org.apache.ignite.internal.tracing.TracingManager;
+import org.apache.ignite.internal.tracing.configuration.TracingConfiguration;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /** For {@link Span} testing. */
+@ExtendWith(ConfigurationExtension.class)
 public class SpanTest {
+    @InjectConfiguration
+    private TracingConfiguration tracingConfiguration;
+
+    @BeforeEach
+    void before() {
+        GridTracingManager.initialize("ignite-node-0", tracingConfiguration);
+
+        assertThat(tracingConfiguration.change(tracingChange -> {
+            tracingChange.changeRatio(1.);
+        }), CompletableFutureMatcher.willCompleteSuccessfully());
+    }
+
     @Test
     public void shouldEndedWithSpanClosure() {
         var actual = startInSpanWithResult((span) -> {

@@ -37,7 +37,9 @@ dependencies {
     implementation libs.opentelemetry.sdk
     implementation libs.opentelemetry.sdk.extension.autoconfigure
     implementation libs.opentelemetry.sdk.extension.autoconfigure.spi
-    implementation libs.opentelemetry.javaagent.extension.api
+    implementation(libs.opentelemetry.javaagent.extension.api) {
+        exclude group: 'net.bytebuddy', module: 'byte-buddy-dep'
+    }
     implementation libs.opentelemetry.exporter.otlp
     implementation libs.opentelemetry.exporter.otlp.common
     implementation libs.opentelemetry.exporter.zipkin
@@ -50,8 +52,7 @@ dependencies {
     testImplementation libs.mockito.core
     testImplementation libs.mockito.junit
     testImplementation libs.jmh.core
-    //testImplementation project(':ignite-core')
-    //testImplementation project(':ignite-configuration')
+    testImplementation libs.hamcrest.core
     testImplementation testFixtures(project(':ignite-core'))
     testImplementation testFixtures(project(':ignite-configuration'))
 
@@ -67,5 +68,6 @@ dependencies {
     integrationTestImplementation testFixtures(project(':ignite-configuration'))
     integrationTestImplementation testFixtures(project(':ignite-runner'))
     integrationTestImplementation libs.auto.service.annotations
+    integrationTestImplementation libs.hamcrest.core
 }
 

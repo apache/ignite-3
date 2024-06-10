@@ -20,6 +20,7 @@ package org.apache.ignite.internal.tracing.otel;
 import static org.apache.ignite.internal.tracing.TracingManager.rootSpan;
 import static org.apache.ignite.internal.tracing.TracingManager.span;
 import static org.apache.ignite.internal.tracing.TracingManager.taskWrapping;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.ExecutorService;
@@ -27,6 +28,7 @@ import java.util.concurrent.Executors;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.apache.ignite.internal.tracing.GridTracingManager;
@@ -48,6 +50,12 @@ public class ExecutorTest extends IgniteAbstractTest {
 
     @BeforeEach
     void before() {
+        GridTracingManager.initialize("ignite-node-0", tracingConfiguration);
+
+        assertThat(tracingConfiguration.change(tracingChange -> {
+            tracingChange.changeRatio(1.);
+        }), CompletableFutureMatcher.willCompleteSuccessfully());
+
         executorService = Executors.newSingleThreadExecutor(new NamedThreadFactory("single-thread-pool", log));
 
         stripedThreadPoolExecutor = new StripedThreadPoolExecutor(
@@ -56,12 +64,6 @@ public class ExecutorTest extends IgniteAbstractTest {
                 false,
                 0
         );
-
-        GridTracingManager.initialize("ignite-node-0", tracingConfiguration);
-
-        tracingConfiguration.change(tracingChange -> {
-            tracingChange.changeRatio(1.);
-        });
     }
 
     @AfterEach

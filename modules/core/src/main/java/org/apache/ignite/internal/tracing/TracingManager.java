@@ -27,6 +27,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Tracing Manager.
@@ -34,6 +35,16 @@ import org.jetbrains.annotations.Nullable;
 public class TracingManager {
     /** Instance. */
     private static SpanManager SPAN_MANAGER = NoopSpanManager.INSTANCE;
+
+    /**
+     * Gets current span manager.
+     *
+     * @return Span manager.
+     */
+    @TestOnly
+    public static SpanManager getSpanManager() {
+        return SPAN_MANAGER;
+    }
 
     /**
      * Load tracing manager by {@link ServiceLoader} mechanism.
