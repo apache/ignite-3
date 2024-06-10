@@ -43,6 +43,9 @@ public class KvOperationTest extends ClusterPerClassIntegrationTest {
         createZoneAndTable(zoneName(DEFAULT_TABLE_NAME), DEFAULT_TABLE_NAME, 1, 1);
 
         insertPeople(DEFAULT_TABLE_NAME, new Person(0, "0", 10.0));
+
+        CLUSTER.aliveNode().clusterConfiguration().getConfiguration(TracingConfiguration.KEY)
+                .change(change -> change.changeRatio(1.0d)).join();
     }
 
     @Test
@@ -71,12 +74,8 @@ public class KvOperationTest extends ClusterPerClassIntegrationTest {
     }
 
     @Test
-    void kvGetWithTracing() throws Exception {
-        IgniteImpl ignite = CLUSTER.aliveNode();
-
-//        ignite.clusterConfiguration().getConfiguration(TracingConfiguration.KEY).change(change -> change.changeRatio(1.0d)).get();
-
-        KeyValueView<Tuple, Tuple> keyValueView = ignite.tables().table(DEFAULT_TABLE_NAME).keyValueView();
+    void kvGetWithTracing() {
+        KeyValueView<Tuple, Tuple> keyValueView = CLUSTER.aliveNode().tables().table(DEFAULT_TABLE_NAME).keyValueView();
 
         // Warm-up
         try (TraceSpan parentSpan = rootSpan("WarmSpan")) {

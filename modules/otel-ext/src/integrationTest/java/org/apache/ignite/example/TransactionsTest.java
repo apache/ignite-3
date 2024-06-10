@@ -24,17 +24,33 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.Statement;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
+import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.tracing.configuration.TracingConfiguration;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInfo;
 
 /**
  * This example demonstrates the usage of the {@link IgniteTransactions} API.
  */
-public class TransactionsTest {
+public class TransactionsTest extends ClusterPerClassIntegrationTest {
+    @BeforeAll
+    @Override
+    protected void beforeAll(TestInfo testInfo) {
+        super.beforeAll(testInfo);
+
+        CLUSTER.aliveNode().clusterConfiguration().getConfiguration(TracingConfiguration.KEY)
+                .change(change -> change.changeRatio(1.0d)).join();
+    }
+
     /**
      * SSS.
      *
@@ -174,6 +190,11 @@ public class TransactionsTest {
 
             IgniteUtils.closeAll(stmt, conn);
         }
+    }
+
+    @Override
+    protected int initialNodes() {
+        return 1;
     }
 
     /**
