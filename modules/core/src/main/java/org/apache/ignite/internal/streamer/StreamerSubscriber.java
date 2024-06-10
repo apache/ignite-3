@@ -242,7 +242,7 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
                         return null;
                     });
 
-                    if (resultSubscriber != null && resultSubscription != null && !resultSubscription.cancelled.get()) {
+                    if (res != null && resultSubscriber != null && resultSubscription != null && !resultSubscription.cancelled.get()) {
                         for (R r : res) {
                             resultSubscriber.onNext(r);
                         }

@@ -577,7 +577,31 @@ public class DataStreamerTest extends AbstractClientTableTest {
 
     @Test
     public void testReceiverWithSubscriberNoResults() {
-        assertFalse(true, "TODO");
+        CompletableFuture<Void> streamerFut;
+        var resultSubscriber = new TestSubscriber<String>(Long.MAX_VALUE);
+
+        try (var publisher = new SubmissionPublisher<Tuple>()) {
+            var options = DataStreamerOptions.builder().pageSize(1).build();
+            streamerFut = defaultTable().recordView().streamData(
+                    publisher,
+                    options,
+                    t -> t,
+                    t -> t.longValue("id"),
+                    resultSubscriber,
+                    new ArrayList<>(),
+                    TestReceiver.class.getName(),
+                    "arg");
+
+            for (long i = 0; i < 3; i++) {
+                publisher.submit(tuple(i));
+            }
+        }
+
+        streamerFut.orTimeout(2, TimeUnit.SECONDS).join();
+
+        assertTrue(resultSubscriber.completed.get());
+        assertNull(resultSubscriber.error.get());
+        assertEquals(0, resultSubscriber.items.size());
     }
 
     @Test
@@ -587,6 +611,11 @@ public class DataStreamerTest extends AbstractClientTableTest {
 
     @Test
     public void testReceiverWithSubscriberMoreResultsThanItems() {
+        assertFalse(true, "TODO");
+    }
+
+    @Test
+    public void testReceiverWithResultsWithoutSubscriber() {
         assertFalse(true, "TODO");
     }
 
