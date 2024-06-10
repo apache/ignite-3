@@ -196,8 +196,8 @@ public interface Tuple extends Iterable<Object> {
      *
      * @param columnIndex Column index.
      * @return Normalized column name in SQL-parser style notation; e.g., <br>
-     *         "MYCOLUMN" - in uppercase for case insensitive name of the column.
-     *         "\"MyColumn\"" - quoted value for a name of the column with respect to case sensitivity.
+     *         "\"MyColumn\"" - quoted value for a name of the column with respect to case sensitivity,
+     *         "MYCOLUMN" - column name in uppercase, otherwise.
      * @throws IndexOutOfBoundsException If a value for a column with the given index doesn't exists.
      */
     String columnName(int columnIndex);
