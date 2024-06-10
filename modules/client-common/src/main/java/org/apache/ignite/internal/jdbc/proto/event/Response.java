@@ -65,7 +65,6 @@ public abstract class Response implements ClientMessage {
     /** {@inheritDoc} */
     @Override
     public void writeBinary(ClientMessagePacker packer) {
-        packer.packBoolean(hasResults);
         packer.packInt(status);
 
         if (StringUtil.isNullOrEmpty(err)) {
@@ -78,7 +77,6 @@ public abstract class Response implements ClientMessage {
     /** {@inheritDoc} */
     @Override
     public void readBinary(ClientMessageUnpacker unpacker) {
-        hasResults = unpacker.unpackBoolean();
         status = unpacker.unpackInt();
 
         if (!unpacker.tryUnpackNil()) {
@@ -127,8 +125,8 @@ public abstract class Response implements ClientMessage {
      *
      * @return Has results.
      */
-    public boolean hasResults() {
-        return hasResults;
+    public boolean success() {
+        return status == STATUS_SUCCESS;
     }
 
     /** {@inheritDoc} */

@@ -52,8 +52,6 @@ public class JdbcTableMeta extends Response {
         this.schemaName = schemaName;
         this.tblName = tblName;
         this.tblType = tblType;
-
-        this.hasResults = true;
     }
 
     /**
@@ -88,7 +86,7 @@ public class JdbcTableMeta extends Response {
     public void writeBinary(ClientMessagePacker packer) {
         super.writeBinary(packer);
 
-        if (!hasResults) {
+        if (!success()) {
             return;
         }
 
@@ -102,7 +100,7 @@ public class JdbcTableMeta extends Response {
     public void readBinary(ClientMessageUnpacker unpacker) {
         super.readBinary(unpacker);
 
-        if (!hasResults) {
+        if (!success()) {
             return;
         }
 

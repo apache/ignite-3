@@ -46,10 +46,8 @@ public class JmxExporter extends BasicMetricExporter<JmxExporterView> {
      */
     public static final String JMX_EXPORTER_NAME = "jmx";
 
-    /**
-     * Group attribute of {@link ObjectName} shared for all metric MBeans.
-     */
-    private static final String JMX_METRIC_GROUP = "metrics";
+    /** Group attribute of {@link ObjectName} shared for all metric MBeans. */
+    public static final String JMX_METRIC_GROUP = "metrics";
 
     /**
      * Logger.
