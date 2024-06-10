@@ -609,7 +609,31 @@ public class DataStreamerTest extends AbstractClientTableTest {
 
     @Test
     public void testReceiverWithResultsWithoutSubscriber() {
-        assertFalse(true, "TODO");
+        CompletableFuture<Void> streamerFut;
+        var resultSubscriber = new TestSubscriber<String>(Long.MAX_VALUE);
+
+        // TODO: All supported types.
+        Object arg = UUID.randomUUID();
+
+        try (var publisher = new SubmissionPublisher<Tuple>()) {
+            streamerFut = defaultTable().recordView().streamData(
+                    publisher,
+                    null,
+                    t -> t,
+                    t -> 0L,
+                    resultSubscriber,
+                    new ArrayList<>(),
+                    EchoArgsReceiver.class.getName(),
+                    arg);
+
+            publisher.submit(tuple());
+        }
+
+        streamerFut.orTimeout(2, TimeUnit.SECONDS).join();
+
+        assertTrue(resultSubscriber.completed.get());
+        assertNull(resultSubscriber.error.get());
+        assertEquals(arg, resultSubscriber.items.iterator().next());
     }
 
     private static RecordView<Tuple> defaultTableView(FakeIgnite server, IgniteClient client) {
@@ -698,6 +722,13 @@ public class DataStreamerTest extends AbstractClientTableTest {
         @Override
         public void onComplete() {
             completed.set(true);
+        }
+    }
+
+    private static class EchoArgsReceiver implements DataStreamerReceiver<Object, Object> {
+        @Override
+        public CompletableFuture<List<Object>> receive(List<Object> page, DataStreamerReceiverContext ctx, Object... args) {
+            return CompletableFuture.completedFuture(List.of(args));
         }
     }
 }
