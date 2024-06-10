@@ -19,7 +19,6 @@ package org.apache.ignite.internal.runner.app;
 
 import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableManager;
@@ -28,8 +27,10 @@ import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.alterZone;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.REBALANCE_SCHEDULER_POOL_SIZE;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
+import static org.apache.ignite.internal.table.NodeUtils.transferPrimary;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableIdStrict;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.bypassingThreadAssertions;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.bypassingThreadAssertionsAsync;
@@ -43,6 +44,7 @@ import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -76,7 +78,6 @@ import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.BaseIgniteRestartTest;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.affinity.Assignments;
@@ -118,6 +119,7 @@ import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.ClockServiceImpl;
 import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -145,6 +147,7 @@ import org.apache.ignite.internal.network.recovery.VaultStaleIds;
 import org.apache.ignite.internal.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.internal.network.wrapper.JumpToExecutorByConsistentIdAfterSend;
 import org.apache.ignite.internal.placementdriver.PlacementDriverManager;
+import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
@@ -168,6 +171,7 @@ import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.DataStorageModules;
+import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
 import org.apache.ignite.internal.table.TableImpl;
@@ -757,36 +761,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         }
 
         return partitionsStore;
-    }
-
-    /**
-     * Starts an {@code amount} number of nodes (with sequential indices starting from 0).
-     */
-    private List<IgniteImpl> startNodes(int amount) {
-        boolean initNeeded = CLUSTER_NODES_NAMES.isEmpty();
-
-        List<CompletableFuture<Ignite>> futures = IntStream.range(0, amount)
-                .mapToObj(i -> startNodeAsync(i, null))
-                .collect(toList());
-
-        if (initNeeded) {
-            String nodeName = CLUSTER_NODES_NAMES.get(0);
-
-            InitParameters initParameters = InitParameters.builder()
-                    .destinationNodeName(nodeName)
-                    .metaStorageNodeNames(List.of(nodeName))
-                    .clusterName("cluster")
-                    .build();
-            TestIgnitionManager.init(initParameters);
-        }
-
-        return futures.stream()
-                .map(future -> {
-                    assertThat(future, willCompleteSuccessfully());
-
-                    return (IgniteImpl) future.join();
-                })
-                .collect(toList());
     }
 
     /**
@@ -1778,6 +1752,94 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
             return assignments0.size() == 1 && assignments0.equals(assignments1);
         }, 10_000));
+    }
+
+    @Test
+    public void testReplicaRestart() throws InterruptedException {
+        int nodesCount = 3;
+        List<IgniteImpl> nodes = startNodes(nodesCount);
+
+        IgniteImpl node0 = nodes.get(0);
+
+        String zone = "TEST_ZONE";
+        String tableName = "TEST";
+
+        node0.sql().execute(null,
+                String.format("CREATE ZONE IF NOT EXISTS %s WITH REPLICAS=%d, PARTITIONS=%d, STORAGE_PROFILES='%s'",
+                        zone, 3, 1, DEFAULT_STORAGE_PROFILE));
+
+
+        node0.sql().execute(null,
+                String.format("CREATE TABLE IF NOT EXISTS %s (id INT PRIMARY KEY, name VARCHAR) WITH PRIMARY_ZONE='%s'", tableName, zone));
+
+        TableImpl tbl = unwrapTableImpl(node0.tables().table("TEST"));
+        int tableId = tbl.tableId();
+
+        HybridTimestamp now = node0.clock().now();
+        var partId = new TablePartitionId(tableId, 0);
+        CompletableFuture<ReplicaMeta> replicaFut =
+                node0.placementDriver().awaitPrimaryReplica(partId, now, 30, TimeUnit.SECONDS);
+        assertThat(replicaFut, willCompleteSuccessfully());
+        ReplicaMeta replicaMeta = replicaFut.join();
+
+        log.info("Test: primary replica is " + replicaMeta);
+
+        Set<Assignment> newPendingAssignments = nodes.stream()
+                .filter(n -> !n.id().equals(replicaMeta.getLeaseholderId()))
+                .map(n -> Assignment.forPeer(n.name()))
+                .collect(toSet());
+
+        var pendingAssignmentsKey = pendingPartAssignmentsKey(partId);
+
+        node0.metaStorageManager().put(pendingAssignmentsKey, Assignments.toBytes(newPendingAssignments));
+
+        var stableAssignmentsKey = stablePartAssignmentsKey(partId);
+
+        assertTrue(waitForCondition(() -> {
+            Set<Assignment> a = getAssignmentsFromMetaStorage(node0.metaStorageManager(), stableAssignmentsKey.bytes());
+            return a.size() == nodesCount - 1;
+        }, 10_000));
+
+        for (int i = 0; i < nodesCount; i++) {
+            TableImpl t = unwrapTableImpl(nodes.get(i).tables().table("TEST"));
+            assertNotNull(t.internalTable().storage().getMvPartition(0), "node " + i);
+        }
+
+        Set<Assignment> pendingAssignmentsAllNodes = nodes.stream()
+                .map(n -> Assignment.forPeer(n.name()))
+                .collect(toSet());
+
+        node0.metaStorageManager().put(pendingAssignmentsKey, Assignments.toBytes(pendingAssignmentsAllNodes));
+
+        assertTrue(waitForCondition(() -> {
+            Set<Assignment> a = getAssignmentsFromMetaStorage(node0.metaStorageManager(), stableAssignmentsKey.bytes());
+            return a.size() == nodesCount;
+        }, 10_000));
+
+        for (int i = 0; i < nodesCount; i++) {
+            TableImpl t = unwrapTableImpl(nodes.get(i).tables().table("TEST"));
+            assertNotNull(t.internalTable().storage().getMvPartition(0), "node " + i);
+        }
+
+        node0.metaStorageManager().put(pendingAssignmentsKey, Assignments.toBytes(newPendingAssignments));
+
+        assertTrue(waitForCondition(() -> {
+            Set<Assignment> a = getAssignmentsFromMetaStorage(node0.metaStorageManager(), stableAssignmentsKey.bytes());
+            return a.size() == nodesCount - 1;
+        }, 10_000));
+
+        transferPrimary(nodes, partId);
+
+        for (int i = 0; i < nodesCount; i++) {
+            TableImpl t = unwrapTableImpl(nodes.get(i).tables().table("TEST"));
+            MvPartitionStorage storage = t.internalTable().storage().getMvPartition(0);
+
+            if (nodes.get(0).id().equals(replicaMeta.getLeaseholderId())) {
+                assertNull(storage, "node " + i);
+            } else {
+                assertNotNull(storage, "node " + i);
+            }
+        }
     }
 
     private int latestCatalogVersionInMs(MetaStorageManager metaStorageManager) {

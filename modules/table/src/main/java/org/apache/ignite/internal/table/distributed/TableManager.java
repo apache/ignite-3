@@ -2308,13 +2308,14 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private CompletableFuture<Void> stopAndDestroyPartition(TablePartitionId tablePartitionId, long causalityToken) {
-        return tablesVv.get(causalityToken)
+        return replicaMgr.weakReplicaStop(tablePartitionId, WeakReplicaStopReason.EXCLUDED_FROM_ASSIGNMENTS, () -> tablesVv
+                .get(causalityToken)
                 .thenCompose(ignore -> {
                     TableImpl table = tables.get(tablePartitionId.tableId());
 
                     return stopPartition(tablePartitionId, table)
                             .thenComposeAsync(v -> destroyPartitionStorages(tablePartitionId, table), ioExecutor);
-                });
+                }));
     }
 
     /**
@@ -2325,24 +2326,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @return Future that will be completed after all resources have been closed.
      */
     private CompletableFuture<Void> stopPartition(TablePartitionId tablePartitionId, TableImpl table) {
-        return stopPartition(tablePartitionId, table, WeakReplicaStopReason.EXCLUDED_FROM_ASSIGNMENTS);
-    }
-
-    /**
-     * Stops all resources associated with a given partition, like replicas and partition trackers.
-     *
-     * @param tablePartitionId Partition ID.
-     * @param table Table which this partition belongs to.
-     * @param reason Stop reason.
-     * @return Future that will be completed after all resources have been closed.
-     */
-    private CompletableFuture<Void> stopPartition(TablePartitionId tablePartitionId, TableImpl table, WeakReplicaStopReason reason) {
-        return replicaMgr.weakReplicaStop(tablePartitionId, reason, () -> stopPartition0(
-                tablePartitionId, table
-        ));
-    }
-
-    private CompletableFuture<Void> stopPartition0(TablePartitionId tablePartitionId, TableImpl table) {
         if (table != null) {
             closePartitionTrackers(table.internalTable(), tablePartitionId.partitionId());
         }
@@ -2573,7 +2556,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         return inBusyLockAsync(busyLock, () -> tablesVv.get(revision).thenComposeAsync(unused -> inBusyLockAsync(busyLock, () -> {
             TableImpl table = tables.get(tablePartitionId.tableId());
 
-            return stopPartition(tablePartitionId, table, WeakReplicaStopReason.RESTART).thenComposeAsync(unused1 -> {
+            return stopPartition(tablePartitionId, table).thenComposeAsync(unused1 -> {
                 Assignments stableAssignments = stableAssignments(tablePartitionId, revision);
 
                 assert stableAssignments != null : "tablePartitionId=" + tablePartitionId + ", revision=" + revision;

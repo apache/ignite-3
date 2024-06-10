@@ -1141,8 +1141,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     } else if (state == ReplicaState.STARTING) {
                         return stopReplica(groupId, context, stopOperation);
                     } // else: no-op.
-                } else if (reason == WeakReplicaStopReason.RESTART) {
-                    return stopReplica(groupId, context, stopOperation);
                 } else {
                     assert reason == WeakReplicaStopReason.PRIMARY_EXPIRED : "Unknown replica stop reason: " + reason;
 
@@ -1228,9 +1226,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         EXCLUDED_FROM_ASSIGNMENTS,
 
         /** If the primary replica expired (A replica can stay alive when the node is not in assignments, if it's a primary replica). */
-        PRIMARY_EXPIRED,
-
-        /** This reason is used if the replica is explicitly restarted, always leads to replica stop. */
-        RESTART
+        PRIMARY_EXPIRED
     }
 }
