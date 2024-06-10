@@ -580,7 +580,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
 
         @SuppressWarnings({"rawtypes", "unchecked"})
         StreamerBatchSender<R, Integer, Void> batchSender = (partitionId, items, deleted) ->
-                PublicApiThreading.execUserAsyncOperation(() -> (CompletableFuture)withSchemaSync(
+                PublicApiThreading.execUserAsyncOperation(() -> (CompletableFuture) withSchemaSync(
                         null,
                         schemaVersion -> this.tbl.updateAll(marshal(items, schemaVersion, deleted), deleted, partitionId)
                 ));

@@ -566,7 +566,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
 
         @SuppressWarnings({"rawtypes", "unchecked"})
         StreamerBatchSender<Entry<Tuple, Tuple>, Integer, Void> batchSender = (partitionId, items, deleted) ->
-                PublicApiThreading.execUserAsyncOperation(() -> (CompletableFuture)withSchemaSync(
+                PublicApiThreading.execUserAsyncOperation(() -> (CompletableFuture) withSchemaSync(
                         null,
                         schemaVersion -> this.tbl.updateAll(marshalPairs(items, schemaVersion, deleted), deleted, partitionId)
                 ));

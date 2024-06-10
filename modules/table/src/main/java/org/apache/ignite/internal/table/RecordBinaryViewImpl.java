@@ -515,7 +515,7 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
 
         @SuppressWarnings({"rawtypes", "unchecked"})
         StreamerBatchSender<Tuple, Integer, Void> batchSender = (partitionId, rows, deleted) ->
-                PublicApiThreading.execUserAsyncOperation(() -> (CompletableFuture)withSchemaSync(null,
+                PublicApiThreading.execUserAsyncOperation(() -> (CompletableFuture) withSchemaSync(null,
                         schemaVersion -> this.tbl.updateAll(mapToBinary(rows, schemaVersion, deleted), deleted, partitionId)
                 ));
 

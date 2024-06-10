@@ -299,7 +299,7 @@ public class ClientBinaryTupleUtils {
 
         List<R> items = new ArrayList<>(itemsCount);
         for (int i = 0; i < itemsCount; i++) {
-            items.add((R)itemReader.apply(readerIndex++));
+            items.add((R) itemReader.apply(readerIndex++));
         }
 
         return items;
