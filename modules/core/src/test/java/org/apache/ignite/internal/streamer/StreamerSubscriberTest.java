@@ -178,6 +178,7 @@ class StreamerSubscriberTest extends BaseIgniteAbstractTest {
 
         StreamerSubscriber<Long, DataStreamerItem<Long>, Long, Object, String> subscriber = new StreamerSubscriber<>(
                 (part, batch, deleted) -> sendFuture,
+                null,
                 DataStreamerItem::get,
                 DataStreamerItem::get,
                 x -> x.operationType() == DataStreamerOperationType.REMOVE,
