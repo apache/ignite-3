@@ -32,6 +32,7 @@ import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.sql.ColumnType;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -330,33 +331,18 @@ public class LeastRestrictiveTypesTest {
     private static final class LeastRestrictiveType {
         final RelDataType relDataType;
 
-        private LeastRestrictiveType(SqlTypeName sqlTypeName) {
-            this.relDataType = TYPE_FACTORY.createSqlType(sqlTypeName);
-        }
-
-        private LeastRestrictiveType(RelDataType relDataType) {
+        private LeastRestrictiveType(@Nullable RelDataType relDataType) {
             this.relDataType = relDataType;
         }
 
         private static LeastRestrictiveType none() {
-            return new LeastRestrictiveType((RelDataType) null);
+            return new LeastRestrictiveType(null);
         }
 
         @Override
         public String toString() {
             return relDataType != null ? relDataType.toString() : "<none>";
         }
-    }
-
-    private static RelDataType newType(SqlTypeName typeName) {
-        return TYPE_FACTORY.createSqlType(typeName);
-    }
-
-    private static void expectLeastRestrictiveType(SqlTypeName type1, SqlTypeName type2, SqlTypeName expectedType) {
-        RelDataType type1RelDataType = newType(type1);
-        RelDataType type2RelDataType = newType(type2);
-        LeastRestrictiveType expectedLeastRestrictive = new LeastRestrictiveType(newType(expectedType));
-        expectLeastRestrictiveType(type1RelDataType, type2RelDataType, expectedLeastRestrictive);
     }
 
     private static void expectLeastRestrictiveType(RelDataType type1, RelDataType type2, LeastRestrictiveType expectedType) {

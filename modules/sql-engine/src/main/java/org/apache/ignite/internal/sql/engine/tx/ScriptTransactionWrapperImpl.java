@@ -26,10 +26,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.sql.SqlException;
 
@@ -62,8 +64,13 @@ class ScriptTransactionWrapperImpl implements QueryTransactionWrapper {
 
     private Throwable rollbackCause;
 
-    ScriptTransactionWrapperImpl(InternalTransaction managedTx) {
+    private final TransactionInflights transactionInflights;
+
+    private final AtomicBoolean completedTx = new AtomicBoolean();
+
+    ScriptTransactionWrapperImpl(InternalTransaction managedTx, TransactionInflights transactionInflights) {
         this.managedTx = managedTx;
+        this.transactionInflights = transactionInflights;
     }
 
     @Override
@@ -183,6 +190,10 @@ class ScriptTransactionWrapperImpl implements QueryTransactionWrapper {
 
             default:
                 throw new IllegalStateException("Unknown transaction target state: " + txState);
+        }
+
+        if (managedTx.isReadOnly() && completedTx.compareAndSet(false, true)) {
+            transactionInflights.removeInflight(managedTx.id());
         }
     }
 

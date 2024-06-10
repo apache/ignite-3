@@ -160,7 +160,7 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
                     new TestConfigurationValidator()
             );
 
-            FailureProcessor failureProcessor = new FailureProcessor(name());
+            FailureProcessor failureProcessor = new NoOpFailureProcessor(name());
             components.add(failureProcessor);
 
             this.cmgManager = new ClusterManagementGroupManager(

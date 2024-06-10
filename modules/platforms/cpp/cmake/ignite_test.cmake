@@ -15,28 +15,29 @@
 # limitations under the License.
 #
 
-# ignite_test(<test-name> <test-src> [LIBS <lib>...])
+# ignite_test(<test-name> [DISCOVER] SOURCES <test-src>... [LIBS <lib>...])
 #
 # Function to add a unit test.
-function(ignite_test TEST_NAME TEST_SOURCE)
+function(ignite_test TEST_NAME)
     if (NOT ${ENABLE_TESTS})
         return()
     endif()
 
-    cmake_parse_arguments(IGNITE_TEST "" "" "LIBS" ${ARGN})
+    set(OPTIONAL_ARGUMENT_TAGS DISCOVER)
+    set(SINGLE_ARGUMENT_TAGS)
+    set(MULTI_ARGUMENT_TAGS LIBS SOURCES)
 
-    add_executable(${TEST_NAME} ${TEST_SOURCE})
+    cmake_parse_arguments(IGNITE_TEST
+            "${OPTIONAL_ARGUMENT_TAGS}"
+            "${SINGLE_ARGUMENT_TAGS}"
+            "${MULTI_ARGUMENT_TAGS}"
+            ${ARGN})
 
-    # Older versions of CMake provide the GTest::Main target while newer versions
-    # provide the GTest::gtest_main target. The old target is deprecated but still
-    # available for now. However Conan-generated build recipe takes over original
-    # CMake behavior and provides the new target only. This mess is handled here.
-    # So we can build with and without Conan, with newer and with older CMake.
-    if (TARGET GTest::gtest_main)
-        target_link_libraries(${TEST_NAME} ${IGNITE_TEST_LIBS} GTest::gtest GTest::gtest_main)
-    else()
-        target_link_libraries(${TEST_NAME} ${IGNITE_TEST_LIBS} GTest::GTest GTest::Main)
+    add_executable(${TEST_NAME} ${IGNITE_TEST_SOURCES})
+
+    target_link_libraries(${TEST_NAME} ${IGNITE_TEST_LIBS} GTest::gtest_main GTest::gmock_main)
+
+    if(${IGNITE_TEST_DISCOVER})
+        gtest_discover_tests(${TEST_NAME} XML_OUTPUT_DIR ${CMAKE_BINARY_DIR}/Testing/Result)
     endif()
-
-    gtest_discover_tests(${TEST_NAME} XML_OUTPUT_DIR ${CMAKE_BINARY_DIR}/Testing/Result)
 endfunction()

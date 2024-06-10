@@ -39,6 +39,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.NoOpFailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -102,7 +103,7 @@ public class MockNode {
 
         var clusterStateStorage = new RocksDbClusterStateStorage(this.workDir.resolve("cmg"), clusterService.nodeName());
 
-        FailureProcessor failureProcessor = new FailureProcessor(nodeName);
+        FailureProcessor failureProcessor = new NoOpFailureProcessor(nodeName);
 
         this.clusterManager = new ClusterManagementGroupManager(
                 vaultManager,

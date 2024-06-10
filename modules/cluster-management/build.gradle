@@ -65,6 +65,7 @@ dependencies {
     testFixturesImplementation testFixtures(project(':ignite-network'))
     testFixturesImplementation testFixtures(project(':ignite-metrics'))
     testFixturesImplementation testFixtures(project(':ignite-raft'))
+    testFixturesImplementation testFixtures(project(':ignite-failure-handler'))
     testFixturesImplementation libs.jetbrains.annotations
     testFixturesImplementation libs.hamcrest.core
 

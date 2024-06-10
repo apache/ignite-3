@@ -112,7 +112,6 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidatorImpl;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
-import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.failure.NoOpFailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.ClockServiceImpl;
@@ -325,7 +324,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         var threadPoolsManager = new ThreadPoolsManager(name);
 
-        var failureProcessor = new FailureProcessor(name);
+        var failureProcessor = new NoOpFailureProcessor(name);
 
         var workerRegistry = new CriticalWorkerWatchdog(workersConfiguration, threadPoolsManager.commonScheduler(), failureProcessor);
 

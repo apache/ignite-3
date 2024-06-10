@@ -155,8 +155,6 @@ public class JdbcColumnMeta extends Response {
         this.dataTypeCls = javaTypeName;
         this.precision = precision;
         this.scale = scale;
-
-        hasResults = true;
     }
 
     /**
@@ -263,7 +261,7 @@ public class JdbcColumnMeta extends Response {
     public void writeBinary(ClientMessagePacker packer) {
         super.writeBinary(packer);
 
-        if (!hasResults) {
+        if (!success()) {
             return;
         }
 
@@ -285,7 +283,7 @@ public class JdbcColumnMeta extends Response {
     public void readBinary(ClientMessageUnpacker unpacker) {
         super.readBinary(unpacker);
 
-        if (!hasResults) {
+        if (!success()) {
             return;
         }
 

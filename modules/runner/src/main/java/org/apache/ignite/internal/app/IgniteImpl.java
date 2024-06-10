@@ -114,6 +114,7 @@ import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.eventlog.config.schema.EventLogConfiguration;
 import org.apache.ignite.internal.eventlog.impl.EventLogImpl;
 import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.configuration.FailureProcessorConfiguration;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.ClockServiceImpl;
 import org.apache.ignite.internal.hlc.ClockWaiter;
@@ -463,8 +464,7 @@ public class IgniteImpl implements Ignite {
 
         MessageSerializationRegistry serializationRegistry = createSerializationRegistry(serviceProviderClassLoader);
 
-        // TODO https://issues.apache.org/jira/browse/IGNITE-20450
-        failureProcessor = new FailureProcessor(name);
+        failureProcessor = new FailureProcessor(name, nodeConfigRegistry.getConfiguration(FailureProcessorConfiguration.KEY));
 
         CriticalWorkersConfiguration criticalWorkersConfiguration = nodeConfigRegistry.getConfiguration(CriticalWorkersConfiguration.KEY);
 
@@ -819,7 +819,8 @@ public class IgniteImpl implements Ignite {
                 distributionZoneManager,
                 raftMgr,
                 clusterSvc.topologyService(),
-                distributedTblMgr
+                distributedTblMgr,
+                metricManager
         );
 
         systemViewManager.register(disasterRecoveryManager);
