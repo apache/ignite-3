@@ -358,7 +358,7 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
                     case CHAR:
                     case VARCHAR:
                         convert =
-                                Expressions.call(IgniteMethod.STRING_TO_TIMESTAMP.method(), operand);
+                                Expressions.call(BuiltInMethod.STRING_TO_TIMESTAMP.method, operand);
                         break;
                     case DATE:
                         convert =
@@ -405,7 +405,7 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
                         // Since this type implies a local timezone, its explicit indication seems redundant,
                         // so we prohibit the user from explicitly setting a timezone.
                         convert =
-                                Expressions.call(IgniteMethod.STRING_TO_TIMESTAMP.method(), operand);
+                                Expressions.call(BuiltInMethod.STRING_TO_TIMESTAMP.method, operand);
                         break;
                     case DATE:
                         convert =

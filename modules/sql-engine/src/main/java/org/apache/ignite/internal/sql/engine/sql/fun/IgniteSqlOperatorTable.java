@@ -109,23 +109,6 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
                     OperandTypes.STRING_INTEGER_OPTIONAL_INTEGER,
                     SqlFunctionCategory.STRING);
 
-    private static final SqlSingleOperandTypeChecker STRING_NUMERIC_OPTIONAL_NUMERIC =
-            OperandTypes.family(
-                    ImmutableList.of(SqlTypeFamily.STRING, SqlTypeFamily.NUMERIC,
-                            SqlTypeFamily.NUMERIC), i -> i == 2);
-
-    public static final SqlFunction SUBSTRING =
-            new SqlFunction(
-                    "SUBSTRING",
-                    SqlKind.OTHER_FUNCTION,
-                    ReturnTypes.ARG0_NULLABLE_VARYING,
-                    null,
-                    OperandTypes.STRING_INTEGER_OPTIONAL_INTEGER
-                            .or(STRING_NUMERIC_OPTIONAL_NUMERIC)
-                            .or(OperandTypes.STRING_INTEGER)
-                            .or(OperandTypes.STRING_NUMERIC),
-                    SqlFunctionCategory.STRING);
-
     /**
      * The {@code RAND_UUID()} function, which yields a random UUID.
      */
@@ -279,7 +262,7 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
         register(SqlLibraryOperators.FROM_BASE64);
         register(SqlLibraryOperators.MD5);
         register(SqlLibraryOperators.SHA1);
-        register(SUBSTRING);
+        register(SqlStdOperatorTable.SUBSTRING);
         register(SqlLibraryOperators.LEFT);
         register(SqlLibraryOperators.RIGHT);
         register(SqlStdOperatorTable.REPLACE);
