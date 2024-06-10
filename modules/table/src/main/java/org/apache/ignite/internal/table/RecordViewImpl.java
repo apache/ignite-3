@@ -578,8 +578,9 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
                 marshaller(rowConverter.registry().lastKnownSchemaVersion())
         );
 
-        StreamerBatchSender<R, Integer> batchSender = (partitionId, items, deleted) ->
-                PublicApiThreading.execUserAsyncOperation(() -> withSchemaSync(
+        @SuppressWarnings({"rawtypes", "unchecked"})
+        StreamerBatchSender<R, Integer, Void> batchSender = (partitionId, items, deleted) ->
+                PublicApiThreading.execUserAsyncOperation(() -> (CompletableFuture)withSchemaSync(
                         null,
                         schemaVersion -> this.tbl.updateAll(marshal(items, schemaVersion, deleted), deleted, partitionId)
                 ));

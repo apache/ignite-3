@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.client.table;
 
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow;
@@ -47,11 +45,11 @@ import org.jetbrains.annotations.Nullable;
  * Client data streamer.
  */
 class ClientDataStreamer {
-    static <R> CompletableFuture<Void> streamData(
-            Publisher<DataStreamerItem<R>> publisher,
+    static <T> CompletableFuture<Void> streamData(
+            Publisher<DataStreamerItem<T>> publisher,
             DataStreamerOptions options,
-            StreamerBatchSender<R, Integer> batchSender,
-            StreamerPartitionAwarenessProvider<R, Integer> partitionAwarenessProvider,
+            StreamerBatchSender<T, Integer, Void> batchSender,
+            StreamerPartitionAwarenessProvider<T, Integer> partitionAwarenessProvider,
             ClientTable tbl) {
         return streamData(
                 publisher,
@@ -80,7 +78,7 @@ class ClientDataStreamer {
             Object... receiverArgs) {
         ResultSubscription subscription = resultSubscriber == null ? null : new ResultSubscription();
 
-        StreamerBatchSender<V, Integer> batchSender = (partitionId, items, deleted) ->
+        StreamerBatchSender<V, Integer, R> batchSender = (partitionId, items, deleted) ->
                 tbl.getPartitionAssignment().thenCompose(
                         partitionAssignment -> tbl.channel().serviceAsync(
                                 ClientOp.STREAMER_WITH_RECEIVER_BATCH_SEND,
@@ -105,18 +103,6 @@ class ClientDataStreamer {
                                 partitionAssignment.get(partitionId),
                                 new RetryLimitPolicy().retryLimit(options.retryLimit()),
                                 false)
-                                .thenCompose(results -> {
-                                    if (results != null) {
-                                        for (Object result : results) {
-                                            resultSubscriber.onNext((R) result);
-
-                                            // TODO: Backpressure control - return delayed future when requested is 0.
-                                            subscription.requested.decrementAndGet();
-                                        }
-                                    }
-
-                                    return nullCompletedFuture();
-                                })
                 );
 
         CompletableFuture<Void> resFut = streamData(
@@ -159,7 +145,7 @@ class ClientDataStreamer {
             Function<E, V> payloadFunc,
             Function<E, Boolean> deleteFunc,
             DataStreamerOptions options,
-            StreamerBatchSender<V, Integer> batchSender,
+            StreamerBatchSender<V, Integer, R> batchSender,
             StreamerPartitionAwarenessProvider<T, Integer> partitionAwarenessProvider,
             ClientTable tbl) {
         IgniteLogger log = ClientUtils.logger(tbl.channel().configuration(), StreamerSubscriber.class);

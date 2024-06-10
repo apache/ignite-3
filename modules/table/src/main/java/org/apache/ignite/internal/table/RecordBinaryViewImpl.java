@@ -512,8 +512,10 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
         Objects.requireNonNull(publisher);
 
         var partitioner = new TupleStreamerPartitionAwarenessProvider(rowConverter.registry(), tbl.partitions());
-        StreamerBatchSender<Tuple, Integer> batchSender = (partitionId, rows, deleted) ->
-                PublicApiThreading.execUserAsyncOperation(() -> withSchemaSync(null,
+
+        @SuppressWarnings({"rawtypes", "unchecked"})
+        StreamerBatchSender<Tuple, Integer, Void> batchSender = (partitionId, rows, deleted) ->
+                PublicApiThreading.execUserAsyncOperation(() -> (CompletableFuture)withSchemaSync(null,
                         schemaVersion -> this.tbl.updateAll(mapToBinary(rows, schemaVersion, deleted), deleted, partitionId)
                 ));
 

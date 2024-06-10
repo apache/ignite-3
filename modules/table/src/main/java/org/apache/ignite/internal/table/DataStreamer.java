@@ -38,7 +38,7 @@ class DataStreamer {
     static <R> CompletableFuture<Void> streamData(
             Publisher<DataStreamerItem<R>> publisher,
             @Nullable DataStreamerOptions options,
-            StreamerBatchSender<R, Integer> batchSender,
+            StreamerBatchSender<R, Integer, Void> batchSender,
             StreamerPartitionAwarenessProvider<R, Integer> partitionAwarenessProvider,
             ScheduledExecutorService flushExecutor) {
         return streamData(
@@ -59,7 +59,7 @@ class DataStreamer {
             Function<E, V> payloadFunc,
             Function<E, Boolean> deleteFunc,
             @Nullable DataStreamerOptions options,
-            StreamerBatchSender<V, Integer> batchSender,
+            StreamerBatchSender<V, Integer, R> batchSender,
             StreamerPartitionAwarenessProvider<T, Integer> partitionAwarenessProvider,
             ScheduledExecutorService flushExecutor) {
         StreamerOptions streamerOpts = streamerOptions(options);

@@ -111,7 +111,7 @@ public class StreamerReceiverSerializer {
      * @param r Reader.
      * @return Receiver results.
      */
-    public static @Nullable List<Object> deserializeResults(ClientMessageUnpacker r) {
+    public static @Nullable <R> List<R> deserializeResults(ClientMessageUnpacker r) {
         if (r.tryUnpackNil()) {
             return null;
         }

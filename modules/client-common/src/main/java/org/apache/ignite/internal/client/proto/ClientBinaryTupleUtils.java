@@ -291,15 +291,15 @@ public class ClientBinaryTupleUtils {
         }
     }
 
-    static List<Object> readCollectionFromBinaryTuple(BinaryTupleReader reader, int readerIndex) {
+    static <R> List<R> readCollectionFromBinaryTuple(BinaryTupleReader reader, int readerIndex) {
         int typeId = reader.intValue(readerIndex++);
         ColumnType type = ColumnTypeConverter.fromIdOrThrow(typeId);
         Function<Integer, Object> itemReader = readerForType(reader, type);
         int itemsCount = reader.intValue(readerIndex++);
 
-        List<Object> items = new ArrayList<>(itemsCount);
+        List<R> items = new ArrayList<>(itemsCount);
         for (int i = 0; i < itemsCount; i++) {
-            items.add(itemReader.apply(readerIndex++));
+            items.add((R)itemReader.apply(readerIndex++));
         }
 
         return items;

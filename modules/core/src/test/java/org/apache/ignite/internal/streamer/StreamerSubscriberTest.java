@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
+import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Flow.Publisher;
@@ -173,7 +174,7 @@ class StreamerSubscriberTest extends BaseIgniteAbstractTest {
             }
         };
 
-        var sendFuture = new CompletableFuture<Void>();
+        var sendFuture = new CompletableFuture<Collection<Object>>();
 
         StreamerSubscriber<Long, DataStreamerItem<Long>, Long, Object, String> subscriber = new StreamerSubscriber<>(
                 (part, batch, deleted) -> sendFuture,

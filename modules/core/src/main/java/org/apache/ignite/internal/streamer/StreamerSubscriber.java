@@ -45,7 +45,7 @@ import org.jetbrains.annotations.Nullable;
  * @param <P> Partition type.
  */
 public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
-    private final StreamerBatchSender<V, P> batchSender;
+    private final StreamerBatchSender<V, P, R> batchSender;
 
     private final Function<E, T> keyFunc;
 
@@ -67,7 +67,7 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
     // We don't expect thousands of node failures, so it should be fine.
     private final ConcurrentHashMap<P, StreamerBuffer<V>> buffers = new ConcurrentHashMap<>();
 
-    private final ConcurrentMap<P, CompletableFuture<Void>> pendingRequests = new ConcurrentHashMap<>();
+    private final ConcurrentMap<P, CompletableFuture<Collection<R>>> pendingRequests = new ConcurrentHashMap<>();
 
     private final IgniteLogger log;
 
@@ -88,7 +88,7 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
      * @param options Data streamer options.
      */
     public StreamerSubscriber(
-            StreamerBatchSender<V, P> batchSender,
+            StreamerBatchSender<V, P, R> batchSender,
             Function<E, T> keyFunc,
             Function<E, V> payloadFunc,
             Function<E, Boolean> deleteFunc,
@@ -196,7 +196,7 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
         );
     }
 
-    private CompletableFuture<Void> sendBatch(P partition, Collection<V> batch, BitSet deleted) {
+    private CompletableFuture<Collection<R>> sendBatch(P partition, Collection<V> batch, BitSet deleted) {
         // If a connection fails, the batch goes to default connection thanks to built-it retry mechanism.
         try {
             return batchSender.sendAsync(partition, batch, deleted).whenComplete((res, err) -> {
