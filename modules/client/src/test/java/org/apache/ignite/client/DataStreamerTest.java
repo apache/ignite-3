@@ -207,47 +207,6 @@ public class DataStreamerTest extends AbstractClientTableTest {
         }
     }
 
-    @Test
-    public void testBackpressureFromResultSubscriber() {
-        RecordView<Tuple> view = defaultTable().recordView();
-        CompletableFuture<Void> streamerFut;
-        int count = 3;
-
-        var resultSubscriber = new TestSubscriber<String>(0);
-
-        try (var publisher = new SubmissionPublisher<Tuple>()) {
-            var options = DataStreamerOptions.builder().pageSize(1).build();
-            streamerFut = view.streamData(
-                    publisher,
-                    options,
-                    t -> t,
-                    t -> t.longValue("id"),
-                    resultSubscriber,
-                    new ArrayList<>(),
-                    TestReceiver.class.getName(),
-                    "arg",
-                    "returnResults");
-
-            for (long i = 0; i < count; i++) {
-                publisher.submit(tuple(i));
-            }
-        }
-
-        // Due to resultSubscriber.requested = 0, the streamer can not return results and has to wait.
-        assertThrows(TimeoutException.class, () -> streamerFut.get(300, TimeUnit.MILLISECONDS));
-
-//        assertTrue(resultSubscriber.completed.get());
-//        assertNull(resultSubscriber.error.get());
-//        assertEquals(count, resultSubscriber.items.size());
-//
-//        for (long i = 0; i < count; i++) {
-//            String expectedName = "recv_arg_" + i;
-//            assertEquals(expectedName, view.get(null, tupleKey(i)).stringValue("name"));
-//
-//            assertTrue(resultSubscriber.items.contains(expectedName));
-//        }
-    }
-
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
     public void testManyItemsWithDisconnectAndRetry(boolean withReceiver) throws Exception {

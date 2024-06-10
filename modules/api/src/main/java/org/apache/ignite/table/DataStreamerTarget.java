@@ -49,6 +49,8 @@ public interface DataStreamerTarget<T> {
      * @param keyFunc Key function. The key is only used locally for colocation.
      * @param payloadFunc Payload function. The payload is sent to the receiver.
      * @param resultSubscriber Optional subscriber for the receiver results.
+     * NOTE: The result subscriber follows the pace of {@param publisher}
+     * and ignores backpressure from {@link Flow.Subscription#request(long)} calls.
      * @param deploymentUnits Target deployment units. Can be empty.
      * @param receiverClassName Receiver class name.
      * @param receiverArgs Receiver arguments.
