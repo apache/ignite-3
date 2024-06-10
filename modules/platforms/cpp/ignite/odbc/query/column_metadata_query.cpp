@@ -78,9 +78,6 @@ std::vector<odbc_column_meta> read_column_meta(protocol::reader &reader) {
     columns.reserve(size);
 
     for (std::int32_t column_idx = 0; column_idx < size; ++column_idx) {
-        auto has_data = reader.read_bool();
-        assert(has_data);
-
         auto status = reader.read_int32();
         assert(status == 0);
 
@@ -290,16 +287,13 @@ sql_result column_metadata_query::make_request_get_columns_meta() {
             });
 
         protocol::reader reader{response.get_bytes_view()};
-        m_has_result_set = reader.read_bool();
 
         auto status = reader.read_int32();
         auto err_msg = reader.read_string_nullable();
         if (err_msg)
             throw odbc_error(response_status_to_sql_state(status), *err_msg);
 
-        if (m_has_result_set) {
-            m_meta = read_column_meta(reader);
-        }
+        m_meta = read_column_meta(reader);
 
         m_executed = true;
     });

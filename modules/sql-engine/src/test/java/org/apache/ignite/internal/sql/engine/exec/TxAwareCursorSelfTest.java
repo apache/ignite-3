@@ -31,6 +31,8 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.sql.engine.framework.NoOpTransaction;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapperImpl;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.util.AsyncWrapper;
@@ -40,11 +42,12 @@ import org.junit.jupiter.api.Named;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.mockito.Mockito;
 
 /**
  * Tests for {@link TxAwareAsyncCursor}.
  */
-public class TxAwareCursorSelfTest {
+public class TxAwareCursorSelfTest extends BaseIgniteAbstractTest {
 
     /** Cursor should trigger commit of implicit transaction (if any) only if data is fully read. */
     @ParameterizedTest(name = "{0}")
@@ -117,6 +120,6 @@ public class TxAwareCursorSelfTest {
     }
 
     private static QueryTransactionWrapper newTxWrapper(boolean implicit) {
-        return new QueryTransactionWrapperImpl(NoOpTransaction.readOnly("TX"), implicit);
+        return new QueryTransactionWrapperImpl(NoOpTransaction.readOnly("TX"), implicit, Mockito.mock(TransactionInflights.class));
     }
 }

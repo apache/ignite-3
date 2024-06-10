@@ -24,6 +24,7 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 import org.apache.ignite.catalog.ColumnSorted;
 import org.apache.ignite.catalog.IndexType;
+import org.apache.ignite.catalog.annotations.Table;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -211,7 +212,7 @@ public class TableDefinition {
     public static class Builder {
         private String tableName;
 
-        private String schemaName;
+        private String schemaName = Table.DEFAULT_SCHEMA;
 
         private boolean ifNotExists;
 

@@ -100,10 +100,10 @@ class CreateFromAnnotationsTest {
                         + " DATA_NODES_AUTO_ADJUST=1, DATA_NODES_AUTO_ADJUST_SCALE_UP=3, DATA_NODES_AUTO_ADJUST_SCALE_DOWN=2,"
                         + " DATA_NODES_FILTER='filter';"
                         + System.lineSeparator()
-                        + "CREATE TABLE IF NOT EXISTS pojo_value_test (id int, f_name varchar, l_name varchar, str varchar,"
+                        + "CREATE TABLE IF NOT EXISTS PUBLIC.pojo_value_test (id int, f_name varchar, l_name varchar, str varchar,"
                         + " PRIMARY KEY (id)) COLOCATE BY (id, id_str) WITH PRIMARY_ZONE='ZONE_TEST';"
                         + System.lineSeparator()
-                        + "CREATE INDEX IF NOT EXISTS ix_pojo ON pojo_value_test (f_name, l_name desc);")
+                        + "CREATE INDEX IF NOT EXISTS ix_pojo ON PUBLIC.pojo_value_test (f_name, l_name desc);")
         );
     }
 
@@ -118,10 +118,10 @@ class CreateFromAnnotationsTest {
                         + " DATA_NODES_AUTO_ADJUST=1, DATA_NODES_AUTO_ADJUST_SCALE_UP=3, DATA_NODES_AUTO_ADJUST_SCALE_DOWN=2,"
                         + " DATA_NODES_FILTER='filter';"
                         + System.lineSeparator()
-                        + "CREATE TABLE IF NOT EXISTS pojo_value_test (id int, id_str varchar(20), f_name varchar, l_name varchar,"
+                        + "CREATE TABLE IF NOT EXISTS PUBLIC.pojo_value_test (id int, id_str varchar(20), f_name varchar, l_name varchar,"
                         + " str varchar, PRIMARY KEY (id, id_str)) COLOCATE BY (id, id_str) WITH PRIMARY_ZONE='ZONE_TEST';"
                         + System.lineSeparator()
-                        + "CREATE INDEX IF NOT EXISTS ix_pojo ON pojo_value_test (f_name, l_name desc);")
+                        + "CREATE INDEX IF NOT EXISTS ix_pojo ON PUBLIC.pojo_value_test (f_name, l_name desc);")
         );
     }
 
@@ -135,11 +135,12 @@ class CreateFromAnnotationsTest {
                         + " DATA_NODES_AUTO_ADJUST=1, DATA_NODES_AUTO_ADJUST_SCALE_UP=3, DATA_NODES_AUTO_ADJUST_SCALE_DOWN=2,"
                         + " DATA_NODES_FILTER='filter';"
                         + System.lineSeparator()
-                        + "CREATE TABLE IF NOT EXISTS pojo_test (id int, id_str varchar(20), f_name varchar(20) not null default 'a',"
+                        + "CREATE TABLE IF NOT EXISTS PUBLIC.pojo_test"
+                        + " (id int, id_str varchar(20), f_name varchar(20) not null default 'a',"
                         + " l_name varchar, str varchar, PRIMARY KEY (id, id_str))"
                         + " COLOCATE BY (id, id_str) WITH PRIMARY_ZONE='ZONE_TEST';"
                         + System.lineSeparator()
-                        + "CREATE INDEX IF NOT EXISTS ix_pojo ON pojo_test (f_name, l_name desc);")
+                        + "CREATE INDEX IF NOT EXISTS ix_pojo ON PUBLIC.pojo_test (f_name, l_name desc);")
         );
     }
 
@@ -148,9 +149,9 @@ class CreateFromAnnotationsTest {
         CreateFromAnnotationsImpl query = createTable().processRecordClass(NameGeneration.class);
         assertThat(
                 query.toString(),
-                is("CREATE TABLE IF NOT EXISTS public.NameGeneration (col1 int, col2 varchar);"
+                is("CREATE TABLE IF NOT EXISTS PUBLIC.NameGeneration (col1 int, col2 varchar);"
                         + System.lineSeparator()
-                        + "CREATE INDEX IF NOT EXISTS ix_col1_col2 ON public.NameGeneration (col1, col2);")
+                        + "CREATE INDEX IF NOT EXISTS ix_col1_col2 ON PUBLIC.NameGeneration (col1, col2);")
         );
     }
 
@@ -159,7 +160,7 @@ class CreateFromAnnotationsTest {
         CreateFromAnnotationsImpl query = createTable().processRecordClass(PkSort.class);
         assertThat(
                 query.toString(),
-                is("CREATE TABLE IF NOT EXISTS PkSort (id int, PRIMARY KEY USING SORTED (id desc));")
+                is("CREATE TABLE IF NOT EXISTS PUBLIC.PkSort (id int, PRIMARY KEY USING SORTED (id desc));")
         );
     }
 
@@ -174,19 +175,6 @@ class CreateFromAnnotationsTest {
         assertThrows(IllegalArgumentException.class, () -> createTable().processRecordClass(NoAnnotations.class));
     }
 
-    @Zone(
-            value = "zone_test",
-            partitions = 1,
-            replicas = 3,
-            affinityFunction = "affinity",
-            dataNodesAutoAdjust = 1,
-            dataNodesAutoAdjustScaleDown = 2,
-            dataNodesAutoAdjustScaleUp = 3,
-            filter = "filter",
-            storageProfiles = "default"
-    )
-    private static class ZoneTest {}
-
     @SuppressWarnings("unused")
     private static class PojoKey {
         @Id
@@ -200,7 +188,17 @@ class CreateFromAnnotationsTest {
     @SuppressWarnings("unused")
     @Table(
             value = "pojo_value_test",
-            zone = ZoneTest.class,
+            zone = @Zone(
+                    value = "zone_test",
+                    partitions = 1,
+                    replicas = 3,
+                    affinityFunction = "affinity",
+                    dataNodesAutoAdjust = 1,
+                    dataNodesAutoAdjustScaleDown = 2,
+                    dataNodesAutoAdjustScaleUp = 3,
+                    filter = "filter",
+                    storageProfiles = "default"
+            ),
             colocateBy = {@ColumnRef("id"), @ColumnRef("id_str")},
             indexes = @Index(value = "ix_pojo", columns = {
                     @ColumnRef("f_name"),
@@ -220,7 +218,17 @@ class CreateFromAnnotationsTest {
     @SuppressWarnings("unused")
     @Table(
             value = "pojo_test",
-            zone = ZoneTest.class,
+            zone = @Zone(
+                    value = "zone_test",
+                    partitions = 1,
+                    replicas = 3,
+                    affinityFunction = "affinity",
+                    dataNodesAutoAdjust = 1,
+                    dataNodesAutoAdjustScaleDown = 2,
+                    dataNodesAutoAdjustScaleUp = 3,
+                    filter = "filter",
+                    storageProfiles = "default"
+            ),
             colocateBy = {@ColumnRef("id"), @ColumnRef("id_str")},
             indexes = @Index(value = "ix_pojo", columns = {
                     @ColumnRef("f_name"),
@@ -244,10 +252,7 @@ class CreateFromAnnotationsTest {
         String str;
     }
 
-    @Table(
-            schemaName = "public",
-            indexes = @Index(columns = {@ColumnRef("col1"), @ColumnRef("col2")})
-    )
+    @Table(indexes = @Index(columns = {@ColumnRef("col1"), @ColumnRef("col2")}))
     private static class NameGeneration {
         Integer col1;
         String col2;

@@ -276,7 +276,8 @@ public class ItIgnitePicocliCommandsTest extends CliIntegrationTest {
                         "nodeAttributes",
                         "storage",
                         "criticalWorkers",
-                        "sql"
+                        "sql",
+                        "failureHandler"
                 )
         );
     }
@@ -334,8 +335,8 @@ public class ItIgnitePicocliCommandsTest extends CliIntegrationTest {
                 words("cluster", "config", "update", "--node", ""),
                 words("cluster", "status", "--node", ""),
                 words("cluster", "init", "--node", ""),
-                words("cluster", "init", "--cmg-node", ""),
-                words("cluster", "init", "--meta-storage-node", ""),
+                words("cluster", "init", "--cluster-management-group", ""),
+                words("cluster", "init", "--metastorage-group", ""),
                 words("node", "config", "show", "--node", ""),
                 words("node", "config", "show", "--verbose", "--node", ""),
                 words("node", "config", "update", "--node", ""),

@@ -47,8 +47,10 @@ dependencies {
     testImplementation libs.auto.service.annotations
 
     testFixturesAnnotationProcessor libs.auto.service
+    testFixturesImplementation project(':ignite-api')
     testFixturesImplementation project(':ignite-core')
     testFixturesImplementation project(':ignite-failure-handler')
+    testFixturesImplementation(testFixtures(project(':ignite-core')))
     testFixturesImplementation libs.mockito.core
     testFixturesImplementation libs.auto.service.annotations
 

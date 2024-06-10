@@ -141,6 +141,7 @@ public class Catalog {
         return version;
     }
 
+    /** Returns timestamp when this version becomes active (i.e. available for use). */
     public long time() {
         return activationTimestamp;
     }

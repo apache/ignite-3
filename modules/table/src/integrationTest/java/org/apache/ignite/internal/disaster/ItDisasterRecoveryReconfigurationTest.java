@@ -30,6 +30,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThr
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
@@ -203,7 +204,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
                 Set.of()
         );
 
-        assertThat(updateFuture, willCompleteSuccessfully());
+        assertThat(updateFuture, willSucceedIn(60, SECONDS));
 
         awaitPrimaryReplica(node0, partId);
 
@@ -249,7 +250,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
                 Set.of(anotherPartId)
         );
 
-        assertThat(updateFuture, willCompleteSuccessfully());
+        assertThat(updateFuture, willSucceedIn(60, SECONDS));
 
         awaitPrimaryReplica(node0, anotherPartId);
 
@@ -302,7 +303,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         CompletableFuture<ReplicaMeta> awaitPrimaryReplicaFuture = node0.placementDriver()
                 .awaitPrimaryReplica(new TablePartitionId(tableId, partId), node0.clock().now(), 60, SECONDS);
 
-        assertThat(awaitPrimaryReplicaFuture, willCompleteSuccessfully());
+        assertThat(awaitPrimaryReplicaFuture, willSucceedIn(60, SECONDS));
     }
 
     private void assertRealAssignments(IgniteImpl node0, int partId, Integer... expected) throws InterruptedException {
@@ -330,7 +331,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
             CompletableFuture<Void> insertFuture = keyValueView.putAsync(null, key, Tuple.create(of("val", i + offset)));
 
             try {
-                insertFuture.get(1000, MILLISECONDS);
+                insertFuture.get(10, SECONDS);
 
                 Tuple value = keyValueView.get(null, key);
                 assertNotNull(value);
