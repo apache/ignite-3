@@ -592,7 +592,8 @@ public class DataStreamerTest extends AbstractClientTableTest {
                     new ArrayList<>(),
                     TestReceiver.class.getName(),
                     "arg",
-                    "returnResults=" + resultCount);
+                    resultCount < 0 ? null : "returnResults",
+                    resultCount);
 
             for (long i = 0; i < 3; i++) {
                 publisher.submit(tuple(i));
@@ -627,6 +628,9 @@ public class DataStreamerTest extends AbstractClientTableTest {
     private static class TestReceiver implements DataStreamerReceiver<Long, String> {
         @Override
         public CompletableFuture<List<String>> receive(List<Long> page, DataStreamerReceiverContext ctx, Object... args) {
+            boolean returnResults = args.length > 1 && "returnResults".equals(args[1]);
+            int resultCount = args.length > 2 ? (int) args[2] : page.size();
+
             // noinspection resource
             RecordView<Tuple> view = ctx.ignite().tables().table(DEFAULT_TABLE).recordView();
             List<String> res = new ArrayList<>(page.size());
@@ -634,10 +638,12 @@ public class DataStreamerTest extends AbstractClientTableTest {
             for (Long id : page) {
                 String name = "recv_" + args[0] + "_" + id;
                 view.upsert(null, tuple(id, name));
-                res.add(name);
+
+                if (resultCount-- >= 0) {
+                    res.add(name);
+                }
             }
 
-            boolean returnResults = args.length > 1 && "returnResults".equals(args[1]);
             return CompletableFuture.completedFuture(returnResults ? res : null);
         }
     }
