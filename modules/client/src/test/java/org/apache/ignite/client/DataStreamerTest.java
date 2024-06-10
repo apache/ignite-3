@@ -209,7 +209,42 @@ public class DataStreamerTest extends AbstractClientTableTest {
 
     @Test
     public void testBackpressureFromResultSubscriber() {
-        assertFalse(true, "TODO");
+        RecordView<Tuple> view = defaultTable().recordView();
+        CompletableFuture<Void> streamerFut;
+        int count = 3;
+
+        var resultSubscriber = new TestSubscriber<String>(0);
+
+        try (var publisher = new SubmissionPublisher<Tuple>()) {
+            var options = DataStreamerOptions.builder().pageSize(1).build();
+            streamerFut = view.streamData(
+                    publisher,
+                    options,
+                    t -> t,
+                    t -> t.longValue("id"),
+                    resultSubscriber,
+                    new ArrayList<>(),
+                    TestReceiver.class.getName(),
+                    "arg",
+                    "returnResults");
+
+            for (long i = 0; i < count; i++) {
+                publisher.submit(tuple(i));
+            }
+        }
+
+        streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
+
+        assertTrue(resultSubscriber.completed.get());
+        assertNull(resultSubscriber.error.get());
+        assertEquals(count, resultSubscriber.items.size());
+
+        for (long i = 0; i < count; i++) {
+            String expectedName = "recv_arg_" + i;
+            assertEquals(expectedName, view.get(null, tupleKey(i)).stringValue("name"));
+
+            assertTrue(resultSubscriber.items.contains(expectedName));
+        }
     }
 
     @ParameterizedTest
@@ -386,7 +421,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
         CompletableFuture<Void> streamerFut;
         int count = 3;
 
-        var resultSubscriber = new TestSubscriber<String>();
+        var resultSubscriber = new TestSubscriber<String>(Long.MAX_VALUE);
 
         try (var publisher = new SubmissionPublisher<Tuple>()) {
             var options = DataStreamerOptions.builder().pageSize(batchSize).build();
@@ -427,7 +462,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
         CompletableFuture<Void> streamerFut;
         int count = 3;
 
-        var resultSubscriber = withSubscriber ? new TestSubscriber<String>() : null;
+        var resultSubscriber = withSubscriber ? new TestSubscriber<String>(count) : null;
 
         try (var publisher = new SubmissionPublisher<PersonPojo>()) {
             streamerFut = view.streamData(
@@ -470,7 +505,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
         CompletableFuture<Void> streamerFut;
         int count = 3;
 
-        var resultSubscriber = withSubscriber ? new TestSubscriber<String>() : null;
+        var resultSubscriber = withSubscriber ? new TestSubscriber<String>(count) : null;
 
         try (var publisher = new SubmissionPublisher<Entry<Tuple, Tuple>>()) {
             streamerFut = view.streamData(
@@ -513,7 +548,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
         CompletableFuture<Void> streamerFut;
         int count = 3;
 
-        var resultSubscriber = withSubscriber ? new TestSubscriber<String>() : null;
+        var resultSubscriber = withSubscriber ? new TestSubscriber<String>(count) : null;
 
         try (var publisher = new SubmissionPublisher<Entry<Long, PersonValPojo>>()) {
             streamerFut = view.streamData(
@@ -642,13 +677,21 @@ public class DataStreamerTest extends AbstractClientTableTest {
     }
 
     private static class TestSubscriber<T> implements Subscriber<T> {
-        Set<T> items = Collections.synchronizedSet(new HashSet<>());
-        AtomicReference<Throwable> error = new AtomicReference<>();
-        AtomicBoolean completed = new AtomicBoolean();
+        final Set<T> items = Collections.synchronizedSet(new HashSet<>());
+        final AtomicReference<Throwable> error = new AtomicReference<>();
+        final AtomicBoolean completed = new AtomicBoolean();
+        final long requestOnSubscribe;
+
+        Subscription subscription;
+
+        TestSubscriber(long requestOnSubscribe) {
+            this.requestOnSubscribe = requestOnSubscribe;
+        }
 
         @Override
         public void onSubscribe(Subscription subscription) {
-            subscription.request(Long.MAX_VALUE);
+            this.subscription = subscription;
+            subscription.request(requestOnSubscribe);
         }
 
         @Override
