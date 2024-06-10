@@ -19,6 +19,7 @@ package org.apache.ignite.client;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -26,7 +27,16 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.Period;
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -610,12 +620,29 @@ public class DataStreamerTest extends AbstractClientTableTest {
     @Test
     public void testReceiverWithSubscriberAllTypesRoundtrip() {
         testArgRoundtrip(true);
+        testArgRoundtrip(Byte.MAX_VALUE);
+        testArgRoundtrip(Short.MAX_VALUE);
+        testArgRoundtrip(Integer.MAX_VALUE);
+        testArgRoundtrip(Long.MAX_VALUE);
+        testArgRoundtrip(Float.MAX_VALUE);
+        testArgRoundtrip(Double.MAX_VALUE);
+        testArgRoundtrip(BigDecimal.valueOf(123, 4));
+        testArgRoundtrip(LocalDate.now());
+        testArgRoundtrip(LocalTime.now());
+        testArgRoundtrip(LocalDateTime.now());
+        testArgRoundtrip(Instant.now());
         testArgRoundtrip(UUID.randomUUID());
+        testArgRoundtrip(BitSet.valueOf(new long[] {1, 2, 3}));
+        testArgRoundtrip("Ignite 🔥");
+        testArgRoundtrip(new byte[]{-1, 1});
+        testArgRoundtrip(Period.ofDays(3));
+        testArgRoundtrip(Duration.ofDays(3));
+        testArgRoundtrip(BigInteger.valueOf(123));
     }
 
     private void testArgRoundtrip(Object arg) {
         CompletableFuture<Void> streamerFut;
-        var resultSubscriber = new TestSubscriber<String>(Long.MAX_VALUE);
+        var resultSubscriber = new TestSubscriber<>(Long.MAX_VALUE);
 
         try (var publisher = new SubmissionPublisher<Tuple>()) {
             streamerFut = defaultTable().recordView().streamData(
@@ -635,7 +662,14 @@ public class DataStreamerTest extends AbstractClientTableTest {
 
         assertTrue(resultSubscriber.completed.get());
         assertNull(resultSubscriber.error.get());
-        assertEquals(arg, resultSubscriber.items.iterator().next());
+
+        Object res = resultSubscriber.items.iterator().next();
+
+        if (arg instanceof byte[]) {
+            assertArrayEquals((byte[]) arg, (byte[]) res);
+        } else {
+            assertEquals(arg, res);
+        }
     }
 
     private static RecordView<Tuple> defaultTableView(FakeIgnite server, IgniteClient client) {
