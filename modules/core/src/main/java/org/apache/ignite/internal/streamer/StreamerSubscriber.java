@@ -143,7 +143,7 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
 
         if (resultSubscriber != null) {
             resultSubscription = new ResultSubscription();
-            resultSubscriber.onSubscribe(subscription);
+            resultSubscriber.onSubscribe(resultSubscription);
         }
 
         // Refresh schemas and partition assignment, then request initial batch.
