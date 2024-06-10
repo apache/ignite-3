@@ -51,7 +51,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Test for replica lifecycle.
  */
-public class ReplicaLifecycleTest extends BaseIgniteRestartTest {
+public class ItReplicaLifecycleTest extends BaseIgniteRestartTest {
     @Test
     public void testReplicaLifecycle() throws InterruptedException {
         int nodesCount = 3;
@@ -124,7 +124,7 @@ public class ReplicaLifecycleTest extends BaseIgniteRestartTest {
 
             for (int i = 0; i < nodesCount; i++) {
                 MvPartitionStorage storage = storage(nodes.get(i));
-                boolean isFormerPrimary = nodes.get(0).id().equals(replicaMeta.getLeaseholderId());
+                boolean isFormerPrimary = nodes.get(i).id().equals(replicaMeta.getLeaseholderId());
 
                 res &= (isFormerPrimary == (storage == null));
             }
@@ -134,12 +134,7 @@ public class ReplicaLifecycleTest extends BaseIgniteRestartTest {
 
         if (!success) {
             for (int i = 0; i < nodesCount; i++) {
-                MvPartitionStorage storage = storage(nodes.get(i));
-                boolean isFormerPrimary = nodes.get(0).id().equals(replicaMeta.getLeaseholderId());
-
-                if (isFormerPrimary != (storage == null)) {
-                    log.error("Test: storage on node " + i + " is: " + storage);
-                }
+                log.error("Test: storage on node " + nodes.get(i).name() + " is: " + storage(nodes.get(i)));
             }
         }
 
