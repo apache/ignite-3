@@ -46,7 +46,7 @@ public class CliVersionInfo {
     }
 
     /**
-     * Creates Ignite CLI version provider from the manually setted version.
+     * Creates Ignite CLI version provider from the manually set version.
      *
      * @param ver Ignite CLI version
      */

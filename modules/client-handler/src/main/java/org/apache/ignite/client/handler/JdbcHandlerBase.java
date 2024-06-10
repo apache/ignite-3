@@ -63,37 +63,54 @@ abstract class JdbcHandlerBase {
      */
     CompletionStage<JdbcQuerySingleResult> createJdbcResult(AsyncSqlCursor<InternalSqlRow> cur, int pageSize) {
         return cur.requestNextAsync(pageSize).thenApply(batch -> {
-            boolean hasNext = batch.hasMore();
+            Long cursorId = null;
+            if (cur.hasNextResult()) {
+                // in case of multi statement we need to save cursor in resources, so later we can derive it and 
+                // move to the next result
+                try {
+                    cursorId = resources.put(new ClientResource(cur, cur::closeAsync));
+                } catch (IgniteInternalCheckedException e) {
+                    cur.closeAsync();
 
-            long cursorId;
-            try {
-                cursorId = resources.put(new ClientResource(cur, cur::closeAsync));
-            } catch (IgniteInternalCheckedException e) {
-                cur.closeAsync();
-
-                return new JdbcQuerySingleResult(Response.STATUS_FAILED,
-                        "Unable to store query cursor.");
+                    return new JdbcQuerySingleResult(Response.STATUS_FAILED,
+                            "Unable to store query cursor.");
+                }
             }
 
             switch (cur.queryType()) {
                 case EXPLAIN:
                 case QUERY: {
+                    if (cursorId == null) {
+                        // for queries with result set we still need to save cursor to resources, so later we can
+                        // derive result's metadata which is loaded on demand by driver
+                        try {
+                            cursorId = resources.put(new ClientResource(cur, cur::closeAsync));
+                        } catch (IgniteInternalCheckedException e) {
+                            cur.closeAsync();
+
+                            return new JdbcQuerySingleResult(Response.STATUS_FAILED,
+                                    "Unable to store query cursor.");
+                        }
+                    }
+
                     List<ColumnMetadata> columns = cur.metadata().columns();
 
-                    return buildSingleRequest(batch, columns, cursorId, !hasNext);
+                    return buildSingleRequest(batch, columns, cursorId, cur.hasNextResult());
                 }
                 case DML: {
-                    if (!validateDmlResult(cur.metadata(), hasNext)) {
+                    boolean hasMoreData = batch.hasMore();
+
+                    if (!validateDmlResult(cur.metadata(), hasMoreData)) {
                         return new JdbcQuerySingleResult(Response.STATUS_FAILED, "Unexpected result for DML query");
                     }
 
                     long updCount = (long) batch.items().get(0).get(0);
 
-                    return new JdbcQuerySingleResult(cursorId, updCount);
+                    return new JdbcQuerySingleResult(cursorId, updCount, cur.hasNextResult());
                 }
                 case DDL:
                 case TX_CONTROL:
-                    return new JdbcQuerySingleResult(cursorId, 0);
+                    return new JdbcQuerySingleResult(cursorId, 0, cur.hasNextResult());
                 default:
                     return new JdbcQuerySingleResult(UNSUPPORTED_OPERATION,
                             "Query type is not supported yet [queryType=" + cur.queryType() + ']');
@@ -104,8 +121,8 @@ abstract class JdbcHandlerBase {
     private static JdbcQuerySingleResult buildSingleRequest(
             BatchedResult<InternalSqlRow> batch,
             List<ColumnMetadata> columns,
-            long cursorId,
-            boolean hasNext
+            @Nullable Long cursorId,
+            boolean hasNextResult
     ) {
         List<BinaryTupleReader> rows = new ArrayList<>(batch.items().size());
         for (InternalSqlRow item : batch.items()) {
@@ -124,7 +141,7 @@ abstract class JdbcHandlerBase {
         }
         decimalScales = Arrays.copyOf(decimalScales, countOfDecimal);
 
-        return new JdbcQuerySingleResult(cursorId, rows, schema, decimalScales, hasNext);
+        return new JdbcQuerySingleResult(cursorId, rows, schema, decimalScales, batch.hasMore(), hasNextResult);
     }
 
     JdbcQuerySingleResult createErrorResult(String logMessage, Throwable origin, @Nullable String errMessagePrefix) {

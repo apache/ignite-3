@@ -30,7 +30,6 @@ import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -209,43 +208,5 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
         assertThat(catalogManager.execute(catalogCommand), willCompleteSuccessfully());
 
         return catalogManager.aliveIndex(indexName, clock.nowLong()).id();
-    }
-
-    private void startBuildingIndex(int indexId) {
-        CatalogCommand catalogCommand = StartBuildingIndexCommand.builder().indexId(indexId).build();
-
-        assertThat(catalogManager.execute(catalogCommand), willCompleteSuccessfully());
-    }
-
-    private void makeIndexAvailable(int indexId) {
-        CatalogCommand catalogCommand = MakeIndexAvailableCommand.builder().indexId(indexId).build();
-
-        assertThat(catalogManager.execute(catalogCommand), willCompleteSuccessfully());
-    }
-
-    private void dropIndex(String indexName) {
-        CatalogCommand catalogCommand = DropIndexCommand.builder()
-                .schemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
-                .indexName(indexName)
-                .build();
-
-        assertThat(catalogManager.execute(catalogCommand), willCompleteSuccessfully());
-    }
-
-    private void removeIndex(int indexId) {
-        CatalogCommand catalogCommand = RemoveIndexCommand.builder().indexId(indexId).build();
-
-        assertThat(catalogManager.execute(catalogCommand), willCompleteSuccessfully());
-    }
-
-    private int tableId(int catalogVersion, String tableName) {
-        CatalogTableDescriptor tableDescriptor = catalogManager.tables(catalogVersion).stream()
-                .filter(table -> tableName.equals(table.name()))
-                .findFirst()
-                .orElse(null);
-
-        assertNotNull(tableDescriptor, "catalogVersion=" + catalogVersion + ", tableName=" + tableName);
-
-        return tableDescriptor.id();
     }
 }
