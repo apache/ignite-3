@@ -18,10 +18,13 @@
 package org.apache.ignite.client;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -44,7 +47,9 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
@@ -613,6 +618,36 @@ public class DataStreamerTest extends AbstractClientTableTest {
     }
 
     @Test
+    public void testExceptionInResultSubscriberFailsStreamerAndSetsSubscriberError() {
+        CompletableFuture<Void> streamerFut;
+        var resultSubscriber = new TestSubscriber<String>(Long.MAX_VALUE);
+        resultSubscriber.throwOnNext = true;
+
+        try (var publisher = new SubmissionPublisher<Tuple>()) {
+            var options = DataStreamerOptions.builder().pageSize(100).build();
+            streamerFut = defaultTable().recordView().streamData(
+                    publisher,
+                    options,
+                    t -> t,
+                    t -> t.longValue("id"),
+                    resultSubscriber,
+                    new ArrayList<>(),
+                    TestReceiver.class.getName(),
+                    "arg",
+                    "returnResults");
+
+            for (long i = 0; i < 3; i++) {
+                publisher.submit(tuple(i));
+            }
+        }
+
+        assertThat(streamerFut, willThrow(ArithmeticException.class, "Result subscriber exception"));
+        assertFalse(resultSubscriber.completed.get());
+        assertInstanceOf(CompletionException.class, resultSubscriber.error.get());
+        assertInstanceOf(ArithmeticException.class, resultSubscriber.error.get().getCause());
+    }
+
+    @Test
     public void testReceiverWithResultsWithoutSubscriber() {
         CompletableFuture<Void> streamerFut;
 
@@ -752,6 +787,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
         final AtomicReference<Throwable> error = new AtomicReference<>();
         final AtomicBoolean completed = new AtomicBoolean();
         final long requestOnSubscribe;
+        boolean throwOnNext;
 
         Subscription subscription;
 
@@ -767,6 +803,10 @@ public class DataStreamerTest extends AbstractClientTableTest {
 
         @Override
         public void onNext(T item) {
+            if (throwOnNext) {
+                throw new ArithmeticException("Result subscriber exception");
+            }
+
             items.add(item);
         }
 
