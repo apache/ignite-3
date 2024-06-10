@@ -614,7 +614,27 @@ public class DataStreamerTest extends AbstractClientTableTest {
 
     @Test
     public void testReceiverWithResultsWithoutSubscriber() {
-        assertFalse(true, "TODO");
+        CompletableFuture<Void> streamerFut;
+
+        try (var publisher = new SubmissionPublisher<Tuple>()) {
+            var options = DataStreamerOptions.builder().pageSize(100).build();
+            streamerFut = defaultTable().recordView().streamData(
+                    publisher,
+                    options,
+                    t -> t,
+                    t -> t.longValue("id"),
+                    null,
+                    new ArrayList<>(),
+                    TestReceiver.class.getName(),
+                    "arg",
+                    "returnResults");
+
+            for (long i = 0; i < 3; i++) {
+                publisher.submit(tuple(i));
+            }
+        }
+
+        streamerFut.orTimeout(2, TimeUnit.SECONDS).join();
     }
 
     @Test
