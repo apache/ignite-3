@@ -21,9 +21,6 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Publisher;
-import java.util.concurrent.Flow.Subscription;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import org.apache.ignite.client.RetryLimitPolicy;
 import org.apache.ignite.compute.DeploymentUnit;
@@ -77,8 +74,6 @@ class ClientDataStreamer {
             List<DeploymentUnit> deploymentUnits,
             String receiverClassName,
             Object... receiverArgs) {
-        ResultSubscription subscription = resultSubscriber == null ? null : new ResultSubscription();
-
         StreamerBatchSender<V, Integer, R> batchSender = (partitionId, items, deleted) ->
                 tbl.getPartitionAssignment().thenCompose(
                         partitionAssignment -> tbl.channel().serviceAsync(
@@ -94,19 +89,15 @@ class ClientDataStreamer {
 
                                     StreamerReceiverSerializer.serialize(w, receiverClassName, receiverArgs, items);
                                 },
-                                in -> {
-                                    if (resultSubscriber != null && !subscription.cancelled.get()) {
-                                        return StreamerReceiverSerializer.deserializeResults(in.in());
-                                    }
-
-                                    return null;
-                                },
+                                in -> resultSubscriber != null
+                                        ? StreamerReceiverSerializer.deserializeResults(in.in())
+                                        : null,
                                 partitionAssignment.get(partitionId),
                                 new RetryLimitPolicy().retryLimit(options.retryLimit()),
                                 false)
                 );
 
-        CompletableFuture<Void> resFut = streamData(
+        return streamData(
                 publisher,
                 keyFunc,
                 payloadFunc,
@@ -116,26 +107,6 @@ class ClientDataStreamer {
                 resultSubscriber,
                 partitionAwarenessProvider,
                 tbl);
-
-        if (subscription == null) {
-            return resFut;
-        }
-
-        return resFut.handle((res, err) -> {
-            if (!subscription.cancelled.get()) {
-                if (err == null) {
-                    resultSubscriber.onComplete();
-                } else {
-                    resultSubscriber.onError(err);
-                }
-            }
-
-            if (err != null) {
-                throw new RuntimeException(err);
-            }
-
-            return res;
-        });
     }
 
 
@@ -187,20 +158,5 @@ class ClientDataStreamer {
                 return options.autoFlushFrequency();
             }
         };
-    }
-
-    private static class ResultSubscription implements Subscription {
-        AtomicLong requested = new AtomicLong();
-        AtomicBoolean cancelled = new AtomicBoolean();
-
-        @Override
-        public void request(long n) {
-            requested.addAndGet(n);
-        }
-
-        @Override
-        public void cancel() {
-            cancelled.set(true);
-        }
     }
 }

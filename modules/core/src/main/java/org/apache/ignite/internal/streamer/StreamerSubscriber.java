@@ -30,7 +30,9 @@ import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.jetbrains.annotations.Nullable;
@@ -78,6 +80,8 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
     private final ScheduledExecutorService flushExecutor;
 
     private @Nullable Flow.Subscription subscription;
+
+    private @Nullable ResultSubscription resultSubscription;
 
     private @Nullable ScheduledFuture<?> flushTask;
 
@@ -136,6 +140,11 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
         }
 
         this.subscription = subscription;
+
+        if (resultSubscriber != null) {
+            resultSubscription = new ResultSubscription();
+            resultSubscriber.onSubscribe(subscription);
+        }
 
         // Refresh schemas and partition assignment, then request initial batch.
         partitionAwarenessProvider.refreshAsync()
@@ -234,6 +243,17 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
                         close(refreshErr);
                         return null;
                     });
+
+                    if (resultSubscription != null) {
+                        assert resultSubscriber != null;
+
+                        for (R r : res) {
+                            // TODO: Backpressure control - how?
+                            resultSubscription.requested.decrementAndGet();
+
+                            resultSubscriber.onNext(r);
+                        }
+                    }
                 }
             });
         } catch (Exception e) {
@@ -248,10 +268,9 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
             flushTask.cancel(false);
         }
 
-        var s = subscription;
-
-        if (s != null) {
-            s.cancel();
+        var sub = subscription;
+        if (sub != null) {
+            sub.cancel();
         }
 
         if (throwable == null) {
@@ -259,9 +278,27 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
 
             var futs = pendingRequests.values().toArray(new CompletableFuture[0]);
 
-            CompletableFuture.allOf(futs).whenComplete(copyStateTo(completionFut));
+            CompletableFuture.allOf(futs).whenComplete((v, e) -> {
+                if (e != null) {
+                    if (resultSubscriber != null) {
+                        resultSubscriber.onError(e);
+                    }
+
+                    completionFut.completeExceptionally(e);
+                } else {
+                    if (resultSubscriber != null) {
+                        resultSubscriber.onComplete();
+                    }
+
+                    completionFut.complete(null);
+                }
+            });
         } else {
             completionFut.completeExceptionally(throwable);
+
+            if (resultSubscriber != null) {
+                resultSubscriber.onError(throwable);
+            }
         }
 
         closed = true;
@@ -329,5 +366,20 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
                 // No-op.
             }
         };
+    }
+
+    private static class ResultSubscription implements Subscription {
+        AtomicLong requested = new AtomicLong();
+        AtomicBoolean cancelled = new AtomicBoolean();
+
+        @Override
+        public void request(long n) {
+            requested.addAndGet(n);
+        }
+
+        @Override
+        public void cancel() {
+            cancelled.set(true);
+        }
     }
 }
