@@ -481,7 +481,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         });
     }
 
-    private CompletableFuture<Boolean> startReplicaInternal(
+    private CompletableFuture<Replica> startReplicaInternal(
             RaftGroupEventsListener raftGroupEventsListener,
             RaftGroupListener raftGroupListener,
             boolean isVolatileStorage,
@@ -534,7 +534,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param newConfiguration A configuration for new raft group.
      * @return Future that promises ready new replica when done.
      */
-    public CompletableFuture<Boolean> startReplica(
+    public CompletableFuture<Replica> startReplica(
             RaftGroupEventsListener raftGroupEventsListener,
             RaftGroupListener raftGroupListener,
             boolean isVolatileStorage,
@@ -582,7 +582,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      */
     @VisibleForTesting
     @Deprecated
-    public CompletableFuture<Boolean> startReplica(
+    public CompletableFuture<Replica> startReplica(
             ReplicationGroupId replicaGrpId,
             PeersAndLearners newConfiguration,
             Consumer<RaftGroupService> updateTableRaftService,
@@ -592,13 +592,14 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     ) throws NodeStoppingException {
         LOG.info("Replica is about to start [replicationGroupId={}].", replicaGrpId);
 
-        CompletableFuture<Boolean> resultFuture = newRaftClientFut.thenAccept(updateTableRaftService)
-                .thenApply((v) -> true);
-
-        CompletableFuture<ReplicaListener> newReplicaListenerFut = newRaftClientFut.thenApply(createListener);
-
-        return startReplica(replicaGrpId, storageIndexTracker, newReplicaListenerFut)
-                .thenApply(unused -> true);
+        return newRaftClientFut
+                // TODO: will be removed in https://issues.apache.org/jira/browse/IGNITE-22218
+                .thenApply(raftClient -> {
+                    updateTableRaftService.accept(raftClient);
+                    return raftClient;
+                })
+                .thenApply(createListener)
+                .thenCompose(replicaListener -> startReplica(replicaGrpId, storageIndexTracker, replicaListener));
     }
 
     /**
@@ -607,7 +608,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      *
      * @param replicaGrpId Replication group id.
      * @param storageIndexTracker Storage index tracker.
-     * @param newReplicaListenerFut Future that returns ready ReplicaListener for replica creation.
+     * @param replicaListener Future that returns ready ReplicaListener for replica creation.
      * @return Future that promises ready new replica when done.
      */
     @VisibleForTesting
@@ -615,35 +616,32 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     public CompletableFuture<Replica> startReplica(
             ReplicationGroupId replicaGrpId,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker,
-            CompletableFuture<ReplicaListener> newReplicaListenerFut
-    ) throws NodeStoppingException {
-
+            ReplicaListener replicaListener
+    ) {
         ClusterNode localNode = clusterNetSvc.topologyService().localMember();
 
-        CompletableFuture<Replica> replicaFuture = newReplicaListenerFut.thenCompose(listener -> {
-            Replica newReplica = new Replica(
-                    replicaGrpId,
-                    listener,
-                    storageIndexTracker,
-                    localNode,
-                    executor,
-                    placementDriver,
-                    clockService);
+        Replica newReplica = new Replica(
+                replicaGrpId,
+                replicaListener,
+                storageIndexTracker,
+                localNode,
+                executor,
+                placementDriver,
+                clockService);
 
-            return replicas.compute(replicaGrpId, (k, existingReplicaFuture) -> {
-                if (existingReplicaFuture == null || existingReplicaFuture.isDone()) {
-                    assert existingReplicaFuture == null || isCompletedSuccessfully(existingReplicaFuture);
-                    LOG.info("Replica is started [replicationGroupId={}].", replicaGrpId);
+        CompletableFuture<Replica> replicaFuture = replicas.compute(replicaGrpId, (k, existingReplicaFuture) -> {
+            if (existingReplicaFuture == null || existingReplicaFuture.isDone()) {
+                assert existingReplicaFuture == null || isCompletedSuccessfully(existingReplicaFuture);
+                LOG.info("Replica is started [replicationGroupId={}].", replicaGrpId);
 
-                    return CompletableFuture.completedFuture(newReplica);
-                } else {
-                    LOG.info("Replica is started, existing replica waiter was completed [replicationGroupId={}].", replicaGrpId);
+                return CompletableFuture.completedFuture(newReplica);
+            } else {
+                LOG.info("Replica is started, existing replica waiter was completed [replicationGroupId={}].", replicaGrpId);
 
-                    existingReplicaFuture.complete(newReplica);
+                existingReplicaFuture.complete(newReplica);
 
-                    return existingReplicaFuture;
-                }
-            });
+                return existingReplicaFuture;
+            }
         });
 
         var eventParams = new LocalReplicaEventParameters(replicaGrpId);
@@ -655,30 +653,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     return null;
                 })
                 .thenCompose(v -> replicaFuture);
-    }
-
-    /**
-     * Temporary public method for RAFT-client starting.
-     * TODO: will be removed after https://issues.apache.org/jira/browse/IGNITE-22315
-     *
-     * @param replicaGrpId Replication Group ID.
-     * @param newConfiguration Peers and learners nodes for a raft group.
-     * @param raftClientCache Temporal supplier that returns RAFT-client from TableRaftService if it's already exists and was put into the
-     *      service's map.
-     * @return Future that returns started RAFT-client.
-     * @throws NodeStoppingException In case if node was stopping.
-     */
-    @Deprecated
-    public CompletableFuture<TopologyAwareRaftGroupService> startRaftClient(
-            ReplicationGroupId replicaGrpId,
-            PeersAndLearners newConfiguration,
-            Supplier<RaftGroupService> raftClientCache)
-            throws NodeStoppingException {
-        RaftGroupService cachedRaftClient = raftClientCache.get();
-        return cachedRaftClient != null
-                ? CompletableFuture.completedFuture((TopologyAwareRaftGroupService) cachedRaftClient)
-                // TODO IGNITE-19614 This procedure takes 10 seconds if there's no majority online.
-                : raftManager.startRaftGroupService(replicaGrpId, newConfiguration, raftGroupServiceFactory, raftCommandsMarshaller);
     }
 
     /**
@@ -700,6 +674,18 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     public void resetPeers(ReplicationGroupId replicaGrpId, PeersAndLearners peersAndLearners) {
         RaftNodeId raftNodeId = new RaftNodeId(replicaGrpId, new Peer(localNodeConsistentId));
         ((Loza) raftManager).resetPeers(raftNodeId, peersAndLearners);
+    }
+
+    /**
+     * Checks if there is already started raft-node. The method is temporal and created strictly for current specific checks in
+     * TableManager. You shouldn't use this method instead of @method{@link #isReplicaStarted(ReplicationGroupId)}.
+     *
+     * @param raftNodeId given raft-node identifier.
+     * @return true if it's already started and false otherwise.
+     */
+    @Deprecated
+    public boolean isRaftNodeStarted(RaftNodeId raftNodeId) {
+        return ((Loza) raftManager).isStarted(raftNodeId);
     }
 
     /** Getter for wrapped write-ahead log syncer. */

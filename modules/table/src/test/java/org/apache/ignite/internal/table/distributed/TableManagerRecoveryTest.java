@@ -89,6 +89,7 @@ import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
@@ -278,7 +279,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
 
         when(replicaMgr.getLogSyncer()).thenReturn(mock(LogSyncer.class));
         when(replicaMgr.startReplica(any(), any(), any(), any(), any(), any()))
-                .thenReturn(nullCompletedFuture());
+                .thenReturn(completedFuture(mock(Replica.class)));
         when(replicaMgr.stopReplica(any())).thenReturn(trueCompletedFuture());
 
         try (MockedStatic<SchemaUtils> schemaServiceMock = mockStatic(SchemaUtils.class)) {

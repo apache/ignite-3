@@ -145,6 +145,7 @@ import org.apache.ignite.internal.raft.ExecutorInclinedRaftCommandRunner;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
+import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -152,6 +153,7 @@ import org.apache.ignite.internal.raft.storage.SnapshotStorageFactory;
 import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.schema.SchemaManager;
@@ -219,6 +221,7 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.Table;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -863,8 +866,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         InternalTable internalTbl = table.internalTable();
 
+        String localNodeName = localNode().name();
+
         Assignment localMemberAssignment = assignments.nodes().stream()
-                .filter(a -> a.consistentId().equals(localNode().name()))
+                .filter(a -> a.consistentId().equals(localNodeName))
                 .findAny()
                 .orElse(null);
 
@@ -873,6 +878,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 ? realConfiguration : configurationFromAssignments(nonStableNodeAssignments.nodes());
 
         TablePartitionId replicaGrpId = new TablePartitionId(tableId, partId);
+
+        Set<RaftNodeId> localRaftNodesIds = getLocalRaftNodesIdsForPartition(newConfiguration, replicaGrpId);
 
         var safeTimeTracker = new PendingComparableValuesTracker<HybridTimestamp, Void>(
                 new HybridTimestamp(1, 0)
@@ -925,7 +932,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     return falseCompletedFuture();
                 }
 
-                // (2) if replica already started => check force reset and finish the process
+                // (2) if all raft-nodes are started already => check force reset and finish the process
+                // if (localRaftNodesIds.stream().allMatch(replicaMgr::isRaftNodeStarted)) {
                 if (replicaMgr.isReplicaStarted(replicaGrpId)) {
                     if (nonStableNodeAssignments != null && nonStableNodeAssignments.force()) {
                         replicaMgr.resetPeers(replicaGrpId, configurationFromAssignments(nonStableNodeAssignments.nodes()));
@@ -966,7 +974,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                 try {
                     // TODO: remove
-                    LOG.info("!!! node={} starts replication group with config {}", localNode().name(), newConfiguration);
+                    LOG.info("!!! node={} starts replication group with config {}", localNodeName, newConfiguration);
                     return replicaMgr.startReplica(
                             raftGroupEventsListener,
                             raftGroupListener,
@@ -976,7 +984,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             createListener,
                             storageIndexTracker,
                             replicaGrpId,
-                            newConfiguration);
+                            newConfiguration)
+                            .thenCompose(unused -> trueCompletedFuture());
                 } catch (NodeStoppingException e) {
                     throw new AssertionError("Loza was stopped before Table manager", e);
                 }
@@ -999,6 +1008,26 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 });
 
         return resultFuture;
+    }
+
+    @NotNull
+    private Set<RaftNodeId> getLocalRaftNodesIdsForPartition(PeersAndLearners configuration, ReplicationGroupId replicaGrpId) {
+        String localNodeName = localNode().name();
+
+        Peer peerId = configuration.peer(localNodeName);
+        Peer learnerId = configuration.learner(localNodeName);
+
+        Set<RaftNodeId> localRaftNodesIds = new HashSet<>();
+
+        if (peerId != null) {
+            localRaftNodesIds.add(new RaftNodeId(replicaGrpId, peerId));
+        }
+
+        if (learnerId != null) {
+            localRaftNodesIds.add(new RaftNodeId(replicaGrpId, learnerId));
+        }
+
+        return localRaftNodesIds;
     }
 
     private boolean shouldStartRaftListeners(Assignments assignments, @Nullable Assignments nonStableNodeAssignments) {
@@ -2225,6 +2254,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         if (!replicaMgr.isReplicaStarted(tablePartitionId)) {
             return nullCompletedFuture();
         }
+
         // Update raft client peers and learners according to the actual assignments.
         return tablesById(revision).thenAccept(t -> {
             t.get(tablePartitionId.tableId()).internalTable()
