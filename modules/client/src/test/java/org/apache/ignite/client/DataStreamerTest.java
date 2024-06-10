@@ -570,11 +570,6 @@ public class DataStreamerTest extends AbstractClientTableTest {
                 + "current item: class java.lang.String"));
     }
 
-    @Test
-    public void testReceiverWithSubscriberAllTypesRoundtrip() {
-        assertFalse(true, "TODO");
-    }
-
     @ParameterizedTest
     @ValueSource(ints = {-1, 0, 1, 10})
     public void testReceiverWithSubscriberAllowsAnyNumberOfResults(int resultCount) {
@@ -609,11 +604,18 @@ public class DataStreamerTest extends AbstractClientTableTest {
 
     @Test
     public void testReceiverWithResultsWithoutSubscriber() {
+        assertFalse(true, "TODO");
+    }
+
+    @Test
+    public void testReceiverWithSubscriberAllTypesRoundtrip() {
+        testArgRoundtrip(true);
+        testArgRoundtrip(UUID.randomUUID());
+    }
+
+    private void testArgRoundtrip(Object arg) {
         CompletableFuture<Void> streamerFut;
         var resultSubscriber = new TestSubscriber<String>(Long.MAX_VALUE);
-
-        // TODO: All supported types.
-        Object arg = UUID.randomUUID();
 
         try (var publisher = new SubmissionPublisher<Tuple>()) {
             streamerFut = defaultTable().recordView().streamData(
