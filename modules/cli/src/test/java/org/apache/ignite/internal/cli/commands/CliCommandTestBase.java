@@ -133,6 +133,8 @@ public abstract class CliCommandTestBase extends BaseIgniteAbstractTest {
      * @param expectedOutput Expected command output.
      */
     protected void assertSuccessfulOutputIs(String expectedOutput) {
+        log.info(sout.toString());
+        log.info(serr.toString());
         assertAll(
                 this::assertExitCodeIsZero,
                 () -> assertOutputIs(expectedOutput),

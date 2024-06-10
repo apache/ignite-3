@@ -80,10 +80,22 @@ public class RowAssembler {
      * @param totalValueSize Total estimated length of non-NULL values, -1 if not known.
      */
     public RowAssembler(int schemaVersion, List<Column> columns, int totalValueSize) {
+        this(schemaVersion, columns, totalValueSize, true);
+    }
+
+    /**
+     * Create a builder.
+     *
+     * @param schemaVersion Version of the schema.
+     * @param columns List of columns to serialize. Values must be appended in the same order.
+     * @param totalValueSize Total estimated length of non-NULL values, -1 if not known.
+     * @param exactEstimate Whether the total size is exact estimate or approximate.
+     */
+    public RowAssembler(int schemaVersion, List<Column> columns, int totalValueSize, boolean exactEstimate) {
         this.schemaVersion = schemaVersion;
         this.columns = columns;
 
-        builder = new BinaryTupleBuilder(columns.size(), totalValueSize);
+        builder = new BinaryTupleBuilder(columns.size(), totalValueSize, exactEstimate);
         curCol = 0;
     }
 

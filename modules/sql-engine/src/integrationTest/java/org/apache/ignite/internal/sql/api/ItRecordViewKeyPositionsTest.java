@@ -226,7 +226,7 @@ public class ItRecordViewKeyPositionsTest extends BaseSqlIntegrationTest {
 
         @Override
         Tuple toValue(Tuple record) {
-            return Tuple.create(record);
+            return Tuple.copy(record);
         }
     }
 

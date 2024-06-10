@@ -30,6 +30,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.LongSupplier;
+import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -130,6 +132,14 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
 
     private volatile MetaStorageConfiguration metaStorageConfiguration;
 
+    private final ConfigurationValue<Long> idempotentCacheTtl;
+
+    private final CompletableFuture<LongSupplier> maxClockSkewMillisFuture;
+
+    private volatile MetaStorageListener followerListener;
+
+    private volatile MetaStorageListener learnerListener;
+
     /**
      * The constructor.
      *
@@ -140,6 +150,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
      * @param storage Storage. This component owns this resource and will manage its lifecycle.
      * @param clock A hybrid logical clock.
      * @param metricManager Metric manager.
+     * @param maxClockSkewMillisFuture Future with maximum clock skew in milliseconds.
      */
     public MetaStorageManagerImpl(
             ClusterService clusterService,
@@ -149,7 +160,9 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
             KeyValueStorage storage,
             HybridClock clock,
             TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory,
-            MetricManager metricManager
+            MetricManager metricManager,
+            ConfigurationValue<Long> idempotentCacheTtl,
+            CompletableFuture<LongSupplier> maxClockSkewMillisFuture
     ) {
         this.clusterService = clusterService;
         this.raftMgr = raftMgr;
@@ -157,9 +170,11 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         this.logicalTopologyService = logicalTopologyService;
         this.storage = storage;
         this.clusterTime = new ClusterTimeImpl(clusterService.nodeName(), busyLock, clock);
-        metaStorageMetricSource = new MetaStorageMetricSource(clusterTime);
+        this.metaStorageMetricSource = new MetaStorageMetricSource(clusterTime);
         this.topologyAwareRaftGroupServiceFactory = topologyAwareRaftGroupServiceFactory;
         this.metricManager = metricManager;
+        this.idempotentCacheTtl = idempotentCacheTtl;
+        this.maxClockSkewMillisFuture = maxClockSkewMillisFuture;
     }
 
     /**
@@ -175,9 +190,22 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
             HybridClock clock,
             TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory,
             MetricManager metricManager,
-            MetaStorageConfiguration configuration
+            MetaStorageConfiguration configuration,
+            ConfigurationValue<Long> idempotentCacheTtl,
+            CompletableFuture<LongSupplier> maxClockSkewMillisFuture
     ) {
-        this(clusterService, cmgMgr, logicalTopologyService, raftMgr, storage, clock, topologyAwareRaftGroupServiceFactory, metricManager);
+        this(
+                clusterService,
+                cmgMgr,
+                logicalTopologyService,
+                raftMgr,
+                storage,
+                clock,
+                topologyAwareRaftGroupServiceFactory,
+                metricManager,
+                idempotentCacheTtl,
+                maxClockSkewMillisFuture
+        );
 
         configure(configuration);
     }
@@ -293,10 +321,17 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
 
         assert localMetaStorageConfiguration != null : "Meta Storage configuration has not been set";
 
+        followerListener = new MetaStorageListener(
+                storage,
+                clusterTime,
+                idempotentCacheTtl,
+                maxClockSkewMillisFuture
+        );
+
         CompletableFuture<TopologyAwareRaftGroupService> raftServiceFuture = raftMgr.startRaftGroupNodeAndWaitNodeReadyFuture(
                 new RaftNodeId(MetastorageGroupId.INSTANCE, localPeer),
                 configuration,
-                new MetaStorageListener(storage, clusterTime),
+                followerListener,
                 RaftGroupEventsListener.noopLsnr,
                 disruptorConfig,
                 topologyAwareRaftGroupServiceFactory
@@ -334,10 +369,17 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
 
         assert localPeer != null;
 
+        learnerListener = new MetaStorageListener(
+                storage,
+                clusterTime,
+                idempotentCacheTtl,
+                maxClockSkewMillisFuture
+        );
+
         return raftMgr.startRaftGroupNodeAndWaitNodeReadyFuture(
                 new RaftNodeId(MetastorageGroupId.INSTANCE, localPeer),
                 configuration,
-                new MetaStorageListener(storage, clusterTime),
+                learnerListener,
                 RaftGroupEventsListener.noopLsnr,
                 disruptorConfig
         );
@@ -844,5 +886,20 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     /** Explicitly notifies revision update listeners. */
     public CompletableFuture<Void> notifyRevisionUpdateListenerOnStart() {
         return recoveryFinishedFuture.thenCompose(storage::notifyRevisionUpdateListenerOnStart);
+    }
+
+    /**
+     * Removes obsolete entries from both volatile and persistent idempotent command cache.
+     */
+    @TestOnly
+    @Deprecated(forRemoval = true)
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-19417 cache eviction should be triggered by MS GC instead.
+    public void evictIdempotentCommandsCache() {
+        if (followerListener != null) {
+            followerListener.evictIdempotentCommandsCache();
+        }
+        if (learnerListener != null) {
+            learnerListener.evictIdempotentCommandsCache();
+        }
     }
 }

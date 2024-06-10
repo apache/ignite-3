@@ -151,7 +151,7 @@ public class AbstractMultiNodeBenchmark {
         batchSize = Math.min(size, batchSize);
         List<Tuple> batch = new ArrayList<>(batchSize);
         for (int i = 0; i < size; i++) {
-            batch.add(Tuple.create(payload).set("ycsb_key", i));
+            batch.add(Tuple.copy(payload).set("ycsb_key", i));
 
             if (batch.size() == batchSize) {
                 view.insertAll(null, batch);

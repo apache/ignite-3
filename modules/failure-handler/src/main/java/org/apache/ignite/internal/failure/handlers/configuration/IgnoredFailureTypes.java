@@ -15,13 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.catalog;
+package org.apache.ignite.internal.failure.handlers.configuration;
 
-
-import org.apache.ignite.catalog.annotations.Table;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
 /**
- * Marker interface for {@link Table} annotation.
+ * Annotation to validate IgnoredFailureTypes configuration.
  */
-public interface DefaultZone {
+@Target(ElementType.FIELD)
+@Retention(RetentionPolicy.RUNTIME)
+public @interface IgnoredFailureTypes {
 }

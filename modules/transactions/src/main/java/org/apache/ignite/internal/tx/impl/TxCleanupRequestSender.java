@@ -32,8 +32,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.TxState;
@@ -50,9 +48,6 @@ import org.jetbrains.annotations.Nullable;
  * Sends TX Cleanup request.
  */
 public class TxCleanupRequestSender {
-    /** Logger. */
-    private static final IgniteLogger LOG = Loggers.forClass(TxCleanupRequestSender.class);
-
     /** Placement driver helper. */
     private final PlacementDriverHelper placementDriverHelper;
 
@@ -86,18 +81,17 @@ public class TxCleanupRequestSender {
      */
     public void start() {
         txMessageSender.messagingService().addMessageHandler(TxMessageGroup.class, (msg, sender, correlationId) -> {
+            // correlationId == null means we get the second TxCleanupMessageResponse
+            // that gets sent when cleanup is replicated to the majority.
             if (msg instanceof TxCleanupMessageResponse && correlationId == null) {
+                // The cleanup response is sent only in the success case, hence no error is expected.
+                assert !(msg instanceof TxCleanupMessageErrorResponse) : "Cleanup error response is not expected here.";
+
                 CleanupReplicatedInfo result = ((TxCleanupMessageResponse) msg).result();
 
-                if (result != null) {
-                    onCleanupReplicated(result);
-                }
+                assert result != null : "Result for the cleanup response cannot be null.";
 
-                if (msg instanceof TxCleanupMessageErrorResponse) {
-                    TxCleanupMessageErrorResponse response = (TxCleanupMessageErrorResponse) msg;
-
-                    LOG.warn("Exception happened during transaction cleanup [txId={}].", response.throwable(), response.txId());
-                }
+                onCleanupReplicated(result);
             }
         });
     }

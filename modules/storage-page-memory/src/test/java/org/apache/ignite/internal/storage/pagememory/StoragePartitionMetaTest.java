@@ -15,13 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory.persistence;
+package org.apache.ignite.internal.storage.pagememory;
 
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
-import static org.apache.ignite.internal.pagememory.persistence.PartitionMeta.partitionMetaPageId;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.flag;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageIndex;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.partitionId;
+import static org.apache.ignite.internal.storage.pagememory.StoragePartitionMeta.partitionMetaPageId;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
@@ -29,16 +29,16 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.UUID;
-import org.apache.ignite.internal.pagememory.persistence.PartitionMeta.PartitionMetaSnapshot;
+import org.apache.ignite.internal.storage.pagememory.StoragePartitionMeta.StoragePartitionMetaSnapshot;
 import org.junit.jupiter.api.Test;
 
 /**
- * For {@link PartitionMeta} testing.
+ * For {@link StoragePartitionMeta} testing.
  */
-public class PartitionMetaTest {
+public class StoragePartitionMetaTest {
     @Test
     void testLastAppliedIndex() {
-        PartitionMeta meta = new PartitionMeta();
+        StoragePartitionMeta meta = createMeta();
 
         assertEquals(0, meta.lastAppliedIndex());
 
@@ -53,7 +53,7 @@ public class PartitionMetaTest {
 
     @Test
     void testLastAppliedTerm() {
-        PartitionMeta meta = new PartitionMeta();
+        StoragePartitionMeta meta = createMeta();
 
         assertEquals(0, meta.lastAppliedTerm());
 
@@ -68,7 +68,7 @@ public class PartitionMetaTest {
 
     @Test
     void testLastGroupConfig() {
-        PartitionMeta meta = new PartitionMeta();
+        StoragePartitionMeta meta = createMeta();
 
         assertThat(meta.lastReplicationProtocolGroupConfigFirstPageId(), is(0L));
 
@@ -83,7 +83,7 @@ public class PartitionMetaTest {
 
     @Test
     void testPageCount() {
-        PartitionMeta meta = new PartitionMeta();
+        StoragePartitionMeta meta = createMeta();
 
         assertEquals(0, meta.pageCount());
 
@@ -98,7 +98,7 @@ public class PartitionMetaTest {
 
     @Test
     void testVersionChainTreeRootPageId() {
-        PartitionMeta meta = new PartitionMeta();
+        StoragePartitionMeta meta = createMeta();
 
         assertEquals(0, meta.versionChainTreeRootPageId());
 
@@ -113,7 +113,7 @@ public class PartitionMetaTest {
 
     @Test
     void testFreeListRootPageId() {
-        PartitionMeta meta = new PartitionMeta();
+        StoragePartitionMeta meta = createMeta();
 
         assertEquals(0, meta.freeListRootPageId());
 
@@ -128,9 +128,9 @@ public class PartitionMetaTest {
 
     @Test
     void testSnapshot() {
-        UUID checkpointId = null;
+        StoragePartitionMeta meta = createMeta();
 
-        PartitionMeta meta = new PartitionMeta(checkpointId, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+        UUID checkpointId = null;
 
         checkSnapshot(meta.metaSnapshot(checkpointId), 0, 0, 0, 0, 0, 0);
         checkSnapshot(meta.metaSnapshot(checkpointId = UUID.randomUUID()), 0, 0, 0, 0, 0, 0);
@@ -161,7 +161,7 @@ public class PartitionMetaTest {
     }
 
     @Test
-    void testPartitionMetaPageId() {
+    void testStoragePartitionMetaPageId() {
         long pageId = partitionMetaPageId(666);
 
         assertEquals(666, partitionId(pageId));
@@ -170,7 +170,7 @@ public class PartitionMetaTest {
     }
 
     private static void checkSnapshot(
-            PartitionMetaSnapshot snapshot,
+            StoragePartitionMetaSnapshot snapshot,
             long expLastAppliedIndex,
             long expLastAppliedTerm,
             long expLastGroupConfigFirstPageId,
@@ -184,5 +184,10 @@ public class PartitionMetaTest {
         assertThat(snapshot.versionChainTreeRootPageId(), equalTo(expVersionChainTreeRootPageId));
         assertThat(snapshot.freeListRootPageId(), equalTo(expFreeListRootPageId));
         assertThat(snapshot.pageCount(), equalTo(expPageCount));
+    }
+
+    private static StoragePartitionMeta createMeta() {
+        return new StoragePartitionMeta(0, 0, 0, 0, 0, 0, 0, 0, 0)
+                .init(null);
     }
 }
