@@ -1746,12 +1746,19 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         IgniteImpl finalNode1 = node1;
 
         // Restart is followed by rebalance, because data nodes are recalculated after full table creation that is completed after restart.
-        assertTrue(waitForCondition(() -> {
+        boolean success = waitForCondition(() -> {
             Set<Assignment> assignments0 = getAssignmentsFromMetaStorage(node0.metaStorageManager(), assignmentsKey.bytes());
             Set<Assignment> assignments1 = getAssignmentsFromMetaStorage(finalNode1.metaStorageManager(), assignmentsKey.bytes());
 
             return assignments0.size() == 1 && assignments0.equals(assignments1);
-        }, 10_000));
+        }, 10_000);
+
+        if (!success) {
+            log.info("Test: assignment on node0:" + getAssignmentsFromMetaStorage(node0.metaStorageManager(), assignmentsKey.bytes()));
+            log.info("Test: assignment on node1:" + getAssignmentsFromMetaStorage(finalNode1.metaStorageManager(), assignmentsKey.bytes()));
+        }
+
+        assertTrue(success);
     }
 
     @Test

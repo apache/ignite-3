@@ -617,7 +617,13 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private CompletableFuture<Boolean> onPrimaryReplicaExpired(PrimaryReplicaEventParameters parameters) {
         if (topologyService.localMember().id().equals(parameters.leaseholderId())) {
-            replicaMgr.weakReplicaStop(parameters.groupId(), WeakReplicaStopReason.PRIMARY_EXPIRED, () -> null);
+            TablePartitionId groupId = (TablePartitionId) parameters.groupId();
+
+            replicaMgr.weakReplicaStop(
+                    groupId,
+                    WeakReplicaStopReason.PRIMARY_EXPIRED,
+                    () -> stopAndDestroyPartition(groupId, tablesVv.latestCausalityToken())
+            );
         }
 
         return falseCompletedFuture();
@@ -871,26 +877,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             int zoneId,
             boolean isRecovery
     ) {
-        TablePartitionId replicaGrpId = new TablePartitionId(table.tableId(), partId);
-
-        return replicaMgr.weakReplicaStart(replicaGrpId, () -> startPartitionAndStartClient0(
-                table,
-                partId,
-                assignments,
-                nonStableNodeAssignments,
-                zoneId,
-                isRecovery
-        ));
-    }
-
-    private CompletableFuture<Void> startPartitionAndStartClient0(
-            TableImpl table,
-            int partId,
-            Assignments assignments,
-            @Nullable Assignments nonStableNodeAssignments,
-            int zoneId,
-            boolean isRecovery
-    ) {
         CompletableFuture<Void> resultFuture = new CompletableFuture<>();
 
         int tableId = table.tableId();
@@ -966,7 +952,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     )
                     : trueCompletedFuture();
 
-            startGroupFut = shouldStartGroupFut.thenComposeAsync(startGroup -> inBusyLock(busyLock, () -> {
+            startGroupFut = replicaMgr.weakReplicaStart(replicaGrpId, () -> shouldStartGroupFut
+                    .thenComposeAsync(startGroup -> inBusyLock(busyLock, () -> {
                 // (1) if partitionReplicatorNodeRecovery#shouldStartGroup fails -> do start nothing
                 if (!startGroup) {
                     return falseCompletedFuture();
@@ -1026,7 +1013,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 } catch (NodeStoppingException e) {
                     throw new AssertionError("Loza was stopped before Table manager", e);
                 }
-            }), ioExecutor);
+            }), ioExecutor));
         } else {
             // TODO: will be removed after https://issues.apache.org/jira/browse/IGNITE-22315
             // (4) in case if node not in the assignments
@@ -2300,22 +2287,30 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         if (shouldStopLocalServices) {
             return allOf(
                     clientUpdateFuture,
-                    stopAndDestroyPartition(tablePartitionId, revision)
+                    weakStopAndDestroyPartition(tablePartitionId, revision)
             );
         } else {
             return clientUpdateFuture;
         }
     }
 
+    private CompletableFuture<Void> weakStopAndDestroyPartition(TablePartitionId tablePartitionId, long causalityToken) {
+        return replicaMgr.weakReplicaStop(
+                tablePartitionId,
+                WeakReplicaStopReason.EXCLUDED_FROM_ASSIGNMENTS,
+                () -> stopAndDestroyPartition(tablePartitionId, causalityToken)
+        );
+    }
+
     private CompletableFuture<Void> stopAndDestroyPartition(TablePartitionId tablePartitionId, long causalityToken) {
-        return replicaMgr.weakReplicaStop(tablePartitionId, WeakReplicaStopReason.EXCLUDED_FROM_ASSIGNMENTS, () -> tablesVv
+        return tablesVv
                 .get(causalityToken)
                 .thenCompose(ignore -> {
                     TableImpl table = tables.get(tablePartitionId.tableId());
 
                     return stopPartition(tablePartitionId, table)
                             .thenComposeAsync(v -> destroyPartitionStorages(tablePartitionId, table), ioExecutor);
-                }));
+                });
     }
 
     /**

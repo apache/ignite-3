@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.replicator.LocalReplicaEvent.BEFORE_REP
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.thread.ThreadOperation.TX_STATE_STORAGE_ACCESS;
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.isCompletedSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
@@ -240,7 +241,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         this.raftCommandsMarshaller = raftCommandsMarshaller;
         this.raftGroupServiceFactory = raftGroupServiceFactory;
         this.raftManager = raftManager;
-        this.replicaLifecycle = new ReplicaLifecycle(replicaStartStopExecutor);
+        this.replicaLifecycle = new ReplicaLifecycle(replicaStartStopExecutor, clockService, placementDriver);
 
         scheduledIdleSafeTimeSyncExecutor = Executors.newScheduledThreadPool(
                 1,
@@ -846,6 +847,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         localNodeConsistentId = clusterNetSvc.topologyService().localMember().name();
 
+        replicaLifecycle.start(localNodeId);
+
         return nullCompletedFuture();
     }
 
@@ -1010,9 +1013,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         return replicaFuture != null && isCompletedSuccessfully(replicaFuture);
     }
 
-    public CompletableFuture<Void> weakReplicaStart(
+    public CompletableFuture<Boolean> weakReplicaStart(
             ReplicationGroupId replicationGroupId,
-            Supplier<CompletableFuture<Void>> startOperation
+            Supplier<CompletableFuture<Boolean>> startOperation
     ) {
         return replicaLifecycle.weakReplicaStart(replicationGroupId, startOperation);
     }
@@ -1049,13 +1052,32 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 .collect(toSet());
     }
 
-    private class ReplicaLifecycle {
+    @TestOnly
+    public boolean isReplicaPrimaryOnly(ReplicationGroupId groupId) {
+        return replicaLifecycle.isReplicaPrimaryOnly(groupId);
+    }
+
+    private static class ReplicaLifecycle {
+        private final IgniteLogger log = Loggers.forClass(ReplicaLifecycle.class);
+
         final Map<ReplicationGroupId, ReplicaLifecycleContext> replicaContexts = new ConcurrentHashMap<>();
 
         final Executor replicaStartStopPool;
 
-        public ReplicaLifecycle(Executor replicaStartStopPool) {
+        final ClockService clockService;
+
+        final PlacementDriver placementDriver;
+
+        String localNodeId;
+
+        ReplicaLifecycle(Executor replicaStartStopPool, ClockService clockService, PlacementDriver placementDriver) {
             this.replicaStartStopPool = replicaStartStopPool;
+            this.clockService = clockService;
+            this.placementDriver = placementDriver;
+        }
+
+        void start(String localNodeId) {
+            this.localNodeId = localNodeId;
         }
 
         ReplicaLifecycleContext getContext(ReplicationGroupId groupId) {
@@ -1070,11 +1092,13 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
          * @param groupId Group id.
          * @param startOperation Replica start operation.
          */
-        CompletableFuture<Void> weakReplicaStart(ReplicationGroupId groupId, Supplier<CompletableFuture<Void>> startOperation) {
+        CompletableFuture<Boolean> weakReplicaStart(ReplicationGroupId groupId, Supplier<CompletableFuture<Boolean>> startOperation) {
             ReplicaLifecycleContext context = getContext(groupId);
 
             synchronized (context) {
                 ReplicaState state = context.replicaState;
+
+                log.info("qqq weakReplicaStart grp={}, state={}, future=", groupId, state, context.previousOperationFuture);
 
                 if (state == ReplicaState.STOPPED || state == ReplicaState.STOPPING) {
                     return startReplica(context, startOperation);
@@ -1082,11 +1106,16 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     context.replicaState = ReplicaState.ASSIGNED;
                 } // else no-op.
 
-                return nullCompletedFuture();
+                log.info("qqq weakReplicaStart complete grpId={}, state={}", groupId, context.replicaState);
+
+                return falseCompletedFuture();
             }
         }
 
-        private CompletableFuture<Void> startReplica(ReplicaLifecycleContext context, Supplier<CompletableFuture<Void>> startOperation) {
+        private CompletableFuture<Boolean> startReplica(
+                ReplicaLifecycleContext context,
+                Supplier<CompletableFuture<Boolean>> startOperation
+        ) {
             context.replicaState = ReplicaState.STARTING;
             context.previousOperationFuture = context.previousOperationFuture
                     .handleAsync((v, e) -> startOperation.get(), replicaStartStopPool)
@@ -1094,6 +1123,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                         synchronized (context) {
                             context.replicaState = ReplicaState.ASSIGNED;
                         }
+
+                        log.info("qqq weakReplicaStart complete state={}", context.replicaState);
 
                         return future;
                     });
@@ -1129,6 +1160,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             synchronized (context) {
                 ReplicaState state = context.replicaState;
 
+                log.info("qqq weakReplicaStop grpId={}, state={}, reason={}, isPrimaryLocal={}, future={}", groupId, state, reason, isPrimaryLocal, context.previousOperationFuture);
+
                 if (reason == WeakReplicaStopReason.EXCLUDED_FROM_ASSIGNMENTS) {
                     if (state == ReplicaState.ASSIGNED) {
                         if (isPrimaryLocal == null) {
@@ -1149,6 +1182,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     } // else: no-op.
                 }
 
+                log.info("qqq weakReplicaStop complete grpId={}, state={}", groupId, context.replicaState);
+
                 return nullCompletedFuture();
             }
         }
@@ -1167,10 +1202,12 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                             replicaContexts.remove(groupId);
                         }
 
-                        return future;
+                        log.info("qqq weakReplicaStop complete grpId={}, state={}", groupId, context.replicaState);
+
+                        return future.thenApply(v -> null);
                     });
 
-            return context.previousOperationFuture;
+            return context.previousOperationFuture.thenApply(v -> null);
         }
 
         private CompletableFuture<Boolean> isPrimaryLocal(ReplicationGroupId groupId) {
@@ -1179,14 +1216,23 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             return placementDriver.getPrimaryReplica(groupId, now)
                     .thenApply(replicaMeta -> replicaMeta != null && localNodeId.equals(replicaMeta.getLeaseholderId()));
         }
+
+        @TestOnly
+        boolean isReplicaPrimaryOnly(ReplicationGroupId groupId) {
+            ReplicaLifecycleContext context = getContext(groupId);
+
+            synchronized (context) {
+                return context.replicaState == ReplicaState.PRIMARY_ONLY;
+            }
+        }
     }
 
     private static class ReplicaLifecycleContext {
         ReplicaState replicaState;
 
-        CompletableFuture<Void> previousOperationFuture;
+        CompletableFuture<Boolean> previousOperationFuture;
 
-        ReplicaLifecycleContext(ReplicaState replicaState, CompletableFuture<Void> previousOperationFuture) {
+        ReplicaLifecycleContext(ReplicaState replicaState, CompletableFuture<Boolean> previousOperationFuture) {
             this.replicaState = replicaState;
             this.previousOperationFuture = previousOperationFuture;
         }
