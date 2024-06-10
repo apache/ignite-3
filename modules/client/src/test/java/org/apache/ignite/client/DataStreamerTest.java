@@ -582,12 +582,12 @@ public class DataStreamerTest extends AbstractClientTableTest {
         var resultSubscriber = new TestSubscriber<String>(Long.MAX_VALUE);
 
         try (var publisher = new SubmissionPublisher<Tuple>()) {
-            var options = DataStreamerOptions.builder().pageSize(1).build();
+            var options = DataStreamerOptions.builder().pageSize(100).build();
             streamerFut = defaultTable().recordView().streamData(
                     publisher,
                     options,
                     t -> t,
-                    t -> t.longValue("id"),
+                    t -> 1L, // Same partition for all items.
                     resultSubscriber,
                     new ArrayList<>(),
                     TestReceiver.class.getName(),
@@ -604,7 +604,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
 
         assertTrue(resultSubscriber.completed.get());
         assertNull(resultSubscriber.error.get());
-        assertEquals(resultCount, resultSubscriber.items.size());
+        assertEquals(resultCount == -1 ? 0 : resultCount, resultSubscriber.items.size());
     }
 
     @Test
@@ -639,7 +639,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
                 String name = "recv_" + args[0] + "_" + id;
                 view.upsert(null, tuple(id, name));
 
-                if (resultCount-- >= 0) {
+                if (resultCount-- > 0) {
                     res.add(name);
                 }
             }
