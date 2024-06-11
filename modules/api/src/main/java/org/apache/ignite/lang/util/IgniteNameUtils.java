@@ -35,10 +35,11 @@ public final class IgniteNameUtils {
      *
      * @param name String to parse object name.
      * @return Unquoted name or name is cast to upper case. "tbl0" -&gt; "TBL0", "\"Tbl0\"" -&gt; "Tbl0".
+     * @throws IllegalArgumentException if name is {@code null} or empty.
      */
     public static String parseSimpleName(String name) {
         if (name == null || name.isEmpty()) {
-            return name;
+            throw new IllegalArgumentException("Name is null or empty.");
         }
 
         var tokenizer = new Tokenizer(name);
@@ -79,9 +80,28 @@ public final class IgniteNameUtils {
      *
      * @param name Object name.
      * @return Quoted object name.
+     * @throws IllegalArgumentException if name is {@code null} or empty.
      */
     public static String quote(String name) {
-        return "\"" + name + "\"";
+        if (name == null || name.isEmpty()) {
+            throw new IllegalArgumentException("Name is null or empty.");
+        }
+
+        if (name.chars().noneMatch(cp -> cp == '\"')) {
+            return '\"' + name + '\"';
+        }
+
+        StringBuilder sb = new StringBuilder(name.length() + 2).append('\"');
+        for (int currentPosition = 0; currentPosition < name.length(); currentPosition++) {
+            char ch = name.charAt(currentPosition);
+            if (ch == '\"') {
+                sb.append('\"');
+            }
+            sb.append(ch);
+        }
+        sb.append('\"');
+
+        return sb.toString();
     }
 
     /**
@@ -90,11 +110,24 @@ public final class IgniteNameUtils {
      *
      * @param name Object name.
      * @return Quoted object name.
+     * @throws IllegalArgumentException if name is {@code null} or empty.
      */
     public static String quoteIfNeeded(String name) {
-        String simpleName = parseSimpleName(name);
+        if (name == null || name.isEmpty()) {
+            throw new IllegalArgumentException("Name is null or empty.");
+        }
 
-        return name.equals(simpleName) || name.equals(quote(simpleName)) ? name : quote(name);
+        if (name.charAt(0) == '\"') {
+            String simpleName = parseSimpleName(name);
+
+            return name.equals(quote(simpleName)) ? name : quote(name);
+        }
+
+        if (!NAME_PATTER.matcher(name).matches()) {
+            return quote(name);
+        }
+
+        return name.equals(name.toUpperCase()) ? name : quote(name);
     }
 
     /**
@@ -147,8 +180,8 @@ public final class IgniteNameUtils {
                     if (hasNextChar() && nextChar() == '"') {  // quote is escaped
                         sb.append(source, start, currentPosition + 1);
 
-                        currentPosition += 2;
-                        start = currentPosition;
+                        start = currentPosition + 2;
+                        currentPosition += 1;
 
                         continue;
                     } else if (!hasNextChar() || nextChar() == '.') {
