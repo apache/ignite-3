@@ -1090,7 +1090,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         void start(String localNodeId) {
             this.localNodeId = localNodeId;
             placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, this::onPrimaryElected);
-            placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, this::onPrimaryExpired);
+            placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, this::onPrimaryExpired);
         }
 
         private CompletableFuture<Boolean> onPrimaryElected(PrimaryReplicaEventParameters parameters) {
