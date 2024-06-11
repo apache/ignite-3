@@ -37,7 +37,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.message.VacuumTxStateReplicaRequest;
@@ -86,14 +86,14 @@ public class PersistentTxStateVacuumizer {
      * @param txIds Transaction ids to vacuum; map of commit partition ids to sets of {@link VacuumizableTx}.
      * @return A future, result is the set of successfully processed txn states and count of persistent states that were vacuumized.
      */
-    public CompletableFuture<PersistentTxStateVacuumResult> vacuumPersistentTxStates(Map<TablePartitionId, Set<VacuumizableTx>> txIds) {
+    public CompletableFuture<PersistentTxStateVacuumResult> vacuumPersistentTxStates(Map<ZonePartitionId, Set<VacuumizableTx>> txIds) {
         Set<UUID> successful = ConcurrentHashMap.newKeySet();
         List<CompletableFuture<?>> futures = new ArrayList<>();
         AtomicInteger vacuumizedPersistentTxnStatesCount = new AtomicInteger();
         HybridTimestamp now = clockService.now();
 
         txIds.forEach((commitPartitionId, txs) -> {
-            CompletableFuture<?> future = placementDriver.getPrimaryReplica(commitPartitionId, now)
+            CompletableFuture<?> future = placementDriver.getPrimaryReplicaForTable(commitPartitionId, now)
                     .thenCompose(replicaMeta -> {
                         // If the primary replica is absent or is not located on the local node, this means that the primary either is
                         // on another node or would be re-elected on local one; then the volatile state (as well as cleanup completion

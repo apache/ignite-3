@@ -72,6 +72,7 @@ import org.apache.ignite.internal.table.distributed.raft.snapshot.message.Snapsh
 import org.apache.ignite.internal.table.distributed.schema.PartitionCommandsMarshallerImpl;
 import org.apache.ignite.internal.test.WatchListenerInhibitor;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.log4j2.LogInspector;
 import org.apache.ignite.internal.testframework.log4j2.LogInspector.Handler;
@@ -470,6 +471,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
      * (and can install a RAFT snapshot on the ex-leader).
      */
     @Test
+    @WithSystemProperty(key = "IGNITE_ALWAYS_FORCE", value = "false")
     void nodeCanInstallSnapshotsAfterSnapshotInstalledToIt() throws Exception {
         feedNode2WithSnapshotOfOneRow();
 

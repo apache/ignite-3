@@ -20,7 +20,7 @@ package org.apache.ignite.internal.table.distributed.replication;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.table.distributed.replication.PartitionReplicaListenerTest.binaryRowsToBuffers;
-import static org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener.tablePartitionId;
+import static org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener.zonePartitionId;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.tx.TxState.checkTransitionCorrectness;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -59,7 +59,7 @@ import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
@@ -123,6 +123,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 @ExtendWith(ConfigurationExtension.class)
 public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest {
     private static final int PART_ID = 0;
+    private static final int ZONE_ID = 11;
     private static final int TABLE_ID = 1;
     private static final int PK_INDEX_ID = 1;
     private static final int HASH_INDEX_ID = 2;
@@ -131,7 +132,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
     private static final HybridClock CLOCK = new HybridClockImpl();
     private static final ClockService CLOCK_SERVICE = new TestClockService(CLOCK);
     private static final LockManager LOCK_MANAGER = new HeapLockManager();
-    private static final TablePartitionId PARTITION_ID = new TablePartitionId(TABLE_ID, PART_ID);
+    private static final ZonePartitionId PARTITION_ID = new ZonePartitionId(ZONE_ID, TABLE_ID, PART_ID);
     private static final TableMessagesFactory TABLE_MESSAGES_FACTORY = new TableMessagesFactory();
     private static final TestMvPartitionStorage TEST_MV_PARTITION_STORAGE = new TestMvPartitionStorage(PART_ID);
 
@@ -209,7 +210,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(pkStorage.get().id(), pkStorage.get()))
         );
 
-        TestPartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(TABLE_ID, PART_ID, TEST_MV_PARTITION_STORAGE);
+        TestPartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(ZONE_ID, TABLE_ID, PART_ID, TEST_MV_PARTITION_STORAGE);
 
         CatalogService catalogService = mock(CatalogService.class);
 
@@ -233,6 +234,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 LOCK_MANAGER,
                 Runnable::run,
                 PART_ID,
+                ZONE_ID,
                 TABLE_ID,
                 () -> Map.of(
                         pkLocker.id(), pkLocker,
@@ -325,7 +327,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 request = TABLE_MESSAGES_FACTORY.readWriteSingleRowPkReplicaRequest()
                         .groupId(PARTITION_ID)
                         .enlistmentConsistencyToken(1L)
-                        .commitPartitionId(tablePartitionId(PARTITION_ID))
+                        .zoneCommitPartitionId(zonePartitionId(PARTITION_ID))
                         .transactionId(TRANSACTION_ID)
                         .schemaVersion(testPk.schemaVersion())
                         .primaryKey(testPk.tupleSlice())
@@ -344,7 +346,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 request = TABLE_MESSAGES_FACTORY.readWriteSingleRowReplicaRequest()
                         .groupId(PARTITION_ID)
                         .enlistmentConsistencyToken(1L)
-                        .commitPartitionId(tablePartitionId(PARTITION_ID))
+                        .zoneCommitPartitionId(zonePartitionId(PARTITION_ID))
                         .transactionId(TRANSACTION_ID)
                         .schemaVersion(testBinaryRow.schemaVersion())
                         .binaryTuple(testBinaryRow.tupleSlice())
@@ -411,7 +413,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 request = TABLE_MESSAGES_FACTORY.readWriteMultiRowPkReplicaRequest()
                         .groupId(PARTITION_ID)
                         .enlistmentConsistencyToken(1L)
-                        .commitPartitionId(tablePartitionId(PARTITION_ID))
+                        .zoneCommitPartitionId(zonePartitionId(PARTITION_ID))
                         .transactionId(TRANSACTION_ID)
                         .schemaVersion(pks.iterator().next().schemaVersion())
                         .primaryKeys(pks.stream().map(BinaryRow::tupleSlice).collect(toList()))
@@ -427,7 +429,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 request = TABLE_MESSAGES_FACTORY.readWriteMultiRowReplicaRequest()
                         .groupId(PARTITION_ID)
                         .enlistmentConsistencyToken(1L)
-                        .commitPartitionId(tablePartitionId(PARTITION_ID))
+                        .zoneCommitPartitionId(zonePartitionId(PARTITION_ID))
                         .transactionId(TRANSACTION_ID)
                         .schemaVersion(rows.iterator().next().schemaVersion())
                         .binaryTuples(binaryRowsToBuffers(rows))
@@ -515,7 +517,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
             RowId rowId = row.getSecond();
 
             pkStorage.get().put(binaryRow, rowId);
-            TEST_MV_PARTITION_STORAGE.addWrite(rowId, binaryRow, txId, TABLE_ID, PART_ID);
+            TEST_MV_PARTITION_STORAGE.addWrite(rowId, binaryRow, txId, ZONE_ID, TABLE_ID, PART_ID);
             TEST_MV_PARTITION_STORAGE.commitWrite(rowId, commitTs);
         }
     }

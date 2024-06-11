@@ -17,18 +17,23 @@
 
 package org.apache.ignite.internal.replicator;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.replicator.LocalReplicaEvent.AFTER_REPLICA_STARTED;
 import static org.apache.ignite.internal.replicator.LocalReplicaEvent.BEFORE_REPLICA_STOPPED;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.thread.ThreadOperation.TX_STATE_STORAGE_ACCESS;
+import static org.apache.ignite.internal.util.CompletableFutures.allOf;
 import static org.apache.ignite.internal.util.CompletableFutures.isCompletedSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -36,11 +41,8 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -66,6 +68,9 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessageHandler;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.placementdriver.ReplicaMeta;
+import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessage;
+import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageResponse;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessageGroup;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverReplicaMessage;
@@ -97,6 +102,7 @@ import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaSafeTimeSyncRequest;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
+import org.apache.ignite.internal.replicator.message.WaitReplicaStateMessage;
 import org.apache.ignite.internal.thread.ExecutorChooser;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.PublicApiThreading;
@@ -165,9 +171,11 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     private final LongSupplier idleSafeTimePropagationPeriodMsSupplier;
 
     /** Replicas. */
-    private final ConcurrentHashMap<ReplicationGroupId, CompletableFuture<Replica>> replicas = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<ZonePartitionId, CompletableFuture<Replica>> replicas = new ConcurrentHashMap<>();
 
     private final ClockService clockService;
+
+    private final ConcurrentHashMap<ZonePartitionId, Set<Integer>> zonePartIdToTableIds = new ConcurrentHashMap<>();
 
     /** Scheduled executor for idle safe time sync. */
     private final ScheduledExecutorService scheduledIdleSafeTimeSyncExecutor;
@@ -175,15 +183,13 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     /** Executor that will be used to execute requests by replicas. */
     private final Executor requestsExecutor;
 
+    private final ScheduledExecutorService scheduledTableLeaseUpdateExecutor;
+
     /** Failure processor. */
     private final FailureProcessor failureProcessor;
 
     /** Set of message groups to handler as replica requests. */
     private final Set<Class<?>> messageGroupsToHandle;
-
-    /** Executor. */
-    // TODO: IGNITE-20063 Maybe get rid of it
-    private final ExecutorService executor;
 
     private String localNodeId;
 
@@ -242,15 +248,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 NamedThreadFactory.create(nodeName, "scheduled-idle-safe-time-sync-thread", LOG)
         );
 
-        int threadCount = Runtime.getRuntime().availableProcessors();
-
-        executor = new ThreadPoolExecutor(
-                threadCount,
-                threadCount,
-                30,
-                TimeUnit.SECONDS,
-                new LinkedBlockingQueue<>(),
-                NamedThreadFactory.create(nodeName, "replica", LOG)
+        scheduledTableLeaseUpdateExecutor = Executors.newScheduledThreadPool(
+                1,
+                NamedThreadFactory.create(nodeName, "scheduled-table-lease-update-thread", LOG)
         );
     }
 
@@ -307,7 +307,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         try {
             // Notify the sender that the Replica is created and ready to process requests.
             if (request instanceof AwaitReplicaRequest) {
-                replicas.compute(request.groupId(), (replicationGroupId, replicaFut) -> {
+                replicas.compute((ZonePartitionId) request.groupId(), (replicationGroupId, replicaFut) -> {
                     if (replicaFut == null) {
                         replicaFut = new CompletableFuture<>();
                     }
@@ -334,6 +334,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
                 return;
             }
+
+            assert request.groupId() instanceof ZonePartitionId : "Request = " + request;
 
             CompletableFuture<Replica> replicaFut = replicas.get(request.groupId());
 
@@ -430,7 +432,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         assert correlationId != null;
 
-        var msg = (PlacementDriverReplicaMessage) msg0;
+        var msg = (LeaseGrantedMessage) msg0;
 
         if (!busyLock.enterBusy()) {
             if (LOG.isInfoEnabled()) {
@@ -441,17 +443,52 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         }
 
         try {
-            CompletableFuture<Replica> replicaFut = replicas.computeIfAbsent(msg.groupId(), k -> new CompletableFuture<>());
+            Set<Integer> tableIds = new HashSet<>();
 
-            replicaFut
-                    .thenCompose(replica -> replica.processPlacementDriverMessage(msg))
-                    .whenComplete((response, ex) -> {
-                        if (ex == null) {
-                            clusterNetSvc.messagingService().respond(senderConsistentId, response, correlationId);
-                        } else if (!(unwrapCause(ex) instanceof NodeStoppingException)) {
-                            LOG.error("Failed to process placement driver message [msg={}].", ex, msg);
-                        }
-                    });
+            ZonePartitionId zonePartId = (ZonePartitionId) msg.groupId();
+
+            zonePartIdToTableIds.compute(zonePartId, (key, tablePartIds) -> {
+                if (tablePartIds == null) {
+                    tablePartIds = new HashSet<>();
+                }
+
+                tableIds.addAll(tablePartIds);
+
+                return tablePartIds;
+            });
+
+            CompletableFuture<LeaseGrantedMessageResponse>[] futures = new CompletableFuture[tableIds.size()];
+
+            int i = 0;
+
+            for (Integer tblId : tableIds) {
+                CompletableFuture<Replica> replicaFut = replicas.computeIfAbsent(
+                        new ZonePartitionId(zonePartId.zoneId(), tblId, zonePartId.partitionId()),
+                        k -> new CompletableFuture<>()
+                );
+                futures[i++] = replicaFut.thenCompose(replica -> replica.processPlacementDriverMessage(msg));
+            }
+
+            allOf(futures).whenComplete((responses, ex) -> {
+                if (ex == null) {
+                    boolean accepted = responses.stream().allMatch(LeaseGrantedMessageResponse::accepted);
+
+                    assert !msg.force() || accepted : "We do not give a replica possibility to decline a forced request.";
+
+                    String redirect = accepted ? null :
+                            responses.stream().filter(leaseGranResp -> !leaseGranResp.accepted()).findAny().get().redirectProposal();
+
+                    LeaseGrantedMessageResponse response = PLACEMENT_DRIVER_MESSAGES_FACTORY.leaseGrantedMessageResponse()
+                            .appliedGroups(tableIds)
+                            .redirectProposal(redirect)
+                            .accepted(accepted)
+                            .build();
+
+                    clusterNetSvc.messagingService().respond(senderConsistentId, response, correlationId);
+                } else if (!(unwrapCause(ex) instanceof NodeStoppingException)) {
+                    LOG.error("Failed to process placement driver message [msg={}].", ex, msg);
+                }
+            });
         } finally {
             busyLock.leaveBusy();
         }
@@ -489,10 +526,17 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             Consumer<RaftGroupService> updateTableRaftService,
             Function<RaftGroupService, ReplicaListener> createListener,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker,
-            TablePartitionId replicaGrpId,
+            ReplicationGroupId replicaGrpId,
             PeersAndLearners newConfiguration
     ) throws NodeStoppingException {
-        RaftNodeId raftNodeId = new RaftNodeId(replicaGrpId, new Peer(localNodeConsistentId));
+        assert replicaGrpId instanceof ZonePartitionId;
+        ZonePartitionId zoneTablePartId = (ZonePartitionId) replicaGrpId;
+        assert zoneTablePartId.tableId() != 0;
+
+        RaftNodeId raftNodeId = new RaftNodeId(
+                new TablePartitionId(zoneTablePartId.tableId(), zoneTablePartId.partitionId()),
+                new Peer(localNodeConsistentId)
+        );
 
         RaftGroupOptions groupOptions = groupOptionsForPartition(
                 isVolatileStorage,
@@ -542,7 +586,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             Consumer<RaftGroupService> updateTableRaftService,
             Function<RaftGroupService, ReplicaListener> createListener,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker,
-            TablePartitionId replicaGrpId,
+            ZonePartitionId replicaGrpId,
             PeersAndLearners newConfiguration
     ) throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
@@ -592,6 +636,10 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     ) throws NodeStoppingException {
         LOG.info("Replica is about to start [replicationGroupId={}].", replicaGrpId);
 
+        assert replicaGrpId instanceof ZonePartitionId;
+        ZonePartitionId zoneTablePartId = (ZonePartitionId) replicaGrpId;
+        assert (zoneTablePartId).tableId() != 0;
+
         CompletableFuture<Boolean> resultFuture = newRaftClientFut.thenAccept(updateTableRaftService)
                 .thenApply((v) -> true);
 
@@ -618,25 +666,41 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             PendingComparableValuesTracker<Long, Void> storageIndexTracker,
             CompletableFuture<ReplicaListener> newReplicaListenerFut
     ) throws NodeStoppingException {
+        LOG.info("Replica is about to start [replicationGroupId={}].", replicaGrpId);
+
+        assert replicaGrpId instanceof ZonePartitionId;
+        ZonePartitionId zoneTablePartId = (ZonePartitionId) replicaGrpId;
+        assert (zoneTablePartId).tableId() != 0;
 
         ClusterNode localNode = clusterNetSvc.topologyService().localMember();
 
         CompletableFuture<Replica> replicaFuture = newReplicaListenerFut.thenCompose(listener -> {
             Replica newReplica = new Replica(
-                    replicaGrpId,
+                    zoneTablePartId,
                     listener,
                     storageIndexTracker,
                     localNode,
-                    executor,
+                    requestsExecutor,
                     placementDriver,
-                    clockService);
+                    clockService
+            );
 
-            return replicas.compute(replicaGrpId, (k, existingReplicaFuture) -> {
+            return replicas.compute(zoneTablePartId, (k, existingReplicaFuture) -> {
+                zonePartIdToTableIds.compute(ZonePartitionId.resetTableId(zoneTablePartId), (key, tablePartIds) -> {
+                    if (tablePartIds == null) {
+                        tablePartIds = new HashSet<>();
+                    }
+
+                    tablePartIds.add(zoneTablePartId.tableId());
+
+                    return tablePartIds;
+                });
+
                 if (existingReplicaFuture == null || existingReplicaFuture.isDone()) {
                     assert existingReplicaFuture == null || isCompletedSuccessfully(existingReplicaFuture);
                     LOG.info("Replica is started [replicationGroupId={}].", replicaGrpId);
 
-                    return CompletableFuture.completedFuture(newReplica);
+                    return completedFuture(newReplica);
                 } else {
                     LOG.info("Replica is started, existing replica waiter was completed [replicationGroupId={}].", replicaGrpId);
 
@@ -677,7 +741,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             throws NodeStoppingException {
         RaftGroupService cachedRaftClient = raftClientCache.get();
         return cachedRaftClient != null
-                ? CompletableFuture.completedFuture((TopologyAwareRaftGroupService) cachedRaftClient)
+                ? completedFuture((TopologyAwareRaftGroupService) cachedRaftClient)
                 // TODO IGNITE-19614 This procedure takes 10 seconds if there's no majority online.
                 : raftManager.startRaftGroupService(replicaGrpId, newConfiguration, raftGroupServiceFactory, raftCommandsMarshaller);
     }
@@ -699,7 +763,15 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param peersAndLearners New node configuration.
      */
     public void resetPeers(ReplicationGroupId replicaGrpId, PeersAndLearners peersAndLearners) {
-        RaftNodeId raftNodeId = new RaftNodeId(replicaGrpId, new Peer(localNodeConsistentId));
+        assert replicaGrpId instanceof ZonePartitionId;
+        ZonePartitionId zoneTablePartId = (ZonePartitionId) replicaGrpId;
+        assert zoneTablePartId.tableId() != 0;
+
+        RaftNodeId raftNodeId = new RaftNodeId(
+                new TablePartitionId(zoneTablePartId.tableId(), zoneTablePartId.partitionId()),
+                new Peer(localNodeConsistentId)
+        );
+
         ((Loza) raftManager).resetPeers(raftNodeId, peersAndLearners);
     }
 
@@ -758,6 +830,10 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         var eventParams = new LocalReplicaEventParameters(replicaGrpId);
 
+        assert replicaGrpId instanceof ZonePartitionId;
+        ZonePartitionId zonePartitionId = (ZonePartitionId) replicaGrpId;
+        assert zonePartitionId.tableId() != 0;
+
         fireEvent(BEFORE_REPLICA_STOPPED, eventParams).whenComplete((v, e) -> {
             if (e != null) {
                 LOG.error("Error when notifying about BEFORE_REPLICA_STOPPED event.", e);
@@ -770,7 +846,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             }
 
             try {
-                replicas.compute(replicaGrpId, (grpId, replicaFuture) -> {
+                replicas.compute(zonePartitionId, (grpId, replicaFuture) -> {
                     if (replicaFuture == null) {
                         isRemovedFuture.complete(false);
                     } else if (!replicaFuture.isDone()) {
@@ -793,6 +869,10 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                                 });
                     }
 
+                    zonePartIdToTableIds.forEach((zonePartId, tblPartIds) -> {
+                        tblPartIds.remove(zonePartitionId.tableId());
+                    });
+
                     return null;
                 });
             } finally {
@@ -804,7 +884,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 .thenApply(v -> {
                     try {
                         // TODO: move into {@method Replica#shutdown} https://issues.apache.org/jira/browse/IGNITE-22372
-                        raftManager.stopRaftNodes(replicaGrpId);
+                        raftManager.stopRaftNodes(new TablePartitionId(zonePartitionId.tableId(), zonePartitionId.partitionId()));
                     } catch (NodeStoppingException ignored) {
                         // No-op.
                     }
@@ -829,6 +909,18 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 TimeUnit.MILLISECONDS
         );
 
+        scheduledTableLeaseUpdateExecutor.scheduleAtFixedRate(() -> {
+            if (!busyLock.enterBusy()) {
+                return;
+            }
+
+            try {
+                updateTableGroupsInternal();
+            } finally {
+                busyLock.leaveBusy();
+            }
+        }, 0, 1, SECONDS);
+
         cmgMgr.metaStorageNodes().whenComplete((nodes, e) -> {
             if (e != null) {
                 msNodes.completeExceptionally(e);
@@ -844,6 +936,62 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         return nullCompletedFuture();
     }
 
+    /**
+     * Updates list of replication groups for each distributed zone.
+     */
+    private void updateTableGroupsInternal() {
+        for (Entry<ZonePartitionId, Set<Integer>> entry : zonePartIdToTableIds.entrySet()) {
+            ZonePartitionId repGrp = entry.getKey();
+
+            ReplicaMeta meta = placementDriver.getLeaseMeta(repGrp);
+
+            if (meta != null) {
+                HashSet<Integer> diff = new HashSet<>(entry.getValue());
+                diff.removeAll(meta.subgroups());
+
+                if (meta.getLeaseholderId().equals(localNodeId) && !diff.isEmpty()) {
+                    LOG.info("New subgroups are found for existing lease [repGrp={}, subGroups={}].", repGrp, diff);
+
+                    try {
+                        placementDriver.addSubgroups(repGrp, meta.getStartTime().longValue(), diff)
+                                .thenComposeAsync(unused -> {
+                                    ArrayList<CompletableFuture<?>> requestToReplicas = new ArrayList<>();
+
+                                    for (Integer tableId : diff) {
+                                        ZonePartitionId zoneTablePartId =
+                                                new ZonePartitionId(repGrp.zoneId(), tableId, repGrp.partitionId());
+                                        WaitReplicaStateMessage req = REPLICA_MESSAGES_FACTORY.waitReplicaStateMessage()
+                                                .enlistmentConsistencyToken(meta.getStartTime().longValue())
+                                                .groupId(zoneTablePartId)
+                                                // TODO: https://issues.apache.org/jira/browse/IGNITE-22122
+                                                .timeout(10_000)
+                                                .build();
+
+                                        CompletableFuture<Replica> replicaFut = replicas.get(zoneTablePartId);
+
+                                        if (replicaFut != null) {
+                                            requestToReplicas.add(replicaFut.thenCompose(
+                                                    replica -> replica.processRequest(req, localNodeId)
+                                            ));
+                                        }
+                                    }
+
+                                    return allOf(requestToReplicas.toArray(CompletableFuture[]::new));
+                                }, requestsExecutor)
+                                .get(10, SECONDS);
+                    } catch (Exception ex) {
+                        LOG.error(
+                                "Failed to add new subgroups to the replication group [repGrp={}, subGroups={}].",
+                                ex,
+                                repGrp,
+                                diff
+                        );
+                    }
+                }
+            }
+        }
+    }
+
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
@@ -855,8 +1003,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         int shutdownTimeoutSeconds = 10;
 
-        shutdownAndAwaitTermination(scheduledIdleSafeTimeSyncExecutor, shutdownTimeoutSeconds, TimeUnit.SECONDS);
-        shutdownAndAwaitTermination(executor, shutdownTimeoutSeconds, TimeUnit.SECONDS);
+        shutdownAndAwaitTermination(scheduledIdleSafeTimeSyncExecutor, shutdownTimeoutSeconds, SECONDS);
+        shutdownAndAwaitTermination(scheduledTableLeaseUpdateExecutor, shutdownTimeoutSeconds, SECONDS);
 
         assert replicas.values().stream().noneMatch(CompletableFuture::isDone)
                 : "There are replicas alive [replicas="
@@ -969,7 +1117,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * Idle safe time sync for replicas.
      */
     private void idleSafeTimeSync() {
-        for (Entry<ReplicationGroupId, CompletableFuture<Replica>> entry : replicas.entrySet()) {
+        for (Entry<ZonePartitionId, CompletableFuture<Replica>> entry : replicas.entrySet()) {
             try {
                 sendSafeTimeSyncIfReplicaReady(entry.getValue());
             } catch (Exception | AssertionError e) {
@@ -986,6 +1134,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         if (isCompletedSuccessfully(replicaFuture)) {
             Replica replica = replicaFuture.join();
 
+            assert replica.groupId() instanceof ZonePartitionId;
+
             ReplicaSafeTimeSyncRequest req = REPLICA_MESSAGES_FACTORY.replicaSafeTimeSyncRequest()
                     .groupId(replica.groupId())
                     .build();
@@ -1001,6 +1151,10 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @return True if the replica is started.
      */
     public boolean isReplicaStarted(ReplicationGroupId replicaGrpId) {
+        assert replicaGrpId instanceof ZonePartitionId;
+        ZonePartitionId zoneTablePartId = (ZonePartitionId) replicaGrpId;
+        assert zoneTablePartId.tableId() != 0;
+
         CompletableFuture<Replica> replicaFuture = replicas.get(replicaGrpId);
         return replicaFuture != null && isCompletedSuccessfully(replicaFuture);
     }

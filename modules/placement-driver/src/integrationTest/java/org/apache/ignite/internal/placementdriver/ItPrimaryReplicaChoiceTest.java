@@ -48,7 +48,7 @@ import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
@@ -59,6 +59,7 @@ import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.NodeUtils;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.testframework.flow.TestFlowUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
@@ -78,6 +79,7 @@ import org.junit.jupiter.api.TestInfo;
  * The test class checks invariant of a primary replica choice.
  */
 @SuppressWarnings("resource")
+@WithSystemProperty(key = "IGNITE_ALWAYS_FORCE", value = "false")
 public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
     private static final int AWAIT_PRIMARY_REPLICA_TIMEOUT = 10;
 
@@ -124,10 +126,10 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
     public void testPrimaryChangeSubscription() throws Exception {
         TableViewInternal tbl = unwrapTableViewInternal(node(0).tables().table(TABLE_NAME));
 
-        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
+        var zoneReplicationGrp = new ZonePartitionId(tbl.internalTable().zoneId(), tbl.tableId(), PART_ID);
 
-        CompletableFuture<ReplicaMeta> primaryReplicaFut = node(0).placementDriver().awaitPrimaryReplica(
-                tblReplicationGrp,
+        CompletableFuture<ReplicaMeta> primaryReplicaFut = node(0).placementDriver().awaitPrimaryReplicaForTable(
+                zoneReplicationGrp,
                 node(0).clock().now(),
                 AWAIT_PRIMARY_REPLICA_TIMEOUT,
                 SECONDS
@@ -147,7 +149,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
             return falseCompletedFuture();
         });
 
-        NodeUtils.transferPrimary(cluster.runningNodes().collect(toSet()), tblReplicationGrp);
+        NodeUtils.transferPrimary(cluster.runningNodes().collect(toSet()), zoneReplicationGrp);
 
         assertTrue(waitForCondition(primaryChanged::get, 10_000));
     }
@@ -156,10 +158,10 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
     public void testPrimaryChangeLongHandling() throws Exception {
         TableViewInternal tbl = unwrapTableImpl(node(0).tables().table(TABLE_NAME));
 
-        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
+        var zoneReplicationGrp = new ZonePartitionId(tbl.internalTable().zoneId(), tbl.tableId(), PART_ID);
 
-        CompletableFuture<ReplicaMeta> primaryReplicaFut = node(0).placementDriver().awaitPrimaryReplica(
-                tblReplicationGrp,
+        CompletableFuture<ReplicaMeta> primaryReplicaFut = node(0).placementDriver().awaitPrimaryReplicaForTable(
+                zoneReplicationGrp,
                 node(0).clock().now(),
                 AWAIT_PRIMARY_REPLICA_TIMEOUT,
                 SECONDS
@@ -179,10 +181,10 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
 
         Collection<IgniteImpl> nodes = cluster.runningNodes().collect(toSet());
 
-        NodeUtils.transferPrimary(nodes, tblReplicationGrp);
+        NodeUtils.transferPrimary(nodes, zoneReplicationGrp);
 
         CompletableFuture<String> primaryChangeTask =
-                IgniteTestUtils.runAsync(() -> NodeUtils.transferPrimary(nodes, tblReplicationGrp, primary));
+                IgniteTestUtils.runAsync(() -> NodeUtils.transferPrimary(nodes, zoneReplicationGrp, primary));
 
         waitingForLeaderCache(tbl, primary);
 
@@ -210,10 +212,11 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
             assertTrue(publicTableOnNode0.recordView().insert(null, Tuple.create().set("key", i).set("val", "preload val")));
         }
 
-        var tblReplicationGrp = new TablePartitionId(unwrappedTableOnNode0.tableId(), PART_ID);
+        var zoneReplicationGrp = new ZonePartitionId(unwrappedTableOnNode0.internalTable().zoneId(),
+                unwrappedTableOnNode0.tableId(), PART_ID);
 
-        CompletableFuture<ReplicaMeta> primaryReplicaFut = node(0).placementDriver().awaitPrimaryReplica(
-                tblReplicationGrp,
+        CompletableFuture<ReplicaMeta> primaryReplicaFut = node(0).placementDriver().awaitPrimaryReplicaForTable(
+                zoneReplicationGrp,
                 node(0).clock().now(),
                 AWAIT_PRIMARY_REPLICA_TIMEOUT,
                 SECONDS
@@ -264,7 +267,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
         assertTrue(primaryIgnite.txManager().lockManager().locks(rwTx.id()).hasNext());
         assertEquals(6, partitionStorage.pendingCursors() + hashIdxStorage.pendingCursors() + sortedIdxStorage.pendingCursors());
 
-        NodeUtils.transferPrimary(cluster.runningNodes().collect(toSet()), tblReplicationGrp);
+        NodeUtils.transferPrimary(cluster.runningNodes().collect(toSet()), zoneReplicationGrp);
 
         assertTrue(primaryIgnite.txManager().lockManager().locks(rwTx.id()).hasNext());
         assertEquals(6, partitionStorage.pendingCursors() + hashIdxStorage.pendingCursors() + sortedIdxStorage.pendingCursors());
@@ -308,8 +311,8 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
         Publisher<BinaryRow> publisher;
 
         if (tx.isReadOnly()) {
-            CompletableFuture<ReplicaMeta> primaryReplicaFut = node(0).placementDriver().getPrimaryReplica(
-                    new TablePartitionId(unwrappedTable.tableId(), PART_ID),
+            CompletableFuture<ReplicaMeta> primaryReplicaFut = node(0).placementDriver().getPrimaryReplicaForTable(
+                    new ZonePartitionId(unwrappedTable.internalTable().zoneId(), unwrappedTable.tableId(), PART_ID),
                     node(0).clock().now()
             );
 
@@ -337,8 +340,8 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
         } else {
             ReadWriteTransactionImpl rwTx = Wrappers.unwrap(tx, ReadWriteTransactionImpl.class);
 
-            CompletableFuture<ReplicaMeta> primaryReplicaFut = node(0).placementDriver().getPrimaryReplica(
-                    new TablePartitionId(unwrappedTable.tableId(), PART_ID),
+            CompletableFuture<ReplicaMeta> primaryReplicaFut = node(0).placementDriver().getPrimaryReplicaForTable(
+                    new ZonePartitionId(unwrappedTable.internalTable().zoneId(), unwrappedTable.tableId(), PART_ID),
                     node(0).clock().now()
             );
 
@@ -353,7 +356,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
             publisher = unwrappedTable.internalTable().lookup(
                     PART_ID,
                     rwTx.id(),
-                    rwTx.commitPartition(),
+                    rwTx.zoneCommitPartition(),
                     rwTx.coordinatorId(),
                     new PrimaryReplica(primaryNode, primaryReplicaFut.get().getStartTime().longValue()),
                     idxId,

@@ -35,7 +35,7 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
@@ -61,10 +61,11 @@ class ReadWriteTransactionImplTest extends BaseIgniteAbstractTest {
 
     private static final IgniteBiTuple NODE_AND_TOKEN = new IgniteBiTuple(CLUSTER_NODE, 0L);
 
+    private static final int ZONE_ID = 11;
     private static final int TABLE_ID = 1;
 
-    /** Transaction commit partition id. */
-    public static final TablePartitionId TX_COMMIT_PART = new TablePartitionId(TABLE_ID, 0);
+    /** Transaction zone commit partition id. */
+    public static final ZonePartitionId TX_ZONE_COMMIT_PART = new ZonePartitionId(ZONE_ID, TABLE_ID, 0);
 
     @Mock
     private TxManager txManager;
@@ -101,7 +102,7 @@ class ReadWriteTransactionImplTest extends BaseIgniteAbstractTest {
 
         Mockito.when(txManager.stateMeta(any())).thenAnswer(invocation -> {
             if (finishedTxs.contains(invocation.getArgument(0))) {
-                return new TxStateMeta(txState, "crd-id", TX_COMMIT_PART, null);
+                return new TxStateMeta(txState, "crd-id", TX_ZONE_COMMIT_PART, null);
             }
 
             return null;
@@ -113,10 +114,10 @@ class ReadWriteTransactionImplTest extends BaseIgniteAbstractTest {
 
         var tx = new ReadWriteTransactionImpl(txManager, new HybridTimestampTracker(), txId, CLUSTER_NODE.id());
 
-        tx.assignCommitPartition(TX_COMMIT_PART);
+        tx.assignCommitPartition(TX_ZONE_COMMIT_PART);
 
-        tx.enlist(new TablePartitionId(TABLE_ID, 0), NODE_AND_TOKEN);
-        tx.enlist(new TablePartitionId(TABLE_ID, 2), NODE_AND_TOKEN);
+        tx.enlist(new ZonePartitionId(ZONE_ID, TABLE_ID, 0), NODE_AND_TOKEN);
+        tx.enlist(new ZonePartitionId(ZONE_ID, TABLE_ID, 2), NODE_AND_TOKEN);
 
         if (commit) {
             if (txState == null) {
@@ -133,11 +134,13 @@ class ReadWriteTransactionImplTest extends BaseIgniteAbstractTest {
         }
 
         TransactionException ex = assertThrows(TransactionException.class,
-                () -> tx.enlist(new TablePartitionId(TABLE_ID, 5), NODE_AND_TOKEN));
+                () -> tx.enlist(new ZonePartitionId(ZONE_ID, TABLE_ID, 5), NODE_AND_TOKEN));
 
         assertTrue(ex.getMessage().contains(txState.toString()));
 
-        ex = assertThrows(TransactionException.class, () -> tx.enlist(new TablePartitionId(TABLE_ID, 0), NODE_AND_TOKEN));
+        ex = assertThrows(TransactionException.class,
+                () -> tx.enlist(new ZonePartitionId(ZONE_ID, TABLE_ID, 0), NODE_AND_TOKEN)
+        );
 
         assertTrue(ex.getMessage().contains(txState.toString()));
     }

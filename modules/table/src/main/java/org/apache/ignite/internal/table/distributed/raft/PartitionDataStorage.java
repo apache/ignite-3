@@ -46,6 +46,9 @@ import org.jetbrains.annotations.Nullable;
  * @see MvPartitionStorage
  */
 public interface PartitionDataStorage extends ManuallyCloseable {
+    /** Returns zone ID. */
+    int zoneId();
+
     /** Returns table ID. */
     int tableId();
 
@@ -132,8 +135,14 @@ public interface PartitionDataStorage extends ManuallyCloseable {
      * @throws StorageException If failed to write data to the storage.
      * @see MvPartitionStorage#addWrite(RowId, BinaryRow, UUID, int, int)
      */
-    @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, int commitTableId, int commitPartitionId)
-            throws TxIdMismatchException, StorageException;
+    @Nullable BinaryRow addWrite(
+            RowId rowId,
+            @Nullable BinaryRow row,
+            UUID txId,
+            int commitZoneId,
+            int commitTableId,
+            int commitPartitionId
+    ) throws TxIdMismatchException, StorageException;
 
     /**
      * Write and commit the row in one step.

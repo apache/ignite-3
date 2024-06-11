@@ -39,6 +39,8 @@ import org.jetbrains.annotations.Nullable;
  * Test implementation of {@link PartitionDataStorage}.
  */
 public class TestPartitionDataStorage implements PartitionDataStorage {
+    private final int zoneId;
+
     private final int tableId;
 
     private final int partitionId;
@@ -49,13 +51,20 @@ public class TestPartitionDataStorage implements PartitionDataStorage {
 
     /** Constructor. */
     public TestPartitionDataStorage(
+            int zoneId,
             int tableId,
             int partitionId,
             MvPartitionStorage partitionStorage
     ) {
+        this.zoneId = zoneId;
         this.tableId = tableId;
         this.partitionId = partitionId;
         this.partitionStorage = partitionStorage;
+    }
+
+    @Override
+    public int zoneId() {
+        return zoneId;
     }
 
     @Override
@@ -109,9 +118,9 @@ public class TestPartitionDataStorage implements PartitionDataStorage {
     }
 
     @Override
-    public @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, int commitTableId,
+    public @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, int commitZoneId, int commitTableId,
             int commitPartitionId) throws TxIdMismatchException, StorageException {
-        return partitionStorage.addWrite(rowId, row, txId, commitTableId, commitPartitionId);
+        return partitionStorage.addWrite(rowId, row, txId, commitZoneId, commitTableId, commitPartitionId);
     }
 
     @Override

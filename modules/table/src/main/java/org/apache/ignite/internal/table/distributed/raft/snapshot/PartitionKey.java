@@ -24,9 +24,18 @@ import org.apache.ignite.internal.tostring.S;
  * Uniquely identifies a partition. This is a pair of internal table ID and partition number (aka partition ID).
  */
 public class PartitionKey {
+    private final int zoneId;
+
     private final int tableId;
 
     private final int partitionId;
+
+    /**
+     * Returns zone ID of the table.
+     */
+    public int zoneId() {
+        return zoneId;
+    }
 
     /**
      * Returns ID of the table.
@@ -45,7 +54,8 @@ public class PartitionKey {
     /**
      * Constructs a new partition key.
      */
-    public PartitionKey(int tableId, int partitionId) {
+    public PartitionKey(int zoneId, int tableId, int partitionId) {
+        this.zoneId = zoneId;
         this.tableId = tableId;
         this.partitionId = partitionId;
     }
@@ -59,12 +69,12 @@ public class PartitionKey {
             return false;
         }
         PartitionKey that = (PartitionKey) o;
-        return partitionId == that.partitionId && tableId == that.tableId;
+        return partitionId == that.partitionId && tableId == that.tableId && zoneId == that.zoneId;
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(tableId, partitionId);
+        return Objects.hash(zoneId, tableId, partitionId);
     }
 
     @Override

@@ -15,18 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.distributionzones.exception;
+package org.apache.ignite.lang;
 
 import static org.apache.ignite.lang.ErrorGroups.DistributionZones.ZONE_NOT_FOUND_ERR;
 
 import java.util.UUID;
-import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Exception is thrown when appropriate distribution zone can`t be found.
  */
-public class DistributionZoneNotFoundException extends IgniteInternalException {
+public class DistributionZoneNotFoundException extends IgniteException {
     private static final long serialVersionUID = 4690347752201656106L;
 
     /**

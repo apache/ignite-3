@@ -104,6 +104,7 @@ import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageFactoryCre
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
@@ -289,7 +290,7 @@ public class ItTxTestCluster {
 
     private CatalogService catalogService;
 
-    private final AtomicInteger globalCatalogId = new AtomicInteger();
+    private final AtomicInteger globalCatalogId = new AtomicInteger(1);
 
     protected final TestLowWatermark lowWatermark = new TestLowWatermark();
 
@@ -547,6 +548,7 @@ public class ItTxTestCluster {
      * @return Groups map.
      */
     public TableViewInternal startTable(String tableName, SchemaDescriptor schemaDescriptor) throws Exception {
+        int zoneId = globalCatalogId.getAndIncrement();
         int tableId = globalCatalogId.getAndIncrement();
 
         CatalogTableDescriptor tableDescriptor = mock(CatalogTableDescriptor.class);
@@ -636,7 +638,7 @@ public class ItTxTestCluster {
                         new PendingComparableValuesTracker<>(clockServices.get(assignment).now());
                 PendingComparableValuesTracker<Long, Void> storageIndexTracker = new PendingComparableValuesTracker<>(0L);
 
-                PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(tableId, partId, mvPartStorage);
+                PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(zoneId, tableId, partId, mvPartStorage);
 
                 IndexUpdateHandler indexUpdateHandler = new IndexUpdateHandler(
                         DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(pkStorage.get().id(), pkStorage.get()))
@@ -685,6 +687,7 @@ public class ItTxTestCluster {
                                         txManagers.get(assignment),
                                         Runnable::run,
                                         partId,
+                                        zoneId,
                                         tableId,
                                         () -> Map.of(pkLocker.id(), pkLocker),
                                         pkStorage,
@@ -704,8 +707,10 @@ public class ItTxTestCluster {
                                         schemaManager
                                 );
 
+                                ZonePartitionId zoneTablePartId = new ZonePartitionId(zoneId, tableId, partId);
+
                                 replicaManagers.get(assignment).startReplica(
-                                        new TablePartitionId(tableId, partId),
+                                        zoneTablePartId,
                                         storageIndexTracker,
                                         completedFuture(listener)
                                 );
@@ -759,6 +764,7 @@ public class ItTxTestCluster {
                 new InternalTableImpl(
                         tableName,
                         tableId,
+                        zoneId,
                         1,
                         nodeResolver,
                         clientTxManager,
@@ -788,6 +794,7 @@ public class ItTxTestCluster {
             TxManager txManager,
             Executor scanRequestExecutor,
             int partId,
+            int zoneId,
             int tableId,
             Supplier<Map<Integer, IndexLocker>> indexesLockers,
             Lazy<TableSchemaAwareIndexStorage> pkIndexStorage,
@@ -813,6 +820,7 @@ public class ItTxTestCluster {
                 txManager.lockManager(),
                 Runnable::run,
                 partId,
+                zoneId,
                 tableId,
                 indexesLockers,
                 pkIndexStorage,

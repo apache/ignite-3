@@ -21,7 +21,7 @@ import java.io.Serializable;
 import java.util.Objects;
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.jetbrains.annotations.Nullable;
@@ -36,14 +36,14 @@ public class TxAttributes implements Serializable {
     private static final long serialVersionUID = 3933878724800694086L;
 
     private static final TxAttributes DUMMY = new TxAttributes(
-            new UUID(0L, 0L), (TablePartitionId) null, "dummy_tx_coordinator"
+            new UUID(0L, 0L), (ZonePartitionId) null, "dummy_tx_coordinator"
     );
 
     private final UUID id;
     private final String coordinatorId;
     private final boolean readOnly;
     private final @Nullable HybridTimestamp readTimestamp;
-    private final @Nullable TablePartitionId commitPartition;
+    private final @Nullable ZonePartitionId zoneCommitPartition;
 
     /**
      * Derives transactional attributes from the given transaction.
@@ -63,7 +63,7 @@ public class TxAttributes implements Serializable {
             return new TxAttributes(tx.id(), readTime, tx.coordinatorId());
         }
 
-        return new TxAttributes(tx.id(), tx.commitPartition(), tx.coordinatorId());
+        return new TxAttributes(tx.id(), tx.zoneCommitPartition(), tx.coordinatorId());
     }
 
     /**
@@ -88,16 +88,16 @@ public class TxAttributes implements Serializable {
         this.coordinatorId = Objects.requireNonNull(coordinatorId, "tx coordinator id");
 
         this.readOnly = true;
-        this.commitPartition = null;
+        this.zoneCommitPartition = null;
     }
 
     private TxAttributes(
             UUID id,
-            @Nullable TablePartitionId commitPartitionId,
+            @Nullable ZonePartitionId zoneCommitPartition,
             String coordinatorId
     ) {
         this.id = Objects.requireNonNull(id, "id");
-        this.commitPartition = commitPartitionId;
+        this.zoneCommitPartition = zoneCommitPartition;
         this.coordinatorId = Objects.requireNonNull(coordinatorId, "tx coordinator id");
 
         this.readOnly = false;
@@ -105,15 +105,15 @@ public class TxAttributes implements Serializable {
     }
 
     /**
-     * Returns an identifier of commit partition.
+     * Returns an identifier of zone commit partition.
      *
      * <p>Commit partition is always {@code null} for RO transaction, and may be {@code null} for RW transaction
      * in case no tables were yet involved (for example, the very first query is SELECT 42).
      *
-     * @return An identifier of commit partition, or {@code null} if commit partition was not yet assigned.
+     * @return An identifier of zone commit partition, or {@code null} if zone commit partition was not yet assigned.
      */
-    public @Nullable TablePartitionId commitPartition() {
-        return commitPartition;
+    public @Nullable ZonePartitionId zoneCommitPartition() {
+        return zoneCommitPartition;
     }
 
     /** Returns an identifier of the transaction. */

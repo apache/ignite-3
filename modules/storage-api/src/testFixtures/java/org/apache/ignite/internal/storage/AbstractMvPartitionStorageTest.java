@@ -84,7 +84,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
     }
 
     /**
-     * Tests basic invariants of {@link MvPartitionStorage#addWrite(RowId, BinaryRow, UUID, int, int)}.
+     * Tests basic invariants of {@link MvPartitionStorage#addWrite(RowId, BinaryRow, UUID, int, int, int)}.
      */
     @Test
     public void testAddWrite() {
@@ -746,6 +746,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
         assertNotNull(res);
 
         assertNull(res.transactionId());
+        assertNull(res.commitZoneId());
         assertNull(res.commitTableId());
         assertEquals(ReadResult.UNDEFINED_COMMIT_PARTITION_ID, res.commitPartitionId());
         assertThat(res.binaryRow(), is(equalToRow(binaryRow)));
@@ -755,6 +756,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
         assertNotNull(res);
 
         assertEquals(txId2, res.transactionId());
+        assertEquals(COMMIT_ZONE_ID, res.commitZoneId());
         assertEquals(COMMIT_TABLE_ID, res.commitTableId());
         assertEquals(PARTITION_ID, res.commitPartitionId());
         assertThat(res.binaryRow(), is(equalToRow(binaryRow2)));
@@ -766,7 +768,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
 
             locker.lock(rowId);
 
-            storage.addWrite(rowId, binaryRow, txId, 999, 0);
+            storage.addWrite(rowId, binaryRow, txId, 9999, 999, 0);
             commitWrite(rowId, clock.now());
 
             addWrite(rowId, binaryRow2, newTransactionId());

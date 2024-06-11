@@ -26,11 +26,11 @@ import static org.apache.ignite.internal.TestWrappers.unwrapTableManager;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.alterZone;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.getZoneIdStrict;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.REBALANCE_SCHEDULER_POOL_SIZE;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
-import static org.apache.ignite.internal.table.TableTestUtils.getTableIdStrict;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.bypassingThreadAssertions;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.bypassingThreadAssertionsAsync;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
@@ -117,6 +117,7 @@ import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.ClockServiceImpl;
 import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -153,9 +154,11 @@ import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFacto
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
+import org.apache.ignite.internal.replicator.ReplicaAwareLeaseTracker;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
@@ -233,6 +236,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
     /** Test table name. */
     private static final String TABLE_NAME_2 = "Table2";
+
+    protected static final ZonePartitionId ZONE_GROUP_ID = new ZonePartitionId(1, 1);
 
     @InjectConfiguration("mock: " + RAFT_CFG)
     private static RaftConfiguration raftConfiguration;
@@ -460,9 +465,18 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 ConfigurationValidatorImpl.withDefaultValidators(distributedConfigurationGenerator, modules.distributed().validators())
         );
 
-        ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();
-
         var clockWaiter = new ClockWaiter(name, hybridClock);
+
+        LongSupplier delayDurationMsSupplier = () -> TestIgnitionManager.DEFAULT_DELAY_DURATION_MS;
+
+        var catalogManager = new CatalogManagerImpl(
+                new UpdateLogImpl(metaStorageMgr),
+                new TestClockService(hybridClock, clockWaiter),
+                delayDurationMsSupplier,
+                partitionIdleSafeTimePropagationPeriodMsSupplier
+        );
+
+        ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();
 
         SchemaSynchronizationConfiguration schemaSyncConfiguration = clusterConfigRegistry.getConfiguration(
                 SchemaSynchronizationConfiguration.KEY
@@ -571,15 +585,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         TransactionConfiguration txConfiguration = clusterConfigRegistry.getConfiguration(TransactionConfiguration.KEY);
 
-        LongSupplier delayDurationMsSupplier = () -> TestIgnitionManager.DEFAULT_DELAY_DURATION_MS;
-
-        var catalogManager = new CatalogManagerImpl(
-                new UpdateLogImpl(metaStorageMgr),
-                clockService,
-                delayDurationMsSupplier,
-                partitionIdleSafeTimePropagationPeriodMsSupplier
-        );
-
         SchemaManager schemaManager = new SchemaManager(registry, catalogManager);
 
         var dataNodesMock = dataNodesMockByNode.get(idx);
@@ -663,7 +668,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 new SystemViewManagerImpl(name, catalogManager),
                 failureProcessor,
                 partitionIdleSafeTimePropagationPeriodMsSupplier,
-                placementDriverManager.placementDriver(),
+                new ReplicaAwareLeaseTracker(placementDriverManager.placementDriver(), replicaService, clusterSvc.topologyService()),
                 clusterConfigRegistry.getConfiguration(SqlDistributedConfiguration.KEY),
                 nodeCfgMgr.configurationRegistry().getConfiguration(SqlLocalConfiguration.KEY),
                 transactionInflights,
@@ -1438,7 +1443,11 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         inhibitor.startInhibit();
 
-        alterZone(nodes.get(0).catalogManager(), String.format("ZONE_%s", TABLE_NAME.toUpperCase()), 1);
+        String zoneName = String.format("ZONE_%s", TABLE_NAME.toUpperCase());
+
+        alterZone(nodes.get(0).catalogManager(), zoneName, 1);
+
+        int zoneId = getZoneIdStrict(nodes.get(0).catalogManager(), zoneName, nodes.get(0).clock().nowLong());
 
         stopNode(restartedNodeIndex);
 
@@ -1456,9 +1465,9 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 .collect(toSet()), Set.of());
 
         for (int p = 0; p < partitions; p++) {
-            TablePartitionId tablePartitionId = new TablePartitionId(table.tableId(), p);
+            ZonePartitionId zonePartitionId = new ZonePartitionId(zoneId, p);
 
-            Entry e = restartedNode.metaStorageManager().getLocally(stablePartAssignmentsKey(tablePartitionId), recoveryRevision);
+            Entry e = restartedNode.metaStorageManager().getLocally(stablePartAssignmentsKey(zonePartitionId), recoveryRevision);
 
             Set<Assignment> assignment = Assignments.fromBytes(e.value()).nodes();
 
@@ -1466,7 +1475,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
             Peer peer = configuration.peer(restartedNode.name());
 
-            boolean isStarted = restartedNode.raftManager().isStarted(new RaftNodeId(tablePartitionId, peer));
+            boolean isStarted = restartedNode.raftManager().isStarted(new RaftNodeId(new TablePartitionId(table.tableId(), p), peer));
 
             assertEquals(shouldBe, isStarted);
         }
@@ -1520,7 +1529,10 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
             );
         }
 
-        var partId = new TablePartitionId(TABLE_ID, 0);
+        // Assume that the zone id will always be 7 for the test table. There is an assertion below to check this is true.
+        int zoneId = 7;
+
+        var partId = new ZonePartitionId(zoneId, 0);
 
         // Populate the stable assignments before calling table create, if needed.
         if (populateStableAssignmentsBeforeTableCreation) {
@@ -1545,7 +1557,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         sql.execute(null, "CREATE TABLE " + TABLE_NAME
                 + "(id INT PRIMARY KEY, name VARCHAR) WITH PRIMARY_ZONE='" + zoneName + "';");
 
-        assertEquals(TABLE_ID, tableId(node, TABLE_NAME));
+        assertEquals(zoneId, zoneId(node, zoneName));
 
         node.metaStorageManager().put(new ByteArray(testPrefix.getBytes(StandardCharsets.UTF_8)), new byte[0]);
 
@@ -1624,7 +1636,10 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         String tableName = "TEST";
         String zoneName = "ZONE_TEST";
 
-        var assignmentsKey = stablePartAssignmentsKey(new TablePartitionId(TABLE_ID, 0));
+        // Assume that the zone id will always be 7 for the test table. There is an assertion below to check this is true.
+        int zoneId = 7;
+
+        var assignmentsKey = stablePartAssignmentsKey(new ZonePartitionId(zoneId, 0));
 
         var metaStorageInterceptorFut = new CompletableFuture<>();
         var metaStorageInterceptorInnerFut = new CompletableFuture<>();
@@ -1700,7 +1715,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         nodeInhibitor0.stopInhibit();
         waitForValueInLocalMs(node0.metaStorageManager(), assignmentsKey);
 
-        assertEquals(TABLE_ID, tableId(node0, tableName));
+        assertEquals(zoneId, zoneId(node0, zoneName));
 
         Set<Assignment> expectedAssignments = dataNodesMockByNode.get(nodeThatWrittenAssignments).get().join()
                 .stream().map(Assignment::forPeer).collect(toSet());
@@ -1756,7 +1771,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         node1 = startNode(1);
 
-        ByteArray assignmentsKey = stablePartAssignmentsKey(new TablePartitionId(tableId(node1, tableName), 0));
+        ByteArray assignmentsKey = stablePartAssignmentsKey(new ZonePartitionId(zoneId(node0, zoneName), 0));
 
         waitForValueInLocalMs(node1.metaStorageManager(), assignmentsKey);
 
@@ -1846,8 +1861,10 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 : Assignments.fromBytes(e.value()).nodes();
     }
 
-    private static int tableId(IgniteImpl node, String tableName) {
-        return getTableIdStrict(node.catalogManager(), tableName, node.clock().nowLong());
+    private static int zoneId(IgniteImpl node, String zoneName) {
+        int zoneId = getZoneIdStrict(node.catalogManager(), zoneName.toUpperCase(), node.clock().nowLong());
+
+        return zoneId;
     }
 
     /**

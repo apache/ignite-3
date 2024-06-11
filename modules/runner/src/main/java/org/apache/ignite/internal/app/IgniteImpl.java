@@ -163,6 +163,7 @@ import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageFactoryCreator;
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
+import org.apache.ignite.internal.replicator.ReplicaAwareLeaseTracker;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
@@ -411,6 +412,8 @@ public class IgniteImpl implements Ignite {
     /** Default log storage factory for raft. */
     private final LogStorageFactory logStorageFactory;
 
+    private final ReplicaAwareLeaseTracker replicaAwarePlacementDriver;
+
     /**
      * The Constructor.
      *
@@ -614,6 +617,19 @@ public class IgniteImpl implements Ignite {
 
         Consumer<LongFunction<CompletableFuture<?>>> registry = c -> metaStorageMgr.registerRevisionUpdateListener(c::apply);
 
+        ReplicationConfiguration replicationConfig = clusterConfigRegistry.getConfiguration(ReplicationConfiguration.KEY);
+
+        LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier = partitionIdleSafeTimePropagationPeriodMsSupplier(replicationConfig);
+
+        LongSupplier delayDurationMsSupplier = delayDurationMsSupplier(schemaSyncConfig);
+
+        CatalogManagerImpl catalogManager = new CatalogManagerImpl(
+                new UpdateLogImpl(metaStorageMgr),
+                clockService,
+                delayDurationMsSupplier,
+                partitionIdleSafeTimePropagationPeriodMsSupplier
+        );
+
         placementDriverMgr = new PlacementDriverManager(
                 name,
                 metaStorageMgr,
@@ -626,8 +642,6 @@ public class IgniteImpl implements Ignite {
                 clockService
         );
 
-        ReplicationConfiguration replicationConfig = clusterConfigRegistry.getConfiguration(ReplicationConfiguration.KEY);
-
         ReplicaService replicaSvc = new ReplicaService(
                 messagingServiceReturningToStorageOperationsPool,
                 clock,
@@ -635,8 +649,6 @@ public class IgniteImpl implements Ignite {
                 replicationConfig,
                 threadPoolsManager.commonScheduler()
         );
-
-        LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier = partitionIdleSafeTimePropagationPeriodMsSupplier(replicationConfig);
 
         ScheduledExecutorService rebalanceScheduler = new ScheduledThreadPoolExecutor(REBALANCE_SCHEDULER_POOL_SIZE,
                 NamedThreadFactory.create(name, "rebalance-scheduler", LOG));
@@ -691,16 +703,6 @@ public class IgniteImpl implements Ignite {
         );
 
         outgoingSnapshotsManager = new OutgoingSnapshotsManager(name, clusterSvc.messagingService());
-
-        LongSupplier delayDurationMsSupplier = delayDurationMsSupplier(schemaSyncConfig);
-
-        CatalogManagerImpl catalogManager = new CatalogManagerImpl(
-                new UpdateLogImpl(metaStorageMgr),
-                clockService,
-                delayDurationMsSupplier,
-                partitionIdleSafeTimePropagationPeriodMsSupplier
-        );
-
         systemViewManager = new SystemViewManagerImpl(name, catalogManager);
         nodeAttributesCollector.register(systemViewManager);
         logicalTopology.addEventListener(systemViewManager);
@@ -745,7 +747,10 @@ public class IgniteImpl implements Ignite {
                 clusterSvc.messagingService()
         );
 
-        var transactionInflights = new TransactionInflights(placementDriverMgr.placementDriver(), clockService);
+        replicaAwarePlacementDriver = new ReplicaAwareLeaseTracker(placementDriverMgr.placementDriver(),
+                replicaSvc, clusterSvc.topologyService());
+
+        var transactionInflights = new TransactionInflights(replicaAwarePlacementDriver, clockService);
 
         // TODO: IGNITE-19344 - use nodeId that is validated on join (and probably generated differently).
         txManager = new TxManagerImpl(
@@ -757,7 +762,7 @@ public class IgniteImpl implements Ignite {
                 lockMgr,
                 clockService,
                 new TransactionIdGenerator(() -> clusterSvc.nodeName().hashCode()),
-                placementDriverMgr.placementDriver(),
+                replicaAwarePlacementDriver,
                 partitionIdleSafeTimePropagationPeriodMsSupplier,
                 indexNodeFinishedRwTransactionsChecker,
                 threadPoolsManager.partitionOperationsExecutor(),
@@ -840,7 +845,7 @@ public class IgniteImpl implements Ignite {
                 catalogManager,
                 metaStorageMgr,
                 indexManager,
-                placementDriverMgr.placementDriver(),
+                replicaAwarePlacementDriver,
                 clusterSvc,
                 logicalTopologyService,
                 clockService
@@ -860,7 +865,7 @@ public class IgniteImpl implements Ignite {
                 systemViewManager,
                 failureProcessor,
                 partitionIdleSafeTimePropagationPeriodMsSupplier,
-                placementDriverMgr.placementDriver(),
+                replicaAwarePlacementDriver,
                 clusterConfigRegistry.getConfiguration(SqlDistributedConfiguration.KEY),
                 nodeConfigRegistry.getConfiguration(SqlLocalConfiguration.KEY),
                 transactionInflights,
@@ -893,7 +898,7 @@ public class IgniteImpl implements Ignite {
         );
 
         compute = new IgniteComputeImpl(
-                placementDriverMgr.placementDriver(),
+                replicaAwarePlacementDriver,
                 clusterSvc.topologyService(),
                 distributedTblMgr,
                 computeComponent,
@@ -919,7 +924,7 @@ public class IgniteImpl implements Ignite {
                 clockService,
                 schemaSyncService,
                 catalogManager,
-                placementDriverMgr.placementDriver(),
+                replicaAwarePlacementDriver,
                 clientConnectorConfiguration,
                 lowWatermark
         );
@@ -1591,7 +1596,7 @@ public class IgniteImpl implements Ignite {
     /** Returns the node's placement driver service. */
     @TestOnly
     public PlacementDriver placementDriver() {
-        return placementDriverMgr.placementDriver();
+        return replicaAwarePlacementDriver;
     }
 
     /** Returns the node's catalog manager. */

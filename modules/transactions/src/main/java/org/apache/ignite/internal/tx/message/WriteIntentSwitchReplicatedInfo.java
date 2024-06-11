@@ -19,7 +19,7 @@ package org.apache.ignite.internal.tx.message;
 
 import java.io.Serializable;
 import java.util.UUID;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tostring.S;
 
 /**
@@ -31,9 +31,9 @@ public class WriteIntentSwitchReplicatedInfo implements Serializable {
 
     private final UUID txId;
 
-    private final TablePartitionId partitionId;
+    private final ZonePartitionId partitionId;
 
-    public WriteIntentSwitchReplicatedInfo(UUID txId, TablePartitionId partitionId) {
+    public WriteIntentSwitchReplicatedInfo(UUID txId, ZonePartitionId partitionId) {
         this.txId = txId;
         this.partitionId = partitionId;
     }
@@ -42,7 +42,7 @@ public class WriteIntentSwitchReplicatedInfo implements Serializable {
         return txId;
     }
 
-    public TablePartitionId partitionId() {
+    public ZonePartitionId partitionId() {
         return partitionId;
     }
 

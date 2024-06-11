@@ -231,6 +231,7 @@ namespace Apache.Ignite.Tests
                         if (tableId != default)
                         {
                             using var arrayBufferWriter = new PooledArrayBuffer();
+                            arrayBufferWriter.MessageWriter.Write(0); // zone id.
                             arrayBufferWriter.MessageWriter.Write(tableId);
 
                             Send(handler, requestId, arrayBufferWriter);

@@ -33,7 +33,7 @@ import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Implementation of {@link InvokeClosure} for {@link AbstractPageMemoryMvPartitionStorage#addWrite(RowId, BinaryRow, UUID, int, int)}.
+ * Implementation of {@link InvokeClosure} for {@link AbstractPageMemoryMvPartitionStorage#addWrite(RowId, BinaryRow, UUID, int, int, int)}.
  *
  * <p>See {@link AbstractPageMemoryMvPartitionStorage} about synchronization.
  *
@@ -46,6 +46,8 @@ class AddWriteInvokeClosure implements InvokeClosure<VersionChain> {
     private final @Nullable BinaryRow row;
 
     private final UUID txId;
+
+    private final int commitZoneId;
 
     private final int commitTableId;
 
@@ -63,6 +65,7 @@ class AddWriteInvokeClosure implements InvokeClosure<VersionChain> {
             RowId rowId,
             @Nullable BinaryRow row,
             UUID txId,
+            int commitZoneId,
             int commitTableId,
             int commitPartitionId,
             AbstractPageMemoryMvPartitionStorage storage
@@ -70,6 +73,7 @@ class AddWriteInvokeClosure implements InvokeClosure<VersionChain> {
         this.rowId = rowId;
         this.row = row;
         this.txId = txId;
+        this.commitZoneId = commitZoneId;
         this.commitTableId = commitTableId;
         this.commitPartitionId = commitPartitionId;
         this.storage = storage;
@@ -80,7 +84,8 @@ class AddWriteInvokeClosure implements InvokeClosure<VersionChain> {
         if (oldRow == null) {
             RowVersion newVersion = insertRowVersion(row, NULL_LINK);
 
-            newRow = VersionChain.createUncommitted(rowId, txId, commitTableId, commitPartitionId, newVersion.link(), NULL_LINK);
+            newRow = VersionChain.createUncommitted(rowId, txId, commitZoneId, commitTableId,
+                    commitPartitionId, newVersion.link(), NULL_LINK);
 
             return;
         }
@@ -100,7 +105,8 @@ class AddWriteInvokeClosure implements InvokeClosure<VersionChain> {
             toRemove = currentVersion;
         }
 
-        newRow = VersionChain.createUncommitted(rowId, txId, commitTableId, commitPartitionId, newVersion.link(), newVersion.nextLink());
+        newRow = VersionChain.createUncommitted(rowId, txId, commitZoneId, commitTableId, commitPartitionId, newVersion.link(),
+                newVersion.nextLink());
     }
 
     @Override
@@ -116,7 +122,7 @@ class AddWriteInvokeClosure implements InvokeClosure<VersionChain> {
     }
 
     /**
-     * Returns the result for {@link MvPartitionStorage#addWrite(RowId, BinaryRow, UUID, int, int)}.
+     * Returns the result for {@link MvPartitionStorage#addWrite(RowId, BinaryRow, UUID, int, int, int)} .
      */
     @Nullable BinaryRow getPreviousUncommittedRowVersion() {
         return previousUncommittedRowVersion;

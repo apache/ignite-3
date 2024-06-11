@@ -19,7 +19,7 @@ package org.apache.ignite.internal.tx;
 
 import static org.apache.ignite.internal.tx.TxState.ABANDONED;
 
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.FastTimestamps;
 
@@ -40,7 +40,7 @@ public class TxStateMetaAbandoned extends TxStateMeta {
      */
     TxStateMetaAbandoned(
             String txCoordinatorId,
-            TablePartitionId commitPartitionId
+            ZonePartitionId commitPartitionId
     ) {
         super(ABANDONED, txCoordinatorId, commitPartitionId, null);
 

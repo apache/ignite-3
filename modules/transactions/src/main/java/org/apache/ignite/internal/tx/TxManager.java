@@ -26,7 +26,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
@@ -134,9 +134,9 @@ public interface TxManager extends IgniteComponent {
      */
     CompletableFuture<Void> finish(
             HybridTimestampTracker timestampTracker,
-            TablePartitionId commitPartition,
+            ZonePartitionId commitPartition,
             boolean commit,
-            Map<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups,
+            Map<ZonePartitionId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups,
             UUID txId
     );
 
@@ -153,8 +153,8 @@ public interface TxManager extends IgniteComponent {
      * @return Completable future of Void.
      */
     CompletableFuture<Void> cleanup(
-            TablePartitionId commitPartitionId,
-            Map<TablePartitionId, String> enlistedPartitions,
+            ZonePartitionId commitPartitionId,
+            Map<ZonePartitionId, String> enlistedPartitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId
@@ -173,8 +173,8 @@ public interface TxManager extends IgniteComponent {
      * @return Completable future of Void.
      */
     CompletableFuture<Void> cleanup(
-            TablePartitionId commitPartitionId,
-            Collection<TablePartitionId> enlistedPartitions,
+            ZonePartitionId commitPartitionId,
+            Collection<ZonePartitionId> enlistedPartitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId
@@ -188,7 +188,7 @@ public interface TxManager extends IgniteComponent {
      * @param txId Transaction id.
      * @return Completable future of Void.
      */
-    CompletableFuture<Void> cleanup(TablePartitionId commitPartitionId, String node, UUID txId);
+    CompletableFuture<Void> cleanup(ZonePartitionId commitPartitionId, String node, UUID txId);
 
     /**
      * Locally vacuums no longer needed transactional resources, like txnState both persistent and volatile.
