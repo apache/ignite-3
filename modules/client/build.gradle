@@ -56,6 +56,7 @@ dependencies {
     testImplementation project(':ignite-cluster-management')
     testImplementation project(':ignite-compute')
     testImplementation project(':ignite-eventlog')
+    testImplementation(testFixtures(project(':ignite-api')))
     testImplementation(testFixtures(project(':ignite-core')))
     testImplementation(testFixtures(project(':ignite-configuration')))
     testImplementation(testFixtures(project(':ignite-sql-engine')))
