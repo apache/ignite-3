@@ -49,8 +49,6 @@ SELECT a FROM
 ----
 4
 
-skipif ignite3
-# https://issues.apache.org/jira/browse/IGNITE-22204 incorrect plan transformation
 query I rowsort
 SELECT a FROM
   (SELECT a FROM test ORDER BY a LIMIT 1 OFFSET 1) t(a)

@@ -647,23 +647,23 @@ public abstract class AbstractAggregatePlannerTest extends AbstractPlannerTest {
          */
         CASE_16B("SELECT ID FROM test WHERE VAL0 IN (SELECT VAL0 FROM test)", schema(identity(), indexByVal0Desc())),
         /**
-         * Query: SELECT (SELECT test.val0 FROM test t ORDER BY 1 LIMIT 1) FROM test.
+         * Query: SELECT (SELECT test.val0 FROM test t ORDER BY 1 LIMIT 2) FROM test.
          *
          * <p>Distribution single
          */
-        CASE_17("SELECT (SELECT test.val0 FROM test t ORDER BY 1 LIMIT 1) FROM test", schema(single())),
+        CASE_17("SELECT (SELECT test.val0 FROM test t ORDER BY 1 LIMIT 2) FROM test", schema(single())),
         /**
-         * Query: SELECT (SELECT test.val0 FROM test t ORDER BY 1 LIMIT 1) FROM test.
+         * Query: SELECT (SELECT test.val0 FROM test t ORDER BY 1 LIMIT 2) FROM test.
          *
          * <p>Distribution hash(0)
          */
-        CASE_17A("SELECT (SELECT test.val0 FROM test t ORDER BY 1 LIMIT 1) FROM test", schema(hash())),
+        CASE_17A("SELECT (SELECT test.val0 FROM test t ORDER BY 1 LIMIT 2) FROM test", schema(hash())),
         /**
-         * Query: SELECT (SELECT test.val0 FROM test t ORDER BY 1 LIMIT 1) FROM test.
+         * Query: SELECT (SELECT test.val0 FROM test t ORDER BY 1 LIMIT 2) FROM test.
          *
          * <p>Distribution identity(0)
          */
-        CASE_17B("SELECT (SELECT test.val0 FROM test t ORDER BY 1 LIMIT 1) FROM test", schema(identity())),
+        CASE_17B("SELECT (SELECT test.val0 FROM test t ORDER BY 1 LIMIT 2) FROM test", schema(identity())),
         /**
          * Query: SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val0, val1 ORDER BY val0, val1.
          *

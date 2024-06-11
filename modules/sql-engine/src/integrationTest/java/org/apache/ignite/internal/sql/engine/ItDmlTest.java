@@ -36,7 +36,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.failure.FailureContext;
-import org.apache.ignite.internal.failure.handlers.FailureHandler;
+import org.apache.ignite.internal.failure.handlers.AbstractFailureHandler;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.exec.rel.AbstractNode;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
@@ -549,8 +549,7 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
     public void testInsertDefaultNullValue() {
         checkDefaultValue(defaultValueArgs()
                 .filter(a -> !a.sqlType.endsWith("NOT NULL"))
-                // TODO: uncomment after https://issues.apache.org/jira/browse/IGNITE-21243
-                // .map(a -> new DefaultValueArg(a.sqlType, "NULL", null))
+                .map(a -> new DefaultValueArg(a.sqlType, "NULL", null))
                 .collect(Collectors.toList()));
     }
 
@@ -851,7 +850,7 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
         );
     }
 
-    private class InterceptFailHandler implements FailureHandler {
+    private class InterceptFailHandler extends AbstractFailureHandler {
         ArrayList<FailureContext> interceptedFailsList = new ArrayList<>();
 
         public ArrayList<FailureContext> getFails() {
@@ -859,7 +858,7 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
         }
 
         @Override
-        public boolean onFailure(String nodeName, FailureContext failureCtx) {
+        public boolean handle(String nodeName, FailureContext failureCtx) {
             interceptedFailsList.add(failureCtx);
 
             return false;

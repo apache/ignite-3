@@ -17,11 +17,8 @@
 
 package org.apache.ignite.internal.catalog.sql;
 
-import org.apache.ignite.catalog.Options;
-
 class QueryContext {
-
-    private final Options options;
+    private static final int INDENT = 2;
 
     private final StringBuilder sql;
 
@@ -29,8 +26,7 @@ class QueryContext {
 
     private boolean newline = false;
 
-    QueryContext(Options options) {
-        this.options = options;
+    QueryContext() {
         sql = new StringBuilder();
     }
 
@@ -73,14 +69,12 @@ class QueryContext {
     }
 
     QueryContext formatSeparator() {
-        if (!newline && options.isPrettyPrint()) {
-            newline = true;
-        }
+        newline = true;
         return this;
     }
 
     boolean isQuoteNames() {
-        return options.isQuoteIdentifiers();
+        return false;
     }
 
     QueryContext sqlIndentStart(String s) {
@@ -88,20 +82,8 @@ class QueryContext {
     }
 
     private QueryContext sqlIndentStart() {
-        indent += options.indentWidth();
-        if (options.isPrettyPrint()) {
-            newline = true;
-        }
+        indent += INDENT;
         return this;
-    }
-
-    QueryContext sqlIndentEnd(String s) {
-        return sqlIndentEnd().sql(s);
-    }
-
-    private QueryContext sqlIndentEnd() {
-        indent -= options.indentWidth();
-        return this.formatSeparator();
     }
 
     private String indentation() {
@@ -111,7 +93,6 @@ class QueryContext {
     private void applyNewLine() {
         if (newline) {
             sql.append(System.lineSeparator());
-            sql.append(indentation());
         }
     }
 

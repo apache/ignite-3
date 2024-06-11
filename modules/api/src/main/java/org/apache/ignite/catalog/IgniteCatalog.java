@@ -17,8 +17,10 @@
 
 package org.apache.ignite.catalog;
 
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.catalog.definitions.TableDefinition;
 import org.apache.ignite.catalog.definitions.ZoneDefinition;
+import org.apache.ignite.table.Table;
 
 /**
  * Provides the ability to create and execute SQL DDL queries from annotated classes or fluent builders. This is an example of the simple
@@ -54,7 +56,7 @@ import org.apache.ignite.catalog.definitions.ZoneDefinition;
  *        Integer id;
  *    }
  * </pre>
- * When this class is passed to the {@link #create(Class)} method it will produce the following statement:
+ * When this class is passed to the {@link #createTableAsync(Class)} method it will produce the following statement:
  * <pre>
  *    CREATE TABLE IF NOT EXISTS Pojo (id int, PRIMARY KEY (id));
  * </pre>
@@ -103,7 +105,7 @@ import org.apache.ignite.catalog.definitions.ZoneDefinition;
  *        String str;
  *    }
  * </pre>
- * These classes when passed to the {@link #create(Class)} method will produce the following statements:
+ * These classes when passed to the {@link #createTableAsync(Class)} method will produce the following statements:
  * <pre>
  *    CREATE ZONE IF NOT EXISTS zone_test WITH PARTITIONS=1, REPLICAS=3, STORAGE_PROFILES='default';
  *    CREATE TABLE IF NOT EXISTS table_test (id int, id_str varchar(20), f_name varchar(20) not null default 'a', \
@@ -145,7 +147,7 @@ public interface IgniteCatalog {
      * @param recordClass Annotated record class.
      * @return Query object.
      */
-    Query create(Class<?> recordClass);
+    CompletableFuture<Table> createTableAsync(Class<?> recordClass);
 
     /**
      * Creates a query object from the annotated key and value classes.
@@ -154,7 +156,7 @@ public interface IgniteCatalog {
      * @param valueClass Annotated value class.
      * @return Query object.
      */
-    Query create(Class<?> keyClass, Class<?> valueClass);
+    CompletableFuture<Table> createTableAsync(Class<?> keyClass, Class<?> valueClass);
 
     /**
      * Creates a query object from the table definition.
@@ -162,45 +164,40 @@ public interface IgniteCatalog {
      * @param definition Table definition.
      * @return Query object.
      */
-    Query createTable(TableDefinition definition);
+    CompletableFuture<Table> createTableAsync(TableDefinition definition);
 
     /**
      * Creates a query object from the zone definition.
      *
      * @param definition Zone definition.
-     * @return Query object.
      */
-    Query createZone(ZoneDefinition definition);
+    CompletableFuture<Void> createZoneAsync(ZoneDefinition definition);
 
     /**
      * Creates a {@code DROP TABLE} query object from the table definition.
      *
      * @param definition Table definition.
-     * @return query object
      */
-    Query dropTable(TableDefinition definition);
+    CompletableFuture<Void> dropTableAsync(TableDefinition definition);
 
     /**
      * Creates a {@code DROP TABLE} query object from the table name.
      *
      * @param name Table name.
-     * @return Query object.
      */
-    Query dropTable(String name);
+    CompletableFuture<Void> dropTableAsync(String name);
 
     /**
      * Creates a {@code DROP ZONE} query object from the zone definition.
      *
      * @param definition Zone definition.
-     * @return Query object.
      */
-    Query dropZone(ZoneDefinition definition);
+    CompletableFuture<Void> dropZoneAsync(ZoneDefinition definition);
 
     /**
      * Creates a {@code DROP ZONE} query object from the zone name.
      *
      * @param name Zone name.
-     * @return Query object.
      */
-    Query dropZone(String name);
+    CompletableFuture<Void> dropZoneAsync(String name);
 }

@@ -120,6 +120,17 @@ public class CatalogParamsValidationUtils {
     }
 
     /**
+     * Validates that given partitions number is null, meaning that altering of a partitions number is forbidden.
+     *
+     * @param partitions Partitions number to validate.
+     */
+    public static void validatePartition(@Nullable Integer partitions) {
+        if (partitions != null) {
+            throw new CatalogValidationException("Partitions number cannot be altered");
+        }
+    }
+
+    /**
      * Validates that given schema doesn't contain any relation with specified name.
      *
      * @param schema Schema to look up relation with specified name.

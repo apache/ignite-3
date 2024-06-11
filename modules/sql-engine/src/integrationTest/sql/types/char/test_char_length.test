@@ -41,3 +41,8 @@ query T
 SELECT char_length('🦆')
 ----
 1
+
+query T
+SELECT length('a'::CHAR(10))
+----
+10

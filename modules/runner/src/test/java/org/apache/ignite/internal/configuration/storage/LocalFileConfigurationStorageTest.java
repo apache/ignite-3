@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.configuration.storage;
 
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.aMapWithSize;
 import static org.hamcrest.Matchers.allOf;
@@ -129,7 +128,6 @@ public class LocalFileConfigurationStorageTest {
         var topConfiguration = (TopConfiguration) treeGenerator.instantiateCfg(TopConfiguration.KEY, changer);
 
         changer.start();
-        assertThat(changer.onDefaultsPersisted(), willCompleteSuccessfully());
 
         topConfiguration.namedList().change(b -> b.create("name1", x -> {
             x.changeStrVal("strVal1");
@@ -225,7 +223,6 @@ public class LocalFileConfigurationStorageTest {
         var topConfiguration = (TopConfiguration) treeGenerator.instantiateCfg(TopConfiguration.KEY, changer);
 
         changer.start();
-        assertThat(changer.onDefaultsPersisted(), willCompleteSuccessfully());
 
         topConfiguration.shortVal().update((short) 3).get();
         // And
@@ -320,7 +317,6 @@ public class LocalFileConfigurationStorageTest {
         var topConfiguration = (TopConfiguration) treeGenerator.instantiateCfg(TopConfiguration.KEY, changer);
 
         changer.start();
-        assertThat(changer.onDefaultsPersisted(), willCompleteSuccessfully());
 
         topConfiguration.namedList().change(b -> {
             b.create("name1", x -> {
@@ -469,7 +465,6 @@ public class LocalFileConfigurationStorageTest {
 
         // When update configuration
         changer.start();
-        assertThat(changer.onDefaultsPersisted(), willCompleteSuccessfully());
 
         var topConfiguration = (TopConfiguration) treeGenerator.instantiateCfg(TopConfiguration.KEY, changer);
         topConfiguration.namedList().change(b -> b.create("name1", x -> {

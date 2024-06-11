@@ -111,7 +111,7 @@ distributions {
             }
             into('lib') {
                 from configurations.cliArtifacts
-                from "$rootDir/packaging/common/setup-java.sh"
+                from "$rootDir/packaging/common/linux/setup-java.sh"
             }
         }
     }
@@ -188,7 +188,7 @@ ospackage {
 
     into(linuxTokens.LIB_DIR) {
         from configurations.cliArtifacts
-        from "$rootDir/packaging/common/setup-java.sh"
+        from "$rootDir/packaging/common/linux/setup-java.sh"
     }
 
     postInstall file("$buildDir/linux/postInstall.sh")
