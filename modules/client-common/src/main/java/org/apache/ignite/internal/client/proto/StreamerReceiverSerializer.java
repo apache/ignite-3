@@ -92,7 +92,7 @@ public class StreamerReceiverSerializer {
      * @param receiverResults Receiver results.
      */
     public static void serializeResults(ClientMessagePacker w, @Nullable List<Object> receiverResults) {
-        if (receiverResults == null) {
+        if (receiverResults == null || receiverResults.isEmpty()) {
             w.packNil();
             return;
         }
@@ -111,7 +111,7 @@ public class StreamerReceiverSerializer {
      * @param r Reader.
      * @return Receiver results.
      */
-    public static @Nullable List<Object> deserializeResults(ClientMessageUnpacker r) {
+    public static @Nullable <R> List<R> deserializeResults(ClientMessageUnpacker r) {
         if (r.tryUnpackNil()) {
             return null;
         }
