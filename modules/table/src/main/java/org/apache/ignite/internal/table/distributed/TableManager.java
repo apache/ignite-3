@@ -857,22 +857,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             int zoneId,
             boolean isRecovery
     ) {
-        int tableId = table.tableId();
-
-        InternalTable internalTbl = table.internalTable();
-
-        String localNodeName = localNode().name();
-
-        Assignment localMemberAssignment = assignments.nodes().stream()
-                .filter(a -> a.consistentId().equals(localNodeName))
-                .findAny()
-                .orElse(null);
-
         PeersAndLearners realConfiguration = configurationFromAssignments(assignments.nodes());
         PeersAndLearners newConfiguration = nonStableNodeAssignments == null
                 ? realConfiguration : configurationFromAssignments(nonStableNodeAssignments.nodes());
-
-        TablePartitionId replicaGrpId = new TablePartitionId(tableId, partId);
 
         var safeTimeTracker = new PendingComparableValuesTracker<HybridTimestamp, Void>(
                 new HybridTimestamp(1, 0)
@@ -881,10 +868,16 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         PartitionStorages partitionStorages = getPartitionStorages(table, partId);
 
+        InternalTable internalTable = table.internalTable();
+
         PartitionDataStorage partitionDataStorage = partitionDataStorage(partitionStorages.getMvPartitionStorage(),
-                internalTbl, partId);
+                internalTable, partId);
 
         storageIndexTracker.update(partitionDataStorage.lastAppliedIndex(), null);
+
+        int tableId = table.tableId();
+
+        TablePartitionId replicaGrpId = new TablePartitionId(tableId, partId);
 
         PartitionUpdateHandlers partitionUpdateHandlers = createPartitionUpdateHandlers(
                 partId,
@@ -897,15 +890,17 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         boolean shouldStartRaftListeners = shouldStartRaftListeners(assignments, nonStableNodeAssignments);
 
         if (shouldStartRaftListeners) {
-            ((InternalTableImpl) internalTbl).updatePartitionTrackers(partId, safeTimeTracker, storageIndexTracker);
+            ((InternalTableImpl) internalTable).updatePartitionTrackers(partId, safeTimeTracker, storageIndexTracker);
 
             mvGc.addStorage(replicaGrpId, partitionUpdateHandlers.gcUpdateHandler);
         }
 
-        // TODO: will be removed in https://issues.apache.org/jira/browse/IGNITE-22218
-        Consumer<RaftGroupService> updateTableRaftService = (raftClient) -> ((InternalTableImpl) internalTbl)
-                .tableRaftService()
-                .updateInternalTableRaftGroupService(partId, raftClient);
+        String localNodeName = localNode().name();
+
+        Assignment localMemberAssignment = assignments.nodes().stream()
+                .filter(a -> a.consistentId().equals(localNodeName))
+                .findAny()
+                .orElse(null);
 
         // (0) if local node isn't in the assignments => skip
         if (localMemberAssignment == null) {
@@ -917,7 +912,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         CompletableFuture<Boolean> shouldStartGroupFut = isRecovery
                 ? partitionReplicatorNodeRecovery.initiateGroupReentryIfNeeded(
                         replicaGrpId,
-                        internalTbl,
+                        internalTable,
                         newConfiguration,
                         localMemberAssignment
                 )
@@ -925,7 +920,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         shouldStartGroupFut
                 .thenComposeAsync(startGroup -> inBusyLock(busyLock, () -> {
-                    // (1) if partitionReplicatorNodeRecovery#shouldStartGroup fails => do start nothing
+                    // (1) if partitionReplicatorNodeRecovery#initiateGroupReentryIfNeeded fails => do start nothing
                     if (!startGroup) {
                         return falseCompletedFuture();
                     }
@@ -939,8 +934,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     }
 
                     // (3) Otherwise let's start replica manually
-                    InternalTable internalTable = table.internalTable();
-
                     RaftGroupListener raftGroupListener = new PartitionListener(
                             txManager,
                             partitionDataStorage,
@@ -968,6 +961,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     RaftGroupEventsListener raftGroupEventsListener = createRaftGroupEventsListener(zoneId, replicaGrpId);
 
                     MvTableStorage mvTableStorage = internalTable.storage();
+
+                    // TODO: will be removed in https://issues.apache.org/jira/browse/IGNITE-22218
+                    Consumer<RaftGroupService> updateTableRaftService = (raftClient) -> ((InternalTableImpl) internalTable)
+                            .tableRaftService()
+                            .updateInternalTableRaftGroupService(partId, raftClient);
 
                     try {
                         return replicaMgr.startReplica(

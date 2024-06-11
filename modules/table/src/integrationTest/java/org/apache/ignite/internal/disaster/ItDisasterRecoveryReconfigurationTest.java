@@ -70,6 +70,7 @@ import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.TransactionException;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
@@ -267,7 +268,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
      * Tests a scenario where there's a single partition on a node 1, and the node that hosts it is lost. Reconfiguration of the zone should
      * create new raft group on the remaining node, without any data.
      */
-    @Test
+    @RepeatedTest(40)
     @ZoneParams(nodes = 2, replicas = 1, partitions = 1)
     void testManualRebalanceIfPartitionIsLost() throws Exception {
         int partId = 0;
