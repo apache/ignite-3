@@ -857,8 +857,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             int zoneId,
             boolean isRecovery
     ) {
-        CompletableFuture<Void> resultFuture = new CompletableFuture<>();
-
         int tableId = table.tableId();
 
         InternalTable internalTbl = table.internalTable();
@@ -909,88 +907,84 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 .tableRaftService()
                 .updateInternalTableRaftGroupService(partId, raftClient);
 
-        CompletableFuture<Boolean> startGroupFut;
-
-        if (localMemberAssignment != null) {
-            CompletableFuture<Boolean> shouldStartGroupFut = isRecovery
-                    ? partitionReplicatorNodeRecovery.initiateGroupReentryIfNeeded(
-                            replicaGrpId,
-                            internalTbl,
-                            newConfiguration,
-                            localMemberAssignment
-                    )
-                    : trueCompletedFuture();
-
-            startGroupFut = shouldStartGroupFut.thenComposeAsync(startGroup -> inBusyLock(busyLock, () -> {
-                // (1) if partitionReplicatorNodeRecovery#shouldStartGroup fails -> do start nothing
-                if (!startGroup) {
-                    return falseCompletedFuture();
-                }
-
-                // (2) if all raft-nodes are started already => check force reset and finish the process
-                if (replicaMgr.isReplicaStarted(replicaGrpId)) {
-                    if (nonStableNodeAssignments != null && nonStableNodeAssignments.force()) {
-                        replicaMgr.resetPeers(replicaGrpId, configurationFromAssignments(nonStableNodeAssignments.nodes()));
-                    }
-                    return trueCompletedFuture();
-                }
-
-                // (3) Otherwise let's start replica manually
-                InternalTable internalTable = table.internalTable();
-
-                RaftGroupListener raftGroupListener = new PartitionListener(
-                        txManager,
-                        partitionDataStorage,
-                        partitionUpdateHandlers.storageUpdateHandler,
-                        partitionStorages.getTxStateStorage(),
-                        safeTimeTracker,
-                        storageIndexTracker,
-                        catalogService,
-                        table.schemaView(),
-                        clockService
-                );
-
-                SnapshotStorageFactory snapshotStorageFactory = createSnapshotStorageFactory(replicaGrpId,
-                        partitionUpdateHandlers, internalTable);
-
-                Function<RaftGroupService, ReplicaListener> createListener = (raftClient) -> createReplicaListener(
-                        replicaGrpId,
-                        table,
-                        safeTimeTracker,
-                        partitionStorages.getMvPartitionStorage(),
-                        partitionStorages.getTxStateStorage(),
-                        partitionUpdateHandlers,
-                        raftClient);
-
-                RaftGroupEventsListener raftGroupEventsListener = createRaftGroupEventsListener(zoneId, replicaGrpId);
-
-                MvTableStorage mvTableStorage = internalTable.storage();
-
-                try {
-                    // TODO: remove
-                    LOG.info("!!! node={} starts replication group with config {}", localNodeName, newConfiguration);
-                    return replicaMgr.startReplica(
-                            raftGroupEventsListener,
-                            raftGroupListener,
-                            mvTableStorage.isVolatile(),
-                            snapshotStorageFactory,
-                            updateTableRaftService,
-                            createListener,
-                            storageIndexTracker,
-                            replicaGrpId,
-                            newConfiguration)
-                            .thenCompose(unused -> trueCompletedFuture());
-                } catch (NodeStoppingException e) {
-                    throw new AssertionError("Loza was stopped before Table manager", e);
-                }
-            }), ioExecutor);
-        } else {
-            // TODO: will be removed after https://issues.apache.org/jira/browse/IGNITE-22315
-            // (4) in case if node not in the assignments
-            startGroupFut = falseCompletedFuture();
+        // (0) if local node isn't in the assignments => skip
+        if (localMemberAssignment == null) {
+            return nullCompletedFuture();
         }
 
-        startGroupFut
+        CompletableFuture<Void> resultFuture = new CompletableFuture<>();
+
+        CompletableFuture<Boolean> shouldStartGroupFut = isRecovery
+                ? partitionReplicatorNodeRecovery.initiateGroupReentryIfNeeded(
+                        replicaGrpId,
+                        internalTbl,
+                        newConfiguration,
+                        localMemberAssignment
+                )
+                : trueCompletedFuture();
+
+        shouldStartGroupFut
+                .thenComposeAsync(startGroup -> inBusyLock(busyLock, () -> {
+                    // (1) if partitionReplicatorNodeRecovery#shouldStartGroup fails => do start nothing
+                    if (!startGroup) {
+                        return falseCompletedFuture();
+                    }
+
+                    // (2) if replica already started => check force reset and finish the process
+                    if (replicaMgr.isReplicaStarted(replicaGrpId)) {
+                        if (nonStableNodeAssignments != null && nonStableNodeAssignments.force()) {
+                            replicaMgr.resetPeers(replicaGrpId, configurationFromAssignments(nonStableNodeAssignments.nodes()));
+                        }
+                        return trueCompletedFuture();
+                    }
+
+                    // (3) Otherwise let's start replica manually
+                    InternalTable internalTable = table.internalTable();
+
+                    RaftGroupListener raftGroupListener = new PartitionListener(
+                            txManager,
+                            partitionDataStorage,
+                            partitionUpdateHandlers.storageUpdateHandler,
+                            partitionStorages.getTxStateStorage(),
+                            safeTimeTracker,
+                            storageIndexTracker,
+                            catalogService,
+                            table.schemaView(),
+                            clockService
+                    );
+
+                    SnapshotStorageFactory snapshotStorageFactory = createSnapshotStorageFactory(replicaGrpId,
+                            partitionUpdateHandlers, internalTable);
+
+                    Function<RaftGroupService, ReplicaListener> createListener = (raftClient) -> createReplicaListener(
+                            replicaGrpId,
+                            table,
+                            safeTimeTracker,
+                            partitionStorages.getMvPartitionStorage(),
+                            partitionStorages.getTxStateStorage(),
+                            partitionUpdateHandlers,
+                            raftClient);
+
+                    RaftGroupEventsListener raftGroupEventsListener = createRaftGroupEventsListener(zoneId, replicaGrpId);
+
+                    MvTableStorage mvTableStorage = internalTable.storage();
+
+                    try {
+                        return replicaMgr.startReplica(
+                                raftGroupEventsListener,
+                                raftGroupListener,
+                                mvTableStorage.isVolatile(),
+                                snapshotStorageFactory,
+                                updateTableRaftService,
+                                createListener,
+                                storageIndexTracker,
+                                replicaGrpId,
+                                newConfiguration)
+                                .thenCompose(unused -> trueCompletedFuture());
+                    } catch (NodeStoppingException e) {
+                        throw new AssertionError("Loza was stopped before Table manager", e);
+                    }
+                }), ioExecutor)
                 .whenComplete((res, ex) -> {
                     if (ex != null) {
                         LOG.warn("Unable to update raft groups on the node [tableId={}, partitionId={}]", ex, tableId, partId);

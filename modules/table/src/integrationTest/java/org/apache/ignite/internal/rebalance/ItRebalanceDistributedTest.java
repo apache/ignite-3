@@ -724,7 +724,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     }
 
 
-    @RepeatedTest(40)
+    @Test
     void testClientsAreUpdatedAfterPendingRebalanceHandled() throws Exception {
         Node node = getNode(0);
 
@@ -795,11 +795,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     }
 
     private static boolean isNodeInAssignments(Node node, Set<Assignment> assignments) {
-        return isNodeInPeersSet(node, assignmentsToPeersSet(assignments));
-    }
-
-    private static boolean isNodeInPeersSet(Node node, Set<Peer> assignedPeers) {
-        return assignedPeers.stream()
+        return assignmentsToPeersSet(assignments).stream()
                 .map(Peer::consistentId)
                 .anyMatch(id -> id.equals(node.clusterService.nodeName()));
     }
