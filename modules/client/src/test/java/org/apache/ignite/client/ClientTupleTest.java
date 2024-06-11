@@ -18,30 +18,17 @@
 package org.apache.ignite.client;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.time.Duration;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.time.Month;
 import java.time.Period;
 import java.util.Arrays;
-import java.util.BitSet;
-import java.util.Collections;
 import java.util.Set;
-import java.util.UUID;
+import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.proto.TuplePart;
@@ -50,7 +37,9 @@ import org.apache.ignite.internal.client.table.ClientSchema;
 import org.apache.ignite.internal.client.table.ClientTuple;
 import org.apache.ignite.internal.marshaller.ReflectionMarshallersProvider;
 import org.apache.ignite.sql.ColumnType;
+import org.apache.ignite.table.AbstractMutableTupleTest;
 import org.apache.ignite.table.Tuple;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -58,21 +47,24 @@ import org.junit.jupiter.params.provider.ValueSource;
 /**
  * Tests client tuple builder implementation.
  *
- * <p>Should be in sync with org.apache.ignite.internal.table.TupleBuilderImplTest.
+ * <p>The class contains implementation-specific tests. Tuple interface contract conformance/violation tests are inherited from the base
+ * class.
  */
-public class ClientTupleTest {
+public class ClientTupleTest extends AbstractMutableTupleTest {
     private static final ReflectionMarshallersProvider marshallers = new ReflectionMarshallersProvider();
 
     private static final ClientSchema SCHEMA = new ClientSchema(1, new ClientColumn[]{
-            new ClientColumn("NAME", ColumnType.STRING, false, -1, 0, -1, 0),
-            new ClientColumn("ID", ColumnType.INT64, false, 0, -1, 0, 1)
+            new ClientColumn("ID", ColumnType.INT64, false, 0, -1, 0, 0),
+            new ClientColumn("SIMPLENAME", ColumnType.STRING, false, -1, 0, -1, 1),
+            new ClientColumn("QuotedName", ColumnType.STRING, false, -1, 2, -1, 2),
+            new ClientColumn("NOVALUE", ColumnType.STRING, true, -1, 1, -1, 3)
     }, marshallers);
 
     private static final ClientSchema FULL_SCHEMA = new ClientSchema(100, new ClientColumn[]{
             new ClientColumn("I8", ColumnType.INT8, false, -1, 0, -1, 0),
-            new ClientColumn("I16", ColumnType.INT16, false, -1, 1, -1, 1),
+            new ClientColumn("i16", ColumnType.INT16, false, -1, 1, -1, 1),
             new ClientColumn("I32", ColumnType.INT32, false, 0, -1, -1, 2),
-            new ClientColumn("I64", ColumnType.INT64, false, 1, -1, -1, 3),
+            new ClientColumn("i64", ColumnType.INT64, false, 1, -1, -1, 3),
             new ClientColumn("FLOAT", ColumnType.FLOAT, false, -1, 2, -1, 4),
             new ClientColumn("DOUBLE", ColumnType.DOUBLE, false, -1, 3, -1, 5),
             new ClientColumn("UUID", ColumnType.UUID, false, -1, 4, -1, 6),
@@ -90,155 +82,83 @@ public class ClientTupleTest {
             new ClientColumn("NUMBER", ColumnType.NUMBER, false, -1, 15, -1, 18)
     }, marshallers);
 
-    private static final UUID GUID = UUID.randomUUID();
-
-    private static final LocalDate DATE = LocalDate.of(1995, Month.MAY, 23);
-
-    private static final LocalTime TIME = LocalTime.of(17, 0, 1, 222_333_444);
-
-    private static final LocalDateTime DATE_TIME = LocalDateTime.of(1995, Month.MAY, 23, 17, 0, 1, 222_333_444);
-
-    private static final Instant TIMESTAMP = Instant.now();
-
     @Test
-    public void testValueReturnsValueByName() {
-        assertEquals(3L, (Long) createTuple().value("id"));
-        assertEquals("Shirt", createTuple().value("name"));
-    }
-
-    @Test
-    public void testValueReturnsValueByIndex() {
-        assertEquals(3L, (Long) createTuple().value(1));
-        assertEquals("Shirt", createTuple().value(0));
-    }
-
-    @Test
-    public void testValueOrDefaultReturnsValueByName() {
-        assertEquals(3L, createTuple().valueOrDefault("id", -1L));
-        assertEquals("Shirt", createTuple().valueOrDefault("name", "y"));
-    }
-
-    @Test
-    public void testValueOrDefaultReturnsDefaultWhenColumnIsNotPresent() {
-        assertEquals("foo", createTuple().valueOrDefault("x", "foo"));
-    }
-
-    @Test
-    public void testValueOrDefaultReturnsNullWhenColumnIsSetToNull() {
-        Tuple tuple = createTuple().set("name", null);
-
-        assertNull(tuple.valueOrDefault("name", "foo"));
-    }
-
-    @Test
-    public void testValueThrowsWhenColumnIsNotPresent() {
-        var ex = assertThrows(IllegalArgumentException.class, () -> createTuple().value("x"));
-        assertThat(ex.getMessage(), containsString("Column doesn't exist [name=x]"));
-
-        var ex2 = assertThrows(IndexOutOfBoundsException.class, () -> createTuple().value(100));
-        assertThat(ex2.getMessage(), containsString("Index 100 out of bounds for length 2"));
-    }
-
-    @Test
-    public void testColumnCountReturnsSchemaSize() {
-        assertEquals(SCHEMA.columns().length, createTuple().columnCount());
+    @Override
+    public void testSerialization() {
+        Assumptions.abort("ClientTuple is not serializable.");
     }
 
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
     public void testColumnCountKeyOnlyReturnsKeySize(boolean partialData) {
-        assertEquals(FULL_SCHEMA.columns(TuplePart.KEY).length, createFullSchemaTuple(TuplePart.KEY, partialData).columnCount());
+        assertEquals(FULL_SCHEMA.columns(TuplePart.KEY).length, createTuplePart(TuplePart.KEY, partialData).columnCount());
     }
 
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
     public void testColumnCountValOnlyReturnsValSize(boolean partialData) {
-        assertEquals(FULL_SCHEMA.columns(TuplePart.VAL).length, createFullSchemaTuple(TuplePart.VAL, partialData).columnCount());
-    }
-
-    @Test
-    public void testColumnNameReturnsNameByIndex() {
-        assertEquals("ID", createTuple().columnName(1));
-        assertEquals("NAME", createTuple().columnName(0));
+        assertEquals(FULL_SCHEMA.columns(TuplePart.VAL).length, createTuplePart(TuplePart.VAL, partialData).columnCount());
     }
 
     @Test
     public void testColumnNameReturnsNameByIndexKeyOnly() {
-        assertEquals("I32", createFullSchemaTuple(TuplePart.KEY, false).columnName(0));
-        assertEquals("I64", createFullSchemaTuple(TuplePart.KEY, false).columnName(1));
+        assertEquals("I32", createTuplePart(TuplePart.KEY, false).columnName(0));
+        assertEquals("\"i64\"", createTuplePart(TuplePart.KEY, false).columnName(1));
     }
 
     @Test
     public void testColumnNameReturnsNameByIndexValOnly() {
-        assertEquals("I8", createFullSchemaTuple(TuplePart.VAL, false).columnName(0));
-        assertEquals("I16", createFullSchemaTuple(TuplePart.VAL, false).columnName(1));
-    }
-
-    @Test
-    public void testColumnNameThrowsOnInvalidIndex() {
-        var ex = assertThrows(IndexOutOfBoundsException.class, () -> createTuple().columnName(-1));
-        assertEquals("Index -1 out of bounds for length 2", ex.getMessage());
-    }
-
-    @Test
-    public void testColumnIndexReturnsIndexByName() {
-        assertEquals(1, createTuple().columnIndex("id"));
-        assertEquals(0, createTuple().columnIndex("name"));
-
-        assertEquals(2, createFullSchemaTuple().columnIndex("I32"));
-        assertEquals(3, createFullSchemaTuple().columnIndex("I64"));
-        assertEquals(7, createFullSchemaTuple().columnIndex("STR"));
+        assertEquals("I8", createTuplePart(TuplePart.VAL, false).columnName(0));
+        assertEquals("\"i16\"", createTuplePart(TuplePart.VAL, false).columnName(1));
     }
 
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
     public void testColumnIndexReturnsIndexByNameKeyOnly(boolean partialData) {
-        assertEquals(0, createFullSchemaTuple(TuplePart.KEY, partialData).columnIndex("I32"));
-        assertEquals(1, createFullSchemaTuple(TuplePart.KEY, partialData).columnIndex("I64"));
-        assertEquals(2, createFullSchemaTuple(TuplePart.KEY, partialData).columnIndex("STR"));
+        assertEquals(0, createTuplePart(TuplePart.KEY, partialData).columnIndex("I32"));
+        assertEquals(1, createTuplePart(TuplePart.KEY, partialData).columnIndex("\"i64\""));
+        assertEquals(2, createTuplePart(TuplePart.KEY, partialData).columnIndex("\"STR\""));
     }
 
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
     public void testColumnIndexReturnsIndexByNameValOnly(boolean partialData) {
-        assertEquals(0, createFullSchemaTuple(TuplePart.VAL, partialData).columnIndex("I8"));
-        assertEquals(1, createFullSchemaTuple(TuplePart.VAL, partialData).columnIndex("I16"));
-        assertEquals(4, createFullSchemaTuple(TuplePart.VAL, partialData).columnIndex("UUID"));
-    }
-
-    @Test
-    public void testColumnIndexForMissingColumns() {
-        assertEquals(-1, createTuple().columnIndex("foo"));
-        assertEquals(-1, createFullSchemaTuple().columnIndex("UUID1"));
+        assertEquals(0, createTuplePart(TuplePart.VAL, partialData).columnIndex("I8"));
+        assertEquals(1, createTuplePart(TuplePart.VAL, partialData).columnIndex("\"i16\""));
+        assertEquals(4, createTuplePart(TuplePart.VAL, partialData).columnIndex("\"UUID\""));
     }
 
     @Test
     public void testColumnIndexForMissingColumnsKeyOnly() {
-        assertEquals(-1, createFullSchemaTuple(TuplePart.KEY, true).columnIndex("foo"));
-        assertEquals(-1, createFullSchemaTuple(TuplePart.KEY, true).columnIndex("UUID"));
+        assertEquals(-1, createTuplePart(TuplePart.KEY, true).columnIndex("foo"));
+        assertEquals(-1, createTuplePart(TuplePart.KEY, true).columnIndex("UUID"));
+        assertEquals(-1, createTuplePart(TuplePart.KEY, true).columnIndex("i64"));
+        assertEquals(-1, createTuplePart(TuplePart.KEY, true).columnIndex("\"i32\""));
     }
 
     @Test
     public void testColumnIndexForMissingColumnsValOnly() {
-        assertEquals(-1, createFullSchemaTuple(TuplePart.VAL, true).columnIndex("foo"));
-        assertEquals(-1, createFullSchemaTuple(TuplePart.VAL, true).columnIndex("I32"));
+        assertEquals(-1, createTuplePart(TuplePart.VAL, true).columnIndex("foo"));
+        assertEquals(-1, createTuplePart(TuplePart.VAL, true).columnIndex("I32"));
+        assertEquals(-1, createTuplePart(TuplePart.VAL, true).columnIndex("i16"));
+        assertEquals(-1, createTuplePart(TuplePart.VAL, true).columnIndex("\"i8\""));
     }
 
     @Test
     public void testTypedGetters() {
-        ClientTuple tuple = createFullSchemaTuple();
+        Tuple tuple = getTupleWithColumnOfAllTypes();
 
         assertEquals(1, tuple.byteValue(0));
         assertEquals(1, tuple.byteValue("i8"));
 
         assertEquals(2, tuple.shortValue(1));
-        assertEquals(2, tuple.shortValue("i16"));
+        assertEquals(2, tuple.shortValue("\"i16\""));
 
         assertEquals(3, tuple.intValue(2));
         assertEquals(3, tuple.intValue("i32"));
 
         assertEquals(4, tuple.longValue(3));
-        assertEquals(4, tuple.longValue("i64"));
+        assertEquals(4, tuple.longValue("\"i64\""));
 
         assertEquals(5.5, tuple.floatValue(4));
         assertEquals(5.5, tuple.floatValue("float"));
@@ -246,25 +166,25 @@ public class ClientTupleTest {
         assertEquals(6.6, tuple.doubleValue(5));
         assertEquals(6.6, tuple.doubleValue("double"));
 
-        assertEquals(GUID, tuple.uuidValue(6));
-        assertEquals(GUID, tuple.uuidValue("uuid"));
+        assertEquals(UUID_VALUE, tuple.uuidValue(6));
+        assertEquals(UUID_VALUE, tuple.uuidValue("uuid"));
 
-        assertEquals("8", tuple.stringValue(7));
-        assertEquals("8", tuple.stringValue("str"));
+        assertEquals(STRING_VALUE, tuple.stringValue(7));
+        assertEquals(STRING_VALUE, tuple.stringValue("str"));
 
-        assertEquals(0, tuple.bitmaskValue(8).length());
-        assertEquals(0, tuple.bitmaskValue("bits").length());
+        assertEquals(BITSET_VALUE, tuple.bitmaskValue(8));
+        assertEquals(BITSET_VALUE, tuple.bitmaskValue("bits"));
 
-        assertEquals(DATE, tuple.dateValue("date"));
-        assertEquals(TIME, tuple.timeValue("time"));
-        assertEquals(DATE_TIME, tuple.datetimeValue("datetime"));
-        assertEquals(TIMESTAMP, tuple.timestampValue("timestamp"));
+        assertEquals(DATE_VALUE, tuple.dateValue("date"));
+        assertEquals(TIME_VALUE, tuple.timeValue("time"));
+        assertEquals(DATETIME_VALUE, tuple.datetimeValue("datetime"));
+        assertEquals(TIMESTAMP_VALUE, tuple.timestampValue("timestamp"));
     }
 
     @SuppressWarnings("ThrowableNotThrown")
     @Test
     public void testTypedGettersWithIncorrectType() {
-        ClientTuple tuple = createFullSchemaTuple();
+        Tuple tuple = getTupleWithColumnOfAllTypes();
 
         assertThrowsWithCause(
                 () -> tuple.byteValue(8),
@@ -278,64 +198,8 @@ public class ClientTupleTest {
     }
 
     @Test
-    public void testBasicTupleEquality() {
-        var tuple = createTuple();
-        var tuple2 = createTuple();
-
-        assertEquals(tuple, tuple);
-        assertEquals(tuple, tuple2);
-        assertEquals(tuple.hashCode(), tuple2.hashCode());
-
-        assertEquals(createTuple().set("name", null), createTuple().set("name", null));
-        assertEquals(createTuple().set("name", null).hashCode(), createTuple().set("name", null).hashCode());
-
-        assertEquals(createTuple().set("name", "bar"), createTuple().set("name", "bar"));
-        assertEquals(createTuple().set("name", "bar").hashCode(), createTuple().set("name", "bar").hashCode());
-
-        assertNotEquals(createTuple().set("name", "foo"), createTuple().set("id", 1));
-        assertNotEquals(createTuple().set("name", "foo"), createTuple().set("name", "bar"));
-
-        tuple = createTuple();
-        tuple2 = createTuple();
-
-        tuple.set("name", "bar");
-
-        assertEquals(tuple, tuple);
-        assertNotEquals(tuple, tuple2);
-        assertNotEquals(tuple2, tuple);
-
-        tuple2.set("name", "baz");
-
-        assertNotEquals(tuple, tuple2);
-        assertNotEquals(tuple2, tuple);
-
-        tuple2.set("name", "bar");
-
-        assertEquals(tuple, tuple2);
-        assertEquals(tuple2, tuple);
-    }
-
-    @Test
-    public void testTupleEquality() {
-        var tuple = createFullSchemaTuple();
-
-        var randomIdx = IntStream.range(0, tuple.columnCount()).boxed().collect(Collectors.toList());
-
-        Collections.shuffle(randomIdx);
-
-        var shuffledTuple = createFullSchemaTuple();
-
-        for (Integer i : randomIdx) {
-            shuffledTuple.set(tuple.columnName(i), tuple.value(i));
-        }
-
-        assertEquals(tuple, shuffledTuple);
-        assertEquals(tuple.hashCode(), shuffledTuple.hashCode());
-    }
-
-    @Test
     public void testTupleEqualityCompatibility() {
-        var clientTuple = createFullSchemaTuple();
+        var clientTuple = getTupleWithColumnOfAllTypes();
         var tuple = Tuple.create();
 
         for (int i = 0; i < clientTuple.columnCount(); i++) {
@@ -343,6 +207,7 @@ public class ClientTupleTest {
         }
 
         assertEquals(clientTuple, tuple);
+        assertEquals(tuple, clientTuple);
         assertEquals(clientTuple.hashCode(), tuple.hashCode());
     }
 
@@ -363,9 +228,9 @@ public class ClientTupleTest {
 
     @Test
     public void testKeyOnlyTupleEquality() {
-        var keyTupleFullData = createFullSchemaTuple(TuplePart.KEY, false);
-        var keyTuplePartialData = createFullSchemaTuple(TuplePart.KEY, true);
-        var keyTupleUser = Tuple.create().set("I32", 3).set("I64", 4L).set("STR", "8");
+        var keyTupleFullData = createTuplePart(TuplePart.KEY, false);
+        var keyTuplePartialData = createTuplePart(TuplePart.KEY, true);
+        var keyTupleUser = Tuple.create().set("I32", 3).set("\"i64\"", 4L).set("str", STRING_VALUE);
 
         assertEquals(keyTupleFullData, keyTuplePartialData);
         assertEquals(keyTupleUser, keyTupleFullData);
@@ -374,23 +239,23 @@ public class ClientTupleTest {
 
     @Test
     public void testValOnlyTupleEquality() {
-        var valTupleFullData = createFullSchemaTuple(TuplePart.VAL, false);
-        var valTuplePartialData = createFullSchemaTuple(TuplePart.VAL, true);
+        var valTupleFullData = createTuplePart(TuplePart.VAL, false);
+        var valTuplePartialData = createTuplePart(TuplePart.VAL, true);
 
         var valTupleUser = Tuple.create()
                 .set("I8", (byte) 1)
-                .set("I16", (short) 2)
+                .set("\"i16\"", (short) 2)
                 .set("FLOAT", 5.5f)
                 .set("DOUBLE", 6.6)
-                .set("UUID", GUID)
-                .set("BITS", new BitSet(3))
-                .set("DATE", DATE)
-                .set("TIME", TIME)
-                .set("DATETIME", DATE_TIME)
-                .set("TIMESTAMP", TIMESTAMP)
+                .set("UUID", UUID_VALUE)
+                .set("BITS", BITSET_VALUE)
+                .set("DATE", DATE_VALUE)
+                .set("TIME", TIME_VALUE)
+                .set("DATETIME", DATETIME_VALUE)
+                .set("TIMESTAMP", TIMESTAMP_VALUE)
                 .set("BOOL", true)
                 .set("DECIMAL", BigDecimal.valueOf(1.234))
-                .set("BYTES", new byte[]{1, 2, 3})
+                .set("BYTES", BYTE_ARRAY_VALUE)
                 .set("PERIOD", Period.ofDays(16))
                 .set("DURATION", Duration.ofDays(17))
                 .set("NUMBER", BigInteger.valueOf(18));
@@ -400,10 +265,18 @@ public class ClientTupleTest {
         assertEquals(valTupleUser, valTuplePartialData);
     }
 
-    private static Tuple createTuple() {
+    @Override
+    protected Tuple createTuple(Function<Tuple, Tuple> transformer) {
+        return transformer.apply(getTuple());
+    }
+
+    @Override
+    protected Tuple getTuple() {
         var binTupleBuf = new BinaryTupleBuilder(SCHEMA.columns().length)
-                .appendString("Shirt")
                 .appendLong(3L)
+                .appendString("simple")
+                .appendString("quoted")
+                .appendNull()
                 .build();
 
         var binTuple = new BinaryTupleReader(SCHEMA.columns().length, binTupleBuf);
@@ -411,11 +284,12 @@ public class ClientTupleTest {
         return new ClientTuple(SCHEMA, TuplePart.KEY_AND_VAL, binTuple);
     }
 
-    private static ClientTuple createFullSchemaTuple() {
-        return createFullSchemaTuple(TuplePart.KEY_AND_VAL, false);
+    @Override
+    protected Tuple getTupleWithColumnOfAllTypes() {
+        return createTuplePart(TuplePart.KEY_AND_VAL, false);
     }
 
-    private static ClientTuple createFullSchemaTuple(TuplePart part, boolean partialData) {
+    private static ClientTuple createTuplePart(TuplePart part, boolean partialData) {
         var binTupleBuf = new BinaryTupleBuilder(FULL_SCHEMA.columns().length)
                         .appendByte((byte) 1)
                         .appendShort((short) 2)
@@ -423,16 +297,16 @@ public class ClientTupleTest {
                         .appendLong(4)
                         .appendFloat(5.5f)
                         .appendDouble(6.6)
-                        .appendUuid(GUID)
-                        .appendString("8")
-                        .appendBitmask(new BitSet(3))
-                        .appendDate(DATE)
-                        .appendTime(TIME)
-                        .appendDateTime(DATE_TIME)
-                        .appendTimestamp(TIMESTAMP)
+                        .appendUuid(UUID_VALUE)
+                        .appendString(STRING_VALUE)
+                        .appendBitmask(BITSET_VALUE)
+                        .appendDate(DATE_VALUE)
+                        .appendTime(TIME_VALUE)
+                        .appendDateTime(DATETIME_VALUE)
+                        .appendTimestamp(TIMESTAMP_VALUE)
                         .appendByte((byte) 1)
                         .appendDecimal(BigDecimal.valueOf(1.234), 3)
-                        .appendBytes(new byte[] {1, 2, 3})
+                        .appendBytes(BYTE_ARRAY_VALUE)
                         .appendPeriod(Period.ofDays(16))
                         .appendDuration(Duration.ofDays(17))
                         .appendNumber(BigInteger.valueOf(18))
@@ -444,7 +318,7 @@ public class ClientTupleTest {
             binTupleBuf = new BinaryTupleBuilder(3)
                     .appendInt(3)
                     .appendLong(4)
-                    .appendString("8")
+                    .appendString(STRING_VALUE)
                     .build();
 
             binTupleColumnCount = 3;
@@ -456,15 +330,15 @@ public class ClientTupleTest {
                     .appendShort((short) 2)
                     .appendFloat(5.5f)
                     .appendDouble(6.6)
-                    .appendUuid(GUID)
-                    .appendBitmask(new BitSet(3))
-                    .appendDate(DATE)
-                    .appendTime(TIME)
-                    .appendDateTime(DATE_TIME)
-                    .appendTimestamp(TIMESTAMP)
+                    .appendUuid(UUID_VALUE)
+                    .appendBitmask(BITSET_VALUE)
+                    .appendDate(DATE_VALUE)
+                    .appendTime(TIME_VALUE)
+                    .appendDateTime(DATETIME_VALUE)
+                    .appendTimestamp(TIMESTAMP_VALUE)
                     .appendByte((byte) 1)
                     .appendDecimal(BigDecimal.valueOf(1.234), 3)
-                    .appendBytes(new byte[] {1, 2, 3})
+                    .appendBytes(BYTE_ARRAY_VALUE)
                     .appendPeriod(Period.ofDays(16))
                     .appendDuration(Duration.ofDays(17))
                     .appendNumber(BigInteger.valueOf(18))
