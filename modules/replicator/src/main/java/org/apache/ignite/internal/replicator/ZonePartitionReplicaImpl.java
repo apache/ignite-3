@@ -19,10 +19,16 @@ package org.apache.ignite.internal.replicator;
 
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverReplicaMessage;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
+import org.apache.ignite.internal.replicator.Replica;
+import org.apache.ignite.internal.replicator.ReplicaResult;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 
@@ -34,6 +40,8 @@ public class ZonePartitionReplicaImpl implements Replica {
     private final ReplicationGroupId replicaGrpId;
 
     private final ReplicaListener listener;
+
+    private final Map<TablePartitionId, Replica> replicas = new ConcurrentHashMap<>();
 
     public ZonePartitionReplicaImpl(
             ReplicationGroupId replicaGrpId,
@@ -50,7 +58,13 @@ public class ZonePartitionReplicaImpl implements Replica {
 
     @Override
     public CompletableFuture<ReplicaResult> processRequest(ReplicaRequest request, String senderId) {
-        return listener.invoke(request, senderId);
+        if (!(request.groupId() instanceof TablePartitionId)) {
+            System.out.println("KKK non table message " + request);
+            return listener.invoke(request, senderId);
+//            return replicas.get(request.groupId()).processRequest(request, senderId);
+        }
+
+        return replicas.get(request.groupId()).processRequest(request, senderId);
     }
 
     @Override
@@ -66,5 +80,9 @@ public class ZonePartitionReplicaImpl implements Replica {
     @Override
     public CompletableFuture<Void> shutdown() {
         return nullCompletedFuture();
+    }
+
+    public void addReplica(TablePartitionId partitionId, Replica replica) {
+        replicas.put(partitionId, replica);
     }
 }

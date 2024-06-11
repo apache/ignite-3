@@ -140,6 +140,7 @@ import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.SimpleCondition;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
+import org.apache.ignite.internal.partition.replica.PartitionReplicaLifecycleManager;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.raft.ExecutorInclinedRaftCommandRunner;
 import org.apache.ignite.internal.raft.Peer;
@@ -154,6 +155,7 @@ import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaRegistry;
@@ -403,6 +405,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     @Nullable
     private ScheduledExecutorService streamerFlushExecutor;
 
+    private PartitionReplicaLifecycleManager partitionReplicaLifecycleManager;
+
     /**
      * Creates a new table manager.
      *
@@ -458,7 +462,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             Supplier<IgniteSql> sql,
             RemotelyTriggeredResourceRegistry remotelyTriggeredResourceRegistry,
             LowWatermark lowWatermark,
-            TransactionInflights transactionInflights
+            TransactionInflights transactionInflights,
+            PartitionReplicaLifecycleManager partitionReplicaLifecycleManager
     ) {
         this.topologyService = topologyService;
         this.replicaMgr = replicaMgr;
@@ -484,6 +489,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         this.transactionInflights = transactionInflights;
         this.txCfg = txCfg;
         this.nodeName = nodeName;
+        this.partitionReplicaLifecycleManager = partitionReplicaLifecycleManager;
 
         this.executorInclinedSchemaSyncService = new ExecutorInclinedSchemaSyncService(schemaSyncService, partitionOperationsExecutor);
         this.executorInclinedPlacementDriver = new ExecutorInclinedPlacementDriver(placementDriver, partitionOperationsExecutor);
@@ -988,7 +994,17 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             createListener,
                             storageIndexTracker,
                             replicaGrpId,
-                            newConfiguration);
+                            newConfiguration).thenApply(r -> {
+                                // KKK races. must be replaced by replica return value
+                                partitionReplicaLifecycleManager
+                                        .addTableReplica(
+                                                new ZonePartitionId(zoneId, partId),
+                                                new TablePartitionId(tableId, partId),
+                                                r);
+
+                                return true;
+                            });
+
                     return ret;
                 } catch (NodeStoppingException e) {
                     throw new AssertionError("Loza was stopped before Table manager", e);

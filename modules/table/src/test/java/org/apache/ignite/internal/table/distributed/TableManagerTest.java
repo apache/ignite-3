@@ -807,7 +807,8 @@ public class TableManagerTest extends IgniteAbstractTest {
                 () -> mock(IgniteSql.class),
                 new RemotelyTriggeredResourceRegistry(),
                 lowWatermark,
-                mock(TransactionInflights.class)
+                mock(TransactionInflights.class),
+                null
         ) {
 
             @Override

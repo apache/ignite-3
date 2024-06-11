@@ -342,7 +342,8 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 () -> mock(IgniteSql.class),
                 new RemotelyTriggeredResourceRegistry(),
                 lowWatermark,
-                new TransactionInflights(placementDriver, clockService)
+                new TransactionInflights(placementDriver, clockService),
+                null
         ) {
 
             @Override

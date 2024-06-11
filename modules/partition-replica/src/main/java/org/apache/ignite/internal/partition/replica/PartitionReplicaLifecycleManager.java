@@ -41,7 +41,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.ZonePartitionReplica;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.affinity.Assignments;
@@ -64,8 +66,10 @@ import org.apache.ignite.internal.partition.replica.snapshot.FailFastSnapshotSto
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
+import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -230,6 +234,32 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
                 throw new RuntimeException(e);
             }
         }
+    }
+
+    private Replica getReplica(ZonePartitionId zonePartitionId) {
+        CompletableFuture<Replica> replicaFut = replicaMgr.getReplica(zonePartitionId);
+        if (replicaFut == null) {
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+            return getReplica(zonePartitionId);
+        }
+
+        try {
+            return replicaFut.get();
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        } catch (ExecutionException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public CompletableFuture<Void> addTableReplica(ZonePartitionId zonePartitionId, TablePartitionId replicationGroupId, Replica replica) {
+        ((ZonePartitionReplica) getReplica(zonePartitionId)).addReplica(replicationGroupId, replica);
+        return nullCompletedFuture();
+//        return zoneReplica.thenAccept(zr -> ((ZonePartitionReplica) zr).addReplica(replicationGroupId, replica));
     }
 
     /**

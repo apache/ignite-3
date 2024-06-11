@@ -637,7 +637,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 sqlRef::get,
                 resourcesRegistry,
                 lowWatermark,
-                transactionInflights
+                transactionInflights,
+                null
         );
 
         var indexManager = new IndexManager(

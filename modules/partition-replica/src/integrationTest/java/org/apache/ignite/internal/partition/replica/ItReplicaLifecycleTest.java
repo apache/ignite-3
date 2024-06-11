@@ -298,10 +298,10 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
 
         KeyValueView<Long, Integer> keyValueView = node.tableManager.table(tableId).keyValueView(Long.class, Integer.class);
 
-        assertDoesNotThrow(() -> keyValueView.put(null, 1L, 1));
+        assertDoesNotThrow(() -> keyValueView.put(null, 1L, 100));
 
         // Actually we are testing not the fair put value, but the hardcoded one from temporary noop replica listener
-        assertEquals(-1, keyValueView.get(null, 1L));
+        assertEquals(100, keyValueView.get(null, 1L));
     }
 
     private Node getNode(int nodeIndex) {
@@ -675,7 +675,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     clusterService.topologyService(),
                     clusterService.serializationRegistry(),
                     replicaManager,
-                    mock(LockManager.class),
+                    lockManager,
                     replicaSvc,
                     txManager,
                     dataStorageMgr,
@@ -696,7 +696,8 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     () -> mock(IgniteSql.class),
                     resourcesRegistry,
                     lowWatermark,
-                    transactionInflights
+                    transactionInflights,
+                    partitionReplicaLifecycleManager
             );
 
             indexManager = new IndexManager(

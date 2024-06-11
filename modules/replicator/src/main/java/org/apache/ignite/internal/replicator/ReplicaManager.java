@@ -542,7 +542,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         });
     }
 
-    private CompletableFuture<Boolean> startReplicaInternal(
+    private CompletableFuture<Replica> startReplicaInternal(
             RaftGroupEventsListener raftGroupEventsListener,
             RaftGroupListener raftGroupListener,
             boolean isVolatileStorage,
@@ -595,7 +595,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param newConfiguration A configuration for new raft group.
      * @return Future that promises ready new replica when done.
      */
-    public CompletableFuture<Boolean> startReplica(
+    public CompletableFuture<Replica> startReplica(
             RaftGroupEventsListener raftGroupEventsListener,
             RaftGroupListener raftGroupListener,
             boolean isVolatileStorage,
@@ -710,7 +710,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      */
     @VisibleForTesting
     @Deprecated
-    public CompletableFuture<Boolean> startReplica(
+    public CompletableFuture<Replica> startReplica(
             ReplicationGroupId replicaGrpId,
             PeersAndLearners newConfiguration,
             Consumer<RaftGroupService> updateTableRaftService,
@@ -725,9 +725,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         CompletableFuture<ReplicaListener> newReplicaListenerFut = newRaftClientFut.thenApply(createListener);
 
-        startReplica(replicaGrpId, storageIndexTracker, newReplicaListenerFut);
+//        return CompletableFuture.allOf(resultFuture, startReplica(()).thenApply(() -> replica);
 
-        return resultFuture;
+        return startReplica(replicaGrpId, storageIndexTracker, newReplicaListenerFut);
     }
 
     /**

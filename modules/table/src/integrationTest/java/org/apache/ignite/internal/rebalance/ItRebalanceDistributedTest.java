@@ -1275,7 +1275,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     () -> mock(IgniteSql.class),
                     resourcesRegistry,
                     lowWatermark,
-                    transactionInflights
+                    transactionInflights,
+                    null
             ) {
                 @Override
                 protected TxStateTableStorage createTxStateTableStorage(

@@ -814,7 +814,8 @@ public class IgniteImpl implements Ignite {
                 this::bareSql,
                 resourcesRegistry,
                 lowWatermark,
-                transactionInflights
+                transactionInflights,
+                null
         );
 
         disasterRecoveryManager = new DisasterRecoveryManager(
