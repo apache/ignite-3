@@ -70,7 +70,6 @@ import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.TransactionException;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
