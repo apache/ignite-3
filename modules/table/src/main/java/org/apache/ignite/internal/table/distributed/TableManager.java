@@ -145,7 +145,6 @@ import org.apache.ignite.internal.raft.ExecutorInclinedRaftCommandRunner;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
-import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -153,7 +152,6 @@ import org.apache.ignite.internal.raft.storage.SnapshotStorageFactory;
 import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.schema.SchemaManager;
@@ -221,7 +219,6 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.Table;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -879,8 +876,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         TablePartitionId replicaGrpId = new TablePartitionId(tableId, partId);
 
-        Set<RaftNodeId> localRaftNodesIds = getLocalRaftNodesIdsForPartition(newConfiguration, replicaGrpId);
-
         var safeTimeTracker = new PendingComparableValuesTracker<HybridTimestamp, Void>(
                 new HybridTimestamp(1, 0)
         );
@@ -933,7 +928,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 }
 
                 // (2) if all raft-nodes are started already => check force reset and finish the process
-                // if (localRaftNodesIds.stream().allMatch(replicaMgr::isRaftNodeStarted)) {
                 if (replicaMgr.isReplicaStarted(replicaGrpId)) {
                     if (nonStableNodeAssignments != null && nonStableNodeAssignments.force()) {
                         replicaMgr.resetPeers(replicaGrpId, configurationFromAssignments(nonStableNodeAssignments.nodes()));
@@ -1008,26 +1002,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 });
 
         return resultFuture;
-    }
-
-    @NotNull
-    private Set<RaftNodeId> getLocalRaftNodesIdsForPartition(PeersAndLearners configuration, ReplicationGroupId replicaGrpId) {
-        String localNodeName = localNode().name();
-
-        Peer peerId = configuration.peer(localNodeName);
-        Peer learnerId = configuration.learner(localNodeName);
-
-        Set<RaftNodeId> localRaftNodesIds = new HashSet<>();
-
-        if (peerId != null) {
-            localRaftNodesIds.add(new RaftNodeId(replicaGrpId, peerId));
-        }
-
-        if (learnerId != null) {
-            localRaftNodesIds.add(new RaftNodeId(replicaGrpId, learnerId));
-        }
-
-        return localRaftNodesIds;
     }
 
     private boolean shouldStartRaftListeners(Assignments assignments, @Nullable Assignments nonStableNodeAssignments) {
@@ -1885,9 +1859,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         }
 
         return localServicesStartFuture.thenRunAsync(() -> {
-            // TODO: remove
-            LOG.info("!!! node={} was there", localNode().name());
-            if (!replicaMgr.isReplicaTouched(replicaGrpId)) {
+            if (!replicaMgr.isReplicaStarted(replicaGrpId)) {
                 return;
             }
 
@@ -1896,9 +1868,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             Set<Assignment> cfg = pendingAssignmentsAreForced
                     ? pendingAssignmentsNodes
                     : union(pendingAssignmentsNodes, stableAssignments);
-
-            // TODO: remove
-            LOG.info("!!! node={} updates configuration on {}", localNode().name(), cfg);
 
             tbl.internalTable()
                     .tableRaftService()

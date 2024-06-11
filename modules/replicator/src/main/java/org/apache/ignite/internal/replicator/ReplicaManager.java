@@ -47,7 +47,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
-import java.util.function.Supplier;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.event.AbstractEventProducer;
@@ -532,6 +531,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param replicaGrpId Replication group id.
      * @param storageIndexTracker Storage index tracker.
      * @param newConfiguration A configuration for new raft group.
+     *
      * @return Future that promises ready new replica when done.
      */
     public CompletableFuture<Replica> startReplica(
@@ -577,6 +577,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param createListener A clojure that returns done {@link ReplicaListener} by given raft-client {@link RaftGroupService}.
      * @param storageIndexTracker Storage index tracker.
      * @param newRaftClientFut A future that returns created raft-client.
+     *
+     * @return Future that promises ready new replica when done.
+     *
      * @throws NodeStoppingException If node is stopping.
      * @throws ReplicaIsAlreadyStartedException Is thrown when a replica with the same replication group id has already been started.
      */
@@ -609,6 +612,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param replicaGrpId Replication group id.
      * @param storageIndexTracker Storage index tracker.
      * @param replicaListener Future that returns ready ReplicaListener for replica creation.
+     *
      * @return Future that promises ready new replica when done.
      */
     @VisibleForTesting
@@ -674,18 +678,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     public void resetPeers(ReplicationGroupId replicaGrpId, PeersAndLearners peersAndLearners) {
         RaftNodeId raftNodeId = new RaftNodeId(replicaGrpId, new Peer(localNodeConsistentId));
         ((Loza) raftManager).resetPeers(raftNodeId, peersAndLearners);
-    }
-
-    /**
-     * Checks if there is already started raft-node. The method is temporal and created strictly for current specific checks in
-     * TableManager. You shouldn't use this method instead of @method{@link #isReplicaStarted(ReplicationGroupId)}.
-     *
-     * @param raftNodeId given raft-node identifier.
-     * @return true if it's already started and false otherwise.
-     */
-    @Deprecated
-    public boolean isRaftNodeStarted(RaftNodeId raftNodeId) {
-        return ((Loza) raftManager).isStarted(raftNodeId);
     }
 
     /** Getter for wrapped write-ahead log syncer. */
