@@ -956,60 +956,63 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     ? nonStableNodeAssignments
                     : null;
 
-            startGroupFut = replicaMgr.weakReplicaStart(replicaGrpId, () -> shouldStartGroupFut
-                    .thenComposeAsync(startGroup -> inBusyLock(busyLock, () -> {
-                // (1) if partitionReplicatorNodeRecovery#shouldStartGroup fails -> do start nothing
-                if (!startGroup) {
-                    return falseCompletedFuture();
-                }
+            startGroupFut = replicaMgr.weakReplicaStart(
+                    replicaGrpId,
+                    () -> shouldStartGroupFut.thenComposeAsync(startGroup -> inBusyLock(busyLock, () -> {
+                        // (1) if partitionReplicatorNodeRecovery#shouldStartGroup fails -> do start nothing
+                        if (!startGroup) {
+                            return falseCompletedFuture();
+                        }
 
-                // (2) Otherwise let's start replica manually
-                InternalTable internalTable = table.internalTable();
+                        // (2) Otherwise let's start replica manually
+                        InternalTable internalTable = table.internalTable();
 
-                RaftGroupListener raftGroupListener = new PartitionListener(
-                        txManager,
-                        partitionDataStorage,
-                        partitionUpdateHandlers.storageUpdateHandler,
-                        partitionStorages.getTxStateStorage(),
-                        safeTimeTracker,
-                        storageIndexTracker,
-                        catalogService,
-                        table.schemaView(),
-                        clockService
-                );
+                        RaftGroupListener raftGroupListener = new PartitionListener(
+                                txManager,
+                                partitionDataStorage,
+                                partitionUpdateHandlers.storageUpdateHandler,
+                                partitionStorages.getTxStateStorage(),
+                                safeTimeTracker,
+                                storageIndexTracker,
+                                catalogService,
+                                table.schemaView(),
+                                clockService
+                        );
 
-                SnapshotStorageFactory snapshotStorageFactory = createSnapshotStorageFactory(replicaGrpId,
-                        partitionUpdateHandlers, internalTable);
+                        SnapshotStorageFactory snapshotStorageFactory = createSnapshotStorageFactory(replicaGrpId,
+                                partitionUpdateHandlers, internalTable);
 
-                Function<RaftGroupService, ReplicaListener> createListener = (raftClient) -> createReplicaListener(
-                        replicaGrpId,
-                        table,
-                        safeTimeTracker,
-                        partitionStorages.getMvPartitionStorage(),
-                        partitionStorages.getTxStateStorage(),
-                        partitionUpdateHandlers,
-                        raftClient);
+                        Function<RaftGroupService, ReplicaListener> createListener = (raftClient) -> createReplicaListener(
+                                replicaGrpId,
+                                table,
+                                safeTimeTracker,
+                                partitionStorages.getMvPartitionStorage(),
+                                partitionStorages.getTxStateStorage(),
+                                partitionUpdateHandlers,
+                                raftClient);
 
-                RaftGroupEventsListener raftGroupEventsListener = createRaftGroupEventsListener(zoneId, replicaGrpId);
+                        RaftGroupEventsListener raftGroupEventsListener = createRaftGroupEventsListener(zoneId, replicaGrpId);
 
-                MvTableStorage mvTableStorage = internalTable.storage();
+                        MvTableStorage mvTableStorage = internalTable.storage();
 
-                try {
-                    var ret = replicaMgr.startReplica(
-                            raftGroupEventsListener,
-                            raftGroupListener,
-                            mvTableStorage.isVolatile(),
-                            snapshotStorageFactory,
-                            updateTableRaftService,
-                            createListener,
-                            storageIndexTracker,
-                            replicaGrpId,
-                            newConfiguration);
-                    return ret;
-                } catch (NodeStoppingException e) {
-                    throw new AssertionError("Loza was stopped before Table manager", e);
-                }
-            }), ioExecutor), forcedAssignments);
+                        try {
+                            var ret = replicaMgr.startReplica(
+                                    raftGroupEventsListener,
+                                    raftGroupListener,
+                                    mvTableStorage.isVolatile(),
+                                    snapshotStorageFactory,
+                                    updateTableRaftService,
+                                    createListener,
+                                    storageIndexTracker,
+                                    replicaGrpId,
+                                    newConfiguration);
+                            return ret;
+                        } catch (NodeStoppingException e) {
+                            throw new AssertionError("Loza was stopped before Table manager", e);
+                        }
+                    }), ioExecutor),
+                    forcedAssignments
+            );
         } else {
             // TODO: will be removed after https://issues.apache.org/jira/browse/IGNITE-22315
             // (4) in case if node not in the assignments

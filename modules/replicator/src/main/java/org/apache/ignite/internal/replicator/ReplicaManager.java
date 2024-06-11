@@ -1254,6 +1254,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 } else {
                     assert reason == WeakReplicaStopReason.PRIMARY_EXPIRED : "Unknown replica stop reason: " + reason;
 
+                    context.isPrimaryLocal = false;
+
                     if (state == ReplicaState.PRIMARY_ONLY) {
                         return stopReplica(groupId, context, stopOperation);
                     } // else: no-op.
@@ -1281,7 +1283,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
                         log.debug("Weak replica stop complete [grpId={}, state={}].", groupId, context.replicaState);
 
-                        return null;
+                        return true;
                     }));
 
             return context.previousOperationFuture.thenApply(v -> null);
