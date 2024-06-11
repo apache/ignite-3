@@ -35,11 +35,10 @@ public final class IgniteNameUtils {
      *
      * @param name String to parse object name.
      * @return Unquoted name or name is cast to upper case. "tbl0" -&gt; "TBL0", "\"Tbl0\"" -&gt; "Tbl0".
-     * @throws IllegalArgumentException if name is {@code null} or empty.
      */
     public static String parseSimpleName(String name) {
         if (name == null || name.isEmpty()) {
-            throw new IllegalArgumentException("Name is null or empty.");
+            return name;
         }
 
         var tokenizer = new Tokenizer(name);
@@ -80,11 +79,10 @@ public final class IgniteNameUtils {
      *
      * @param name Object name.
      * @return Quoted object name.
-     * @throws IllegalArgumentException if name is {@code null} or empty.
      */
     public static String quote(String name) {
         if (name == null || name.isEmpty()) {
-            throw new IllegalArgumentException("Name is null or empty.");
+            return name;
         }
 
         if (name.chars().noneMatch(cp -> cp == '\"')) {
@@ -110,11 +108,10 @@ public final class IgniteNameUtils {
      *
      * @param name Object name.
      * @return Quoted object name.
-     * @throws IllegalArgumentException if name is {@code null} or empty.
      */
     public static String quoteIfNeeded(String name) {
         if (name == null || name.isEmpty()) {
-            throw new IllegalArgumentException("Name is null or empty.");
+            return null;
         }
 
         if (name.charAt(0) == '\"') {
