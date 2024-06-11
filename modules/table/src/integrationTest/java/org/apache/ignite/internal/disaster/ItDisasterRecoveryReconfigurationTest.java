@@ -268,7 +268,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
      * Tests a scenario where there's a single partition on a node 1, and the node that hosts it is lost. Reconfiguration of the zone should
      * create new raft group on the remaining node, without any data.
      */
-    @RepeatedTest(40)
+    @Test
     @ZoneParams(nodes = 2, replicas = 1, partitions = 1)
     void testManualRebalanceIfPartitionIsLost() throws Exception {
         int partId = 0;
