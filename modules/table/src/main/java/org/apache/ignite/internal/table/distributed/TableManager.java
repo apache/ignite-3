@@ -52,6 +52,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
+import static org.apache.ignite.internal.raft.PeersAndLearners.fromAssignments;
 import static org.apache.ignite.internal.table.distributed.TableUtils.droppedTables;
 import static org.apache.ignite.internal.table.distributed.index.IndexUtils.registerIndexesToTable;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
@@ -73,7 +74,6 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -888,9 +888,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 .findAny()
                 .orElse(null);
 
-        PeersAndLearners realConfiguration = configurationFromAssignments(assignments.nodes());
+        PeersAndLearners realConfiguration = fromAssignments(assignments.nodes());
         PeersAndLearners newConfiguration = nonStableNodeAssignments == null
-                ? realConfiguration : configurationFromAssignments(nonStableNodeAssignments.nodes());
+                ? realConfiguration : fromAssignments(nonStableNodeAssignments.nodes());
 
         TablePartitionId replicaGrpId = new TablePartitionId(tableId, partId);
 
@@ -952,6 +952,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     )
                     : trueCompletedFuture();
 
+            Assignments forcedAssignments = nonStableNodeAssignments != null && nonStableNodeAssignments.force()
+                    ? nonStableNodeAssignments
+                    : null;
+
             startGroupFut = replicaMgr.weakReplicaStart(replicaGrpId, () -> shouldStartGroupFut
                     .thenComposeAsync(startGroup -> inBusyLock(busyLock, () -> {
                 // (1) if partitionReplicatorNodeRecovery#shouldStartGroup fails -> do start nothing
@@ -959,15 +963,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     return falseCompletedFuture();
                 }
 
-                // (2) if replica already started => check force reset and finish the process
-                if (replicaMgr.isReplicaStarted(replicaGrpId)) {
-                    if (nonStableNodeAssignments != null && nonStableNodeAssignments.force()) {
-                        replicaMgr.resetPeers(replicaGrpId, configurationFromAssignments(nonStableNodeAssignments.nodes()));
-                    }
-                    return trueCompletedFuture();
-                }
-
-                // (3) Otherwise let's start replica manually
+                // (2) Otherwise let's start replica manually
                 InternalTable internalTable = table.internalTable();
 
                 RaftGroupListener raftGroupListener = new PartitionListener(
@@ -1013,7 +1009,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 } catch (NodeStoppingException e) {
                     throw new AssertionError("Loza was stopped before Table manager", e);
                 }
-            }), ioExecutor));
+            }), ioExecutor), forcedAssignments);
         } else {
             // TODO: will be removed after https://issues.apache.org/jira/browse/IGNITE-22315
             // (4) in case if node not in the assignments
@@ -1898,7 +1894,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         } else {
             localServicesStartFuture = runAsync(() -> {
                 if (pendingAssignmentsAreForced && replicaMgr.isReplicaStarted(replicaGrpId)) {
-                    replicaMgr.resetPeers(replicaGrpId, configurationFromAssignments(nonStableNodeAssignmentsFinal.nodes()));
+                    replicaMgr.resetPeers(replicaGrpId, fromAssignments(nonStableNodeAssignmentsFinal.nodes()));
                 }
             }, ioExecutor);
         }
@@ -1913,7 +1909,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             tbl.internalTable()
                     .tableRaftService()
                     .partitionRaftGroupService(partitionId)
-                    .updateConfiguration(configurationFromAssignments(cfg));
+                    .updateConfiguration(fromAssignments(cfg));
         }, ioExecutor);
     }
 
@@ -2014,7 +2010,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                 }
 
                                 PeersAndLearners newConfiguration =
-                                        configurationFromAssignments(pendingAssignments);
+                                        fromAssignments(pendingAssignments);
 
                                 return partGrpSvc.changePeersAsync(newConfiguration, leaderWithTerm.term());
                             });
@@ -2115,21 +2111,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 LOG.warn("Unable to process switch reduce event", e);
             }
         };
-    }
-
-    private static PeersAndLearners configurationFromAssignments(Collection<Assignment> assignments) {
-        var peers = new HashSet<String>();
-        var learners = new HashSet<String>();
-
-        for (Assignment assignment : assignments) {
-            if (assignment.isPeer()) {
-                peers.add(assignment.consistentId());
-            } else {
-                learners.add(assignment.consistentId());
-            }
-        }
-
-        return PeersAndLearners.fromConsistentIds(peers, learners);
     }
 
     /**
@@ -2270,7 +2251,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             t.get(tablePartitionId.tableId()).internalTable()
                     .tableRaftService()
                     .partitionRaftGroupService(tablePartitionId.partitionId())
-                    .updateConfiguration(configurationFromAssignments(stableAssignments));
+                    .updateConfiguration(fromAssignments(stableAssignments));
         });
     }
 

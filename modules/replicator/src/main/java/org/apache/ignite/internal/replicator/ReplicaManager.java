@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.replicator;
 
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.raft.PeersAndLearners.fromAssignments;
 import static org.apache.ignite.internal.replicator.LocalReplicaEvent.AFTER_REPLICA_STARTED;
 import static org.apache.ignite.internal.replicator.LocalReplicaEvent.BEFORE_REPLICA_STOPPED;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
@@ -51,6 +53,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.affinity.Assignments;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.event.AbstractEventProducer;
@@ -244,7 +247,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         this.raftCommandsMarshaller = raftCommandsMarshaller;
         this.raftGroupServiceFactory = raftGroupServiceFactory;
         this.raftManager = raftManager;
-        this.replicaLifecycle = new ReplicaLifecycle(replicaStartStopExecutor, clockService, placementDriver);
+        this.replicaLifecycle = new ReplicaLifecycle(replicaStartStopExecutor, clockService, placementDriver, this);
 
         scheduledIdleSafeTimeSyncExecutor = Executors.newScheduledThreadPool(
                 1,
@@ -1018,9 +1021,10 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
     public CompletableFuture<Boolean> weakReplicaStart(
             ReplicationGroupId replicationGroupId,
-            Supplier<CompletableFuture<Boolean>> startOperation
+            Supplier<CompletableFuture<Boolean>> startOperation,
+            Assignments forcedAssignments
     ) {
-        return replicaLifecycle.weakReplicaStart(replicationGroupId, startOperation);
+        return replicaLifecycle.weakReplicaStart(replicationGroupId, startOperation, forcedAssignments);
     }
 
     public CompletableFuture<Void> weakReplicaStop(
@@ -1071,12 +1075,16 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         final PlacementDriver placementDriver;
 
+        final ReplicaManager replicaManager;
+
         String localNodeId;
 
-        ReplicaLifecycle(Executor replicaStartStopPool, ClockService clockService, PlacementDriver placementDriver) {
+        ReplicaLifecycle(Executor replicaStartStopPool, ClockService clockService, PlacementDriver placementDriver,
+                ReplicaManager replicaManager) {
             this.replicaStartStopPool = replicaStartStopPool;
             this.clockService = clockService;
             this.placementDriver = placementDriver;
+            this.replicaManager = replicaManager;
         }
 
         void start(String localNodeId) {
@@ -1125,7 +1133,11 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
          * @param groupId Group id.
          * @param startOperation Replica start operation.
          */
-        CompletableFuture<Boolean> weakReplicaStart(ReplicationGroupId groupId, Supplier<CompletableFuture<Boolean>> startOperation) {
+        CompletableFuture<Boolean> weakReplicaStart(
+                ReplicationGroupId groupId,
+                Supplier<CompletableFuture<Boolean>> startOperation,
+                Assignments forcedAssignments
+        ) {
             ReplicaLifecycleContext context = getContext(groupId);
 
             synchronized (context) {
@@ -1136,10 +1148,17 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 if (state == ReplicaState.STOPPED || state == ReplicaState.STOPPING) {
                     return startReplica(groupId, context, startOperation);
                 } else if (state == ReplicaState.ASSIGNED) {
-                    // No-op, but telling the caller that the replica is started.
                     log.info("qqq weakReplicaStart complete grpId={}, state={}", groupId, context.replicaState);
 
-                    return startReplica(groupId, context, startOperation);
+                    if (forcedAssignments != null) {
+                        assert forcedAssignments.force() :
+                                format("Unexpected assignments to force [assignments={}, groupId={}].", forcedAssignments, groupId);
+
+                        replicaManager.resetPeers(groupId, fromAssignments(forcedAssignments.nodes()));
+                    }
+
+                    // Telling the caller that the replica is started.
+                    return trueCompletedFuture();
                 } else if (state == ReplicaState.PRIMARY_ONLY) {
                     context.replicaState = ReplicaState.ASSIGNED;
                     log.info("qqq weakReplicaStart complete grpId={}, state={}", groupId, context.replicaState);
