@@ -1019,20 +1019,37 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         return replicaFuture != null && isCompletedSuccessfully(replicaFuture);
     }
 
+    /**
+     * Can possibly start replica if it's not running or is stopping.
+     *
+     * @param groupId Group id.
+     * @param startOperation Replica start operation.
+     * @param forcedAssignments Assignments to reset forcibly, if needed. Assignments reset is only available when replica is started.
+     */
     public CompletableFuture<Boolean> weakReplicaStart(
-            ReplicationGroupId replicationGroupId,
+            ReplicationGroupId groupId,
             Supplier<CompletableFuture<Boolean>> startOperation,
-            Assignments forcedAssignments
+            @Nullable Assignments forcedAssignments
     ) {
-        return replicaLifecycle.weakReplicaStart(replicationGroupId, startOperation, forcedAssignments);
+        return replicaLifecycle.weakReplicaStart(groupId, startOperation, forcedAssignments);
     }
 
+    /**
+     * Can possibly stop replica if it is running or starting, and is not a primary replica. Relies on the given reason. If
+     * the reason is {@link WeakReplicaStopReason#EXCLUDED_FROM_ASSIGNMENTS} then the replica can be not stopped if it is still
+     * a primary. If the reason is {@link WeakReplicaStopReason#PRIMARY_EXPIRED} then the replica is stopped only if its state
+     * is {@link ReplicaState#PRIMARY_ONLY}, because this assumes that it was excluded from assignments before.
+     *
+     * @param groupId Group id.
+     * @param reason Reason to stop replica.
+     * @param stopOperation Replica stop operation.
+     */
     public CompletableFuture<Void> weakReplicaStop(
-            ReplicationGroupId replicationGroupId,
-            WeakReplicaStopReason weakReplicaStopReason,
+            ReplicationGroupId groupId,
+            WeakReplicaStopReason reason,
             Supplier<CompletableFuture<Void>> stopOperation
     ) {
-        return replicaLifecycle.weakReplicaStop(replicationGroupId, weakReplicaStopReason, stopOperation);
+        return replicaLifecycle.weakReplicaStop(groupId, reason, stopOperation);
     }
 
     /**
@@ -1098,7 +1115,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 ReplicaLifecycleContext context = getContext(parameters.groupId());
 
                 synchronized (context) {
-                    assert context.replicaState != ReplicaState.STOPPED;
+                    assert context.replicaState != ReplicaState.STOPPED : "Unexpected primary replica state STOPPED [groupId="
+                            + parameters.groupId() + "].";
 
                     context.isPrimaryLocal = true;
                 }
@@ -1132,24 +1150,23 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
          *
          * @param groupId Group id.
          * @param startOperation Replica start operation.
+         * @param forcedAssignments Assignments to reset forcibly, if needed. Assignments reset is only available when replica is started.
          */
         CompletableFuture<Boolean> weakReplicaStart(
                 ReplicationGroupId groupId,
                 Supplier<CompletableFuture<Boolean>> startOperation,
-                Assignments forcedAssignments
+                @Nullable Assignments forcedAssignments
         ) {
             ReplicaLifecycleContext context = getContext(groupId);
 
             synchronized (context) {
                 ReplicaState state = context.replicaState;
 
-                log.info("qqq weakReplicaStart grp={}, state={}, future={}", groupId, state, context.previousOperationFuture);
+                log.debug("Weak replica start [grp={}, state={}, future={}].", groupId, state, context.previousOperationFuture);
 
                 if (state == ReplicaState.STOPPED || state == ReplicaState.STOPPING) {
                     return startReplica(groupId, context, startOperation);
                 } else if (state == ReplicaState.ASSIGNED) {
-                    log.info("qqq weakReplicaStart complete grpId={}, state={}", groupId, context.replicaState);
-
                     if (forcedAssignments != null) {
                         assert forcedAssignments.force() :
                                 format("Unexpected assignments to force [assignments={}, groupId={}].", forcedAssignments, groupId);
@@ -1161,12 +1178,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     return trueCompletedFuture();
                 } else if (state == ReplicaState.PRIMARY_ONLY) {
                     context.replicaState = ReplicaState.ASSIGNED;
-                    log.info("qqq weakReplicaStart complete grpId={}, state={}", groupId, context.replicaState);
 
                     return trueCompletedFuture();
                 } // else no-op.
-
-                log.info("qqq weakReplicaStart complete grpId={}, state={}", groupId, context.replicaState);
 
                 throw new AssertionError("Replica start cannot begin while the replica is being started [groupId=" + groupId + "].");
             }
@@ -1190,7 +1204,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                             }
                         }
 
-                        log.info("qqq weakReplicaStart complete state={}, partitionStarted={}", context.replicaState, partitionStarted);
+                        log.debug("Weak replica start complete state={}, partitionStarted={}", context.replicaState, partitionStarted);
 
                         return partitionStarted;
                     }));
@@ -1211,13 +1225,15 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         CompletableFuture<Void> weakReplicaStop(
                 ReplicationGroupId groupId,
                 WeakReplicaStopReason reason,
-                Supplier<CompletableFuture<Void>> stopOperation) {
+                Supplier<CompletableFuture<Void>> stopOperation
+        ) {
             ReplicaLifecycleContext context = getContext(groupId);
 
             synchronized (context) {
                 ReplicaState state = context.replicaState;
 
-                log.info("qqq weakReplicaStop grpId={}, state={}, reason={}, isPrimaryLocal={}, future={}", groupId, state, reason, context.isPrimaryLocal, context.previousOperationFuture);
+                log.debug("Weak replica stop [grpId={}, state={}, reason={}, isPrimaryLocal={}, future={}].", groupId, state,
+                        reason, context.isPrimaryLocal, context.previousOperationFuture);
 
                 if (reason == WeakReplicaStopReason.EXCLUDED_FROM_ASSIGNMENTS) {
                     if (state == ReplicaState.ASSIGNED) {
@@ -1243,7 +1259,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     } // else: no-op.
                 }
 
-                log.info("qqq weakReplicaStop complete grpId={}, state={}", groupId, context.replicaState);
+                log.debug("Weak replica stop complete [grpId={}, state={}].", groupId, context.replicaState);
 
                 return nullCompletedFuture();
             }
@@ -1263,19 +1279,12 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                             replicaContexts.remove(groupId);
                         }
 
-                        log.info("qqq weakReplicaStop complete grpId={}, state={}", groupId, context.replicaState);
+                        log.debug("Weak replica stop complete [grpId={}, state={}].", groupId, context.replicaState);
 
                         return null;
                     }));
 
             return context.previousOperationFuture.thenApply(v -> null);
-        }
-
-        private CompletableFuture<Boolean> isPrimaryLocal(ReplicationGroupId groupId) {
-            HybridTimestamp now = clockService.now();
-
-            return placementDriver.getPrimaryReplica(groupId, now)
-                    .thenApply(replicaMeta -> replicaMeta != null && localNodeId.equals(replicaMeta.getLeaseholderId()));
         }
 
         @TestOnly
