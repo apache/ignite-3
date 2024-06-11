@@ -1314,6 +1314,35 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
     /**
      * Replica lifecycle states.
+     * <br>
+     * Transitions:
+     * <br>
+     * On {@link #weakReplicaStart(ReplicationGroupId, Supplier, Assignments)} (assumed that the replica is included into assignments):
+     * <ul>
+     *     <li>if {@link #ASSIGNED}: next state is {@link #ASSIGNED};</li>
+     *     <li>if {@link #PRIMARY_ONLY}: next state is {@link #ASSIGNED};</li>
+     *     <li>if {@link #STOPPED} or {@link #STOPPING}: next state is {@link #STARTING}, replica is started after stop operation
+     *         completes;</li>
+     *     <li>if {@link #STARTING}: produces {@link AssertionError}.</li>
+     * </ul>
+     * On {@link #weakReplicaStop(ReplicationGroupId, WeakReplicaStopReason, Supplier)} the next state also depends on given
+     * {@link WeakReplicaStopReason}:
+     * <ul>
+     *     <li>if {@link WeakReplicaStopReason#EXCLUDED_FROM_ASSIGNMENTS}:</li>
+     *     <ul>
+     *         <li>if {@link #ASSIGNED}: when {@link ReplicaLifecycleContext#isPrimaryLocal} is {@code true} then the next state
+     *             is {@link #PRIMARY_ONLY}, otherwise the replica is stopped, the next state is {@link #STOPPING};</li>
+     *         <li>if {@link #PRIMARY_ONLY} or {@link #STOPPING}: no-op.</li>
+     *         <li>if {@link #STARTING}: replica is stopped, the next state is {@link #STOPPING};</li>
+     *         <li>if {@link #STOPPED}: replica is stopped, see TODO-s for IGNITE-19713.</li>
+     *     </ul>
+     *     <li>if {@link WeakReplicaStopReason#PRIMARY_EXPIRED}:</li>
+     *     <ul>
+     *         <li>if {@link #PRIMARY_ONLY} replica is stopped, the next state is {@link #STOPPING}. Otherwise no-op.</li>
+ *         </ul>
+ *         <li>if {@link WeakReplicaStopReason#RESTART}: this is explicit manual replica restart for disaster recovery purposes,
+     *         replica is stopped, the next state is {@link #STOPPING}.</li>
+     * </ul>
      */
     private enum ReplicaState {
         /**
@@ -1348,6 +1377,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         /** If the primary replica expired (A replica can stay alive when the node is not in assignments, if it's a primary replica). */
         PRIMARY_EXPIRED,
 
+        /** Explicit manual replica restart for disaster recovery purposes. */
         RESTART
     }
 }
