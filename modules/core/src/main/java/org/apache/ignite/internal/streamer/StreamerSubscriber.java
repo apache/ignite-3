@@ -78,7 +78,6 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
 
     private @Nullable Flow.Subscription subscription;
 
-    @SuppressWarnings("FieldAccessedSynchronizedAndUnsynchronized") // Reviewed.
     private @Nullable ResultSubscription resultSubscription;
 
     private @Nullable ScheduledFuture<?> flushTask;
@@ -242,11 +241,7 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
                         return null;
                     });
 
-                    if (res != null && resultSubscriber != null && resultSubscription != null && !resultSubscription.cancelled.get()) {
-                        for (R r : res) {
-                            resultSubscriber.onNext(r);
-                        }
-                    }
+                    invokeResultSubscriber(res);
                 }
             });
         } catch (Exception e) {
@@ -254,6 +249,30 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
             close(e);
             return CompletableFuture.failedFuture(e);
         }
+    }
+
+    private void invokeResultSubscriber(Collection<R> res) {
+        if (res == null || resultSubscriber == null) {
+            return;
+        }
+
+        ResultSubscription sub = resultSubscription();
+
+        if (sub == null) {
+            return;
+        }
+
+        for (R r : res) {
+            if (sub.cancelled.get()) {
+                return;
+            }
+
+            resultSubscriber.onNext(r);
+        }
+    }
+
+    private synchronized @Nullable ResultSubscription resultSubscription() {
+        return resultSubscription;
     }
 
     private synchronized void close(@Nullable Throwable throwable) {
