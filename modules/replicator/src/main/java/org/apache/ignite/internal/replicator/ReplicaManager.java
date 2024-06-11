@@ -1055,6 +1055,15 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     }
 
     /**
+     * Reserve replica as primary.
+     *
+     * @param groupId Group id.
+     */
+    void reserveReplica(ReplicationGroupId groupId) {
+        replicaLifecycle.reserveReplica(groupId);
+    }
+
+    /**
      * Check if replica was touched by an any actor. Touched here means either replica creation or replica waiter registration.
      *
      * @param replicaGrpId Replication group id.
@@ -1083,22 +1092,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         return replicaLifecycle.isReplicaPrimaryOnly(groupId);
     }
 
-    public void reserveReplica(ReplicationGroupId groupId) {
-        replicaLifecycle.reserveReplica(groupId);
-    }
-
     private static class ReplicaLifecycle {
-        void reserveReplica(ReplicationGroupId groupId) {
-            ReplicaLifecycleContext context = getContext(groupId);
-
-            synchronized (context) {
-                assert context.replicaState != ReplicaState.STOPPED : "Unexpected primary replica state on reservation STOPPED [groupId="
-                        + groupId + "].";
-
-                context.isPrimaryLocal = true;
-            }
-        }
-
         private final IgniteLogger log = Loggers.forClass(ReplicaLifecycle.class);
 
         final Map<ReplicationGroupId, ReplicaLifecycleContext> replicaContexts = new ConcurrentHashMap<>();
@@ -1128,14 +1122,20 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         }
 
         private CompletableFuture<Boolean> onPrimaryElected(PrimaryReplicaEventParameters parameters) {
-            if (localNodeId.equals(parameters.leaseholderId())) {
-                ReplicaLifecycleContext context = getContext(parameters.groupId());
+            ReplicaLifecycleContext context = getContext(parameters.groupId());
 
-                synchronized (context) {
+            synchronized (context) {
+                if (localNodeId.equals(parameters.leaseholderId())) {
                     assert context.replicaState != ReplicaState.STOPPED : "Unexpected primary replica state STOPPED [groupId="
                             + parameters.groupId() + "].";
 
-                    context.isPrimaryLocal = true;
+                    context.reservedForPrimary = true;
+                } else {
+                    context.reservedForPrimary = false;
+
+                    if (context.replicaState == ReplicaState.PRIMARY_ONLY) {
+                        stopReplica(parameters.groupId(), context, context.deferredStopOperation);
+                    }
                 }
             }
 
@@ -1148,7 +1148,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
                 if (context != null) {
                     synchronized (context) {
-                        context.isPrimaryLocal = false;
+                        context.reservedForPrimary = false;
                     }
                 }
             }
@@ -1221,7 +1221,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                             }
                         }
 
-                        log.info("Weak replica start complete state={}, partitionStarted={}", context.replicaState, partitionStarted);
+                        log.info("Weak replica start complete [state={}, partitionStarted={}].", context.replicaState, partitionStarted);
 
                         return partitionStarted;
                     }));
@@ -1250,12 +1250,13 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 ReplicaState state = context.replicaState;
 
                 log.debug("Weak replica stop [grpId={}, state={}, reason={}, isPrimaryLocal={}, future={}].", groupId, state,
-                        reason, context.isPrimaryLocal, context.previousOperationFuture);
+                        reason, context.reservedForPrimary, context.previousOperationFuture);
 
                 if (reason == WeakReplicaStopReason.EXCLUDED_FROM_ASSIGNMENTS) {
                     if (state == ReplicaState.ASSIGNED) {
-                        if (context.isPrimaryLocal) {
+                        if (context.reservedForPrimary) {
                             context.replicaState = ReplicaState.PRIMARY_ONLY;
+                            context.deferredStopOperation = stopOperation;
                         } else {
                             return stopReplica(groupId, context, stopOperation);
                         }
@@ -1267,11 +1268,12 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                         return stopReplica(groupId, context, stopOperation);
                     } // else: no-op.
                 } else if (reason == WeakReplicaStopReason.RESTART) {
+                    // Explicit restart: always stop.
                     return stopReplica(groupId, context, stopOperation);
                 } else {
                     assert reason == WeakReplicaStopReason.PRIMARY_EXPIRED : "Unknown replica stop reason: " + reason;
 
-                    context.isPrimaryLocal = false;
+                    context.reservedForPrimary = false;
 
                     if (state == ReplicaState.PRIMARY_ONLY) {
                         return stopReplica(groupId, context, stopOperation);
@@ -1306,6 +1308,17 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             return context.previousOperationFuture.thenApply(v -> null);
         }
 
+        void reserveReplica(ReplicationGroupId groupId) {
+            ReplicaLifecycleContext context = getContext(groupId);
+
+            synchronized (context) {
+                assert context.replicaState != ReplicaState.STOPPED : "Unexpected primary replica state STOPPED on reservation [groupId="
+                        + groupId + "].";
+
+                context.reservedForPrimary = true;
+            }
+        }
+
         @TestOnly
         boolean isReplicaPrimaryOnly(ReplicationGroupId groupId) {
             ReplicaLifecycleContext context = getContext(groupId);
@@ -1317,11 +1330,29 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     }
 
     private static class ReplicaLifecycleContext {
+        /** Replica state. */
         ReplicaState replicaState;
 
+        /**
+         * Future of the previous operation, to linearize the starts and stops of replica. The result of the future is whether
+         * the operation was actually performed (for example, partition start operation can not start replica or raft node locally).
+         */
         CompletableFuture<Boolean> previousOperationFuture;
 
-        boolean isPrimaryLocal;
+        /**
+         * Whether the replica is reserved to serve as a primary even if it is not included into assignments. If it is {@code} true,
+         * then {@link #weakReplicaStop(ReplicationGroupId, WeakReplicaStopReason, Supplier)} transfers {@link ReplicaState#ASSIGNED}
+         * to {@link ReplicaState#PRIMARY_ONLY} instead of {@link ReplicaState#STOPPING}.
+         * Replica is reserved when it is primary and when it is in progress of lease negotiation. The negotiation moves this flag to
+         * {@code true}. Primary replica expiration or the election of different node as a leaseholder moves this flag to {@code false}.
+         */
+        boolean reservedForPrimary;
+
+        /**
+         * Deferred stop operation for replica that was reserved for becoming primary, but hasn't become primary and was excluded from
+         * assignments.
+         */
+        Supplier<CompletableFuture<Void>> deferredStopOperation;
 
         ReplicaLifecycleContext(ReplicaState replicaState, CompletableFuture<Boolean> previousOperationFuture) {
             this.replicaState = replicaState;
@@ -1347,7 +1378,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * <ul>
      *     <li>if {@link WeakReplicaStopReason#EXCLUDED_FROM_ASSIGNMENTS}:</li>
      *     <ul>
-     *         <li>if {@link #ASSIGNED}: when {@link ReplicaLifecycleContext#isPrimaryLocal} is {@code true} then the next state
+     *         <li>if {@link #ASSIGNED}: when {@link ReplicaLifecycleContext#reservedForPrimary} is {@code true} then the next state
      *             is {@link #PRIMARY_ONLY}, otherwise the replica is stopped, the next state is {@link #STOPPING};</li>
      *         <li>if {@link #PRIMARY_ONLY} or {@link #STOPPING}: no-op.</li>
      *         <li>if {@link #STARTING}: replica is stopped, the next state is {@link #STOPPING};</li>
