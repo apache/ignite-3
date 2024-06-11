@@ -1,0 +1,31 @@
+# name: test/sql/cast/test_cast_decinal.test
+# description: CAST DECIMAL
+# feature: SQL F201(CAST function)
+# group: [cast]
+
+statement ok
+SELECT CAST('100.0' AS DECIMAL);
+
+statement error: Character x is neither a decimal digit number, decimal point, nor "e" notation exponential mark.
+SELECT CAST('100x' AS DECIMAL);
+
+statement error: Cast function cannot convert value of type BINARY(1) to type DECIMAL
+SELECT CAST(x'00' AS DECIMAL);
+
+statement error: Cast function cannot convert value of type DATE to type DECIMAL
+SELECT CAST('2000-01-01'::DATE AS DECIMAL);
+
+statement error: Cast function cannot convert value of type TIME(0) to type DECIMAL
+SELECT CAST('00:00:00'::TIME AS DECIMAL);
+
+statement error: Cast function cannot convert value of type TIMESTAMP(6) to type DECIMAL
+SELECT CAST('2000-01-01 00:00:00'::TIMESTAMP AS DECIMAL);
+
+statement error: Cast function cannot convert value of type UUID to type DECIMAL
+SELECT CAST('c4a0327c-44be-416d-ae90-75c05079789f'::UUID AS DECIMAL);
+
+statement error: Cast function cannot convert value of type BINARY(1) to type DECIMAL
+SELECT CAST(x'00'::BINARY AS DECIMAL);
+
+statement error: Cast function cannot convert value of type VARBINARY to type DECIMAL
+SELECT CAST(x'00'::VARBINARY AS DECIMAL);

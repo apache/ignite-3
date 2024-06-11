@@ -6,33 +6,29 @@
 statement ok
 PRAGMA enable_verification
 
-statement error
+statement error: No digits found
 SELECT CAST('e1' AS INTEGER);
 
-statement error
+statement error: decimal point, nor "e" notation exponential mark
 SELECT CAST('  e1' AS INTEGER);
 
-statement error
+statement error: decimal point, nor "e" notation exponential mark
 SELECT CAST('  E1' AS INTEGER);
 
-statement error
+statement error: For input string: "e1"
 SELECT CAST('e1' AS DOUBLE);
 
-statement error
+statement error: For input string: "e1"
 SELECT CAST('  e1' AS DOUBLE);
 
-statement error
+statement error: For input string: "E1"
 SELECT CAST('  E1' AS DOUBLE);
 
-query I
+statement error: For input string: "1e1"
 SELECT CAST('1e1' AS INTEGER);
-----
-10
 
-query I
+statement error: decimal point, nor "e" notation exponential mark.
 SELECT CAST('  1e1' AS INTEGER);
-----
-10
 
 query I
 SELECT CAST('1e1' AS DOUBLE);

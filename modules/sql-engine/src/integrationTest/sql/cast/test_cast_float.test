@@ -1,0 +1,31 @@
+# name: test/sql/cast/test_cast_float.test
+# description: CAST FLOAT
+# feature: SQL F201(CAST function)
+# group: [cast]
+
+statement ok
+SELECT CAST('100.0' AS FLOAT);
+
+statement error: For input string: "100x"
+SELECT CAST('100x' AS FLOAT);
+
+statement error: Cast function cannot convert value of type BINARY(1) to type FLOAT
+SELECT CAST(x'00' AS FLOAT);
+
+statement error: Cast function cannot convert value of type DATE to type FLOAT
+SELECT CAST('2000-01-01'::DATE AS FLOAT);
+
+statement error: Cast function cannot convert value of type TIME(0) to type FLOAT
+SELECT CAST('00:00:00'::TIME AS FLOAT);
+
+statement error: Cast function cannot convert value of type TIMESTAMP(6) to type FLOAT
+SELECT CAST('2000-01-01 00:00:00'::TIMESTAMP AS FLOAT);
+
+statement error: Cast function cannot convert value of type UUID to type FLOAT
+SELECT CAST('c4a0327c-44be-416d-ae90-75c05079789f'::UUID AS FLOAT);
+
+statement error: Cast function cannot convert value of type BINARY(1) to type FLOAT
+SELECT CAST(x'00'::BINARY AS FLOAT);
+
+statement error: Cast function cannot convert value of type VARBINARY to type FLOAT
+SELECT CAST(x'00'::VARBINARY AS FLOAT);
