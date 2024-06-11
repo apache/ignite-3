@@ -98,7 +98,8 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
         );
 
         // When drop zone by definition
-        catalog().dropZoneAsync(zoneDefinition);
+        CompletableFuture<Void> dropZone = catalog().dropZoneAsync(zoneDefinition);
+        assertThat(dropZone, willCompleteSuccessfully());
 
         // Then zone was dropped
         assertThrows(

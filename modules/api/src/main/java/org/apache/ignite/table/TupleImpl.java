@@ -118,7 +118,7 @@ class TupleImpl implements Tuple, Serializable {
     public String columnName(int columnIndex) {
         Objects.checkIndex(columnIndex, colValues.size());
 
-        return colNames.get(columnIndex);
+        return IgniteNameUtils.quoteIfNeeded(colNames.get(columnIndex));
     }
 
     /** {@inheritDoc} */

@@ -1099,7 +1099,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     new TestConfigurationValidator()
             );
 
-            failureProcessor = new FailureProcessor(name);
+            failureProcessor = new NoOpFailureProcessor(name);
 
             cmgManager = new ClusterManagementGroupManager(
                     vaultManager,
@@ -1116,7 +1116,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             LogicalTopologyServiceImpl logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
 
             KeyValueStorage keyValueStorage = testInfo.getTestMethod().get().isAnnotationPresent(UseRocksMetaStorage.class)
-                    ? new RocksDbKeyValueStorage(name, resolveDir(dir, "metaStorage"), new NoOpFailureProcessor(name))
+                    ? new RocksDbKeyValueStorage(name, resolveDir(dir, "metaStorage"), failureProcessor)
                     : new SimpleInMemoryKeyValueStorage(name);
 
             var topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
@@ -1193,7 +1193,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             ));
 
             Path storagePath = dir.resolve("storage");
-
 
             dataStorageMgr = new DataStorageManager(
                     dataStorageModules.createStorageEngines(

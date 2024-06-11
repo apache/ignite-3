@@ -68,8 +68,6 @@ public enum IgniteMethod {
     /** See {@link BiScalar#execute(ExecutionContext, Object, Object, RowBuilder)}. */
     BI_SCALAR_EXECUTE(BiScalar.class, "execute", ExecutionContext.class, Object.class, Object.class, RowBuilder.class),
 
-    STRING_TO_TIMESTAMP(IgniteSqlFunctions.class, "timestampStringToNumeric", String.class),
-
     /** See {@link IgniteSqlFunctions#subtractTimeZoneOffset(long, TimeZone)}. **/
     SUBTRACT_TIMEZONE_OFFSET(IgniteSqlFunctions.class, "subtractTimeZoneOffset", long.class, TimeZone.class),
 
@@ -117,8 +115,6 @@ public enum IgniteMethod {
      * TRUNCATE function. See {@link IgniteSqlFunctions#struncate(double)}, {@link IgniteSqlFunctions#struncate(double, int)} and variants.
      */
     TRUNCATE(IgniteSqlFunctions.class, "struncate", true),
-
-    SUBSTRING(IgniteSqlFunctions.class, "substring", true),
 
     /**
      * Division operator used by REDUCE phase of AVG aggregate.
