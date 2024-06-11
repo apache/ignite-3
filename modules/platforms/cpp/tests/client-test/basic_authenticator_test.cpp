@@ -22,20 +22,32 @@
 
 using namespace ignite;
 
-struct DISABLED_basic_authenticator_test : public basic_auth_test_suite {
+struct basic_authenticator_test : public basic_auth_test_suite {
+    /**
+     * Set up.
+     */
+    static void SetUpTestSuite() {
+        // Make sure that
+        for (const auto &addr : ignite_runner::NODE_ADDRS) {
+            ignite_client_configuration cfg{addr};
+            cfg.set_logger(get_logger());
+            auto client = ignite_client::start(cfg, std::chrono::seconds(30));
+        }
+    }
+
     /**
      * Tear down.
      */
     static void TearDownTestSuite() { set_authentication_enabled(false); }
 };
 
-TEST_F(DISABLED_basic_authenticator_test, disabled_on_server) {
+TEST_F(basic_authenticator_test, disabled_on_server) {
     set_authentication_enabled(false);
     auto client = ignite_client::start(get_configuration_correct(), std::chrono::seconds(30));
     (void) client.get_cluster_nodes();
 }
 
-TEST_F(DISABLED_basic_authenticator_test, disabled_on_client) {
+TEST_F(basic_authenticator_test, disabled_on_client) {
     set_authentication_enabled(true);
     EXPECT_THROW(
         {
@@ -49,13 +61,13 @@ TEST_F(DISABLED_basic_authenticator_test, disabled_on_client) {
         ignite_error);
 }
 
-TEST_F(DISABLED_basic_authenticator_test, success) {
+TEST_F(basic_authenticator_test, success) {
     set_authentication_enabled(true);
     auto client = ignite_client::start(get_configuration_correct(), std::chrono::seconds(30));
     (void) client.get_cluster_nodes();
 }
 
-TEST_F(DISABLED_basic_authenticator_test, wrong_username) {
+TEST_F(basic_authenticator_test, wrong_username) {
     set_authentication_enabled(true);
     EXPECT_THROW(
         {
@@ -69,7 +81,7 @@ TEST_F(DISABLED_basic_authenticator_test, wrong_username) {
         ignite_error);
 }
 
-TEST_F(DISABLED_basic_authenticator_test, wrong_password) {
+TEST_F(basic_authenticator_test, wrong_password) {
     set_authentication_enabled(true);
     EXPECT_THROW(
         {
