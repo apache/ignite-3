@@ -283,7 +283,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         when(replicaMgr.startRaftClient(any(), any(), any()))
                 .thenReturn(completedFuture(mock(TopologyAwareRaftGroupService.class)));
         when(replicaMgr.stopReplica(any())).thenReturn(trueCompletedFuture());
-        when(replicaMgr.weakReplicaStart(any(), any())).thenReturn(nullCompletedFuture());
+        when(replicaMgr.weakReplicaStart(any(), any(), any())).thenReturn(nullCompletedFuture());
 
         try (MockedStatic<SchemaUtils> schemaServiceMock = mockStatic(SchemaUtils.class)) {
             schemaServiceMock.when(() -> SchemaUtils.prepareSchemaDescriptor(any()))

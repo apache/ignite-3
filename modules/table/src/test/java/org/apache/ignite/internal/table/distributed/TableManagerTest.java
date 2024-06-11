@@ -285,7 +285,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         when(replicaMgr.startRaftClient(any(), any(), any()))
                 .thenReturn(completedFuture(mock(TopologyAwareRaftGroupService.class)));
         when(replicaMgr.stopReplica(any())).thenReturn(trueCompletedFuture());
-        when(replicaMgr.weakReplicaStart(any(), any())).thenAnswer(inv -> {
+        when(replicaMgr.weakReplicaStart(any(), any(), any())).thenAnswer(inv -> {
             Supplier<CompletableFuture<Void>> startOperation = inv.getArgument(1);
             return startOperation.get();
         });
