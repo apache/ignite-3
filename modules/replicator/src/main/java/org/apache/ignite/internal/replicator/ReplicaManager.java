@@ -641,7 +641,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     localNode,
                     executor,
                     placementDriver,
-                    clockService);
+                    clockService,
+                    this
+            );
 
             return replicas.compute(replicaGrpId, (k, existingReplicaFuture) -> {
                 if (existingReplicaFuture == null || existingReplicaFuture.isDone()) {
@@ -1081,7 +1083,22 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         return replicaLifecycle.isReplicaPrimaryOnly(groupId);
     }
 
+    public void reserveReplica(ReplicationGroupId groupId) {
+        replicaLifecycle.reserveReplica(groupId);
+    }
+
     private static class ReplicaLifecycle {
+        void reserveReplica(ReplicationGroupId groupId) {
+            ReplicaLifecycleContext context = getContext(groupId);
+
+            synchronized (context) {
+                assert context.replicaState != ReplicaState.STOPPED : "Unexpected primary replica state on reservation STOPPED [groupId="
+                        + groupId + "].";
+
+                context.isPrimaryLocal = true;
+            }
+        }
+
         private final IgniteLogger log = Loggers.forClass(ReplicaLifecycle.class);
 
         final Map<ReplicationGroupId, ReplicaLifecycleContext> replicaContexts = new ConcurrentHashMap<>();
@@ -1204,7 +1221,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                             }
                         }
 
-                        log.debug("Weak replica start complete state={}, partitionStarted={}", context.replicaState, partitionStarted);
+                        log.info("Weak replica start complete state={}, partitionStarted={}", context.replicaState, partitionStarted);
 
                         return partitionStarted;
                     }));
@@ -1281,7 +1298,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                             replicaContexts.remove(groupId);
                         }
 
-                        log.debug("Weak replica stop complete [grpId={}, state={}].", groupId, context.replicaState);
+                        log.info("Weak replica stop complete [grpId={}, state={}].", groupId, context.replicaState);
 
                         return true;
                     }));
@@ -1345,20 +1362,20 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * </ul>
      */
     private enum ReplicaState {
+        /** Replica is starting. */
+        STARTING,
+
         /**
          * Local node, where the replica is located, is included into the union of stable and pending assignments. The replica can
-         * be either primary or non-primary.
+         * be either primary or non-primary. Assumes that the replica is started.
          */
         ASSIGNED,
 
         /**
          * Local node is excluded from the union of stable and pending assignments but the replica is a primary replica and hence
-         * can't be stopped.
+         * can't be stopped. Assumes that the replica is started.
          */
         PRIMARY_ONLY,
-
-        /** Replica is starting. */
-        STARTING,
 
         /** Replica is stopping. */
         STOPPING,

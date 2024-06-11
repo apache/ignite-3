@@ -125,7 +125,8 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
                 LOCAL_NODE,
                 executor,
                 new TestPlacementDriver(LOCAL_NODE),
-                new TestClockService(new HybridClockImpl())
+                new TestClockService(new HybridClockImpl()),
+                null
         );
     }
 

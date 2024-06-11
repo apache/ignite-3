@@ -94,6 +94,8 @@ public class Replica {
 
     private final ClockService clockService;
 
+    private final ReplicaManager replicaManager;
+
     /**
      * The constructor of a replica server.
      *
@@ -112,7 +114,8 @@ public class Replica {
             ClusterNode localNode,
             ExecutorService executor,
             PlacementDriver placementDriver,
-            ClockService clockService
+            ClockService clockService,
+            ReplicaManager replicaManager
     ) {
         this.replicaGrpId = replicaGrpId;
         this.listener = listener;
@@ -122,6 +125,7 @@ public class Replica {
         this.executor = executor;
         this.placementDriver = placementDriver;
         this.clockService = clockService;
+        this.replicaManager = replicaManager;
 
         raftClient.subscribeLeader(this::onLeaderElected);
     }
@@ -267,7 +271,7 @@ public class Replica {
     }
 
     private CompletableFuture<LeaseGrantedMessageResponse> proposeLeaseRedirect(ClusterNode groupLeader) {
-        LOG.info("Proposing lease redirection, proposed node=" + groupLeader);
+        LOG.info("Proposing lease redirection [groupId={}, proposed node={}].", groupId(), groupLeader);
 
         LeaseGrantedMessageResponse resp = PLACEMENT_DRIVER_MESSAGES_FACTORY.leaseGrantedMessageResponse()
                 .accepted(false)
@@ -287,6 +291,8 @@ public class Replica {
      */
     private CompletableFuture<Void> waitForActualState(long expirationTime) {
         LOG.info("Waiting for actual storage state, group=" + groupId());
+
+        replicaManager.reserveReplica(groupId());
 
         long timeout = expirationTime - currentTimeMillis();
         if (timeout <= 0) {
