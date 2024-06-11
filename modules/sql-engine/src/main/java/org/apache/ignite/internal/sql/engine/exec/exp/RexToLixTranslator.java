@@ -66,6 +66,8 @@ import org.apache.calcite.rex.RexCorrelVariable;
 import org.apache.calcite.rex.RexDynamicParam;
 import org.apache.calcite.rex.RexFieldAccess;
 import org.apache.calcite.rex.RexInputRef;
+import org.apache.calcite.rex.RexLambda;
+import org.apache.calcite.rex.RexLambdaRef;
 import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexLocalRef;
 import org.apache.calcite.rex.RexNode;
@@ -356,7 +358,7 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
                     case CHAR:
                     case VARCHAR:
                         convert =
-                                Expressions.call(IgniteMethod.STRING_TO_TIMESTAMP.method(), operand);
+                                Expressions.call(BuiltInMethod.STRING_TO_TIMESTAMP.method, operand);
                         break;
                     case DATE:
                         convert =
@@ -403,7 +405,7 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
                         // Since this type implies a local timezone, its explicit indication seems redundant,
                         // so we prohibit the user from explicitly setting a timezone.
                         convert =
-                                Expressions.call(IgniteMethod.STRING_TO_TIMESTAMP.method(), operand);
+                                Expressions.call(BuiltInMethod.STRING_TO_TIMESTAMP.method, operand);
                         break;
                     case DATE:
                         convert =
@@ -1529,6 +1531,16 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
 
     @Override public Result visitPatternFieldRef(RexPatternFieldRef fieldRef) {
         return visitInputRef(fieldRef);
+    }
+
+    @Override
+    public Result visitLambda(RexLambda lambda) {
+        throw new RuntimeException("cannot translate expression " + lambda);
+    }
+
+    @Override
+    public Result visitLambdaRef(RexLambdaRef lambdaRef) {
+        throw new RuntimeException("cannot translate expression " + lambdaRef);
     }
 
     Expression checkNull(Expression expr) {
