@@ -186,8 +186,7 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
 
         node0.sql().execute(null, createTableSql());
 
-        MetaStorageManager metaStorageManager = (MetaStorageManager) IgniteTestUtils
-                .getFieldValue(node0, IgniteImpl.class, "metaStorageMgr");
+        MetaStorageManager metaStorageManager = node0.metaStorageManager();
 
         ZonePartitionId partId = new ZonePartitionId(getZoneId(node0), 0);
 

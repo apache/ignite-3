@@ -741,7 +741,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             throws NodeStoppingException {
         RaftGroupService cachedRaftClient = raftClientCache.get();
         return cachedRaftClient != null
-                ? CompletableFuture.completedFuture((TopologyAwareRaftGroupService) cachedRaftClient)
+                ? completedFuture((TopologyAwareRaftGroupService) cachedRaftClient)
                 // TODO IGNITE-19614 This procedure takes 10 seconds if there's no majority online.
                 : raftManager.startRaftGroupService(replicaGrpId, newConfiguration, raftGroupServiceFactory, raftCommandsMarshaller);
     }
@@ -831,6 +831,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         var eventParams = new LocalReplicaEventParameters(replicaGrpId);
 
         assert replicaGrpId instanceof ZonePartitionId;
+        ZonePartitionId zonePartitionId = (ZonePartitionId) replicaGrpId;
+        assert zonePartitionId.tableId() != 0;
 
         fireEvent(BEFORE_REPLICA_STOPPED, eventParams).whenComplete((v, e) -> {
             if (e != null) {
@@ -844,7 +846,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             }
 
             try {
-                replicas.compute((ZonePartitionId) replicaGrpId, (grpId, replicaFuture) -> {
+                replicas.compute(zonePartitionId, (grpId, replicaFuture) -> {
                     if (replicaFuture == null) {
                         isRemovedFuture.complete(false);
                     } else if (!replicaFuture.isDone()) {
@@ -868,7 +870,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     }
 
                     zonePartIdToTableIds.forEach((zonePartId, tblPartIds) -> {
-                        tblPartIds.remove(((ZonePartitionId) replicaGrpId).tableId());
+                        tblPartIds.remove(zonePartitionId.tableId());
                     });
 
                     return null;
@@ -882,7 +884,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 .thenApply(v -> {
                     try {
                         // TODO: move into {@method Replica#shutdown} https://issues.apache.org/jira/browse/IGNITE-22372
-                        raftManager.stopRaftNodes(replicaGrpId);
+                        raftManager.stopRaftNodes(new TablePartitionId(zonePartitionId.tableId(), zonePartitionId.partitionId()));
                     } catch (NodeStoppingException ignored) {
                         // No-op.
                     }
@@ -1002,7 +1004,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         int shutdownTimeoutSeconds = 10;
 
         shutdownAndAwaitTermination(scheduledIdleSafeTimeSyncExecutor, shutdownTimeoutSeconds, SECONDS);
-        shutdownAndAwaitTermination(scheduledTableLeaseUpdateExecutor, shutdownTimeoutSeconds, TimeUnit.SECONDS);
+        shutdownAndAwaitTermination(scheduledTableLeaseUpdateExecutor, shutdownTimeoutSeconds, SECONDS);
 
         assert replicas.values().stream().noneMatch(CompletableFuture::isDone)
                 : "There are replicas alive [replicas="

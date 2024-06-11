@@ -984,7 +984,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         partitionUpdateHandlers,
                         raftClient);
 
-                RaftGroupEventsListener raftGroupEventsListener = createRaftGroupEventsListener(zoneId, zonePartitionId);
+                RaftGroupEventsListener raftGroupEventsListener = createRaftGroupEventsListener(tableId, zonePartitionId);
 
                 MvTableStorage mvTableStorage = internalTable.storage();
 
@@ -1059,7 +1059,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         });
     }
 
-    private RaftGroupEventsListener createRaftGroupEventsListener(int zoneId, ZonePartitionId zonePartitionId) {
+    private RaftGroupEventsListener createRaftGroupEventsListener(int tableId, ZonePartitionId zonePartitionId) {
         PartitionMover partitionMover = createPartitionMover(zonePartitionId);
 
         return new RebalanceRaftGroupEventsListener(
@@ -1068,7 +1068,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 busyLock,
                 partitionMover,
                 rebalanceScheduler,
-                zoneId
+                tableId
         );
     }
 
