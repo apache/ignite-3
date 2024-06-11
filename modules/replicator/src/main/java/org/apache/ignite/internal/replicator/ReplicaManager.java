@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.thread.ThreadOperation.TX_STATE_STORAGE
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.isCompletedSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
@@ -1130,36 +1131,50 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             synchronized (context) {
                 ReplicaState state = context.replicaState;
 
-                log.info("qqq weakReplicaStart grp={}, state={}, future=", groupId, state, context.previousOperationFuture);
+                log.info("qqq weakReplicaStart grp={}, state={}, future={}", groupId, state, context.previousOperationFuture);
 
                 if (state == ReplicaState.STOPPED || state == ReplicaState.STOPPING) {
-                    return startReplica(context, startOperation);
+                    return startReplica(groupId, context, startOperation);
+                } else if (state == ReplicaState.ASSIGNED) {
+                    // No-op, but telling the caller that the replica is started.
+                    log.info("qqq weakReplicaStart complete grpId={}, state={}", groupId, context.replicaState);
+
+                    return startReplica(groupId, context, startOperation);
                 } else if (state == ReplicaState.PRIMARY_ONLY) {
                     context.replicaState = ReplicaState.ASSIGNED;
+                    log.info("qqq weakReplicaStart complete grpId={}, state={}", groupId, context.replicaState);
+
+                    return trueCompletedFuture();
                 } // else no-op.
 
                 log.info("qqq weakReplicaStart complete grpId={}, state={}", groupId, context.replicaState);
 
-                return falseCompletedFuture();
+                throw new AssertionError("Replica start cannot begin while the replica is being started [groupId=" + groupId + "].");
             }
         }
 
         private CompletableFuture<Boolean> startReplica(
+                ReplicationGroupId groupId,
                 ReplicaLifecycleContext context,
                 Supplier<CompletableFuture<Boolean>> startOperation
         ) {
             context.replicaState = ReplicaState.STARTING;
             context.previousOperationFuture = context.previousOperationFuture
                     .handleAsync((v, e) -> startOperation.get(), replicaStartStopPool)
-                    .thenCompose(future -> {
+                    .thenCompose(startOperationFuture -> startOperationFuture.thenApply(partitionStarted -> {
                         synchronized (context) {
-                            context.replicaState = ReplicaState.ASSIGNED;
+                            if (partitionStarted) {
+                                context.replicaState = ReplicaState.ASSIGNED;
+                            } else {
+                                context.replicaState = ReplicaState.STOPPED;
+                                replicaContexts.remove(groupId);
+                            }
                         }
 
-                        log.info("qqq weakReplicaStart complete state={}", context.replicaState);
+                        log.info("qqq weakReplicaStart complete state={}, partitionStarted={}", context.replicaState, partitionStarted);
 
-                        return future;
-                    });
+                        return partitionStarted;
+                    }));
 
             return context.previousOperationFuture;
         }
@@ -1194,7 +1209,13 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                         }
                     } else if (state == ReplicaState.STARTING) {
                         return stopReplica(groupId, context, stopOperation);
+                    } else if (state == ReplicaState.STOPPED) {
+                        // We need to stop replica and destroy storages anyway, because they can be already created.
+                        // See TODO-s for IGNITE-19713
+                        return stopReplica(groupId, context, stopOperation);
                     } // else: no-op.
+                } else if (reason == WeakReplicaStopReason.RESTART) {
+                    return stopReplica(groupId, context, stopOperation);
                 } else {
                     assert reason == WeakReplicaStopReason.PRIMARY_EXPIRED : "Unknown replica stop reason: " + reason;
 
@@ -1217,7 +1238,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             context.replicaState = ReplicaState.STOPPING;
             context.previousOperationFuture = context.previousOperationFuture
                     .handleAsync((v, e) -> stopOperation.get(), replicaStartStopPool)
-                    .thenCompose(future -> {
+                    .thenCompose(stopOperationFuture -> stopOperationFuture.thenApply(v -> {
                         synchronized (context) {
                             context.replicaState = ReplicaState.STOPPED;
                             replicaContexts.remove(groupId);
@@ -1225,8 +1246,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
                         log.info("qqq weakReplicaStop complete grpId={}, state={}", groupId, context.replicaState);
 
-                        return future.thenApply(v -> null);
-                    });
+                        return null;
+                    }));
 
             return context.previousOperationFuture.thenApply(v -> null);
         }
@@ -1295,6 +1316,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         EXCLUDED_FROM_ASSIGNMENTS,
 
         /** If the primary replica expired (A replica can stay alive when the node is not in assignments, if it's a primary replica). */
-        PRIMARY_EXPIRED
+        PRIMARY_EXPIRED,
+
+        RESTART
     }
 }

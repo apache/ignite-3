@@ -1799,9 +1799,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         if (LOG.isInfoEnabled()) {
                             var stringKey = new String(pendingAssignmentsEntry.key(), UTF_8);
 
-                            LOG.info("Received update on pending assignments. Check if new raft group should be started"
-                                            + " [key={}, partition={}, table={}, localMemberAddress={}, pendingAssignments={}]",
-                                    stringKey, partId, table.name(), localNode().address(), pendingAssignments);
+                            LOG.info("Received update on pending assignments. Check if new raft group should be started [key={}, "
+                                            + "partition={}, table={}, localMemberAddress={}, pendingAssignments={}, revision={}]",
+                                    stringKey, partId, table.name(), localNode().address(), pendingAssignments, revision);
                         }
 
                         return setTablesPartitionCountersForRebalance(replicaGrpId, revision, pendingAssignments.force())
@@ -2242,6 +2242,14 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     ? Assignments.EMPTY
                     : Assignments.fromBytes(pendingAssignmentsFromMetaStorage);
 
+            if (LOG.isInfoEnabled()) {
+                var stringKey = new String(stableAssignmentsWatchEvent.key(), UTF_8);
+
+                LOG.info("Received update on stable assignments [key={}, partition={}, localMemberAddress={}, "
+                                + "stableAssignments={}, pendingAssignments={}, revision={}]", stringKey, tablePartitionId,
+                        localNode().address(), stableAssignments, pendingAssignments, revision);
+            }
+
             return stopAndDestroyPartitionAndUpdateClients(
                     tablePartitionId,
                     stableAssignments,
@@ -2311,6 +2319,18 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     return stopPartition(tablePartitionId, table)
                             .thenComposeAsync(v -> destroyPartitionStorages(tablePartitionId, table), ioExecutor);
                 });
+    }
+
+    /**
+     * Stops all resources associated with a given partition, like replicas and partition trackers. Calls
+     * {@link ReplicaManager#weakReplicaStop} in order to change the replica state.
+     *
+     * @param tablePartitionId Partition ID.
+     * @param table Table which this partition belongs to.
+     * @return Future that will be completed after all resources have been closed.
+     */
+    private CompletableFuture<Void> stopPartitionForRestart(TablePartitionId tablePartitionId, TableImpl table) {
+        return replicaMgr.weakReplicaStop(tablePartitionId, WeakReplicaStopReason.RESTART, () -> stopPartition(tablePartitionId, table));
     }
 
     /**
@@ -2551,7 +2571,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         return inBusyLockAsync(busyLock, () -> tablesVv.get(revision).thenComposeAsync(unused -> inBusyLockAsync(busyLock, () -> {
             TableImpl table = tables.get(tablePartitionId.tableId());
 
-            return stopPartition(tablePartitionId, table).thenComposeAsync(unused1 -> {
+            return stopPartitionForRestart(tablePartitionId, table).thenComposeAsync(unused1 -> {
                 Assignments stableAssignments = stableAssignments(tablePartitionId, revision);
 
                 assert stableAssignments != null : "tablePartitionId=" + tablePartitionId + ", revision=" + revision;

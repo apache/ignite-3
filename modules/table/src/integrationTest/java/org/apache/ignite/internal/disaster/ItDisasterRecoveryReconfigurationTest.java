@@ -283,6 +283,8 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         waitForScale(node0, 1);
 
+        System.out.println("qqq reset partitions");
+
         CompletableFuture<?> updateFuture = node0.disasterRecoveryManager().resetPartitions(
                 zoneName,
                 QUALIFIED_TABLE_NAME,
@@ -290,6 +292,8 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         );
 
         assertThat(updateFuture, willCompleteSuccessfully());
+
+        System.out.println("qqq waiting for primary");
 
         awaitPrimaryReplica(node0, partId);
 

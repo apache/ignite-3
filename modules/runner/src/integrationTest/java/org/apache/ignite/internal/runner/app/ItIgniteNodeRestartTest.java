@@ -1384,13 +1384,15 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         TableImpl table = unwrapTableImpl(restartedNode.tables().table(TABLE_NAME));
 
-        assertTrue(waitForCondition(() -> {
+        boolean success = waitForCondition(() -> {
             // Check that only storage for 1 partition left on the restarted node.
             return IntStream.range(0, partitions)
                     .mapToObj(i -> table.internalTable().storage().getMvPartition(i))
                     .filter(Objects::nonNull)
                     .count() == 1;
-        }, 10_000));
+        }, 10_000);
+
+        assertTrue(success);
     }
 
     @Test
