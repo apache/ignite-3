@@ -485,7 +485,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     new TestConfigurationValidator()
             );
 
-            failureProcessor = new FailureProcessor(name);
+            failureProcessor = new NoOpFailureProcessor(name);
 
             cmgManager = new ClusterManagementGroupManager(
                     vaultManager,

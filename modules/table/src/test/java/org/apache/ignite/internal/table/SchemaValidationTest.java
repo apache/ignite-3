@@ -41,8 +41,8 @@ public class SchemaValidationTest extends TableKvOperationsTestBase {
     public void columnNotExist() {
         SchemaDescriptor schema = new SchemaDescriptor(
                 1,
-                new Column[]{new Column("id", NativeTypes.INT64, false)},
-                new Column[]{new Column("val", NativeTypes.INT64, true)}
+                new Column[]{new Column("ID", NativeTypes.INT64, false)},
+                new Column[]{new Column("VAL", NativeTypes.INT64, true)}
         );
 
         RecordView<Tuple> recView = createTable(schema).recordView();
@@ -56,10 +56,10 @@ public class SchemaValidationTest extends TableKvOperationsTestBase {
         SchemaDescriptor schema = new SchemaDescriptor(
                 1,
                 new Column[]{
-                        new Column("id", NativeTypes.INT64, false),
-                        new Column("affId", NativeTypes.INT64, false)
+                        new Column("ID", NativeTypes.INT64, false),
+                        new Column("AFFID", NativeTypes.INT64, false)
                 },
-                new Column[]{new Column("val", NativeTypes.INT64, true)}
+                new Column[]{new Column("VAL", NativeTypes.INT64, true)}
         );
 
         Table tbl = createTable(schema);
@@ -90,10 +90,10 @@ public class SchemaValidationTest extends TableKvOperationsTestBase {
     public void typeMismatch() {
         SchemaDescriptor schema = new SchemaDescriptor(
                 1,
-                new Column[]{new Column("id", NativeTypes.INT64, false)},
+                new Column[]{new Column("ID", NativeTypes.INT64, false)},
                 new Column[]{
-                        new Column("valString", NativeTypes.stringOf(3), true),
-                        new Column("valBytes", NativeTypes.blobOf(3), true)
+                        new Column("VALSTRING", NativeTypes.stringOf(3), true),
+                        new Column("VALBYTES", NativeTypes.blobOf(3), true)
                 }
         );
 
@@ -115,9 +115,9 @@ public class SchemaValidationTest extends TableKvOperationsTestBase {
     public void stringTypeMatch() {
         SchemaDescriptor schema = new SchemaDescriptor(
                 1,
-                new Column[]{new Column("id", NativeTypes.INT64, false)},
+                new Column[]{new Column("ID", NativeTypes.INT64, false)},
                 new Column[]{
-                        new Column("valString", NativeTypes.stringOf(3), true)
+                        new Column("VALSTRING", NativeTypes.stringOf(3), true)
                 }
         );
 
@@ -139,10 +139,10 @@ public class SchemaValidationTest extends TableKvOperationsTestBase {
     public void bytesTypeMatch() {
         SchemaDescriptor schema = new SchemaDescriptor(
                 1,
-                new Column[]{new Column("id", NativeTypes.INT64, false)},
+                new Column[]{new Column("ID", NativeTypes.INT64, false)},
                 new Column[]{
-                        new Column("valUnlimited", NativeTypes.BYTES, true),
-                        new Column("valLimited", NativeTypes.blobOf(2), true)
+                        new Column("VALUNLIMITED", NativeTypes.BYTES, true),
+                        new Column("VALLIMITED", NativeTypes.blobOf(2), true)
                 });
 
         RecordView<Tuple> tbl = createTable(schema).recordView();

@@ -1,0 +1,136 @@
+# name: test/sql/types/char/test_implicit_cast.test
+# description: E021-10 Character string types. Implicit casting among the character string types.
+# group: [char]
+
+query T
+SELECT 'a'::char > 'b'::varchar;
+----
+false
+
+query T
+SELECT 'a'::char < 'b'::varchar;
+----
+true
+
+query T
+SELECT 'a'::char = 'b'::varchar;
+----
+false
+
+query T
+SELECT 'a'::char >= 'b'::varchar;
+----
+false
+
+query T
+SELECT 'a'::char <= 'b'::varchar;
+----
+true
+
+query T
+SELECT 'a'::char(1) > 'b'::varchar(2);
+----
+false
+
+query T
+SELECT 'a'::char(1) < 'b'::varchar(2);
+----
+true
+
+statement ok
+create table tprec(v varchar(10));
+
+statement ok
+insert into tprec values('b');
+
+query T
+SELECT * FROM tprec WHERE v > 'a'::char(1);
+----
+b
+
+statement ok
+create table t(v varchar);
+
+statement ok
+insert into t values('b');
+
+query T
+SELECT * FROM t WHERE v > 'a'::char(1);
+----
+b
+
+statement ok
+create table tiny(v TINYINT);
+
+statement ok
+insert into tiny values('127');
+
+skipif ignite3
+# https://issues.apache.org/jira/browse/IGNITE-22444
+#Values of either the CHARACTER or CHARACTER VARYING data type can be assigned to the other type, subject to truncation conditions
+query T
+SELECT * FROM tiny WHERE v = '300';
+----
+
+skipif ignite3
+# https://issues.apache.org/jira/browse/IGNITE-22444
+#Values of either the CHARACTER or CHARACTER VARYING data type can be assigned to the other type, subject to truncation conditions
+query T
+SELECT * FROM tiny WHERE v < '300';
+----
+127
+
+query T
+SELECT length('a'::CHAR(10) || 'abc'::VARCHAR(10));
+----
+13
+
+# ASSIGNMENT
+
+statement ok
+CREATE TABLE chars(c5 VARCHAR(5), c10 VARCHAR(10), c15 VARCHAR(15));
+
+# Preserve trailing whitespace
+statement ok
+INSERT INTO chars (c5) VALUES('a'::CHAR(5));
+
+query T
+SELECT length(c5) FROM chars;
+----
+5
+
+statement ok
+UPDATE chars SET c10 = c5, c15 = c5
+
+query TTT
+SELECT length(c5), length(c10), length(c15) FROM chars;
+----
+5	5	5
+
+
+statement ok
+INSERT INTO chars VALUES(repeat('b', 5), repeat('b', 10), repeat('b', 15));
+
+# Trailing whitespace is ignored
+statement ok
+UPDATE chars SET c5=c5::CHAR(10), c10 = c10::CHAR(15), c15 = c15::CHAR(20)
+
+query TTT
+SELECT length(c5), length(c10), length(c15) FROM chars WHERE c5 = 'bbbbb';
+----
+5	10	15
+
+statement ok
+CREATE TABLE tmp (c5 VARCHAR(5), c10 VARCHAR(10));
+
+statement ok
+INSERT INTO tmp (c5) VALUES('a'::CHAR(5));
+
+statement ok
+INSERT INTO tmp (c5) VALUES('a'::CHAR(3));
+
+# https://issues.apache.org/jira/browse/IGNITE-22451 
+# Error: Row has not been fully built. Index: 2, fields: 3
+skipif ignite3
+statement ok
+UPDATE tmp SET c5=c5::CHAR(6)

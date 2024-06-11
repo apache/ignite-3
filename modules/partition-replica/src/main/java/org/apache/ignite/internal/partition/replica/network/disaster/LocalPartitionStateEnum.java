@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.partition.replica.network.disaster;
 
+import org.apache.ignite.raft.jraft.core.State;
+
 /**
  * Enum for states of local partitions.
  */
@@ -37,5 +39,31 @@ public enum LocalPartitionStateEnum {
     CATCHING_UP,
 
     /** Partition is in broken state, usually it means that its state machine thrown an exception. */
-    BROKEN
+    BROKEN;
+
+    /** Converts internal raft node state into public local partition state. */
+    public static LocalPartitionStateEnum convert(State raftNodeState) {
+        switch (raftNodeState) {
+            case STATE_LEADER:
+            case STATE_TRANSFERRING:
+            case STATE_CANDIDATE:
+            case STATE_FOLLOWER:
+                return HEALTHY;
+
+            case STATE_ERROR:
+                return BROKEN;
+
+            case STATE_UNINITIALIZED:
+                return INITIALIZING;
+
+            case STATE_SHUTTING:
+            case STATE_SHUTDOWN:
+            case STATE_END:
+                return UNAVAILABLE;
+
+            default:
+                // Unrecognized state, better safe than sorry.
+                return BROKEN;
+        }
+    }
 }

@@ -47,6 +47,7 @@ dependencies {
     implementation project(':ignite-workers')
     implementation project(':ignite-low-watermark')
     implementation project(':ignite-system-view-api')
+    implementation project(':ignite-metrics')
     implementation project(':ignite-partition-replica')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core

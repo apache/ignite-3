@@ -17,35 +17,42 @@
 
 package org.apache.ignite.client.handler;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.apache.ignite.lang.ErrorGroups.Catalog.VALIDATION_ERR;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_PARSE_ERR;
-import static org.mockito.ArgumentMatchers.anyInt;
+import static org.hamcrest.CoreMatchers.containsString;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryCursorHandler;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcFetchQueryResultsRequest;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcQuerySingleResult;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
-import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.sql.ResultSetMetadataImpl;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursorImpl;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.ignite.internal.sql.engine.util.IteratorToDataCursorAdapter;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlException;
+import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.mockito.invocation.InvocationOnMock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.stubbing.Answer;
 
 /**
  * Test to verify {@link JdbcQueryCursorHandlerImpl}.
@@ -57,76 +64,58 @@ public class JdbcQueryCursorHandlerImplTest extends BaseIgniteAbstractTest {
     @ValueSource(booleans = {true, false})
     void testGetMoreResultsProcessExceptions(boolean nextResultThrow) throws IgniteInternalCheckedException {
         ClientResourceRegistry resourceRegistryMocked = mock(ClientResourceRegistry.class);
-        ClientResource rsrc = mock(ClientResource.class);
+        ClientResource resource = mock(ClientResource.class);
 
         JdbcQueryCursorHandler cursorHandler = new JdbcQueryCursorHandlerImpl(resourceRegistryMocked);
 
-        when(resourceRegistryMocked.get(anyLong())).thenAnswer(new Answer<ClientResource>() {
-            @Override
-            public ClientResource answer(InvocationOnMock invocation) {
-                return rsrc;
-            }
-        });
+        when(resourceRegistryMocked.remove(anyLong())).thenReturn(resource);
 
-        when(rsrc.get(AsyncSqlCursor.class)).thenAnswer(new Answer<AsyncSqlCursor<InternalSqlRow>>() {
-            @Override
-            public AsyncSqlCursor<InternalSqlRow> answer(InvocationOnMock invocation) {
-                return new AsyncSqlCursor<>() {
-                    @Override
-                    public SqlQueryType queryType() {
-                        throw new UnsupportedOperationException("queryType");
-                    }
+        AsyncSqlCursor<InternalSqlRow> cursor = createCursor(
+                nextResultThrow 
+                        ? failedFuture(new SqlException(STMT_PARSE_ERR, new Exception("nextResult exception"))) 
+                        : completedFuture(createCursor(null))
+        );
 
-                    @Override
-                    public ResultSetMetadata metadata() {
-                        throw new UnsupportedOperationException("metadata");
-                    }
+        when(resource.get(AsyncSqlCursor.class)).thenReturn(cursor);
 
-                    @Override
-                    public boolean hasNextResult() {
-                        return true;
-                    }
+        JdbcQuerySingleResult result = await(
+                cursorHandler.getMoreResultsAsync(new JdbcFetchQueryResultsRequest(1, 100)), 5, TimeUnit.SECONDS
+        );
+        assertEquals(nextResultThrow, !result.success());
+    }
 
-                    @Override
-                    public CompletableFuture<Void> onClose() {
-                        return null;
-                    }
+    @Test
+    void exceptionThrownWhenCursorDoesntHaveNextResult() throws IgniteInternalCheckedException {
+        ClientResourceRegistry resourceRegistryMocked = mock(ClientResourceRegistry.class);
+        ClientResource resource = mock(ClientResource.class);
 
-                    @Override
-                    public CompletableFuture<Void> onFirstPageReady() {
-                        return null;
-                    }
+        JdbcQueryCursorHandler cursorHandler = new JdbcQueryCursorHandlerImpl(resourceRegistryMocked);
 
-                    @Override
-                    public CompletableFuture<AsyncSqlCursor<InternalSqlRow>> nextResult() {
-                        if (nextResultThrow) {
-                            throw new SqlException(STMT_PARSE_ERR, new Exception("nextResult exception"));
-                        } else {
-                            AsyncSqlCursorImpl<InternalSqlRow> sqlCursor = mock(AsyncSqlCursorImpl.class);
+        when(resourceRegistryMocked.remove(anyLong())).thenReturn(resource);
 
-                            lenient().when(sqlCursor.requestNextAsync(anyInt()))
-                                    .thenAnswer((Answer<BatchedResult<InternalSqlRow>>) invocation -> {
-                                        throw new IgniteInternalException(VALIDATION_ERR, "requestNextAsync error");
-                                    }
-                            );
+        AsyncSqlCursor<InternalSqlRow> cursor = createCursor(null);
 
-                            return CompletableFuture.completedFuture(sqlCursor);
-                        }
-                    }
+        when(resource.get(AsyncSqlCursor.class)).thenReturn(cursor);
 
-                    @Override
-                    public CompletableFuture<BatchedResult<InternalSqlRow>> requestNextAsync(int rows) {
-                        return nullCompletedFuture();
-                    }
+        JdbcQuerySingleResult result = await(
+                cursorHandler.getMoreResultsAsync(new JdbcFetchQueryResultsRequest(1, 100)), 5, TimeUnit.SECONDS
+        );
+        assertFalse(result.success());
+        assertThat(result.err(), containsString("Cursor doesn't have next result"));
+        // handler must close cursor
+        assertThat(cursor.onClose(), willCompleteSuccessfully());
+    }
 
-                    @Override
-                    public CompletableFuture<Void> closeAsync() {
-                        return nullCompletedFuture();
-                    }
-                };
-            }
-        });
+    private static AsyncSqlCursor<InternalSqlRow> createCursor(
+            @Nullable CompletableFuture<AsyncSqlCursor<InternalSqlRow>> nextCursorFuture
+    ) {
+        ResultSetMetadata emptyMeta = new ResultSetMetadataImpl(List.of());
 
-        await(cursorHandler.getMoreResultsAsync(new JdbcFetchQueryResultsRequest(1, 100)), 5, TimeUnit.SECONDS);
+        return new AsyncSqlCursorImpl<>(
+                SqlQueryType.QUERY,
+                emptyMeta,
+                new IteratorToDataCursorAdapter<>(Collections.emptyIterator()),
+                nextCursorFuture
+        );
     }
 }

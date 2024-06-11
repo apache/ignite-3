@@ -38,6 +38,7 @@ import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCost;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
+import org.jetbrains.annotations.Nullable;
 
 /** Relational expression that applies a limit and/or offset to its input. */
 public class IgniteLimit extends SingleRel implements IgniteRel {
@@ -62,8 +63,8 @@ public class IgniteLimit extends SingleRel implements IgniteRel {
             RelOptCluster cluster,
             RelTraitSet traits,
             RelNode child,
-            RexNode offset,
-            RexNode fetch
+            @Nullable RexNode offset,
+            @Nullable RexNode fetch
     ) {
         super(cluster, traits, child);
         this.offset = offset;
