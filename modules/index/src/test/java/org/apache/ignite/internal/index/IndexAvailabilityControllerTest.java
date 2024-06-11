@@ -68,6 +68,7 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.network.ClusterNode;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /** For {@link IndexAvailabilityController} testing. */
@@ -182,6 +183,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22374")
     void testMetastoreKeysAfterIndexCreateForOnlyOnePartition() throws Exception {
         changePartitionCountInCatalog(1);
 
@@ -189,6 +191,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22374")
     void testMetastoreKeysAfterIndexBuildingForOnlyOnePartition() throws Exception {
         changePartitionCountInCatalog(1);
 
@@ -262,6 +265,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22374")
     void testMetastoreKeysAfterDropIndexForOnlyOnePartition() throws Exception {
         changePartitionCountInCatalog(1);
 

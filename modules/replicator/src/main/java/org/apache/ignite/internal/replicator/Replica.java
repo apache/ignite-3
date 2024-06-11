@@ -109,7 +109,6 @@ public class Replica {
      * @param zoneTablePartitionId Replication group id.
      * @param listener Replica listener.
      * @param storageIndexTracker Storage index tracker.
-     * @param raftClient Topology aware Raft client.
      * @param localNode Instance of the local node.
      * @param executor External executor.
      * @param placementDriver Placement driver.
@@ -119,7 +118,6 @@ public class Replica {
             ZonePartitionId zoneTablePartitionId,
             ReplicaListener listener,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker,
-            TopologyAwareRaftGroupService raftClient,
             ClusterNode localNode,
             Executor executor,
             PlacementDriver placementDriver,
@@ -128,13 +126,18 @@ public class Replica {
         this.zoneTablePartitionId = zoneTablePartitionId;
         this.listener = listener;
         this.storageIndexTracker = storageIndexTracker;
-        this.raftClient = raftClient;
+        this.raftClient = raftClient();
         this.localNode = localNode;
         this.executor = executor;
         this.placementDriver = placementDriver;
         this.clockService = clockService;
 
         raftClient.subscribeLeader(this::onLeaderElected);
+    }
+
+    /** Returns Raft-client. */
+    public final TopologyAwareRaftGroupService raftClient() {
+        return (TopologyAwareRaftGroupService) listener.raftClient();
     }
 
     /**

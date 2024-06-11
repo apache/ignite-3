@@ -44,6 +44,7 @@ import java.util.stream.IntStream;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
@@ -260,6 +261,8 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
 
             var storage = new SimpleInMemoryKeyValueStorage(nodeName);
 
+            ClockService clockService = new TestClockService(nodeClock);
+
             var metaStorageManager = new MetaStorageManagerImpl(
                     clusterService,
                     cmgManager,
@@ -269,7 +272,9 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
                     nodeClock,
                     topologyAwareRaftGroupServiceFactory,
                     new NoOpMetricManager(),
-                    metaStorageConfiguration
+                    metaStorageConfiguration,
+                    raftConfiguration.retryTimeout(),
+                    completedFuture(clockService::maxClockSkewMillis)
             );
 
             if (this.metaStorageManager == null) {
@@ -285,7 +290,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
                     logicalTopologyService,
                     raftManager,
                     topologyAwareRaftGroupServiceFactory,
-                    new TestClockService(nodeClock)
+                    clockService
             );
 
             res.add(new Node(nodeName, clusterService, raftManager, metaStorageManager, placementDriverManager));

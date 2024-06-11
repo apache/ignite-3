@@ -30,6 +30,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.REBALANCE_SCHEDULER_POOL_SIZE;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
+import static org.apache.ignite.internal.hlc.TestClockService.TEST_MAX_CLOCK_SKEW_MILLIS;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
@@ -71,6 +72,8 @@ import org.apache.ignite.internal.affinity.Assignments;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
 import org.apache.ignite.internal.distributionzones.Node;
@@ -99,6 +102,7 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.WriteCommand;
+import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
@@ -111,10 +115,12 @@ import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Tests the distribution zone dataNodes watch listener in {@link DistributionZoneRebalanceEngine}.
  */
+@ExtendWith(ConfigurationExtension.class)
 public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
     private static final String ZONE_NAME_0 = "zone0";
 
@@ -139,6 +145,9 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
     private CatalogManager catalogManager;
 
     private ScheduledExecutorService rebalanceScheduler;
+
+    @InjectConfiguration
+    private RaftConfiguration raftConfiguration;
 
     @BeforeEach
     public void setUp() {
@@ -179,7 +188,12 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         keyValueStorage = spy(new SimpleInMemoryKeyValueStorage(nodeName));
 
-        MetaStorageListener metaStorageListener = new MetaStorageListener(keyValueStorage, mock(ClusterTimeImpl.class));
+        MetaStorageListener metaStorageListener = new MetaStorageListener(
+                keyValueStorage,
+                mock(ClusterTimeImpl.class),
+                raftConfiguration.retryTimeout(),
+                completedFuture(() -> TEST_MAX_CLOCK_SKEW_MILLIS)
+        );
 
         RaftGroupService metaStorageService = mock(RaftGroupService.class);
 

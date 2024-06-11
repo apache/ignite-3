@@ -17,7 +17,6 @@
 
 package org.apache.ignite.catalog.annotations;
 
-import static java.lang.annotation.ElementType.TYPE;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
 import java.lang.annotation.Retention;
@@ -26,7 +25,7 @@ import java.lang.annotation.Target;
 /**
  * Describes a distribution zone.
  */
-@Target(TYPE)
+@Target({})
 @Retention(RUNTIME)
 public @interface Zone {
     /**
@@ -34,7 +33,14 @@ public @interface Zone {
      *
      * @return The name of the zone.
      */
-    String value() default "";
+    String value();
+
+    /**
+     * Storage profiles.
+     *
+     * @return Storage profiles.
+     */
+    String storageProfiles();
 
     /**
      * Number of partitions.
@@ -84,11 +90,4 @@ public @interface Zone {
      * @return Nodes filter.
      */
     String filter() default "";
-
-    /**
-     * Storage profiles.
-     *
-     * @return Storage profiles.
-     */
-    String storageProfiles();
 }

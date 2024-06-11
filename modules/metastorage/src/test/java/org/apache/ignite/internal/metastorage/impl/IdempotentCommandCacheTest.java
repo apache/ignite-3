@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.metastorage.impl;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.hlc.TestClockService.TEST_MAX_CLOCK_SKEW_MILLIS;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
@@ -32,6 +34,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -47,22 +51,27 @@ import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStora
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
 import org.apache.ignite.internal.raft.WriteCommand;
+import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.CommandClosure;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Tests for idempotency of {@link org.apache.ignite.internal.metastorage.command.IdempotentCommand}.
  */
-public class IdempotentCommandCacheTest {
+@ExtendWith(ConfigurationExtension.class)
+public class IdempotentCommandCacheTest extends BaseIgniteAbstractTest {
     private static final String NODE_NAME = "node";
 
     private static final MetaStorageCommandsFactory CMD_FACTORY = new MetaStorageCommandsFactory();
 
-    private final KeyValueStorage storage;
+    private KeyValueStorage storage;
 
-    private final MetaStorageListener metaStorageListener;
+    private MetaStorageListener metaStorageListener;
 
     private final HybridClock clock = new HybridClockImpl();
 
@@ -71,14 +80,17 @@ public class IdempotentCommandCacheTest {
 
     private final CommandIdGenerator commandIdGenerator = new CommandIdGenerator(() -> UUID.randomUUID().toString());
 
-    /**
-     * Constructor.
-     */
-    public IdempotentCommandCacheTest() {
+    @InjectConfiguration
+    private RaftConfiguration raftConfiguration;
+
+    @BeforeEach
+    public void setUp() {
         storage = new SimpleInMemoryKeyValueStorage(NODE_NAME);
         metaStorageListener = new MetaStorageListener(
                 storage,
-                new ClusterTimeImpl(NODE_NAME, new IgniteSpinBusyLock(), clock)
+                new ClusterTimeImpl(NODE_NAME, new IgniteSpinBusyLock(), clock),
+                raftConfiguration.retryTimeout(),
+                completedFuture(() -> TEST_MAX_CLOCK_SKEW_MILLIS)
         );
     }
 

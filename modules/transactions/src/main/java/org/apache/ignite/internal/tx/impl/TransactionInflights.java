@@ -40,6 +40,7 @@ import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tx.MismatchingTransactionOutcomeException;
 import org.apache.ignite.internal.tx.TransactionResult;
+import org.apache.ignite.internal.tx.message.FinishedTransactionsBatchMessage;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
@@ -192,6 +193,13 @@ public class TransactionInflights {
         abstract boolean isReadyToFinish();
     }
 
+    /**
+     * Transaction inflights for read-only transactions are needed because of different finishing protocol which doesn't directly close
+     * transaction resources (cursors, etc.). The finish of read-only transaction is a local operation, which is followed by the resources
+     * vacuum that is made in background, see {@link FinishedReadOnlyTransactionTracker}. Before sending
+     * {@link FinishedTransactionsBatchMessage}, the trackers needs to be sure that all operations (i.e. inflights) of the corresponding
+     * transaction are finished.
+     */
     private static class ReadOnlyTxContext extends TxContext {
         private volatile boolean markedFinished;
 

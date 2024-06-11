@@ -17,8 +17,10 @@
 
 package org.apache.ignite.internal.failure.handlers;
 
+import java.util.Set;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureType;
 
 /**
  * Provides facility to handle failures.
@@ -34,4 +36,9 @@ public interface FailureHandler {
      * @return Whether Ignite node must be invalidated or not.
      */
     boolean onFailure(String nodeName, FailureContext failureCtx);
+
+    /**
+     * Returns unmodifiable set of ignored failure types.
+     */
+    public Set<FailureType> ignoredFailureTypes();
 }

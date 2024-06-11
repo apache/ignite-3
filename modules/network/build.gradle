@@ -90,3 +90,7 @@ dependencies {
     integrationTestImplementation libs.javapoet
     integrationTestImplementation libs.jetbrains.annotations
 }
+
+tasks.withType(Test).configureEach {
+    jvmArgs += '-Dio.netty.leakDetectionLevel=paranoid'
+}

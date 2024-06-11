@@ -227,6 +227,8 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private final TxManager txManager;
 
+    private final TransactionInflights transactionInflights;
+
     /** Constructor. */
     public SqlQueryProcessor(
             ClusterService clusterSrvc,
@@ -264,6 +266,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         this.placementDriver = placementDriver;
         this.clusterCfg = clusterCfg;
         this.nodeCfg = nodeCfg;
+        this.transactionInflights = transactionInflights;
         this.txManager = txManager;
 
         sqlSchemaManager = new SqlSchemaManagerImpl(
@@ -498,7 +501,8 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         try {
             SqlProperties properties0 = SqlPropertiesHelper.chain(properties, DEFAULT_PROPERTIES);
-            QueryTransactionContext txContext = new QueryTransactionContextImpl(txManager, observableTimeTracker, transaction); 
+            QueryTransactionContext txContext = new QueryTransactionContextImpl(txManager, observableTimeTracker, transaction,
+                    transactionInflights);
 
             if (Commons.isMultiStatementQueryAllowed(properties0)) {
                 return queryScript(properties0, txContext, qry, params);
@@ -565,7 +569,7 @@ public class SqlQueryProcessor implements QueryProcessor {
             validateParsedStatement(properties, result);
             validateDynamicParameters(result.dynamicParamsCount(), params, true);
 
-            HybridTimestamp operationTime = deriveOperationTime(txContext); 
+            HybridTimestamp operationTime = deriveOperationTime(txContext);
 
             SqlOperationContext operationContext = SqlOperationContext.builder()
                     .queryId(UUID.randomUUID())
@@ -619,7 +623,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                             .queryId(UUID.randomUUID())
                             // time zone is used in execution phase,
                             // so we may use any time zone for preparation only
-                            .timeZoneId(DEFAULT_TIME_ZONE_ID) 
+                            .timeZoneId(DEFAULT_TIME_ZONE_ID)
                             .defaultSchemaName(schemaName)
                             .operationTime(timestamp)
                             .cancel(queryCancel)
@@ -849,7 +853,7 @@ public class SqlQueryProcessor implements QueryProcessor {
             this.timeZoneId = timeZoneId;
             this.schemaName = schemaName;
             this.statements = prepareStatementsQueue(parsedResults, params);
-            this.scriptTxContext = new ScriptTransactionContext(txContext);
+            this.scriptTxContext = new ScriptTransactionContext(txContext, transactionInflights);
         }
 
         /**

@@ -18,8 +18,10 @@
 package org.apache.ignite.internal.replicator;
 
 import static java.util.concurrent.CompletableFuture.allOf;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.replicator.LocalReplicaEvent.AFTER_REPLICA_STARTED;
 import static org.apache.ignite.internal.replicator.LocalReplicaEvent.BEFORE_REPLICA_STOPPED;
+import static org.apache.ignite.internal.replicator.ReplicatorConstants.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -50,7 +52,12 @@ import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.raft.Marshaller;
+import org.apache.ignite.internal.raft.PeersAndLearners;
+import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
+import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
+import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageFactoryCreator;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -75,6 +82,9 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
 
     private ReplicaManager replicaManager;
 
+    @Mock
+    private RaftManager raftManager;
+
     @BeforeEach
     void startReplicaManager(
             TestInfo testInfo,
@@ -82,7 +92,10 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
             @Mock ClusterManagementGroupManager cmgManager,
             @Mock PlacementDriver placementDriver,
             @Mock MessagingService messagingService,
-            @Mock TopologyService topologyService
+            @Mock TopologyService topologyService,
+            @Mock Marshaller marshaller,
+            @Mock TopologyAwareRaftGroupServiceFactory raftGroupServiceFactory,
+            @Mock VolatileLogStorageFactoryCreator volatileLogStorageFactoryCreator
     ) {
         String nodeName = testNodeName(testInfo, 0);
 
@@ -110,7 +123,12 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
                 Set.of(),
                 placementDriver,
                 requestsExecutor,
-                new NoOpFailureProcessor()
+                () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
+                new NoOpFailureProcessor(),
+                marshaller,
+                raftGroupServiceFactory,
+                raftManager,
+                volatileLogStorageFactoryCreator
         );
 
         assertThat(replicaManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
@@ -140,6 +158,7 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
      */
     @Test
     void testReplicaEvents(
+            TestInfo testInfo,
             @Mock EventListener<LocalReplicaEventParameters> createReplicaListener,
             @Mock EventListener<LocalReplicaEventParameters> removeReplicaListener,
             @Mock ReplicaListener replicaListener,
@@ -154,12 +173,18 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
         replicaManager.listen(BEFORE_REPLICA_STOPPED, removeReplicaListener);
 
         var zoneTablePartId = new ZonePartitionId(11, 1,  0);
+        when(replicaListener.raftClient()).thenReturn(raftGroupService);
 
-        CompletableFuture<Replica> startReplicaFuture = replicaManager.startReplica(
+        String nodeName = testNodeName(testInfo, 0);
+        PeersAndLearners newConfiguration = PeersAndLearners.fromConsistentIds(Set.of(nodeName));
+
+        CompletableFuture<Boolean> startReplicaFuture = replicaManager.startReplica(
                 zoneTablePartId,
-                replicaListener,
-                raftGroupService,
-                new PendingComparableValuesTracker<>(0L)
+                newConfiguration,
+                (unused) -> { },
+                (unused) -> replicaListener,
+                new PendingComparableValuesTracker<>(0L),
+                completedFuture(raftGroupService)
         );
 
         assertThat(startReplicaFuture, willCompleteSuccessfully());

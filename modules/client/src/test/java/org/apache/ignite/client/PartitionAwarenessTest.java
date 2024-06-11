@@ -25,7 +25,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import io.netty.util.ResourceLeakDetector;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -95,8 +94,6 @@ public class PartitionAwarenessTest extends AbstractClientTest {
      */
     @BeforeAll
     public static void startServer2() {
-        ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.PARANOID);
-
         server2 = new FakeIgnite("server-2");
         testServer2 = new TestServer(0, server2, null, null, "server-2", clusterId, null, null);
 

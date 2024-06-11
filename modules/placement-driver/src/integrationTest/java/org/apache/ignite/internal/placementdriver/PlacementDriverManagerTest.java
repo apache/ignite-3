@@ -63,6 +63,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -195,6 +196,8 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
 
         var storage = new SimpleInMemoryKeyValueStorage(nodeName);
 
+        ClockService clockService = new TestClockService(nodeClock);
+
         metaStorageManager = new MetaStorageManagerImpl(
                 clusterService,
                 cmgManager,
@@ -204,7 +207,9 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
                 nodeClock,
                 topologyAwareRaftGroupServiceFactory,
                 new NoOpMetricManager(),
-                metaStorageConfiguration
+                metaStorageConfiguration,
+                raftConfiguration.retryTimeout(),
+                completedFuture(clockService::maxClockSkewMillis)
         );
 
         placementDriverManager = new PlacementDriverManager(
@@ -216,7 +221,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
                 logicalTopologyService,
                 raftManager,
                 topologyAwareRaftGroupServiceFactory,
-                new TestClockService(nodeClock)
+                clockService
         );
 
         ComponentContext componentContext = new ComponentContext();

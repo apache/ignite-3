@@ -19,11 +19,13 @@ package org.apache.ignite.internal.schema.marshaller;
 
 import static org.apache.ignite.internal.schema.marshaller.MarshallerUtil.getValueSize;
 
+import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
 import org.apache.ignite.internal.binarytuple.BinaryTupleContainer;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.schema.BinaryRowImpl;
@@ -34,9 +36,13 @@ import org.apache.ignite.internal.schema.SchemaMismatchException;
 import org.apache.ignite.internal.schema.SchemaVersionMismatchException;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
+import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.NativeTypeSpec;
+import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Tuple marshaller implementation.
@@ -164,7 +170,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
                 : Row.wrapBinaryRow(schema, rowBuilder.build());
     }
 
-    private void gatherStatistics(
+    void gatherStatistics(
             List<Column> columns,
             Tuple tuple,
             ValuesWithStatistics targetTuple
@@ -174,7 +180,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
         for (Column col : columns) {
             NativeType colType = col.type();
 
-            Object val = tuple.valueOrDefault(col.name(), POISON_OBJECT);
+            Object val = tuple.valueOrDefault(IgniteNameUtils.quote(col.name()), POISON_OBJECT);
 
             if (val == POISON_OBJECT && col.positionInKey() != -1) {
                 throw new SchemaMismatchException("Missed key column: " + col.name());
@@ -187,19 +193,39 @@ public class TupleMarshallerImpl implements TupleMarshaller {
             }
 
             col.validate(val);
-            targetTuple.values.put(col.name(), val);
 
             if (val != null) {
                 if (colType.spec().fixedLength()) {
                     estimatedValueSize += colType.sizeInBytes();
                 } else {
+                    val = shrinkValue(val, col.type());
+
                     estimatedValueSize += getValueSize(val, colType);
                 }
             }
+
+            targetTuple.values.put(col.name(), val);
         }
 
         targetTuple.estimatedValueSize += estimatedValueSize;
         targetTuple.knownColumns += knownColumns;
+    }
+
+    /**
+     * Converts the passed value to a more compact form, if possible.
+     *
+     * @param value Field value.
+     * @param type Mapped type.
+     * @return Value in a more compact form, or the original value if it cannot be compacted.
+     */
+    private static <T> T shrinkValue(T value, NativeType type) {
+        if (type.spec() == NativeTypeSpec.DECIMAL) {
+            assert type instanceof DecimalNativeType;
+
+            return (T) BinaryTupleCommon.shrinkDecimal((BigDecimal) value, ((DecimalNativeType) type).scale());
+        }
+
+        return value;
     }
 
     /**
@@ -277,7 +303,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
      * Container to keep columns values and related statistics which help
      * to build row with {@link RowAssembler}.
      */
-    private static class ValuesWithStatistics {
+    static class ValuesWithStatistics {
         private final Map<String, Object> values = new HashMap<>();
 
         private int estimatedValueSize;
@@ -285,6 +311,11 @@ public class TupleMarshallerImpl implements TupleMarshaller {
 
         @Nullable Object value(String columnName) {
             return values.get(columnName);
+        }
+
+        @TestOnly
+        int estimatedValueSize() {
+            return estimatedValueSize;
         }
     }
 }

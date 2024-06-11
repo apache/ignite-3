@@ -239,7 +239,6 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
         {
             SqlNode node = parse("ALTER ZONE test SET "
                     + "replicas=3, "
-                    + "partitions=8, "
                     + "data_nodes_filter='$[?(@.region == \"US\")]', "
                     + "data_nodes_auto_adjust=300");
 
@@ -257,7 +256,6 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
             assertThat(desc.name(), equalTo("TEST"));
 
             assertThat(desc.replicas(), equalTo(3));
-            assertThat(desc.partitions(), equalTo(8));
             assertThat(desc.filter(), equalTo("$[?(@.region == \"US\")]"));
             assertThat(desc.dataNodesAutoAdjust(), equalTo(300));
         }
