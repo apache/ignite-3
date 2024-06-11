@@ -20,6 +20,7 @@ package org.apache.ignite.internal.table;
 import java.util.Objects;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.row.Row;
+import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.table.Tuple;
 
 /**
@@ -95,7 +96,7 @@ public class TableRow extends MutableRowTupleAdapter {
 
             Objects.requireNonNull(columnName);
 
-            var col = schema().column(columnName);
+            var col = schema().column(IgniteNameUtils.parseSimpleName(columnName));
 
             return col == null ? -1 : col.positionInKey();
         }
@@ -149,7 +150,7 @@ public class TableRow extends MutableRowTupleAdapter {
 
             Objects.requireNonNull(columnName);
 
-            var col = schema().column(columnName);
+            var col = schema().column(IgniteNameUtils.parseSimpleName(columnName));
 
             return col == null ? -1 : col.positionInValue();
         }
