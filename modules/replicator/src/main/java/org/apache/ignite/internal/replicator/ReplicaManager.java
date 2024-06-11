@@ -68,6 +68,8 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessageHandler;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
+import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessageGroup;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverReplicaMessage;
@@ -1078,6 +1080,36 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         void start(String localNodeId) {
             this.localNodeId = localNodeId;
+            placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, this::onPrimaryElected);
+            placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, this::onPrimaryExpired);
+        }
+
+        private CompletableFuture<Boolean> onPrimaryElected(PrimaryReplicaEventParameters parameters) {
+            if (localNodeId.equals(parameters.leaseholderId())) {
+                ReplicaLifecycleContext context = getContext(parameters.groupId());
+
+                synchronized (context) {
+                    assert context.replicaState != ReplicaState.STOPPED;
+
+                    context.isPrimaryLocal = true;
+                }
+            }
+
+            return falseCompletedFuture();
+        }
+
+        private CompletableFuture<Boolean> onPrimaryExpired(PrimaryReplicaEventParameters parameters) {
+            if (localNodeId.equals(parameters.leaseholderId())) {
+                ReplicaLifecycleContext context = replicaContexts.get(parameters.groupId());
+
+                if (context != null) {
+                    synchronized (context) {
+                        context.isPrimaryLocal = false;
+                    }
+                }
+            }
+
+            return falseCompletedFuture();
         }
 
         ReplicaLifecycleContext getContext(ReplicationGroupId groupId) {
@@ -1146,27 +1178,16 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 ReplicationGroupId groupId,
                 WeakReplicaStopReason reason,
                 Supplier<CompletableFuture<Void>> stopOperation) {
-            return weakReplicaStop(groupId, reason, null, stopOperation);
-        }
-
-        CompletableFuture<Void> weakReplicaStop(
-                ReplicationGroupId groupId,
-                WeakReplicaStopReason reason,
-                @Nullable Boolean isPrimaryLocal,
-                Supplier<CompletableFuture<Void>> stopOperation
-        ) {
             ReplicaLifecycleContext context = getContext(groupId);
 
             synchronized (context) {
                 ReplicaState state = context.replicaState;
 
-                log.info("qqq weakReplicaStop grpId={}, state={}, reason={}, isPrimaryLocal={}, future={}", groupId, state, reason, isPrimaryLocal, context.previousOperationFuture);
+                log.info("qqq weakReplicaStop grpId={}, state={}, reason={}, isPrimaryLocal={}, future={}", groupId, state, reason, context.isPrimaryLocal, context.previousOperationFuture);
 
                 if (reason == WeakReplicaStopReason.EXCLUDED_FROM_ASSIGNMENTS) {
                     if (state == ReplicaState.ASSIGNED) {
-                        if (isPrimaryLocal == null) {
-                            return isPrimaryLocal(groupId).thenCompose(ipl -> weakReplicaStop(groupId, reason, ipl, stopOperation));
-                        } else if (isPrimaryLocal) {
+                        if (context.isPrimaryLocal) {
                             context.replicaState = ReplicaState.PRIMARY_ONLY;
                         } else {
                             return stopReplica(groupId, context, stopOperation);
@@ -1231,6 +1252,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         ReplicaState replicaState;
 
         CompletableFuture<Boolean> previousOperationFuture;
+
+        boolean isPrimaryLocal;
 
         ReplicaLifecycleContext(ReplicaState replicaState, CompletableFuture<Boolean> previousOperationFuture) {
             this.replicaState = replicaState;
