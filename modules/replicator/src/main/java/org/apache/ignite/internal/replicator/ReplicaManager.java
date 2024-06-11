@@ -1317,7 +1317,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * <br>
      * Transitions:
      * <br>
-     * On {@link #weakReplicaStart(ReplicationGroupId, Supplier, Assignments)} (assumed that the replica is included into assignments):
+     * On {@link #weakReplicaStart(ReplicationGroupId, Supplier, Assignments)} (this assumes that the replica is included into assignments):
      * <ul>
      *     <li>if {@link #ASSIGNED}: next state is {@link #ASSIGNED};</li>
      *     <li>if {@link #PRIMARY_ONLY}: next state is {@link #ASSIGNED};</li>
