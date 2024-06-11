@@ -49,7 +49,6 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
-import org.apache.ignite.internal.ZonePartitionReplica;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.event.AbstractEventProducer;
@@ -632,7 +631,10 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      *
      * @param replicaGrpId Replication group id.
      * @param listener Replica listener.
-     * @param raftClient Topology aware Raft client.
+     * @param snapshotStorageFactory Snapshot storage factory for raft group option's parameterization.
+     * @param newConfiguration A configuration for new raft group.
+     * @param raftGroupListener Raft group listener for raft group starting.
+     * @param raftGroupEventsListener Raft group events listener for raft group starting.
      * @throws NodeStoppingException If node is stopping.
      * @throws ReplicaIsAlreadyStartedException Is thrown when a replica with the same replication group id has already been
      *         started.
@@ -640,14 +642,30 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     public CompletableFuture<Replica> startReplica(
             ReplicationGroupId replicaGrpId,
             ReplicaListener listener,
-            TopologyAwareRaftGroupService raftClient
-    ) {
+            SnapshotStorageFactory snapshotStorageFactory,
+            PeersAndLearners newConfiguration,
+            RaftGroupListener raftGroupListener,
+            RaftGroupEventsListener raftGroupEventsListener
+    ) throws NodeStoppingException {
+        RaftGroupOptions groupOptions = groupOptionsForPartition(
+                false,
+                snapshotStorageFactory);
+
+        RaftNodeId raftNodeId = new RaftNodeId(replicaGrpId, new Peer(localNodeConsistentId));
+
+        ((Loza) raftManager).startRaftGroupNodeWithoutService(
+                raftNodeId,
+                newConfiguration,
+                raftGroupListener,
+                raftGroupEventsListener,
+                groupOptions
+        );
+
         LOG.info("Replica is about to start [replicationGroupId={}].", replicaGrpId);
 
-        Replica newReplica = new ZonePartitionReplica(
+        Replica newReplica = new ZonePartitionReplicaImpl(
                 replicaGrpId,
-                listener,
-                raftClient
+                listener
         );
 
         CompletableFuture<Replica> replicaFuture = replicas.compute(replicaGrpId, (k, existingReplicaFuture) -> {
@@ -732,7 +750,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         ClusterNode localNode = clusterNetSvc.topologyService().localMember();
 
         CompletableFuture<Replica> replicaFuture = newReplicaListenerFut.thenCompose(listener -> {
-            Replica newReplica = new Replica(
+            Replica newReplica = new ReplicaImpl(
                     replicaGrpId,
                     listener,
                     storageIndexTracker,

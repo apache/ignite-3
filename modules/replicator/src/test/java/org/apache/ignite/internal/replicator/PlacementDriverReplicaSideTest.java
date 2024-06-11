@@ -118,7 +118,7 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
         var listener = mock(ReplicaListener.class);
         when(listener.raftClient()).thenReturn(raftClient);
 
-        return new Replica(
+        return new ReplicaImpl(
                 GRP_ID,
                 listener,
                 storageIndexTracker,

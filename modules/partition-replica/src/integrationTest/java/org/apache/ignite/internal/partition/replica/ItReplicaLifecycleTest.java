@@ -655,13 +655,10 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
 
             partitionReplicaLifecycleManager = new PartitionReplicaLifecycleManager(
                     catalogManager,
-                    raftManager,
                     replicaManager,
-                    topologyAwareRaftGroupServiceFactory,
                     distributionZoneManager,
                     metaStorageManager,
-                    clusterService.topologyService(),
-                    clusterService.serializationRegistry()
+                    clusterService.topologyService()
             );
 
             StorageUpdateConfiguration storageUpdateConfiguration = clusterConfigRegistry.getConfiguration(StorageUpdateConfiguration.KEY);

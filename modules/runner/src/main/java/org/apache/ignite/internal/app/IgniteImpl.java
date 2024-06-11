@@ -726,13 +726,10 @@ public class IgniteImpl implements Ignite {
 
         partitionReplicaLifecycleManager = new PartitionReplicaLifecycleManager(
                 catalogManager,
-                raftMgr,
                 replicaMgr,
-                topologyAwareRaftGroupServiceFactory,
                 distributionZoneManager,
                 metaStorageMgr,
-                clusterSvc.topologyService(),
-                clusterSvc.serializationRegistry()
+                clusterSvc.topologyService()
         );
 
         TransactionConfiguration txConfig = clusterConfigRegistry.getConfiguration(TransactionConfiguration.KEY);

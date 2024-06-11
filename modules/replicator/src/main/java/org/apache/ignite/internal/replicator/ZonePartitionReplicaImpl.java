@@ -15,33 +15,37 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal;
+package org.apache.ignite.internal.replicator;
+
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverReplicaMessage;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
-import org.apache.ignite.internal.replicator.Replica;
-import org.apache.ignite.internal.replicator.ReplicaResult;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
-import org.jetbrains.annotations.TestOnly;
 
 /**
  * Replica for the zone based partitions.
  */
-public class ZonePartitionReplica extends Replica {
+public class ZonePartitionReplicaImpl implements Replica {
 
-    public ZonePartitionReplica(
-            ReplicationGroupId replicaGrpId, ReplicaListener listener,
-            TopologyAwareRaftGroupService raftClient)  {
-        super(replicaGrpId, listener, null, null, null, null, null);
+    private final ReplicationGroupId replicaGrpId;
+
+    private final ReplicaListener listener;
+
+    public ZonePartitionReplicaImpl(
+            ReplicationGroupId replicaGrpId,
+            ReplicaListener listener
+    )  {
+        this.replicaGrpId = replicaGrpId;
+        this.listener = listener;
     }
 
-    @TestOnly
-    public ReplicaListener listener() {
-        return listener;
+    @Override
+    public TopologyAwareRaftGroupService raftClient() {
+        throw new UnsupportedOperationException("raftClient");
     }
 
     @Override
@@ -60,12 +64,7 @@ public class ZonePartitionReplica extends Replica {
     }
 
     @Override
-    public String proposedPrimary() {
-        throw new UnsupportedOperationException("proposedPrimary");
-    }
-
-    @Override
     public CompletableFuture<Void> shutdown() {
-        return super.shutdown();
+        return nullCompletedFuture();
     }
 }

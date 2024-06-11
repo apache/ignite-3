@@ -60,25 +60,16 @@ import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
-import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
-import org.apache.ignite.internal.partition.replica.marshaller.ThreadLocalPartitionCommandsMarshaller;
 import org.apache.ignite.internal.partition.replica.snapshot.FailFastSnapshotStorageFactory;
-import org.apache.ignite.internal.raft.Loza;
-import org.apache.ignite.internal.raft.Marshaller;
-import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
-import org.apache.ignite.internal.raft.RaftManager;
-import org.apache.ignite.internal.raft.RaftNodeId;
-import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
-import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
-import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.TopologyService;
 
@@ -96,19 +87,13 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
 
     private final CatalogManager catalogMgr;
 
-    private final RaftManager raftMgr;
-
     private final ReplicaManager replicaMgr;
-
-    private final TopologyAwareRaftGroupServiceFactory raftGroupServiceFactory;
 
     private final DistributionZoneManager distributionZoneMgr;
 
     private final MetaStorageManager metaStorageMgr;
 
     private final TopologyService topologyService;
-
-    private final Marshaller raftCommandsMarshaller;
 
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(PartitionReplicaLifecycleManager.class);
@@ -122,31 +107,22 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
      * The constructor.
      *
      * @param catalogMgr Catalog manager.
-     * @param raftMgr RAFT manager.
      * @param replicaMgr Replica manager.
-     * @param raftGroupServiceFactory Raft clients factory.
      * @param distributionZoneMgr Distribution zone manager.
      * @param metaStorageMgr Metastorage manager.
      * @param topologyService Topology service.
-     * @param messageSerializationRegistry Message serialization registry.
      */
     public PartitionReplicaLifecycleManager(CatalogManager catalogMgr,
-            RaftManager raftMgr,
             ReplicaManager replicaMgr,
-            TopologyAwareRaftGroupServiceFactory raftGroupServiceFactory,
             DistributionZoneManager distributionZoneMgr,
             MetaStorageManager metaStorageMgr,
-            TopologyService topologyService,
-            MessageSerializationRegistry messageSerializationRegistry
+            TopologyService topologyService
     ) {
         this.catalogMgr = catalogMgr;
-        this.raftMgr = raftMgr;
         this.replicaMgr = replicaMgr;
-        this.raftGroupServiceFactory = raftGroupServiceFactory;
         this.distributionZoneMgr = distributionZoneMgr;
         this.metaStorageMgr = metaStorageMgr;
         this.topologyService = topologyService;
-        this.raftCommandsMarshaller = new ThreadLocalPartitionCommandsMarshaller(messageSerializationRegistry);
     }
 
     @Override
@@ -208,39 +184,21 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
 
         PeersAndLearners realConfiguration = configurationFromAssignments(assignments.nodes());
 
-        Peer serverPeer = realConfiguration.peer(localNode().name());
-
         ZonePartitionId replicaGrpId = new ZonePartitionId(zoneId, partId);
-
-        var raftNodeId = new RaftNodeId(replicaGrpId, serverPeer);
-
-        // TODO https://issues.apache.org/jira/browse/IGNITE-22391 support for volatile stores
-        RaftGroupOptions raftGroupOptions = RaftGroupOptions.forPersistentStores();
-
-        raftGroupOptions.snapshotStorageFactory(new FailFastSnapshotStorageFactory());
-
-        raftGroupOptions.commandsMarshaller(raftCommandsMarshaller);
 
         RaftGroupListener raftGroupListener = new PartitionGroupListener();
 
         try {
-            CompletableFuture<TopologyAwareRaftGroupService> raftClient = ((Loza) raftMgr).startRaftGroupNode(
-                    raftNodeId,
+            return replicaMgr.startReplica(
+                    replicaGrpId,
+                    new ZonePartitionReplicaListener(),
+                    new FailFastSnapshotStorageFactory(),
                     realConfiguration,
                     raftGroupListener,
-                    RaftGroupEventsListener.noopLsnr,
-                    raftGroupOptions,
-                    raftGroupServiceFactory
-            );
-
-            return raftClient.thenCompose(client ->
-                replicaMgr.startReplica(
-                        replicaGrpId,
-                        new ZonePartitionReplicaListener(client),
-                        client
-                )).thenRun(() -> replicationGroupIds.add(replicaGrpId));
+                    RaftGroupEventsListener.noopLsnr
+            ).thenRun(() -> replicationGroupIds.add(replicaGrpId));
         } catch (NodeStoppingException e) {
-            throw new RuntimeException(e);
+            throw new IgniteException(e);
         }
     }
 
@@ -267,7 +225,6 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
     public void beforeNodeStop() {
         for (ReplicationGroupId replicationGroupId : replicationGroupIds) {
             try {
-                raftMgr.stopRaftNodes(replicationGroupId);
                 replicaMgr.stopReplica(replicationGroupId);
             } catch (NodeStoppingException e) {
                 throw new RuntimeException(e);

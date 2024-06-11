@@ -119,6 +119,7 @@ import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.TopologyService;
@@ -277,7 +278,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         when(distributionZoneManager.dataNodes(anyLong(), anyInt(), anyInt())).thenReturn(emptySetCompletedFuture());
 
         when(replicaMgr.getLogSyncer()).thenReturn(mock(LogSyncer.class));
-        when(replicaMgr.startReplica(any(), any(), any(), any(), any(), any()))
+        when(replicaMgr.startReplica(any(), any(), any(), any(), any(PendingComparableValuesTracker.class), any()))
                 .thenReturn(nullCompletedFuture());
         // TODO: will be removed after https://issues.apache.org/jira/browse/IGNITE-22315
         when(replicaMgr.startRaftClient(any(), any(), any()))
