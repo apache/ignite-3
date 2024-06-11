@@ -124,7 +124,7 @@ public final class IgniteNameUtils {
             return quote(name);
         }
 
-        return name.equals(name.toUpperCase()) ? name : quote(name);
+        return name.toUpperCase().equals(name) ? name : quote(name); // NOPMD
     }
 
     /**
