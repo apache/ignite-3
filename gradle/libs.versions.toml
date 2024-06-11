@@ -56,10 +56,9 @@ hamcrestOptional = "2.0.0"
 hamcrestPath = "1.0.1"
 hamcrestJson = "0.3"
 scalecube = "2.6.15"
-calcite = "1.36.0"
+calcite = "1.37.0"
 value = "2.10.1"
 janino = "3.1.12"
-avatica = "1.25.0"
 jsonpath = "2.9.0"
 javassist = "3.30.2-GA"
 rocksdb = "9.2.1"
@@ -243,7 +242,6 @@ caffeine = { module = "com.github.ben-manes.caffeine:caffeine", version.ref = "c
 
 calcite-core = { module = "org.apache.calcite:calcite-core", version.ref = "calcite" }
 calcite-linq4j = { module = "org.apache.calcite:calcite-linq4j", version.ref = "calcite" }
-calcite-avatica = { module = "org.apache.calcite.avatica:avatica-core", version.ref = "avatica" }
 fmpp = { module = "net.sourceforge.fmpp:fmpp", version.ref = "fmpp" }
 
 value-annotations = { module = "org.immutables:value-annotations", version.ref = "value" }

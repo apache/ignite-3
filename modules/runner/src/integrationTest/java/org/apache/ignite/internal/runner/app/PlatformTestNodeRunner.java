@@ -616,7 +616,7 @@ public class PlatformTestNodeRunner {
                 var scale = reader.intValue(i * 3 + 1);
                 var valIdx = i * 3 + 2;
 
-                String colName = "col" + i;
+                String colName = "COL" + i;
 
                 switch (type) {
                     case BOOLEAN:

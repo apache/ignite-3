@@ -113,10 +113,10 @@ public class NumericTypesSerializerTest {
     public void testNumber(Pair<BigInteger, BigInteger> pair) throws TupleMarshallerException {
         schema = new SchemaDescriptor(
                 42,
-                new Column[]{new Column("key", NativeTypes.INT64, false)},
+                new Column[]{new Column("KEY", NativeTypes.INT64, false)},
                 new Column[]{
-                        new Column("number1", NativeTypes.numberOf(19), false),
-                        new Column("number2", NativeTypes.numberOf(10), false)
+                        new Column("NUMBER1", NativeTypes.numberOf(19), false),
+                        new Column("NUMBER2", NativeTypes.numberOf(10), false)
                 }
         );
 
@@ -133,8 +133,8 @@ public class NumericTypesSerializerTest {
     public void testPrecisionRestrictionsForNumbers() {
         schema = new SchemaDescriptor(
                 42,
-                new Column[]{new Column("key", NativeTypes.INT64, false)},
-                new Column[]{new Column("number1", NativeTypes.numberOf(5), false)}
+                new Column[]{new Column("KEY", NativeTypes.INT64, false)},
+                new Column[]{new Column("NUMBER1", NativeTypes.numberOf(5), false)}
         );
 
         TupleMarshaller marshaller = new TupleMarshallerImpl(schema);
@@ -163,9 +163,9 @@ public class NumericTypesSerializerTest {
     public void testPrecisionRestrictionsForDecimal() {
         schema = new SchemaDescriptor(
                 42,
-                new Column[]{new Column("key", NativeTypes.INT64, false)},
+                new Column[]{new Column("KEY", NativeTypes.INT64, false)},
                 new Column[]{
-                        new Column("decimalCol", NativeTypes.decimalOf(9, 3), false),
+                        new Column("DECIMALCOL", NativeTypes.decimalOf(9, 3), false),
                 }
         );
 
@@ -199,9 +199,9 @@ public class NumericTypesSerializerTest {
     public void testStringDecimalSpecialCase() throws TupleMarshallerException {
         schema = new SchemaDescriptor(
                 42,
-                new Column[]{new Column("key", NativeTypes.INT64, false)},
+                new Column[]{new Column("KEY", NativeTypes.INT64, false)},
                 new Column[]{
-                        new Column("decimalCol", NativeTypes.decimalOf(1, 0), false),
+                        new Column("DECIMALCOL", NativeTypes.decimalOf(1, 0), false),
                 }
         );
 
@@ -223,9 +223,9 @@ public class NumericTypesSerializerTest {
     public void testUpscaleForDecimal(String decimalStr) throws TupleMarshallerException {
         schema = new SchemaDescriptor(
                 42,
-                new Column[]{new Column("key", NativeTypes.INT64, false)},
+                new Column[]{new Column("KEY", NativeTypes.INT64, false)},
                 new Column[]{
-                        new Column("decimalCol1", NativeTypes.decimalOf(9, 0), false)
+                        new Column("DECIMALCOL1", NativeTypes.decimalOf(9, 0), false)
                 }
         );
 
@@ -246,9 +246,9 @@ public class NumericTypesSerializerTest {
 
         schema = new SchemaDescriptor(
                 42,
-                new Column[]{new Column("key", NativeTypes.INT64, false)},
+                new Column[]{new Column("KEY", NativeTypes.INT64, false)},
                 new Column[]{
-                        new Column("decimalCol", NativeTypes.decimalOf(CatalogUtils.MAX_DECIMAL_PRECISION, maxScale), false),
+                        new Column("DECIMALCOL", NativeTypes.decimalOf(CatalogUtils.MAX_DECIMAL_PRECISION, maxScale), false),
                 }
         );
 
@@ -271,9 +271,9 @@ public class NumericTypesSerializerTest {
     public void testDecimalScaleTooLarge(int scale, String message) {
         schema = new SchemaDescriptor(
                 42,
-                new Column[]{new Column("key", NativeTypes.INT64, false)},
+                new Column[]{new Column("KEY", NativeTypes.INT64, false)},
                 new Column[]{
-                        new Column("decimalCol", NativeTypes.decimalOf(CatalogUtils.MAX_DECIMAL_PRECISION, scale), false),
+                        new Column("DECIMALCOL", NativeTypes.decimalOf(CatalogUtils.MAX_DECIMAL_PRECISION, scale), false),
                 }
         );
 
@@ -298,9 +298,9 @@ public class NumericTypesSerializerTest {
     public void testSameBinaryRepresentation(Pair<BigInteger, BigInteger> pair) throws Exception {
         schema = new SchemaDescriptor(
                 42,
-                new Column[]{new Column("key", NativeTypes.INT64, false)},
+                new Column[]{new Column("KEY", NativeTypes.INT64, false)},
                 new Column[]{
-                        new Column("decimalCol", NativeTypes.decimalOf(19, 3), false),
+                        new Column("DECIMALCOL", NativeTypes.decimalOf(19, 3), false),
                 }
         );
 
