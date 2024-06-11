@@ -21,7 +21,6 @@ package org.apache.ignite.compute;
  * Job execution options.
  */
 public class JobExecutionOptions {
-
     /**
      * Default job execution options with priority default value = 0 and max retries default value = 0.
      */

@@ -72,6 +72,8 @@ import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.DeploymentUnit;
+import org.apache.ignite.compute.ExecutionTarget;
+import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.TaskExecution;
@@ -114,8 +116,9 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     @Test
     void testExecuteOnSpecificNode() {
-        String res1 = client().compute().execute(Set.of(node(0)), List.of(), NodeNameJob.class.getName());
-        String res2 = client().compute().execute(Set.of(node(1)), List.of(), NodeNameJob.class.getName());
+        JobDescriptor job = JobDescriptor.builder().jobClass(NodeNameJob.class).build();
+        String res1 = client().compute().execute(ExecutionTarget.fromNode(node(0)), job);
+        String res2 = client().compute().execute(ExecutionTarget.fromNode(node(1)), job);
 
         assertEquals("itcct_n_3344", res1);
         assertEquals("itcct_n_3345", res2);
@@ -123,8 +126,9 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     @Test
     void testExecuteOnSpecificNodeAsync() {
-        JobExecution<String> execution1 = client().compute().submit(Set.of(node(0)), List.of(), NodeNameJob.class.getName());
-        JobExecution<String> execution2 = client().compute().submit(Set.of(node(1)), List.of(), NodeNameJob.class.getName());
+        JobDescriptor job = JobDescriptor.builder().jobClass(NodeNameJob.class).build();
+        JobExecution<String> execution1 = client().compute().submit(ExecutionTarget.fromNode(node(0)), job);
+        JobExecution<String> execution2 = client().compute().submit(ExecutionTarget.fromNode(node(1)), job);
 
         assertThat(execution1.resultAsync(), willBe("itcct_n_3344"));
         assertThat(execution2.resultAsync(), willBe("itcct_n_3345"));
@@ -509,14 +513,11 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     @ParameterizedTest
     @CsvSource({"1,3344", "2,3345", "3,3345", "10,3344"})
     void testExecuteColocatedTupleRunsComputeJobOnKeyNode(int key, int port) {
-        var keyTuple = Tuple.create().set(COLUMN_KEY, key);
+        Tuple keyTuple = Tuple.create().set(COLUMN_KEY, key);
+        JobDescriptor job = JobDescriptor.builder().jobClass(NodeNameJob.class).build();
+        ExecutionTarget target = ExecutionTarget.fromColocationKey(TABLE_NAME, keyTuple);
 
-        JobExecution<String> tupleExecution = client().compute().submitColocated(
-                TABLE_NAME,
-                keyTuple,
-                List.of(),
-                NodeNameJob.class.getName()
-        );
+        JobExecution<String> tupleExecution = client().compute().submit(target, job);
 
         String expectedNode = "itcct_n_" + port;
         assertThat(tupleExecution.resultAsync(), willBe(expectedNode));
