@@ -527,6 +527,7 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
 
     @Test
     public void testInsertDefaultValue() {
+        // F221: Explicit defaults
         checkDefaultValue(defaultValueArgs().collect(Collectors.toList()));
 
         checkWrongDefault("VARCHAR(1)", "10");
@@ -547,6 +548,7 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
 
     @Test
     public void testInsertDefaultNullValue() {
+        // F221: Explicit defaults
         checkDefaultValue(defaultValueArgs()
                 .filter(a -> !a.sqlType.endsWith("NOT NULL"))
                 .map(a -> new DefaultValueArg(a.sqlType, "NULL", null))
@@ -596,11 +598,54 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
 
     @Test
     public void testCheckNullValueErrorMessageForColumnWithDefaultValue() {
+        // F221: Explicit defaults
         sql("CREATE TABLE tbl(key int DEFAULT 9 primary key, val varchar)");
 
         var expectedMessage = "Column 'KEY' does not allow NULLs";
 
         assertThrowsSqlException(Sql.CONSTRAINT_VIOLATION_ERR, expectedMessage, () -> sql("INSERT INTO tbl (key, val) VALUES (NULL,'AA')"));
+    }
+    
+    // UPDATE set x = DEFAULT is not supported in parser
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21462")
+    @Test
+    public void testUpdateAllowsDefault() {
+        // F221: Explicit defaults
+        for (var arg : defaultValueArgs().collect(Collectors.toList())) {
+            try {
+                sql(format("CREATE TABLE test (id INT PRIMARY KEY, val %s DEFAULT %s)", arg.sqlType, arg.sqlVal));
+                sql("INSERT INTO test (id, val) VALUES (1, NULL)");
+                
+                sql("UPDATE test SET val = DEFAULT WHERE id = 1");
+                assertQuery("SELECT val FROM test WHERE id = 1").returns(arg.expectedVal).check();
+            } finally {
+                sql("DROP TABLE IF EXISTS test");
+            }
+        }
+    }
+
+    @Test
+    public void testDropDefault() {
+        // F221: Explicit defaults
+        for (var arg : defaultValueArgs().collect(Collectors.toList())) {
+            try {
+                sql(format("CREATE TABLE test (id INT PRIMARY KEY, val {} DEFAULT {})", arg.sqlType, arg.sqlVal));
+                sql("INSERT INTO test (id) VALUES (1)");
+                assertQuery("SELECT val FROM test WHERE id = 1").returns(arg.expectedVal).check();
+
+                sql("ALTER TABLE test ALTER COLUMN val DROP DEFAULT");
+
+                if (arg.sqlType.endsWith("NOT NULL")) {
+                    assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Column 'VAL' does not allow NULL",
+                            () -> sql("INSERT INTO test (id) VALUES (2)"));
+                } else {
+                    sql("INSERT INTO test (id) VALUES (2)");
+                    assertQuery("SELECT val FROM test WHERE id = 2").returns(null).check();
+                }
+            } finally {
+                sql("DROP TABLE IF EXISTS test");
+            }
+        }
     }
 
     private void checkQueryResult(String sql, List<Object> expectedVals) {
@@ -638,6 +683,7 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
 
     @Test
     public void testInsertMultipleDefaults() {
+        // F221: Explicit defaults
         sql("CREATE TABLE integers(i INTEGER PRIMARY KEY, col1 INTEGER DEFAULT 200, col2 INTEGER DEFAULT 300)");
 
         sql("INSERT INTO integers (i) VALUES (0)");
@@ -666,6 +712,7 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
     @Test
     @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
     public void testInsertMultipleDefaultsWithImplicitPk() {
+        // F221: Explicit defaults
         sql("CREATE TABLE integers(i INTEGER, j INTEGER DEFAULT 100)");
 
         sql("INSERT INTO integers VALUES (1, DEFAULT)");
