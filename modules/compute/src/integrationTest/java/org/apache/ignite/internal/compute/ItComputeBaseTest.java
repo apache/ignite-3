@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.compute;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.compute.JobExecutionOptions.DEFAULT;
 import static org.apache.ignite.compute.JobState.COMPLETED;
 import static org.apache.ignite.compute.JobState.FAILED;
 import static org.apache.ignite.internal.IgniteExceptionTestUtils.assertTraceableException;
@@ -46,6 +47,8 @@ import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.DeploymentUnit;
+import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.TaskExecution;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
@@ -138,8 +141,14 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     void executesJobLocallyAsync() {
         IgniteImpl entryNode = node(0);
 
-        JobExecution<String> execution = entryNode.compute()
-                .submit(Set.of(entryNode.node()), units(), concatJobClassName(), "a", 42);
+        IgniteCompute igniteCompute = entryNode.compute();
+        Set<ClusterNode> nodes = Set.of(entryNode.node());
+        List<DeploymentUnit> units = units();
+        JobExecution<String> execution = igniteCompute.submit(nodes, JobDescriptor.builder()
+                .jobClassName(concatJobClassName())
+                .units(units)
+                .options(DEFAULT)
+                .build(), new Object[]{"a", 42});
 
         assertThat(execution.resultAsync(), willBe("a42"));
         assertThat(execution.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
@@ -160,8 +169,14 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     void executesJobOnRemoteNodesAsync() {
         Ignite entryNode = node(0);
 
-        JobExecution<String> execution = entryNode.compute()
-                .submit(Set.of(node(1).node(), node(2).node()), units(), concatJobClassName(), "a", 42);
+        IgniteCompute igniteCompute = entryNode.compute();
+        Set<ClusterNode> nodes = Set.of(node(1).node(), node(2).node());
+        List<DeploymentUnit> units = units();
+        JobExecution<String> execution = igniteCompute.submit(nodes, JobDescriptor.builder()
+                .jobClassName(concatJobClassName())
+                .units(units)
+                .options(DEFAULT)
+                .build(), new Object[]{"a", 42});
 
         assertThat(execution.resultAsync(), willBe("a42"));
         assertThat(execution.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
@@ -201,8 +216,14 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     void executesFailingJobLocallyAsync() {
         IgniteImpl entryNode = node(0);
 
-        JobExecution<String> execution = entryNode.compute()
-                .submit(Set.of(entryNode.node()), units(), failingJobClassName());
+        IgniteCompute igniteCompute = entryNode.compute();
+        Set<ClusterNode> nodes = Set.of(entryNode.node());
+        List<DeploymentUnit> units = units();
+        JobExecution<String> execution = igniteCompute.submit(nodes, JobDescriptor.builder()
+                .jobClassName(failingJobClassName())
+                .units(units)
+                .options(DEFAULT)
+                .build(), new Object[]{});
 
         ExecutionException ex = assertThrows(ExecutionException.class, () -> execution.resultAsync().get(1, TimeUnit.SECONDS));
 
@@ -226,8 +247,14 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     void executesFailingJobOnRemoteNodesAsync() {
         Ignite entryNode = node(0);
 
-        JobExecution<String> execution = entryNode.compute()
-                .submit(Set.of(node(1).node(), node(2).node()), units(), failingJobClassName());
+        IgniteCompute igniteCompute = entryNode.compute();
+        Set<ClusterNode> nodes = Set.of(node(1).node(), node(2).node());
+        List<DeploymentUnit> units = units();
+        JobExecution<String> execution = igniteCompute.submit(nodes, JobDescriptor.builder()
+                .jobClassName(failingJobClassName())
+                .units(units)
+                .options(DEFAULT)
+                .build(), new Object[]{});
 
         ExecutionException ex = assertThrows(ExecutionException.class, () -> execution.resultAsync().get(1, TimeUnit.SECONDS));
 

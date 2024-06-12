@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.compute;
 
+import static org.apache.ignite.compute.JobExecutionOptions.DEFAULT;
 import static org.apache.ignite.internal.compute.utils.InteractiveJobs.Signal.RETURN_WORKER_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
@@ -28,6 +29,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.NodeNotFoundException;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
@@ -136,6 +138,11 @@ abstract class ItComputeErrorsBaseTest extends ClusterPerClassIntegrationTest {
     protected abstract IgniteCompute compute();
 
     private TestingJobExecution<String> executeGlobalInteractiveJob(Set<ClusterNode> nodes) {
-        return new TestingJobExecution<>(compute().submit(nodes, List.of(), InteractiveJobs.globalJob().name()));
+        IgniteCompute igniteCompute = compute();
+        return new TestingJobExecution<>(igniteCompute.submit(nodes, JobDescriptor.builder()
+                .jobClassName(InteractiveJobs.globalJob().name())
+                .units(List.of())
+                .options(DEFAULT)
+                .build(), new Object[]{}));
     }
 }

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.compute;
 
+import static org.apache.ignite.compute.JobExecutionOptions.DEFAULT;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -37,6 +38,7 @@ import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
@@ -363,8 +365,14 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
     }
 
     private TestingJobExecution<String> executeGlobalInteractiveJob(IgniteImpl entryNode, Set<String> nodes) {
+        IgniteCompute igniteCompute = compute(entryNode);
+        Set<ClusterNode> nodes1 = clusterNodesByNames(nodes);
         return new TestingJobExecution<>(
-                compute(entryNode).submit(clusterNodesByNames(nodes), List.of(), InteractiveJobs.globalJob().name())
+                igniteCompute.submit(nodes1, JobDescriptor.builder()
+                        .jobClassName(InteractiveJobs.globalJob().name())
+                        .units(List.of())
+                        .options(DEFAULT)
+                        .build(), new Object[]{})
         );
     }
 

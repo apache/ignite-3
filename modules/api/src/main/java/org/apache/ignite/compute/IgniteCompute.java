@@ -57,30 +57,6 @@ public interface IgniteCompute {
     );
 
     /**
-     * Submits a {@link ComputeJob} of the given class for an execution on a single node from a set of candidate nodes
-     * with default execution options {@link JobExecutionOptions#DEFAULT}.
-     *
-     * @param nodes Candidate nodes; the job will be executed on one of them.
-     * @param units Deployment units. Can be empty.
-     * @param jobClassName Name of the job class to execute.
-     * @param args Arguments of the job.
-     * @param <R> Job result type.
-     * @return Job execution object.
-     */
-    default <R> JobExecution<R> submit(
-            Set<ClusterNode> nodes,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            Object... args
-    ) {
-        return submit(nodes, JobDescriptor.builder()
-                .jobClassName(jobClassName)
-                .units(units)
-                .options(DEFAULT)
-                .build(), args);
-    }
-
-    /**
      * Submits a {@link ComputeJob} of the given class for an execution on a single node from a set of candidate nodes. A shortcut for
      * {@code submit(...).resultAsync()}.
      *
@@ -123,7 +99,11 @@ public interface IgniteCompute {
             String jobClassName,
             Object... args
     ) {
-        return this.<R>submit(nodes, units, jobClassName, args).resultAsync();
+        return this.<R>submit(nodes, JobDescriptor.builder()
+                .jobClassName(jobClassName)
+                .units(units)
+                .options(DEFAULT)
+                .build(), args).resultAsync();
     }
 
     /**

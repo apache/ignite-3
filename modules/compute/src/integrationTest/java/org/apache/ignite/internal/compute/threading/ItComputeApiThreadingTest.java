@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.compute.threading;
 
 import static java.lang.Thread.currentThread;
+import static org.apache.ignite.compute.JobExecutionOptions.DEFAULT;
 import static org.apache.ignite.internal.PublicApiThreadingTests.anIgniteThread;
 import static org.apache.ignite.internal.PublicApiThreadingTests.asyncContinuationPool;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
@@ -182,7 +183,14 @@ class ItComputeApiThreadingTest extends ClusterPerClassIntegrationTest {
     }
 
     private enum ComputeSubmitOperation {
-        SUBMIT(compute -> compute.submit(justNonEntryNode(), List.of(), NoOpJob.class.getName())),
+        SUBMIT(compute -> {
+            Set<ClusterNode> nodes = justNonEntryNode();
+            return compute.submit(nodes, JobDescriptor.builder()
+                    .jobClassName(NoOpJob.class.getName())
+                    .units(List.of())
+                    .options(DEFAULT)
+                    .build());
+        }),
         SUBMIT_WITH_OPTIONS(compute -> {
             Set<ClusterNode> nodes = justNonEntryNode();
             return compute.submit(nodes, JobDescriptor.builder()

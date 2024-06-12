@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.runner.app.client;
 
+import static org.apache.ignite.compute.JobExecutionOptions.DEFAULT;
 import static org.apache.ignite.compute.JobState.CANCELED;
 import static org.apache.ignite.compute.JobState.COMPLETED;
 import static org.apache.ignite.compute.JobState.EXECUTING;
@@ -72,6 +73,8 @@ import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.DeploymentUnit;
+import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.TaskExecution;
@@ -123,8 +126,20 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     @Test
     void testExecuteOnSpecificNodeAsync() {
-        JobExecution<String> execution1 = client().compute().submit(Set.of(node(0)), List.of(), NodeNameJob.class.getName());
-        JobExecution<String> execution2 = client().compute().submit(Set.of(node(1)), List.of(), NodeNameJob.class.getName());
+        IgniteCompute igniteCompute1 = client().compute();
+        Set<ClusterNode> nodes1 = Set.of(node(0));
+        JobExecution<String> execution1 = igniteCompute1.submit(nodes1, JobDescriptor.builder()
+                .jobClassName(NodeNameJob.class.getName())
+                .units(List.of())
+                .options(DEFAULT)
+                .build(), new Object[]{});
+        IgniteCompute igniteCompute = client().compute();
+        Set<ClusterNode> nodes = Set.of(node(1));
+        JobExecution<String> execution2 = igniteCompute.submit(nodes, JobDescriptor.builder()
+                .jobClassName(NodeNameJob.class.getName())
+                .units(List.of())
+                .options(DEFAULT)
+                .build(), new Object[]{});
 
         assertThat(execution1.resultAsync(), willBe("itcct_n_3344"));
         assertThat(execution2.resultAsync(), willBe("itcct_n_3345"));
@@ -135,7 +150,13 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     @Test
     void testCancellingCompletedJob() {
-        JobExecution<String> execution = client().compute().submit(Set.of(node(0)), List.of(), NodeNameJob.class.getName());
+        IgniteCompute igniteCompute = client().compute();
+        Set<ClusterNode> nodes = Set.of(node(0));
+        JobExecution<String> execution = igniteCompute.submit(nodes, JobDescriptor.builder()
+                .jobClassName(NodeNameJob.class.getName())
+                .units(List.of())
+                .options(DEFAULT)
+                .build(), new Object[]{});
 
         assertThat(execution.resultAsync(), willBe("itcct_n_3344"));
 
@@ -146,7 +167,13 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     @Test
     void testChangingPriorityCompletedJob() {
-        JobExecution<String> execution = client().compute().submit(Set.of(node(0)), List.of(), NodeNameJob.class.getName());
+        IgniteCompute igniteCompute = client().compute();
+        Set<ClusterNode> nodes = Set.of(node(0));
+        JobExecution<String> execution = igniteCompute.submit(nodes, JobDescriptor.builder()
+                .jobClassName(NodeNameJob.class.getName())
+                .units(List.of())
+                .options(DEFAULT)
+                .build(), new Object[]{});
 
         assertThat(execution.resultAsync(), willBe("itcct_n_3344"));
 
@@ -158,8 +185,20 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     @Test
     void testCancelOnSpecificNodeAsync() {
         int sleepMs = 1_000_000;
-        JobExecution<String> execution1 = client().compute().submit(Set.of(node(0)), List.of(), SleepJob.class.getName(), sleepMs);
-        JobExecution<String> execution2 = client().compute().submit(Set.of(node(1)), List.of(), SleepJob.class.getName(), sleepMs);
+        IgniteCompute igniteCompute1 = client().compute();
+        Set<ClusterNode> nodes1 = Set.of(node(0));
+        JobExecution<String> execution1 = igniteCompute1.submit(nodes1, JobDescriptor.builder()
+                .jobClassName(SleepJob.class.getName())
+                .units(List.of())
+                .options(DEFAULT)
+                .build(), new Object[]{sleepMs});
+        IgniteCompute igniteCompute = client().compute();
+        Set<ClusterNode> nodes = Set.of(node(1));
+        JobExecution<String> execution2 = igniteCompute.submit(nodes, JobDescriptor.builder()
+                .jobClassName(SleepJob.class.getName())
+                .units(List.of())
+                .options(DEFAULT)
+                .build(), new Object[]{sleepMs});
 
         await().until(execution1::statusAsync, willBe(jobStatusWithState(EXECUTING)));
         await().until(execution2::statusAsync, willBe(jobStatusWithState(EXECUTING)));
@@ -175,15 +214,33 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     void changeJobPriority() {
         int sleepMs = 1_000_000;
         // Start 1 task in executor with 1 thread
-        JobExecution<String> execution1 = client().compute().submit(Set.of(node(0)), List.of(), SleepJob.class.getName(), sleepMs);
+        IgniteCompute igniteCompute2 = client().compute();
+        Set<ClusterNode> nodes2 = Set.of(node(0));
+        JobExecution<String> execution1 = igniteCompute2.submit(nodes2, JobDescriptor.builder()
+                .jobClassName(SleepJob.class.getName())
+                .units(List.of())
+                .options(DEFAULT)
+                .build(), new Object[]{sleepMs});
         await().until(execution1::statusAsync, willBe(jobStatusWithState(EXECUTING)));
 
         // Start one more long lasting task
-        JobExecution<String> execution2 = client().compute().submit(Set.of(node(0)), List.of(), SleepJob.class.getName(), sleepMs);
+        IgniteCompute igniteCompute1 = client().compute();
+        Set<ClusterNode> nodes1 = Set.of(node(0));
+        JobExecution<String> execution2 = igniteCompute1.submit(nodes1, JobDescriptor.builder()
+                .jobClassName(SleepJob.class.getName())
+                .units(List.of())
+                .options(DEFAULT)
+                .build(), new Object[]{sleepMs});
         await().until(execution2::statusAsync, willBe(jobStatusWithState(QUEUED)));
 
         // Start third task
-        JobExecution<String> execution3 = client().compute().submit(Set.of(node(0)), List.of(), SleepJob.class.getName(), sleepMs);
+        IgniteCompute igniteCompute = client().compute();
+        Set<ClusterNode> nodes = Set.of(node(0));
+        JobExecution<String> execution3 = igniteCompute.submit(nodes, JobDescriptor.builder()
+                .jobClassName(SleepJob.class.getName())
+                .units(List.of())
+                .options(DEFAULT)
+                .build(), new Object[]{sleepMs});
         await().until(execution3::statusAsync, willBe(jobStatusWithState(QUEUED)));
 
         // Task 2 and 3 are not completed, in queue state
@@ -215,8 +272,13 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     @Test
     void testExecuteOnRandomNodeAsync() {
-        JobExecution<String> execution = client().compute()
-                .submit(new HashSet<>(sortedNodes()), List.of(), NodeNameJob.class.getName());
+        IgniteCompute igniteCompute = client().compute();
+        Set<ClusterNode> nodes = new HashSet<>(sortedNodes());
+        JobExecution<String> execution = igniteCompute.submit(nodes, JobDescriptor.builder()
+                .jobClassName(NodeNameJob.class.getName())
+                .units(List.of())
+                .options(DEFAULT)
+                .build(), new Object[]{});
 
         assertThat(
                 execution.resultAsync(),
@@ -291,7 +353,12 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     @Test
     void testExecuteWithArgs() {
         var nodes = new HashSet<>(client().clusterNodes());
-        JobExecution<String> execution = client().compute().submit(nodes, List.of(), ConcatJob.class.getName(), 1, "2", 3.3);
+        IgniteCompute igniteCompute = client().compute();
+        JobExecution<String> execution = igniteCompute.submit(nodes, JobDescriptor.builder()
+                .jobClassName(ConcatJob.class.getName())
+                .units(List.of())
+                .options(DEFAULT)
+                .build(), new Object[]{1, "2", 3.3});
 
         assertThat(execution.resultAsync(), willBe("1_2_3.3"));
         assertThat(execution.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
@@ -299,8 +366,14 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     @Test
     void testIgniteExceptionInJobPropagatesToClientWithMessageAndCodeAndTraceIdAsync() {
+        IgniteCompute igniteCompute = client().compute();
+        Set<ClusterNode> nodes = Set.of(node(0));
         IgniteException cause = getExceptionInJobExecutionAsync(
-                client().compute().submit(Set.of(node(0)), List.of(), IgniteExceptionJob.class.getName())
+                igniteCompute.submit(nodes, JobDescriptor.builder()
+                        .jobClassName(IgniteExceptionJob.class.getName())
+                        .units(List.of())
+                        .options(DEFAULT)
+                        .build(), new Object[]{})
         );
 
         assertThat(cause.getMessage(), containsString("Custom job error"));
@@ -325,8 +398,14 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     @Test
     void testExceptionInJobPropagatesToClientWithClassAndMessageAsync() {
+        IgniteCompute igniteCompute = client().compute();
+        Set<ClusterNode> nodes = Set.of(node(0));
         IgniteException cause = getExceptionInJobExecutionAsync(
-                client().compute().submit(Set.of(node(0)), List.of(), ExceptionJob.class.getName())
+                igniteCompute.submit(nodes, JobDescriptor.builder()
+                        .jobClassName(ExceptionJob.class.getName())
+                        .units(List.of())
+                        .options(DEFAULT)
+                        .build(), new Object[]{})
         );
 
         assertComputeExceptionWithClassAndMessage(cause);
@@ -344,8 +423,14 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     @Test
     void testExceptionInJobWithSendServerExceptionStackTraceToClientPropagatesToClientWithStackTraceAsync() {
         // Second node has sendServerExceptionStackTraceToClient enabled.
+        IgniteCompute igniteCompute = client().compute();
+        Set<ClusterNode> nodes = Set.of(node(1));
         IgniteException cause = getExceptionInJobExecutionAsync(
-                client().compute().submit(Set.of(node(1)), List.of(), ExceptionJob.class.getName())
+                igniteCompute.submit(nodes, JobDescriptor.builder()
+                        .jobClassName(ExceptionJob.class.getName())
+                        .units(List.of())
+                        .options(DEFAULT)
+                        .build(), new Object[]{})
         );
 
         assertComputeExceptionWithStackTrace(cause);

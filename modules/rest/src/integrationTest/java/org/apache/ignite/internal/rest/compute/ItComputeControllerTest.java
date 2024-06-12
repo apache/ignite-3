@@ -19,6 +19,7 @@ package org.apache.ignite.internal.rest.compute;
 
 import static io.micronaut.http.HttpRequest.DELETE;
 import static io.micronaut.http.HttpRequest.PUT;
+import static org.apache.ignite.compute.JobExecutionOptions.DEFAULT;
 import static org.apache.ignite.internal.rest.matcher.ProblemMatcher.isProblem;
 import static org.apache.ignite.internal.rest.matcher.RestJobStatusMatcher.canceled;
 import static org.apache.ignite.internal.rest.matcher.RestJobStatusMatcher.completed;
@@ -42,6 +43,8 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.apache.ignite.compute.ComputeJob;
+import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
@@ -363,7 +366,12 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
     }
 
     private static JobExecution<String> runBlockingJob(IgniteImpl entryNode, Set<ClusterNode> nodes) {
-        return entryNode.compute().submit(nodes, List.of(), BlockingJob.class.getName());
+        IgniteCompute igniteCompute = entryNode.compute();
+        return igniteCompute.submit(nodes, JobDescriptor.builder()
+                .jobClassName(BlockingJob.class.getName())
+                .units(List.of())
+                .options(DEFAULT)
+                .build(), new Object[]{});
     }
 
     private static void unblockJob() {

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.compute;
 
+import static org.apache.ignite.compute.JobExecutionOptions.DEFAULT;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -30,6 +31,7 @@ import java.util.Set;
 import java.util.UUID;
 import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.compute.utils.InteractiveJobs;
@@ -244,6 +246,11 @@ class ItExecutionsCleanerTest extends ClusterPerClassIntegrationTest {
     }
 
     private static TestingJobExecution<Object> submit(Set<ClusterNode> nodes) {
-        return new TestingJobExecution<>(CLUSTER.node(0).compute().submit(nodes, List.of(), InteractiveJobs.globalJob().name()));
+        IgniteCompute igniteCompute = CLUSTER.node(0).compute();
+        return new TestingJobExecution<>(igniteCompute.submit(nodes, JobDescriptor.builder()
+                .jobClassName(InteractiveJobs.globalJob().name())
+                .units(List.of())
+                .options(DEFAULT)
+                .build()));
     }
 }

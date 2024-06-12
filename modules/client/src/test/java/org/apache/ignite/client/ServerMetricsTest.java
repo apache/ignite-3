@@ -17,15 +17,20 @@
 
 package org.apache.ignite.client;
 
+import static org.apache.ignite.compute.JobExecutionOptions.DEFAULT;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import org.apache.ignite.client.fakes.FakeCompute;
+import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
@@ -93,7 +98,13 @@ public class ServerMetricsTest extends AbstractClientTest {
 
         FakeCompute.latch = new CountDownLatch(1);
 
-        client.compute().submit(getClusterNodes("s1"), List.of(), "job");
+        IgniteCompute igniteCompute = client.compute();
+        Set<ClusterNode> nodes = getClusterNodes("s1");
+        igniteCompute.submit(nodes, JobDescriptor.builder()
+                .jobClassName("job")
+                .units(List.of())
+                .options(DEFAULT)
+                .build());
 
         assertTrue(
                 IgniteTestUtils.waitForCondition(() -> testServer.metrics().requestsActive() == 1, 1000),
@@ -110,7 +121,13 @@ public class ServerMetricsTest extends AbstractClientTest {
     public void testRequestsProcessed() throws Exception {
         long processed = testServer.metrics().requestsProcessed();
 
-        client.compute().submit(getClusterNodes("s1"), List.of(), "job");
+        IgniteCompute igniteCompute = client.compute();
+        Set<ClusterNode> nodes = getClusterNodes("s1");
+        igniteCompute.submit(nodes, JobDescriptor.builder()
+                .jobClassName("job")
+                .units(List.of())
+                .options(DEFAULT)
+                .build());
 
         assertTrue(
                 IgniteTestUtils.waitForCondition(() -> testServer.metrics().requestsProcessed() == processed + 1, 1000),
@@ -123,7 +140,13 @@ public class ServerMetricsTest extends AbstractClientTest {
 
         FakeCompute.err = new RuntimeException("test");
 
-        client.compute().submit(getClusterNodes("s1"), List.of(), "job");
+        IgniteCompute igniteCompute = client.compute();
+        Set<ClusterNode> nodes = getClusterNodes("s1");
+        igniteCompute.submit(nodes, JobDescriptor.builder()
+                .jobClassName("job")
+                .units(List.of())
+                .options(DEFAULT)
+                .build());
 
         assertTrue(
                 IgniteTestUtils.waitForCondition(() -> testServer.metrics().requestsFailed() == 1, 1000),
