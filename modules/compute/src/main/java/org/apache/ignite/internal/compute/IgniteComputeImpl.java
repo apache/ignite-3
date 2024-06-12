@@ -199,20 +199,17 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
     public <R> JobExecution<R> submitColocated(
             String tableName,
             Tuple tuple,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
+            JobDescriptor descriptor,
             Object... args
     ) {
         Objects.requireNonNull(tableName);
         Objects.requireNonNull(tuple);
-        Objects.requireNonNull(units);
-        Objects.requireNonNull(jobClassName);
-        Objects.requireNonNull(options);
+        Objects.requireNonNull(descriptor);
 
         return new JobExecutionFutureWrapper<>(
                 requiredTable(tableName)
-                        .thenCompose(table -> submitColocatedInternal(table, tuple, units, jobClassName, options, args))
+                        .thenCompose(table -> submitColocatedInternal(
+                                table, tuple, descriptor.units(), descriptor.jobClassName(), descriptor.options(), args))
         );
     }
 

@@ -72,12 +72,11 @@ public class AntiHijackIgniteCompute implements IgniteCompute, Wrapper {
     public <R> JobExecution<R> submitColocated(
             String tableName,
             Tuple key,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
+            JobDescriptor descriptor,
             Object... args
     ) {
-        return preventThreadHijack(compute.submitColocated(tableName, key, units, jobClassName, options, args));
+        return preventThreadHijack(
+                compute.submitColocated(tableName, key, descriptor.units(), descriptor.jobClassName(), descriptor.options(), args));
     }
 
     @Override

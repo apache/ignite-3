@@ -110,18 +110,16 @@ public class ClientCompute implements IgniteCompute {
     public <R> JobExecution<R> submitColocated(
             String tableName,
             Tuple key,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
+            JobDescriptor descriptor,
             Object... args
     ) {
         Objects.requireNonNull(tableName);
         Objects.requireNonNull(key);
-        Objects.requireNonNull(units);
-        Objects.requireNonNull(jobClassName);
-        Objects.requireNonNull(options);
+        Objects.requireNonNull(descriptor);
 
-        return new ClientJobExecution<>(ch, doExecuteColocatedAsync(tableName, key, units, jobClassName, options, args));
+        return new ClientJobExecution<>(
+                ch,
+                doExecuteColocatedAsync(tableName, key, descriptor.units(), descriptor.jobClassName(), descriptor.options(), args));
     }
 
     /** {@inheritDoc} */

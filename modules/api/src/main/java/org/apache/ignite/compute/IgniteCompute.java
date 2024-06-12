@@ -40,7 +40,6 @@ import org.apache.ignite.table.mapper.Mapper;
  * @see ComputeJob#execute(JobExecutionContext, Object...)
  */
 public interface IgniteCompute {
-
     /**
      * Submits a {@link ComputeJob} of the given class for an execution on a single node from a set of candidate nodes.
      *
@@ -103,12 +102,36 @@ public interface IgniteCompute {
      * @param <R> Job result type.
      * @return Job execution object.
      */
-    <R> JobExecution<R> submitColocated(
+    default <R> JobExecution<R> submitColocated(
             String tableName,
             Tuple key,
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
+            Object... args
+    ) {
+        return submitColocated(tableName, key, JobDescriptor.builder()
+                .jobClassName(jobClassName)
+                .units(units)
+                .options(options)
+                .build(), args);
+    }
+
+    /**
+     * Submits a job of the given class for the execution on the node where the given key is located. The node is a leader of the
+     * corresponding RAFT group.
+     *
+     * @param tableName Name of the table whose key is used to determine the node to execute the job on.
+     * @param key Key that identifies the node to execute the job on.
+     * @param descriptor Job descriptor.
+     * @param args Arguments of the job.
+     * @param <R> Job result type.
+     * @return Job execution object.
+     */
+    <R> JobExecution<R> submitColocated(
+            String tableName,
+            Tuple key,
+            JobDescriptor descriptor,
             Object... args
     );
 

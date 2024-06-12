@@ -135,9 +135,7 @@ public class FakeCompute implements IgniteComputeInternal {
     public <R> JobExecution<R> submitColocated(
             String tableName,
             Tuple key,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
+            JobDescriptor descriptor,
             Object... args
     ) {
         return jobExecution(future != null ? future : completedFuture((R) nodeName));
