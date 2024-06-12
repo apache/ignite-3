@@ -32,6 +32,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.calcite.sql.type.SqlTypeName;
@@ -486,7 +487,7 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
                 .returns(3)
                 .check();
 
-        var pkVals = sql("select \"__p_key\" from t").stream().map(row -> row.get(0)).collect(Collectors.toSet());
+        Set<?> pkVals = sql("select \"__p_key\" from t").stream().map(row -> row.get(0)).collect(Collectors.toSet());
 
         assertEquals(3, pkVals.size());
     }
@@ -571,7 +572,7 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
             sql(createStatement);
             sql("INSERT INTO test (id) VALUES (0)");
 
-            var expectedVals = args.stream()
+            List<Object> expectedVals = args.stream()
                     .map(a -> a.expectedVal)
                     .collect(Collectors.toList());
 
@@ -581,7 +582,7 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
                 columnEnumerationBuilder.append(", col_").append(i);
             }
 
-            var columnEnumeration = columnEnumerationBuilder.toString();
+            String columnEnumeration = columnEnumerationBuilder.toString();
 
             checkQueryResult("SELECT " + columnEnumeration + " FROM test", expectedVals);
 
@@ -626,7 +627,7 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
     @Test
     public void testDropDefault() {
         // SQL Standard 2016 feature F221 - Explicit defaults
-        for (var arg : defaultValueArgs().collect(Collectors.toList())) {
+        for (DefaultValueArg arg : defaultValueArgs().collect(Collectors.toList())) {
             try {
                 sql(format("CREATE TABLE test (id INT PRIMARY KEY, val {} DEFAULT {})", arg.sqlType, arg.sqlVal));
                 sql("INSERT INTO test (id) VALUES (1)");
