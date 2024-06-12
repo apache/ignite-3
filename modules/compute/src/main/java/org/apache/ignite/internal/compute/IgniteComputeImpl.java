@@ -218,17 +218,13 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
             String tableName,
             K key,
             Mapper<K> keyMapper,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
+            JobDescriptor descriptor,
             Object... args
     ) {
         Objects.requireNonNull(tableName);
         Objects.requireNonNull(key);
         Objects.requireNonNull(keyMapper);
-        Objects.requireNonNull(units);
-        Objects.requireNonNull(jobClassName);
-        Objects.requireNonNull(options);
+        Objects.requireNonNull(descriptor);
 
         return new JobExecutionFutureWrapper<>(
                 requiredTable(tableName)
@@ -236,7 +232,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
                                 .thenApply(primaryNode -> executeOnOneNodeWithFailover(
                                         primaryNode,
                                         new NextColocatedWorkerSelector<>(placementDriver, topologyService, clock, table, key, keyMapper),
-                                        units, jobClassName, options, args
+                                        descriptor.units(), descriptor.jobClassName(), descriptor.options(), args
                                 )))
         );
     }

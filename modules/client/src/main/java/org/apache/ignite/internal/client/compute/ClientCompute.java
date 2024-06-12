@@ -128,19 +128,16 @@ public class ClientCompute implements IgniteCompute {
             String tableName,
             K key,
             Mapper<K> keyMapper,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
+            JobDescriptor descriptor,
             Object... args
     ) {
         Objects.requireNonNull(tableName);
         Objects.requireNonNull(key);
         Objects.requireNonNull(keyMapper);
-        Objects.requireNonNull(options);
-        Objects.requireNonNull(units);
-        Objects.requireNonNull(jobClassName);
+        Objects.requireNonNull(descriptor);
 
-        return new ClientJobExecution<>(ch, doExecuteColocatedAsync(tableName, key, keyMapper, units, jobClassName, options, args));
+        return new ClientJobExecution<>(ch, doExecuteColocatedAsync(
+                tableName, key, keyMapper, descriptor.units(), descriptor.jobClassName(), descriptor.options(), args));
     }
 
     private CompletableFuture<SubmitResult> doExecuteColocatedAsync(

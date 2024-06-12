@@ -146,9 +146,7 @@ public class FakeCompute implements IgniteComputeInternal {
             String tableName,
             K key,
             Mapper<K> keyMapper,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
+            JobDescriptor descriptor,
             Object... args
     ) {
         return jobExecution(future != null ? future : completedFuture((R) nodeName));
