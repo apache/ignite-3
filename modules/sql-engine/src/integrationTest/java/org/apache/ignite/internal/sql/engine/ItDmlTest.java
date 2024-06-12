@@ -175,7 +175,7 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
 
         values.add(values.get(0)); // add conflict entry from the first chunk
 
-        sql("CREATE TABLE test (id int primary key, val int ult 1)");
+        sql("CREATE TABLE test (id int primary key, val int default 1)");
 
         String insertStatement = "INSERT INTO test (id) VALUES " + values.stream()
                 .map(Object::toString)
@@ -603,7 +603,8 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
 
         var expectedMessage = "Column 'KEY' does not allow NULLs";
 
-        assertThrowsSqlException(Sql.CONSTRAINT_VIOLATION_ERR,
+        assertThrowsSqlException(
+                Sql.CONSTRAINT_VIOLATION_ERR,
                 expectedMessage,
                 () -> sql("INSERT INTO tbl (key, val) VALUES (NULL,'AA')"));
     }
