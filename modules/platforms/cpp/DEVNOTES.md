@@ -30,7 +30,7 @@ In this case you have to install:
  * msgpack-c >= 4.0.0 development package (for Ubuntu: libmsgpack-dev) 
  * Google test library >= 1.12.0 (for Ubuntu: libgtest-dev) if you want to build tests (ENABLE_TESTS = ON)
  * Google mock library >= 1.12.0 (for Ubuntu: libgmock-dev) if you want to build tests (ENABLE_TESTS = ON)
- * MbedTLS == v3.6.0
+ * MbedTLS == v3.6.0 Source code needed as MbedTLS should be built with the ignite-3 config included
 
 You should also specify the general (build type) CMake options. There are two types of build available - `Release` and `Debug`. The choice depends on how are you going to use the resulting artifacts. If you are going to use them in production, use the `Release` build type. If you are planning to just submit a patch for the project, use `Debug`.
 
