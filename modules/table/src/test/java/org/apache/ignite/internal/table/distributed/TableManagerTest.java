@@ -279,7 +279,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         when(distributionZoneManager.dataNodes(anyLong(), anyInt(), anyInt())).thenReturn(emptySetCompletedFuture());
 
         when(replicaMgr.startReplica(any(), any(), anyBoolean(), any(), any(), any(), any(), any(), any()))
-                .thenReturn(trueCompletedFuture());
+                .thenReturn(nullCompletedFuture());
         // TODO: will be removed after https://issues.apache.org/jira/browse/IGNITE-22315
         when(replicaMgr.startRaftClient(any(), any(), any()))
                 .thenReturn(completedFuture(mock(TopologyAwareRaftGroupService.class)));
