@@ -91,53 +91,6 @@ public interface IgniteCompute {
     );
 
     /**
-     * Executes a {@link ComputeJob} of the given class on a single node from a set of candidate nodes.
-     *
-     * @param <R> Job result type
-     * @param nodes Candidate nodes; the job will be executed on one of them.
-     * @param units Deployment units. Can be empty.
-     * @param jobClassName Name of the job class to execute.
-     * @param options Job execution options (priority, max retries).
-     * @param args Arguments of the job.
-     * @return Job result.
-     * @throws ComputeException If there is any problem executing the job.
-     */
-    default <R> R execute(
-            Set<ClusterNode> nodes,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
-            Object... args
-    ) {
-        return execute(nodes, JobDescriptor.builder()
-                .jobClassName(jobClassName)
-                .units(units)
-                .options(options)
-                .build(), args);
-    }
-
-    /**
-     * Executes a {@link ComputeJob} of the given class on a single node from a set of candidate nodes
-     * with default execution options {@link JobExecutionOptions#DEFAULT}.
-     *
-     * @param nodes Candidate nodes; the job will be executed on one of them.
-     * @param units Deployment units. Can be empty.
-     * @param jobClassName Name of the job class to execute.
-     * @param args Arguments of the job.
-     * @param <R> Job result type
-     * @return Job result.
-     * @throws ComputeException If there is any problem executing the job.
-     */
-    default <R> R execute(
-            Set<ClusterNode> nodes,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            Object... args
-    ) {
-        return execute(nodes, units, jobClassName, DEFAULT, args);
-    }
-
-    /**
      * Submits a job of the given class for the execution on the node where the given key is located. The node is a leader of the
      * corresponding RAFT group.
      *
@@ -539,7 +492,11 @@ public interface IgniteCompute {
         Map<ClusterNode, R> map = new HashMap<>();
 
         for (ClusterNode node : nodes) {
-            map.put(node, execute(Set.of(node), units, jobClassName, options, args));
+            map.put(node, execute(Set.of(node), JobDescriptor.builder()
+                    .jobClassName(jobClassName)
+                    .units(units)
+                    .options(options)
+                    .build(), args));
         }
 
         return map;

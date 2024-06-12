@@ -90,7 +90,12 @@ abstract class ItComputeErrorsBaseTest extends ClusterPerClassIntegrationTest {
         Set<ClusterNode> nodes = Set.of(existingNode, nonExistingNode);
 
         // And execute a job
-        String workerNodeName = compute().execute(nodes, List.of(), InteractiveJobs.globalJob().name(), RETURN_WORKER_NAME.name());
+        IgniteCompute igniteCompute = compute();
+        String workerNodeName = igniteCompute.execute(nodes, JobDescriptor.builder()
+                .jobClassName(InteractiveJobs.globalJob().name())
+                .units(List.of())
+                .options(DEFAULT)
+                .build(), new Object[]{RETURN_WORKER_NAME.name()});
 
         // Then existing node was a worker and executed the job.
         assertThat(workerNodeName, is(existingNode.name()));
@@ -104,7 +109,14 @@ abstract class ItComputeErrorsBaseTest extends ClusterPerClassIntegrationTest {
         // Then job fails.
         assertThrows(
                 NodeNotFoundException.class,
-                () -> compute().execute(nodes, List.of(), InteractiveJobs.globalJob().name()),
+                () -> {
+                    IgniteCompute igniteCompute = compute();
+                    igniteCompute.execute(nodes, JobDescriptor.builder()
+                            .jobClassName(InteractiveJobs.globalJob().name())
+                            .units(List.of())
+                            .options(DEFAULT)
+                            .build());
+                },
                 "None of the specified nodes are present in the cluster: [" + nonExistingNode.name() + "]"
         );
     }

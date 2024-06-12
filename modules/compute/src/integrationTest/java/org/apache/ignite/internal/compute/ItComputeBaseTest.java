@@ -86,8 +86,16 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     void executesWrongJobClassLocally(String jobClassName, int errorCode, String msg) {
         IgniteImpl entryNode = node(0);
 
-        IgniteException ex = assertThrows(IgniteException.class, () -> entryNode.compute()
-                .execute(Set.of(entryNode.node()), units(), jobClassName));
+        IgniteException ex = assertThrows(IgniteException.class, () -> {
+            IgniteCompute igniteCompute = entryNode.compute();
+            Set<ClusterNode> nodes = Set.of(entryNode.node());
+            List<DeploymentUnit> units = units();
+            igniteCompute.execute(nodes, JobDescriptor.builder()
+                    .jobClassName(jobClassName)
+                    .units(units)
+                    .options(DEFAULT)
+                    .build());
+        });
 
         assertTraceableException(ex, ComputeException.class, errorCode, msg);
     }
@@ -116,8 +124,16 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     void executesWrongJobClassOnRemoteNodes(String jobClassName, int errorCode, String msg) {
         Ignite entryNode = node(0);
 
-        IgniteException ex = assertThrows(IgniteException.class, () -> entryNode.compute()
-                .execute(Set.of(node(1).node(), node(2).node()), units(), jobClassName));
+        IgniteException ex = assertThrows(IgniteException.class, () -> {
+            IgniteCompute igniteCompute = entryNode.compute();
+            Set<ClusterNode> nodes = Set.of(node(1).node(), node(2).node());
+            List<DeploymentUnit> units = units();
+            igniteCompute.execute(nodes, JobDescriptor.builder()
+                    .jobClassName(jobClassName)
+                    .units(units)
+                    .options(DEFAULT)
+                    .build());
+        });
 
         assertTraceableException(ex, ComputeException.class, errorCode, msg);
     }
@@ -145,8 +161,14 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     void executesJobLocally() {
         IgniteImpl entryNode = node(0);
 
-        String result = entryNode.compute()
-                .execute(Set.of(entryNode.node()), units(), concatJobClassName(), "a", 42);
+        IgniteCompute igniteCompute = entryNode.compute();
+        Set<ClusterNode> nodes = Set.of(entryNode.node());
+        List<DeploymentUnit> units = units();
+        String result = igniteCompute.execute(nodes, JobDescriptor.builder()
+                .jobClassName(concatJobClassName())
+                .units(units)
+                .options(DEFAULT)
+                .build(), new Object[]{"a", 42});
 
         assertThat(result, is("a42"));
     }
@@ -173,8 +195,14 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     void executesJobOnRemoteNodes() {
         Ignite entryNode = node(0);
 
-        String result = entryNode.compute()
-                .execute(Set.of(node(1).node(), node(2).node()), units(), concatJobClassName(), "a", 42);
+        IgniteCompute igniteCompute = entryNode.compute();
+        Set<ClusterNode> nodes = Set.of(node(1).node(), node(2).node());
+        List<DeploymentUnit> units = units();
+        String result = igniteCompute.execute(nodes, JobDescriptor.builder()
+                .jobClassName(concatJobClassName())
+                .units(units)
+                .options(DEFAULT)
+                .build(), new Object[]{"a", 42});
 
         assertThat(result, is("a42"));
     }
@@ -232,8 +260,16 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     void executesFailingJobLocally() {
         IgniteImpl entryNode = node(0);
 
-        IgniteException ex = assertThrows(IgniteException.class, () -> entryNode.compute()
-                .execute(Set.of(entryNode.node()), units(), failingJobClassName()));
+        IgniteException ex = assertThrows(IgniteException.class, () -> {
+            IgniteCompute igniteCompute = entryNode.compute();
+            Set<ClusterNode> nodes = Set.of(entryNode.node());
+            List<DeploymentUnit> units = units();
+            igniteCompute.execute(nodes, JobDescriptor.builder()
+                    .jobClassName(failingJobClassName())
+                    .units(units)
+                    .options(DEFAULT)
+                    .build());
+        });
 
         assertComputeException(ex, "JobException", "Oops");
     }
@@ -263,8 +299,16 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     void executesFailingJobOnRemoteNodes() {
         Ignite entryNode = node(0);
 
-        IgniteException ex = assertThrows(IgniteException.class, () -> entryNode.compute()
-                .execute(Set.of(node(1).node(), node(2).node()), units(), failingJobClassName()));
+        IgniteException ex = assertThrows(IgniteException.class, () -> {
+            IgniteCompute igniteCompute = entryNode.compute();
+            Set<ClusterNode> nodes = Set.of(node(1).node(), node(2).node());
+            List<DeploymentUnit> units = units();
+            igniteCompute.execute(nodes, JobDescriptor.builder()
+                    .jobClassName(failingJobClassName())
+                    .units(units)
+                    .options(DEFAULT)
+                    .build());
+        });
 
         assertComputeException(ex, "JobException", "Oops");
     }

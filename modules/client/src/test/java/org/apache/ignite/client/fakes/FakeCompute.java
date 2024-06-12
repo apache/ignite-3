@@ -81,15 +81,6 @@ public class FakeCompute implements IgniteComputeInternal {
         this.ignite = ignite;
     }
 
-    public <R> JobExecution<R> submit(
-            Set<ClusterNode> nodes,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
-            Object... args) {
-        return executeAsyncWithFailover(nodes, units, jobClassName, options, args);
-    }
-
     @Override
     public <R> JobExecution<R> executeAsyncWithFailover(
             Set<ClusterNode> nodes,
@@ -130,20 +121,14 @@ public class FakeCompute implements IgniteComputeInternal {
         return completedFuture(jobExecution(future != null ? future : completedFuture((R) nodeName)));
     }
 
-    /** {@inheritDoc} */
     @Override
-    public <R> R execute(
-            Set<ClusterNode> nodes,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
-            Object... args
-    ) {
-        return sync(this.executeAsync(nodes, JobDescriptor.builder()
-                .jobClassName(jobClassName)
-                .units(units)
-                .options(options)
-                .build(), args));
+    public <R> JobExecution<R> submit(Set<ClusterNode> nodes, JobDescriptor descriptor, Object... args) {
+        return executeAsyncWithFailover(nodes, descriptor.units(), descriptor.jobClassName(), descriptor.options(), args);
+    }
+
+    @Override
+    public <R> R execute(Set<ClusterNode> nodes, JobDescriptor descriptor, Object... args) {
+        return sync(this.executeAsync(nodes, descriptor, args));
     }
 
     @Override

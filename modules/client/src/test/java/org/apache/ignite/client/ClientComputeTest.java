@@ -325,7 +325,13 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
     }
 
     private static String getUnits(IgniteClient client, List<DeploymentUnit> units) {
-        return client.compute().execute(getClusterNodes("s1"), units, FakeCompute.GET_UNITS);
+        IgniteCompute igniteCompute = client.compute();
+        Set<ClusterNode> nodes = getClusterNodes("s1");
+        return igniteCompute.execute(nodes, JobDescriptor.builder()
+                .jobClassName(FakeCompute.GET_UNITS)
+                .units(units)
+                .options(DEFAULT)
+                .build(), new Object[]{});
     }
 
     @Test

@@ -160,7 +160,13 @@ public class ServerMetricsTest extends AbstractClientTest {
         assertFalse(testServer.metrics().enabled());
         assertEquals(0, testServer.metrics().requestsProcessed());
 
-        client.compute().execute(getClusterNodes("s1"), List.of(), "job");
+        IgniteCompute igniteCompute = client.compute();
+        Set<ClusterNode> nodes = getClusterNodes("s1");
+        igniteCompute.execute(nodes, JobDescriptor.builder()
+                .jobClassName("job")
+                .units(List.of())
+                .options(DEFAULT)
+                .build());
 
         assertEquals(0, testServer.metrics().requestsProcessed());
         assertFalse(testServer.metrics().enabled());

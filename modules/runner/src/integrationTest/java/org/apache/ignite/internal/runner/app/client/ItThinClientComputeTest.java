@@ -117,8 +117,20 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     @Test
     void testExecuteOnSpecificNode() {
-        String res1 = client().compute().execute(Set.of(node(0)), List.of(), NodeNameJob.class.getName());
-        String res2 = client().compute().execute(Set.of(node(1)), List.of(), NodeNameJob.class.getName());
+        IgniteCompute igniteCompute1 = client().compute();
+        Set<ClusterNode> nodes1 = Set.of(node(0));
+        String res1 = igniteCompute1.execute(nodes1, JobDescriptor.builder()
+                .jobClassName(NodeNameJob.class.getName())
+                .units(List.of())
+                .options(DEFAULT)
+                .build(), new Object[]{});
+        IgniteCompute igniteCompute = client().compute();
+        Set<ClusterNode> nodes = Set.of(node(1));
+        String res2 = igniteCompute.execute(nodes, JobDescriptor.builder()
+                .jobClassName(NodeNameJob.class.getName())
+                .units(List.of())
+                .options(DEFAULT)
+                .build(), new Object[]{});
 
         assertEquals("itcct_n_3344", res1);
         assertEquals("itcct_n_3345", res2);
@@ -265,7 +277,13 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     @Test
     void testExecuteOnRandomNode() {
-        String res = client().compute().execute(new HashSet<>(sortedNodes()), List.of(), NodeNameJob.class.getName());
+        IgniteCompute igniteCompute = client().compute();
+        Set<ClusterNode> nodes = new HashSet<>(sortedNodes());
+        String res = igniteCompute.execute(nodes, JobDescriptor.builder()
+                .jobClassName(NodeNameJob.class.getName())
+                .units(List.of())
+                .options(DEFAULT)
+                .build(), new Object[]{});
 
         assertTrue(Set.of("itcct_n_3344", "itcct_n_3345").contains(res));
     }
@@ -386,7 +404,15 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     @Test
     void testIgniteExceptionInJobPropagatesToClientWithMessageAndCodeAndTraceIdSync() {
         IgniteException cause = getExceptionInJobExecutionSync(
-                () -> client().compute().execute(Set.of(node(0)), List.of(), IgniteExceptionJob.class.getName())
+                () -> {
+                    IgniteCompute igniteCompute = client().compute();
+                    Set<ClusterNode> nodes = Set.of(node(0));
+                    return igniteCompute.execute(nodes, JobDescriptor.builder()
+                            .jobClassName(IgniteExceptionJob.class.getName())
+                            .units(List.of())
+                            .options(DEFAULT)
+                            .build(), new Object[]{});
+                }
         );
 
         assertThat(cause.getMessage(), containsString("Custom job error"));
@@ -414,7 +440,15 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     @Test
     void testExceptionInJobPropagatesToClientWithClassAndMessageSync() {
         IgniteException cause = getExceptionInJobExecutionSync(
-                () -> client().compute().execute(Set.of(node(0)), List.of(), ExceptionJob.class.getName())
+                () -> {
+                    IgniteCompute igniteCompute = client().compute();
+                    Set<ClusterNode> nodes = Set.of(node(0));
+                    return igniteCompute.execute(nodes, JobDescriptor.builder()
+                            .jobClassName(ExceptionJob.class.getName())
+                            .units(List.of())
+                            .options(DEFAULT)
+                            .build(), new Object[]{});
+                }
         );
 
         assertComputeExceptionWithClassAndMessage(cause);
@@ -440,7 +474,15 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     void testExceptionInJobWithSendServerExceptionStackTraceToClientPropagatesToClientWithStackTraceSync() {
         // Second node has sendServerExceptionStackTraceToClient enabled.
         IgniteException cause = getExceptionInJobExecutionSync(
-                () -> client().compute().execute(Set.of(node(1)), List.of(), ExceptionJob.class.getName())
+                () -> {
+                    IgniteCompute igniteCompute = client().compute();
+                    Set<ClusterNode> nodes = Set.of(node(1));
+                    return igniteCompute.execute(nodes, JobDescriptor.builder()
+                            .jobClassName(ExceptionJob.class.getName())
+                            .units(List.of())
+                            .options(DEFAULT)
+                            .build(), new Object[]{});
+                }
         );
 
         assertComputeExceptionWithStackTrace(cause);
@@ -767,7 +809,13 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     @ParameterizedTest
     @CsvSource({"1E3,-3", "1.12E5,-5", "1.12E5,0", "1.123456789,10", "1.123456789,5"})
     void testBigDecimalPropagation(String number, int scale) {
-        BigDecimal res = client().compute().execute(Set.of(node(0)), List.of(), DecimalJob.class.getName(), number, scale);
+        IgniteCompute igniteCompute = client().compute();
+        Set<ClusterNode> nodes = Set.of(node(0));
+        BigDecimal res = igniteCompute.execute(nodes, JobDescriptor.builder()
+                .jobClassName(DecimalJob.class.getName())
+                .units(List.of())
+                .options(DEFAULT)
+                .build(), new Object[]{number, scale});
 
         var expected = new BigDecimal(number).setScale(scale, RoundingMode.HALF_UP);
         assertEquals(expected, res);
@@ -814,7 +862,14 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     }
 
     private void testEchoArg(Object arg) {
-        Object res = client().compute().execute(Set.of(node(0)), List.of(), EchoJob.class.getName(), arg, arg.toString());
+        IgniteCompute igniteCompute = client().compute();
+        Set<ClusterNode> nodes = Set.of(node(0));
+        Object[] args = new Object[]{arg, arg.toString()};
+        Object res = igniteCompute.execute(nodes, JobDescriptor.builder()
+                .jobClassName(EchoJob.class.getName())
+                .units(List.of())
+                .options(DEFAULT)
+                .build(), args);
 
         if (arg instanceof byte[]) {
             assertArrayEquals((byte[]) arg, (byte[]) res);

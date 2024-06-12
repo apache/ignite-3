@@ -19,16 +19,21 @@ package org.apache.ignite.client;
 
 import static org.apache.ignite.client.AbstractClientTest.getClient;
 import static org.apache.ignite.client.AbstractClientTest.getClusterNodes;
+import static org.apache.ignite.compute.JobExecutionOptions.DEFAULT;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.client.fakes.FakeIgnite;
+import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.network.ClusterNode;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -66,7 +71,15 @@ public class RequestBalancingTest extends BaseIgniteAbstractTest {
 
             // Execute on unknown node to fall back to balancing.
             List<Object> res = IntStream.range(0, 5)
-                    .mapToObj(i -> client.compute().<String>execute(getClusterNodes("s123"), List.of(), "job"))
+                    .mapToObj(i -> {
+                        IgniteCompute igniteCompute = client.compute();
+                        Set<ClusterNode> nodes = getClusterNodes("s123");
+                        return igniteCompute.execute(nodes, JobDescriptor.builder()
+                                .jobClassName("job")
+                                .units(List.of())
+                                .options(DEFAULT)
+                                .build());
+                    })
                     .collect(Collectors.toList());
 
             assertEquals(5, res.size());
