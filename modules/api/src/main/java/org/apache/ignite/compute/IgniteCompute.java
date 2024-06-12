@@ -117,11 +117,10 @@ public interface IgniteCompute {
             String jobClassName,
             Object... args
     ) {
-        return this.<R>submit(nodes, JobDescriptor.builder()
+        return this.executeAsync(nodes, JobDescriptor.builder()
                 .jobClassName(jobClassName)
                 .units(units)
-                .options(DEFAULT)
-                .build(), args).resultAsync();
+                .build(), args);
     }
 
     /**
