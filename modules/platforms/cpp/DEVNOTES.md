@@ -24,11 +24,13 @@ idea to enable this option if you are planning on submitting a PR. If you just w
 option disabled.
 
 USE_LOCAL_DEPS option set to OFF implies that dependencies will be downloaded, so you will need an internet connection.
-If you want to build project with your local dependencies you can set option USE_LOCAL_DEPS to ON. 
+If you want to build project with your local dependencies you can set option USE_LOCAL_DEPS to ON. In this case you need 
+to specify location of the MbedTLS source code library with the MBEDTLS_SOURCE_DIR variable. 
 In this case you have to install: 
  * msgpack-c >= 4.0.0 development package (for Ubuntu: libmsgpack-dev) 
  * Google test library >= 1.12.0 (for Ubuntu: libgtest-dev) if you want to build tests (ENABLE_TESTS = ON)
  * Google mock library >= 1.12.0 (for Ubuntu: libgmock-dev) if you want to build tests (ENABLE_TESTS = ON)
+ * MbedTLS == v3.6.0
 
 You should also specify the general (build type) CMake options. There are two types of build available - `Release` and `Debug`. The choice depends on how are you going to use the resulting artifacts. If you are going to use them in production, use the `Release` build type. If you are planning to just submit a patch for the project, use `Debug`.
 
