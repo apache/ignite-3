@@ -492,9 +492,8 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
     }
 
     private static Stream<DefaultValueArg> defaultValueArgs() {
-        return Stream.of(
+        Stream<DefaultValueArg> vals = Stream.of(
                 new DefaultValueArg("BOOLEAN", "TRUE", Boolean.TRUE),
-                new DefaultValueArg("BOOLEAN NOT NULL", "TRUE", Boolean.TRUE),
 
                 new DefaultValueArg("BIGINT", "10", 10L),
                 new DefaultValueArg("INTEGER", "10", 10),
@@ -504,7 +503,6 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
                 new DefaultValueArg("FLOAT", "10.01", 10.01f),
                 new DefaultValueArg("DECIMAL(4, 2)", "10.01", new BigDecimal("10.01")),
                 new DefaultValueArg("VARCHAR", "'10'", "10"),
-                new DefaultValueArg("VARCHAR NOT NULL", "'10'", "10"),
                 new DefaultValueArg("VARCHAR(2)", "'10'", "10"),
 
                 // TODO: IGNITE-17373
@@ -523,11 +521,12 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
                 new DefaultValueArg("BINARY(3)", "x'010203'", new byte[]{1, 2, 3}),
                 new DefaultValueArg("VARBINARY", "x'010203'", new byte[]{1, 2, 3})
         );
+        return vals.flatMap(arg -> Stream.of(arg, new DefaultValueArg(arg.sqlType + " NOT NULL", arg.sqlVal, arg.expectedVal)));
     }
 
     @Test
     public void testInsertDefaultValue() {
-        // F221: Explicit defaults
+        // SQL Standard 2016 feature F221 - Explicit defaults
         checkDefaultValue(defaultValueArgs().collect(Collectors.toList()));
 
         checkWrongDefault("VARCHAR(1)", "10");
@@ -548,7 +547,7 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
 
     @Test
     public void testInsertDefaultNullValue() {
-        // F221: Explicit defaults
+        // SQL Standard 2016 feature F221 - Explicit defaults
         checkDefaultValue(defaultValueArgs()
                 .filter(a -> !a.sqlType.endsWith("NOT NULL"))
                 .map(a -> new DefaultValueArg(a.sqlType, "NULL", null))
@@ -598,7 +597,7 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
 
     @Test
     public void testCheckNullValueErrorMessageForColumnWithDefaultValue() {
-        // F221: Explicit defaults
+        // SQL Standard 2016 feature F221 - Explicit defaults
         sql("CREATE TABLE tbl(key int DEFAULT 9 primary key, val varchar)");
 
         var expectedMessage = "Column 'KEY' does not allow NULLs";
@@ -610,8 +609,8 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-21462")
     @Test
     public void testUpdateAllowsDefault() {
-        // F221: Explicit defaults
-        for (var arg : defaultValueArgs().collect(Collectors.toList())) {
+        // SQL Standard 2016 feature F221 - Explicit defaults
+        for (DefaultValueArg arg : defaultValueArgs().collect(Collectors.toList())) {
             try {
                 sql(format("CREATE TABLE test (id INT PRIMARY KEY, val %s DEFAULT %s)", arg.sqlType, arg.sqlVal));
                 sql("INSERT INTO test (id, val) VALUES (1, NULL)");
@@ -626,7 +625,7 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
 
     @Test
     public void testDropDefault() {
-        // F221: Explicit defaults
+        // SQL Standard 2016 feature F221 - Explicit defaults
         for (var arg : defaultValueArgs().collect(Collectors.toList())) {
             try {
                 sql(format("CREATE TABLE test (id INT PRIMARY KEY, val {} DEFAULT {})", arg.sqlType, arg.sqlVal));
@@ -683,7 +682,7 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
 
     @Test
     public void testInsertMultipleDefaults() {
-        // F221: Explicit defaults
+        // SQL Standard 2016 feature F221 - Explicit defaults
         sql("CREATE TABLE integers(i INTEGER PRIMARY KEY, col1 INTEGER DEFAULT 200, col2 INTEGER DEFAULT 300)");
 
         sql("INSERT INTO integers (i) VALUES (0)");
@@ -712,7 +711,7 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
     @Test
     @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
     public void testInsertMultipleDefaultsWithImplicitPk() {
-        // F221: Explicit defaults
+        // SQL Standard 2016 feature F221 - Explicit defaults
         sql("CREATE TABLE integers(i INTEGER, j INTEGER DEFAULT 100)");
 
         sql("INSERT INTO integers VALUES (1, DEFAULT)");
