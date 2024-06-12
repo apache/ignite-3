@@ -35,25 +35,26 @@ import org.apache.ignite.internal.jdbc.JdbcConnection;
 /**
  * JDBC driver implementation for Apache Ignite 3.x.
  *
- * <p>Driver allows to get distributed data from Ignite 3 Data Storage using standard SQL queries and standard JDBC API.</p>
+ * Driver allows to get distributed data from Ignite 3 Data Storage using standard SQL queries and standard JDBC API.
  * <h2>Register the JDBC drivers</h2>
- * <p>
- * The JDBC driver registration is automatically done via the Java Standard Edition Service Provider mechanism.
+ *
+ * <p>The JDBC driver registration is automatically done via the Java Standard Edition Service Provider mechanism.
  * Ignite JDBC driver implements this feature and it is automatically registered for case the JDBC driver jar presents in classpath.
- * </p>
+ *
  * <h2>URL Format</h2>
- * <p>
- * The JDBC Driver supports the following URL formats to establish a connection with an Ignite 3 Database.
- * </p>
- * jdbc:ignite:thin://host[:port][,host[:port][/schema][[?parameter1=value1][&amp;parameter2=value2],...]]
- * <p> or </p>
- * jdbc:ignite:thin://host[:port][,host[:port][/schema][[?parameter1=value1][;parameter2=value2],...]]
- * <p>
- * URL can have an optional list of name-value pairs as parameters after the '<B>?</B>' delimiter.
+ *
+ * <p>The JDBC Driver supports the following URL formats to establish a connection with an Ignite 3 Database:
+ * <ul>
+ *     <li>{@code jdbc:ignite:thin://host[:port][,host[:port][/schema][[?parameter1=value1][&parameter2=value2],...]]}</li>
+ *     <li>{@code jdbc:ignite:thin://host[:port][,host[:port][/schema][[?parameter1=value1][;parameter2=value2],...]]}</li>
+ * </ul>
+ * host, port - network address of database. IPV4 and IPV6 supports both.
+ * <br>schema - define schema used by default on the connection.
+ * <br>URL can have an optional list of name-value pairs as parameters after the '<B>?</B>' delimiter.
  * Name and value are separated by an '<B>=</B>' and multiple properties are separated either by an '<B>&amp;</B>' or a '<B>;</B>'.
- * Separate sign can't be mixed and should be either semicolon or ampersand sign.
- * </p>
- *   <br>
+ * <br>Separate sign can't be mixed and should be either semicolon or ampersand sign.
+ *
+ * <br>
  * <table border="1" >
  *     <caption><b>The list of supported name value pairs:</b></caption>
  *   <tr>
@@ -61,16 +62,22 @@ import org.apache.ignite.internal.jdbc.JdbcConnection;
  *      <th>Description</th>
  *   </tr>
  *   <tr>
- *      <td>schema</td>
- *      <td>Specifies default schema name.</td>
+ *      <th colspan="2">Common properties</th>
+ *   </tr>
+ *   <tr>
+ *     <td>connectionTimeZone</td>
+ *     <td>Client connection time-zone ID. Affects the interpretation of dates in queries without specifying a time zone.</td>
  *   </tr>
  *   <tr>
  *      <td>queryTimeout</td>
  *      <td>Number of seconds the driver will wait for a <code>Statement</code> object to execute. Zero means there is no limits.</td>
  *   </tr>
  *   <tr>
+ *      <th colspan="2">Connection properties</th>
+ *   </tr>
+ *   <tr>
  *      <td>connectionTimeout</td>
- *      <td>Number of milliseconds JDBC client will waits for server to response. Zero means there is no limits."</td>
+ *      <td>Number of milliseconds JDBC client will waits for server to response. Zero means there is no limits.</td>
  *   </tr>
  *   <tr>
  *      <td>reconnectThrottlingPeriod</td>
@@ -79,6 +86,24 @@ import org.apache.ignite.internal.jdbc.JdbcConnection;
  *   <tr>
  *      <td>reconnectThrottlingRetries</td>
  *      <td>Sets the reconnect throttling retries. Zero means there is no limits.</td>
+ *   </tr>
+ *   <tr>
+ *       <th colspan="2">Basic authentication</th>
+ *   </tr>
+ *   <tr>
+ *      <td>username</td>
+ *      <td>Username to login by basic authentication.</td>
+ *   </tr>
+ *   <tr>
+ *      <td>password</td>
+ *      <td>Password to login by basic authentication.</td>
+ *   </tr>
+ *   <tr>
+ *       <th colspan="2">SSL security</th>
+ *   </tr>
+ *   <tr>
+ *      <td>sslEnabled</td>
+ *      <td>Enable ssl. Below security properties applies only only if it enabled.</td>
  *   </tr>
  *   <tr>
  *      <td>trustStorePath</td>
@@ -104,29 +129,11 @@ import org.apache.ignite.internal.jdbc.JdbcConnection;
  *      <td>ciphers</td>
  *      <td>SSL ciphers.</td>
  *   </tr>
- *   <tr>
- *      <td>sslEnabled</td>
- *      <td>Enable ssl.</td>
- *   </tr>
- *   <tr>
- *      <td>username</td>
- *      <td>Username.</td>
- *   </tr>
- *   <tr>
- *      <td>password</td>
- *      <td>Password.</td>
- *   </tr>
- *   <tr>
- *      <td>connectionTimeZone</td>
- *      <td>Client connection time-zone ID.</td>
- *   </tr>
  *  </table>
- * <p> As example: </p>
- * <b>jdbc:ignite:thin://192.168.1.1:10800/public?connectionTimeout=1000&amp;sslEnabled=false?connectionTimeZone=GMT+1</b>
- * <p>
- * The driver follows the following precedence (high priority goes first) for parameter value resolution: API arguments (if it available on
- * <code>Connection</code> object), last instance in the connection string, properties object passed during connection.
- * </p>
+ * <br>The driver follows the following precedence (high priority goes first) for parameter value resolution: API arguments (if it available on
+ *  <code>Connection</code> object), last instance in the connection string, properties object passed during connection.
+ * <br>As example:
+ * <br><b>jdbc:ignite:thin://192.168.1.1:10800/public?connectionTimeout=1000&amp;username=root;password=qwerty?connectionTimeZone=GMT+1</b>
  */
 @AutoService(Driver.class)
 public class IgniteJdbcDriver implements Driver {
