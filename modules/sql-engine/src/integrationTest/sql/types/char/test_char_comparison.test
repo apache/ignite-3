@@ -4,10 +4,19 @@
 
 # Literal have type char(n), that's why trailing whitespace is ignored
 
-query TT
-SELECT 'a'::char(1) < 'a'::char(2), 'a'::char(2) > 'a'::char(1) 
+# https://issues.apache.org/jira/browse/IGNITE-22472
+skipif ignite3
+query T
+SELECT 'a'::char(1) < 'a'::char(2) 
 ----
-true	true
+false
+
+# https://issues.apache.org/jira/browse/IGNITE-22472
+skipif ignite3
+query T
+SELECT 'a'::char(2) > 'a'::char(1) 
+----
+false
 
 query TT
 SELECT 'a'::char(1) <= 'a'::char(2), 'a'::char(2) >= 'a'::char(1) 
@@ -34,10 +43,24 @@ SELECT 'b' > 'a', 'b' >= 'a', 'b' < 'a', 'b' != 'a'
 ----
 true	true	false	true
 
-query TTTT
-SELECT 'a ' > 'a', 'a ' >= 'a', 'a ' < 'a', 'a ' != 'a'
+# https://issues.apache.org/jira/browse/IGNITE-22472
+skipif ignite3
+query T
+'a ' > 'a'
 ----
-true	true	false	false
+false
+
+# https://issues.apache.org/jira/browse/IGNITE-22472
+skipif ignite3
+query T
+'a ' < 'a'
+----
+false
+
+query TT
+SELECT 'a ' >= 'a', 'a ' != 'a'
+----
+true	false
 
 query TTTT
 SELECT ' a' > 'a', ' a' >= 'a', ' a' < 'a', ' a' != 'a'
