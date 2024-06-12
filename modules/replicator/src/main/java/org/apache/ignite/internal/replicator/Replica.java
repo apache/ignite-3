@@ -292,7 +292,9 @@ public class Replica {
     private CompletableFuture<Void> waitForActualState(long expirationTime) {
         LOG.info("Waiting for actual storage state, group=" + groupId());
 
-        replicaManager.reserveReplica(groupId());
+        if (!replicaManager.reserveReplica(groupId())) {
+            throw new IllegalStateException("Replica reservation failed [groupId=" + groupId() + "].");
+        }
 
         long timeout = expirationTime - currentTimeMillis();
         if (timeout <= 0) {

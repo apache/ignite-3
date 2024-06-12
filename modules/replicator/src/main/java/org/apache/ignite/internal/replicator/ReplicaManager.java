@@ -1058,9 +1058,10 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * Reserve replica as primary.
      *
      * @param groupId Group id.
+     * @return Whether the replica was successfully reserved.
      */
-    void reserveReplica(ReplicationGroupId groupId) {
-        replicaLifecycle.reserveReplica(groupId);
+    boolean reserveReplica(ReplicationGroupId groupId) {
+        return replicaLifecycle.reserveReplica(groupId);
     }
 
     /**
@@ -1308,14 +1309,25 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             return context.previousOperationFuture.thenApply(v -> null);
         }
 
-        void reserveReplica(ReplicationGroupId groupId) {
+        boolean reserveReplica(ReplicationGroupId groupId) {
             ReplicaLifecycleContext context = getContext(groupId);
 
             synchronized (context) {
-                assert context.replicaState != ReplicaState.STOPPED : "Unexpected primary replica state STOPPED on reservation [groupId="
-                        + groupId + "].";
+                ReplicaState state = context.replicaState;
 
-                context.reservedForPrimary = true;
+                if (state == ReplicaState.STOPPING || state == ReplicaState.STOPPED) {
+                    if (state == ReplicaState.STOPPED) {
+                        replicaContexts.remove(groupId);
+                    }
+
+                    if (context.reservedForPrimary) {
+                        throw new AssertionError("Unexpected replica reservation with " + state + " state [groupId=" + groupId + "].");
+                    }
+                } else {
+                    context.reservedForPrimary = true;
+                }
+
+                return context.reservedForPrimary;
             }
         }
 
