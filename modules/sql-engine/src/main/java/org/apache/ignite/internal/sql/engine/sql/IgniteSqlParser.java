@@ -23,16 +23,24 @@ import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_PARSE_ERR;
 import java.io.Reader;
 import java.util.List;
 import org.apache.calcite.config.Lex;
+import org.apache.calcite.sql.SqlBasicTypeNameSpec;
+import org.apache.calcite.sql.SqlCall;
+import org.apache.calcite.sql.SqlDataTypeSpec;
 import org.apache.calcite.sql.SqlDelete;
+import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlMerge;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
+import org.apache.calcite.sql.SqlTypeNameSpec;
 import org.apache.calcite.sql.SqlUpdate;
 import org.apache.calcite.sql.parser.SqlAbstractParserImpl;
 import org.apache.calcite.sql.parser.SqlParseException;
 import org.apache.calcite.sql.parser.SqlParser;
 import org.apache.calcite.sql.parser.SqlParserImplFactory;
+import org.apache.calcite.sql.parser.SqlParserPos;
+import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.calcite.sql.util.SqlShuttle;
 import org.apache.calcite.util.SourceStringReader;
 import org.apache.ignite.internal.generated.query.calcite.sql.IgniteSqlParserImpl;
 import org.apache.ignite.internal.generated.query.calcite.sql.IgniteSqlParserImplConstants;
@@ -41,6 +49,7 @@ import org.apache.ignite.internal.generated.query.calcite.sql.Token;
 import org.apache.ignite.internal.generated.query.calcite.sql.TokenMgrError;
 import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.sql.SqlException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Provides method for parsing SQL statements in SQL dialect of Apache Ignite 3.
@@ -101,8 +110,11 @@ public final class IgniteSqlParser  {
 
             List<SqlNode> list = nodeList.getList();
 
+            ReplaceCastsToChar replacer = new ReplaceCastsToChar();
+            
             for (int i = 0; i < list.size(); i++) {
                 SqlNode original = list.get(i);
+                original = original.accept(replacer);
                 SqlNode node = fixNodesIfNecessary(original);
                 list.set(i, node);
             }
@@ -271,6 +283,56 @@ public final class IgniteSqlParser  {
             return new IgniteSqlMerge((SqlMerge) node);
         } else {
             return node;
+        }
+    }
+    
+    // Replaces explicit casts to CHAR/CHAR(n) with casts to VARCHAR/VARCHAR(n).
+    private static class ReplaceCastsToChar extends SqlShuttle {
+        
+        private static final SqlIdentifier CHAR_TYPE_NAME = new SqlIdentifier(SqlTypeName.CHAR.name(), SqlParserPos.ZERO);
+        
+        @Override 
+        public @Nullable SqlNode visit(SqlCall call) {
+            if (call.getOperator().getKind() == SqlKind.CAST && call.operandCount() >= 2) {
+                if (call.operand(1) instanceof SqlDataTypeSpec) {
+                    convertCharToVarcharIfNecessary(call);
+                }
+            }
+
+            return super.visit(call);
+        }
+
+        private static void convertCharToVarcharIfNecessary(SqlCall call) {
+            SqlDataTypeSpec dataTypeSpec = call.operand(1);
+            SqlTypeNameSpec typeNameSpec = dataTypeSpec.getTypeNameSpec();
+
+            if (!(typeNameSpec instanceof SqlBasicTypeNameSpec)) {
+                return;
+            }
+            
+            if (!CHAR_TYPE_NAME.names.equals(typeNameSpec.getTypeName().names)) {
+                return;
+            }
+            
+            SqlBasicTypeNameSpec sqlTypeNameSpec = (SqlBasicTypeNameSpec) typeNameSpec;
+            int precision = sqlTypeNameSpec.getPrecision();
+                    
+            SqlBasicTypeNameSpec varcharTypeNameSpec = new SqlBasicTypeNameSpec(
+                    SqlTypeName.VARCHAR,
+                    precision,
+                    -1, 
+                    null,
+                    sqlTypeNameSpec.getParserPos()
+            );
+
+            SqlDataTypeSpec varcharDataTypeSpec = new SqlDataTypeSpec(
+                    varcharTypeNameSpec, 
+                    null, 
+                    dataTypeSpec.getNullable(),
+                    dataTypeSpec.getParserPosition()
+            );
+            
+            call.setOperand(1, varcharDataTypeSpec);
         }
     }
 }
