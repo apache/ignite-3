@@ -171,7 +171,12 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
                 var nodeId = i % 3 + 1;
                 var nodeName = "s" + nodeId;
 
-                CompletableFuture<String> fut = client.compute().executeAsync(getClusterNodes(nodeName), List.of(), "job");
+                IgniteCompute igniteCompute = client.compute();
+                Set<ClusterNode> nodes = getClusterNodes(nodeName);
+                CompletableFuture<String> fut = igniteCompute.executeAsync(nodes, JobDescriptor.builder()
+                        .jobClassName("job")
+                        .units(List.of())
+                        .build(), new Object[]{});
 
                 assertThat(fut, willBe("s3"));
             }

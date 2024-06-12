@@ -40,6 +40,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.DeploymentUnit;
+import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.compute.JobStatus;
@@ -110,7 +111,10 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
         respondWhenExecutingSimpleJobLocally(ExecutionOptions.DEFAULT);
 
         assertThat(
-                compute.executeAsync(singleton(localNode), testDeploymentUnits, JOB_CLASS_NAME, "a", 42),
+                compute.executeAsync(singleton(localNode), JobDescriptor.builder()
+                        .jobClassName(JOB_CLASS_NAME)
+                        .units(testDeploymentUnits)
+                        .build(), new Object[]{"a", 42}),
                 willBe("jobResponse")
         );
 
@@ -122,7 +126,10 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
         respondWhenExecutingSimpleJobRemotely(ExecutionOptions.DEFAULT);
 
         assertThat(
-                compute.executeAsync(singleton(remoteNode), testDeploymentUnits, JOB_CLASS_NAME, "a", 42),
+                compute.executeAsync(singleton(remoteNode), JobDescriptor.builder()
+                        .jobClassName(JOB_CLASS_NAME)
+                        .units(testDeploymentUnits)
+                        .build(), new Object[]{"a", 42}),
                 willBe("remoteResponse")
         );
 
@@ -136,7 +143,11 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
 
         JobExecutionOptions options = JobExecutionOptions.builder().priority(1).maxRetries(2).build();
         assertThat(
-                compute.executeAsync(singleton(localNode), testDeploymentUnits, JOB_CLASS_NAME, options, "a", 42),
+                compute.executeAsync(singleton(localNode), JobDescriptor.builder()
+                        .jobClassName(JOB_CLASS_NAME)
+                        .units(testDeploymentUnits)
+                        .options(options)
+                        .build(), new Object[]{"a", 42}),
                 willBe("jobResponse")
         );
 
@@ -151,7 +162,11 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
         JobExecutionOptions options = JobExecutionOptions.builder().priority(1).maxRetries(2).build();
 
         assertThat(
-                compute.executeAsync(singleton(remoteNode), testDeploymentUnits, JOB_CLASS_NAME, options, "a", 42),
+                compute.executeAsync(singleton(remoteNode), JobDescriptor.builder()
+                        .jobClassName(JOB_CLASS_NAME)
+                        .units(testDeploymentUnits)
+                        .options(options)
+                        .build(), new Object[]{"a", 42}),
                 willBe("remoteResponse")
         );
 

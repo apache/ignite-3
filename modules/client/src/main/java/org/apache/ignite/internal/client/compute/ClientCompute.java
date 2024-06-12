@@ -21,7 +21,6 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Client.TABLE_ID_NOT_FOUND_ERR;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -101,16 +100,9 @@ public class ClientCompute implements IgniteCompute {
                 executeOnNodesAsync(nodes, descriptor.units(), descriptor.jobClassName(), descriptor.options(), args));
     }
 
-    /** {@inheritDoc} */
     @Override
-    public <R> R execute(
-            Set<ClusterNode> nodes,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
-            Object... args
-    ) {
-        return sync(executeAsync(nodes, units, jobClassName, options, args));
+    public <R> R execute(Set<ClusterNode> nodes, JobDescriptor descriptor, Object... args) {
+        return sync(this.executeAsync(nodes, descriptor, args));
     }
 
     /** {@inheritDoc} */

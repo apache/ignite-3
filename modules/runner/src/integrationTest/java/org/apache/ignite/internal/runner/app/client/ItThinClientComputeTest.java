@@ -675,10 +675,15 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     void testExecuteOnUnknownUnitWithLatestVersionThrows() {
         CompletionException ex = assertThrows(
                 CompletionException.class,
-                () -> client().compute().executeAsync(
-                        Set.of(node(0)),
-                        List.of(new DeploymentUnit("u", "latest")),
-                        NodeNameJob.class.getName()).join());
+                () -> {
+                    IgniteCompute igniteCompute = client().compute();
+                    Set<ClusterNode> nodes = Set.of(node(0));
+                    List<DeploymentUnit> units = List.of(new DeploymentUnit("u", "latest"));
+                    igniteCompute.executeAsync(nodes, JobDescriptor.builder()
+                            .jobClassName(NodeNameJob.class.getName())
+                            .units(units)
+                            .build()).join();
+                });
 
         var cause = (IgniteException) ex.getCause();
         assertThat(cause.getMessage(), containsString("Deployment unit u:latest doesn't exist"));
@@ -709,8 +714,12 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         Builder builder = IgniteClient.builder().addresses(getClientAddresses().toArray(new String[0]));
         try (IgniteClient client = builder.build()) {
             int delayMs = 3000;
-            CompletableFuture<String> jobFut = client.compute().executeAsync(
-                    Set.of(node(0)), List.of(), SleepJob.class.getName(), delayMs);
+            IgniteCompute igniteCompute = client.compute();
+            Set<ClusterNode> nodes = Set.of(node(0));
+            CompletableFuture<String> jobFut = igniteCompute.executeAsync(nodes, JobDescriptor.builder()
+                    .jobClassName(SleepJob.class.getName())
+                    .units(List.of())
+                    .build(), new Object[]{delayMs});
 
             // Wait a bit and close the connection.
             Thread.sleep(10);

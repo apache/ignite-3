@@ -142,15 +142,10 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
     }
 
     @Override
-    public <R> R execute(
-            Set<ClusterNode> nodes,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
-            Object... args
-    ) {
-        return sync(executeAsync(nodes, units, jobClassName, options, args));
+    public <R> R execute(Set<ClusterNode> nodes, JobDescriptor descriptor, Object... args) {
+        return sync(this.executeAsync(nodes, descriptor, args));
     }
+
 
     private static ClusterNode randomNode(Set<ClusterNode> nodes) {
         int nodesToSkip = ThreadLocalRandom.current().nextInt(nodes.size());

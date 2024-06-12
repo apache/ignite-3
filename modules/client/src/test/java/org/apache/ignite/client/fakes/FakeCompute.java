@@ -41,6 +41,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.compute.JobState;
@@ -138,7 +139,11 @@ public class FakeCompute implements IgniteComputeInternal {
             JobExecutionOptions options,
             Object... args
     ) {
-        return sync(executeAsync(nodes, units, jobClassName, options, args));
+        return sync(this.executeAsync(nodes, JobDescriptor.builder()
+                .jobClassName(jobClassName)
+                .units(units)
+                .options(options)
+                .build(), args));
     }
 
     @Override

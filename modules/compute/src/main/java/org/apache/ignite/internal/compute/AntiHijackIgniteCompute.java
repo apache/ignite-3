@@ -64,14 +64,8 @@ public class AntiHijackIgniteCompute implements IgniteCompute, Wrapper {
     }
 
     @Override
-    public <R> R execute(
-            Set<ClusterNode> nodes,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
-            Object... args
-    ) {
-        return compute.execute(nodes, units, jobClassName, options, args);
+    public <R> R execute(Set<ClusterNode> nodes, JobDescriptor descriptor, Object... args) {
+        return compute.execute(nodes, descriptor, args);
     }
 
     @Override

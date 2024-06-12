@@ -75,53 +75,20 @@ public interface IgniteCompute {
     }
 
     /**
-     * Submits a {@link ComputeJob} of the given class for an execution on a single node from a set of candidate nodes. A shortcut for
-     * {@code submit(...).resultAsync()}.
+     * Executes a {@link ComputeJob} of the given class on a single node from a set of candidate nodes.
      *
-     * @param <R> Job result type.
+     * @param <R> Job result type
      * @param nodes Candidate nodes; the job will be executed on one of them.
-     * @param units Deployment units. Can be empty.
-     * @param jobClassName Name of the job class to execute.
-     * @param options Job execution options (priority, max retries).
+     * @param descriptor Job descriptor.
      * @param args Arguments of the job.
-     * @return Job result future.
+     * @return Job result.
+     * @throws ComputeException If there is any problem executing the job.
      */
-    default <R> CompletableFuture<R> executeAsync(
+    <R> R execute(
             Set<ClusterNode> nodes,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
+            JobDescriptor descriptor,
             Object... args
-    ) {
-        return this.executeAsync(nodes, JobDescriptor.builder()
-                .jobClassName(jobClassName)
-                .units(units)
-                .options(options)
-                .build(), args);
-    }
-
-    /**
-     * Submits a {@link ComputeJob} of the given class for an execution on a single node from a set of candidate nodes
-     * with default execution options {@link JobExecutionOptions#DEFAULT}. A shortcut for {@code submit(...).resultAsync()}.
-     *
-     * @param nodes Candidate nodes; the job will be executed on one of them.
-     * @param units Deployment units. Can be empty.
-     * @param jobClassName Name of the job class to execute.
-     * @param args Arguments of the job.
-     * @param <R> Job result type.
-     * @return Job result future.
-     */
-    default <R> CompletableFuture<R> executeAsync(
-            Set<ClusterNode> nodes,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            Object... args
-    ) {
-        return this.executeAsync(nodes, JobDescriptor.builder()
-                .jobClassName(jobClassName)
-                .units(units)
-                .build(), args);
-    }
+    );
 
     /**
      * Executes a {@link ComputeJob} of the given class on a single node from a set of candidate nodes.
@@ -135,13 +102,19 @@ public interface IgniteCompute {
      * @return Job result.
      * @throws ComputeException If there is any problem executing the job.
      */
-    <R> R execute(
+    default <R> R execute(
             Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
             Object... args
-    );
+    ) {
+        return execute(nodes, JobDescriptor.builder()
+                .jobClassName(jobClassName)
+                .units(units)
+                .options(options)
+                .build(), args);
+    }
 
     /**
      * Executes a {@link ComputeJob} of the given class on a single node from a set of candidate nodes
@@ -505,7 +478,11 @@ public interface IgniteCompute {
             Object... args
     ) {
         Map<ClusterNode, CompletableFuture<R>> futures = nodes.stream()
-                .collect(toMap(identity(), node -> executeAsync(Set.of(node), units, jobClassName, options, args)));
+                .collect(toMap(identity(), node -> this.executeAsync(Set.of(node), JobDescriptor.builder()
+                        .jobClassName(jobClassName)
+                        .units(units)
+                        .options(options)
+                        .build(), args)));
 
         return allOf(futures.values().toArray(CompletableFuture[]::new))
                 .thenApply(ignored -> {

@@ -97,9 +97,16 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     void executesWrongJobClassLocallyAsync(String jobClassName, int errorCode, String msg) {
         IgniteImpl entryNode = node(0);
 
-        ExecutionException ex = assertThrows(ExecutionException.class, () -> entryNode.compute()
-                .executeAsync(Set.of(entryNode.node()), units(), jobClassName)
-                .get(1, TimeUnit.SECONDS));
+        ExecutionException ex = assertThrows(ExecutionException.class, () -> {
+            IgniteCompute igniteCompute = entryNode.compute();
+            Set<ClusterNode> nodes = Set.of(entryNode.node());
+            List<DeploymentUnit> units = units();
+            igniteCompute.executeAsync(nodes, JobDescriptor.builder()
+                            .jobClassName(jobClassName)
+                            .units(units)
+                            .build())
+                    .get(1, TimeUnit.SECONDS);
+        });
 
         assertTraceableException(ex, ComputeException.class, errorCode, msg);
     }
@@ -120,9 +127,16 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     void executesWrongJobClassOnRemoteNodesAsync(String jobClassName, int errorCode, String msg) {
         Ignite entryNode = node(0);
 
-        ExecutionException ex = assertThrows(ExecutionException.class, () -> entryNode.compute()
-                .executeAsync(Set.of(node(1).node(), node(2).node()), units(), jobClassName)
-                .get(1, TimeUnit.SECONDS));
+        ExecutionException ex = assertThrows(ExecutionException.class, () -> {
+            IgniteCompute igniteCompute = entryNode.compute();
+            Set<ClusterNode> nodes = Set.of(node(1).node(), node(2).node());
+            List<DeploymentUnit> units = units();
+            igniteCompute.executeAsync(nodes, JobDescriptor.builder()
+                            .jobClassName(jobClassName)
+                            .units(units)
+                            .build())
+                    .get(1, TimeUnit.SECONDS);
+        });
 
         assertTraceableException(ex, ComputeException.class, errorCode, msg);
     }
@@ -187,7 +201,13 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     void localExecutionActuallyUsesLocalNode() {
         IgniteImpl entryNode = node(0);
 
-        CompletableFuture<String> fut = entryNode.compute().executeAsync(Set.of(entryNode.node()), units(), getNodeNameJobClassName());
+        IgniteCompute igniteCompute = entryNode.compute();
+        Set<ClusterNode> nodes = Set.of(entryNode.node());
+        List<DeploymentUnit> units = units();
+        CompletableFuture<String> fut = igniteCompute.executeAsync(nodes, JobDescriptor.builder()
+                .jobClassName(getNodeNameJobClassName())
+                .units(units)
+                .build(), new Object[]{});
 
         assertThat(fut, willBe(entryNode.name()));
     }
@@ -197,7 +217,13 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
         IgniteImpl entryNode = node(0);
         IgniteImpl remoteNode = node(1);
 
-        CompletableFuture<String> fut = entryNode.compute().executeAsync(Set.of(remoteNode.node()), units(), getNodeNameJobClassName());
+        IgniteCompute igniteCompute = entryNode.compute();
+        Set<ClusterNode> nodes = Set.of(remoteNode.node());
+        List<DeploymentUnit> units = units();
+        CompletableFuture<String> fut = igniteCompute.executeAsync(nodes, JobDescriptor.builder()
+                .jobClassName(getNodeNameJobClassName())
+                .units(units)
+                .build(), new Object[]{});
 
         assertThat(fut, willBe(remoteNode.name()));
     }
