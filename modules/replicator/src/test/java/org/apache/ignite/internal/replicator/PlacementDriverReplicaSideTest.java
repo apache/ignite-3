@@ -378,7 +378,7 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
         CompletableFuture<LeaseGrantedMessageResponse> respFutForce = sendLeaseGranted(hts(leaseStartTime), hts(leaseStartTime + 10), true);
         assertThat(respFutForce, willSucceedIn(5, TimeUnit.SECONDS));
         LeaseGrantedMessageResponse respForce = respFutForce.join();
-        // Force lease grand should also fail because of exception on replica side.
+        // Force lease grant should also fail because of exception on replica side.
         assertFalse(respForce.accepted());
     }
 }
