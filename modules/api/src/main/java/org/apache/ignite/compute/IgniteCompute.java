@@ -22,6 +22,7 @@ import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.compute.JobExecutionOptions.DEFAULT;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -51,11 +52,32 @@ public interface IgniteCompute {
      * @param args Arguments of the job.
      * @return Job execution object.
      */
-    <R> JobExecution<R> submit(
+    default <R> JobExecution<R> submit(
             Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
+            Object... args
+    ) {
+        return submit(nodes, JobDescriptor.builder()
+                .jobClassName(jobClassName)
+                .units(units)
+                .options(options)
+                .build(), args);
+    }
+
+    /**
+     * Submits a {@link ComputeJob} of the given class for an execution on a single node from a set of candidate nodes.
+     *
+     * @param <R> Job result type.
+     * @param nodes Candidate nodes; the job will be executed on one of them.
+     * @param descriptor Job descriptor.
+     * @param args Arguments of the job.
+     * @return Job execution object.
+     */
+    <R> JobExecution<R> submit(
+            Set<ClusterNode> nodes,
+            JobDescriptor descriptor,
             Object... args
     );
 

@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Client.TABLE_ID_NOT_FOUND_ERR;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -37,6 +38,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.compute.TaskExecution;
@@ -85,24 +87,18 @@ public class ClientCompute implements IgniteCompute {
         this.tables = tables;
     }
 
-    /** {@inheritDoc} */
     @Override
-    public <R> JobExecution<R> submit(
-            Set<ClusterNode> nodes,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
-            Object... args) {
-        Objects.requireNonNull(options);
+    public <R> JobExecution<R> submit(Set<ClusterNode> nodes, JobDescriptor descriptor, Object... args) {
         Objects.requireNonNull(nodes);
-        Objects.requireNonNull(units);
-        Objects.requireNonNull(jobClassName);
+        Objects.requireNonNull(descriptor);
 
         if (nodes.isEmpty()) {
             throw new IllegalArgumentException("nodes must not be empty.");
         }
 
-        return new ClientJobExecution<>(ch, executeOnNodesAsync(nodes, units, jobClassName, options, args));
+        return new ClientJobExecution<>(
+                ch,
+                executeOnNodesAsync(nodes, descriptor.units(), descriptor.jobClassName(), descriptor.options(), args));
     }
 
     /** {@inheritDoc} */

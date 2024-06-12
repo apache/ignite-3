@@ -26,6 +26,7 @@ import java.util.Set;
 import java.util.concurrent.Executor;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.compute.TaskExecution;
@@ -51,14 +52,8 @@ public class AntiHijackIgniteCompute implements IgniteCompute, Wrapper {
     }
 
     @Override
-    public <R> JobExecution<R> submit(
-            Set<ClusterNode> nodes,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
-            Object... args
-    ) {
-        return preventThreadHijack(compute.submit(nodes, units, jobClassName, options, args));
+    public <R> JobExecution<R> submit(Set<ClusterNode> nodes, JobDescriptor descriptor, Object... args) {
+        return preventThreadHijack(compute.submit(nodes, descriptor.units(), descriptor.jobClassName(), descriptor.options(), args));
     }
 
     @Override

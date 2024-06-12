@@ -17,17 +17,17 @@
 
 package org.apache.ignite.compute;
 
-import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 
 public class JobDescriptor {
     private final String jobClassName;
 
-    private final Collection<DeploymentUnit> units;
+    private final List<DeploymentUnit> units;
 
     private final JobExecutionOptions options;
 
-    private JobDescriptor(String jobClassName, Collection<DeploymentUnit> units, JobExecutionOptions options) {
+    private JobDescriptor(String jobClassName, List<DeploymentUnit> units, JobExecutionOptions options) {
         this.jobClassName = jobClassName;
         this.units = units;
         this.options = options;
@@ -37,7 +37,7 @@ public class JobDescriptor {
         return jobClassName;
     }
 
-    public Collection<DeploymentUnit> units() {
+    public List<DeploymentUnit> units() {
         return units;
     }
 
@@ -51,7 +51,7 @@ public class JobDescriptor {
 
     public static class Builder {
         private String jobClassName;
-        private Collection<DeploymentUnit> units;
+        private List<DeploymentUnit> units;
         private JobExecutionOptions options;
 
         public Builder jobClassName(String jobClassName) {
@@ -64,7 +64,7 @@ public class JobDescriptor {
             return this;
         }
 
-        public Builder units(Collection<DeploymentUnit> units) {
+        public Builder units(List<DeploymentUnit> units) {
             this.units = units;
             return this;
         }
@@ -80,7 +80,12 @@ public class JobDescriptor {
         }
 
         public JobDescriptor build() {
-            return new JobDescriptor(jobClassName, units, options);
+            Objects.requireNonNull(jobClassName, "Job class name must be set");
+
+            return new JobDescriptor(
+                    jobClassName,
+                    units == null ? List.of() : units,
+                    options == null ? JobExecutionOptions.DEFAULT : options);
         }
     }
 }
