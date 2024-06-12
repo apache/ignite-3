@@ -83,6 +83,8 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
 
     private int countOfTimeoutExceptionsOnReadIndexToThrow = 0;
 
+    private boolean reservationSuccess = true;
+
     private final ExecutorService executor = Executors.newSingleThreadExecutor(
             NamedThreadFactory.create("common", "replica", log)
     );
@@ -118,6 +120,10 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
         var listener = mock(ReplicaListener.class);
         when(listener.raftClient()).thenReturn(raftClient);
 
+        ReplicaManager replicaManager = mock(ReplicaManager.class);
+
+        when(replicaManager.reserveReplica(any())).thenAnswer(inv -> reservationSuccess);
+
         return new Replica(
                 GRP_ID,
                 listener,
@@ -126,7 +132,7 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
                 executor,
                 new TestPlacementDriver(LOCAL_NODE),
                 new TestClockService(new HybridClockImpl()),
-                mock(ReplicaManager.class)
+                replicaManager
         );
     }
 
@@ -355,5 +361,24 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
         // Actually, it completes faster because TimeoutException is thrown from mock instantly.
         assertThat(respFut0, willSucceedIn(5, TimeUnit.SECONDS));
         assertEquals(0, countOfTimeoutExceptionsOnReadIndexToThrow);
+    }
+
+    @Test
+    public void testReservationFailed() {
+        reservationSuccess = false;
+
+        long leaseStartTime = 10;
+        leaderElection(LOCAL_NODE);
+
+        CompletableFuture<LeaseGrantedMessageResponse> respFut = sendLeaseGranted(hts(leaseStartTime), hts(leaseStartTime + 10), false);
+        assertThat(respFut, willSucceedIn(5, TimeUnit.SECONDS));
+        LeaseGrantedMessageResponse resp = respFut.join();
+        assertFalse(resp.accepted());
+
+        CompletableFuture<LeaseGrantedMessageResponse> respFutForce = sendLeaseGranted(hts(leaseStartTime), hts(leaseStartTime + 10), true);
+        assertThat(respFutForce, willSucceedIn(5, TimeUnit.SECONDS));
+        LeaseGrantedMessageResponse respForce = respFutForce.join();
+        // Force lease grand should also fail because of exception on replica side.
+        assertFalse(respForce.accepted());
     }
 }
