@@ -35,7 +35,7 @@ import org.apache.ignite.internal.jdbc.JdbcConnection;
 /**
  * JDBC driver implementation for Apache Ignite 3.x.
  *
- * Driver allows to get distributed data from Ignite 3 Data Storage using standard SQL queries and standard JDBC API.
+ * <p>Driver allows to get distributed data from Ignite 3 Data Storage using standard SQL queries and standard JDBC API.
  * <h2>Register the JDBC drivers</h2>
  *
  * <p>The JDBC driver registration is automatically done via the Java Standard Edition Service Provider mechanism.
@@ -44,17 +44,19 @@ import org.apache.ignite.internal.jdbc.JdbcConnection;
  * <h2>URL Format</h2>
  *
  * <p>The JDBC Driver supports the following URL formats to establish a connection with an Ignite 3 Database:
- * <ul>
+ * <ol>
  *     <li>{@code jdbc:ignite:thin://host[:port][,host[:port][/schema][[?parameter1=value1][&parameter2=value2],...]]}</li>
  *     <li>{@code jdbc:ignite:thin://host[:port][,host[:port][/schema][[?parameter1=value1][;parameter2=value2],...]]}</li>
+ * </ol>
+ * Where
+ * <ul>
+ *     <li>host, port - network address of database. IPV4 and IPV6 supports both.</li>
+ *     <li>schema - define schema used by default on the connection.</li>
+ *     <li>URL can have an optional list of name-value pairs as parameters after the '<B>?</B>' delimiter.
+ *          Name and value are separated by an '<B>=</B>' and multiple properties are separated either by an '<B>&amp;</B>' or a '<B>;</B>'.
+ *          <br>Separate sign can't be mixed and should be either semicolon or ampersand sign.</li>
  * </ul>
- * host, port - network address of database. IPV4 and IPV6 supports both.
- * <br>schema - define schema used by default on the connection.
- * <br>URL can have an optional list of name-value pairs as parameters after the '<B>?</B>' delimiter.
- * Name and value are separated by an '<B>=</B>' and multiple properties are separated either by an '<B>&amp;</B>' or a '<B>;</B>'.
- * <br>Separate sign can't be mixed and should be either semicolon or ampersand sign.
  *
- * <br>
  * <table border="1" >
  *     <caption><b>The list of supported name value pairs:</b></caption>
  *   <tr>
@@ -66,26 +68,32 @@ import org.apache.ignite.internal.jdbc.JdbcConnection;
  *   </tr>
  *   <tr>
  *     <td>connectionTimeZone</td>
- *     <td>Client connection time-zone ID. Affects the interpretation of dates in queries without specifying a time zone.</td>
+ *     <td>Client connection time-zone ID. This property can be used by the client to change the time zone of the "session" on the server.
+ *     Affects the interpretation of dates in queries without specifying a time zone.
+ *         <br>If not set then system default on client timezone will be used.</td>
  *   </tr>
  *   <tr>
  *      <td>queryTimeout</td>
- *      <td>Number of seconds the driver will wait for a <code>Statement</code> object to execute. Zero means there is no limits.</td>
+ *      <td>Number of seconds the driver will wait for a <code>Statement</code> object to execute. Zero means there is no limits.
+ *          <br>By default no any timeout.</td>
  *   </tr>
  *   <tr>
  *      <th colspan="2">Connection properties</th>
  *   </tr>
  *   <tr>
  *      <td>connectionTimeout</td>
- *      <td>Number of milliseconds JDBC client will waits for server to response. Zero means there is no limits.</td>
+ *      <td>Number of milliseconds JDBC client will waits for server to response. Zero means there is no limits.
+ *          <br>By default no any timeout.</td>
  *   </tr>
  *   <tr>
  *      <td>reconnectThrottlingPeriod</td>
- *      <td>Sets the reconnect throttling period, in milliseconds. Zero means there is no limits.</td>
+ *      <td>Sets the reconnect throttling period, in milliseconds. Zero means there is no limits.
+ *          <br>By default uses {@value org.apache.ignite.client.IgniteClientConfiguration#DFLT_RECONNECT_THROTTLING_PERIOD}.</td>
  *   </tr>
  *   <tr>
  *      <td>reconnectThrottlingRetries</td>
- *      <td>Sets the reconnect throttling retries. Zero means there is no limits.</td>
+ *      <td>Sets the reconnect throttling retries. Zero means there is no limits.
+ *          <br>By default uses {@value org.apache.ignite.client.IgniteClientConfiguration#DFLT_RECONNECT_THROTTLING_RETRIES}.</td>
  *   </tr>
  *   <tr>
  *       <th colspan="2">Basic authentication</th>
@@ -103,11 +111,16 @@ import org.apache.ignite.internal.jdbc.JdbcConnection;
  *   </tr>
  *   <tr>
  *      <td>sslEnabled</td>
- *      <td>Enable ssl. Below security properties applies only only if it enabled.</td>
+ *      <td>Enable ssl. Possible values:
+ *      <ul>
+ *          <li>true - enable SSL</li>
+ *          <li>false - disable SSL</li>
+ *      </ul>
+ *      <b>Below security properties applies only if it enabled.</b></td>
  *   </tr>
  *   <tr>
  *      <td>trustStorePath</td>
- *      <td>Path to trust store.</td>
+ *      <td>Path to trust store on client side.</td>
  *   </tr>
  *   <tr>
  *      <td>trustStorePassword</td>
@@ -115,7 +128,7 @@ import org.apache.ignite.internal.jdbc.JdbcConnection;
  *   </tr>
  *   <tr>
  *      <td>keyStorePath</td>
- *      <td>Path to key store.</td>
+ *      <td>Path to key store on client side.</td>
  *   </tr>
  *   <tr>
  *      <td>keyStorePassword</td>
@@ -123,17 +136,24 @@ import org.apache.ignite.internal.jdbc.JdbcConnection;
  *   </tr>
  *   <tr>
  *      <td>clientAuth</td>
- *      <td>SSL client authentication.</td>
+ *      <td>SSL client authentication. Supported values:
+ *          <ul>
+ *              <li>NONE - Indicates that the client authentication will not be requested.</li>
+ *              <li>OPTIONAL - Indicates that the client authentication will be requested.</li>
+ *              <li>REQUIRE - Indicates that the client authentication will be requested and the connection will be closed if
+ *          </ul>
+ *      </td>
  *   </tr>
  *   <tr>
  *      <td>ciphers</td>
- *      <td>SSL ciphers.</td>
+ *      <td>SSL ciphers list separated by comma '<b>,</b>'.</td>
  *   </tr>
  *  </table>
- * <br>The driver follows the following precedence (high priority goes first) for parameter value resolution: API arguments (if it available on
- *  <code>Connection</code> object), last instance in the connection string, properties object passed during connection.
+ * <br>The driver follows the following precedence (high priority goes first) for parameter value resolution: API arguments (if it available
+ * on <code>Connection</code> object), last instance in the connection string, properties object passed during connection.
  * <br>As example:
- * <br><b>jdbc:ignite:thin://192.168.1.1:10800/public?connectionTimeout=1000&amp;username=root;password=qwerty?connectionTimeZone=GMT+1</b>
+ * <br><b>jdbc:ignite:thin://192.168.1.1:10800/public?connectionTimeout=1000&amp;username=root&amp;password=pwd
+ * &amp;connectionTimeZone=GMT+1</b>
  */
 @AutoService(Driver.class)
 public class IgniteJdbcDriver implements Driver {
