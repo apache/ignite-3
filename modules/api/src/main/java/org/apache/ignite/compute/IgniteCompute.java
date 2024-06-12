@@ -62,6 +62,24 @@ public interface IgniteCompute {
      *
      * @param <R> Job result type.
      * @param nodes Candidate nodes; the job will be executed on one of them.
+     * @param descriptor Job descriptor.
+     * @param args Arguments of the job.
+     * @return Job result future.
+     */
+    default <R> CompletableFuture<R> executeAsync(
+            Set<ClusterNode> nodes,
+            JobDescriptor descriptor,
+            Object... args
+    ) {
+        return this.<R>submit(nodes, descriptor, args).resultAsync();
+    }
+
+    /**
+     * Submits a {@link ComputeJob} of the given class for an execution on a single node from a set of candidate nodes. A shortcut for
+     * {@code submit(...).resultAsync()}.
+     *
+     * @param <R> Job result type.
+     * @param nodes Candidate nodes; the job will be executed on one of them.
      * @param units Deployment units. Can be empty.
      * @param jobClassName Name of the job class to execute.
      * @param options Job execution options (priority, max retries).
@@ -75,11 +93,11 @@ public interface IgniteCompute {
             JobExecutionOptions options,
             Object... args
     ) {
-        return this.<R>submit(nodes, JobDescriptor.builder()
+        return this.executeAsync(nodes, JobDescriptor.builder()
                 .jobClassName(jobClassName)
                 .units(units)
                 .options(options)
-                .build(), args).resultAsync();
+                .build(), args);
     }
 
     /**
