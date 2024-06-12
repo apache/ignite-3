@@ -24,18 +24,6 @@ using namespace ignite;
 
 struct basic_authenticator_test : public basic_auth_test_suite {
     /**
-     * Set up.
-     */
-    static void SetUpTestSuite() {
-        // Make sure that
-        for (const auto &addr : ignite_runner::NODE_ADDRS) {
-            ignite_client_configuration cfg{addr};
-            cfg.set_logger(get_logger());
-            auto client = ignite_client::start(cfg, std::chrono::seconds(30));
-        }
-    }
-
-    /**
      * Tear down.
      */
     static void TearDownTestSuite() { set_authentication_enabled(false); }
