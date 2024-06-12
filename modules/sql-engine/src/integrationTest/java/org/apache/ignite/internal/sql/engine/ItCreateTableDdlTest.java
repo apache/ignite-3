@@ -219,6 +219,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
 
     @Test
     public void literalAsColumDefault() {
+        // // SQL Standard 2016 feature E141-07 - Basic integrity constraints. Column defaults
         sql("CREATE TABLE T0("
                 + "id BIGINT DEFAULT 1 PRIMARY KEY, "
                 + "valdate DATE DEFAULT DATE '2001-12-21',"
@@ -236,6 +237,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
     @Test
     @SuppressWarnings("ThrowableNotThrown")
     public void doNotAllowFunctionsInNonPkColumns() {
+        // // SQL Standard 2016 feature E141-07 - Basic integrity constraints. Column defaults
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
                 "Functional defaults are not supported for non-primary key columns",
