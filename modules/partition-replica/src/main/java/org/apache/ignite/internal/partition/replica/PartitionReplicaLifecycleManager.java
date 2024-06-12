@@ -43,7 +43,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.IntStream;
-import org.apache.ignite.internal.ZonePartitionReplica;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.affinity.Assignments;
@@ -71,6 +70,7 @@ import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionReplicaImpl;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteException;
@@ -257,7 +257,7 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
     }
 
     public CompletableFuture<Void> addTableReplica(ZonePartitionId zonePartitionId, TablePartitionId replicationGroupId, Replica replica) {
-        ((ZonePartitionReplica) getReplica(zonePartitionId)).addReplica(replicationGroupId, replica);
+        ((ZonePartitionReplicaImpl) getReplica(zonePartitionId)).addReplica(replicationGroupId, replica);
         return nullCompletedFuture();
 //        return zoneReplica.thenAccept(zr -> ((ZonePartitionReplica) zr).addReplica(replicationGroupId, replica));
     }

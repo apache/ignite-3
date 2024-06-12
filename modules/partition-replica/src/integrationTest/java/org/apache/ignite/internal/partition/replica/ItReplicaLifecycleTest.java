@@ -291,17 +291,33 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
         createZone(node, "test_zone", 1, 1);
         int zoneId = DistributionZonesTestUtil.getZoneId(node.catalogManager, "test_zone", node.hybridClock.nowLong());
 
-        createTable(node, "test_zone", "test_table");
-        int tableId = TableTestUtils.getTableId(node.catalogManager, "test_table", node.hybridClock.nowLong());
+        {
+            createTable(node, "test_zone", "test_table");
+            int tableId = TableTestUtils.getTableId(node.catalogManager, "test_table", node.hybridClock.nowLong());
 
-        node.converter.put(new TablePartitionId(tableId, 0), new ZonePartitionId(zoneId, 0));
+            node.converter.put(new TablePartitionId(tableId, 0), new ZonePartitionId(zoneId, 0));
 
-        KeyValueView<Long, Integer> keyValueView = node.tableManager.table(tableId).keyValueView(Long.class, Integer.class);
+            KeyValueView<Long, Integer> keyValueView = node.tableManager.table(tableId).keyValueView(Long.class, Integer.class);
 
-        assertDoesNotThrow(() -> keyValueView.put(null, 1L, 100));
+            assertDoesNotThrow(() -> keyValueView.put(null, 1L, 100));
 
-        // Actually we are testing not the fair put value, but the hardcoded one from temporary noop replica listener
-        assertEquals(100, keyValueView.get(null, 1L));
+            // Actually we are testing not the fair put value, but the hardcoded one from temporary noop replica listener
+            assertEquals(100, keyValueView.get(null, 1L));
+        }
+
+        {
+            createTable(node, "test_zone", "test_table1");
+            int tableId = TableTestUtils.getTableId(node.catalogManager, "test_table1", node.hybridClock.nowLong());
+
+            node.converter.put(new TablePartitionId(tableId, 0), new ZonePartitionId(zoneId, 0));
+
+            KeyValueView<Long, Integer> keyValueView = node.tableManager.table(tableId).keyValueView(Long.class, Integer.class);
+
+            assertDoesNotThrow(() -> keyValueView.put(null, 1L, 200));
+
+            // Actually we are testing not the fair put value, but the hardcoded one from temporary noop replica listener
+            assertEquals(200, keyValueView.get(null, 1L));
+        }
     }
 
     private Node getNode(int nodeIndex) {
