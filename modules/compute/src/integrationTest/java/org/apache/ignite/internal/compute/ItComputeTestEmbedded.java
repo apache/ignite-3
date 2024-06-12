@@ -48,6 +48,8 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.DeploymentUnit;
+import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.JobExecutionOptions;
@@ -189,9 +191,14 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
 
         // Start third task it should be before task2 in the queue due to higher priority in options
         JobExecutionOptions options = JobExecutionOptions.builder().priority(1).maxRetries(2).build();
-        JobExecution<String> execution3 = entryNode.compute()
-                .submit(Set.of(entryNode.node()), units(), WaitLatchThrowExceptionOnFirstExecutionJob.class.getName(),
-                        options, countDownLatch);
+        IgniteCompute igniteCompute = entryNode.compute();
+        Set<ClusterNode> nodes = Set.of(entryNode.node());
+        List<DeploymentUnit> units = units();
+        JobExecution<String> execution3 = igniteCompute.submit(nodes, JobDescriptor.builder()
+                .jobClassName(WaitLatchThrowExceptionOnFirstExecutionJob.class.getName())
+                .units(units)
+                .options(options)
+                .build(), new Object[]{countDownLatch});
         await().until(execution3::statusAsync, willBe(jobStatusWithState(JobState.QUEUED)));
 
         // Task 1 and 2 are not competed, in queue state

@@ -22,7 +22,6 @@ import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.compute.JobExecutionOptions.DEFAULT;
 
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -41,30 +40,6 @@ import org.apache.ignite.table.mapper.Mapper;
  * @see ComputeJob#execute(JobExecutionContext, Object...)
  */
 public interface IgniteCompute {
-    /**
-     * Submits a {@link ComputeJob} of the given class for an execution on a single node from a set of candidate nodes.
-     *
-     * @param <R> Job result type.
-     * @param nodes Candidate nodes; the job will be executed on one of them.
-     * @param units Deployment units. Can be empty.
-     * @param jobClassName Name of the job class to execute.
-     * @param options Job execution options (priority, max retries).
-     * @param args Arguments of the job.
-     * @return Job execution object.
-     */
-    default <R> JobExecution<R> submit(
-            Set<ClusterNode> nodes,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
-            Object... args
-    ) {
-        return submit(nodes, JobDescriptor.builder()
-                .jobClassName(jobClassName)
-                .units(units)
-                .options(options)
-                .build(), args);
-    }
 
     /**
      * Submits a {@link ComputeJob} of the given class for an execution on a single node from a set of candidate nodes.
@@ -98,7 +73,11 @@ public interface IgniteCompute {
             String jobClassName,
             Object... args
     ) {
-        return submit(nodes, units, jobClassName, DEFAULT, args);
+        return submit(nodes, JobDescriptor.builder()
+                .jobClassName(jobClassName)
+                .units(units)
+                .options(DEFAULT)
+                .build(), args);
     }
 
     /**
@@ -120,7 +99,11 @@ public interface IgniteCompute {
             JobExecutionOptions options,
             Object... args
     ) {
-        return this.<R>submit(nodes, units, jobClassName, options, args).resultAsync();
+        return this.<R>submit(nodes, JobDescriptor.builder()
+                .jobClassName(jobClassName)
+                .units(units)
+                .options(options)
+                .build(), args).resultAsync();
     }
 
     /**

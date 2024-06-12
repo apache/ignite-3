@@ -31,6 +31,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.JobExecutionOptions;
@@ -182,7 +183,14 @@ class ItComputeApiThreadingTest extends ClusterPerClassIntegrationTest {
 
     private enum ComputeSubmitOperation {
         SUBMIT(compute -> compute.submit(justNonEntryNode(), List.of(), NoOpJob.class.getName())),
-        SUBMIT_WITH_OPTIONS(compute -> compute.submit(justNonEntryNode(), List.of(), NoOpJob.class.getName(), JobExecutionOptions.DEFAULT)),
+        SUBMIT_WITH_OPTIONS(compute -> {
+            Set<ClusterNode> nodes = justNonEntryNode();
+            return compute.submit(nodes, JobDescriptor.builder()
+                    .jobClassName(NoOpJob.class.getName())
+                    .units(List.of())
+                    .options(JobExecutionOptions.DEFAULT)
+                    .build());
+        }),
         SUBMIT_COLOCATED_BY_TUPLE(compute -> compute.submitColocated(
                 TABLE_NAME, KEY_TUPLE, List.of(), NoOpJob.class.getName()
         )),

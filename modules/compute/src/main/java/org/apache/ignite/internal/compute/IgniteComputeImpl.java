@@ -367,7 +367,16 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
     }
 
     private JobExecution<Object> submitJob(ComputeJobRunner runner) {
-        return submit(runner.nodes(), runner.units(), runner.jobClassName(), runner.options(), runner.args());
+        Set<ClusterNode> nodes = runner.nodes();
+        List<DeploymentUnit> units = runner.units();
+        String jobClassName = runner.jobClassName();
+        JobExecutionOptions options = runner.options();
+        Object[] args = runner.args();
+        return submit(nodes, JobDescriptor.builder()
+                .jobClassName(jobClassName)
+                .units(units)
+                .options(options)
+                .build(), args);
     }
 
     @Override
