@@ -1493,7 +1493,7 @@ void application_data_buffer::get_decimal(big_decimal &val) const {
             big_decimal dec(reinterpret_cast<const int8_t *>(numeric->val), SQL_MAX_NUMERIC_LEN, numeric->scale,
                 numeric->sign ? 1 : -1, false);
 
-            val.swap(dec);
+            swap(val, dec);
 
             break;
         }

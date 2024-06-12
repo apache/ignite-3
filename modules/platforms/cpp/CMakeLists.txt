@@ -39,6 +39,9 @@ list(APPEND CMAKE_PREFIX_PATH ${CMAKE_BINARY_DIR})
 get_property(is_multi_config GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
 
 include(dependencies)
+if(${INSTALL_IGNITE_FILES})
+    set(CMAKE_INSTALL_PREFIX ${IGNITE_INSTALL_DESTINATION})
+endif()
 
 # Configure build paths.
 if (is_multi_config)

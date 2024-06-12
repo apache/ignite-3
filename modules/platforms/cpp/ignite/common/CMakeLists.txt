@@ -38,6 +38,7 @@ set(PUBLIC_HEADERS
     ignite_time.h
     ignite_timestamp.h
     ignite_type.h
+    mpi.h
     primitive.h
     server_version.h
     uuid.h
@@ -46,9 +47,12 @@ set(PUBLIC_HEADERS
 set(SOURCES
     big_decimal.cpp
     big_integer.cpp
+    mpi.cpp
 )
 
 add_library(${TARGET} STATIC ${SOURCES})
+
+target_link_libraries(${TARGET} PUBLIC MbedTLS::mbedtls)
 
 target_include_directories(${TARGET} INTERFACE
     $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}>
