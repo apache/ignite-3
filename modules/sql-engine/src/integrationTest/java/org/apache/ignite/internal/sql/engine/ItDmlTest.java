@@ -175,7 +175,7 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
 
         values.add(values.get(0)); // add conflict entry from the first chunk
 
-        sql("CREATE TABLE test (id int primary key, val int default 1)");
+        sql("CREATE TABLE test (id int primary key, val int ult 1)");
 
         String insertStatement = "INSERT INTO test (id) VALUES " + values.stream()
                 .map(Object::toString)
@@ -603,9 +603,11 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
 
         var expectedMessage = "Column 'KEY' does not allow NULLs";
 
-        assertThrowsSqlException(Sql.CONSTRAINT_VIOLATION_ERR, expectedMessage, () -> sql("INSERT INTO tbl (key, val) VALUES (NULL,'AA')"));
+        assertThrowsSqlException(Sql.CONSTRAINT_VIOLATION_ERR,
+                expectedMessage,
+                () -> sql("INSERT INTO tbl (key, val) VALUES (NULL,'AA')"));
     }
-    
+
     // UPDATE set x = DEFAULT is not supported in parser
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-21462")
     @Test
@@ -615,7 +617,7 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
             try {
                 sql(format("CREATE TABLE test (id INT PRIMARY KEY, val %s DEFAULT %s)", arg.sqlType, arg.sqlVal));
                 sql("INSERT INTO test (id, val) VALUES (1, NULL)");
-                
+
                 sql("UPDATE test SET val = DEFAULT WHERE id = 1");
                 assertQuery("SELECT val FROM test WHERE id = 1").returns(arg.expectedVal).check();
             } finally {
