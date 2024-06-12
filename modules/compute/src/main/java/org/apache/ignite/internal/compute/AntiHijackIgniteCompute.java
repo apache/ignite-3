@@ -75,8 +75,7 @@ public class AntiHijackIgniteCompute implements IgniteCompute, Wrapper {
             JobDescriptor descriptor,
             Object... args
     ) {
-        return preventThreadHijack(
-                compute.submitColocated(tableName, key, descriptor.units(), descriptor.jobClassName(), descriptor.options(), args));
+        return preventThreadHijack(compute.submitColocated(tableName, key, descriptor, args));
     }
 
     @Override

@@ -213,8 +213,9 @@ class ItComputeApiThreadingTest extends ClusterPerClassIntegrationTest {
         SUBMIT_COLOCATED_BY_TUPLE(compute -> compute.submitColocated(
                 TABLE_NAME, KEY_TUPLE, List.of(), NoOpJob.class.getName()
         )),
-        SUBMIT_COLOCATED_BY_TUPLE_WITH_OPTIONS(compute -> compute.submitColocated(
-                TABLE_NAME, KEY_TUPLE, List.of(), NoOpJob.class.getName(), JobExecutionOptions.DEFAULT)
+        SUBMIT_COLOCATED_BY_TUPLE_WITH_OPTIONS(compute -> compute.submitColocated(TABLE_NAME, KEY_TUPLE, JobDescriptor.builder()
+                .jobClassName(NoOpJob.class.getName())
+                .build())
         ),
         SUBMIT_COLOCATED_BY_KEY(compute -> compute.submitColocated(
                 TABLE_NAME, KEY, Mapper.of(Integer.class), List.of(), NoOpJob.class.getName())
