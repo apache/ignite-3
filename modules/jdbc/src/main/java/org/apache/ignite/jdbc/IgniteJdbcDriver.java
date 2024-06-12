@@ -69,8 +69,8 @@ import org.apache.ignite.internal.jdbc.JdbcConnection;
  *   <tr>
  *     <td>connectionTimeZone</td>
  *     <td>Client connection time-zone ID. This property can be used by the client to change the time zone of the "session" on the server.
- *     Affects the interpretation of dates in queries without specifying a time zone.
- *         <br>If not set then system default on client timezone will be used.</td>
+ *          <br>Affects the interpretation of dates in queries without specifying a time zone.
+ *          <br>If not set then system default on client timezone will be used.</td>
  *   </tr>
  *   <tr>
  *      <td>queryTimeout</td>
@@ -140,7 +140,8 @@ import org.apache.ignite.internal.jdbc.JdbcConnection;
  *          <ul>
  *              <li>NONE - Indicates that the client authentication will not be requested.</li>
  *              <li>OPTIONAL - Indicates that the client authentication will be requested.</li>
- *              <li>REQUIRE - Indicates that the client authentication will be requested and the connection will be closed if
+ *              <li>REQUIRE - Indicates that the client authentication will be requested and the connection will be closed if the client
+ *                  certificate is not trusted.
  *          </ul>
  *      </td>
  *   </tr>
