@@ -408,8 +408,13 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
 
         IgniteImpl entryNode = node(0);
 
-        JobExecution<String> execution = entryNode.compute()
-                .submitColocated("test", Tuple.create(Map.of("k", 1)), units(), getNodeNameJobClassName());
+        IgniteCompute igniteCompute = entryNode.compute();
+        Tuple key = Tuple.create(Map.of("k", 1));
+        List<DeploymentUnit> units = units();
+        JobExecution<String> execution = igniteCompute.submitColocated("test", key, JobDescriptor.builder()
+                .jobClassName(getNodeNameJobClassName())
+                .units(units)
+                .build(), new Object[]{});
 
         assertThat(execution.resultAsync(), willBe(in(allNodeNames())));
         assertThat(execution.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
@@ -433,8 +438,15 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
         IgniteImpl entryNode = node(0);
 
         var ex = assertThrows(CompletionException.class,
-                () -> entryNode.compute().submitColocated(
-                        "\"bad-table\"", Tuple.create(Map.of("k", 1)), units(), getNodeNameJobClassName()).resultAsync().join());
+                () -> {
+                    IgniteCompute igniteCompute = entryNode.compute();
+                    Tuple key = Tuple.create(Map.of("k", 1));
+                    List<DeploymentUnit> units = units();
+                    igniteCompute.submitColocated("\"bad-table\"", key, JobDescriptor.builder()
+                            .jobClassName(getNodeNameJobClassName())
+                            .units(units)
+                            .build()).resultAsync().join();
+                });
 
         assertInstanceOf(TableNotFoundException.class, ex.getCause());
         assertThat(ex.getCause().getMessage(), containsString("The table does not exist [name=\"PUBLIC\".\"bad-table\"]"));

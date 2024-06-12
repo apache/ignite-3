@@ -504,9 +504,11 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     void testExceptionInColocatedTupleJobPropagatesToClientWithClassAndMessageAsync() {
         var key = Tuple.create().set(COLUMN_KEY, 1);
 
+        IgniteCompute igniteCompute = client().compute();
         IgniteException cause = getExceptionInJobExecutionAsync(
-                client().compute().submitColocated(TABLE_NAME, key, List.of(), ExceptionJob.class.getName()
-        ));
+                igniteCompute.submitColocated(TABLE_NAME, key, JobDescriptor.builder()
+                        .jobClassName(ExceptionJob.class.getName())
+                        .build(), new Object[]{}));
 
         assertComputeExceptionWithClassAndMessage(cause);
     }
@@ -527,8 +529,11 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         // Second node has sendServerExceptionStackTraceToClient enabled.
         var key = Tuple.create().set(COLUMN_KEY, 2);
 
+        IgniteCompute igniteCompute = client().compute();
         IgniteException cause = getExceptionInJobExecutionAsync(
-                client().compute().submitColocated(TABLE_NAME, key, List.of(), ExceptionJob.class.getName())
+                igniteCompute.submitColocated(TABLE_NAME, key, JobDescriptor.builder()
+                        .jobClassName(ExceptionJob.class.getName())
+                        .build(), new Object[]{})
         );
 
         assertComputeExceptionWithStackTrace(cause);
@@ -638,12 +643,10 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     void testExecuteColocatedTupleRunsComputeJobOnKeyNode(int key, int port) {
         var keyTuple = Tuple.create().set(COLUMN_KEY, key);
 
-        JobExecution<String> tupleExecution = client().compute().submitColocated(
-                TABLE_NAME,
-                keyTuple,
-                List.of(),
-                NodeNameJob.class.getName()
-        );
+        IgniteCompute igniteCompute = client().compute();
+        JobExecution<String> tupleExecution = igniteCompute.submitColocated(TABLE_NAME, keyTuple, JobDescriptor.builder()
+                .jobClassName(NodeNameJob.class.getName())
+                .build(), new Object[]{});
 
         String expectedNode = "itcct_n_" + port;
         assertThat(tupleExecution.resultAsync(), willBe(expectedNode));
@@ -676,13 +679,10 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         var keyTuple = Tuple.create().set(COLUMN_KEY, key);
         int sleepMs = 1_000_000;
 
-        JobExecution<String> tupleExecution = client().compute().submitColocated(
-                TABLE_NAME,
-                keyTuple,
-                List.of(),
-                SleepJob.class.getName(),
-                sleepMs
-        );
+        IgniteCompute igniteCompute = client().compute();
+        JobExecution<String> tupleExecution = igniteCompute.submitColocated(TABLE_NAME, keyTuple, JobDescriptor.builder()
+                .jobClassName(SleepJob.class.getName())
+                .build(), new Object[]{sleepMs});
 
         await().until(tupleExecution::statusAsync, willBe(jobStatusWithState(EXECUTING)));
 

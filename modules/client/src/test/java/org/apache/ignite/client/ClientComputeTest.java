@@ -205,8 +205,10 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
         try (var client = getClient(server2)) {
             Tuple key = Tuple.create().set("key", "k");
 
-            JobExecution<String> execution1 = client.compute()
-                    .submitColocated(TABLE_NAME, key, List.of(), "job");
+            IgniteCompute igniteCompute = client.compute();
+            JobExecution<String> execution1 = igniteCompute.submitColocated(TABLE_NAME, key, JobDescriptor.builder()
+                    .jobClassName("job")
+                    .build(), new Object[]{});
 
             JobExecution<String> execution2 = client.compute()
                     .submitColocated(TABLE_NAME, 1L, Mapper.of(Long.class), List.of(), "job");
