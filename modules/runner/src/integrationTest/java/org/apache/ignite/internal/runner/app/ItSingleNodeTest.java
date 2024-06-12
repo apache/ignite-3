@@ -20,11 +20,9 @@ package org.apache.ignite.internal.runner.app;
 import static org.apache.ignite.internal.network.configuration.NetworkConfigurationSchema.DEFAULT_PORT;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 
-import java.util.List;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.EmbeddedNode;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -47,40 +45,29 @@ public class ItSingleNodeTest extends IgniteAbstractTest {
 
     private String nodeName;
 
+    private EmbeddedNode node;
+
     private Ignite ignite;
 
     @BeforeEach
     void setUp(TestInfo testInfo) throws Exception {
         nodeName = testNodeName(testInfo, 0);
 
-        CompletableFuture<Ignite> igniteFuture = startNodeAsync();
+        node = TestIgnitionManager.start(nodeName, NODE_CONFIG, workDir.resolve(nodeName));
 
         InitParameters parameters = new InitParametersBuilder()
                 .clusterName("cluster")
-                .destinationNodeName(nodeName)
-                .metaStorageNodeNames(List.of(nodeName))
+                .metaStorageNodes(node)
                 .build();
 
-        IgnitionManager.init(parameters);
+        node.initCluster(parameters);
 
-        ignite = igniteFuture.get(30, TimeUnit.SECONDS);
+        ignite = node.joinClusterAsync().get(30, TimeUnit.SECONDS);
     }
 
     @AfterEach
     void tearDown() {
-        stopNode();
-    }
-
-    private CompletableFuture<Ignite> startNodeAsync() {
-        return TestIgnitionManager.start(nodeName, NODE_CONFIG, workDir.resolve(nodeName));
-    }
-
-    private Ignite startNode() throws Exception {
-        return startNodeAsync().get(30, TimeUnit.SECONDS);
-    }
-
-    private void stopNode() {
-        IgnitionManager.stop(nodeName);
+        node.stop();
     }
 
     /**
@@ -96,8 +83,9 @@ public class ItSingleNodeTest extends IgniteAbstractTest {
 
         ignite.sql().execute(null, sqlCreate);
 
-        stopNode();
-        ignite = startNode();
+        node.stop();
+        node.start();
+        ignite = node.joinClusterAsync().get(30, TimeUnit.SECONDS);
 
         KeyValueView<Tuple, Tuple> keyValueView = ignite.tables().table(TABLE_NAME).keyValueView();
 

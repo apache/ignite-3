@@ -26,13 +26,12 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.apache.ignite.EmbeddedNode;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
@@ -45,11 +44,11 @@ import org.junit.jupiter.api.TestInfo;
  * Integration tests for initializing a cluster.
  */
 public class ItClusterInitTest extends IgniteAbstractTest {
-    private final Map<String, CompletableFuture<Ignite>> nodesByName = new HashMap<>();
+    private final Map<String, EmbeddedNode> nodesByName = new HashMap<>();
 
     @AfterEach
     void tearDown() throws Exception {
-        IgniteUtils.closeAll(nodesByName.keySet().stream().map(name -> () -> IgnitionManager.stop(name)));
+        IgniteUtils.closeAll(nodesByName.values().stream().map(node -> node::stop));
     }
 
     /**
@@ -59,40 +58,41 @@ public class ItClusterInitTest extends IgniteAbstractTest {
     void testDoubleInit(TestInfo testInfo) {
         createCluster(testInfo, 2);
 
-        String nodeName = nodesByName.keySet().iterator().next();
+        EmbeddedNode node = nodesByName.values().iterator().next();
 
         InitParameters initParameters = InitParameters.builder()
-                .destinationNodeName(nodeName)
-                .metaStorageNodeNames(List.of(nodeName))
+                .metaStorageNodes(node)
                 .clusterName("cluster")
                 .build();
 
-        TestIgnitionManager.init(initParameters);
+        TestIgnitionManager.init(node, initParameters);
 
-        assertThat(allOf(nodesByName.values().toArray(CompletableFuture[]::new)), willCompleteSuccessfully());
+        CompletableFuture<Ignite>[] futures = nodesByName.values().stream()
+                .map(EmbeddedNode::joinClusterAsync)
+                .toArray(CompletableFuture[]::new);
+
+        assertThat(allOf(futures), willCompleteSuccessfully());
 
         // init is idempotent
-        TestIgnitionManager.init(initParameters);
+        TestIgnitionManager.init(node, initParameters);
 
         InitParameters initParametersWithWrongNodesList1 = InitParameters.builder()
-                .destinationNodeName(nodeName)
-                .metaStorageNodeNames(nodesByName.keySet())
+                .metaStorageNodeNames(nodesByName.keySet().toArray(String[]::new))
                 .clusterName("cluster")
                 .build();
 
         // init should fail if the list of nodes is different
-        Exception e = assertThrows(InitException.class, () -> IgnitionManager.init(initParametersWithWrongNodesList1));
+        Exception e = assertThrows(InitException.class, () -> node.initCluster(initParametersWithWrongNodesList1));
 
         assertThat(e.getMessage(), containsString("Init CMG request denied, reason: CMG node names do not match."));
 
         InitParameters initParametersWithWrongNodesList2 = InitParameters.builder()
-                .destinationNodeName(nodeName)
-                .metaStorageNodeNames(List.of(nodeName))
+                .metaStorageNodes(node)
                 .clusterName("new name")
                 .build();
 
         // init should fail if cluster names are different
-        e = assertThrows(InitException.class, () -> IgnitionManager.init(initParametersWithWrongNodesList2));
+        e = assertThrows(InitException.class, () -> node.initCluster(initParametersWithWrongNodesList2));
 
         assertThat(e.getMessage(), containsString("Init CMG request denied, reason: Cluster names do not match."));
     }

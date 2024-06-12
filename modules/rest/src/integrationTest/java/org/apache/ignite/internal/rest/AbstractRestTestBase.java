@@ -35,11 +35,9 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
-import java.util.stream.Collectors;
+import org.apache.ignite.EmbeddedNode;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.internal.IgniteIntegrationTest;
 import org.apache.ignite.internal.rest.api.Problem;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
@@ -75,7 +73,7 @@ public abstract class AbstractRestTestBase extends IgniteIntegrationTest {
     final List<Ignite> startedNodes = new ArrayList<>();
 
     /** Collection of starting nodes. */
-    protected final List<CompletableFuture<Ignite>> startingNodes = new ArrayList<CompletableFuture<Ignite>>();
+    protected final List<EmbeddedNode> nodes = new ArrayList<>();
 
     protected ObjectMapper objectMapper;
 
@@ -174,23 +172,17 @@ public abstract class AbstractRestTestBase extends IgniteIntegrationTest {
      */
     @AfterEach
     void tearDown() throws Exception {
-        List<AutoCloseable> closeables = nodeNames.stream()
-                .map(name -> (AutoCloseable) () -> IgnitionManager.stop(name))
-                .collect(Collectors.toList());
-
-        IgniteUtils.closeAll(closeables);
+        IgniteUtils.closeAll(nodes.stream().map(node -> node::stop));
     }
 
-    void startNodeWithoutInit(String nodeName, Function<String, CompletableFuture<Ignite>> starter) {
+    void startNodeWithoutInit(String nodeName, Function<String, EmbeddedNode> starter) {
         nodeNames.add(nodeName);
 
-        CompletableFuture<Ignite> future = starter.apply(nodeName);
-
-        startingNodes.add(future);
+        nodes.add(starter.apply(nodeName));
     }
 
     void checkAllNodesStarted() {
-        startingNodes.forEach(future -> assertThat(future, willCompleteSuccessfully()));
+        nodes.forEach(node -> assertThat(node.joinClusterAsync(), willCompleteSuccessfully()));
     }
 
     protected HttpResponse<String> send(HttpRequest request) throws IOException, InterruptedException {

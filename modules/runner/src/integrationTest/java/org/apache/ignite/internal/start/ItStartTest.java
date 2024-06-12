@@ -31,6 +31,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
+import org.apache.ignite.EmbeddedNode;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.Cluster;
 import org.apache.ignite.internal.IgniteIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
@@ -127,7 +129,8 @@ class ItStartTest extends IgniteIntegrationTest {
 
         AtomicReference<String> threadNameRef = new AtomicReference<>();
 
-        CompletableFuture<IgniteImpl> future = cluster.startNodeAsync(1).whenComplete((res, ex) -> {
+        EmbeddedNode node = cluster.startEmbeddedNode(1);
+        CompletableFuture<Ignite> future = node.joinClusterAsync().whenComplete((res, ex) -> {
             threadNameRef.set(Thread.currentThread().getName());
         });
 

@@ -17,20 +17,16 @@
 
 package org.apache.ignite.internal.failure.handlers;
 
-import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.tostring.S;
 
 /**
- * Handler will stop node in case of critical error using {@code IgnitionManager.stop(nodeName)} call.
+ * Handler will stop node in case of critical error using {@code EmbeddedNode.stopAsync()} call.
  */
 public class StopNodeFailureHandler extends AbstractFailureHandler {
     @Override
-    protected boolean handle(String nodeName, FailureContext failureCtx) {
-        new Thread(
-                () -> IgnitionManager.stop(nodeName),
-                "node-stopper"
-        ).start();
+    protected boolean handle(Runnable nodeStopper, FailureContext failureCtx) {
+        nodeStopper.run();
 
         return true;
     }

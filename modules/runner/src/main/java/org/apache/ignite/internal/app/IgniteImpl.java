@@ -51,8 +51,8 @@ import java.util.function.Consumer;
 import java.util.function.LongFunction;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
+import org.apache.ignite.EmbeddedNode;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.catalog.IgniteCatalog;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientHandlerModule;
@@ -67,6 +67,7 @@ import org.apache.ignite.internal.catalog.sql.IgniteCatalogSqlImpl;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.cluster.management.ClusterInitializer;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.NodeAttributesCollector;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
@@ -368,7 +369,7 @@ public class IgniteImpl implements Ignite {
 
     private final ReplicaLifecycleManager replicaLifecycleManager;
 
-    /** Creator for volatile {@link org.apache.ignite.internal.raft.storage.LogStorageFactory} instances. */
+    /** Creator for volatile {@link LogStorageFactory} instances. */
     private final VolatileLogStorageFactoryCreator volatileLogStorageFactoryCreator;
 
     /** A hybrid logical clock. */
@@ -414,14 +415,14 @@ public class IgniteImpl implements Ignite {
     /**
      * The Constructor.
      *
-     * @param name Ignite node name.
+     * @param node Embedded node.
      * @param configPath Path to node configuration in the HOCON format.
      * @param workDir Work directory for the started node. Must not be {@code null}.
      * @param serviceProviderClassLoader The class loader to be used to load provider-configuration files and provider classes, or
      *         {@code null} if the system class loader (or, failing that the bootstrap class loader) is to be used.
      */
-    IgniteImpl(String name, Path configPath, Path workDir, @Nullable ClassLoader serviceProviderClassLoader) {
-        this.name = name;
+    IgniteImpl(EmbeddedNode node, Path configPath, Path workDir, @Nullable ClassLoader serviceProviderClassLoader) {
+        this.name = node.name();
 
         longJvmPauseDetector = new LongJvmPauseDetector(name);
 
@@ -464,7 +465,7 @@ public class IgniteImpl implements Ignite {
 
         MessageSerializationRegistry serializationRegistry = createSerializationRegistry(serviceProviderClassLoader);
 
-        failureProcessor = new FailureProcessor(name, nodeConfigRegistry.getConfiguration(FailureProcessorConfiguration.KEY));
+        failureProcessor = new FailureProcessor(node::stopAsync, nodeConfigRegistry.getConfiguration(FailureProcessorConfiguration.KEY));
 
         CriticalWorkersConfiguration criticalWorkersConfiguration = nodeConfigRegistry.getConfiguration(CriticalWorkersConfiguration.KEY);
 
@@ -912,7 +913,7 @@ public class IgniteImpl implements Ignite {
                 compute,
                 clusterSvc,
                 nettyBootstrapFactory,
-                () -> cmgMgr.clusterState().thenApply(s -> s.clusterTag()),
+                () -> cmgMgr.clusterState().thenApply(ClusterState::clusterTag),
                 metricManager,
                 new ClientHandlerMetricSource(),
                 authenticationManager,
@@ -1043,7 +1044,7 @@ public class IgniteImpl implements Ignite {
      *         previously use default values. Please pay attention that previously specified properties are searched in the
      *         {@code workDir} specified by the user.
      */
-    public CompletableFuture<Ignite> start(Path configPath) {
+    public CompletableFuture<Ignite> startAsync(Path configPath) {
         ExecutorService startupExecutor = Executors.newSingleThreadExecutor(
                 IgniteThreadFactory.create(name, "start", LOG, STORAGE_READ, STORAGE_WRITE)
         );
@@ -1316,12 +1317,6 @@ public class IgniteImpl implements Ignite {
 
     /** {@inheritDoc} */
     @Override
-    public void close() {
-        IgnitionManager.stop(name);
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public String name() {
         return name;
     }
@@ -1425,18 +1420,19 @@ public class IgniteImpl implements Ignite {
      * Initializes the cluster that this node is present in.
      *
      * @param metaStorageNodeNames names of nodes that will host the Meta Storage.
-     * @param cmgNodeNames         names of nodes that will host the CMG.
+     * @param cmgNodeNames names of nodes that will host the CMG.
      * @param clusterName Human-readable name of a cluster.
      * @param clusterConfiguration cluster configuration, that will be applied after init.
+     * @return Completable future which completes when the cluster is initialized.
      * @throws NodeStoppingException If node stopping intention was detected.
      */
-    public void init(
+    public CompletableFuture<Void> initClusterAsync(
             Collection<String> metaStorageNodeNames,
             Collection<String> cmgNodeNames,
             String clusterName,
             String clusterConfiguration
     ) throws NodeStoppingException {
-        cmgMgr.initCluster(metaStorageNodeNames, cmgNodeNames, clusterName, clusterConfiguration);
+        return cmgMgr.initClusterAsync(metaStorageNodeNames, cmgNodeNames, clusterName, clusterConfiguration);
     }
 
     /**
@@ -1600,15 +1596,7 @@ public class IgniteImpl implements Ignite {
         return catalogManager;
     }
 
-    /** Returns the cluster's configuration manager. */
-    @TestOnly
-    public ConfigurationRegistry clusterConfigurationRegistry() {
-        return clusterCfgMgr.configurationRegistry();
-    }
-
-    /**
-     * Returns {@link NettyBootstrapFactory}.
-     */
+    /** Returns {@link NettyBootstrapFactory}. */
     @TestOnly
     public NettyBootstrapFactory nettyBootstrapFactory() {
         return nettyBootstrapFactory;

@@ -75,6 +75,7 @@ import java.util.function.LongFunction;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
+import org.apache.ignite.EmbeddedNode;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.BaseIgniteRestartTest;
@@ -761,25 +762,26 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      * Starts an {@code amount} number of nodes (with sequential indices starting from 0).
      */
     private List<IgniteImpl> startNodes(int amount) {
-        boolean initNeeded = CLUSTER_NODES_NAMES.isEmpty();
+        boolean initNeeded = EMBEDDED_NODES.isEmpty();
 
-        List<CompletableFuture<Ignite>> futures = IntStream.range(0, amount)
+        List<EmbeddedNode> nodes = IntStream.range(0, amount)
                 .mapToObj(i -> startNodeAsync(i, null))
                 .collect(toList());
 
         if (initNeeded) {
-            String nodeName = CLUSTER_NODES_NAMES.get(0);
+            EmbeddedNode node = nodes.get(0);
 
             InitParameters initParameters = InitParameters.builder()
-                    .destinationNodeName(nodeName)
-                    .metaStorageNodeNames(List.of(nodeName))
+                    .metaStorageNodes(node)
                     .clusterName("cluster")
                     .build();
-            TestIgnitionManager.init(initParameters);
+            TestIgnitionManager.init(node, initParameters);
         }
 
-        return futures.stream()
-                .map(future -> {
+        return nodes.stream()
+                .map(node -> {
+                    CompletableFuture<Ignite> future = node.joinClusterAsync();
+
                     assertThat(future, willCompleteSuccessfully());
 
                     return (IgniteImpl) future.join();
@@ -1150,9 +1152,11 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         } else {
             // Since the first node is the CMG leader, the second node can't be started synchronously (it won't be able to join the cluster
             // and the future will never resolve).
-            CompletableFuture<Ignite> future = startNodeAsync(1, null);
+            EmbeddedNode node = startNodeAsync(1, null);
 
             startNode(0);
+
+            CompletableFuture<Ignite> future = node.joinClusterAsync();
 
             assertThat(future, willCompleteSuccessfully());
 

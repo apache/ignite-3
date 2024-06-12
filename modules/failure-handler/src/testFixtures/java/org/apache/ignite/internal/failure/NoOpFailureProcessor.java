@@ -29,13 +29,13 @@ public class NoOpFailureProcessor extends FailureProcessor {
      * @param nodeName Name of the node.
      */
     public NoOpFailureProcessor(String nodeName) {
-        super(nodeName, new NoOpFailureHandler());
+        super(() -> {}, new NoOpFailureHandler());
     }
 
     /**
      * Creates a new instance of no-op failure processor.
      */
     public NoOpFailureProcessor() {
-        super("ignored-node-name", new NoOpFailureHandler());
+        super(() -> {}, new NoOpFailureHandler());
     }
 }

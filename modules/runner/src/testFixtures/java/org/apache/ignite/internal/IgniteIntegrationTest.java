@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal;
 
-import org.apache.ignite.internal.junit.StopAllIgnitesAfterTests;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -26,6 +25,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * A test that starts some Ignite instances (and cleans them up later if they are forgotten).
  */
 // The order is important here.
-@ExtendWith({WorkDirectoryExtension.class, StopAllIgnitesAfterTests.class})
+@ExtendWith(WorkDirectoryExtension.class)
 public abstract class IgniteIntegrationTest extends BaseIgniteAbstractTest {
 }

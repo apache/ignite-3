@@ -22,8 +22,8 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.getResour
 
 import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.EmbeddedNode;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.internal.rest.ssl.ItRestSslTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 
@@ -43,6 +43,9 @@ public class RestNode {
     private final boolean sslClientAuthEnabled;
     private final boolean dualProtocol;
     private final String ciphers;
+
+    private EmbeddedNode igniteNode;
+
     private CompletableFuture<Ignite> igniteNodeFuture;
 
     /** Constructor. */
@@ -82,20 +85,20 @@ public class RestNode {
 
     /** Starts the node. */
     public CompletableFuture<Ignite> start() {
-        igniteNodeFuture = TestIgnitionManager.start(name, bootstrapCfg(), workDir.resolve(name));
+        igniteNode = TestIgnitionManager.start(name, bootstrapCfg(), workDir.resolve(name));
         return igniteNodeFuture;
     }
 
     /** Restarts the node. */
     public CompletableFuture<Ignite> restart() {
-        stop();
-        igniteNodeFuture = TestIgnitionManager.start(name, null, workDir.resolve(name));
+        igniteNode.stop();
+        igniteNode.start();
         return igniteNodeFuture;
     }
 
     /** Stops the node. */
     public void stop() {
-        IgnitionManager.stop(name);
+        igniteNode.stop();
     }
 
     /** Returns the node name. */

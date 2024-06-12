@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.sql.sqllogic;
 
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
@@ -38,8 +37,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import org.apache.ignite.EmbeddedNode;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.IgniteIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
@@ -171,6 +170,9 @@ public class ItSqlLogicTest extends IgniteIntegrationTest {
             + "  rest.port: {}\n"
             + "}";
 
+    /** Embedded nodes. */
+    private static final List<EmbeddedNode> NODES = new ArrayList<>();
+
     /** Cluster nodes. */
     private static final List<Ignite> CLUSTER_NODES = new ArrayList<>();
 
@@ -182,7 +184,7 @@ public class ItSqlLogicTest extends IgniteIntegrationTest {
     private static Path SCRIPTS_ROOT;
 
     /** Count of the nodes in the test cluster. */
-    private static int NODES;
+    private static int NODES_COUNT;
 
     /** Test timeout. */
     private static long TIMEOUT;
@@ -299,7 +301,7 @@ public class ItSqlLogicTest extends IgniteIntegrationTest {
         assert !Strings.isNullOrEmpty(env.scriptsRoot());
 
         SCRIPTS_ROOT = FS.getPath(env.scriptsRoot());
-        NODES = env.nodes();
+        NODES_COUNT = env.nodes();
         TEST_REGEX = Strings.isNullOrEmpty(env.regex()) ? null : Pattern.compile(env.regex());
         RESTART_CLUSTER = env.restart();
         TIMEOUT = env.timeout();
@@ -319,7 +321,7 @@ public class ItSqlLogicTest extends IgniteIntegrationTest {
     private static void startNodes() {
         String connectNodeAddr = "\"localhost:" + BASE_PORT + '\"';
 
-        List<CompletableFuture<Ignite>> futures = IntStream.range(0, NODES)
+        List<EmbeddedNode> nodes = IntStream.range(0, NODES_COUNT)
                 .mapToObj(i -> {
                     String nodeName = NODE_NAME_PREFIX + i;
 
@@ -331,11 +333,8 @@ public class ItSqlLogicTest extends IgniteIntegrationTest {
                 })
                 .collect(toList());
 
-        String metaStorageNodeName = NODE_NAME_PREFIX + "0";
-
         InitParameters initParameters = InitParameters.builder()
-                .destinationNodeName(metaStorageNodeName)
-                .metaStorageNodeNames(List.of(metaStorageNodeName))
+                .metaStorageNodes(nodes.get(0))
                 .clusterName("cluster")
                 .clusterConfiguration("{"
                         + "gc.lowWatermark.dataAvailabilityTime: 1010,\n"
@@ -344,12 +343,13 @@ public class ItSqlLogicTest extends IgniteIntegrationTest {
                         + "metrics.exporters.logPush.period: 5000\n"
                         + "}")
                 .build();
-        TestIgnitionManager.init(initParameters);
+        TestIgnitionManager.init(nodes.get(0), initParameters);
 
-        for (CompletableFuture<Ignite> future : futures) {
+        for (EmbeddedNode node : nodes) {
+            CompletableFuture<Ignite> future = node.joinClusterAsync();
             assertThat(future, willCompleteSuccessfully());
 
-            IgniteImpl ignite = (IgniteImpl) await(future);
+            IgniteImpl ignite = (IgniteImpl) future.join();
             CLUSTER_NODES.add(ignite);
 
             ignite.metricManager().enable("jvm");
@@ -362,13 +362,7 @@ public class ItSqlLogicTest extends IgniteIntegrationTest {
         LOG.info(">>> Stopping cluster...");
 
         CLUSTER_NODES.clear();
-
-        List<AutoCloseable> closeables = IntStream.range(0, NODES)
-                .mapToObj(i -> NODE_NAME_PREFIX + i)
-                .map(nodeName -> (AutoCloseable) () -> IgnitionManager.stop(nodeName))
-                .collect(toList());
-
-        IgniteUtils.closeAll(closeables);
+        IgniteUtils.closeAll(NODES.stream().map(node -> node::stop));
 
         LOG.info(">>> Cluster is stopped.");
     }

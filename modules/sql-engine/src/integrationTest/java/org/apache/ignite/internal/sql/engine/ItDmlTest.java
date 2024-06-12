@@ -859,7 +859,7 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
         }
 
         @Override
-        public boolean handle(String nodeName, FailureContext failureCtx) {
+        public boolean handle(Runnable nodeStopper, FailureContext failureCtx) {
             interceptedFailsList.add(failureCtx);
 
             return false;

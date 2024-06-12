@@ -28,8 +28,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.EmbeddedNode;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.IgniteIntegrationTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
@@ -58,6 +58,7 @@ abstract class AbstractSchemaChangeTest extends IgniteIntegrationTest {
     /** Work directory. */
     @WorkDirectory
     private Path workDir;
+    private List<EmbeddedNode> nodes;
 
     /**
      * Before each.
@@ -116,30 +117,29 @@ abstract class AbstractSchemaChangeTest extends IgniteIntegrationTest {
      */
     @AfterEach
     void afterEach() throws Exception {
-        List<AutoCloseable> closeables = nodesBootstrapCfg.keySet().stream()
-                .map(nodeName -> (AutoCloseable) () -> IgnitionManager.stop(nodeName))
-                .collect(toList());
-
-        IgniteUtils.closeAll(closeables);
+        IgniteUtils.closeAll(nodes.stream().map(node -> node::stop));
     }
 
     /**
      * Returns grid nodes.
      */
     protected List<Ignite> startGrid() {
-        CompletableFuture<Ignite>[] futures = nodesBootstrapCfg.entrySet().stream()
+        nodes = nodesBootstrapCfg.entrySet().stream()
                 .map(e -> TestIgnitionManager.start(e.getKey(), e.getValue(), workDir.resolve(e.getKey())))
-                .toArray(CompletableFuture[]::new);
+                .collect(toList());
 
-        String metaStorageNode = nodesBootstrapCfg.keySet().iterator().next();
+        EmbeddedNode node = nodes.get(0);
 
         InitParameters initParameters = InitParameters.builder()
-                .destinationNodeName(metaStorageNode)
-                .metaStorageNodeNames(List.of(metaStorageNode))
+                .metaStorageNodes(node)
                 .clusterName("cluster")
                 .build();
 
-        TestIgnitionManager.init(initParameters);
+        TestIgnitionManager.init(node, initParameters);
+
+        CompletableFuture<Ignite>[] futures = nodes.stream()
+                .map(EmbeddedNode::joinClusterAsync)
+                .toArray(CompletableFuture[]::new);
 
         return await(CompletableFutures.allOf(futures));
     }

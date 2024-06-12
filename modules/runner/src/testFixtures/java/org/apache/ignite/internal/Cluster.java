@@ -30,12 +30,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -47,7 +47,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
-import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.EmbeddedNode;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.app.IgniteImpl;
@@ -111,6 +111,9 @@ public class Cluster {
     private final Path workDir;
 
     private final String defaultNodeBootstrapConfigTemplate;
+
+    /** Embedded nodes. */
+    private final List<EmbeddedNode> embeddedNodes = new ArrayList<>();
 
     /** Cluster nodes. */
     private final List<IgniteImpl> nodes = new CopyOnWriteArrayList<>();
@@ -213,23 +216,22 @@ public class Cluster {
 
         initialClusterSize = nodeCount;
 
-        List<CompletableFuture<IgniteImpl>> futures = IntStream.range(0, nodeCount)
-                .mapToObj(nodeIndex -> startNodeAsync(nodeIndex, nodeBootstrapConfigTemplate))
+        List<EmbeddedNode> nodes = IntStream.range(0, nodeCount)
+                .mapToObj(nodeIndex -> startEmbeddedNode(nodeIndex, nodeBootstrapConfigTemplate))
                 .collect(toList());
 
-        List<String> metaStorageAndCmgNodeNames = Arrays.stream(cmgNodes).mapToObj(i -> testNodeName(testInfo, i)).collect(toList());
+        List<EmbeddedNode> metaStorageAndCmgNodes = Arrays.stream(cmgNodes).mapToObj(nodes::get).collect(toList());
 
         InitParametersBuilder builder = InitParameters.builder()
-                .destinationNodeName(metaStorageAndCmgNodeNames.get(0))
-                .metaStorageNodeNames(metaStorageAndCmgNodeNames)
+                .metaStorageNodes(metaStorageAndCmgNodes)
                 .clusterName("cluster");
 
         initParametersConfigurator.accept(builder);
 
-        TestIgnitionManager.init(builder.build());
+        TestIgnitionManager.init(metaStorageAndCmgNodes.get(0), builder.build());
 
-        for (CompletableFuture<IgniteImpl> future : futures) {
-            assertThat(future, willCompleteSuccessfully());
+        for (EmbeddedNode node : nodes) {
+            assertThat(node.joinClusterAsync(), willCompleteSuccessfully());
         }
 
         started = true;
@@ -241,18 +243,18 @@ public class Cluster {
      * @param nodeIndex Index of the node to start.
      * @return Future that will be completed when the node starts.
      */
-    public CompletableFuture<IgniteImpl> startNodeAsync(int nodeIndex) {
-        return startNodeAsync(nodeIndex, defaultNodeBootstrapConfigTemplate);
+    public EmbeddedNode startEmbeddedNode(int nodeIndex) {
+        return startEmbeddedNode(nodeIndex, defaultNodeBootstrapConfigTemplate);
     }
 
     /**
      * Starts a cluster node and returns its startup future.
      *
-     * @param nodeIndex Index of the nodex to start.
+     * @param nodeIndex Index of the node to start.
      * @param nodeBootstrapConfigTemplate Bootstrap config template to use for this node.
      * @return Future that will be completed when the node starts.
      */
-    public CompletableFuture<IgniteImpl> startNodeAsync(int nodeIndex, String nodeBootstrapConfigTemplate) {
+    public EmbeddedNode startEmbeddedNode(int nodeIndex, String nodeBootstrapConfigTemplate) {
         String nodeName = testNodeName(testInfo, nodeIndex);
 
         String config = IgniteStringFormatter.format(
@@ -264,30 +266,33 @@ public class Cluster {
                 BASE_HTTPS_PORT + nodeIndex
         );
 
-        return TestIgnitionManager.start(nodeName, config, workDir.resolve(nodeName))
-                .thenApply(IgniteImpl.class::cast)
-                .thenCompose(ignite -> ignite.catalogManager().catalogInitializationFuture().thenApply(ignored -> ignite))
-                .thenApply(ignite -> {
-                    synchronized (nodes) {
-                        while (nodes.size() < nodeIndex) {
-                            nodes.add(null);
-                        }
+        EmbeddedNode node = TestIgnitionManager.start(nodeName, config, workDir.resolve(nodeName));
+        setListAtIndex(embeddedNodes, nodeIndex, node);
 
-                        if (nodes.size() < nodeIndex + 1) {
-                            nodes.add(ignite);
-                        } else {
-                            nodes.set(nodeIndex, ignite);
-                        }
-                    }
+        node.joinClusterAsync().thenAccept(ignite -> {
+            synchronized (nodes) {
+                setListAtIndex(nodes, nodeIndex, (IgniteImpl) ignite);
+            }
 
-                    if (stopped) {
-                        // Make sure we stop even a node that finished starting after the cluster has been stopped.
+            if (stopped) {
+                // Make sure we stop even a node that finished starting after the cluster has been stopped.
 
-                        IgnitionManager.stop(ignite.name());
-                    }
+                node.stop();
+            }
+        });
+        return node;
+    }
 
-                    return ignite;
-                });
+    private static <T> void setListAtIndex(List<T> list, int i, T element) {
+        while (list.size() < i) {
+            list.add(null);
+        }
+
+        if (list.size() < i + 1) {
+            list.add(element);
+        } else {
+            list.set(i, element);
+        }
     }
 
     private String seedAddressesString() {
@@ -342,7 +347,8 @@ public class Cluster {
         IgniteImpl newIgniteNode;
 
         try {
-            newIgniteNode = startNodeAsync(index, nodeBootstrapConfigTemplate).get(20, TimeUnit.SECONDS);
+            EmbeddedNode node = startEmbeddedNode(index, nodeBootstrapConfigTemplate);
+            newIgniteNode = (IgniteImpl) node.joinClusterAsync().get(20, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
 
@@ -374,8 +380,9 @@ public class Cluster {
     public void stopNode(int index) {
         checkNodeIndex(index);
 
-        IgnitionManager.stop(nodes.get(index).name());
+        embeddedNodes.get(index).stop();
 
+        embeddedNodes.set(index, null);
         nodes.set(index, null);
     }
 
@@ -470,18 +477,12 @@ public class Cluster {
     }
 
     /**
-     * Shuts down the  cluster by stopping all its nodes.
+     * Shuts down the cluster by stopping all its nodes.
      */
     public void shutdown() {
         stopped = true;
 
-        List<IgniteImpl> nodesToStop;
-
-        synchronized (nodes) {
-            nodesToStop = runningNodes().collect(toList());
-        }
-
-        nodesToStop.parallelStream().forEach(node -> IgnitionManager.stop(node.name()));
+        embeddedNodes.parallelStream().filter(Objects::nonNull).forEach(EmbeddedNode::stop);
     }
 
     /**
@@ -575,7 +576,7 @@ public class Cluster {
     }
 
     /**
-     * Transfers leadsership over a replication group to a node identified by the given index.
+     * Transfers leadership over a replication group to a node identified by the given index.
      *
      * @param nodeIndex Node index of the new leader.
      * @param groupId ID of the replication group.

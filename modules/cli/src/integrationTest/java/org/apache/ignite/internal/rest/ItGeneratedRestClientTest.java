@@ -50,8 +50,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.IntStream;
+import org.apache.ignite.EmbeddedNode;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.cli.call.cluster.unit.DeployUnitClient;
 import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
@@ -102,7 +102,7 @@ public class ItGeneratedRestClientTest {
     @WorkDirectory
     private static Path WORK_DIR;
 
-    private final List<String> clusterNodeNames = new ArrayList<>();
+    private List<EmbeddedNode> nodes;
 
     private final List<Ignite> clusterNodes = new ArrayList<>();
 
@@ -144,21 +144,22 @@ public class ItGeneratedRestClientTest {
 
     @BeforeAll
     void setUp(TestInfo testInfo) {
-        List<CompletableFuture<Ignite>> futures = IntStream.range(0, 3)
-                .mapToObj(i -> startNodeAsync(testInfo, i))
+        nodes = IntStream.range(0, 3)
+                .mapToObj(i -> startNode(testInfo, i))
                 .collect(toList());
 
-        String metaStorageNode = testNodeName(testInfo, BASE_PORT);
+        EmbeddedNode metaStorageNode = nodes.get(0);
 
         InitParameters initParameters = InitParameters.builder()
-                .destinationNodeName(metaStorageNode)
-                .metaStorageNodeNames(List.of(metaStorageNode))
+                .metaStorageNodes(metaStorageNode)
                 .clusterName("cluster")
                 .build();
 
-        TestIgnitionManager.init(initParameters);
+        nodes.get(0).initCluster(initParameters);
 
-        for (CompletableFuture<Ignite> future : futures) {
+        for (EmbeddedNode node : nodes) {
+            CompletableFuture<Ignite> future = node.joinClusterAsync();
+
             assertThat(future, willCompleteSuccessfully());
 
             clusterNodes.add(future.join());
@@ -181,11 +182,7 @@ public class ItGeneratedRestClientTest {
 
     @AfterAll
     void tearDown() throws Exception {
-        List<AutoCloseable> closeables = clusterNodeNames.stream()
-                .map(name -> (AutoCloseable) () -> IgnitionManager.stop(name))
-                .collect(toList());
-
-        IgniteUtils.closeAll(closeables);
+        IgniteUtils.closeAll(nodes.stream().map(node -> node::stop));
     }
 
     @Test
@@ -445,10 +442,8 @@ public class ItGeneratedRestClientTest {
         }
     }
 
-    private CompletableFuture<Ignite> startNodeAsync(TestInfo testInfo, int index) {
+    private static EmbeddedNode startNode(TestInfo testInfo, int index) {
         String nodeName = testNodeName(testInfo, BASE_PORT + index);
-
-        clusterNodeNames.add(nodeName);
 
         return TestIgnitionManager.start(nodeName, buildConfig(index), WORK_DIR.resolve(nodeName));
     }

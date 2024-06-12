@@ -32,8 +32,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.EmbeddedNode;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -66,6 +66,8 @@ public class AbstractJdbcSelfTest extends BaseIgniteAbstractTest {
     @WorkDirectory
     private static Path WORK_DIR;
 
+    private static final List<EmbeddedNode> embeddedNodes = new ArrayList<>();
+
     /** Cluster nodes. */
     protected static final List<Ignite> clusterNodes = new ArrayList<>();
 
@@ -84,15 +86,17 @@ public class AbstractJdbcSelfTest extends BaseIgniteAbstractTest {
     public static void beforeAllBase(TestInfo testInfo) throws Exception {
         String nodeName = testNodeName(testInfo, TEST_PORT);
 
-        CompletableFuture<Ignite> future = TestIgnitionManager.start(nodeName, null, WORK_DIR.resolve(nodeName));
+        EmbeddedNode node = TestIgnitionManager.start(nodeName, null, WORK_DIR.resolve(nodeName));
+        embeddedNodes.add(node);
 
         InitParameters initParameters = InitParameters.builder()
-                .destinationNodeName(nodeName)
-                .metaStorageNodeNames(List.of(nodeName))
+                .metaStorageNodeNames(nodeName)
                 .clusterName("cluster")
                 .build();
 
-        TestIgnitionManager.init(initParameters);
+        node.initCluster(initParameters);
+
+        CompletableFuture<Ignite> future = node.joinClusterAsync();
 
         assertThat(future, willCompleteSuccessfully());
 
@@ -112,11 +116,12 @@ public class AbstractJdbcSelfTest extends BaseIgniteAbstractTest {
     public static void afterAllBase(TestInfo testInfo) throws Exception {
         closeAll(
                 conn != null && !conn.isClosed() ? conn : null,
-                () -> IgnitionManager.stop(testNodeName(testInfo, TEST_PORT))
+                () -> embeddedNodes.forEach(EmbeddedNode::stop)
         );
 
         conn = null;
         clusterNodes.clear();
+        embeddedNodes.clear();
     }
 
     @BeforeEach

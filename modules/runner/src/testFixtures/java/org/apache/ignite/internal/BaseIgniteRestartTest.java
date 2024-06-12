@@ -35,8 +35,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
+import org.apache.ignite.EmbeddedNode;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.internal.app.IgniteImpl;
@@ -116,7 +116,7 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
 
     public TestInfo testInfo;
 
-    protected static final List<String> CLUSTER_NODES_NAMES = new ArrayList<>();
+    protected static final List<EmbeddedNode> EMBEDDED_NODES = new ArrayList<>();
 
     /** Cluster nodes. */
     protected List<PartialNode> partialNodes;
@@ -136,9 +136,9 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
     public void afterEachTest() throws Exception {
         var closeables = new ArrayList<AutoCloseable>();
 
-        for (String name : CLUSTER_NODES_NAMES) {
-            if (name != null) {
-                closeables.add(() -> IgnitionManager.stop(name));
+        for (EmbeddedNode node : EMBEDDED_NODES) {
+            if (node != null) {
+                closeables.add(node::stop);
             }
         }
 
@@ -150,7 +150,7 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
 
         closeAll(closeables);
 
-        CLUSTER_NODES_NAMES.clear();
+        EMBEDDED_NODES.clear();
     }
 
     /**
@@ -320,20 +320,19 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
      * @return Created node instance.
      */
     protected IgniteImpl startNode(int idx, @Nullable String cfg) {
-        boolean initNeeded = CLUSTER_NODES_NAMES.isEmpty();
+        boolean initNeeded = EMBEDDED_NODES.isEmpty();
 
-        CompletableFuture<Ignite> future = startNodeAsync(idx, cfg);
+        EmbeddedNode node = startNodeAsync(idx, cfg);
 
         if (initNeeded) {
-            String nodeName = CLUSTER_NODES_NAMES.get(0);
-
             InitParameters initParameters = InitParameters.builder()
-                    .destinationNodeName(nodeName)
-                    .metaStorageNodeNames(List.of(nodeName))
+                    .metaStorageNodes(node)
                     .clusterName("cluster")
                     .build();
-            TestIgnitionManager.init(initParameters);
+            TestIgnitionManager.init(node, initParameters);
         }
+
+        CompletableFuture<Ignite> future = node.joinClusterAsync();
 
         assertThat(future, willCompleteSuccessfully());
 
@@ -349,20 +348,22 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
      * @param cfg Configuration string or {@code null} to use the default configuration.
      * @return Future that completes with a created node instance.
      */
-    protected CompletableFuture<Ignite> startNodeAsync(int idx, @Nullable String cfg) {
+    protected EmbeddedNode startNodeAsync(int idx, @Nullable String cfg) {
         String nodeName = testNodeName(testInfo, idx);
 
         String cfgString = cfg == null ? configurationString(idx) : cfg;
 
-        if (CLUSTER_NODES_NAMES.size() == idx) {
-            CLUSTER_NODES_NAMES.add(nodeName);
-        } else {
-            assertNull(CLUSTER_NODES_NAMES.get(idx));
+        EmbeddedNode node = TestIgnitionManager.start(nodeName, cfgString, workDir.resolve(nodeName));
 
-            CLUSTER_NODES_NAMES.set(idx, nodeName);
+        if (EMBEDDED_NODES.size() == idx) {
+            EMBEDDED_NODES.add(node);
+        } else {
+            assertNull(EMBEDDED_NODES.get(idx));
+
+            EMBEDDED_NODES.set(idx, node);
         }
 
-        return TestIgnitionManager.start(nodeName, cfgString, workDir.resolve(nodeName));
+        return node;
     }
 
     /**
@@ -371,10 +372,10 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
      * @param idx Node index.
      */
     protected void stopNode(int idx) {
-        String nodeName = CLUSTER_NODES_NAMES.set(idx, null);
+        EmbeddedNode node = EMBEDDED_NODES.set(idx, null);
 
-        if (nodeName != null) {
-            IgnitionManager.stop(nodeName);
+        if (node != null) {
+            node.stop();
         }
     }
 

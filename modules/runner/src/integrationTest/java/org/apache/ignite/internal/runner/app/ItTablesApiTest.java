@@ -41,10 +41,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
+import org.apache.ignite.EmbeddedNode;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
@@ -96,6 +94,8 @@ public class ItTablesApiTest extends IgniteAbstractTest {
                     + "}"
     );
 
+    private final List<EmbeddedNode> nodes = new ArrayList<>();
+
     /** Cluster nodes. */
     private final List<Ignite> clusterNodes = new ArrayList<>();
 
@@ -104,24 +104,23 @@ public class ItTablesApiTest extends IgniteAbstractTest {
      */
     @BeforeEach
     void beforeEach(TestInfo testInfo) {
-        List<CompletableFuture<Ignite>> futures = new ArrayList<>();
-
         for (int i = 0; i < nodesBootstrapCfg.size(); i++) {
             String nodeName = testNodeName(testInfo, i);
 
-            futures.add(TestIgnitionManager.start(nodeName, nodesBootstrapCfg.get(i), workDir.resolve(nodeName)));
+            nodes.add(TestIgnitionManager.start(nodeName, nodesBootstrapCfg.get(i), workDir.resolve(nodeName)));
         }
 
-        String metaStorageNodeName = testNodeName(testInfo, 0);
+        EmbeddedNode metaStorageNode = nodes.get(0);
 
         InitParameters initParameters = InitParameters.builder()
-                .destinationNodeName(metaStorageNodeName)
-                .metaStorageNodeNames(List.of(metaStorageNodeName))
+                .metaStorageNodes(metaStorageNode)
                 .clusterName("cluster")
                 .build();
-        TestIgnitionManager.init(initParameters);
+        TestIgnitionManager.init(metaStorageNode, initParameters);
 
-        for (CompletableFuture<Ignite> future : futures) {
+        for (EmbeddedNode node : nodes) {
+            CompletableFuture<Ignite> future = node.joinClusterAsync();
+
             assertThat(future, willCompleteSuccessfully());
 
             clusterNodes.add(future.join());
@@ -133,12 +132,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
      */
     @AfterEach
     void afterEach(TestInfo testInfo) throws Exception {
-        List<AutoCloseable> closeables = IntStream.range(0, nodesBootstrapCfg.size())
-                .mapToObj(i -> testNodeName(testInfo, i))
-                .map(name -> (AutoCloseable) () -> IgnitionManager.stop(name))
-                .collect(Collectors.toList());
-
-        IgniteUtils.closeAll(closeables);
+        IgniteUtils.closeAll(nodes.stream().map(node -> node::stop));
     }
 
     /**

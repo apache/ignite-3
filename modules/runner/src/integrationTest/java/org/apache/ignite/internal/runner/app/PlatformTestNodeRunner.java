@@ -57,8 +57,8 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
+import org.apache.ignite.EmbeddedNode;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
@@ -80,6 +80,7 @@ import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.table.RecordBinaryViewImpl;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.lang.ErrorGroups.Common;
@@ -221,7 +222,12 @@ public class PlatformTestNodeRunner {
             return;
         }
 
-        List<Ignite> startedNodes = startNodes(BASE_PATH, nodesBootstrapCfg);
+        List<EmbeddedNode> startedEmbeddedNodes = startNodes(BASE_PATH, nodesBootstrapCfg);
+
+        List<Ignite> startedNodes = startedEmbeddedNodes.stream()
+                .map(EmbeddedNode::joinClusterAsync)
+                .map(CompletableFuture::join)
+                .collect(toList());
 
         createTables(startedNodes.get(0));
 
@@ -237,8 +243,8 @@ public class PlatformTestNodeRunner {
         Thread.sleep(runTimeMinutes * 60_000);
         System.out.println("Exiting after " + runTimeMinutes + " minutes.");
 
-        for (Ignite node : startedNodes) {
-            IgnitionManager.stop(node.name());
+        for (EmbeddedNode node : startedEmbeddedNodes) {
+            node.stop();
         }
     }
 
@@ -249,7 +255,7 @@ public class PlatformTestNodeRunner {
      * @param nodeCfg Node configuration.
      * @return Started nodes.
      */
-    static List<Ignite> startNodes(Path basePath, Map<String, String> nodeCfg) throws IOException {
+    static List<EmbeddedNode> startNodes(Path basePath, Map<String, String> nodeCfg) throws IOException {
         IgniteUtils.deleteIfExists(basePath);
         Files.createDirectories(basePath);
 
@@ -257,7 +263,7 @@ public class PlatformTestNodeRunner {
         var trustStorePath = escapeWindowsPath(getResourcePath(PlatformTestNodeRunner.class, "ssl/trust.jks"));
         var keyStorePath = escapeWindowsPath(getResourcePath(PlatformTestNodeRunner.class, "ssl/server.jks"));
 
-        List<CompletableFuture<Ignite>> igniteFutures = nodeCfg.entrySet().stream()
+        List<EmbeddedNode> nodes = nodeCfg.entrySet().stream()
                 .map(e -> {
                     String nodeName = e.getKey();
                     String config = e.getValue()
@@ -269,22 +275,22 @@ public class PlatformTestNodeRunner {
                 })
                 .collect(toList());
 
-        String metaStorageNodeName = nodeCfg.keySet().iterator().next();
+        EmbeddedNode metaStorageNode = nodes.get(0);
 
         InitParameters initParameters = InitParameters.builder()
-                .destinationNodeName(metaStorageNodeName)
-                .metaStorageNodeNames(List.of(metaStorageNodeName))
+                .metaStorageNodes(metaStorageNode)
                 .clusterName("cluster")
                 .build();
-        TestIgnitionManager.init(initParameters);
+        TestIgnitionManager.init(metaStorageNode, initParameters);
 
         System.out.println("Initialization complete");
 
-        List<Ignite> startedNodes = igniteFutures.stream().map(CompletableFuture::join).collect(toList());
+        CompletableFuture<Ignite>[] futures = nodes.stream().map(EmbeddedNode::joinClusterAsync).toArray(CompletableFuture[]::new);
+        CompletableFutures.allOf(futures).join();
 
         System.out.println("Ignite nodes started");
 
-        return startedNodes;
+        return nodes;
     }
 
     private static void createTables(Ignite node) {

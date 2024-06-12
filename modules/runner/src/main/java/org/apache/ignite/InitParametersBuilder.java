@@ -17,30 +17,17 @@
 
 package org.apache.ignite;
 
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /** Builder of {@link org.apache.ignite.InitParameters}. */
 public class InitParametersBuilder {
-    private String destinationNodeName;
     private Collection<String> metaStorageNodeNames;
     private Collection<String> cmgNodeNames;
     private String clusterName;
     private String clusterConfiguration;
-
-    /**
-     * Sets name of the node that the initialization request will be sent to.
-     *
-     * @param destinationNodeName Destination node name.
-     * @return {@code this} for chaining.
-     */
-    public InitParametersBuilder destinationNodeName(String destinationNodeName) {
-        if (destinationNodeName == null || destinationNodeName.isBlank()) {
-            throw new IllegalArgumentException("Node name cannot be null or empty.");
-        }
-        this.destinationNodeName = destinationNodeName;
-        return this;
-    }
 
     /**
      * Sets names of nodes that will host the Meta Storage.
@@ -48,14 +35,48 @@ public class InitParametersBuilder {
      * @param metaStorageNodeNames Names of nodes that will host the Meta Storage.
      * @return {@code this} for chaining.
      */
-    public InitParametersBuilder metaStorageNodeNames(Collection<String> metaStorageNodeNames) {
+    public InitParametersBuilder metaStorageNodeNames(String... metaStorageNodeNames) {
         if (metaStorageNodeNames == null) {
             throw new IllegalArgumentException("Meta storage node names cannot be null.");
         }
-        if (metaStorageNodeNames.isEmpty()) {
+        if (metaStorageNodeNames.length == 0) {
             throw new IllegalArgumentException("Meta storage node names cannot be empty.");
         }
-        this.metaStorageNodeNames = List.copyOf(metaStorageNodeNames);
+        this.metaStorageNodeNames = List.of(metaStorageNodeNames);
+        return this;
+    }
+
+    /**
+     * Sets nodes that will host the Meta Storage.
+     *
+     * @param metaStorageNodes Nodes that will host the Meta Storage.
+     * @return {@code this} for chaining.
+     */
+    public InitParametersBuilder metaStorageNodes(EmbeddedNode... metaStorageNodes) {
+        if (metaStorageNodes == null) {
+            throw new IllegalArgumentException("Meta storage nodes cannot be null.");
+        }
+        if (metaStorageNodes.length == 0) {
+            throw new IllegalArgumentException("Meta storage nodes cannot be empty.");
+        }
+        this.metaStorageNodeNames = Arrays.stream(metaStorageNodes).map(EmbeddedNode::name).collect(Collectors.toList());
+        return this;
+    }
+
+    /**
+     * Sets nodes that will host the Meta Storage.
+     *
+     * @param metaStorageNodes Nodes that will host the Meta Storage.
+     * @return {@code this} for chaining.
+     */
+    public InitParametersBuilder metaStorageNodes(Collection<EmbeddedNode> metaStorageNodes) {
+        if (metaStorageNodes == null) {
+            throw new IllegalArgumentException("Meta storage nodes cannot be null.");
+        }
+        if (metaStorageNodes.isEmpty()) {
+            throw new IllegalArgumentException("Meta storage nodes cannot be empty.");
+        }
+        this.metaStorageNodeNames = metaStorageNodes.stream().map(EmbeddedNode::name).collect(Collectors.toList());
         return this;
     }
 
@@ -65,14 +86,31 @@ public class InitParametersBuilder {
      * @param cmgNodeNames Names of nodes that will host the CMG.
      * @return {@code this} for chaining.
      */
-    public InitParametersBuilder cmgNodeNames(Collection<String> cmgNodeNames) {
+    public InitParametersBuilder cmgNodeNames(String... cmgNodeNames) {
         if (cmgNodeNames == null) {
             throw new IllegalArgumentException("CMG node names cannot be null.");
         }
-        if (cmgNodeNames.isEmpty()) {
+        if (cmgNodeNames.length == 0) {
             throw new IllegalArgumentException("CMG node names cannot be empty.");
         }
-        this.cmgNodeNames = List.copyOf(cmgNodeNames);
+        this.cmgNodeNames = List.of(cmgNodeNames);
+        return this;
+    }
+
+    /**
+     * Sets Nodes that will host the CMG. If not set, {@link InitParametersBuilder#metaStorageNodes} will be used.
+     *
+     * @param cmgNodes Nodes that will host the CMG.
+     * @return {@code this} for chaining.
+     */
+    public InitParametersBuilder cmgNodeNames(EmbeddedNode... cmgNodes) {
+        if (cmgNodes == null) {
+            throw new IllegalArgumentException("CMG nodes cannot be null.");
+        }
+        if (cmgNodes.length == 0) {
+            throw new IllegalArgumentException("CMG nodes cannot be empty.");
+        }
+        this.cmgNodeNames = Arrays.stream(cmgNodes).map(EmbeddedNode::name).collect(Collectors.toList());
         return this;
     }
 
@@ -105,9 +143,6 @@ public class InitParametersBuilder {
     public InitParameters build() {
         cmgNodeNames = cmgNodeNames == null ? metaStorageNodeNames : cmgNodeNames;
 
-        if (destinationNodeName == null) {
-            throw new IllegalStateException("Destination node name is not set.");
-        }
         if (metaStorageNodeNames == null) {
             throw new IllegalStateException("Meta storage node names is not set.");
         }
@@ -118,6 +153,6 @@ public class InitParametersBuilder {
             throw new IllegalStateException("Cluster name is not set.");
         }
 
-        return new InitParameters(destinationNodeName, metaStorageNodeNames, cmgNodeNames, clusterName, clusterConfiguration);
+        return new InitParameters(metaStorageNodeNames, cmgNodeNames, clusterName, clusterConfiguration);
     }
 }

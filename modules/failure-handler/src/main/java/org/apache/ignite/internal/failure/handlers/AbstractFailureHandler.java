@@ -56,17 +56,17 @@ public abstract class AbstractFailureHandler implements FailureHandler {
     }
 
     @Override
-    public boolean onFailure(String nodeName, FailureContext failureCtx) {
-        return !ignoredFailureTypes.contains(failureCtx.type()) && handle(nodeName, failureCtx);
+    public boolean onFailure(Runnable nodeStopper, FailureContext failureCtx) {
+        return !ignoredFailureTypes.contains(failureCtx.type()) && handle(nodeStopper, failureCtx);
     }
 
     /**
      * Actual failure handling. This method is not called for ignored failure types.
      *
      * @see #ignoredFailureTypes(Set)
-     * @see FailureHandler#onFailure(String, FailureContext)
+     * @see FailureHandler#onFailure(Runnable, FailureContext)
      */
-    protected abstract boolean handle(String nodeName, FailureContext failureCtx);
+    protected abstract boolean handle(Runnable nodeStopper, FailureContext failureCtx);
 
     @Override
     public String toString() {

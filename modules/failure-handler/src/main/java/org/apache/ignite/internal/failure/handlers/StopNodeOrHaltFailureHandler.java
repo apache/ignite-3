@@ -19,7 +19,6 @@ package org.apache.ignite.internal.failure.handlers;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.handlers.configuration.StopNodeOrHaltFailureHandlerView;
 import org.apache.ignite.internal.tostring.S;
@@ -71,13 +70,13 @@ public class StopNodeOrHaltFailureHandler extends AbstractFailureHandler {
     }
 
     @Override
-    protected boolean handle(String nodeName, FailureContext failureCtx) {
+    protected boolean handle(Runnable nodeStopper, FailureContext failureCtx) {
         if (tryStop) {
             CountDownLatch latch = new CountDownLatch(1);
 
             new Thread(
                     () -> {
-                        IgnitionManager.stop(nodeName);
+                        nodeStopper.run();
 
                         latch.countDown();
                     },

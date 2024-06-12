@@ -31,11 +31,11 @@ public interface FailureHandler {
      * Failure details is contained in {@code failureCtx}.
      * Returns {@code true} if Ignite node must be invalidated by {@link FailureProcessor} after calling this method.
      *
-     * @param nodeName Node name.
+     * @param nodeStopper Embedded node.
      * @param failureCtx Failure context.
      * @return Whether Ignite node must be invalidated or not.
      */
-    boolean onFailure(String nodeName, FailureContext failureCtx);
+    boolean onFailure(Runnable nodeStopper, FailureContext failureCtx);
 
     /**
      * Returns unmodifiable set of ignored failure types.

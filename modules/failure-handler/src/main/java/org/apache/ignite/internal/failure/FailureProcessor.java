@@ -63,8 +63,8 @@ public class FailureProcessor implements IgniteComponent {
     /** Handler. */
     private volatile FailureHandler handler;
 
-    /** Node name. */
-    private final String nodeName;
+    /** Node stopper. */
+    private final Runnable nodeStopper;
 
     /** Interceptor of fail handler. Main purpose to make testing easier. */
     private @Nullable FailureHandler interceptor;
@@ -75,11 +75,11 @@ public class FailureProcessor implements IgniteComponent {
     /**
      * Creates a new instance of a failure processor.
      *
-     * @param nodeName Node name.
+     * @param nodeStopper Node.
      * @param handler Handler.
      */
-    public FailureProcessor(String nodeName, FailureHandler handler) {
-        this.nodeName = nodeName;
+    public FailureProcessor(Runnable nodeStopper, FailureHandler handler) {
+        this.nodeStopper = nodeStopper;
         this.handler = handler;
         this.configuration = null;
     }
@@ -87,11 +87,11 @@ public class FailureProcessor implements IgniteComponent {
     /**
      * Creates a new instance of a failure processor.
      *
-     * @param nodeName Node name.
+     * @param nodeStopper Node.
      * @param configuration Failure processor configuration.
      */
-    public FailureProcessor(String nodeName, FailureProcessorConfiguration configuration) {
-        this.nodeName = nodeName;
+    public FailureProcessor(Runnable nodeStopper, FailureProcessorConfiguration configuration) {
+        this.nodeStopper = nodeStopper;
         this.configuration = configuration;
     }
 
@@ -138,7 +138,7 @@ public class FailureProcessor implements IgniteComponent {
         assert handler != null : "Failure handler is not initialized.";
 
         if (interceptor != null) {
-            interceptor.onFailure(nodeName, failureCtx);
+            interceptor.onFailure(nodeStopper, failureCtx);
         }
 
         // Node already terminating, no reason to process more errors.
@@ -152,7 +152,7 @@ public class FailureProcessor implements IgniteComponent {
             LOG.error(FAILURE_LOG_MSG, failureCtx.error(), handler, failureCtx);
         }
 
-        boolean invalidated = handler.onFailure(nodeName, failureCtx);
+        boolean invalidated = handler.onFailure(nodeStopper, failureCtx);
 
         if (invalidated) {
             this.failureCtx = failureCtx;

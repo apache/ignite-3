@@ -18,20 +18,19 @@
 package org.apache.ignite.internal.failure.handlers;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.lang.ErrorGroups.Common.ILLEGAL_ARGUMENT_ERR;
 import static org.awaitility.Awaitility.await;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.EmbeddedNode;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
-import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureType;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInfo;
 
 /**
  * Tests for failure handlers.
@@ -45,22 +44,21 @@ public class FailureHandlerTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
-    void testStopNodeFailureHandler(TestInfo testInfo) throws Exception {
-        testFailureHandler(new StopNodeFailureHandler(), testInfo);
+    void testStopNodeFailureHandler() {
+        testFailureHandler(new StopNodeFailureHandler());
     }
 
     @Test
-    void testStopNodeOrHaltFailureHandler(TestInfo testInfo) throws Exception {
-        testFailureHandler(new StopNodeOrHaltFailureHandler(true, TIMEOUT_MILLIS), testInfo);
+    void testStopNodeOrHaltFailureHandler() {
+        testFailureHandler(new StopNodeOrHaltFailureHandler(true, TIMEOUT_MILLIS));
     }
 
-    private void testFailureHandler(FailureHandler hnd, TestInfo testInfo) throws Exception {
-        String nodeName = testNodeName(testInfo, 0);
-
-        CompletableFuture<IgniteImpl> fut = cluster.startNodeAsync(0);
+    private void testFailureHandler(FailureHandler hnd) {
+        EmbeddedNode node = cluster.startEmbeddedNode(0);
+        CompletableFuture<Ignite> fut = node.joinClusterAsync();
 
         hnd.onFailure(
-                nodeName,
+                node::stopAsync,
                 new FailureContext(
                         FailureType.CRITICAL_ERROR,
                         new IgniteInternalException(ILLEGAL_ARGUMENT_ERR, "Test error")));

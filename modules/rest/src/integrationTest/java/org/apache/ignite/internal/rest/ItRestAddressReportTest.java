@@ -27,10 +27,7 @@ import java.net.URL;
 import java.net.UnknownHostException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.Ignite;
-import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.EmbeddedNode;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.IgniteIntegrationTest;
 import org.apache.ignite.internal.app.IgniteRunner;
@@ -58,7 +55,7 @@ public class ItRestAddressReportTest extends IgniteIntegrationTest {
         Path configPath = Path.of(ItRestAddressReportTest.class.getResource("/ignite-config-rest-port-not-default.json").toURI());
 
         // When start node
-        CompletableFuture<Ignite> ign = IgniteRunner.start(
+        EmbeddedNode node = IgniteRunner.start(
                 "--config-path", configPath.toAbsolutePath().toString(),
                 "--work-dir", workDir.resolve(NODE_NAME).toAbsolutePath().toString(),
                 "--node-name", NODE_NAME
@@ -66,15 +63,14 @@ public class ItRestAddressReportTest extends IgniteIntegrationTest {
 
         // And init cluster
         InitParameters initParameters = InitParameters.builder()
-                .destinationNodeName(NODE_NAME)
-                .metaStorageNodeNames(List.of(NODE_NAME))
+                .metaStorageNodes(node)
                 .clusterName("cluster")
                 .build();
 
-        TestIgnitionManager.init(initParameters);
+        TestIgnitionManager.init(node, initParameters);
 
         // Then node is started
-        assertThat(ign, willCompleteSuccessfully());
+        assertThat(node.joinClusterAsync(), willCompleteSuccessfully());
 
         // And there is a file in work dir with the rest address
         Path reportFile = workDir.resolve(NODE_NAME).resolve("rest-address");
@@ -86,7 +82,7 @@ public class ItRestAddressReportTest extends IgniteIntegrationTest {
         assertThat(restUri.getPort(), is(equalTo(10333)));
 
         // When stop node
-        IgnitionManager.stop(NODE_NAME);
+        node.stop();
 
         // Then the file is removed
         assertThat(Files.exists(reportFile), is(false));

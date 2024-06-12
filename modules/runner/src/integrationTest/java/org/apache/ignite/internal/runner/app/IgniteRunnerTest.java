@@ -21,10 +21,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.nio.file.Path;
-import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.Ignite;
-import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.EmbeddedNode;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.IgniteIntegrationTest;
 import org.apache.ignite.internal.app.IgniteRunner;
@@ -41,29 +38,30 @@ public class IgniteRunnerTest extends IgniteIntegrationTest {
     @WorkDirectory
     private Path workDir;
 
+    private EmbeddedNode node;
+
     @AfterEach
     void tearDown() {
-        IgnitionManager.stop(NODE_NAME);
+        node.stop();
     }
 
     @Test
     public void smokeTestArgs() throws Exception {
         Path configPath = Path.of(IgniteRunnerTest.class.getResource("/ignite-config.json").toURI());
 
-        CompletableFuture<Ignite> ign = IgniteRunner.start(
+        node = IgniteRunner.start(
                 "--config-path", configPath.toAbsolutePath().toString(),
                 "--work-dir", workDir.resolve("node").toAbsolutePath().toString(),
                 "--node-name", NODE_NAME
         );
 
         InitParameters initParameters = InitParameters.builder()
-                .destinationNodeName(NODE_NAME)
-                .metaStorageNodeNames(List.of(NODE_NAME))
+                .metaStorageNodes(node)
                 .clusterName("cluster")
                 .build();
 
-        IgnitionManager.init(initParameters);
+        node.initCluster(initParameters);
 
-        assertThat(ign, willCompleteSuccessfully());
+        assertThat(node.joinClusterAsync(), willCompleteSuccessfully());
     }
 }

@@ -20,6 +20,7 @@ package org.apache.ignite.internal.runner.app;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import org.apache.ignite.EmbeddedNode;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -55,9 +56,10 @@ public class PlatformBenchmarkNodeRunner {
     public static void main(String[] args) throws Exception {
         System.out.println("Starting benchmark node runner...");
 
-        List<Ignite> startedNodes = PlatformTestNodeRunner.startNodes(BASE_PATH, nodesBootstrapCfg);
+        List<EmbeddedNode> startedNodes = PlatformTestNodeRunner.startNodes(BASE_PATH, nodesBootstrapCfg);
 
-        Object clientHandlerModule = IgniteTestUtils.getFieldValue(startedNodes.get(0), "clientHandlerModule");
+        Ignite ignite = startedNodes.get(0).joinClusterAsync().join();
+        Object clientHandlerModule = IgniteTestUtils.getFieldValue(ignite, "clientHandlerModule");
         ClientHandlerMetricSource metrics = IgniteTestUtils.getFieldValue(clientHandlerModule, "metrics");
         metrics.enable();
 

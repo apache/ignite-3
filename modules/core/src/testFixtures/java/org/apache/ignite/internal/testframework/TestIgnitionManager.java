@@ -31,9 +31,7 @@ import java.nio.file.Path;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.Ignite;
-import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.EmbeddedNode;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.hlc.TestClockService;
@@ -112,14 +110,14 @@ public class TestIgnitionManager {
      *         complete.
      * @throws IgniteException If error occurs while reading node configuration.
      */
-    public static CompletableFuture<Ignite> start(String nodeName, @Nullable String configStr, Path workDir) {
+    public static EmbeddedNode start(String nodeName, @Nullable String configStr, Path workDir) {
         try {
             Files.createDirectories(workDir);
             Path configPath = workDir.resolve(DEFAULT_CONFIG_NAME);
 
             addDefaultsToConfigurationFile(configStr, configPath);
 
-            return IgnitionManager.start(nodeName, configPath, workDir);
+            return EmbeddedNode.create(nodeName, configPath, workDir);
         } catch (IOException e) {
             throw new IgniteException("Couldn't write node config.", e);
         }
@@ -150,18 +148,17 @@ public class TestIgnitionManager {
      * specified explicitly.
      *
      * @param parameters Init parameters.
-     * @see IgnitionManager#init(InitParameters)
+     * @see EmbeddedNode#initCluster(InitParameters)
      */
-    public static void init(InitParameters parameters) {
-        IgnitionManager.init(applyTestDefaultsToClusterConfig(parameters));
+    public static void init(EmbeddedNode node, InitParameters parameters) {
+        node.initCluster(applyTestDefaultsToClusterConfig(parameters));
     }
 
     private static InitParameters applyTestDefaultsToClusterConfig(InitParameters params) {
         InitParametersBuilder builder = new InitParametersBuilder()
                 .clusterName(params.clusterName())
-                .destinationNodeName(params.nodeName())
-                .metaStorageNodeNames(params.metaStorageNodeNames())
-                .cmgNodeNames(params.cmgNodeNames());
+                .metaStorageNodeNames(params.metaStorageNodeNames().toArray(String[]::new))
+                .cmgNodeNames(params.cmgNodeNames().toArray(String[]::new));
 
         if (!PRODUCTION_CLUSTER_CONFIG_STRING.equals(params.clusterConfiguration())) {
             builder.clusterConfiguration(applyTestDefaultsToConfig(params.clusterConfiguration(), DEFAULT_CLUSTER_CONFIG));

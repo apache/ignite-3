@@ -19,13 +19,14 @@ package org.apache.ignite;
 
 import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.app.EmbeddedNodeImpl;
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Entry point for handling the grid lifecycle.
  */
-public interface Ignition {
+public interface EmbeddedNode {
     /**
      * Starts an Ignite node with a bootstrap configuration from a HOCON file.
      *
@@ -38,7 +39,11 @@ public interface Ignition {
      * @return Completable future that resolves into an Ignite node after all components are started and the cluster initialization is
      *         complete.
      */
-    CompletableFuture<Ignite> start(String nodeName, Path configPath, Path workDir);
+    static EmbeddedNode create(String nodeName, Path configPath, Path workDir) {
+        EmbeddedNodeImpl igniteEmbedded = new EmbeddedNodeImpl(nodeName, configPath, workDir);
+        igniteEmbedded.start(); // Ignite future is kept inside this instance and will be returned from the joinClusterAsync.
+        return igniteEmbedded;
+    }
 
     /**
      * Starts an Ignite node with a bootstrap configuration from a HOCON file, with an optional class loader for further usage by
@@ -52,40 +57,77 @@ public interface Ignition {
      * @param workDir Work directory for the started node. Must not be {@code null}.
      * @param serviceLoaderClassLoader The class loader to be used to load provider-configuration files and provider classes, or {@code
      * null} if the system class loader (or, failing that, the bootstrap class loader) is to be used
-     * @return CompletableFuture that resolves to an Ignite node after all components are started and the cluster initialization is
-     *         complete.
      */
-    CompletableFuture<Ignite> start(
+    static EmbeddedNode create(
             String nodeName,
             Path configPath,
             Path workDir,
             @Nullable ClassLoader serviceLoaderClassLoader
-    );
+    ) {
+        EmbeddedNodeImpl igniteEmbedded = new EmbeddedNodeImpl(nodeName, configPath, workDir, serviceLoaderClassLoader);
+        igniteEmbedded.start(); // Ignite future is kept inside this instance and will be returned from the init.
+        return igniteEmbedded;
+    }
+
+    CompletableFuture<Ignite> joinClusterAsync();
 
     /**
-     * Stops the node with given {@code name}. It's possible to stop both already started node or node that is currently starting. Has no
-     * effect if node with specified name doesn't exist.
-     *
-     * @param nodeName Name of the node to stop.
+     * Stops the node. It's possible to stop both already started node or node that is currently starting.
      */
-    void stop(String nodeName);
+    CompletableFuture<Void> stopAsync();
+
+    /**
+     * Stops the node. It's possible to stop both already started node or node that is currently starting.
+     */
+    void stop();
+
+    /**
+     * Starts the node.
+     */
+    void start();
 
     /**
      * Initializes the cluster that the given node is present in.
      *
      * <p>Cluster initialization propagates information about those nodes that will host the Meta Storage and CMG Raft groups
-     * to all nodes in the cluster. After the operation succeeds, nodes can finish the start procedure and begin
-     * accepting incoming requests.
+     * to all nodes in the cluster. After the operation succeeds, nodes can finish the start procedure and begin accepting incoming
+     * requests.
      *
-     * <p>Meta Storage is responsible for storing cluster-wide meta information required for internal purposes and proper functioning of the
-     * cluster.
+     * <p>Meta Storage is responsible for storing cluster-wide meta information required for internal purposes and proper functioning of
+     * the cluster.
+     *
+     * <p>Cluster Management Group (CMG) is a Raft group responsible for managing parts of the cluster lifecycle, such as
+     * validating incoming nodes and maintaining logical topology.
+     *
+     * @param parameters initialization parameters.
+     * @return CompletableFuture that resolves to an Ignite node after all components are started and the cluster initialization is
+     *         complete.
+     * @throws IgniteException If the given node has not been started or has been stopped.
+     * @see <a
+     *         href="https://cwiki.apache.org/confluence/display/IGNITE/IEP-77%3A+Node+Join+Protocol+and+Initialization+for+Ignite+3">IEP-77
+     *         </a>
+     */
+    CompletableFuture<Void> initClusterAsync(InitParameters parameters);
+
+    /**
+     * Initializes the cluster that the given node is present in.
+     *
+     * <p>Cluster initialization propagates information about those nodes that will host the Meta Storage and CMG Raft groups
+     * to all nodes in the cluster. After the operation succeeds, nodes can finish the start procedure and begin accepting incoming
+     * requests.
+     *
+     * <p>Meta Storage is responsible for storing cluster-wide meta information required for internal purposes and proper functioning of
+     * the cluster.
      *
      * <p>Cluster Management Group (CMG) is a Raft group responsible for managing parts of the cluster lifecycle, such as
      * validating incoming nodes and maintaining logical topology.
      *
      * @param parameters initialization parameters.
      * @throws IgniteException If the given node has not been started or has been stopped.
-     * @see <a href="https://cwiki.apache.org/confluence/display/IGNITE/IEP-77%3A+Node+Join+Protocol+and+Initialization+for+Ignite+3">IEP-77</a>
+     * @see <a
+     *         href="https://cwiki.apache.org/confluence/display/IGNITE/IEP-77%3A+Node+Join+Protocol+and+Initialization+for+Ignite+3">IEP-77</a>
      */
-    void init(InitParameters parameters);
+    void initCluster(InitParameters parameters);
+
+    String name();
 }

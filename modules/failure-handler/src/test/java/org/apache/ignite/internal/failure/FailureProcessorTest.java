@@ -23,7 +23,6 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -42,14 +41,14 @@ class FailureProcessorTest extends BaseIgniteAbstractTest {
     void testFailureProcessing() {
         FailureHandler handler = mock(FailureHandler.class);
 
-        FailureProcessor failureProcessor = new FailureProcessor("node_name", handler);
+        FailureProcessor failureProcessor = new FailureProcessor(() -> {}, handler);
 
         try {
             assertThat(failureProcessor.startAsync(new ComponentContext()), willSucceedFast());
 
             failureProcessor.process(new FailureContext(FailureType.CRITICAL_ERROR, null));
 
-            verify(handler, times(1)).onFailure(anyString(), any());
+            verify(handler, times(1)).onFailure(any(), any());
         } finally {
             assertThat(failureProcessor.stopAsync(new ComponentContext()), willSucceedFast());
         }
@@ -59,7 +58,7 @@ class FailureProcessorTest extends BaseIgniteAbstractTest {
     void testIgnoredFailureTypes() {
         FailureHandler handler = new NoOpFailureHandler();
 
-        FailureProcessor failureProcessor = new FailureProcessor("node_name", handler);
+        FailureProcessor failureProcessor = new FailureProcessor(() -> {}, handler);
 
         try {
             assertThat(failureProcessor.startAsync(new ComponentContext()), willSucceedFast());

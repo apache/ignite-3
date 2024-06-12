@@ -35,7 +35,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -79,6 +78,7 @@ import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -187,7 +187,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
             Collection<String> cmgNodeNames,
             String clusterName
     ) throws NodeStoppingException {
-        initCluster(metaStorageNodeNames, cmgNodeNames, clusterName, null);
+        sync(initClusterAsync(metaStorageNodeNames, cmgNodeNames, clusterName));
     }
 
     /**
@@ -204,20 +204,67 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
             String clusterName,
             @Nullable String clusterConfiguration
     ) throws NodeStoppingException {
+        sync(initClusterAsync(metaStorageNodeNames, cmgNodeNames, clusterName, clusterConfiguration));
+    }
+
+    /**
+     * Initializes the cluster that this node is present in.
+     *
+     * @param metaStorageNodeNames Names of nodes that will host the Meta Storage.
+     * @param cmgNodeNames Names of nodes that will host the Cluster Management Group.
+     * @param clusterName Human-readable name of the cluster.
+     * @return Future which completes when cluster is initialized.
+     */
+    public CompletableFuture<Void> initClusterAsync(
+            Collection<String> metaStorageNodeNames,
+            Collection<String> cmgNodeNames,
+            String clusterName
+    ) throws NodeStoppingException {
+        return initClusterAsync(metaStorageNodeNames, cmgNodeNames, clusterName, null);
+    }
+
+    /**
+     * Initializes the cluster that this node is present in.
+     *
+     * @param metaStorageNodeNames Names of nodes that will host the Meta Storage.
+     * @param cmgNodeNames Names of nodes that will host the Cluster Management Group.
+     * @param clusterName Human-readable name of the cluster.
+     * @param clusterConfiguration Cluster configuration.
+     * @return Future which completes when cluster is initialized.
+     */
+    public CompletableFuture<Void> initClusterAsync(
+            Collection<String> metaStorageNodeNames,
+            Collection<String> cmgNodeNames,
+            String clusterName,
+            @Nullable String clusterConfiguration
+    ) throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
             throw new NodeStoppingException();
         }
 
         try {
-            clusterInitializer.initCluster(metaStorageNodeNames, cmgNodeNames, clusterName, clusterConfiguration).get();
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-
-            throw new InitException("Interrupted while initializing the cluster", e);
-        } catch (ExecutionException e) {
-            throw new InitException("Unable to initialize the cluster: " + e.getCause().getMessage(), e.getCause());
+            return clusterInitializer.initCluster(metaStorageNodeNames, cmgNodeNames, clusterName, clusterConfiguration)
+                    .handle(ClusterManagementGroupManager::mapInitResult).thenCompose(Function.identity());
         } finally {
             busyLock.leaveBusy();
+        }
+    }
+
+    private static CompletableFuture<Void> mapInitResult(Void res, Throwable e) {
+        if (e == null) {
+            return completedFuture(res);
+        }
+        if (e instanceof InterruptedException) {
+            return failedFuture(new InitException("Interrupted while initializing the cluster", e));
+        }
+        return failedFuture(new InitException("Unable to initialize the cluster: " + e.getMessage(), e));
+    }
+
+    private static void sync(CompletableFuture<Void> future) {
+        try {
+            future.join();
+        } catch (CompletionException e) {
+            throw ExceptionUtils.sneakyThrow(unwrapCause(e));
         }
     }
 

@@ -32,9 +32,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
-import java.util.stream.Collectors;
+import org.apache.ignite.EmbeddedNode;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.IgniteIntegrationTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -56,10 +55,10 @@ class ItIgnitionTest extends IgniteIntegrationTest {
     /** Nodes bootstrap configuration. */
     private final Map<String, String> nodesBootstrapCfg = new LinkedHashMap<>();
 
+    private final List<EmbeddedNode> startedEmbeddedNodes = new ArrayList<>();
+
     /** Collection of started nodes. */
     private final List<Ignite> startedNodes = new ArrayList<>();
-
-    private final List<String> startedNodeNames = new ArrayList<>();
 
     /** Path to the working directory. */
     @WorkDirectory
@@ -122,11 +121,7 @@ class ItIgnitionTest extends IgniteIntegrationTest {
      */
     @AfterEach
     void tearDown() throws Exception {
-        List<AutoCloseable> closeables = startedNodeNames.stream()
-                .map(name -> (AutoCloseable) () -> IgnitionManager.stop(name))
-                .collect(Collectors.toList());
-
-        IgniteUtils.closeAll(closeables);
+        IgniteUtils.closeAll(startedEmbeddedNodes.stream().map(node -> node::stop));
     }
 
     /**
@@ -144,7 +139,7 @@ class ItIgnitionTest extends IgniteIntegrationTest {
                 } catch (IOException ex) {
                     throw new RuntimeException(ex);
                 }
-                return IgnitionManager.start(name, configPath, nodeWorkDir);
+                return EmbeddedNode.create(name, configPath, nodeWorkDir);
             });
         }
 
@@ -161,26 +156,27 @@ class ItIgnitionTest extends IgniteIntegrationTest {
         assertThrowsWithCause(
                 () -> startNode(
                         "invalid-config-name",
-                        name -> IgnitionManager.start(name, Path.of("no-such-path"), workDir.resolve(name))
+                        name -> EmbeddedNode.create(name, Path.of("no-such-path"), workDir.resolve(name))
                 ),
                 IgniteException.class,
                 "Config file doesn't exist"
         );
     }
 
-    private void startNode(String nodeName, Function<String, CompletableFuture<Ignite>> starter) {
-        startedNodeNames.add(nodeName);
+    private void startNode(String nodeName, Function<String, EmbeddedNode> starter) {
+        EmbeddedNode node = starter.apply(nodeName);
 
-        CompletableFuture<Ignite> future = starter.apply(nodeName);
+        startedEmbeddedNodes.add(node);
 
         if (startedNodes.isEmpty()) {
             InitParameters initParameters = InitParameters.builder()
-                    .destinationNodeName(nodeName)
-                    .metaStorageNodeNames(List.of(nodeName))
+                    .metaStorageNodes(node)
                     .clusterName("cluster")
                     .build();
-            IgnitionManager.init(initParameters);
+            node.initCluster(initParameters);
         }
+
+        CompletableFuture<Ignite> future = node.joinClusterAsync();
 
         assertThat(future, willCompleteSuccessfully());
 
