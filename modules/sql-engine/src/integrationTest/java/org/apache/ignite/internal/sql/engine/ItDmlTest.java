@@ -636,7 +636,7 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
                 sql("ALTER TABLE test ALTER COLUMN val DROP DEFAULT");
 
                 if (arg.sqlType.endsWith("NOT NULL")) {
-                    assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Column 'VAL' does not allow NULL",
+                    assertThrowsSqlException(Sql.CONSTRAINT_VIOLATION_ERR, "Column 'VAL' does not allow NULL",
                             () -> sql("INSERT INTO test (id) VALUES (2)"));
                 } else {
                     sql("INSERT INTO test (id) VALUES (2)");
