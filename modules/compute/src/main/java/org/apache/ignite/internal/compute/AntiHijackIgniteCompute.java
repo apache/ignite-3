@@ -53,14 +53,7 @@ public class AntiHijackIgniteCompute implements IgniteCompute, Wrapper {
 
     @Override
     public <R> JobExecution<R> submit(Set<ClusterNode> nodes, JobDescriptor descriptor, Object... args) {
-        List<DeploymentUnit> units = descriptor.units();
-        String jobClassName = descriptor.jobClassName();
-        JobExecutionOptions options = descriptor.options();
-        return preventThreadHijack(compute.submit(nodes, JobDescriptor.builder()
-                .jobClassName(jobClassName)
-                .units(units)
-                .options(options)
-                .build(), args));
+        return preventThreadHijack(compute.submit(nodes, descriptor, args));
     }
 
     @Override
