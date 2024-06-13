@@ -232,7 +232,9 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
             Tuple key = Tuple.create().set("key", "k");
 
             var ex = assertThrows(CompletionException.class,
-                    () -> client.compute().executeColocatedAsync("bad-tbl", key, List.of(), "job").join());
+                    () -> client.compute().executeColocatedAsync("bad-tbl", key, JobDescriptor.builder()
+                            .jobClassName("job")
+                            .build()).join());
 
             var tblNotFoundEx = (TableNotFoundException) ex.getCause();
             assertThat(tblNotFoundEx.getMessage(), containsString("The table does not exist [name=\"PUBLIC\".\"bad-tbl\"]"));

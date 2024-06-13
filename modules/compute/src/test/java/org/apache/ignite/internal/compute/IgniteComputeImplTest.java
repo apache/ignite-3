@@ -182,10 +182,8 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
                 compute.executeColocatedAsync(
                         "test",
                         Tuple.create(Map.of("k", 1)),
-                        testDeploymentUnits,
-                        JOB_CLASS_NAME,
-                        "a", 42
-                ),
+                        JobDescriptor.builder().jobClassName(JOB_CLASS_NAME).units(testDeploymentUnits).build(),
+                        "a", 42),
                 willBe("remoteResponse")
         );
     }

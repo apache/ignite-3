@@ -739,11 +739,15 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     void testExecuteColocatedOnUnknownUnitWithLatestVersionThrows() {
         CompletionException ex = assertThrows(
                 CompletionException.class,
-                () -> client().compute().executeColocatedAsync(
-                        TABLE_NAME,
-                        Tuple.create().set(COLUMN_KEY, 1),
-                        List.of(new DeploymentUnit("u", "latest")),
-                        NodeNameJob.class.getName()).join());
+                () -> {
+                    client().compute().executeColocatedAsync(
+                            TABLE_NAME,
+                            Tuple.create().set(COLUMN_KEY, 1),
+                            JobDescriptor.builder()
+                                    .jobClassName(NodeNameJob.class.getName())
+                                    .units(new DeploymentUnit("u", "latest"))
+                                    .build()).join();
+                });
 
         var cause = (IgniteException) ex.getCause();
         assertThat(cause.getMessage(), containsString("Deployment unit u:latest doesn't exist"));

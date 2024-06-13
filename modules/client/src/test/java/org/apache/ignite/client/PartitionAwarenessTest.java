@@ -39,6 +39,7 @@ import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.client.fakes.FakeInternalTable;
 import org.apache.ignite.client.handler.FakePlacementDriver;
 import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.tx.ClientLazyTransaction;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -443,8 +444,13 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         Tuple t1 = Tuple.create().set("ID", 1L);
         Tuple t2 = Tuple.create().set("ID", 2L);
 
-        assertThat(compute().executeColocatedAsync(table.name(), t1, List.of(), "job"), willBe(nodeKey1));
-        assertThat(compute().executeColocatedAsync(table.name(), t2, List.of(), "job"), willBe(nodeKey2));
+        assertThat(compute().executeColocatedAsync(table.name(), t1, JobDescriptor.builder()
+                .jobClassName("job")
+                .build(), new Object[]{}), willBe(nodeKey1));
+
+        assertThat(compute().executeColocatedAsync(table.name(), t2, JobDescriptor.builder()
+                .jobClassName("job")
+                .build(), new Object[]{}), willBe(nodeKey2));
     }
 
     @Test

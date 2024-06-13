@@ -162,12 +162,12 @@ class ItComputeApiThreadingTest extends ClusterPerClassIntegrationTest {
             return compute.executeAsync(nodes, JobDescriptor.builder()
                     .jobClassName(NoOpJob.class.getName())
                     .units(List.of())
-                    .options(JobExecutionOptions.DEFAULT)
+                    .options(DEFAULT)
                     .build());
         }),
-        EXECUTE_COLOCATED_BY_TUPLE_ASYNC(compute -> compute.executeColocatedAsync(
-                TABLE_NAME, KEY_TUPLE, List.of(), NoOpJob.class.getName()
-        )),
+        EXECUTE_COLOCATED_BY_TUPLE_ASYNC(compute -> compute.executeColocatedAsync(TABLE_NAME, KEY_TUPLE, JobDescriptor.builder()
+                .jobClassName(NoOpJob.class.getName())
+                .build())),
         EXECUTE_COLOCATED_BY_TUPLE_WITH_OPTIONS_ASYNC(compute -> compute.executeColocatedAsync(TABLE_NAME, KEY_TUPLE, JobDescriptor.builder()
                 .jobClassName(NoOpJob.class.getName())
                 .build())
@@ -176,11 +176,11 @@ class ItComputeApiThreadingTest extends ClusterPerClassIntegrationTest {
                 TABLE_NAME, KEY, Mapper.of(Integer.class), List.of(), NoOpJob.class.getName())
         ),
         EXECUTE_COLOCATED_BY_KEY_WITH_OPTIONS_ASYNC(compute -> compute.executeColocatedAsync(
-                TABLE_NAME, KEY, Mapper.of(Integer.class), List.of(), NoOpJob.class.getName(), JobExecutionOptions.DEFAULT)
+                TABLE_NAME, KEY, Mapper.of(Integer.class), List.of(), NoOpJob.class.getName(), DEFAULT)
         ),
         EXECUTE_BROADCAST_ASYNC(compute -> compute.executeBroadcastAsync(justNonEntryNode(), List.of(), NoOpJob.class.getName())),
         EXECUTE_BROADCAST_WITH_OPTIONS_ASYNC(compute -> compute.executeBroadcastAsync(
-                justNonEntryNode(), List.of(), NoOpJob.class.getName(), JobExecutionOptions.DEFAULT
+                justNonEntryNode(), List.of(), NoOpJob.class.getName(), DEFAULT
         ));
 
         private final Function<IgniteCompute, CompletableFuture<?>> action;
@@ -208,7 +208,7 @@ class ItComputeApiThreadingTest extends ClusterPerClassIntegrationTest {
             return compute.submit(nodes, JobDescriptor.builder()
                     .jobClassName(NoOpJob.class.getName())
                     .units(List.of())
-                    .options(JobExecutionOptions.DEFAULT)
+                    .options(DEFAULT)
                     .build());
         }),
         SUBMIT_COLOCATED_BY_TUPLE(compute -> compute.submitColocated(TABLE_NAME, KEY_TUPLE, JobDescriptor.builder()
@@ -237,7 +237,7 @@ class ItComputeApiThreadingTest extends ClusterPerClassIntegrationTest {
                 .values().iterator().next()
         ),
         SUBMIT_BROADCAST_WITH_OPTIONS(compute -> compute
-                .submitBroadcast(justNonEntryNode(), List.of(), NoOpJob.class.getName(), JobExecutionOptions.DEFAULT)
+                .submitBroadcast(justNonEntryNode(), List.of(), NoOpJob.class.getName(), DEFAULT)
                 .values().iterator().next()
         );
 

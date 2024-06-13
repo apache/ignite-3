@@ -148,33 +148,6 @@ public interface IgniteCompute {
     }
 
     /**
-     * Submits a job of the given class for the execution on the node where the given key is located with default execution options
-     * {@link JobExecutionOptions#DEFAULT}. The node is a leader of the corresponding RAFT group. A shortcut for
-     * {@code submitColocated(...).resultAsync()}.
-     *
-     * @param tableName Name of the table whose key is used to determine the node to execute the job on.
-     * @param key Key that identifies the node to execute the job on.
-     * @param units Deployment units. Can be empty.
-     * @param jobClassName Name of the job class to execute.
-     * @param args Arguments of the job.
-     * @param <R> Job result type.
-     * @return Job result future.
-     */
-    default <R> CompletableFuture<R> executeColocatedAsync(
-            String tableName,
-            Tuple key,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            Object... args
-    ) {
-        return this.<R>submitColocated(tableName, key, JobDescriptor.builder()
-                .jobClassName(jobClassName)
-                .units(units)
-                .options(DEFAULT)
-                .build(), args).resultAsync();
-    }
-
-    /**
      * Submits a job of the given class for the execution on the node where the given key is located. The node is a leader of the
      * corresponding RAFT group. A shortcut for {@code submitColocated(...).resultAsync()}.
      *
