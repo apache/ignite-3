@@ -53,7 +53,7 @@ import org.junit.jupiter.api.Test;
  */
 public class ItReplicaStateManagerTest extends BaseIgniteRestartTest {
     @Test
-    public void testReplicaLifecycle() throws InterruptedException {
+    public void testReplicaStatesManagement() throws InterruptedException {
         int nodesCount = 3;
         List<IgniteImpl> nodes = startNodes(nodesCount);
 
