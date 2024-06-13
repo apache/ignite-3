@@ -35,7 +35,7 @@ public class NativeTypes {
      *
      * <p>SQL`16 part 2 section 6.1 syntax rule 38
      */
-    public static final int MAX_TIME_PRECISION = 9;
+    public static final int MAX_TIME_PRECISION = 3;
 
     /**
      * BOOLEAN type.
@@ -266,5 +266,9 @@ public class NativeTypes {
         }
 
         return MAX_TIME_PRECISION - trailingZeroes;
+    }
+    
+    public static int truncateTimeNanosToMillis(int nanos) {
+        return (nanos / 1_000_000) * 1_000_000;
     }
 }

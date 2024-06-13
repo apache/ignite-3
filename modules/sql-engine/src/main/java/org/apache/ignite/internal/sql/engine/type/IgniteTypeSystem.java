@@ -49,8 +49,6 @@ public class IgniteTypeSystem extends RelDataTypeSystemImpl {
         switch (typeName) {
             case TIME:
             case TIME_WITH_LOCAL_TIME_ZONE:
-            case TIMESTAMP:
-            case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
                 return CatalogUtils.MAX_TIME_PRECISION;
             default:
                 return super.getMaxPrecision(typeName);
@@ -64,7 +62,7 @@ public class IgniteTypeSystem extends RelDataTypeSystemImpl {
             case TIMESTAMP: // DATETIME
             case TIMESTAMP_WITH_LOCAL_TIME_ZONE: // TIMESTAMP
                 // SQL`16 part 2 section 6.1 syntax rule 36
-                return 6;
+                return CatalogUtils.MAX_TIME_PRECISION;
             case FLOAT:
                 // Although FLOAT is an alias for REAL, we cannot use the same precision for them, w/o making
                 // results of TypeFactory::LeastRestrictiveType() non-deterministic. 

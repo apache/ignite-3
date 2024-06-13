@@ -37,6 +37,7 @@ import java.util.BitSet;
 import java.util.Random;
 import java.util.UUID;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -500,7 +501,16 @@ public class BinaryTupleTest {
      */
     @Test
     public void timeTest() {
-        LocalTime value = LocalTime.now();
+        LocalTime now = LocalTime.now();
+        LocalTime value = now.withNano(NativeTypes.truncateTimeNanosToMillis(now.getNano()));
+
+        {
+            BinaryTupleBuilder builder = new BinaryTupleBuilder(1);
+            ByteBuffer bytes = builder.appendTime(value).build();
+
+            BinaryTupleReader reader = new BinaryTupleReader(1, bytes);
+            assertEquals(value, reader.timeValue(0));
+        }
 
         {
             BinaryTupleBuilder builder = new BinaryTupleBuilder(1);
@@ -527,11 +537,11 @@ public class BinaryTupleTest {
         {
             BinaryTupleBuilder builder = new BinaryTupleBuilder(1);
             ByteBuffer bytes = builder.appendTime(value).build();
-            assertEquals(5, bytes.get(1));
-            assertEquals(7, bytes.limit());
+            assertEquals(4, bytes.get(1));
+            assertEquals(6, bytes.limit());
 
             BinaryTupleReader reader = new BinaryTupleReader(1, bytes);
-            assertEquals(value, reader.timeValue(0));
+            assertEquals(value.withNano(1_000_000), reader.timeValue(0));
         }
 
         value = LocalTime.of(value.getHour(), value.getMinute(), value.getSecond(), 1_001_001);
@@ -539,11 +549,11 @@ public class BinaryTupleTest {
         {
             BinaryTupleBuilder builder = new BinaryTupleBuilder(1);
             ByteBuffer bytes = builder.appendTime(value).build();
-            assertEquals(6, bytes.get(1));
-            assertEquals(8, bytes.limit());
+            assertEquals(4, bytes.get(1));
+            assertEquals(6, bytes.limit());
 
             BinaryTupleReader reader = new BinaryTupleReader(1, bytes);
-            assertEquals(value, reader.timeValue(0));
+            assertEquals(value.withNano(1_000_000), reader.timeValue(0));
         }
     }
 
@@ -552,7 +562,8 @@ public class BinaryTupleTest {
      */
     @Test
     public void dateTimeTest() {
-        LocalDateTime value = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime value = now.withNano(NativeTypes.truncateTimeNanosToMillis(now.getNano()));
 
         {
             BinaryTupleBuilder builder = new BinaryTupleBuilder(1);
@@ -581,11 +592,11 @@ public class BinaryTupleTest {
         {
             BinaryTupleBuilder builder = new BinaryTupleBuilder(1);
             ByteBuffer bytes = builder.appendDateTime(value).build();
-            assertEquals(8, bytes.get(1));
-            assertEquals(10, bytes.limit());
+            assertEquals(7, bytes.get(1));
+            assertEquals(9, bytes.limit());
 
             BinaryTupleReader reader = new BinaryTupleReader(1, bytes);
-            assertEquals(value, reader.dateTimeValue(0));
+            assertEquals(value.withNano(1_000_000), reader.dateTimeValue(0));
         }
 
         value = LocalDateTime.of(value.toLocalDate(),
@@ -594,11 +605,11 @@ public class BinaryTupleTest {
         {
             BinaryTupleBuilder builder = new BinaryTupleBuilder(1);
             ByteBuffer bytes = builder.appendDateTime(value).build();
-            assertEquals(9, bytes.get(1));
-            assertEquals(11, bytes.limit());
+            assertEquals(7, bytes.get(1));
+            assertEquals(9, bytes.limit());
 
             BinaryTupleReader reader = new BinaryTupleReader(1, bytes);
-            assertEquals(value, reader.dateTimeValue(0));
+            assertEquals(value.withNano(1_000_000), reader.dateTimeValue(0));
         }
 
     }
@@ -608,7 +619,8 @@ public class BinaryTupleTest {
      */
     @Test
     public void timestampTest() {
-        Instant value = Instant.now();
+        Instant now = Instant.now();
+        Instant value = Instant.ofEpochSecond(now.getEpochSecond(), NativeTypes.truncateTimeNanosToMillis(now.getNano()));
 
         {
             BinaryTupleBuilder builder = new BinaryTupleBuilder(1);
@@ -630,7 +642,7 @@ public class BinaryTupleTest {
             assertEquals(value, reader.timestampValue(0));
         }
 
-        value = Instant.ofEpochSecond(value.getEpochSecond(), 1);
+        value = Instant.ofEpochSecond(value.getEpochSecond(), 25_000_000);
 
         {
             BinaryTupleBuilder builder = new BinaryTupleBuilder(1);
