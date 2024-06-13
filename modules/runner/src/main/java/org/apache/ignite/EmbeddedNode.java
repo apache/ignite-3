@@ -24,11 +24,11 @@ import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Entry point for handling the grid lifecycle.
+ * Embedded Ignite node. Manages node's lifecycle, provides Ignite API and allows cluster initialization.
  */
 public interface EmbeddedNode {
     /**
-     * Starts an Ignite node with a bootstrap configuration from a HOCON file.
+     * Creates and starts an embedded Ignite node with a configuration from a HOCON file.
      *
      * <p>When this method returns, the node is partially started, and is ready to accept the init command (that is, its
      * REST endpoint is functional).
@@ -46,7 +46,7 @@ public interface EmbeddedNode {
     }
 
     /**
-     * Starts an Ignite node with a bootstrap configuration from a HOCON file, with an optional class loader for further usage by
+     * Creates and starts an embedded Ignite node with a configuration from a HOCON file, with an optional class loader for further usage by
      * {@link java.util.ServiceLoader}.
      *
      * <p>When this method returns, the node is partially started, and is ready to accept the init command (that is, its
@@ -64,27 +64,17 @@ public interface EmbeddedNode {
             Path workDir,
             @Nullable ClassLoader serviceLoaderClassLoader
     ) {
-        EmbeddedNodeImpl igniteEmbedded = new EmbeddedNodeImpl(nodeName, configPath, workDir, serviceLoaderClassLoader);
-        igniteEmbedded.start(); // Ignite future is kept inside this instance and will be returned from the init.
-        return igniteEmbedded;
+        EmbeddedNode embeddedNode = new EmbeddedNodeImpl(nodeName, configPath, workDir, serviceLoaderClassLoader);
+        embeddedNode.start(); // Ignite future is kept inside this instance and will be returned from the igniteAsync.
+        return embeddedNode;
     }
 
-    CompletableFuture<Ignite> joinClusterAsync();
-
     /**
-     * Stops the node. It's possible to stop both already started node or node that is currently starting.
+     * Returns the Ignite API. The API is available when the node has joined an initialized cluster.
+     *
+     * @return Ignite API future.
      */
-    CompletableFuture<Void> stopAsync();
-
-    /**
-     * Stops the node. It's possible to stop both already started node or node that is currently starting.
-     */
-    void stop();
-
-    /**
-     * Starts the node.
-     */
-    void start();
+    CompletableFuture<Ignite> igniteAsync();
 
     /**
      * Initializes the cluster that the given node is present in.
@@ -129,5 +119,26 @@ public interface EmbeddedNode {
      */
     void initCluster(InitParameters parameters);
 
+    /**
+     * Stops the node.
+     */
+    CompletableFuture<Void> stopAsync();
+
+    /**
+     * Stops the node synchronously.
+     */
+    void stop();
+
+    /**
+     * Starts the node. When this method returns, the node is partially started, and is ready to accept the init command (that is, its REST
+     * endpoint is functional).
+     */
+    void start();
+
+    /**
+     * Returns node name.
+     *
+     * @return Node name.
+     */
     String name();
 }

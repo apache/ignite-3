@@ -133,7 +133,7 @@ class ItStartTest extends BaseIgniteAbstractTest {
         AtomicReference<String> threadNameRef = new AtomicReference<>();
 
         EmbeddedNode node = cluster.startEmbeddedNode(1);
-        CompletableFuture<Ignite> future = node.joinClusterAsync().whenComplete((res, ex) -> {
+        CompletableFuture<Ignite> future = node.igniteAsync().whenComplete((res, ex) -> {
             threadNameRef.set(Thread.currentThread().getName());
         });
 

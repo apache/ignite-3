@@ -332,7 +332,7 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
             TestIgnitionManager.init(node, initParameters);
         }
 
-        CompletableFuture<Ignite> future = node.joinClusterAsync();
+        CompletableFuture<Ignite> future = node.igniteAsync();
 
         assertThat(future, willCompleteSuccessfully());
 

@@ -158,7 +158,7 @@ public class ItGeneratedRestClientTest {
         nodes.get(0).initCluster(initParameters);
 
         for (EmbeddedNode node : nodes) {
-            CompletableFuture<Ignite> future = node.joinClusterAsync();
+            CompletableFuture<Ignite> future = node.igniteAsync();
 
             assertThat(future, willCompleteSuccessfully());
 

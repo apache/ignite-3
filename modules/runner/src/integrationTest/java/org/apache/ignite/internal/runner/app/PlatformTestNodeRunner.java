@@ -225,7 +225,7 @@ public class PlatformTestNodeRunner {
         List<EmbeddedNode> startedEmbeddedNodes = startNodes(BASE_PATH, nodesBootstrapCfg);
 
         List<Ignite> startedNodes = startedEmbeddedNodes.stream()
-                .map(EmbeddedNode::joinClusterAsync)
+                .map(EmbeddedNode::igniteAsync)
                 .map(CompletableFuture::join)
                 .collect(toList());
 
@@ -285,7 +285,7 @@ public class PlatformTestNodeRunner {
 
         System.out.println("Initialization complete");
 
-        CompletableFuture<Ignite>[] futures = nodes.stream().map(EmbeddedNode::joinClusterAsync).toArray(CompletableFuture[]::new);
+        CompletableFuture<Ignite>[] futures = nodes.stream().map(EmbeddedNode::igniteAsync).toArray(CompletableFuture[]::new);
         CompletableFutures.allOf(futures).join();
 
         System.out.println("Ignite nodes started");

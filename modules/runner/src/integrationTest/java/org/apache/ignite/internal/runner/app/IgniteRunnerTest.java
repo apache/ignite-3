@@ -65,6 +65,6 @@ public class IgniteRunnerTest extends BaseIgniteAbstractTest {
 
         node.initCluster(initParameters);
 
-        assertThat(node.joinClusterAsync(), willCompleteSuccessfully());
+        assertThat(node.igniteAsync(), willCompleteSuccessfully());
     }
 }

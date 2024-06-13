@@ -55,7 +55,7 @@ public class FailureHandlerTest extends ClusterPerTestIntegrationTest {
 
     private void testFailureHandler(FailureHandler hnd) {
         EmbeddedNode node = cluster.startEmbeddedNode(0);
-        CompletableFuture<Ignite> fut = node.joinClusterAsync();
+        CompletableFuture<Ignite> fut = node.igniteAsync();
 
         hnd.onFailure(
                 node::stopAsync,

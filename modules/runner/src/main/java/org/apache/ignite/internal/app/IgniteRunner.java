@@ -69,7 +69,7 @@ public class IgniteRunner implements Callable<EmbeddedNode> {
      */
     public static void main(String[] args) {
         try {
-            start(args).joinClusterAsync().get();
+            start(args).igniteAsync().get();
         } catch (ExecutionException | InterruptedException e) {
             System.out.println("Error when starting the node: " + e.getMessage());
 

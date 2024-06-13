@@ -149,7 +149,6 @@ import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.network.NettyWorkersRegistrar;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
-import org.apache.ignite.internal.network.configuration.NetworkConfigurationSchema;
 import org.apache.ignite.internal.network.recovery.VaultStaleIds;
 import org.apache.ignite.internal.network.scalecube.ScaleCubeClusterServiceFactory;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
@@ -1026,25 +1025,8 @@ public class IgniteImpl implements Ignite {
      *
      * <p>When this method returns, the node is partially started and ready to accept the init command (that is, its
      * REST endpoint is functional).
-     *
-     * @param configPath Node configuration based on
-     *         {@link NetworkConfigurationSchema}. Following rules are used for applying the
-     *         configuration properties:
-     *
-     *         <ol>
-     *             <li>Specified property overrides existing one or just applies itself if it wasn't
-     *             previously specified.</li>
-     *             <li>All non-specified properties either use previous value or use default one from
-     *             corresponding configuration schema.</li>
-     *         </ol>
-     *
-     *         So that, in case of initial node start (first start ever) specified configuration, supplemented with defaults, is
-     *         used. If no configuration was provided defaults are used for all configuration properties. In case of node
-     *         restart, specified properties override existing ones, non specified properties that also weren't specified
-     *         previously use default values. Please pay attention that previously specified properties are searched in the
-     *         {@code workDir} specified by the user.
      */
-    public CompletableFuture<Ignite> startAsync(Path configPath) {
+    public void start() {
         ExecutorService startupExecutor = Executors.newSingleThreadExecutor(
                 IgniteThreadFactory.create(name, "start", LOG, STORAGE_READ, STORAGE_WRITE)
         );
@@ -1084,105 +1066,112 @@ public class IgniteImpl implements Ignite {
 
             restAddressReporter.writeReport(restHttpAddress(), restHttpsAddress());
 
-            LOG.info("Components started, joining the cluster");
-
-            return cmgMgr.joinFuture()
-                    // Disable REST component during initialization.
-                    .thenAcceptAsync(unused -> restComponent.disable(), startupExecutor)
-                    .thenComposeAsync(unused -> {
-                        LOG.info("Join complete, starting MetaStorage");
-
-                        try {
-                            lifecycleManager.startComponent(metaStorageMgr, componentContext);
-                        } catch (NodeStoppingException e) {
-                            throw new CompletionException(e);
-                        }
-
-                        return metaStorageMgr.recoveryFinishedFuture();
-                    }, startupExecutor)
-                    .thenComposeAsync(unused -> initializeClusterConfiguration(startupExecutor), startupExecutor)
-                    .thenRunAsync(() -> {
-                        LOG.info("MetaStorage started, starting the remaining components");
-
-                        // Start all other components after the join request has completed and the node has been validated.
-                        try {
-                            lifecycleManager.startComponents(
-                                    componentContext, catalogManager,
-                                    clusterCfgMgr,
-                                    authenticationManager,
-                                    placementDriverMgr,
-                                    metricManager,
-                                    distributionZoneManager,
-                                    computeComponent,
-                                    replicaMgr,
-                                    indexNodeFinishedRwTransactionsChecker,
-                                    txManager,
-                                    dataStorageMgr,
-                                    schemaManager,
-                                    volatileLogStorageFactoryCreator,
-                                    outgoingSnapshotsManager,
-                                    replicaLifecycleManager,
-                                    distributedTblMgr,
-                                    disasterRecoveryManager,
-                                    indexManager,
-                                    indexBuildingManager,
-                                    qryEngine,
-                                    clientHandlerModule,
-                                    deploymentManager,
-                                    sql,
-                                    resourceVacuumManager
-                            );
-
-                            // The system view manager comes last because other components
-                            // must register system views before it starts.
-                            lifecycleManager.startComponent(systemViewManager, componentContext);
-                        } catch (NodeStoppingException e) {
-                            throw new CompletionException(e);
-                        }
-                    }, startupExecutor)
-                    .thenComposeAsync(v -> {
-                        LOG.info("Components started, performing recovery");
-
-                        return recoverComponentsStateOnStart(startupExecutor, lifecycleManager.allComponentsStartFuture());
-                    }, startupExecutor)
-                    .thenComposeAsync(v -> clusterCfgMgr.configurationRegistry().onDefaultsPersisted(), startupExecutor)
-                    // Signal that local recovery is complete and the node is ready to join the cluster.
-                    .thenComposeAsync(v -> {
-                        LOG.info("Recovery complete, finishing join");
-
-                        return cmgMgr.onJoinReady();
-                    }, startupExecutor)
-                    .thenComposeAsync(ignored -> awaitSelfInLocalLogicalTopology(), startupExecutor)
-                    .thenCompose(ignored -> catalogManager.catalogInitializationFuture())
-                    .thenRunAsync(() -> {
-                        try {
-                            // Enable watermark events.
-                            lowWatermark.scheduleUpdates();
-
-                            // Enable REST component on start complete.
-                            restComponent.enable();
-                            // Transfer the node to the STARTED state.
-                            lifecycleManager.onStartComplete();
-                        } catch (NodeStoppingException e) {
-                            throw new CompletionException(e);
-                        }
-                    }, startupExecutor)
-                    .handleAsync((v, e) -> {
-                        if (e != null) {
-                            throw handleStartException(e);
-                        }
-
-                        return (Ignite) this;
-                    }, startupExecutor)
-                    // Moving to the common pool on purpose to close the startup pool and proceed user's code in the common pool.
-                    .whenCompleteAsync((res, ex) -> {
-                        startupExecutor.shutdownNow();
-                    });
+            LOG.info("Components started");
         } catch (Throwable e) {
             startupExecutor.shutdownNow();
 
             throw handleStartException(e);
         }
+    }
+
+    public CompletableFuture<Ignite> joinClusterAsync() {
+        LOG.info("Joining the cluster");
+
+        ExecutorService joinExecutor = Executors.newSingleThreadExecutor(
+                IgniteThreadFactory.create(name, "join", LOG, STORAGE_READ, STORAGE_WRITE)
+        );
+        ComponentContext componentContext = new ComponentContext(joinExecutor);
+
+        return cmgMgr.joinFuture()
+                // Disable REST component during initialization.
+                .thenAcceptAsync(unused -> restComponent.disable(), joinExecutor)
+                .thenComposeAsync(unused -> {
+                    LOG.info("Join complete, starting MetaStorage");
+
+                    try {
+                        lifecycleManager.startComponent(metaStorageMgr, componentContext);
+                    } catch (NodeStoppingException e) {
+                        throw new CompletionException(e);
+                    }
+
+                    return metaStorageMgr.recoveryFinishedFuture();
+                }, joinExecutor)
+                .thenComposeAsync(unused -> initializeClusterConfiguration(joinExecutor), joinExecutor)
+                .thenRunAsync(() -> {
+                    LOG.info("MetaStorage started, starting the remaining components");
+
+                    // Start all other components after the join request has completed and the node has been validated.
+                    try {
+                        lifecycleManager.startComponents(
+                                componentContext, catalogManager,
+                                clusterCfgMgr,
+                                authenticationManager,
+                                placementDriverMgr,
+                                metricManager,
+                                distributionZoneManager,
+                                computeComponent,
+                                replicaMgr,
+                                indexNodeFinishedRwTransactionsChecker,
+                                txManager,
+                                dataStorageMgr,
+                                schemaManager,
+                                volatileLogStorageFactoryCreator,
+                                outgoingSnapshotsManager,
+                                replicaLifecycleManager,
+                                distributedTblMgr,
+                                disasterRecoveryManager,
+                                indexManager,
+                                indexBuildingManager,
+                                qryEngine,
+                                clientHandlerModule,
+                                deploymentManager,
+                                sql,
+                                resourceVacuumManager
+                        );
+
+                        // The system view manager comes last because other components
+                        // must register system views before it starts.
+                        lifecycleManager.startComponent(systemViewManager, componentContext);
+                    } catch (NodeStoppingException e) {
+                        throw new CompletionException(e);
+                    }
+                }, joinExecutor)
+                .thenComposeAsync(v -> {
+                    LOG.info("Components started, performing recovery");
+
+                    return recoverComponentsStateOnStart(joinExecutor, lifecycleManager.allComponentsStartFuture());
+                }, joinExecutor)
+                .thenComposeAsync(v -> clusterCfgMgr.configurationRegistry().onDefaultsPersisted(), joinExecutor)
+                // Signal that local recovery is complete and the node is ready to join the cluster.
+                .thenComposeAsync(v -> {
+                    LOG.info("Recovery complete, finishing join");
+
+                    return cmgMgr.onJoinReady();
+                }, joinExecutor)
+                .thenComposeAsync(ignored -> awaitSelfInLocalLogicalTopology(), joinExecutor)
+                .thenCompose(ignored -> catalogManager.catalogInitializationFuture())
+                .thenRunAsync(() -> {
+                    try {
+                        // Enable watermark events.
+                        lowWatermark.scheduleUpdates();
+
+                        // Enable REST component on start complete.
+                        restComponent.enable();
+                        // Transfer the node to the STARTED state.
+                        lifecycleManager.onStartComplete();
+                    } catch (NodeStoppingException e) {
+                        throw new CompletionException(e);
+                    }
+                }, joinExecutor)
+                .handleAsync((v, e) -> {
+                    if (e != null) {
+                        throw handleStartException(e);
+                    }
+
+                    return (Ignite) this;
+                }, joinExecutor)
+                // Moving to the common pool on purpose to close the join pool and proceed user's code in the common pool.
+                .whenCompleteAsync((res, ex) -> joinExecutor.shutdownNow());
     }
 
     private CompletableFuture<Void> awaitSelfInLocalLogicalTopology() {

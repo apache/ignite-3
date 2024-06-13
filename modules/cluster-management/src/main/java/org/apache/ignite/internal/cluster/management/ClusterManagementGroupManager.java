@@ -207,6 +207,14 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
         sync(initClusterAsync(metaStorageNodeNames, cmgNodeNames, clusterName, clusterConfiguration));
     }
 
+    private static void sync(CompletableFuture<Void> future) {
+        try {
+            future.join();
+        } catch (CompletionException e) {
+            throw ExceptionUtils.sneakyThrow(unwrapCause(e));
+        }
+    }
+
     /**
      * Initializes the cluster that this node is present in.
      *
@@ -244,27 +252,17 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
 
         try {
             return clusterInitializer.initCluster(metaStorageNodeNames, cmgNodeNames, clusterName, clusterConfiguration)
-                    .handle(ClusterManagementGroupManager::mapInitResult).thenCompose(Function.identity());
+                    .handle((res, e) -> {
+                        if (e == null) {
+                            return res;
+                        }
+                        if (e instanceof InterruptedException) {
+                            throw new InitException("Interrupted while initializing the cluster", e);
+                        }
+                        throw new InitException("Unable to initialize the cluster: " + e.getMessage(), e);
+                    });
         } finally {
             busyLock.leaveBusy();
-        }
-    }
-
-    private static CompletableFuture<Void> mapInitResult(Void res, Throwable e) {
-        if (e == null) {
-            return completedFuture(res);
-        }
-        if (e instanceof InterruptedException) {
-            return failedFuture(new InitException("Interrupted while initializing the cluster", e));
-        }
-        return failedFuture(new InitException("Unable to initialize the cluster: " + e.getMessage(), e));
-    }
-
-    private static void sync(CompletableFuture<Void> future) {
-        try {
-            future.join();
-        } catch (CompletionException e) {
-            throw ExceptionUtils.sneakyThrow(unwrapCause(e));
         }
     }
 

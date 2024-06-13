@@ -68,7 +68,7 @@ public class ItClusterInitTest extends IgniteAbstractTest {
         TestIgnitionManager.init(node, initParameters);
 
         CompletableFuture<Ignite>[] futures = nodesByName.values().stream()
-                .map(EmbeddedNode::joinClusterAsync)
+                .map(EmbeddedNode::igniteAsync)
                 .toArray(CompletableFuture[]::new);
 
         assertThat(allOf(futures), willCompleteSuccessfully());
@@ -77,7 +77,7 @@ public class ItClusterInitTest extends IgniteAbstractTest {
         TestIgnitionManager.init(node, initParameters);
 
         InitParameters initParametersWithWrongNodesList1 = InitParameters.builder()
-                .metaStorageNodeNames(nodesByName.keySet().toArray(String[]::new))
+                .metaStorageNodes(nodesByName.values())
                 .clusterName("cluster")
                 .build();
 

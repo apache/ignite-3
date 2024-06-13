@@ -231,7 +231,7 @@ public class Cluster {
         TestIgnitionManager.init(metaStorageAndCmgNodes.get(0), builder.build());
 
         for (EmbeddedNode node : nodes) {
-            assertThat(node.joinClusterAsync(), willCompleteSuccessfully());
+            assertThat(node.igniteAsync(), willCompleteSuccessfully());
         }
 
         started = true;
@@ -269,7 +269,7 @@ public class Cluster {
         EmbeddedNode node = TestIgnitionManager.start(nodeName, config, workDir.resolve(nodeName));
         setListAtIndex(embeddedNodes, nodeIndex, node);
 
-        node.joinClusterAsync().thenAccept(ignite -> {
+        node.igniteAsync().thenAccept(ignite -> {
             synchronized (nodes) {
                 setListAtIndex(nodes, nodeIndex, (IgniteImpl) ignite);
             }
@@ -348,7 +348,7 @@ public class Cluster {
 
         try {
             EmbeddedNode node = startEmbeddedNode(index, nodeBootstrapConfigTemplate);
-            newIgniteNode = (IgniteImpl) node.joinClusterAsync().get(20, TimeUnit.SECONDS);
+            newIgniteNode = (IgniteImpl) node.igniteAsync().get(20, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
 

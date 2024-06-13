@@ -215,7 +215,7 @@ public class AbstractMultiNodeBenchmark {
         TestIgnitionManager.init(embeddedNodes.get(0), initParameters);
 
         for (EmbeddedNode node : embeddedNodes) {
-            CompletableFuture<Ignite> future = node.joinClusterAsync();
+            CompletableFuture<Ignite> future = node.igniteAsync();
             assertThat(future, willCompleteSuccessfully());
 
             if (clusterNode == null) {

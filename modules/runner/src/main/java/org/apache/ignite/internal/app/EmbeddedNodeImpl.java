@@ -40,7 +40,7 @@ import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Implementation of an entry point for handling grid lifecycle.
+ * Implementation of embedded node.
  */
 public class EmbeddedNodeImpl implements EmbeddedNode {
     /** The logger. */
@@ -75,7 +75,7 @@ public class EmbeddedNodeImpl implements EmbeddedNode {
 
     private final ClassLoader classLoader;
 
-    private @Nullable IgniteImpl instance;
+    private volatile @Nullable IgniteImpl instance;
 
     private CompletableFuture<Ignite> igniteFuture;
 
@@ -123,9 +123,23 @@ public class EmbeddedNodeImpl implements EmbeddedNode {
     }
 
     @Override
-    public CompletableFuture<Ignite> joinClusterAsync() {
+    public CompletableFuture<Ignite> igniteAsync() {
         if (instance == null) {
             throw new IgniteException("Node not started");
+        }
+
+        // We need to cache the future so that this method could be called multiple times.
+        if (igniteFuture == null) {
+            igniteFuture = instance.joinClusterAsync()
+                    .handle((ignite, e) -> {
+                        if (e == null) {
+                            ackSuccessStart();
+
+                            return ignite;
+                        } else {
+                            throw handleStartException(e);
+                        }
+                    });
         }
         return igniteFuture;
     }
@@ -182,17 +196,9 @@ public class EmbeddedNodeImpl implements EmbeddedNode {
         ackBanner();
 
         try {
-            igniteFuture = instance.startAsync(configPath)
-                    .handle((ignite, e) -> {
-                        if (e == null) {
-                            ackSuccessStart();
-
-                            return ignite;
-                        } else {
-                            throw handleStartException(e);
-                        }
-                    });
+            instance.start();
         } catch (Exception e) {
+            instance = null;
             throw handleStartException(e);
         }
     }

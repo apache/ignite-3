@@ -58,7 +58,7 @@ public class PlatformBenchmarkNodeRunner {
 
         List<EmbeddedNode> startedNodes = PlatformTestNodeRunner.startNodes(BASE_PATH, nodesBootstrapCfg);
 
-        Ignite ignite = startedNodes.get(0).joinClusterAsync().join();
+        Ignite ignite = startedNodes.get(0).igniteAsync().join();
         Object clientHandlerModule = IgniteTestUtils.getFieldValue(ignite, "clientHandlerModule");
         ClientHandlerMetricSource metrics = IgniteTestUtils.getFieldValue(clientHandlerModule, "metrics");
         metrics.enable();

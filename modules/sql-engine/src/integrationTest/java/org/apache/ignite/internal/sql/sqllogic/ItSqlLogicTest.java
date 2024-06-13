@@ -347,7 +347,7 @@ public class ItSqlLogicTest extends BaseIgniteAbstractTest {
         TestIgnitionManager.init(nodes.get(0), initParameters);
 
         for (EmbeddedNode node : nodes) {
-            CompletableFuture<Ignite> future = node.joinClusterAsync();
+            CompletableFuture<Ignite> future = node.igniteAsync();
             assertThat(future, willCompleteSuccessfully());
 
             IgniteImpl ignite = (IgniteImpl) future.join();

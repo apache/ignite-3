@@ -780,7 +780,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         return nodes.stream()
                 .map(node -> {
-                    CompletableFuture<Ignite> future = node.joinClusterAsync();
+                    CompletableFuture<Ignite> future = node.igniteAsync();
 
                     assertThat(future, willCompleteSuccessfully());
 
@@ -1156,7 +1156,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
             startNode(0);
 
-            CompletableFuture<Ignite> future = node.joinClusterAsync();
+            CompletableFuture<Ignite> future = node.igniteAsync();
 
             assertThat(future, willCompleteSuccessfully());
 

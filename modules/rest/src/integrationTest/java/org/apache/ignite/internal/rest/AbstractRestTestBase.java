@@ -181,7 +181,7 @@ public abstract class AbstractRestTestBase extends BaseIgniteAbstractTest {
     }
 
     void checkAllNodesStarted() {
-        nodes.forEach(node -> assertThat(node.joinClusterAsync(), willCompleteSuccessfully()));
+        nodes.forEach(node -> assertThat(node.igniteAsync(), willCompleteSuccessfully()));
     }
 
     protected HttpResponse<String> send(HttpRequest request) throws IOException, InterruptedException {

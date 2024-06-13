@@ -70,7 +70,7 @@ public class ItRestAddressReportTest extends BaseIgniteAbstractTest {
         TestIgnitionManager.init(node, initParameters);
 
         // Then node is started
-        assertThat(node.joinClusterAsync(), willCompleteSuccessfully());
+        assertThat(node.igniteAsync(), willCompleteSuccessfully());
 
         // And there is a file in work dir with the rest address
         Path reportFile = workDir.resolve(NODE_NAME).resolve("rest-address");

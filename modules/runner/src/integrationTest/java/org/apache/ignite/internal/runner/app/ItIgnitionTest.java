@@ -179,7 +179,7 @@ class ItIgnitionTest extends BaseIgniteAbstractTest {
             node.initCluster(initParameters);
         }
 
-        CompletableFuture<Ignite> future = node.joinClusterAsync();
+        CompletableFuture<Ignite> future = node.igniteAsync();
 
         assertThat(future, willCompleteSuccessfully());
 

@@ -127,7 +127,7 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
         TestIgnitionManager.init(metaStorageNode, initParameters);
 
         for (EmbeddedNode node : nodes) {
-            CompletableFuture<Ignite> future = node.joinClusterAsync();
+            CompletableFuture<Ignite> future = node.igniteAsync();
 
             assertThat(future, willCompleteSuccessfully());
 
@@ -178,7 +178,7 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
         listenerInhibitor.stopInhibit();
 
         node1.start();
-        CompletableFuture<Ignite> ignite1Fut = node1.joinClusterAsync();
+        CompletableFuture<Ignite> ignite1Fut = node1.igniteAsync();
 
         assertThat(ignite1Fut, willCompleteSuccessfully());
 
@@ -248,7 +248,7 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
 
         node1.start();
 
-        CompletableFuture<Ignite> ignite1Fut = node1.joinClusterAsync();
+        CompletableFuture<Ignite> ignite1Fut = node1.igniteAsync();
 
         assertThat(ignite1Fut, willCompleteSuccessfully());
 

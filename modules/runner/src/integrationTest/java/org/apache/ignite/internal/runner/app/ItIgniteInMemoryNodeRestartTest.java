@@ -119,7 +119,7 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
             TestIgnitionManager.init(node, initParameters);
         }
 
-        CompletableFuture<Ignite> future = node.joinClusterAsync();
+        CompletableFuture<Ignite> future = node.igniteAsync();
 
         assertThat(future, willCompleteSuccessfully());
 

@@ -73,7 +73,7 @@ public class ItNoThreadsLeftTest extends IgniteAbstractTest {
 
         EmbeddedNode node = startNode(testInfo);
         try {
-            Table tbl = createTable(node.joinClusterAsync().join(), TABLE_NAME);
+            Table tbl = createTable(node.igniteAsync().join(), TABLE_NAME);
 
             assertNotNull(tbl);
         } finally {
@@ -103,7 +103,7 @@ public class ItNoThreadsLeftTest extends IgniteAbstractTest {
                 .build();
         node.initCluster(initParameters);
 
-        assertThat(node.joinClusterAsync(), willCompleteSuccessfully());
+        assertThat(node.igniteAsync(), willCompleteSuccessfully());
 
         return node;
     }

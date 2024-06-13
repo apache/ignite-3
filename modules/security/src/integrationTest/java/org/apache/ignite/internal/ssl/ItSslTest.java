@@ -531,10 +531,10 @@ public class ItSslTest extends BaseIgniteAbstractTest {
             TestIgnitionManager.init(node1, initParameters);
 
             // First node will initialize the cluster with single node successfully since the second node can't connect to it.
-            assertThat(node1.joinClusterAsync(), willCompleteSuccessfully());
+            assertThat(node1.igniteAsync(), willCompleteSuccessfully());
 
             EmbeddedNode node2 = incompatibleTestCluster.startEmbeddedNode(11, sslEnabledWithCipher2BoostrapConfig);
-            assertThat(node2.joinClusterAsync(), willTimeoutIn(1, TimeUnit.SECONDS));
+            assertThat(node2.igniteAsync(), willTimeoutIn(1, TimeUnit.SECONDS));
         } finally {
             incompatibleTestCluster.shutdown();
         }

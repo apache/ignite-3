@@ -113,7 +113,7 @@ public abstract class ItAbstractThinClientTest extends BaseIgniteAbstractTest {
         TestIgnitionManager.init(metaStorageNode, initParameters);
 
         for (EmbeddedNode node : nodes) {
-            CompletableFuture<Ignite> future = node.joinClusterAsync();
+            CompletableFuture<Ignite> future = node.igniteAsync();
 
             assertThat(future, willCompleteSuccessfully());
 

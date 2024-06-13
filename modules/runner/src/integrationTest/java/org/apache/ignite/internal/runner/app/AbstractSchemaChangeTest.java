@@ -136,7 +136,7 @@ abstract class AbstractSchemaChangeTest extends BaseIgniteAbstractTest {
         TestIgnitionManager.init(node, initParameters);
 
         CompletableFuture<Ignite>[] futures = nodes.stream()
-                .map(EmbeddedNode::joinClusterAsync)
+                .map(EmbeddedNode::igniteAsync)
                 .toArray(CompletableFuture[]::new);
 
         return await(CompletableFutures.allOf(futures));

@@ -64,7 +64,7 @@ public abstract class AbstractExamplesTest extends IgniteAbstractTest {
 
         node.initCluster(initParameters);
 
-        CompletableFuture<Ignite> igniteFuture = node.joinClusterAsync();
+        CompletableFuture<Ignite> igniteFuture = node.igniteAsync();
         assertThat(igniteFuture, willCompleteSuccessfully());
     }
 

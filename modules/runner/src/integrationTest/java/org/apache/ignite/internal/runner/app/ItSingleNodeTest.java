@@ -62,7 +62,7 @@ public class ItSingleNodeTest extends IgniteAbstractTest {
 
         node.initCluster(parameters);
 
-        ignite = node.joinClusterAsync().get(30, TimeUnit.SECONDS);
+        ignite = node.igniteAsync().get(30, TimeUnit.SECONDS);
     }
 
     @AfterEach
@@ -85,7 +85,7 @@ public class ItSingleNodeTest extends IgniteAbstractTest {
 
         node.stop();
         node.start();
-        ignite = node.joinClusterAsync().get(30, TimeUnit.SECONDS);
+        ignite = node.igniteAsync().get(30, TimeUnit.SECONDS);
 
         KeyValueView<Tuple, Tuple> keyValueView = ignite.tables().table(TABLE_NAME).keyValueView();
 

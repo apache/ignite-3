@@ -133,7 +133,7 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
 
         TestIgnitionManager.init(NODE, initParameters);
 
-        assertThat(NODE.joinClusterAsync(), willCompleteSuccessfully());
+        assertThat(NODE.igniteAsync(), willCompleteSuccessfully());
     }
 
     @AfterAll
@@ -727,6 +727,6 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
     }
 
     protected static IgniteImpl node() {
-        return (IgniteImpl) NODE.joinClusterAsync().join();
+        return (IgniteImpl) NODE.igniteAsync().join();
     }
 }
