@@ -87,9 +87,9 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         IgniteCompute igniteCompute = entryNode.compute();
         Set<ClusterNode> nodes = Set.of(entryNode.node());
         List<DeploymentUnit> units = units();
-        Object[] args = new Object[]{new CountDownLatch(1)};
+        Object[] args = {new CountDownLatch(1)};
         JobExecution<String> execution = igniteCompute.submit(nodes, JobDescriptor.builder()
-                .jobClassName(WaitLatchJob.class.getName())
+                .jobClass(WaitLatchJob.class)
                 .units(units)
                 .options(DEFAULT)
                 .build(), args);
@@ -108,9 +108,9 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         IgniteCompute igniteCompute = entryNode.compute();
         Set<ClusterNode> nodes = Set.of(node(1).node());
         List<DeploymentUnit> units = units();
-        Object[] args = new Object[]{new CountDownLatch(1)};
+        Object[] args = {new CountDownLatch(1)};
         JobExecution<String> execution = igniteCompute.submit(nodes, JobDescriptor.builder()
-                .jobClassName(WaitLatchJob.class.getName())
+                .jobClass(WaitLatchJob.class)
                 .units(units)
                 .options(DEFAULT)
                 .build(), args);
@@ -129,9 +129,9 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         IgniteCompute igniteCompute = entryNode.compute();
         Set<ClusterNode> nodes = Set.of(entryNode.node());
         List<DeploymentUnit> units = units();
-        Object[] args = new Object[]{new CountDownLatch(1)};
+        Object[] args = {new CountDownLatch(1)};
         JobExecution<String> execution = igniteCompute.submit(nodes, JobDescriptor.builder()
-                .jobClassName(WaitLatchJob.class.getName())
+                .jobClass(WaitLatchJob.class)
                 .units(units)
                 .options(DEFAULT)
                 .build(), args);
@@ -148,9 +148,9 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         IgniteCompute igniteCompute = entryNode.compute();
         Set<ClusterNode> nodes = Set.of(node(1).node());
         List<DeploymentUnit> units = units();
-        Object[] args = new Object[]{new CountDownLatch(1)};
+        Object[] args = {new CountDownLatch(1)};
         JobExecution<String> execution = igniteCompute.submit(nodes, JobDescriptor.builder()
-                .jobClassName(WaitLatchJob.class.getName())
+                .jobClass(WaitLatchJob.class)
                 .units(units)
                 .options(DEFAULT)
                 .build(), args);
@@ -171,7 +171,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         Set<ClusterNode> nodes2 = Set.of(entryNode.node());
         List<DeploymentUnit> units2 = units();
         JobExecution<String> execution1 = igniteCompute2.submit(nodes2, JobDescriptor.builder()
-                .jobClassName(WaitLatchJob.class.getName())
+                .jobClass(WaitLatchJob.class)
                 .units(units2)
                 .options(DEFAULT)
                 .build(), new Object[]{countDownLatch});
@@ -181,9 +181,9 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         IgniteCompute igniteCompute1 = entryNode.compute();
         Set<ClusterNode> nodes1 = Set.of(entryNode.node());
         List<DeploymentUnit> units1 = units();
-        Object[] args = new Object[]{new CountDownLatch(1)};
+        Object[] args = {new CountDownLatch(1)};
         JobExecution<String> execution2 = igniteCompute1.submit(nodes1, JobDescriptor.builder()
-                .jobClassName(WaitLatchJob.class.getName())
+                .jobClass(WaitLatchJob.class)
                 .units(units1)
                 .options(DEFAULT)
                 .build(), args);
@@ -194,7 +194,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         Set<ClusterNode> nodes = Set.of(entryNode.node());
         List<DeploymentUnit> units = units();
         JobExecution<String> execution3 = igniteCompute.submit(nodes, JobDescriptor.builder()
-                .jobClassName(WaitLatchJob.class.getName())
+                .jobClass(WaitLatchJob.class)
                 .units(units)
                 .options(DEFAULT)
                 .build(), new Object[]{countDownLatch});
@@ -232,7 +232,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         Set<ClusterNode> nodes2 = Set.of(entryNode.node());
         List<DeploymentUnit> units2 = units();
         JobExecution<String> execution1 = igniteCompute2.submit(nodes2, JobDescriptor.builder()
-                .jobClassName(WaitLatchJob.class.getName())
+                .jobClass(WaitLatchJob.class)
                 .units(units2)
                 .options(DEFAULT)
                 .build(), new Object[]{countDownLatch});
@@ -242,9 +242,9 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         IgniteCompute igniteCompute1 = entryNode.compute();
         Set<ClusterNode> nodes1 = Set.of(entryNode.node());
         List<DeploymentUnit> units1 = units();
-        Object[] args = new Object[]{new CountDownLatch(1)};
+        Object[] args = {new CountDownLatch(1)};
         JobExecution<String> execution2 = igniteCompute1.submit(nodes1, JobDescriptor.builder()
-                .jobClassName(WaitLatchJob.class.getName())
+                .jobClass(WaitLatchJob.class)
                 .units(units1)
                 .options(DEFAULT)
                 .build(), args);
