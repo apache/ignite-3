@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.sql.engine.util;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -30,10 +32,12 @@ import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeFactory.Builder;
+import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.sql.SqlIntervalQualifier;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.SqlTypeName;
@@ -42,14 +46,17 @@ import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchemaTypes;
 import org.apache.ignite.internal.sql.engine.exec.row.RowType;
 import org.apache.ignite.internal.sql.engine.exec.row.TypeSpec;
+import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomTypeSpec;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.DynamicTest;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestFactory;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -75,6 +82,100 @@ public class TypeUtilsTest extends BaseIgniteAbstractTest {
     private static final BaseTypeSpec STRING = RowSchemaTypes.nativeType(NativeTypes.STRING);
     private static final BaseTypeSpec BYTES = RowSchemaTypes.nativeType(NativeTypes.BYTES);
     private static final BaseTypeSpec UUID = RowSchemaTypes.nativeType(NativeTypes.UUID);
+
+    @Test
+    public void testValidateCharactersOverflowAndTrimIfPossible() {
+        IgniteTypeFactory typeFactory = Commons.typeFactory();
+
+        {
+            RelDataType rowType = typeFactory.builder()
+                    .add("c1", typeFactory.createSqlType(SqlTypeName.VARCHAR, 3))
+                    .add("c2", typeFactory.createSqlType(SqlTypeName.VARCHAR, 6))
+                    .build();
+
+            Object[] input = {"123    ", "12345    "};
+            Object[] expected = {"123", "12345 "};
+
+            expectOutputRow(rowType, input, expected);
+        }
+
+        {
+            RelDataType rowType = typeFactory.builder()
+                    .add("c1", typeFactory.createSqlType(SqlTypeName.VARCHAR, 4))
+                    .build();
+
+            Object[] input = {" 12  "};
+            Object[] expected = {" 12 "};
+
+            expectOutputRow(rowType, input, expected);
+        }
+
+        {
+            RelDataType rowType = typeFactory.builder()
+                    .add("c2", typeFactory.createSqlType(SqlTypeName.INTEGER))
+                    .add("c1", typeFactory.createSqlType(SqlTypeName.VARCHAR, 6))
+                    .build();
+
+            Object[] input = {null, "12345    "};
+            Object[] expected = {null, "12345 "};
+
+            expectOutputRow(rowType, input, expected);
+        }
+
+        {
+            RelDataType rowType = typeFactory.builder()
+                    .add("c1", typeFactory.createSqlType(SqlTypeName.VARCHAR, 6))
+                    .add("c2", typeFactory.createSqlType(SqlTypeName.INTEGER))
+                    .build();
+
+            Object[] input = {"12345    ", null};
+            Object[] expected = {"12345 ", null};
+
+            expectOutputRow(rowType, input, expected);
+        }
+
+        {
+            RelDataType rowType = typeFactory.builder()
+                    .add("c1", typeFactory.createSqlType(SqlTypeName.VARCHAR, 6))
+                    .add("c2", typeFactory.createSqlType(SqlTypeName.INTEGER))
+                    .add("c3", typeFactory.createSqlType(SqlTypeName.VARCHAR, 3))
+                    .build();
+
+            Object[] input = {"12345    ", null, "123 "};
+            Object[] expected = {"12345 ", null, "123"};
+
+            expectOutputRow(rowType, input, expected);
+        }
+
+        {
+            RelDataType rowType = typeFactory.builder()
+                    .add("c1", typeFactory.createSqlType(SqlTypeName.VARCHAR, 3))
+                    .add("c2", typeFactory.createSqlType(SqlTypeName.VARCHAR, 6))
+                    .build();
+
+            Object[] input = {"123", "12345 6"};
+
+            assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "", () -> buildTrimmedRow(rowType, input));
+        }
+    }
+
+    private static void expectOutputRow(RelDataType rowType, Object[] input, Object[] expected) {
+        Object[] newRow = buildTrimmedRow(rowType, input);
+
+        assertArrayEquals(expected, newRow, "Unexpected row after validate/trim whitespace");
+    }
+
+    private static Object[] buildTrimmedRow(RelDataType rowType, Object[] input) {
+        List<RelDataType> columnTypes = rowType.getFieldList().stream().map(RelDataTypeField::getType).collect(Collectors.toList());
+        RowSchema rowSchema = TypeUtils.rowSchemaFromRelTypes(columnTypes);
+
+        Object[] newRow = TypeUtils.validateCharactersOverflowAndTrimIfPossible(rowType,
+                ArrayRowHandler.INSTANCE,
+                input,
+                () -> rowSchema
+        );
+        return newRow;
+    }
 
     /**
      * Checks that conversions to and from internal types is consistent.
