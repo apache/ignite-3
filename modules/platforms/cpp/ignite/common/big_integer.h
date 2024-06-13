@@ -420,7 +420,7 @@ private:
     /**
      * Internal multiprecision integer structure.
      */
-    mpi_t m_mpi;
+    mutable mpi_t m_mpi;
 };
 
 /**

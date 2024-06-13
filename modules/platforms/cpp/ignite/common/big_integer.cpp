@@ -249,9 +249,11 @@ void big_integer::store_bytes(std::byte *data) const {
         return;
     }
 
+    m_mpi.shrink();
+
     std::size_t size = byte_size();
 
-    if (!is_negative()) {
+    if (is_positive()) {
         for (std::size_t i = 0; size >= 4; i++) {
             size -= 4;
             bytes::store<endian::BIG, std::uint32_t>(data + size, m_mpi->p[i]);

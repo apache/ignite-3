@@ -598,7 +598,7 @@ private:
      * @param param_ptr Pointer to param id stored here.
      * @return Operation result.
      */
-    sql_result internal_select_aram(void **param_ptr);
+    sql_result internal_select_param(void **param_ptr);
 
     /**
      * Puts data for previously selected parameter or column.
