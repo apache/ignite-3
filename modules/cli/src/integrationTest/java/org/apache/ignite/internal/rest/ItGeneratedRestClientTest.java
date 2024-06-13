@@ -56,6 +56,7 @@ import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.cli.CliIntegrationTest;
 import org.apache.ignite.internal.cli.call.cluster.unit.DeployUnitClient;
 import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -90,7 +91,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(WorkDirectoryExtension.class)
 @MicronautTest(rebuildContext = true)
 @TestInstance(Lifecycle.PER_CLASS)
-public class ItGeneratedRestClientTest {
+public class ItGeneratedRestClientTest extends BaseIgniteAbstractTest {
     /** Start network port for test nodes. */
     private static final int BASE_PORT = 3344;
 

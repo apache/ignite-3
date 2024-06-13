@@ -79,7 +79,7 @@ public class ItMetricCallsTest extends CliIntegrationTest {
         List<String> allMetrics =
                 metricSourcesOutput.body().stream().map(MetricSource::getName).collect(Collectors.toList());
 
-        assertThat(allMetrics).containsAll(enabledMetrics);
+        assertThat(enabledMetrics).containsAll(allMetrics);
     }
 
     @Test
