@@ -1131,12 +1131,18 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     assert context.replicaState != ReplicaState.STOPPED : "Unexpected primary replica state STOPPED [groupId="
                             + groupId + "].";
 
-                    assert context.reservedForPrimary : "Replica is elected as primary but not reserved [groupId=" + groupId + "].";
-                } else {
-                    context.reservedForPrimary = false;
+                    context.assertReservation(groupId);
+                } else if (context.reservedForPrimary) {
+                    context.assertReservation(groupId);
 
-                    if (context.replicaState == ReplicaState.PRIMARY_ONLY) {
-                        stopReplica(groupId, context, context.deferredStopOperation);
+                    // Unreserve if another replica was elected as primary, only if its lease start time is greater,
+                    // otherwise it means that event is too late relatively to lease negotiation start and should be ignored.
+                    if (parameters.startTime().compareTo(context.leaseStartTime) > 0) {
+                        context.unreserve();
+
+                        if (context.replicaState == ReplicaState.PRIMARY_ONLY) {
+                            stopReplica(groupId, context, context.deferredStopOperation);
+                        }
                     }
                 }
             }
@@ -1150,7 +1156,12 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
                 if (context != null) {
                     synchronized (context) {
-                        context.reservedForPrimary = false;
+                        context.assertReservation(parameters.groupId());
+                        // Unreserve if primary replica expired, only if its lease start time is greater,
+                        // otherwise it means that event is too late relatively to lease negotiation start and should be ignored.
+                        if (parameters.startTime().compareTo(context.leaseStartTime) == 0) {
+                            context.unreserve();
+                        }
                     }
                 }
             }
@@ -1182,7 +1193,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             synchronized (context) {
                 ReplicaState state = context.replicaState;
 
-                LOG.debug("Weak replica start [grp={}, state={}, future={}].", groupId, state, context.previousOperationFuture);
+                LOG.info("Weak replica start [grp={}, state={}, future={}].", groupId, state, context.previousOperationFuture);
 
                 if (state == ReplicaState.STOPPED || state == ReplicaState.STOPPING) {
                     return startReplica(groupId, context, startOperation);
@@ -1253,7 +1264,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             synchronized (context) {
                 ReplicaState state = context.replicaState;
 
-                LOG.debug("Weak replica stop [grpId={}, state={}, reason={}, isPrimaryLocal={}, future={}].", groupId, state,
+                LOG.info("Weak replica stop [grpId={}, state={}, reason={}, isPrimaryLocal={}, future={}].", groupId, state,
                         reason, context.reservedForPrimary, context.previousOperationFuture);
 
                 if (reason == WeakReplicaStopReason.EXCLUDED_FROM_ASSIGNMENTS) {
@@ -1277,14 +1288,12 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 } else {
                     assert reason == WeakReplicaStopReason.PRIMARY_EXPIRED : "Unknown replica stop reason: " + reason;
 
-                    context.reservedForPrimary = false;
-
                     if (state == ReplicaState.PRIMARY_ONLY) {
                         return stopReplica(groupId, context, stopOperation);
                     } // else: no-op.
                 }
 
-                LOG.debug("Weak replica stop complete [grpId={}, state={}].", groupId, context.replicaState);
+                LOG.info("Weak replica stop complete [grpId={}, state={}].", groupId, context.replicaState);
 
                 return nullCompletedFuture();
             }
@@ -1318,7 +1327,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
          * @param groupId Group id.
          * @return Whether the replica was successfully reserved.
          */
-        boolean reserveReplica(ReplicationGroupId groupId) {
+        boolean reserveReplica(ReplicationGroupId groupId, HybridTimestamp leaseStartTime) {
             ReplicaStateContext context = getContext(groupId);
 
             synchronized (context) {
@@ -1333,7 +1342,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                         throw new AssertionError("Unexpected replica reservation with " + state + " state [groupId=" + groupId + "].");
                     }
                 } else {
-                    context.reservedForPrimary = true;
+                    context.reserve(leaseStartTime);
                 }
 
                 return context.reservedForPrimary;
@@ -1370,6 +1379,12 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         boolean reservedForPrimary;
 
         /**
+         * Lease start time of the lease this replica is reserved for, not {@code null} if {@link #reservedForPrimary} is {@code true}.
+         */
+        @Nullable
+        HybridTimestamp leaseStartTime;
+
+        /**
          * Deferred stop operation for replica that was reserved for becoming primary, but hasn't become primary and was excluded from
          * assignments.
          */
@@ -1378,6 +1393,21 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         ReplicaStateContext(ReplicaState replicaState, CompletableFuture<Boolean> previousOperationFuture) {
             this.replicaState = replicaState;
             this.previousOperationFuture = previousOperationFuture;
+        }
+
+        void reserve(HybridTimestamp leaseStartTime) {
+            reservedForPrimary = true;
+            this.leaseStartTime = leaseStartTime;
+        }
+
+        void unreserve() {
+            reservedForPrimary = false;
+            leaseStartTime = null;
+        }
+
+        void assertReservation(ReplicationGroupId groupId) {
+            assert reservedForPrimary : "Replica is elected as primary but not reserved [groupId=" + groupId + "].";
+            assert leaseStartTime != null : "Replica is reserved but lease start time is null [groupId=" + groupId + "].";
         }
     }
 

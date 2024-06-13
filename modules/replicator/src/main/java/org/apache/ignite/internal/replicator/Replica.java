@@ -28,7 +28,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Function;
+import java.util.function.BiFunction;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
@@ -95,7 +95,7 @@ public class Replica {
 
     private final ClockService clockService;
 
-    private final Function<ReplicationGroupId, Boolean> replicaReservationClosure;
+    private final BiFunction<ReplicationGroupId, HybridTimestamp, Boolean> replicaReservationClosure;
 
     /**
      * The constructor of a replica server.
@@ -118,7 +118,7 @@ public class Replica {
             ExecutorService executor,
             PlacementDriver placementDriver,
             ClockService clockService,
-            Function<ReplicationGroupId, Boolean> replicaReservationClosure
+            BiFunction<ReplicationGroupId, HybridTimestamp, Boolean> replicaReservationClosure
     ) {
         this.replicaGrpId = replicaGrpId;
         this.listener = listener;
@@ -225,7 +225,7 @@ public class Replica {
                 // Replica must wait till storage index reaches the current leader's index to make sure that all updates made on the
                 // group leader are received.
 
-                return waitForActualState(msg.leaseExpirationTime().getPhysical())
+                return waitForActualState(msg.leaseStartTime(), msg.leaseExpirationTime().getPhysical())
                         .thenCompose(v -> sendPrimaryReplicaChangeToReplicationGroup(msg.leaseStartTime().longValue()))
                         .thenCompose(v -> {
                             CompletableFuture<LeaseGrantedMessageResponse> respFut =
@@ -240,7 +240,7 @@ public class Replica {
                         });
             } else {
                 if (leader.equals(localNode)) {
-                    return waitForActualState(msg.leaseExpirationTime().getPhysical())
+                    return waitForActualState(msg.leaseStartTime(), msg.leaseExpirationTime().getPhysical())
                             .thenCompose(v -> sendPrimaryReplicaChangeToReplicationGroup(msg.leaseStartTime().longValue()))
                             .thenCompose(v -> acceptLease(msg.leaseStartTime(), msg.leaseExpirationTime()));
                 } else {
@@ -289,13 +289,14 @@ public class Replica {
      * timeout exception, and in this case, replica would not answer to placement driver, because the response is useless. Placement driver
      * should handle this.
      *
+     * @param startTime Lease start time.
      * @param expirationTime Lease expiration time.
      * @return Future that is completed when local storage catches up the index that is actual for leader on the moment of request.
      */
-    private CompletableFuture<Void> waitForActualState(long expirationTime) {
+    private CompletableFuture<Void> waitForActualState(HybridTimestamp startTime, long expirationTime) {
         LOG.info("Waiting for actual storage state, group=" + groupId());
 
-        if (!replicaReservationClosure.apply(groupId())) {
+        if (!replicaReservationClosure.apply(groupId(), startTime)) {
             throw new IllegalStateException("Replica reservation failed [groupId=" + groupId() + "].");
         }
 
