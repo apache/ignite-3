@@ -24,6 +24,6 @@ SELECT '14:42:04.999'::TIME(3)::VARCHAR
 
 # trailing zeros get truncated
 query I
-SELECT '14:42:04.999000'::TIME(6)::VARCHAR
+SELECT '14:42:04.990'::TIME(2)::VARCHAR
 ----
-14:42:04.999
+14:42:04.99
