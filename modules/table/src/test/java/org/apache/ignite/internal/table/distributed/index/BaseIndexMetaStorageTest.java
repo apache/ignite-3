@@ -47,8 +47,6 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -65,9 +63,7 @@ abstract class BaseIndexMetaStorageTest extends BaseIgniteAbstractTest {
 
     final HybridClock clock = new HybridClockImpl();
 
-    final TestLowWatermark lowWatermark = new TestLowWatermark();
-
-    final VaultManager vaultManager = new VaultManager(new InMemoryVaultService());
+    private final TestLowWatermark lowWatermark = new TestLowWatermark();
 
     MetaStorageManager metastore;
 
@@ -85,7 +81,7 @@ abstract class BaseIndexMetaStorageTest extends BaseIgniteAbstractTest {
 
         var componentContext = new ComponentContext();
 
-        assertThat(startAsync(componentContext, vaultManager, metastore, catalogManager, indexMetaStorage), willCompleteSuccessfully());
+        assertThat(startAsync(componentContext, metastore, catalogManager, indexMetaStorage), willCompleteSuccessfully());
 
         assertThat(metastore.deployWatches(), willCompleteSuccessfully());
 
@@ -102,9 +98,8 @@ abstract class BaseIndexMetaStorageTest extends BaseIgniteAbstractTest {
                 indexMetaStorage == null ? null : indexMetaStorage::beforeNodeStop,
                 catalogManager == null ? null : catalogManager::beforeNodeStop,
                 metastore == null ? null : metastore::beforeNodeStop,
-                vaultManager::beforeNodeStop,
                 () -> assertThat(
-                        stopAsync(componentContext, indexMetaStorage, catalogManager, metastore, vaultManager),
+                        stopAsync(componentContext, indexMetaStorage, catalogManager, metastore),
                         willCompleteSuccessfully()
                 )
         );
@@ -115,7 +110,7 @@ abstract class BaseIndexMetaStorageTest extends BaseIgniteAbstractTest {
 
         catalogManager = createCatalogManager();
 
-        indexMetaStorage = new IndexMetaStorage(catalogManager, lowWatermark, vaultManager, metastore);
+        indexMetaStorage = new IndexMetaStorage(catalogManager, lowWatermark, metastore);
     }
 
     int indexId(String indexName) {
