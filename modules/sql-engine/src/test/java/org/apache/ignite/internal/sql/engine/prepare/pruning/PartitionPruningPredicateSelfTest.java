@@ -22,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -108,7 +109,7 @@ public class PartitionPruningPredicateSelfTest extends BaseIgniteAbstractTest {
 
         IgniteDistribution distribution = IgniteDistributions.affinity(List.of(0), 1, 1);
 
-        NativeType nativeType = TypeUtils.columnType2NativeType(columnType, 4, 2, 4);
+        NativeType nativeType = TypeUtils.columnType2NativeType(columnType, 3, 2, 3);
 
         IgniteTable table = TestBuilders.table()
                 .name("T")
@@ -136,7 +137,7 @@ public class PartitionPruningPredicateSelfTest extends BaseIgniteAbstractTest {
     public void testDynamicParam(ColumnType columnType) {
         IgniteDistribution distribution = IgniteDistributions.affinity(List.of(0), 1, 1);
 
-        NativeType nativeType = TypeUtils.columnType2NativeType(columnType, 4, 2, 4);
+        NativeType nativeType = TypeUtils.columnType2NativeType(columnType, 3, 2, 3);
 
         IgniteTable table = TestBuilders.table()
                 .name("T")
@@ -252,6 +253,10 @@ public class PartitionPruningPredicateSelfTest extends BaseIgniteAbstractTest {
 
         Object val = SqlTestUtils.generateValueByType(current.nextInt(100), columnType);
         assert val != null;
+        
+        if (val instanceof BigDecimal) {
+            val = BigDecimal.ONE;
+        }
 
         return val;
     }
@@ -288,17 +293,17 @@ public class PartitionPruningPredicateSelfTest extends BaseIgniteAbstractTest {
                 LocalTime time = (LocalTime) value;
                 int millisOfDay = (int) TimeUnit.NANOSECONDS.toMillis(time.toNanoOfDay());
 
-                return rexBuilder.makeTimeLiteral(TimeString.fromMillisOfDay(millisOfDay), 6);
+                return rexBuilder.makeTimeLiteral(TimeString.fromMillisOfDay(millisOfDay), 3);
             case DATETIME:
                 LocalDateTime localDateTime = (LocalDateTime) value;
                 Instant instant1 = localDateTime.toInstant(ZoneOffset.UTC);
                 TimestampString timestampString = TimestampString.fromMillisSinceEpoch(instant1.toEpochMilli());
 
-                return rexBuilder.makeTimestampWithLocalTimeZoneLiteral(timestampString, 6);
+                return rexBuilder.makeTimestampWithLocalTimeZoneLiteral(timestampString, 3);
             case TIMESTAMP:
                 Instant instant = (Instant) value;
 
-                return rexBuilder.makeTimestampLiteral(TimestampString.fromMillisSinceEpoch(instant.toEpochMilli()), 6);
+                return rexBuilder.makeTimestampLiteral(TimestampString.fromMillisSinceEpoch(instant.toEpochMilli()), 3);
             case UUID:
                 RexLiteral uuidStr = rexBuilder.makeLiteral(value.toString(), typeFactory.createSqlType(SqlTypeName.VARCHAR));
                 IgniteCustomType uuidType = typeFactory.createCustomType(UuidType.NAME);

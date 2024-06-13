@@ -36,6 +36,7 @@ import java.time.LocalTime;
 import java.time.Period;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Iterator;
@@ -238,12 +239,13 @@ public class SqlTestUtils {
                         (LocalTime) generateValueByType(base, ColumnType.TIME)
                 );
             case TIMESTAMP:
-                return Instant.from(
-                        ZonedDateTime.of((LocalDateTime) generateValueByType(base, ColumnType.DATETIME), ZoneId.systemDefault()));
+                ZonedDateTime dateTime = ZonedDateTime.of((LocalDateTime) generateValueByType(base, ColumnType.DATETIME),
+                        ZoneId.systemDefault());
+                return Instant.from(dateTime).truncatedTo(ChronoUnit.MILLIS);
             case DATE:
-                return LocalDate.of(2022, 01, 01).plusDays(base % 30);
+                return LocalDate.of(2022, 1, 1).plusDays(base % 30);
             case TIME:
-                return LocalTime.of(0, 00, 00).plusSeconds(base % 1000);
+                return LocalTime.of(0, 0, 0).plusSeconds(base % 1000).truncatedTo(ChronoUnit.MILLIS);
             case PERIOD:
                 return Period.of(base % 2, base % 12, base % 29);
             default:

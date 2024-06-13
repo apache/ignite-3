@@ -240,8 +240,8 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
                 Arguments.of(NativeTypes.UUID, noPrecision, noScale),
                 Arguments.of(NativeTypes.DATE, noPrecision, noScale),
                 Arguments.of(NativeTypes.time(2), 0, noScale),
-                Arguments.of(NativeTypes.datetime(2), 6, noScale),
-                Arguments.of(NativeTypes.timestamp(2), 6, noScale)
+                Arguments.of(NativeTypes.datetime(2), 3, noScale),
+                Arguments.of(NativeTypes.timestamp(2), 3, noScale)
         );
     }
 
