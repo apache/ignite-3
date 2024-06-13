@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.compute.message;
 
-import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import org.apache.ignite.compute.JobDescriptor;
