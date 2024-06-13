@@ -54,6 +54,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Comparator;
@@ -649,9 +650,9 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         testEchoArg(new byte[] {1, 2, 3});
         testEchoArg(new BitSet(10));
         testEchoArg(LocalDate.now());
-        testEchoArg(LocalTime.now());
-        testEchoArg(LocalDateTime.now());
-        testEchoArg(Instant.now());
+        testEchoArg(LocalTime.now().truncatedTo(ChronoUnit.MILLIS));
+        testEchoArg(LocalDateTime.now().truncatedTo(ChronoUnit.MILLIS));
+        testEchoArg(Instant.now().truncatedTo(ChronoUnit.MILLIS));
         testEchoArg(BigInteger.TEN);
     }
 
