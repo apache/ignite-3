@@ -210,19 +210,39 @@ public interface IgniteCompute {
      *
      * @param <R> Job result type.
      * @param nodes Nodes to execute the job on.
+     * @param descriptor Job descriptor.
+     * @param args Arguments of the job.
+     * @return Map from node to job execution object.
+     */
+    <R> Map<ClusterNode, JobExecution<R>> submitBroadcast(
+            Set<ClusterNode> nodes,
+            JobDescriptor descriptor,
+            Object... args
+    );
+
+    /**
+     * Submits a {@link ComputeJob} of the given class for an execution on all nodes in the given node set.
+     *
+     * @param <R> Job result type.
+     * @param nodes Nodes to execute the job on.
      * @param units Deployment units. Can be empty.
      * @param jobClassName Name of the job class to execute.
      * @param options Job execution options (priority, max retries).
      * @param args Arguments of the job.
      * @return Map from node to job execution object.
      */
-    <R> Map<ClusterNode, JobExecution<R>> submitBroadcast(
+    default <R> Map<ClusterNode, JobExecution<R>> submitBroadcast(
             Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
             Object... args
-    );
+    ) {
+        return submitBroadcast(nodes, JobDescriptor.builder(jobClassName)
+                .units(units)
+                .options(options)
+                .build(), args);
+    }
 
     /**
      * Submits a {@link ComputeJob} of the given class for an execution on all nodes in the given node set

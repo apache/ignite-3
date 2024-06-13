@@ -314,15 +314,11 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
     @Override
     public <R> Map<ClusterNode, JobExecution<R>> submitBroadcast(
             Set<ClusterNode> nodes,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
+            JobDescriptor descriptor,
             Object... args
     ) {
         Objects.requireNonNull(nodes);
-        Objects.requireNonNull(units);
-        Objects.requireNonNull(jobClassName);
-        Objects.requireNonNull(options);
+        Objects.requireNonNull(descriptor);
 
         return nodes.stream()
                 .collect(toUnmodifiableMap(identity(),
@@ -332,8 +328,8 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
                             if (topologyService.getByConsistentId(node.name()) == null) {
                                 return new FailedExecution<>(new NodeNotFoundException(Set.of(node.name())));
                             }
-                            return new JobExecutionWrapper<>(executeOnOneNodeWithFailover(node,
-                                    CompletableFutures::nullCompletedFuture, units, jobClassName, options, args));
+                            return new JobExecutionWrapper<>(executeOnOneNodeWithFailover(node, CompletableFutures::nullCompletedFuture,
+                                    descriptor.units(), descriptor.jobClassName(), descriptor.options(), args));
                         }));
     }
 

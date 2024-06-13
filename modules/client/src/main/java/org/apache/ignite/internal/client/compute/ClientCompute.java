@@ -206,21 +206,17 @@ public class ClientCompute implements IgniteCompute {
     @Override
     public <R> Map<ClusterNode, JobExecution<R>> submitBroadcast(
             Set<ClusterNode> nodes,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
+            JobDescriptor descriptor,
             Object... args
     ) {
         Objects.requireNonNull(nodes);
-        Objects.requireNonNull(units);
-        Objects.requireNonNull(jobClassName);
-        Objects.requireNonNull(options);
+        Objects.requireNonNull(descriptor);
 
         Map<ClusterNode, JobExecution<R>> map = new HashMap<>(nodes.size());
 
         for (ClusterNode node : nodes) {
             JobExecution<R> execution = new ClientJobExecution<>(ch, executeOnNodesAsync(
-                    Set.of(node), units, jobClassName, options, args
+                    Set.of(node), descriptor.units(), descriptor.jobClassName(), descriptor.options(), args
             ));
             if (map.put(node, execution) != null) {
                 throw new IllegalStateException("Node can't be specified more than once: " + node);

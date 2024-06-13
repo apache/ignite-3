@@ -113,12 +113,10 @@ public class AntiHijackIgniteCompute implements IgniteCompute, Wrapper {
     @Override
     public <R> Map<ClusterNode, JobExecution<R>> submitBroadcast(
             Set<ClusterNode> nodes,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
+            JobDescriptor descriptor,
             Object... args
     ) {
-        Map<ClusterNode, JobExecution<R>> results = compute.submitBroadcast(nodes, units, jobClassName, options, args);
+        Map<ClusterNode, JobExecution<R>> results = compute.submitBroadcast(nodes, descriptor, args);
 
         return results.entrySet().stream()
                 .collect(toMap(Entry::getKey, entry -> preventThreadHijack(entry.getValue())));
