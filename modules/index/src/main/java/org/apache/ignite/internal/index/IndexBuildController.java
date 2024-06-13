@@ -28,7 +28,6 @@ import static org.apache.ignite.internal.index.IndexManagementUtils.isPrimaryRep
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
-import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.util.ArrayList;
 import java.util.Set;
@@ -45,7 +44,8 @@ import org.apache.ignite.internal.catalog.events.StartBuildingIndexEventParamete
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.PrimaryReplicaAwaitTimeoutException;
@@ -53,6 +53,7 @@ import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.IndexStorage;
@@ -78,6 +79,8 @@ import org.jetbrains.annotations.Nullable;
  * node restart but after {@link ReplicaMeta#getExpirationTime()}.</p>
  */
 class IndexBuildController implements ManuallyCloseable {
+    private static final IgniteLogger LOG = Loggers.forClass(IndexBuildController.class);
+
     private final IndexBuilder indexBuilder;
 
     private final IndexManager indexManager;
@@ -94,7 +97,7 @@ class IndexBuildController implements ManuallyCloseable {
 
     private final AtomicBoolean closeGuard = new AtomicBoolean();
 
-    private final Set<TablePartitionId> primaryReplicaIds = ConcurrentHashMap.newKeySet();
+    private final Set<ZonePartitionId> primaryReplicaIds = ConcurrentHashMap.newKeySet();
 
     /** Constructor. */
     IndexBuildController(
@@ -146,16 +149,29 @@ class IndexBuildController implements ManuallyCloseable {
 
             var startBuildIndexFutures = new ArrayList<CompletableFuture<?>>();
 
-            for (TablePartitionId primaryReplicaId : primaryReplicaIds) {
-                if (primaryReplicaId.tableId() == indexDescriptor.tableId()) {
-                    CompletableFuture<?> startBuildIndexFuture = getMvTableStorageFuture(parameters.causalityToken(), primaryReplicaId)
-                            .thenCompose(mvTableStorage -> awaitPrimaryReplica(primaryReplicaId, clockService.now())
-                                    .thenAccept(replicaMeta -> tryScheduleBuildIndex(
-                                            primaryReplicaId,
-                                            indexDescriptor,
-                                            mvTableStorage,
-                                            replicaMeta
-                                    ))
+            for (ZonePartitionId zonePartitionId : primaryReplicaIds) {
+
+                int tableId = zonePartitionId.tableId();
+
+                TablePartitionId tablePartId = new TablePartitionId(tableId, zonePartitionId.partitionId());
+
+                if (tableId == indexDescriptor.tableId()) {
+                    CompletableFuture<?> startBuildIndexFuture = getMvTableStorageFuture(parameters.causalityToken(), tablePartId)
+                            .thenCompose(mvTableStorage -> {
+                                        if (mvTableStorage == null) {
+                                            LOG.info("The table has been removed, so the index build is skipped [tblId={}].", tableId);
+
+                                            return nullCompletedFuture();
+                                        }
+
+                                        return awaitPrimaryReplica(zonePartitionId, clockService.now())
+                                                .thenAccept(replicaMeta -> tryScheduleBuildIndex(
+                                                        zonePartitionId,
+                                                        indexDescriptor,
+                                                        mvTableStorage,
+                                                        replicaMeta
+                                                ));
+                                    }
                             );
 
                     startBuildIndexFutures.add(startBuildIndexFuture);
@@ -176,26 +192,37 @@ class IndexBuildController implements ManuallyCloseable {
 
     private CompletableFuture<?> onPrimaryReplicaElected(PrimaryReplicaEventParameters parameters) {
         return inBusyLockAsync(busyLock, () -> {
-            TablePartitionId primaryReplicaId = (TablePartitionId) parameters.groupId();
+            ZonePartitionId zonePartitionId = (ZonePartitionId) parameters.groupId();
+
+            int tableId = zonePartitionId.tableId();
+
+            TablePartitionId tablePartitionId = new TablePartitionId(tableId, zonePartitionId.partitionId());
 
             if (isLocalNode(clusterService, parameters.leaseholderId())) {
-                primaryReplicaIds.add(primaryReplicaId);
-
                 // It is safe to get the latest version of the catalog because the PRIMARY_REPLICA_ELECTED event is handled on the
                 // metastore thread.
                 int catalogVersion = catalogService.latestCatalogVersion();
 
-                return getMvTableStorageFuture(parameters.causalityToken(), primaryReplicaId)
-                        .thenCompose(mvTableStorage -> awaitPrimaryReplica(primaryReplicaId, parameters.startTime())
-                                .thenAccept(replicaMeta -> tryScheduleBuildIndexesForNewPrimaryReplica(
-                                        catalogVersion,
-                                        primaryReplicaId,
-                                        mvTableStorage,
-                                        replicaMeta
-                                ))
-                        );
+                primaryReplicaIds.add(zonePartitionId);
+
+                return getMvTableStorageFuture(parameters.causalityToken(), tablePartitionId).thenCompose(mvTableStorage -> {
+                    if (mvTableStorage == null) {
+                        LOG.info("The table has been removed, so the index build is skipped [tblId={}].", tableId);
+
+                        return nullCompletedFuture();
+                    }
+
+                    return inBusyLock(busyLock, () -> awaitPrimaryReplica(zonePartitionId, parameters.startTime()))
+                            .thenAccept(replicaMeta -> inBusyLock(busyLock, () -> tryScheduleBuildIndexesForNewPrimaryReplica(
+                                            catalogVersion,
+                                            zonePartitionId,
+                                            mvTableStorage,
+                                            replicaMeta
+                                    ))
+                            );
+                });
             } else {
-                stopBuildingIndexesIfPrimaryExpired(primaryReplicaId);
+                stopBuildingIndexesIfPrimaryExpired(zonePartitionId);
 
                 return nullCompletedFuture();
             }
@@ -204,7 +231,7 @@ class IndexBuildController implements ManuallyCloseable {
 
     private void tryScheduleBuildIndexesForNewPrimaryReplica(
             int catalogVersion,
-            TablePartitionId primaryReplicaId,
+            ZonePartitionId primaryReplicaId,
             MvTableStorage mvTableStorage,
             ReplicaMeta replicaMeta
     ) {
@@ -231,7 +258,7 @@ class IndexBuildController implements ManuallyCloseable {
     }
 
     private void tryScheduleBuildIndex(
-            TablePartitionId primaryReplicaId,
+            ZonePartitionId primaryReplicaId,
             CatalogIndexDescriptor indexDescriptor,
             MvTableStorage mvTableStorage,
             ReplicaMeta replicaMeta
@@ -255,7 +282,7 @@ class IndexBuildController implements ManuallyCloseable {
      *
      * @param replicaId Replica ID.
      */
-    private void stopBuildingIndexesIfPrimaryExpired(TablePartitionId replicaId) {
+    private void stopBuildingIndexesIfPrimaryExpired(ZonePartitionId replicaId) {
         if (primaryReplicaIds.remove(replicaId)) {
             // Primary replica is no longer current, we need to stop building indexes for it.
             indexBuilder.stopBuildingIndexes(replicaId.tableId(), replicaId.partitionId());
@@ -263,25 +290,12 @@ class IndexBuildController implements ManuallyCloseable {
     }
 
     private CompletableFuture<MvTableStorage> getMvTableStorageFuture(long causalityToken, TablePartitionId replicaId) {
-        return indexManager.getMvTableStorage(causalityToken, replicaId.tableId())
-                .thenApply(mvTableStorage -> requireMvTableStorageNonNull(mvTableStorage, replicaId.tableId()));
+        return indexManager.getMvTableStorage(causalityToken, replicaId.tableId());
     }
 
-    private static MvTableStorage requireMvTableStorageNonNull(@Nullable MvTableStorage mvTableStorage, int tableId) {
-        if (mvTableStorage == null) {
-            throw new IgniteInternalException(
-                    INTERNAL_ERR,
-                    "Table storage for the specified table cannot be null [tableId = {}]",
-                    tableId
-            );
-        }
-
-        return mvTableStorage;
-    }
-
-    private CompletableFuture<ReplicaMeta> awaitPrimaryReplica(TablePartitionId replicaId, HybridTimestamp timestamp) {
+    private CompletableFuture<ReplicaMeta> awaitPrimaryReplica(ZonePartitionId replicaId, HybridTimestamp timestamp) {
         return placementDriver
-                .awaitPrimaryReplica(replicaId, timestamp, AWAIT_PRIMARY_REPLICA_TIMEOUT_SEC, SECONDS)
+                .awaitPrimaryReplicaForTable(replicaId, timestamp, AWAIT_PRIMARY_REPLICA_TIMEOUT_SEC, SECONDS)
                 .handle((replicaMeta, throwable) -> {
                     if (throwable != null) {
                         Throwable unwrapThrowable = ExceptionUtils.unwrapCause(throwable);
@@ -299,21 +313,24 @@ class IndexBuildController implements ManuallyCloseable {
 
     /** Shortcut to schedule index building. */
     private void scheduleBuildIndex(
-            TablePartitionId replicaId,
+            ZonePartitionId replicaId,
             CatalogIndexDescriptor indexDescriptor,
             MvTableStorage mvTableStorage,
             long enlistmentConsistencyToken
     ) {
-        MvPartitionStorage mvPartition = mvPartitionStorage(mvTableStorage, replicaId);
+        TablePartitionId tablePartitionId = new TablePartitionId(replicaId.tableId(), replicaId.partitionId());
+
+        MvPartitionStorage mvPartition = mvPartitionStorage(mvTableStorage, tablePartitionId);
 
         // TODO: IGNITE-22202 Deal with this situation
         if (mvPartition == null) {
             return;
         }
 
-        IndexStorage indexStorage = indexStorage(mvTableStorage, replicaId, indexDescriptor);
+        IndexStorage indexStorage = indexStorage(mvTableStorage, tablePartitionId, indexDescriptor);
 
         indexBuilder.scheduleBuildIndex(
+                replicaId.zoneId(),
                 replicaId.tableId(),
                 replicaId.partitionId(),
                 indexDescriptor.id(),
@@ -327,21 +344,23 @@ class IndexBuildController implements ManuallyCloseable {
 
     /** Shortcut to schedule {@link CatalogIndexStatus#AVAILABLE available} index building after disaster recovery. */
     private void scheduleBuildIndexAfterDisasterRecovery(
-            TablePartitionId replicaId,
+            ZonePartitionId replicaId,
             CatalogIndexDescriptor indexDescriptor,
             MvTableStorage mvTableStorage,
             long enlistmentConsistencyToken
     ) {
-        MvPartitionStorage mvPartition = mvPartitionStorage(mvTableStorage, replicaId);
+        TablePartitionId tablePartitionId = new TablePartitionId(replicaId.tableId(), replicaId.partitionId());
+        MvPartitionStorage mvPartition = mvPartitionStorage(mvTableStorage, tablePartitionId);
 
         // TODO: IGNITE-22202 Deal with this situation
         if (mvPartition == null) {
             return;
         }
 
-        IndexStorage indexStorage = indexStorage(mvTableStorage, replicaId, indexDescriptor);
+        IndexStorage indexStorage = indexStorage(mvTableStorage, tablePartitionId, indexDescriptor);
 
         indexBuilder.scheduleBuildIndexAfterDisasterRecovery(
+                replicaId.zoneId(),
                 replicaId.tableId(),
                 replicaId.partitionId(),
                 indexDescriptor.id(),

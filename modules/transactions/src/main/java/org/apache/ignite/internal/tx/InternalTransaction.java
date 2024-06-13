@@ -21,7 +21,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
@@ -40,10 +40,10 @@ public interface InternalTransaction extends Transaction {
     /**
      * Returns enlisted primary replica node associated with given replication group.
      *
-     * @param tablePartitionId Table partition id.
+     * @param zonePartitionId Zone partition id.
      * @return Enlisted primary replica node and consistency token associated with given replication group.
      */
-    IgniteBiTuple<ClusterNode, Long> enlistedNodeAndConsistencyToken(TablePartitionId tablePartitionId);
+    IgniteBiTuple<ClusterNode, Long> enlistedNodeAndConsistencyToken(ZonePartitionId zonePartitionId);
 
     /**
      * Returns a transaction state.
@@ -55,26 +55,29 @@ public interface InternalTransaction extends Transaction {
     /**
      * Assigns a partition id to store the transaction state.
      *
-     * @param tablePartitionId Commit partition group id.
+     * @param zonePartitionId Zone commit partition group id.
      * @return True if the partition was assigned as committed, false otherwise.
      */
-    boolean assignCommitPartition(TablePartitionId tablePartitionId);
+    boolean assignCommitPartition(ZonePartitionId zonePartitionId);
 
     /**
-     * Gets a partition id that stores the transaction state.
+     * Gets a zone partition id that stores the transaction state.
      *
-     * @return Partition id.
+     * @return Zone partition id.
      */
-    TablePartitionId commitPartition();
+    ZonePartitionId zoneCommitPartition();
 
     /**
      * Enlists a partition group into a transaction.
      *
-     * @param tablePartitionId Table partition id to enlist.
+     * @param zonePartitionId Zone partition id to enlist.
      * @param nodeAndConsistencyToken Primary replica cluster node and consistency token to enlist for given replication group.
      * @return {@code True} if a partition is enlisted into the transaction.
      */
-    IgniteBiTuple<ClusterNode, Long> enlist(TablePartitionId tablePartitionId, IgniteBiTuple<ClusterNode, Long> nodeAndConsistencyToken);
+    IgniteBiTuple<ClusterNode, Long> enlist(
+            ZonePartitionId zonePartitionId,
+            IgniteBiTuple<ClusterNode, Long> nodeAndConsistencyToken
+    );
 
     /**
      * Returns read timestamp for the given transaction if it is a read-only one or {code null} otherwise.

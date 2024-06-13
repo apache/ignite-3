@@ -71,14 +71,15 @@ namespace Apache.Ignite.Internal.Table
 
                 for (var i = 0; i < len; i++)
                 {
+                    var zoneId = r.ReadInt32();
                     var id = r.ReadInt32();
                     var name = r.ReadString();
 
                     var table = _cachedTables.GetOrAdd(
                         id,
-                        static (int id0, (string Name, Tables Tables) arg) =>
-                            new Table(arg.Name, id0, arg.Tables._socket, arg.Tables._sql),
-                        (name, this));
+                        static (int id0, (string Name, int ZoneId, Tables Tables) arg) =>
+                            new Table(arg.Name, id0, arg.ZoneId, arg.Tables._socket, arg.Tables._sql),
+                        (name, zoneId, this));
 
                     res.Add(table);
                 }
@@ -109,13 +110,22 @@ namespace Apache.Ignite.Internal.Table
             return Read(resBuf.GetReader());
 
             // ReSharper disable once LambdaExpressionMustBeStatic (requires .NET 5+)
-            Table? Read(MsgPackReader r) =>
-                r.TryReadNil()
-                    ? null
-                    : _cachedTables.GetOrAdd(
-                        r.ReadInt32(),
-                        (int id, (string Name, Tables Tables) arg) => new Table(arg.Name, id, arg.Tables._socket, arg.Tables._sql),
-                        (name, this));
+            Table? Read(MsgPackReader r)
+            {
+                if (r.TryReadNil())
+                {
+                    return null;
+                }
+
+                var zoneId = r.ReadInt32();
+                var tableId = r.ReadInt32();
+
+                return _cachedTables.GetOrAdd(
+                    tableId,
+                    static (int id, (string Name, int ZoneId, Tables Tables) arg) =>
+                        new Table(arg.Name, id, arg.ZoneId, arg.Tables._socket, arg.Tables._sql),
+                    (name, zoneId, this));
+            }
         }
     }
 }

@@ -29,7 +29,7 @@ import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaResponse;
 import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TransactionResult;
@@ -79,7 +79,7 @@ public class TxMessageSender {
      * Sends WriteIntentSwitch request to the specified primary replica.
      *
      * @param primaryConsistentId Primary replica to process given cleanup request.
-     * @param tablePartitionId Table partition id.
+     * @param zonePartitionId Zone partition id.
      * @param txId Transaction id.
      * @param commit {@code True} if a commit requested.
      * @param commitTimestamp Commit timestamp ({@code null} if it's an abort).
@@ -87,7 +87,7 @@ public class TxMessageSender {
      */
     public CompletableFuture<ReplicaResponse> switchWriteIntents(
             String primaryConsistentId,
-            TablePartitionId tablePartitionId,
+            ZonePartitionId zonePartitionId,
             UUID txId,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp
@@ -95,7 +95,7 @@ public class TxMessageSender {
         return replicaService.invoke(
                 primaryConsistentId,
                 FACTORY.writeIntentSwitchReplicaRequest()
-                        .groupId(tablePartitionId)
+                        .groupId(zonePartitionId)
                         .timestampLong(clockService.nowLong())
                         .txId(txId)
                         .commit(commit)
@@ -147,7 +147,7 @@ public class TxMessageSender {
      */
     public CompletableFuture<TransactionResult> finish(
             String primaryConsistentId,
-            TablePartitionId commitPartition,
+            ZonePartitionId commitPartition,
             Map<ReplicationGroupId, String> replicationGroupIds,
             UUID txId,
             Long consistencyToken,
@@ -179,7 +179,7 @@ public class TxMessageSender {
     public CompletableFuture<TransactionMeta> resolveTxStateFromCommitPartition(
             String primaryConsistentId,
             UUID txId,
-            TablePartitionId commitGrpId,
+            ZonePartitionId commitGrpId,
             Long consistencyToken
     ) {
         return replicaService.invoke(
@@ -222,14 +222,14 @@ public class TxMessageSender {
      * Send TxCleanupRecoveryRequest.
      *
      * @param primaryConsistentId Node id to send the request to.
-     * @param tablePartitionId Table partition id.
+     * @param zonePartitionId Table partition id.
      * @return Completable future of ReplicaResponse.
      */
-    public CompletableFuture<ReplicaResponse> sendRecoveryCleanup(String primaryConsistentId, TablePartitionId tablePartitionId) {
+    public CompletableFuture<ReplicaResponse> sendRecoveryCleanup(String primaryConsistentId, ZonePartitionId zonePartitionId) {
         return replicaService.invoke(
                 primaryConsistentId,
                 FACTORY.txCleanupRecoveryRequest()
-                        .groupId(tablePartitionId)
+                        .groupId(zonePartitionId)
                         .build()
         );
     }

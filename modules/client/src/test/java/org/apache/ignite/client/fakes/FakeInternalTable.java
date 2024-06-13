@@ -38,8 +38,7 @@ import javax.naming.OperationNotSupportedException;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -65,6 +64,9 @@ public class FakeInternalTable implements InternalTable {
     /** Table name. */
     private final String tableName;
 
+    /** Zone ID. */
+    private final int zoneId;
+
     /** Table ID. */
     private final int tableId;
 
@@ -80,11 +82,13 @@ public class FakeInternalTable implements InternalTable {
      * The constructor.
      *
      * @param tableName Name.
+     * @param zoneId Zone id.
      * @param tableId Id.
      * @param keyExtractor Function which converts given binary row to an index key.
      */
-    public FakeInternalTable(String tableName, int tableId, ColumnsExtractor keyExtractor) {
+    public FakeInternalTable(String tableName, int zoneId, int tableId, ColumnsExtractor keyExtractor) {
         this.tableName = tableName;
+        this.zoneId = zoneId;
         this.tableId = tableId;
         this.keyExtractor = keyExtractor;
     }
@@ -117,6 +121,11 @@ public class FakeInternalTable implements InternalTable {
     @Override
     public int partitionId(BinaryRowEx row) {
         return 0;
+    }
+
+    @Override
+    public int zoneId() {
+        return zoneId;
     }
 
     @Override
@@ -386,7 +395,7 @@ public class FakeInternalTable implements InternalTable {
     public Publisher<BinaryRow> scan(
             int partId,
             UUID txId,
-            TablePartitionId commitPartition,
+            ZonePartitionId commitPartition,
             String txCoordinatorId,
             PrimaryReplica recipient,
             @Nullable Integer indexId,
@@ -428,7 +437,7 @@ public class FakeInternalTable implements InternalTable {
     public Publisher<BinaryRow> lookup(
             int partId,
             UUID txId,
-            TablePartitionId commitPartition,
+            ZonePartitionId commitPartition,
             String txCoordinatorId,
             PrimaryReplica recipient,
             int indexId,
@@ -503,7 +512,7 @@ public class FakeInternalTable implements InternalTable {
     }
 
     @Override
-    public CompletableFuture<ClusterNode> partitionLocation(ReplicationGroupId partition) {
+    public CompletableFuture<ClusterNode> partitionLocation(int partitionId) {
         return completedFuture(
                 new ClusterNodeImpl("server-1", "server-1", new NetworkAddress("localhost", 10800)));
     }

@@ -37,7 +37,7 @@ import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tx.MismatchingTransactionOutcomeException;
 import org.apache.ignite.internal.tx.TransactionResult;
 import org.apache.ignite.internal.tx.message.FinishedTransactionsBatchMessage;
@@ -122,7 +122,7 @@ public class TransactionInflights {
         txCtxMap.keySet().removeAll(txIds);
     }
 
-    void cancelWaitingInflights(TablePartitionId groupId) {
+    void cancelWaitingInflights(ZonePartitionId groupId) {
         for (Map.Entry<UUID, TxContext> ctxEntry : txCtxMap.entrySet()) {
             if (ctxEntry.getValue() instanceof ReadWriteTxContext) {
                 ReadWriteTxContext txContext = (ReadWriteTxContext) ctxEntry.getValue();
@@ -150,7 +150,7 @@ public class TransactionInflights {
         });
     }
 
-    ReadWriteTxContext lockTxForNewUpdates(UUID txId, Map<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups) {
+    ReadWriteTxContext lockTxForNewUpdates(UUID txId, Map<ZonePartitionId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups) {
         return (ReadWriteTxContext) txCtxMap.compute(txId, (uuid, tuple0) -> {
             if (tuple0 == null) {
                 tuple0 = new ReadWriteTxContext(placementDriver, clockService); // No writes enlisted.
@@ -186,7 +186,7 @@ public class TransactionInflights {
 
         abstract void onInflightsRemoved();
 
-        abstract void finishTx(@Nullable Map<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups);
+        abstract void finishTx(@Nullable Map<ZonePartitionId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups);
 
         abstract boolean isTxFinishing();
 
@@ -209,7 +209,7 @@ public class TransactionInflights {
         }
 
         @Override
-        public void finishTx(@Nullable Map<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups) {
+        public void finishTx(@Nullable Map<ZonePartitionId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups) {
             markedFinished = true;
         }
 
@@ -233,7 +233,7 @@ public class TransactionInflights {
         private final CompletableFuture<Void> waitRepFut = new CompletableFuture<>();
         private final PlacementDriver placementDriver;
         private volatile CompletableFuture<Void> finishInProgressFuture = null;
-        private volatile Map<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups;
+        private volatile Map<ZonePartitionId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups;
         private ClockService clockService;
 
         private ReadWriteTxContext(PlacementDriver placementDriver, ClockService clockService) {
@@ -286,8 +286,8 @@ public class TransactionInflights {
 
                 int cntr = 0;
 
-                for (Map.Entry<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> e : enlistedGroups.entrySet()) {
-                    futures[cntr++] = placementDriver.getPrimaryReplica(e.getKey(), now)
+                for (Map.Entry<ZonePartitionId, IgniteBiTuple<ClusterNode, Long>> e : enlistedGroups.entrySet()) {
+                    futures[cntr++] = placementDriver.getPrimaryReplicaForTable(e.getKey(), now)
                             .thenApply(replicaMeta -> {
                                 Long enlistmentConsistencyToken = e.getValue().get2();
 
@@ -314,7 +314,7 @@ public class TransactionInflights {
             return waitRepFut;
         }
 
-        void cancelWaitingInflights(TablePartitionId groupId, Long enlistmentConsistencyToken) {
+        void cancelWaitingInflights(ZonePartitionId groupId, Long enlistmentConsistencyToken) {
             waitRepFut.completeExceptionally(new PrimaryReplicaExpiredException(groupId, enlistmentConsistencyToken, null, null));
         }
 
@@ -326,7 +326,7 @@ public class TransactionInflights {
         }
 
         @Override
-        public void finishTx(Map<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups) {
+        public void finishTx(Map<ZonePartitionId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups) {
             this.enlistedGroups = enlistedGroups;
             finishInProgressFuture = new CompletableFuture<>();
         }

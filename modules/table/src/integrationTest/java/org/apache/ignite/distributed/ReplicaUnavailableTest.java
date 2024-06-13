@@ -28,6 +28,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.apache.ignite.internal.util.CompletableFutures.emptySetCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_TIMEOUT_ERR;
 import static org.apache.ignite.raft.jraft.test.TestUtils.getLocalAddress;
@@ -71,7 +72,7 @@ import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaResult;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.replicator.exception.ReplicaStoppingException;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
@@ -87,7 +88,7 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
-import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMessage;
+import org.apache.ignite.internal.table.distributed.command.ZonePartitionIdMessage;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
 import org.apache.ignite.internal.table.distributed.schema.ThreadLocalPartitionCommandsMarshaller;
@@ -169,8 +170,11 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
         when(cmgManager.metaStorageNodes()).thenReturn(emptySetCompletedFuture());
 
         raftManager = mock(Loza.class);
-        raftClient = mock(TopologyAwareRaftGroupService.class);
         when(raftManager.startRaftGroupService(any(), any(), any(), any())).thenReturn(completedFuture(raftClient));
+
+        raftClient = mock(TopologyAwareRaftGroupService.class);
+        when(raftClient.readIndex()).thenReturn(completedFuture(-1L));
+        when(raftClient.run(any())).thenReturn(nullCompletedFuture());
 
         requestsExecutor = new ThreadPoolExecutor(
                 0, 5,
@@ -219,9 +223,9 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
     public void testWithReplicaStartedAfterRequestSending() throws Exception {
         ClusterNode clusterNode = clusterService.topologyService().localMember();
 
-        TablePartitionId tablePartitionId = new TablePartitionId(1, 1);
+        ZonePartitionId zoneTablePartitionId = new ZonePartitionId(11, 1, 1);
 
-        ReadWriteSingleRowReplicaRequest request = getRequest(tablePartitionId);
+        ReadWriteSingleRowReplicaRequest request = getRequest(zoneTablePartitionId);
 
         PeersAndLearners newConfiguration = PeersAndLearners.fromConsistentIds(Set.of(clusterNode.name()));
 
@@ -238,12 +242,12 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                         });
 
                         replicaManager.startReplica(
-                                tablePartitionId,
+                                zoneTablePartitionId,
                                 newConfiguration,
                                 (unused) -> { },
                                 (unused) -> listener,
                                 new PendingComparableValuesTracker<>(0L),
-                                completedFuture(mock(TopologyAwareRaftGroupService.class))
+                                completedFuture(raftClient)
                         );
                     } catch (NodeStoppingException e) {
                         throw new RuntimeException(e);
@@ -258,13 +262,13 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
         assertEquals(5, respFur.get().result());
     }
 
-    private ReadWriteSingleRowReplicaRequest getRequest(TablePartitionId tablePartitionId) {
+    private ReadWriteSingleRowReplicaRequest getRequest(ZonePartitionId zonePartitionId) {
         BinaryRow binaryRow = createKeyValueRow(1L, 1L);
 
         return tableMessagesFactory.readWriteSingleRowReplicaRequest()
-                .groupId(tablePartitionId)
+                .groupId(zonePartitionId)
                 .transactionId(TestTransactionIds.newTransactionId())
-                .commitPartitionId(tablePartitionId())
+                .zoneCommitPartitionId(zonePartitionId())
                 .timestampLong(clock.nowLong())
                 .schemaVersion(binaryRow.schemaVersion())
                 .binaryTuple(binaryRow.tupleSlice())
@@ -278,9 +282,9 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
     public void testStopReplicaException() {
         ClusterNode clusterNode = clusterService.topologyService().localMember();
 
-        TablePartitionId tablePartitionId = new TablePartitionId(1, 1);
+        ZonePartitionId zoneTablePartitionId = new ZonePartitionId(11, 1, 1);
 
-        ReadWriteSingleRowReplicaRequest request = getRequest(tablePartitionId);
+        ReadWriteSingleRowReplicaRequest request = getRequest(zoneTablePartitionId);
 
         clusterService.messagingService().addMessageHandler(ReplicaMessageGroup.class, (message, sender, correlationId) -> {
             runAsync(() -> {
@@ -290,10 +294,10 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                     // If we 'stop' a replica before its future even appears, invocation will not get ReplicaStoppingException
                     // as there was no sign of the replica yet.
                     assertTrue(
-                            waitForCondition(() -> replicaManager.isReplicaTouched(tablePartitionId), TimeUnit.SECONDS.toMillis(10))
+                            waitForCondition(() -> replicaManager.isReplicaTouched(zoneTablePartitionId), TimeUnit.SECONDS.toMillis(10))
                     );
 
-                    assertThat(replicaManager.stopReplica(tablePartitionId), willSucceedFast());
+                    assertThat(replicaManager.stopReplica(zoneTablePartitionId), willSucceedFast());
                 } catch (NodeStoppingException e) {
                     throw new RuntimeException(e);
                 } catch (InterruptedException e) {
@@ -313,9 +317,9 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
     public void testWithNotStartedReplica() {
         ClusterNode clusterNode = clusterService.topologyService().localMember();
 
-        TablePartitionId tablePartitionId = new TablePartitionId(1, 1);
+        ZonePartitionId zonePartitionId = new ZonePartitionId(11, 1, 1);
 
-        ReadWriteSingleRowReplicaRequest request = getRequest(tablePartitionId);
+        ReadWriteSingleRowReplicaRequest request = getRequest(zonePartitionId);
 
         Exception e0 = null;
         Exception e1 = null;
@@ -343,7 +347,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
     public void testWithNotReadyReplica() {
         ClusterNode clusterNode = clusterService.topologyService().localMember();
 
-        TablePartitionId tablePartitionId = new TablePartitionId(1, 1);
+        ZonePartitionId zoneTablePartitionId = new ZonePartitionId(1, 11, 1);
 
         PeersAndLearners newConfiguration = PeersAndLearners.fromConsistentIds(Set.of(clusterNode.name()));
 
@@ -355,12 +359,12 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                     ReplicaListener listener = replicaListenerCreator.apply((r, id) -> new CompletableFuture<>());
 
                     replicaManager.startReplica(
-                            tablePartitionId,
+                            zoneTablePartitionId,
                             newConfiguration,
                             (unused) -> { },
                             (unused) -> listener,
                             new PendingComparableValuesTracker<>(0L),
-                            completedFuture(mock(TopologyAwareRaftGroupService.class))
+                            completedFuture(raftClient)
                     );
                 } catch (NodeStoppingException e) {
                     throw new RuntimeException(e);
@@ -368,7 +372,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
             });
         });
 
-        ReadWriteSingleRowReplicaRequest request = getRequest(tablePartitionId);
+        ReadWriteSingleRowReplicaRequest request = getRequest(zoneTablePartitionId);
 
         Exception e0 = null;
 
@@ -392,8 +396,9 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
         return rowBuilder.build();
     }
 
-    private TablePartitionIdMessage tablePartitionId() {
-        return tableMessagesFactory.tablePartitionIdMessage()
+    private ZonePartitionIdMessage zonePartitionId() {
+        return tableMessagesFactory.zonePartitionIdMessage()
+                .zoneId(11)
                 .tableId(1)
                 .partitionId(1)
                 .build();

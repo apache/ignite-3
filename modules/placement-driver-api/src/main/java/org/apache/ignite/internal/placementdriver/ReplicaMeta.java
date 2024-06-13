@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.placementdriver;
 
 import java.io.Serializable;
+import java.util.Set;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.jetbrains.annotations.Nullable;
 
@@ -34,4 +35,11 @@ public interface ReplicaMeta extends Serializable {
 
     /** Gets a lease expiration timestamp. */
     HybridTimestamp getExpirationTime();
+
+    /**
+     * Gets partition replication groups.
+     *
+     * @return Set of replication sub groups.
+     */
+    Set<Integer> subgroups();
 }

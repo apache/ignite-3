@@ -29,8 +29,9 @@ void tables_impl::get_table_async(std::string_view name, ignite_callback<std::op
         if (reader.try_read_nil())
             return std::nullopt;
 
-        auto id = reader.read_int32();
-        auto table0 = std::make_shared<table_impl>(std::string(name), id, std::move(conn));
+        auto zone_id = reader.read_int32();
+        auto table_id = reader.read_int32();
+        auto table0 = std::make_shared<table_impl>(std::string(name), table_id, zone_id, std::move(conn));
 
         return std::make_optional(table(table0));
     };
@@ -49,9 +50,10 @@ void tables_impl::get_tables_async(ignite_callback<std::vector<table>> callback)
         tables.reserve(size);
 
         for (std::int32_t table_idx = 0; table_idx < size; ++table_idx) {
-            auto id = reader.read_int32();
+            auto zone_id = reader.read_int32();
+            auto table_id = reader.read_int32();
             auto name = reader.read_string();
-            tables.emplace_back(table{std::make_shared<table_impl>(std::move(name), id, conn)});
+            tables.emplace_back(table{std::make_shared<table_impl>(std::move(name), table_id, zone_id, conn)});
         }
         return tables;
     };

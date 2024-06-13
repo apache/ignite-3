@@ -34,7 +34,7 @@ import org.jetbrains.annotations.Nullable;
  */
 @Transferable(TableMessageGroup.Commands.UPDATE_ALL)
 public interface UpdateAllCommand extends PartitionCommand {
-    TablePartitionIdMessage tablePartitionId();
+    ZonePartitionIdMessage zonePartitionId();
 
     Map<UUID, TimedBinaryRowMessage> messageRowsToUpdate();
 

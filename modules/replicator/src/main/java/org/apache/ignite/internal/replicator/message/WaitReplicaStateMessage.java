@@ -15,34 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.tx.message;
+package org.apache.ignite.internal.replicator.message;
 
-import java.io.Serializable;
-import java.util.Collection;
-import java.util.UUID;
-import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
- * The result of a replicated cleanup request.
+ * Wait for replica state being up to date with a leader.
  */
-public class CleanupReplicatedInfo implements Serializable {
-
-    private static final long serialVersionUID = -975001033274630774L;
-
-    private final UUID txId;
-
-    private final Collection<ZonePartitionId> partitions;
-
-    public CleanupReplicatedInfo(UUID txId, Collection<ZonePartitionId> partitions) {
-        this.txId = txId;
-        this.partitions = partitions;
-    }
-
-    public UUID txId() {
-        return txId;
-    }
-
-    public Collection<ZonePartitionId> partitions() {
-        return partitions;
-    }
+@Transferable(ReplicaMessageGroup.WAIT_REPLICA_STATE)
+public interface WaitReplicaStateMessage extends PrimaryReplicaRequest {
+    long timeout();
 }

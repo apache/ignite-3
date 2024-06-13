@@ -34,7 +34,7 @@ import org.apache.ignite.internal.network.ChannelType;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaResponse;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.message.CleanupReplicatedInfo;
@@ -109,7 +109,7 @@ public class TxCleanupRequestHandler {
     private void processTxCleanup(TxCleanupMessage txCleanupMessage, ClusterNode sender, @Nullable Long correlationId) {
         assert correlationId != null;
 
-        Map<TablePartitionId, CompletableFuture<?>> writeIntentSwitches = new HashMap<>();
+        Map<ZonePartitionId, CompletableFuture<?>> writeIntentSwitches = new HashMap<>();
 
         // These cleanups will all be local.
         Collection<ReplicationGroupId> groups = txCleanupMessage.groups();
@@ -118,9 +118,9 @@ public class TxCleanupRequestHandler {
             trackPartitions(txCleanupMessage.txId(), groups, sender);
 
             for (ReplicationGroupId group : groups) {
-                writeIntentSwitches.put((TablePartitionId) group,
+                writeIntentSwitches.put((ZonePartitionId) group,
                         writeIntentSwitchProcessor.switchLocalWriteIntents(
-                                (TablePartitionId) group,
+                                (ZonePartitionId) group,
                                 txCleanupMessage.txId(),
                                 txCleanupMessage.commit(),
                                 txCleanupMessage.commitTimestamp()
@@ -195,9 +195,9 @@ public class TxCleanupRequestHandler {
      * @param sender Cleanup request sender, needed to send cleanup replicated response.
      */
     private void trackPartitions(UUID txId, Collection<ReplicationGroupId> groups, ClusterNode sender) {
-        Set<TablePartitionId> partitions =
+        Set<ZonePartitionId> partitions =
                 groups.stream()
-                        .map(TablePartitionId.class::cast)
+                        .map(ZonePartitionId.class::cast)
                         .collect(toSet());
 
         writeIntentsReplicated.put(txId, new CleanupContext(sender, partitions, partitions));
@@ -228,7 +228,7 @@ public class TxCleanupRequestHandler {
      */
     void writeIntentSwitchReplicated(WriteIntentSwitchReplicatedInfo info) {
         CleanupContext cleanupContext = writeIntentsReplicated.computeIfPresent(info.txId(), (uuid, context) -> {
-            Set<TablePartitionId> partitions = new HashSet<>(context.partitions);
+            Set<ZonePartitionId> partitions = new HashSet<>(context.partitions);
             partitions.remove(info.partitionId());
 
             return new CleanupContext(context.sender, partitions, context.initialPartitions);
@@ -249,18 +249,18 @@ public class TxCleanupRequestHandler {
      * @param sender Cleanup request sender.
      * @param partitions Partitions that we received replication confirmation for.
      */
-    private void sendCleanupReplicatedResponse(UUID txId, ClusterNode sender, Collection<TablePartitionId> partitions) {
+    private void sendCleanupReplicatedResponse(UUID txId, ClusterNode sender, Collection<ZonePartitionId> partitions) {
         messagingService.send(sender, ChannelType.DEFAULT, prepareResponse(new CleanupReplicatedInfo(txId, partitions)));
     }
 
     private static class CleanupContext {
         private final ClusterNode sender;
 
-        private final Set<TablePartitionId> partitions;
+        private final Set<ZonePartitionId> partitions;
 
-        private final Set<TablePartitionId> initialPartitions;
+        private final Set<ZonePartitionId> initialPartitions;
 
-        public CleanupContext(ClusterNode sender, Set<TablePartitionId> partitions, Set<TablePartitionId> initialPartitions) {
+        public CleanupContext(ClusterNode sender, Set<ZonePartitionId> partitions, Set<ZonePartitionId> initialPartitions) {
             this.sender = sender;
             this.partitions = partitions;
             this.initialPartitions = initialPartitions;

@@ -33,7 +33,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl.TransactionFailureHandler;
@@ -110,7 +110,7 @@ public class TxCleanupRequestSender {
         }
     }
 
-    private void markTxnCleanupReplicated(UUID txId, TxState state, TablePartitionId commitPartitionId) {
+    private void markTxnCleanupReplicated(UUID txId, TxState state, ZonePartitionId commitPartitionId) {
         long cleanupCompletionTimestamp = System.currentTimeMillis();
 
         txStateVolatileStorage.updateMeta(txId, oldMeta ->
@@ -131,7 +131,7 @@ public class TxCleanupRequestSender {
      * @param txId Transaction id.
      * @return Completable future of Void.
      */
-    public CompletableFuture<Void> cleanup(TablePartitionId commitPartitionId, String node, UUID txId) {
+    public CompletableFuture<Void> cleanup(ZonePartitionId commitPartitionId, String node, UUID txId) {
         return sendCleanupMessageWithRetries(commitPartitionId, false, null, txId, node, null);
     }
 
@@ -146,8 +146,8 @@ public class TxCleanupRequestSender {
      * @return Completable future of Void.
      */
     public CompletableFuture<Void> cleanup(
-            TablePartitionId commitPartitionId,
-            Map<TablePartitionId, String> enlistedPartitions,
+            ZonePartitionId commitPartitionId,
+            Map<ZonePartitionId, String> enlistedPartitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId
@@ -158,7 +158,7 @@ public class TxCleanupRequestSender {
                 new CleanupContext(commitPartitionId, enlistedPartitions.keySet(), commit ? TxState.COMMITTED : TxState.ABORTED)
         );
 
-        Map<String, Set<TablePartitionId>> partitions = new HashMap<>();
+        Map<String, Set<ZonePartitionId>> partitions = new HashMap<>();
         enlistedPartitions.forEach((partitionId, nodeId) ->
                 partitions.computeIfAbsent(nodeId, node -> new HashSet<>()).add(partitionId));
 
@@ -176,8 +176,8 @@ public class TxCleanupRequestSender {
      * @return Completable future of Void.
      */
     public CompletableFuture<Void> cleanup(
-            TablePartitionId commitPartitionId,
-            Collection<TablePartitionId> partitionIds,
+            ZonePartitionId commitPartitionId,
+            Collection<ZonePartitionId> partitionIds,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId
@@ -198,11 +198,11 @@ public class TxCleanupRequestSender {
     }
 
     private void cleanupPartitionsWithoutPrimary(
-            TablePartitionId commitPartitionId,
+            ZonePartitionId commitPartitionId,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId,
-            Set<TablePartitionId> noPrimaryFound
+            Set<ZonePartitionId> noPrimaryFound
     ) {
         // For the partitions without primary, we need to wait until a new primary is found.
         // Then we can proceed with the common cleanup flow.
@@ -211,17 +211,17 @@ public class TxCleanupRequestSender {
     }
 
     private CompletableFuture<Void> cleanupPartitions(
-            TablePartitionId commitPartitionId,
-            Map<String, Set<TablePartitionId>> partitionsByNode,
+            ZonePartitionId commitPartitionId,
+            Map<String, Set<ZonePartitionId>> partitionsByNode,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId
     ) {
         List<CompletableFuture<Void>> cleanupFutures = new ArrayList<>();
 
-        for (Entry<String, Set<TablePartitionId>> entry : partitionsByNode.entrySet()) {
+        for (Entry<String, Set<ZonePartitionId>> entry : partitionsByNode.entrySet()) {
             String node = entry.getKey();
-            Set<TablePartitionId> nodePartitions = entry.getValue();
+            Set<ZonePartitionId> nodePartitions = entry.getValue();
 
             cleanupFutures.add(sendCleanupMessageWithRetries(commitPartitionId, commit, commitTimestamp, txId, node, nodePartitions));
         }
@@ -230,12 +230,12 @@ public class TxCleanupRequestSender {
     }
 
     private CompletableFuture<Void> sendCleanupMessageWithRetries(
-            TablePartitionId commitPartitionId,
+            ZonePartitionId commitPartitionId,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId,
             String node,
-            @Nullable Collection<TablePartitionId> partitions
+            @Nullable Collection<ZonePartitionId> partitions
     ) {
         Collection<ReplicationGroupId> enlistedPartitions = (Collection<ReplicationGroupId>) (Collection<?>) partitions;
 
@@ -270,23 +270,22 @@ public class TxCleanupRequestSender {
     }
 
     private static class CleanupContext {
-        private final TablePartitionId commitPartitionId;
+        private final ZonePartitionId commitPartitionId;
 
         /**
-         * The partitions the we have not received write intent replication confirmation for.
+         * The partitions that we have not received write intent replication confirmation for.
          */
-        private final Set<TablePartitionId> partitions;
+        private final Set<ZonePartitionId> partitions;
 
         /**
          * The state of the transaction.
          */
         private final TxState txState;
 
-        private CleanupContext(TablePartitionId commitPartitionId, Set<TablePartitionId> partitions, TxState txState) {
+        private CleanupContext(ZonePartitionId commitPartitionId, Set<ZonePartitionId> partitions, TxState txState) {
             this.commitPartitionId = commitPartitionId;
             this.partitions = partitions;
             this.txState = txState;
         }
     }
-
 }

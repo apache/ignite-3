@@ -48,12 +48,15 @@ public:
      * Constructor.
      *
      * @param name Name.
-     * @param id ID.
+     * @param table_id Table ID.
+     * @param zone_id Zone ID.
      * @param connection Connection.
      */
-    table_impl(std::string name, const std::int32_t id, std::shared_ptr<cluster_connection> connection)
+    table_impl(std::string name, std::int32_t table_id, std::int32_t zone_id,
+        std::shared_ptr<cluster_connection> connection)
         : m_name(std::move(name))
-        , m_id(id)
+        , m_table_id(table_id)
+        , m_zone_id(zone_id)
         , m_connection(std::move(connection)) {}
 
     /**
@@ -354,11 +357,18 @@ public:
     [[nodiscard]] static std::shared_ptr<table_impl> from_facade(table &tb);
 
     /**
-     * Get table ID.
+     * Get Table ID.
      *
      * @return ID.
      */
-    [[nodiscard]] std::int32_t get_id() const { return m_id; }
+    [[nodiscard]] std::int32_t get_id() const { return m_table_id; }
+
+    /**
+     * Get Zone ID.
+     *
+     * @return Zone ID.
+     */
+    [[nodiscard]] std::int32_t get_zone_id() const { return m_zone_id; }
 
     /**
      * Get schema by version.
@@ -408,7 +418,10 @@ private:
     const std::string m_name;
 
     /** Table ID. */
-    const std::int32_t m_id;
+    const std::int32_t m_table_id;
+
+    /** Zone ID. */
+    const std::int32_t m_zone_id;
 
     /** Cluster connection. */
     std::shared_ptr<cluster_connection> m_connection;

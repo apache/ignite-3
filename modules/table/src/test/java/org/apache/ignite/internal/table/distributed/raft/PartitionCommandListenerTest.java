@@ -75,7 +75,7 @@ import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.CommittedConfiguration;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.command.SafeTimePropagatingCommand;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommandBuilder;
@@ -103,11 +103,11 @@ import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.table.distributed.command.BuildIndexCommand;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
-import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMessage;
 import org.apache.ignite.internal.table.distributed.command.TimedBinaryRowMessage;
 import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
 import org.apache.ignite.internal.table.distributed.command.WriteIntentSwitchCommand;
+import org.apache.ignite.internal.table.distributed.command.ZonePartitionIdMessage;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
@@ -146,6 +146,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
     private static final int KEY_COUNT = 100;
 
+    private static final int ZONE_ID = 11;
     private static final int TABLE_ID = 1;
 
     private static final int PARTITION_ID = 0;
@@ -177,7 +178,9 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
 
     private final MvPartitionStorage mvPartitionStorage = spy(new TestMvPartitionStorage(PARTITION_ID));
 
-    private final PartitionDataStorage partitionDataStorage = spy(new TestPartitionDataStorage(TABLE_ID, PARTITION_ID, mvPartitionStorage));
+    private final PartitionDataStorage partitionDataStorage = spy(
+            new TestPartitionDataStorage(ZONE_ID, TABLE_ID, PARTITION_ID, mvPartitionStorage)
+    );
 
     private final TxStateStorage txStateStorage = spy(new TestTxStateStorage());
 
@@ -429,7 +432,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
      */
     @Test
     public void testOnSnapshotSavePropagateLastAppliedIndexAndTerm() {
-        TestPartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(TABLE_ID, PARTITION_ID, mvPartitionStorage);
+        TestPartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(ZONE_ID, TABLE_ID, PARTITION_ID, mvPartitionStorage);
 
         IndexUpdateHandler indexUpdateHandler = new IndexUpdateHandler(
                 DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(pkStorage.id(), pkStorage))
@@ -492,7 +495,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
 
         UpdateCommand command = msgFactory.updateCommand()
                 .rowUuid(UUID.randomUUID())
-                .tablePartitionId(defaultPartitionIdMessage())
+                .zonePartitionId(defaultPartitionIdMessage())
                 .txCoordinatorId(UUID.randomUUID().toString())
                 .txId(TestTransactionIds.newTransactionId())
                 .safeTimeLong(staleOrFreshSafeTime(stale))
@@ -516,7 +519,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
 
         UpdateAllCommand command = msgFactory.updateAllCommand()
                 .messageRowsToUpdate(singletonMap(UUID.randomUUID(), msgFactory.timedBinaryRowMessage().build()))
-                .tablePartitionId(defaultPartitionIdMessage())
+                .zonePartitionId(defaultPartitionIdMessage())
                 .txCoordinatorId(UUID.randomUUID().toString())
                 .txId(TestTransactionIds.newTransactionId())
                 .safeTimeLong(staleOrFreshSafeTime(stale))
@@ -771,7 +774,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
     private void insertAll() {
         Map<UUID, TimedBinaryRowMessage> rows = new HashMap<>(KEY_COUNT);
         UUID txId = TestTransactionIds.newTransactionId();
-        var commitPartId = new TablePartitionId(TABLE_ID, PARTITION_ID);
+        var commitPartId = new ZonePartitionId(ZONE_ID, TABLE_ID, PARTITION_ID);
 
         for (int i = 0; i < KEY_COUNT; i++) {
             rows.put(
@@ -785,8 +788,9 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
         HybridTimestamp commitTimestamp = hybridClock.now();
 
         invokeBatchedCommand(msgFactory.updateAllCommand()
-                .tablePartitionId(
-                        msgFactory.tablePartitionIdMessage()
+                .zonePartitionId(
+                        msgFactory.zonePartitionIdMessage()
+                                .zoneId(commitPartId.zoneId())
                                 .tableId(commitPartId.tableId())
                                 .partitionId(commitPartId.partitionId())
                                 .build())
@@ -811,7 +815,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
      */
     private void updateAll(Function<Integer, Integer> keyValueMapper) {
         UUID txId = TestTransactionIds.newTransactionId();
-        var commitPartId = new TablePartitionId(TABLE_ID, PARTITION_ID);
+        var commitPartId = new ZonePartitionId(ZONE_ID, TABLE_ID, PARTITION_ID);
         Map<UUID, TimedBinaryRowMessage> rows = new HashMap<>(KEY_COUNT);
 
         for (int i = 0; i < KEY_COUNT; i++) {
@@ -827,8 +831,9 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
         HybridTimestamp commitTimestamp = hybridClock.now();
 
         invokeBatchedCommand(msgFactory.updateAllCommand()
-                .tablePartitionId(
-                        msgFactory.tablePartitionIdMessage()
+                .zonePartitionId(
+                        msgFactory.zonePartitionIdMessage()
+                                .zoneId(commitPartId.zoneId())
                                 .tableId(commitPartId.tableId())
                                 .partitionId(commitPartId.partitionId())
                                 .build())
@@ -851,7 +856,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
      */
     private void deleteAll() {
         UUID txId = TestTransactionIds.newTransactionId();
-        var commitPartId = new TablePartitionId(TABLE_ID, PARTITION_ID);
+        var commitPartId = new ZonePartitionId(ZONE_ID, TABLE_ID, PARTITION_ID);
         Map<UUID, TimedBinaryRowMessage> keyRows = new HashMap<>(KEY_COUNT);
 
         for (int i = 0; i < KEY_COUNT; i++) {
@@ -864,8 +869,9 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
         HybridTimestamp commitTimestamp = hybridClock.now();
 
         invokeBatchedCommand(msgFactory.updateAllCommand()
-                .tablePartitionId(
-                        msgFactory.tablePartitionIdMessage()
+                .zonePartitionId(
+                        msgFactory.zonePartitionIdMessage()
+                                .zoneId(commitPartId.zoneId())
                                 .tableId(commitPartId.tableId())
                                 .partitionId(commitPartId.partitionId())
                                 .build())
@@ -902,7 +908,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
 
             when(clo.command()).thenReturn(
                     msgFactory.updateCommand()
-                            .tablePartitionId(defaultPartitionIdMessage())
+                            .zonePartitionId(defaultPartitionIdMessage())
                             .rowUuid(readResult.rowId().uuid())
                             .messageRowToUpdate(msgFactory.timedBinaryRowMessage()
                                     .binaryRowMessage(row)
@@ -929,8 +935,9 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 .build()));
     }
 
-    private TablePartitionIdMessage defaultPartitionIdMessage() {
-        return msgFactory.tablePartitionIdMessage()
+    private ZonePartitionIdMessage defaultPartitionIdMessage() {
+        return msgFactory.zonePartitionIdMessage()
+                .zoneId(11)
                 .tableId(1)
                 .partitionId(PARTITION_ID).build();
     }
@@ -951,7 +958,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
 
             when(clo.command()).thenReturn(
                     msgFactory.updateCommand()
-                            .tablePartitionId(defaultPartitionIdMessage())
+                            .zonePartitionId(defaultPartitionIdMessage())
                             .rowUuid(readResult.rowId().uuid())
                             .txId(txId)
                             .safeTimeLong(hybridClock.nowLong())
@@ -1021,7 +1028,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
 
             when(clo.command()).thenReturn(
                     msgFactory.updateCommand()
-                            .tablePartitionId(defaultPartitionIdMessage())
+                            .zonePartitionId(defaultPartitionIdMessage())
                             .rowUuid(UUID.randomUUID())
                             .messageRowToUpdate(msgFactory.timedBinaryRowMessage()
                                     .binaryRowMessage(getTestRow(i, i))

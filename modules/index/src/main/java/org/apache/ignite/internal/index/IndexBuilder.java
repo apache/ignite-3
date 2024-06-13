@@ -90,6 +90,7 @@ class IndexBuilder implements ManuallyCloseable {
      *     will be notified.</li>
      * </ul>
      *
+     * @param zoneId Zone id of the table.
      * @param tableId Table ID.
      * @param partitionId Partition ID.
      * @param indexId Index ID.
@@ -101,6 +102,7 @@ class IndexBuilder implements ManuallyCloseable {
      * @param creationCatalogVersion Catalog version in which the index was created.
      */
     public void scheduleBuildIndex(
+            int zoneId,
             int tableId,
             int partitionId,
             int indexId,
@@ -119,7 +121,7 @@ class IndexBuilder implements ManuallyCloseable {
                 return;
             }
 
-            IndexBuildTaskId taskId = new IndexBuildTaskId(tableId, partitionId, indexId);
+            IndexBuildTaskId taskId = new IndexBuildTaskId(zoneId, tableId, partitionId, indexId);
 
             IndexBuildTask newTask = new IndexBuildTask(
                     taskId,
@@ -165,6 +167,7 @@ class IndexBuilder implements ManuallyCloseable {
      * @param creationCatalogVersion Catalog version in which the index was created.
      */
     public void scheduleBuildIndexAfterDisasterRecovery(
+            int zoneId,
             int tableId,
             int partitionId,
             int indexId,
@@ -179,7 +182,7 @@ class IndexBuilder implements ManuallyCloseable {
                 return;
             }
 
-            IndexBuildTaskId taskId = new IndexBuildTaskId(tableId, partitionId, indexId);
+            IndexBuildTaskId taskId = new IndexBuildTaskId(zoneId, tableId, partitionId, indexId);
 
             IndexBuildTask newTask = new IndexBuildTask(
                     taskId,
@@ -203,13 +206,14 @@ class IndexBuilder implements ManuallyCloseable {
     /**
      * Stops index building if it is in progress.
      *
+     * @param zoneId Zone ID of the table.
      * @param tableId Table ID.
      * @param partitionId Partition ID.
      * @param indexId Index ID.
      */
-    public void stopBuildIndex(int tableId, int partitionId, int indexId) {
+    public void stopBuildIndex(int zoneId, int tableId, int partitionId, int indexId) {
         inBusyLockSafe(busyLock, () -> {
-            IndexBuildTask removed = indexBuildTaskById.remove(new IndexBuildTaskId(tableId, partitionId, indexId));
+            IndexBuildTask removed = indexBuildTaskById.remove(new IndexBuildTaskId(zoneId, tableId, partitionId, indexId));
 
             if (removed != null) {
                 removed.stop();

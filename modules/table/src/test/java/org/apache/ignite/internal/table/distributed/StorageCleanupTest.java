@@ -39,7 +39,7 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
@@ -98,6 +98,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
 
     @BeforeEach
     void setUp() {
+        int zoneId = 11;
         int tableId = 1;
         int pkIndexId = 2;
         int sortedIndexId = 3;
@@ -165,7 +166,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
                 hashIndexId, hashIndexStorage
         );
 
-        TestPartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(tableId, PARTITION_ID, storage);
+        TestPartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(zoneId, tableId, PARTITION_ID, storage);
 
         indexUpdateHandler = spy(new IndexUpdateHandler(DummyInternalTableImpl.createTableIndexStoragesSupplier(indexes)));
 
@@ -185,7 +186,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
         BinaryRow row2 = binaryRow(new TestKey(3, "foo3"), new TestValue(4, "baz"));
         BinaryRow row3 = binaryRow(new TestKey(5, "foo5"), new TestValue(7, "zzu"));
 
-        TablePartitionId partitionId = new TablePartitionId(333, PARTITION_ID);
+        ZonePartitionId partitionId = new ZonePartitionId(2222, 333, PARTITION_ID);
 
         storageUpdateHandler.handleUpdate(txUuid, UUID.randomUUID(), partitionId, row1, true, null, null, null, null);
         storageUpdateHandler.handleUpdate(txUuid, UUID.randomUUID(), partitionId, row2, true, null, null, null, null);
@@ -208,7 +209,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
         BinaryRow row2 = binaryRow(new TestKey(3, "foo3"), new TestValue(4, "baz"));
         BinaryRow row3 = binaryRow(new TestKey(5, "foo5"), new TestValue(7, "zzu"));
 
-        TablePartitionId partitionId = new TablePartitionId(333, PARTITION_ID);
+        ZonePartitionId partitionId = new ZonePartitionId(2222, 333, PARTITION_ID);
 
         storageUpdateHandler.handleUpdate(txUuid, UUID.randomUUID(), partitionId, row1, true, null, null, null, null);
         storageUpdateHandler.handleUpdate(txUuid, UUID.randomUUID(), partitionId, row2, true, null, null, null, null);
@@ -216,7 +217,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
 
         assertEquals(3, storage.rowsCount());
         // We have three writes to the storage.
-        verify(storage, times(3)).addWrite(any(), any(), any(), anyInt(), anyInt());
+        verify(storage, times(3)).addWrite(any(), any(), any(), anyInt(), anyInt(), anyInt());
 
         storageUpdateHandler.switchWriteIntents(txUuid, true, commitTs, null);
 
@@ -245,7 +246,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
         BinaryRow row2 = binaryRow(new TestKey(3, "foo3"), new TestValue(4, "baz"));
         BinaryRow row3 = binaryRow(new TestKey(5, "foo5"), new TestValue(7, "zzu"));
 
-        TablePartitionId partitionId = new TablePartitionId(333, PARTITION_ID);
+        ZonePartitionId partitionId = new ZonePartitionId(2222, 333, PARTITION_ID);
 
         TimedBinaryRow tb1 = new TimedBinaryRow(row1, null);
         TimedBinaryRow tb2 = new TimedBinaryRow(row2, null);
@@ -264,7 +265,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
 
         assertEquals(3, storage.rowsCount());
         // We have three writes to the storage.
-        verify(storage, times(3)).addWrite(any(), any(), any(), anyInt(), anyInt());
+        verify(storage, times(3)).addWrite(any(), any(), any(), anyInt(), anyInt(), anyInt());
 
         storageUpdateHandler.switchWriteIntents(txUuid, true, commitTs, null);
 
@@ -302,7 +303,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
         storageUpdateHandler.handleUpdateAll(txUuid, rowsToDelete, partitionId, true, null, null, null);
 
         // We have three writes to the storage.
-        verify(storage, times(2)).addWrite(any(), any(), any(), anyInt(), anyInt());
+        verify(storage, times(2)).addWrite(any(), any(), any(), anyInt(), anyInt(), anyInt());
 
         // And run cleanup again for the same transaction.
         storageUpdateHandler.switchWriteIntents(txUuid, true, commitTs, null);
@@ -327,7 +328,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
         BinaryRow row2 = binaryRow(new TestKey(3, "foo3"), new TestValue(4, "baz"));
         BinaryRow row3 = binaryRow(new TestKey(5, "foo5"), new TestValue(7, "zzu"));
 
-        TablePartitionId partitionId = new TablePartitionId(333, PARTITION_ID);
+        ZonePartitionId partitionId = new ZonePartitionId(2222, 333, PARTITION_ID);
 
         // Do not track write intents to simulate the loss of a volatile state.
         UUID row1Id = UUID.randomUUID();
@@ -388,8 +389,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
         BinaryRow row2 = binaryRow(new TestKey(3, "foo3"), new TestValue(4, "baz"));
         BinaryRow row3 = binaryRow(new TestKey(5, "foo5"), new TestValue(7, "zzu"));
 
-        TablePartitionId partitionId = new TablePartitionId(333, PARTITION_ID);
-
+        ZonePartitionId partitionId = new ZonePartitionId(2222, 333, PARTITION_ID);
 
         UUID row1Id = UUID.randomUUID();
         UUID row2Id = UUID.randomUUID();
@@ -456,7 +456,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
     void testCleanupBeforeUpdateNoData() {
         UUID runningTx = UUID.randomUUID();
 
-        TablePartitionId partitionId = new TablePartitionId(333, PARTITION_ID);
+        ZonePartitionId partitionId = new ZonePartitionId(2222, 333, PARTITION_ID);
 
         BinaryRow row1 = binaryRow(new TestKey(1, "foo1"), new TestValue(2, "bar"));
 
@@ -475,7 +475,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
     void testCleanupBeforeUpdateNoWriteIntent() {
         UUID committedTx = UUID.randomUUID();
 
-        TablePartitionId partitionId = new TablePartitionId(333, PARTITION_ID);
+        ZonePartitionId partitionId = new ZonePartitionId(2222, 333, PARTITION_ID);
 
         // First commit a row
 
@@ -512,7 +512,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
     void testCleanupBeforeUpdateNoWriteIntentBatch() {
         UUID committedTx = UUID.randomUUID();
 
-        TablePartitionId partitionId = new TablePartitionId(333, PARTITION_ID);
+        ZonePartitionId partitionId = new ZonePartitionId(2222, 333, PARTITION_ID);
 
         // First commit a row
 
@@ -556,7 +556,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
     void testCleanupBeforeUpdateSameTxOnlyWriteIntent() {
         UUID runningTx = UUID.randomUUID();
 
-        TablePartitionId partitionId = new TablePartitionId(333, PARTITION_ID);
+        ZonePartitionId partitionId = new ZonePartitionId(2222, 333, PARTITION_ID);
 
         // Create a write intent.
 
@@ -593,7 +593,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
     void testCleanupBeforeUpdateSameTxOnlyWriteIntentBatch() {
         UUID runningTx = UUID.randomUUID();
 
-        TablePartitionId partitionId = new TablePartitionId(333, PARTITION_ID);
+        ZonePartitionId partitionId = new ZonePartitionId(2222, 333, PARTITION_ID);
 
         // Create a write intent.
 
@@ -638,7 +638,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
     void testCleanupBeforeUpdateDifferentTxOnlyWriteIntent() {
         UUID runningTx = UUID.randomUUID();
 
-        TablePartitionId partitionId = new TablePartitionId(333, PARTITION_ID);
+        ZonePartitionId partitionId = new ZonePartitionId(2222, 333, PARTITION_ID);
 
         // Create a new write intent.
 
@@ -678,7 +678,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
     void testCleanupBeforeUpdateDifferentTxOnlyWriteIntentBatch() {
         UUID runningTx = UUID.randomUUID();
 
-        TablePartitionId partitionId = new TablePartitionId(333, PARTITION_ID);
+        ZonePartitionId partitionId = new ZonePartitionId(2222, 333, PARTITION_ID);
 
         // Create a new write intent.
 
@@ -726,7 +726,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
     void testCleanupBeforeUpdateAbortWriteIntent() {
         UUID committed1 = UUID.randomUUID();
 
-        TablePartitionId partitionId = new TablePartitionId(333, PARTITION_ID);
+        ZonePartitionId partitionId = new ZonePartitionId(2222, 333, PARTITION_ID);
 
         // First commit an entry.
 
@@ -778,7 +778,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
     void testCleanupBeforeUpdateAbortWriteIntentBatch() {
         UUID committed1 = UUID.randomUUID();
 
-        TablePartitionId partitionId = new TablePartitionId(333, PARTITION_ID);
+        ZonePartitionId partitionId = new ZonePartitionId(2222, 333, PARTITION_ID);
 
         // First commit an entry.
 
@@ -842,7 +842,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
     void testCleanupBeforeUpdateCommitWriteIntent() {
         UUID committed1 = UUID.randomUUID();
 
-        TablePartitionId partitionId = new TablePartitionId(333, PARTITION_ID);
+        ZonePartitionId partitionId = new ZonePartitionId(2222, 333, PARTITION_ID);
 
         // First commit an entry.
 
@@ -896,7 +896,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
     void testCleanupBeforeUpdateCommitWriteIntentBatch() {
         UUID committed1 = UUID.randomUUID();
 
-        TablePartitionId partitionId = new TablePartitionId(333, PARTITION_ID);
+        ZonePartitionId partitionId = new ZonePartitionId(2222, 333, PARTITION_ID);
 
         // First commit an entry.
 
@@ -962,7 +962,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
     void testCleanupBeforeUpdateError() {
         UUID committed1 = UUID.randomUUID();
 
-        TablePartitionId partitionId = new TablePartitionId(333, PARTITION_ID);
+        ZonePartitionId partitionId = new ZonePartitionId(2222, 333, PARTITION_ID);
 
         // First commit an entry.
 

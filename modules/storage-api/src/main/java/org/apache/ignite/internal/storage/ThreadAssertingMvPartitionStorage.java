@@ -91,11 +91,17 @@ public class ThreadAssertingMvPartitionStorage implements MvPartitionStorage, Wr
     }
 
     @Override
-    public @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, int commitTableId, int commitPartitionId)
-            throws TxIdMismatchException, StorageException {
+    public @Nullable BinaryRow addWrite(
+            RowId rowId,
+            @Nullable BinaryRow row,
+            UUID txId,
+            int commitZoneId,
+            int commitTableId,
+            int commitPartitionId
+    ) throws TxIdMismatchException, StorageException {
         assertThreadAllowsToWrite();
 
-        return partitionStorage.addWrite(rowId, row, txId, commitTableId, commitPartitionId);
+        return partitionStorage.addWrite(rowId, row, txId, commitZoneId, commitTableId, commitPartitionId);
     }
 
     @Override

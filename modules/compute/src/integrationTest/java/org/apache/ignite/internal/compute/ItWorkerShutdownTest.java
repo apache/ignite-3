@@ -45,7 +45,7 @@ import org.apache.ignite.internal.compute.utils.InteractiveJobs.AllInteractiveJo
 import org.apache.ignite.internal.compute.utils.TestingJobExecution;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
@@ -326,9 +326,10 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
         try {
             HybridClock clock = node.clock();
             TableImpl table = unwrapTableImpl(node.tables().table(TABLE_NAME));
-            TablePartitionId tablePartitionId = new TablePartitionId(table.tableId(), table.partition(Tuple.create(1).set("K", 1)));
+            ZonePartitionId zonePartitionId = new ZonePartitionId(table.internalTable().zoneId(),
+                    table.tableId(), table.partition(Tuple.create(1).set("K", 1)));
 
-            ReplicaMeta replicaMeta = node.placementDriver().getPrimaryReplica(tablePartitionId, clock.now()).get();
+            ReplicaMeta replicaMeta = node.placementDriver().getPrimaryReplicaForTable(zonePartitionId, clock.now()).get();
             if (replicaMeta == null || replicaMeta.getLeaseholder() == null) {
                 throw new RuntimeException("Can not find primary replica for partition.");
             }

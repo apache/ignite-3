@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.index;
 
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
@@ -28,7 +29,8 @@ import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.apache.ignite.internal.util.CompletableFutures;
 
 /** Implementation for tests. */
 class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEvent, PrimaryReplicaEventParameters> implements PlacementDriver {
@@ -41,11 +43,35 @@ class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEvent, Pri
             long timeout,
             TimeUnit unit
     ) {
+        assert groupId instanceof ZonePartitionId : "Unexpected replication group type [type=" + groupId.getClass().getSimpleName() + ']';
+
+        return awaitPrimaryReplicaForTable(
+                groupId,
+                timestamp,
+                timeout,
+                unit
+        );
+    }
+
+    @Override
+    public CompletableFuture<ReplicaMeta> awaitPrimaryReplicaForTable(
+            ReplicationGroupId groupId,
+            HybridTimestamp timestamp,
+            long timeout,
+            TimeUnit unit
+    ) {
         return primaryReplicaMetaFutureById.get(groupId);
     }
 
     @Override
-    public CompletableFuture<ReplicaMeta> getPrimaryReplica(ReplicationGroupId replicationGroupId, HybridTimestamp timestamp) {
+    public CompletableFuture<ReplicaMeta> getPrimaryReplica(ReplicationGroupId groupId, HybridTimestamp timestamp) {
+        assert groupId instanceof ZonePartitionId : "Unexpected replication group type [type=" + groupId.getClass().getSimpleName() + ']';
+
+        return getPrimaryReplicaForTable(groupId, timestamp);
+    }
+
+    @Override
+    public CompletableFuture<ReplicaMeta> getPrimaryReplicaForTable(ReplicationGroupId replicationGroupId, HybridTimestamp timestamp) {
         return primaryReplicaMetaFutureById.get(replicationGroupId);
     }
 
@@ -56,7 +82,7 @@ class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEvent, Pri
 
     CompletableFuture<Void> setPrimaryReplicaMeta(
             long causalityToken,
-            TablePartitionId replicaId,
+            ZonePartitionId replicaId,
             CompletableFuture<ReplicaMeta> replicaMetaFuture
     ) {
         primaryReplicaMetaFutureById.put(replicaId, replicaMetaFuture);
@@ -71,5 +97,19 @@ class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEvent, Pri
                         replicaMeta.getStartTime()
                 )
         ));
+    }
+
+    @Override
+    public CompletableFuture<Void> addSubgroups(
+            ZonePartitionId zoneId,
+            Long enlistmentConsistencyToken,
+            Set<Integer> subGrps
+    ) {
+        return CompletableFutures.nullCompletedFuture();
+    }
+
+    @Override
+    public ReplicaMeta getLeaseMeta(ReplicationGroupId grpId) {
+        return null;
     }
 }

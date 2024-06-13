@@ -119,6 +119,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
     /** Partition id for 1 storage. */
     protected static final int PARTITION_ID_1 = 9;
 
+    protected static final int COMMIT_ZONE_ID = 1999;
+
     protected static final int COMMIT_TABLE_ID = 999;
 
     protected MvTableStorage tableStorage;
@@ -213,7 +215,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         partitionStorage0.runConsistently(locker -> {
             locker.lock(rowId0);
 
-            return partitionStorage0.addWrite(rowId0, testData0, txId, COMMIT_TABLE_ID, 0);
+            return partitionStorage0.addWrite(rowId0, testData0, txId, COMMIT_ZONE_ID, COMMIT_TABLE_ID, 0);
         });
 
         assertThat(unwrap(partitionStorage0.read(rowId0, HybridTimestamp.MAX_VALUE)), is(equalTo(unwrap(testData0))));
@@ -226,7 +228,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         partitionStorage1.runConsistently(locker -> {
             locker.lock(rowId1);
 
-            return partitionStorage1.addWrite(rowId1, testData1, txId, COMMIT_TABLE_ID, 0);
+            return partitionStorage1.addWrite(rowId1, testData1, txId, COMMIT_ZONE_ID, COMMIT_TABLE_ID, 0);
         });
 
         assertThrows(IllegalArgumentException.class, () -> partitionStorage0.read(rowId1, HybridTimestamp.MAX_VALUE));
@@ -366,6 +368,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                 false,
                 AVAILABLE,
                 catalogService.latestCatalogVersion(),
+                0,
                 List.of(new CatalogIndexColumnDescriptor("STRKEY", ASC_NULLS_LAST))
         );
 
@@ -376,6 +379,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                 false,
                 AVAILABLE,
                 catalogService.latestCatalogVersion(),
+                0,
                 List.of(new CatalogIndexColumnDescriptor("STRKEY", ASC_NULLS_LAST))
         );
 
@@ -419,6 +423,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                 true,
                 AVAILABLE,
                 catalogService.latestCatalogVersion(),
+                0,
                 List.of("STRKEY")
         );
 
@@ -429,6 +434,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                 true,
                 AVAILABLE,
                 catalogService.latestCatalogVersion(),
+                0,
                 List.of("STRKEY")
         );
 
@@ -530,7 +536,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
             RowId rowId = new RowId(PARTITION_ID);
             locker.tryLock(rowId);
 
-            partitionStorage.addWrite(rowId, binaryRow, UUID.randomUUID(), COMMIT_TABLE_ID, PARTITION_ID);
+            partitionStorage.addWrite(rowId, binaryRow, UUID.randomUUID(), COMMIT_ZONE_ID, COMMIT_TABLE_ID, PARTITION_ID);
 
             return null;
         });
@@ -561,7 +567,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
             RowId rowId = new RowId(PARTITION_ID);
             locker.tryLock(rowId);
 
-            partitionStorage.addWrite(rowId, binaryRow, UUID.randomUUID(), COMMIT_TABLE_ID, PARTITION_ID);
+            partitionStorage.addWrite(rowId, binaryRow, UUID.randomUUID(), COMMIT_ZONE_ID, COMMIT_TABLE_ID, PARTITION_ID);
 
             return null;
         });
@@ -604,7 +610,9 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         BinaryRow binaryRow = binaryRow(new TestKey(0, "0"), new TestValue(1, "1"));
 
-        assertThrows(StorageDestroyedException.class, () -> storage.addWrite(rowId, binaryRow, UUID.randomUUID(), COMMIT_TABLE_ID, partId));
+        assertThrows(StorageDestroyedException.class,
+                () -> storage.addWrite(rowId, binaryRow, UUID.randomUUID(), COMMIT_ZONE_ID, COMMIT_TABLE_ID, partId)
+        );
         assertThrows(StorageDestroyedException.class, () -> storage.commitWrite(rowId, timestamp));
         assertThrows(StorageDestroyedException.class, () -> storage.abortWrite(rowId));
         assertThrows(StorageDestroyedException.class, () -> storage.addWriteCommitted(rowId, binaryRow, timestamp));
@@ -1056,6 +1064,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                 false,
                 AVAILABLE,
                 catalogService.latestCatalogVersion(),
+                0,
                 List.of(new CatalogIndexColumnDescriptor("STRKEY", ASC_NULLS_LAST))
         );
 
@@ -1066,6 +1075,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                 true,
                 AVAILABLE,
                 catalogService.latestCatalogVersion(),
+                0,
                 List.of("STRKEY")
         );
 
@@ -1076,6 +1086,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                 true,
                 AVAILABLE,
                 catalogService.latestCatalogVersion(),
+                0,
                 List.of(pkColumnName)
         );
 
@@ -1132,7 +1143,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                 locker.lock(rowId);
 
                 if ((finalI % 2) == 0) {
-                    mvPartitionStorage.addWrite(rowId, binaryRow, UUID.randomUUID(), COMMIT_TABLE_ID, rowId.partitionId());
+                    mvPartitionStorage.addWrite(rowId, binaryRow, UUID.randomUUID(), COMMIT_ZONE_ID, COMMIT_TABLE_ID, rowId.partitionId());
 
                     mvPartitionStorage.commitWrite(rowId, timestamp);
                 } else {

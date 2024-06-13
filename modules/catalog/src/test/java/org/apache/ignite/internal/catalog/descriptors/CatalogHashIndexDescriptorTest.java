@@ -27,7 +27,7 @@ import org.junit.jupiter.api.Test;
 class CatalogHashIndexDescriptorTest {
     @Test
     void toStringContainsTypeAndFields() {
-        var descriptor = new CatalogHashIndexDescriptor(1, "index1", 2, false, 3, List.of("col"));
+        var descriptor = new CatalogHashIndexDescriptor(1, "index1", 2, false, 3, 0, List.of("col"));
 
         String toString = descriptor.toString();
 
@@ -36,5 +36,6 @@ class CatalogHashIndexDescriptorTest {
         assertThat(toString, containsString("name=index1"));
         assertThat(toString, containsString("tableId=2"));
         assertThat(toString, containsString("status=REGISTERED"));
+        assertThat(toString, containsString("zoneId=0"));
     }
 }
