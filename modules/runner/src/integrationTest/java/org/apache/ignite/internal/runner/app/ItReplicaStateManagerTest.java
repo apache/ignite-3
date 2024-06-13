@@ -51,7 +51,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Test for replica lifecycle.
  */
-public class ItReplicaLifecycleTest extends BaseIgniteRestartTest {
+public class ItReplicaStateManagerTest extends BaseIgniteRestartTest {
     @Test
     public void testReplicaLifecycle() throws InterruptedException {
         int nodesCount = 3;

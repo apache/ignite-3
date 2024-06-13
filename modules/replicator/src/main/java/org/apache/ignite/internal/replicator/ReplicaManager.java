@@ -193,7 +193,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     // TODO: IGNITE-20063 Maybe get rid of it
     private final ExecutorService executor;
 
-    private final ReplicaLifecycle replicaLifecycle;
+    private final ReplicaStateManager replicaStateManager;
 
     private volatile String localNodeId;
 
@@ -247,7 +247,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         this.raftCommandsMarshaller = raftCommandsMarshaller;
         this.raftGroupServiceFactory = raftGroupServiceFactory;
         this.raftManager = raftManager;
-        this.replicaLifecycle = new ReplicaLifecycle(replicaStartStopExecutor, clockService, placementDriver, this);
+        this.replicaStateManager = new ReplicaStateManager(replicaStartStopExecutor, clockService, placementDriver, this);
 
         scheduledIdleSafeTimeSyncExecutor = Executors.newScheduledThreadPool(
                 1,
@@ -642,7 +642,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     executor,
                     placementDriver,
                     clockService,
-                    replicaLifecycle::reserveReplica
+                    replicaStateManager::reserveReplica
             );
 
             return replicas.compute(replicaGrpId, (k, existingReplicaFuture) -> {
@@ -855,7 +855,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         localNodeConsistentId = clusterNetSvc.topologyService().localMember().name();
 
-        replicaLifecycle.start(localNodeId);
+        replicaStateManager.start(localNodeId);
 
         return nullCompletedFuture();
     }
@@ -1037,7 +1037,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             Supplier<CompletableFuture<Boolean>> startOperation,
             @Nullable Assignments forcedAssignments
     ) {
-        return replicaLifecycle.weakStartReplica(groupId, startOperation, forcedAssignments);
+        return replicaStateManager.weakStartReplica(groupId, startOperation, forcedAssignments);
     }
 
     /**
@@ -1057,7 +1057,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             WeakReplicaStopReason reason,
             Supplier<CompletableFuture<Void>> stopOperation
     ) {
-        return replicaLifecycle.weakStopReplica(groupId, reason, stopOperation);
+        return replicaStateManager.weakStopReplica(groupId, reason, stopOperation);
     }
 
     /**
@@ -1086,13 +1086,13 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
     @TestOnly
     public boolean isReplicaPrimaryOnly(ReplicationGroupId groupId) {
-        return replicaLifecycle.isReplicaPrimaryOnly(groupId);
+        return replicaStateManager.isReplicaPrimaryOnly(groupId);
     }
 
-    private static class ReplicaLifecycle {
-        private final IgniteLogger log = Loggers.forClass(ReplicaLifecycle.class);
+    private static class ReplicaStateManager {
+        private static final IgniteLogger LOG = Loggers.forClass(ReplicaStateManager.class);
 
-        final Map<ReplicationGroupId, ReplicaLifecycleContext> replicaContexts = new ConcurrentHashMap<>();
+        final Map<ReplicationGroupId, ReplicaStateContext> replicaContexts = new ConcurrentHashMap<>();
 
         final Executor replicaStartStopPool;
 
@@ -1104,7 +1104,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         volatile String localNodeId;
 
-        ReplicaLifecycle(
+        ReplicaStateManager(
                 Executor replicaStartStopPool,
                 ClockService clockService,
                 PlacementDriver placementDriver,
@@ -1124,7 +1124,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         private CompletableFuture<Boolean> onPrimaryElected(PrimaryReplicaEventParameters parameters) {
             ReplicationGroupId groupId = parameters.groupId();
-            ReplicaLifecycleContext context = getContext(groupId);
+            ReplicaStateContext context = getContext(groupId);
 
             synchronized (context) {
                 if (localNodeId.equals(parameters.leaseholderId())) {
@@ -1146,7 +1146,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         private CompletableFuture<Boolean> onPrimaryExpired(PrimaryReplicaEventParameters parameters) {
             if (localNodeId.equals(parameters.leaseholderId())) {
-                ReplicaLifecycleContext context = replicaContexts.get(parameters.groupId());
+                ReplicaStateContext context = replicaContexts.get(parameters.groupId());
 
                 if (context != null) {
                     synchronized (context) {
@@ -1158,10 +1158,10 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             return falseCompletedFuture();
         }
 
-        ReplicaLifecycleContext getContext(ReplicationGroupId groupId) {
+        ReplicaStateContext getContext(ReplicationGroupId groupId) {
             return replicaContexts.computeIfAbsent(groupId,
                     // Treat the absence in the map as STOPPED.
-                    k -> new ReplicaLifecycleContext(ReplicaState.STOPPED, nullCompletedFuture()));
+                    k -> new ReplicaStateContext(ReplicaState.STOPPED, nullCompletedFuture()));
         }
 
         /**
@@ -1177,12 +1177,12 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 Supplier<CompletableFuture<Boolean>> startOperation,
                 @Nullable Assignments forcedAssignments
         ) {
-            ReplicaLifecycleContext context = getContext(groupId);
+            ReplicaStateContext context = getContext(groupId);
 
             synchronized (context) {
                 ReplicaState state = context.replicaState;
 
-                log.debug("Weak replica start [grp={}, state={}, future={}].", groupId, state, context.previousOperationFuture);
+                LOG.debug("Weak replica start [grp={}, state={}, future={}].", groupId, state, context.previousOperationFuture);
 
                 if (state == ReplicaState.STOPPED || state == ReplicaState.STOPPING) {
                     return startReplica(groupId, context, startOperation);
@@ -1208,7 +1208,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         private CompletableFuture<Boolean> startReplica(
                 ReplicationGroupId groupId,
-                ReplicaLifecycleContext context,
+                ReplicaStateContext context,
                 Supplier<CompletableFuture<Boolean>> startOperation
         ) {
             context.replicaState = ReplicaState.STARTING;
@@ -1224,7 +1224,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                             }
                         }
 
-                        log.info("Weak replica start complete [state={}, partitionStarted={}].", context.replicaState, partitionStarted);
+                        LOG.info("Weak replica start complete [state={}, partitionStarted={}].", context.replicaState, partitionStarted);
 
                         return partitionStarted;
                     }));
@@ -1248,12 +1248,12 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 WeakReplicaStopReason reason,
                 Supplier<CompletableFuture<Void>> stopOperation
         ) {
-            ReplicaLifecycleContext context = getContext(groupId);
+            ReplicaStateContext context = getContext(groupId);
 
             synchronized (context) {
                 ReplicaState state = context.replicaState;
 
-                log.debug("Weak replica stop [grpId={}, state={}, reason={}, isPrimaryLocal={}, future={}].", groupId, state,
+                LOG.debug("Weak replica stop [grpId={}, state={}, reason={}, isPrimaryLocal={}, future={}].", groupId, state,
                         reason, context.reservedForPrimary, context.previousOperationFuture);
 
                 if (reason == WeakReplicaStopReason.EXCLUDED_FROM_ASSIGNMENTS) {
@@ -1284,7 +1284,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     } // else: no-op.
                 }
 
-                log.debug("Weak replica stop complete [grpId={}, state={}].", groupId, context.replicaState);
+                LOG.debug("Weak replica stop complete [grpId={}, state={}].", groupId, context.replicaState);
 
                 return nullCompletedFuture();
             }
@@ -1292,7 +1292,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         private CompletableFuture<Void> stopReplica(
                 ReplicationGroupId groupId,
-                ReplicaLifecycleContext context,
+                ReplicaStateContext context,
                 Supplier<CompletableFuture<Void>> stopOperation
         ) {
             context.replicaState = ReplicaState.STOPPING;
@@ -1304,7 +1304,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                             replicaContexts.remove(groupId);
                         }
 
-                        log.info("Weak replica stop complete [grpId={}, state={}].", groupId, context.replicaState);
+                        LOG.info("Weak replica stop complete [grpId={}, state={}].", groupId, context.replicaState);
 
                         return true;
                     }));
@@ -1319,7 +1319,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
          * @return Whether the replica was successfully reserved.
          */
         boolean reserveReplica(ReplicationGroupId groupId) {
-            ReplicaLifecycleContext context = getContext(groupId);
+            ReplicaStateContext context = getContext(groupId);
 
             synchronized (context) {
                 ReplicaState state = context.replicaState;
@@ -1342,7 +1342,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         @TestOnly
         boolean isReplicaPrimaryOnly(ReplicationGroupId groupId) {
-            ReplicaLifecycleContext context = getContext(groupId);
+            ReplicaStateContext context = getContext(groupId);
 
             synchronized (context) {
                 return context.replicaState == ReplicaState.PRIMARY_ONLY;
@@ -1350,7 +1350,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         }
     }
 
-    private static class ReplicaLifecycleContext {
+    private static class ReplicaStateContext {
         /** Replica state. */
         ReplicaState replicaState;
 
@@ -1375,7 +1375,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
          */
         Supplier<CompletableFuture<Void>> deferredStopOperation;
 
-        ReplicaLifecycleContext(ReplicaState replicaState, CompletableFuture<Boolean> previousOperationFuture) {
+        ReplicaStateContext(ReplicaState replicaState, CompletableFuture<Boolean> previousOperationFuture) {
             this.replicaState = replicaState;
             this.previousOperationFuture = previousOperationFuture;
         }
@@ -1399,7 +1399,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * <ul>
      *     <li>if {@link WeakReplicaStopReason#EXCLUDED_FROM_ASSIGNMENTS}:</li>
      *     <ul>
-     *         <li>if {@link #ASSIGNED}: when {@link ReplicaLifecycleContext#reservedForPrimary} is {@code true} then the next state
+     *         <li>if {@link #ASSIGNED}: when {@link ReplicaStateContext#reservedForPrimary} is {@code true} then the next state
      *             is {@link #PRIMARY_ONLY}, otherwise the replica is stopped, the next state is {@link #STOPPING};</li>
      *         <li>if {@link #PRIMARY_ONLY} or {@link #STOPPING}: no-op.</li>
      *         <li>if {@link #STARTING}: replica is stopped, the next state is {@link #STOPPING};</li>
