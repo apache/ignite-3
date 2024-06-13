@@ -108,8 +108,8 @@ public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends
                 columnParamsBuilder(ColumnType.NUMBER).precision(10).nullable(true).build(),
                 columnParamsBuilder(ColumnType.DECIMAL).precision(19).scale(3).nullable(true).build(),
                 columnParamsBuilder(ColumnType.TIME).precision(0).nullable(true).build(),
-                columnParamsBuilder(ColumnType.DATETIME).precision(6).nullable(true).build(),
-                columnParamsBuilder(ColumnType.TIMESTAMP).precision(6).nullable(true).build()
+                columnParamsBuilder(ColumnType.DATETIME).precision(3).nullable(true).build(),
+                columnParamsBuilder(ColumnType.TIMESTAMP).precision(3).nullable(true).build()
         );
     }
 
