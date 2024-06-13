@@ -49,6 +49,14 @@ public class JobDescriptor {
         return new Builder();
     }
 
+    public static Builder builder(String jobClassName) {
+        return new Builder().jobClassName(jobClassName);
+    }
+
+    public static Builder builder(Class<? extends ComputeJob<?>> jobClass) {
+        return new Builder().jobClass(jobClass);
+    }
+
     public static class Builder {
         private String jobClassName;
         private List<DeploymentUnit> units;
