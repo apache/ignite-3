@@ -293,9 +293,8 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     @Test
     void testExecuteWithArgs() {
-        JobExecution<String> execution = client().compute().submit(new HashSet<ClusterNode>(client().clusterNodes()), JobDescriptor.builder()
-                .jobClassName(ConcatJob.class.getName())
-                .build(), new Object[]{1, "2", 3.3});
+        JobExecution<String> execution = client().compute().submit(
+                new HashSet<>(client().clusterNodes()), JobDescriptor.builder(ConcatJob.class).build(), 1, "2", 3.3);
 
         assertThat(execution.resultAsync(), willBe("1_2_3.3"));
         assertThat(execution.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
@@ -552,9 +551,8 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         int sleepMs = 1_000_000;
 
         IgniteCompute igniteCompute = client().compute();
-        JobExecution<String> tupleExecution = igniteCompute.submitColocated(TABLE_NAME, keyTuple, JobDescriptor.builder()
-                .jobClassName(SleepJob.class.getName())
-                .build(), new Object[]{sleepMs});
+        JobExecution<String> tupleExecution = igniteCompute.submitColocated(
+                TABLE_NAME, keyTuple, JobDescriptor.builder(SleepJob.class).build(), sleepMs);
 
         await().until(tupleExecution::statusAsync, willBe(jobStatusWithState(EXECUTING)));
 
@@ -571,9 +569,8 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         IgniteCompute igniteCompute = client().compute();
         Mapper<TestPojo> keyMapper = Mapper.of(TestPojo.class);
-        JobExecution<String> pojoExecution = igniteCompute.submitColocated(TABLE_NAME, keyPojo, keyMapper, JobDescriptor.builder()
-                .jobClassName(SleepJob.class.getName())
-                .build(), new Object[]{sleepMs});
+        JobExecution<String> pojoExecution = igniteCompute.submitColocated(
+                TABLE_NAME, keyPojo, keyMapper, JobDescriptor.builder(SleepJob.class).build(), sleepMs);
 
         await().until(pojoExecution::statusAsync, willBe(jobStatusWithState(EXECUTING)));
 
@@ -590,10 +587,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
                     IgniteCompute igniteCompute = client().compute();
                     Set<ClusterNode> nodes = Set.of(node(0));
                     List<DeploymentUnit> units = List.of(new DeploymentUnit("u", "latest"));
-                    igniteCompute.executeAsync(nodes, JobDescriptor.builder()
-                            .jobClassName(NodeNameJob.class.getName())
-                            .units(units)
-                            .build()).join();
+                    igniteCompute.executeAsync(nodes, JobDescriptor.builder(NodeNameJob.class).units(units).build()).join();
                 });
 
         var cause = (IgniteException) ex.getCause();
@@ -607,15 +601,12 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     void testExecuteColocatedOnUnknownUnitWithLatestVersionThrows() {
         CompletionException ex = assertThrows(
                 CompletionException.class,
-                () -> {
-                    client().compute().executeColocatedAsync(
-                            TABLE_NAME,
-                            Tuple.create().set(COLUMN_KEY, 1),
-                            JobDescriptor.builder()
-                                    .jobClassName(NodeNameJob.class.getName())
-                                    .units(new DeploymentUnit("u", "latest"))
-                                    .build()).join();
-                });
+                () -> client().compute().executeColocatedAsync(
+                        TABLE_NAME,
+                        Tuple.create().set(COLUMN_KEY, 1),
+                        JobDescriptor.builder(NodeNameJob.class)
+                                .units(new DeploymentUnit("u", "latest"))
+                                .build()).join());
 
         var cause = (IgniteException) ex.getCause();
         assertThat(cause.getMessage(), containsString("Deployment unit u:latest doesn't exist"));
@@ -629,12 +620,8 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         Builder builder = IgniteClient.builder().addresses(getClientAddresses().toArray(new String[0]));
         try (IgniteClient client = builder.build()) {
             int delayMs = 3000;
-            IgniteCompute igniteCompute = client.compute();
-            Set<ClusterNode> nodes = Set.of(node(0));
-            CompletableFuture<String> jobFut = igniteCompute.executeAsync(nodes, JobDescriptor.builder()
-                    .jobClassName(SleepJob.class.getName())
-                    .units(List.of())
-                    .build(), new Object[]{delayMs});
+            CompletableFuture<String> jobFut = client.compute().executeAsync(
+                    Set.of(node(0)), JobDescriptor.builder(SleepJob.class).build(), delayMs);
 
             // Wait a bit and close the connection.
             Thread.sleep(10);
@@ -682,11 +669,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     @ParameterizedTest
     @CsvSource({"1E3,-3", "1.12E5,-5", "1.12E5,0", "1.123456789,10", "1.123456789,5"})
     void testBigDecimalPropagation(String number, int scale) {
-        IgniteCompute igniteCompute = client().compute();
-        Set<ClusterNode> nodes = Set.of(node(0));
-        BigDecimal res = igniteCompute.execute(nodes, JobDescriptor.builder()
-                .jobClassName(DecimalJob.class.getName())
-                .build(), new Object[]{number, scale});
+        BigDecimal res = client().compute().execute(Set.of(node(0)), JobDescriptor.builder(DecimalJob.class).build(), number, scale);
 
         var expected = new BigDecimal(number).setScale(scale, RoundingMode.HALF_UP);
         assertEquals(expected, res);
