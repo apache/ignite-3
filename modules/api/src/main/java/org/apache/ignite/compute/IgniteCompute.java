@@ -154,6 +154,28 @@ public interface IgniteCompute {
      * @param tableName Name of the table whose key is used to determine the node to execute the job on.
      * @param key Key that identifies the node to execute the job on.
      * @param keyMapper Mapper used to map the key to a binary representation.
+     * @param descriptor Job descriptor.
+     * @param args Arguments of the job.
+     * @param <R> Job result type.
+     * @return Job result future.
+     */
+    default <K, R> CompletableFuture<R> executeColocatedAsync(
+            String tableName,
+            K key,
+            Mapper<K> keyMapper,
+            JobDescriptor descriptor,
+            Object... args
+    ) {
+        return this.<K, R>submitColocated(tableName, key, keyMapper, descriptor, args).resultAsync();
+    }
+
+    /**
+     * Submits a job of the given class for the execution on the node where the given key is located. The node is a leader of the
+     * corresponding RAFT group. A shortcut for {@code submitColocated(...).resultAsync()}.
+     *
+     * @param tableName Name of the table whose key is used to determine the node to execute the job on.
+     * @param key Key that identifies the node to execute the job on.
+     * @param keyMapper Mapper used to map the key to a binary representation.
      * @param units Deployment units. Can be empty.
      * @param jobClassName Name of the job class to execute.
      * @param args Arguments of the job.
@@ -170,11 +192,10 @@ public interface IgniteCompute {
             JobExecutionOptions options,
             Object... args
     ) {
-        return this.<K, R>submitColocated(tableName, key, keyMapper, JobDescriptor.builder()
-                .jobClassName(jobClassName)
+        return this.executeColocatedAsync(tableName, key, keyMapper, JobDescriptor.builder(jobClassName)
                 .units(units)
                 .options(options)
-                .build(), args).resultAsync();
+                .build(), args);
     }
 
     /**
@@ -199,7 +220,9 @@ public interface IgniteCompute {
             String jobClassName,
             Object... args
     ) {
-        return this.<K, R>submitColocated(tableName, key, keyMapper, JobDescriptor.builder(jobClassName).units(units).build(), args).resultAsync();
+        return this.executeColocatedAsync(tableName, key, keyMapper, JobDescriptor.builder(jobClassName)
+                .units(units)
+                .build(), args);
     }
 
     /**
