@@ -102,8 +102,8 @@ public class RecordViewOperationsTest extends TableKvOperationsTestBase {
 
             new Column("dateCol".toUpperCase(), DATE, true),
             new Column("timeCol".toUpperCase(), time(0), true),
-            new Column("dateTimeCol".toUpperCase(), datetime(6), true),
-            new Column("timestampCol".toUpperCase(), timestamp(6), true),
+            new Column("dateTimeCol".toUpperCase(), datetime(3), true),
+            new Column("timestampCol".toUpperCase(), timestamp(3), true),
 
             new Column("uuidCol".toUpperCase(), NativeTypes.UUID, true),
             new Column("bitmaskCol".toUpperCase(), NativeTypes.bitmaskOf(42), true),

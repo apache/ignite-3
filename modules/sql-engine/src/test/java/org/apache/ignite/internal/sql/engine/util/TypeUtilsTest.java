@@ -243,14 +243,14 @@ public class TypeUtilsTest extends BaseIgniteAbstractTest {
 
         testCaseList.add(new RelToExecTestCase(SqlTypeName.DATE, RowSchemaTypes.nativeType(NativeTypes.DATE)));
 
-        testCaseList.add(new RelToExecTestCase(SqlTypeName.TIME, 4, RowSchemaTypes.nativeType(NativeTypes.time(4))));
+        testCaseList.add(new RelToExecTestCase(SqlTypeName.TIME, 2, RowSchemaTypes.nativeType(NativeTypes.time(2))));
 
-        testCaseList.add(new RelToExecTestCase(SqlTypeName.TIME_WITH_LOCAL_TIME_ZONE, 4, RowSchemaTypes.nativeType(NativeTypes.time(4))));
+        testCaseList.add(new RelToExecTestCase(SqlTypeName.TIME_WITH_LOCAL_TIME_ZONE, 2, RowSchemaTypes.nativeType(NativeTypes.time(2))));
 
-        testCaseList.add(new RelToExecTestCase(SqlTypeName.TIMESTAMP, 4, RowSchemaTypes.nativeType(NativeTypes.datetime(4))));
+        testCaseList.add(new RelToExecTestCase(SqlTypeName.TIMESTAMP, 2, RowSchemaTypes.nativeType(NativeTypes.datetime(2))));
 
-        testCaseList.add(new RelToExecTestCase(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE, 4,
-                RowSchemaTypes.nativeType(NativeTypes.timestamp(4))));
+        testCaseList.add(new RelToExecTestCase(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE, 2,
+                RowSchemaTypes.nativeType(NativeTypes.timestamp(2))));
 
         // Year intervals are stored as days (int)
         for (SqlTypeName interval : SqlTypeName.YEAR_INTERVAL_TYPES) {

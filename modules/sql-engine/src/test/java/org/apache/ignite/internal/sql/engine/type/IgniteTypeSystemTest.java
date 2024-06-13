@@ -27,11 +27,11 @@ import org.junit.jupiter.api.Test;
 /** Tests for {@link IgniteTypeSystem}. */
 public class IgniteTypeSystemTest extends BaseIgniteAbstractTest {
 
-    private static final int TIME_PRECISION = 9;
+    private static final int TIME_PRECISION = 3;
     private static final int STRING_PRECISION = 65536;
     private static final int DECIMAL_PRECISION = 32767;
     private static final int DECIMAL_SCALE = 32767;
-    private static final int TIMESTAMP_DEFAULT_PRECISION = 6;
+    private static final int TIMESTAMP_DEFAULT_PRECISION = 3;
     private final IgniteTypeSystem typeSystem = IgniteTypeSystem.INSTANCE;
 
     @Test

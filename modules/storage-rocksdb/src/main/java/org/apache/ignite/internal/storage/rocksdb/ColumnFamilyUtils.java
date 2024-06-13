@@ -219,11 +219,11 @@ public class ColumnFamilyUtils {
                     break;
 
                 case DATETIME:
-                    nativeType = NativeTypes.datetime(6);
+                    nativeType = NativeTypes.datetime(3);
                     break;
 
                 case TIMESTAMP:
-                    nativeType = NativeTypes.timestamp(6);
+                    nativeType = NativeTypes.timestamp(3);
                     break;
 
                 default:

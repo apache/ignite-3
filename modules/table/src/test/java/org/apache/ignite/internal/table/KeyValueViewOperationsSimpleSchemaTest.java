@@ -483,8 +483,8 @@ public class KeyValueViewOperationsSimpleSchemaTest extends TableKvOperationsTes
                 NativeTypes.decimalOf(25, 5),
                 NativeTypes.bitmaskOf(22),
                 NativeTypes.time(0),
-                NativeTypes.datetime(6),
-                NativeTypes.timestamp(6),
+                NativeTypes.datetime(3),
+                NativeTypes.timestamp(3),
                 NativeTypes.BYTES,
                 NativeTypes.STRING
         );
