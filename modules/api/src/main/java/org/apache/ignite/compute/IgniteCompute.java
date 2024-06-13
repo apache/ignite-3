@@ -225,25 +225,17 @@ public interface IgniteCompute {
      *
      * @param <R> Job result type.
      * @param nodes Nodes to execute the job on.
-     * @param units Deployment units. Can be empty.
-     * @param jobClassName Name of the job class to execute.
-     * @param options Job execution options (priority, max retries).
+     * @param descriptor Job descriptor.
      * @param args Arguments of the job.
      * @return Map from node to job result.
      */
     default <R> CompletableFuture<Map<ClusterNode, R>> executeBroadcastAsync(
             Set<ClusterNode> nodes,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
+            JobDescriptor descriptor,
             Object... args
     ) {
         Map<ClusterNode, CompletableFuture<R>> futures = nodes.stream()
-                .collect(toMap(identity(), node -> this.executeAsync(Set.of(node), JobDescriptor.builder()
-                        .jobClassName(jobClassName)
-                        .units(units)
-                        .options(options)
-                        .build(), args)));
+                .collect(toMap(identity(), node -> this.executeAsync(Set.of(node), descriptor, args)));
 
         return allOf(futures.values().toArray(CompletableFuture[]::new))
                 .thenApply(ignored -> {
