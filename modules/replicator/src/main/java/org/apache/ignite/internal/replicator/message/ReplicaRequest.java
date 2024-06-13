@@ -24,6 +24,7 @@ import org.apache.ignite.internal.replicator.ReplicationGroupId;
 /**
  * Replica request.
  */
+
 public interface ReplicaRequest extends NetworkMessage {
     /**
      * Gets a replication group id.

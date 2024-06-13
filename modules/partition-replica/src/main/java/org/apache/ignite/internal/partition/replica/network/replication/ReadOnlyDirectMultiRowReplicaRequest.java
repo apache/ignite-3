@@ -20,10 +20,11 @@ package org.apache.ignite.internal.partition.replica.network.replication;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.partition.replica.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.replicator.message.ReadOnlyDirectReplicaRequest;
+import org.apache.ignite.internal.replicator.message.TableAware;
 
 /**
  * Read only direct multi row replica request.
  */
 @Transferable(PartitionReplicationMessageGroup.RO_DIRECT_MULTI_ROW_REPLICA_REQUEST)
-public interface ReadOnlyDirectMultiRowReplicaRequest extends MultipleRowPkReplicaRequest, ReadOnlyDirectReplicaRequest {
+public interface ReadOnlyDirectMultiRowReplicaRequest extends MultipleRowPkReplicaRequest, ReadOnlyDirectReplicaRequest, TableAware {
 }

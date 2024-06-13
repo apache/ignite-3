@@ -141,6 +141,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
 
             ReplicaRequest request = MESSAGES_FACTORY.readWriteMultiRowReplicaRequest()
                     .groupId(partGroupId)
+                    .tableId(tableId)
                     .commitPartitionId(serializeTablePartitionId(commitPartitionId))
                     .schemaVersion(partToRows.getValue().get(0).schemaVersion())
                     .binaryTuples(binaryRowsToBuffers(partToRows.getValue()))
@@ -249,6 +250,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
 
             ReadWriteMultiRowReplicaRequest request = MESSAGES_FACTORY.readWriteMultiRowReplicaRequest()
                     .groupId(partGroupId)
+                    .tableId(tableId)
                     .commitPartitionId(serializeTablePartitionId(commitPartitionId))
                     .schemaVersion(rowBatch.requestedRows.get(0).schemaVersion())
                     .binaryTuples(binaryRowsToBuffers(rowBatch.requestedRows))
@@ -318,6 +320,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
 
             ReplicaRequest request = MESSAGES_FACTORY.readWriteMultiRowPkReplicaRequest()
                     .groupId(partGroupId)
+                    .tableId(tableId)
                     .commitPartitionId(serializeTablePartitionId(commitPartitionId))
                     .schemaVersion(partToRows.getValue().get(0).schemaVersion())
                     .primaryKeys(serializePrimaryKeys(partToRows.getValue()))

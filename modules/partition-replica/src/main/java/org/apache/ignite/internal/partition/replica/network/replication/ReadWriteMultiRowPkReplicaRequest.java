@@ -19,12 +19,13 @@ package org.apache.ignite.internal.partition.replica.network.replication;
 
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.partition.replica.network.PartitionReplicationMessageGroup;
+import org.apache.ignite.internal.replicator.message.TableAware;
 
 /**
  * Read-write multi-row replica request involving table's Primary Keys.
  */
 @Transferable(PartitionReplicationMessageGroup.RW_MULTI_ROW_PK_REPLICA_REQUEST)
-public interface ReadWriteMultiRowPkReplicaRequest extends MultipleRowPkReplicaRequest, ReadWriteReplicaRequest {
+public interface ReadWriteMultiRowPkReplicaRequest extends MultipleRowPkReplicaRequest, ReadWriteReplicaRequest, TableAware {
     /**
      * Disable delayed ack optimization.
      *

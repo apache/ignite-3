@@ -15,15 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.partition.replica.network.replication;
+package org.apache.ignite.internal.replicator.message;
 
-import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.partition.replica.network.PartitionReplicationMessageGroup;
-import org.apache.ignite.internal.replicator.message.TableAware;
+import org.apache.ignite.internal.network.NetworkMessage;
 
-/**
- * Read only multi row replica request.
- */
-@Transferable(PartitionReplicationMessageGroup.RO_MULTI_ROW_REPLICA_REQUEST)
-public interface ReadOnlyMultiRowPkReplicaRequest extends MultipleRowPkReplicaRequest, ReadOnlyReplicaRequest, TableAware {
+public interface TableAware extends NetworkMessage {
+
+    int tableId();
 }

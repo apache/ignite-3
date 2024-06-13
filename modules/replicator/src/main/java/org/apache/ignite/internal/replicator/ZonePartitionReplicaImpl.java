@@ -29,6 +29,7 @@ import org.apache.ignite.internal.placementdriver.message.PlacementDriverReplica
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.apache.ignite.internal.replicator.message.TableAware;
 
 /**
  * Replica for the zone based partitions.
@@ -54,12 +55,25 @@ public class ZonePartitionReplicaImpl implements Replica {
 
     @Override
     public CompletableFuture<ReplicaResult> processRequest(ReplicaRequest request, String senderId) {
-        if (!(request.groupId() instanceof TablePartitionId)) {
+        if (!(request instanceof TableAware)) {
             LOG.info("Non table request is not supported by the zone partition yet");
             return nullCompletedFuture();
-        }
+        } else {
+            int partitionId;
 
-        return replicas.get(request.groupId()).processRequest(request, senderId);
+            ReplicationGroupId replicationGroupId = request.groupId();
+
+            if (replicationGroupId instanceof  TablePartitionId) {
+                partitionId = ((TablePartitionId) replicationGroupId).partitionId();
+            } else if (replicationGroupId instanceof ZonePartitionId) {
+                partitionId = ((ZonePartitionId) replicationGroupId).partitionId();
+            } else {
+                throw new IllegalArgumentException("Requests with replication group type " + request.groupId().getClass() + " is not supported");
+            }
+
+            return replicas.get(new TablePartitionId(((TableAware) request).tableId(), partitionId))
+                    .processRequest(request, senderId);
+        }
     }
 
     @Override
