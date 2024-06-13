@@ -251,76 +251,27 @@ public interface IgniteCompute {
     }
 
     /**
-     * Executes a {@link ComputeJob} of the given class on all nodes in the given node set
-     * with default execution options {@link JobExecutionOptions#DEFAULT}.
-     *
-     * @param nodes Nodes to execute the job on.
-     * @param units Deployment units. Can be empty.
-     * @param jobClassName Name of the job class to execute.
-     * @param args Arguments of the job.
-     * @param <R> Job result type.
-     * @return Map from node to job result.
-     */
-    default <R> CompletableFuture<Map<ClusterNode, R>> executeBroadcastAsync(
-            Set<ClusterNode> nodes,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            Object... args
-    ) {
-        return executeBroadcastAsync(nodes, units, jobClassName, DEFAULT, args);
-    }
-
-    /**
      * Executes a {@link ComputeJob} of the given class on all nodes in the given node set.
      *
      * @param <R> Job result type.
      * @param nodes Nodes to execute the job on.
-     * @param units Deployment units. Can be empty.
-     * @param jobClassName Name of the job class to execute.
-     * @param options Job execution options (priority, max retries).
+     * @param descriptor Job descriptor.
      * @param args Arguments of the job.
      * @return Map from node to job result.
      * @throws ComputeException If there is any problem executing the job.
      */
     default <R> Map<ClusterNode, R> executeBroadcast(
             Set<ClusterNode> nodes,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
+            JobDescriptor descriptor,
             Object... args
     ) {
         Map<ClusterNode, R> map = new HashMap<>();
 
         for (ClusterNode node : nodes) {
-            map.put(node, execute(Set.of(node), JobDescriptor.builder()
-                    .jobClassName(jobClassName)
-                    .units(units)
-                    .options(options)
-                    .build(), args));
+            map.put(node, execute(Set.of(node), descriptor, args));
         }
 
         return map;
-    }
-
-    /**
-     * Executes a {@link ComputeJob} of the given class on all nodes in the given node set
-     * with default execution options {@link JobExecutionOptions#DEFAULT}.
-     *
-     * @param nodes Nodes to execute the job on.
-     * @param units Deployment units. Can be empty.
-     * @param jobClassName Name of the job class to execute.
-     * @param args Arguments of the job.
-     * @param <R> Job result type.
-     * @return Map from node to job result.
-     * @throws ComputeException If there is any problem executing the job.
-     */
-    default <R> Map<ClusterNode, R> executeBroadcast(
-            Set<ClusterNode> nodes,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            Object... args
-    ) {
-        return executeBroadcast(nodes, units, jobClassName, DEFAULT, args);
     }
 
     /**

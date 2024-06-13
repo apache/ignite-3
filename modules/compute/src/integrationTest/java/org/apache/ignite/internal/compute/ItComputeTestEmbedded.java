@@ -382,7 +382,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         IgniteImpl entryNode = node(entryNodeIndex);
 
         Map<ClusterNode, Object> results = entryNode.compute()
-                .executeBroadcast(new HashSet<>(entryNode.clusterNodes()), List.of(), NullReturningJob.class.getName());
+                .executeBroadcast(new HashSet<>(entryNode.clusterNodes()), JobDescriptor.builder(NullReturningJob.class).build());
 
         assertThat(results.keySet(), equalTo(new HashSet<>(entryNode.clusterNodes())));
         assertThat(new HashSet<>(results.values()), contains(nullValue()));
@@ -395,7 +395,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         IgniteImpl entryNode = node(entryNodeIndex);
 
         CompletableFuture<Map<ClusterNode, Object>> resultsFuture = entryNode.compute()
-                .executeBroadcastAsync(new HashSet<>(entryNode.clusterNodes()), List.of(), NullReturningJob.class.getName());
+                .executeBroadcastAsync(new HashSet<>(entryNode.clusterNodes()), JobDescriptor.builder(NullReturningJob.class).build());
         assertThat(resultsFuture, willCompleteSuccessfully());
         Map<ClusterNode, Object> results = resultsFuture.join();
 

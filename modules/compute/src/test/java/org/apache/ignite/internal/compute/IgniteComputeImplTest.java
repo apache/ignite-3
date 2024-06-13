@@ -211,7 +211,7 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
         respondWhenExecutingSimpleJobRemotely(ExecutionOptions.DEFAULT);
 
         CompletableFuture<Map<ClusterNode, String>> future = compute.executeBroadcastAsync(
-                Set.of(localNode, remoteNode), testDeploymentUnits, JOB_CLASS_NAME, "a", 42
+                Set.of(localNode, remoteNode), JobDescriptor.builder(JOB_CLASS_NAME).units(testDeploymentUnits).build(), "a", 42
         );
 
         assertThat(future, willBe(aMapWithSize(2)));
