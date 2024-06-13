@@ -90,12 +90,10 @@ abstract class ItComputeErrorsBaseTest extends ClusterPerClassIntegrationTest {
         Set<ClusterNode> nodes = Set.of(existingNode, nonExistingNode);
 
         // And execute a job
-        IgniteCompute igniteCompute = compute();
-        String workerNodeName = igniteCompute.execute(nodes, JobDescriptor.builder()
-                .jobClassName(InteractiveJobs.globalJob().name())
-                .units(List.of())
-                .options(DEFAULT)
-                .build(), new Object[]{RETURN_WORKER_NAME.name()});
+        String workerNodeName = compute().execute(
+                nodes,
+                JobDescriptor.builder(InteractiveJobs.globalJob().name()).build(),
+                RETURN_WORKER_NAME.name());
 
         // Then existing node was a worker and executed the job.
         assertThat(workerNodeName, is(existingNode.name()));
@@ -109,14 +107,7 @@ abstract class ItComputeErrorsBaseTest extends ClusterPerClassIntegrationTest {
         // Then job fails.
         assertThrows(
                 NodeNotFoundException.class,
-                () -> {
-                    IgniteCompute igniteCompute = compute();
-                    igniteCompute.execute(nodes, JobDescriptor.builder()
-                            .jobClassName(InteractiveJobs.globalJob().name())
-                            .units(List.of())
-                            .options(DEFAULT)
-                            .build());
-                },
+                () -> compute().execute(nodes, JobDescriptor.builder(InteractiveJobs.globalJob().name()).build()),
                 "None of the specified nodes are present in the cluster: [" + nonExistingNode.name() + "]"
         );
     }
@@ -149,11 +140,6 @@ abstract class ItComputeErrorsBaseTest extends ClusterPerClassIntegrationTest {
     protected abstract IgniteCompute compute();
 
     private TestingJobExecution<String> executeGlobalInteractiveJob(Set<ClusterNode> nodes) {
-        IgniteCompute igniteCompute = compute();
-        return new TestingJobExecution<>(igniteCompute.submit(nodes, JobDescriptor.builder()
-                .jobClassName(InteractiveJobs.globalJob().name())
-                .units(List.of())
-                .options(DEFAULT)
-                .build()));
+        return new TestingJobExecution<>(compute().submit(nodes, JobDescriptor.builder(InteractiveJobs.globalJob().name()).build()));
     }
 }

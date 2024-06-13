@@ -84,15 +84,8 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
     void cancelsJobLocally() {
         IgniteImpl entryNode = node(0);
 
-        IgniteCompute igniteCompute = entryNode.compute();
-        Set<ClusterNode> nodes = Set.of(entryNode.node());
-        List<DeploymentUnit> units = units();
-        Object[] args = {new CountDownLatch(1)};
-        JobExecution<String> execution = igniteCompute.submit(nodes, JobDescriptor.builder()
-                .jobClass(WaitLatchJob.class)
-                .units(units)
-                .options(DEFAULT)
-                .build(), args);
+        JobDescriptor job = JobDescriptor.builder(WaitLatchJob.class).units(units()).build();
+        JobExecution<String> execution = entryNode.compute().submit(Set.of(entryNode.node()), job, new CountDownLatch(1));
 
         await().until(execution::statusAsync, willBe(jobStatusWithState(JobState.EXECUTING)));
 
@@ -105,15 +98,8 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
     void cancelsJobRemotely() {
         IgniteImpl entryNode = node(0);
 
-        IgniteCompute igniteCompute = entryNode.compute();
-        Set<ClusterNode> nodes = Set.of(node(1).node());
-        List<DeploymentUnit> units = units();
-        Object[] args = {new CountDownLatch(1)};
-        JobExecution<String> execution = igniteCompute.submit(nodes, JobDescriptor.builder()
-                .jobClass(WaitLatchJob.class)
-                .units(units)
-                .options(DEFAULT)
-                .build(), args);
+        JobDescriptor job = JobDescriptor.builder(WaitLatchJob.class).units(units()).build();
+        JobExecution<String> execution = entryNode.compute().submit(Set.of(node(1).node()), job, new CountDownLatch(1));
 
         await().until(execution::statusAsync, willBe(jobStatusWithState(JobState.EXECUTING)));
 
@@ -126,15 +112,8 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
     void changeExecutingJobPriorityLocally() {
         IgniteImpl entryNode = node(0);
 
-        IgniteCompute igniteCompute = entryNode.compute();
-        Set<ClusterNode> nodes = Set.of(entryNode.node());
-        List<DeploymentUnit> units = units();
-        Object[] args = {new CountDownLatch(1)};
-        JobExecution<String> execution = igniteCompute.submit(nodes, JobDescriptor.builder()
-                .jobClass(WaitLatchJob.class)
-                .units(units)
-                .options(DEFAULT)
-                .build(), args);
+        JobDescriptor job = JobDescriptor.builder(WaitLatchJob.class).units(units()).build();
+        JobExecution<String> execution = entryNode.compute().submit(Set.of(entryNode.node()), job, new CountDownLatch(1));
         await().until(execution::statusAsync, willBe(jobStatusWithState(JobState.EXECUTING)));
 
         assertThat(execution.changePriorityAsync(2), willBe(false));
@@ -145,15 +124,8 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
     void changeExecutingJobPriorityRemotely() {
         IgniteImpl entryNode = node(0);
 
-        IgniteCompute igniteCompute = entryNode.compute();
-        Set<ClusterNode> nodes = Set.of(node(1).node());
-        List<DeploymentUnit> units = units();
-        Object[] args = {new CountDownLatch(1)};
-        JobExecution<String> execution = igniteCompute.submit(nodes, JobDescriptor.builder()
-                .jobClass(WaitLatchJob.class)
-                .units(units)
-                .options(DEFAULT)
-                .build(), args);
+        JobDescriptor job = JobDescriptor.builder(WaitLatchJob.class).units(units()).build();
+        JobExecution<String> execution = entryNode.compute().submit(Set.of(node(1).node()), job, new CountDownLatch(1));
         await().until(execution::statusAsync, willBe(jobStatusWithState(JobState.EXECUTING)));
 
         assertThat(execution.changePriorityAsync(2), willBe(false));
