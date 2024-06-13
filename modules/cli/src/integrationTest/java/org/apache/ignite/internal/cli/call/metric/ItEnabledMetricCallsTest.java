@@ -17,10 +17,12 @@
 
 package org.apache.ignite.internal.cli.call.metric;
 
+import static org.apache.ignite.internal.cli.call.metric.ItMetricCallsTest.ALL_METRIC_SOURCES;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 import jakarta.inject.Inject;
+import java.util.Arrays;
 import java.util.List;
 import org.apache.ignite.internal.cli.CliIntegrationTest;
 import org.apache.ignite.internal.cli.call.node.metric.NodeMetricSetListCall;
@@ -51,13 +53,18 @@ class ItEnabledMetricCallsTest extends CliIntegrationTest {
 
     @BeforeAll
     void beforeAll() {
-        var inputEnable = NodeMetricSourceEnableCallInput.builder()
-                .endpointUrl(NODE_URL)
-                .srcName("jvm")
-                .enable(true)
-                .build();
+        // Disable all metrics except "jvm".
+        Arrays.stream(ALL_METRIC_SOURCES).map(MetricSource::getName).forEach(name -> {
+            if ("jvm".equals(name)) {
+                return;
+            }
 
-        nodeMetricSourceEnableCall.execute(inputEnable);
+            nodeMetricSourceEnableCall.execute(NodeMetricSourceEnableCallInput.builder()
+                    .endpointUrl(NODE_URL)
+                    .srcName(name)
+                    .enable(false)
+                    .build());
+        });
     }
 
     @Test
@@ -69,15 +76,8 @@ class ItEnabledMetricCallsTest extends CliIntegrationTest {
         // Then
         assertThat(output.hasError()).isFalse();
 
-        MetricSource[] expectedMetricSources = {
-                new MetricSource().name("jvm").enabled(true),
-                new MetricSource().name("client.handler").enabled(false),
-                new MetricSource().name("sql.client").enabled(false),
-                new MetricSource().name("sql.plan.cache").enabled(false)
-        };
-
         // And
-        assertThat(output.body()).contains(expectedMetricSources);
+        assertThat(output.body()).contains(new MetricSource().name("jvm").enabled(true));
     }
 
     @Test

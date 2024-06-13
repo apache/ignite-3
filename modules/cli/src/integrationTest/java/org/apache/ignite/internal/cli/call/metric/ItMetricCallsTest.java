@@ -21,6 +21,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import jakarta.inject.Inject;
 import java.util.List;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.cli.CliIntegrationTest;
 import org.apache.ignite.internal.cli.call.node.metric.NodeMetricSetListCall;
 import org.apache.ignite.internal.cli.call.node.metric.NodeMetricSourceEnableCall;
@@ -35,6 +36,16 @@ import org.junit.jupiter.api.Test;
 
 /** Tests for metrics calls. */
 class ItMetricCallsTest extends CliIntegrationTest {
+    static final MetricSource[] ALL_METRIC_SOURCES = {
+            new MetricSource().name("jvm").enabled(true),
+            new MetricSource().name("os").enabled(true),
+            new MetricSource().name("raft").enabled(true),
+            new MetricSource().name("metastorage").enabled(true),
+            new MetricSource().name("client.handler").enabled(true),
+            new MetricSource().name("sql.client").enabled(true),
+            new MetricSource().name("sql.plan.cache").enabled(true)
+    };
+
     private final UrlCallInput urlInput = new UrlCallInput(NODE_URL);
 
     @Inject
@@ -47,7 +58,7 @@ class ItMetricCallsTest extends CliIntegrationTest {
     NodeMetricSourceEnableCall nodeMetricSourceEnableCall;
 
     @Test
-    @DisplayName("Should display disabled jvm node metric source when cluster is up and running")
+    @DisplayName("Should display metric sources when cluster is up and running")
     void nodeMetricSourcesList() {
         // When
         CallOutput<List<MetricSource>> output = nodeMetricSourceListCall.execute(urlInput);
@@ -55,28 +66,30 @@ class ItMetricCallsTest extends CliIntegrationTest {
         // Then
         assertThat(output.hasError()).isFalse();
 
-        MetricSource[] expectedMetricSources = {
-                new MetricSource().name("jvm").enabled(false),
-                new MetricSource().name("client.handler").enabled(false),
-                new MetricSource().name("sql.client").enabled(false),
-                new MetricSource().name("sql.plan.cache").enabled(false)
-        };
-
         // And
-        assertThat(output.body()).contains(expectedMetricSources);
+        assertThat(output.body()).contains(ALL_METRIC_SOURCES);
+        assertThat(output.body()).hasSize(ALL_METRIC_SOURCES.length);
     }
 
     @Test
-    @DisplayName("Should display empty node metric sets list when cluster is up and running")
-    void nodeMetricSetsListEmpty() {
+    @DisplayName("Should display metric sets list when cluster is up and running")
+    void nodeMetricSetsListContainsAllMetrics() {
         // When
-        CallOutput<List<MetricSet>> output = nodeMetricSetListCall.execute(urlInput);
+        CallOutput<List<MetricSet>> metricSetsOutput = nodeMetricSetListCall.execute(urlInput);
+        CallOutput<List<MetricSource>> metricSourcesOutput = nodeMetricSourceListCall.execute(urlInput);
 
         // Then
-        assertThat(output.hasError()).isFalse();
+        assertThat(metricSetsOutput.hasError()).isFalse();
+        assertThat(metricSourcesOutput.hasError()).isFalse();
 
         // And
-        assertThat(output.body()).isEmpty();
+        List<String> enabledMetrics =
+                metricSetsOutput.body().stream().map(MetricSet::getName).collect(Collectors.toList());
+
+        List<String> allMetrics =
+                metricSourcesOutput.body().stream().map(MetricSource::getName).collect(Collectors.toList());
+
+        assertThat(allMetrics).containsAll(enabledMetrics);
     }
 
     @Test
