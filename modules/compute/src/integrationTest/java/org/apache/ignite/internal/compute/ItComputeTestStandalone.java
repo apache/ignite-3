@@ -168,7 +168,7 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
         IgniteImpl entryNode = node(0);
         JobDescriptor job = JobDescriptor.builder(SleepJob.class).units(units).build();
 
-        CompletableFuture<Void> successJob = entryNode.compute().executeAsync(Set.of(entryNode.node()), job,2L);
+        CompletableFuture<Void> successJob = entryNode.compute().executeAsync(Set.of(entryNode.node()), job, 2L);
 
         assertThat(entryNode.deployment().undeployAsync(unit.name(), unit.version()), willCompleteSuccessfully());
 
