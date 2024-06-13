@@ -153,10 +153,7 @@ import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfigurationSchema;
 import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
 import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileConfigurationSchema;
-import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
-import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
-import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.RaftNodeId;
@@ -169,7 +166,6 @@ import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.rest.configuration.RestConfiguration;
@@ -548,26 +544,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         changeTableReplicasForSinglePartition(node, ZONE_NAME, 2);
 
         waitPartitionAssignmentsSyncedToExpected(0, 2);
-
-        ReplicationGroupId groupId = new TablePartitionId(getTableId(node, TABLE_NAME), 0);
-
-        ReplicaMeta leaseholder = node.placementDriver.getPrimaryReplica(groupId, node.hybridClock.now()).join();
-
-        Node leaseholderNode = nodes.stream().filter(n -> n.name.equals(leaseholder.getLeaseholder())).findFirst().orElseThrow();
-
-        waitForCondition(() -> leaseholderNode.replicaManager.isReplicaPrimaryOnly(groupId), 5000);
-
-        // PRIMARY_REPLICA_EXPIRED is fired to make sure that the replica will be stopped even on the current leaseholder.
-        nodes.forEach(n -> n.placementDriver.fireEvent(
-                PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED,
-                new PrimaryReplicaEventParameters(
-                        0,
-                        new TablePartitionId(getTableId(n, TABLE_NAME), 0),
-                        leaseholder.getLeaseholderId(),
-                        leaseholder.getLeaseholder(),
-                        null
-                )
-        ));
 
         Set<Assignment> assignmentsAfterChangeReplicas = getPartitionClusterNodes(node, 0);
 

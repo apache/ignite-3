@@ -362,7 +362,7 @@ class IndexBuildController implements ManuallyCloseable {
     private static @Nullable MvPartitionStorage mvPartitionStorage(MvTableStorage mvTableStorage, TablePartitionId replicaId) {
         MvPartitionStorage mvPartition = mvTableStorage.getMvPartition(replicaId.partitionId());
 
-        assert mvPartition != null : "Partition storage is missing, replicaId=" + replicaId;;
+        assert mvPartition != null : "Partition storage is missing, replicaId=" + replicaId;
 
         return mvPartition;
     }
