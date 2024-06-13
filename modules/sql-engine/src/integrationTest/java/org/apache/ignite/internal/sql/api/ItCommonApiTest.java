@@ -47,8 +47,6 @@ public class ItCommonApiTest extends BaseSqlIntegrationTest {
 
         Ignite node = CLUSTER.aliveNode();
 
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-19162 Trim all less than millisecond information from timestamp
-        // String tsStr = "2023-03-29T08:22:33.005007Z";
         String tsStr = "2023-03-29T08:22:33.005Z";
 
         LocalDateTime localDate = LocalDateTime.parse(tsStr, DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"));
@@ -72,7 +70,6 @@ public class ItCommonApiTest extends BaseSqlIntegrationTest {
 
         tbl.recordView().insert(null, rec);
 
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-19161 Can`t insert timestamp representing in ISO_INSTANT format
         String tsValue = tsStr.replace("T", " ").substring(0, tsStr.length() - 1);
 
         sql(format("INSERT INTO timestamps VALUES (101, TIMESTAMP '{}', TIMESTAMP WITH LOCAL TIME ZONE '{}')", tsValue, tsValue));
