@@ -17,16 +17,15 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
-import java.util.BitSet;
-import org.jetbrains.annotations.Nullable;
-
 /**
- * A factory to create a converter from table row to execution engine representation
- * with regard to the set of required columns.
+ * Virtual column implementation.
  */
-@FunctionalInterface
-public interface TableRowConverterFactory {
-    TableRowConverter create(@Nullable BitSet requiredColumns);
+public class VirtualColumn {
+    final int columnIndex;
+    final Object value;
 
-    default TableRowConverter create(BitSet requiredColumns, int partId) { return create(requiredColumns); }
+    public VirtualColumn(int columnIndex, Object value) {
+        this.columnIndex = columnIndex;
+        this.value = value;
+    }
 }

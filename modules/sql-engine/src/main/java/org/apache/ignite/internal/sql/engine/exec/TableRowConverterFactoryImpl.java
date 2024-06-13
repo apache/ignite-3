@@ -18,10 +18,12 @@
 package org.apache.ignite.internal.sql.engine.exec;
 
 import java.util.BitSet;
-import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
+import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -32,19 +34,19 @@ public class TableRowConverterFactoryImpl implements TableRowConverterFactory {
     private final SchemaDescriptor schemaDescriptor;
     private final BinaryTupleSchema fullTupleSchema;
     private final TableRowConverter fullRowConverter;
+    private int partVirtualColumnIndex = -1;
 
     /**
      * Creates a factory from given schema and indexes of primary key.
      *
-     * @param primaryKeyLogicalIndexes Indexes of a primary key column in a logical order. Used to
-     *      properly build key only rows.
+     * @param tableDescriptor Table descriptor.
      * @param schemaRegistry Registry of all schemas known so far. Used in case table returned
      *      a row in older version than required to make an upgrade.
      * @param schemaDescriptor Actual schema descriptor. Used as a target schema to convert
      *      rows from sql format to one accepted by underlying table.
      */
     public TableRowConverterFactoryImpl(
-            ImmutableIntList primaryKeyLogicalIndexes,
+            TableDescriptor tableDescriptor,
             SchemaRegistry schemaRegistry,
             SchemaDescriptor schemaDescriptor
     ) {
@@ -56,11 +58,26 @@ public class TableRowConverterFactoryImpl implements TableRowConverterFactory {
                 schemaRegistry,
                 schemaDescriptor
         );
+
+        ColumnDescriptor columnDescriptor = tableDescriptor.columnDescriptor(Commons.PART_COL_NAME);
+
+        if (columnDescriptor != null) {
+            assert columnDescriptor.system();
+
+            partVirtualColumnIndex = columnDescriptor.logicalIndex();
+        }
     }
 
     @Override
     public TableRowConverter create(@Nullable BitSet requiredColumns) {
-        if (requiredColumns == null || requiredColumns.cardinality() == schemaDescriptor.length()) {
+        return create(requiredColumns, -1);
+    }
+
+    @Override
+    public TableRowConverter create(@Nullable BitSet requiredColumns, int partId) {
+        boolean hasVirtualColumn = requiredColumns != null && partVirtualColumnIndex != -1 && requiredColumns.get(partVirtualColumnIndex);
+
+        if (requiredColumns == null || (requiredColumns.cardinality() == schemaDescriptor.length() && !hasVirtualColumn)) {
             return fullRowConverter;
         }
 
@@ -68,7 +85,8 @@ public class TableRowConverterFactoryImpl implements TableRowConverterFactory {
                 schemaRegistry,
                 fullTupleSchema,
                 schemaDescriptor,
-                requiredColumns
+                requiredColumns,
+                hasVirtualColumn ? new VirtualColumn(partVirtualColumnIndex, partId) : null
         );
     }
 }

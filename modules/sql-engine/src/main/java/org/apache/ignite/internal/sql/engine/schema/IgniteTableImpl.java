@@ -175,7 +175,7 @@ public class IgniteTableImpl extends AbstractIgniteDataSource implements IgniteT
     /** {@inheritDoc} */
     @Override
     public RelDataType rowTypeForInsert(IgniteTypeFactory factory) {
-        return descriptor().rowType(factory, columnsToInsert);
+        return descriptor().insertRowType(factory);
     }
 
     /** {@inheritDoc} */

@@ -42,6 +42,16 @@ public interface TableDescriptor extends InitializerExpressionFactory, Iterable<
     RelDataType rowType(IgniteTypeFactory factory, @Nullable ImmutableBitSet usedColumns);
 
     /**
+     * Returns row type.
+     *
+     * @param factory     Type factory.
+     * @return Row type.
+     */
+    default RelDataType insertRowType(IgniteTypeFactory factory) {
+        return rowType(factory, null);
+    }
+
+    /**
      * Returns column descriptor for given field name.
      *
      * @return Column descriptor

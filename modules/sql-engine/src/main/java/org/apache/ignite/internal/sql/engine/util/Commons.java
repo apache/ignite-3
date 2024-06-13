@@ -129,7 +129,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public final class Commons {
     public static final String IMPLICIT_PK_COL_NAME = "__p_key";
-    public static final String PART_COL_NAME = "__part".toUpperCase();
+    public static final String PART_COL_NAME = "__part";
 
     public static final int IN_BUFFER_SIZE = 512;
 

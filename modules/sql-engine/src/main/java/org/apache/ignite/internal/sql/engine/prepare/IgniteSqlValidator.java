@@ -948,7 +948,8 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     }
 
     private boolean isSystemFieldName(String alias) {
-        return Commons.implicitPkEnabled() && Commons.IMPLICIT_PK_COL_NAME.equals(alias);
+        return (Commons.implicitPkEnabled() && Commons.IMPLICIT_PK_COL_NAME.equals(alias))
+                || alias.equals(Commons.PART_COL_NAME);
     }
 
     /** {@inheritDoc} */
