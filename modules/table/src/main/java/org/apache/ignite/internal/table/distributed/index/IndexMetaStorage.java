@@ -79,8 +79,8 @@ import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
- * Local storage of {@link IndexMeta index metadata}, based on a {@link CatalogIndexDescriptor} and stored in vault, is responsible for
- * their life cycle, as well as recovery when the node is restarted. Any change to index metadata is saved in vault. The main difference
+ * Local storage of {@link IndexMeta index metadata}, based on a {@link CatalogIndexDescriptor} and stored in metastore, is responsible for
+ * their life cycle, as well as recovery when the node is restarted. Any change to index metadata is saved in metastore. The main difference
  * from the {@link CatalogIndexDescriptor} is that index metadata is independent of catalog compaction and stores all the necessary
  * information for the user when working with indexes.
  *
@@ -104,7 +104,6 @@ import org.jetbrains.annotations.TestOnly;
  *     less than or equal to the active catalog version for the new watermark.</li>
  * </ul>
  */
-// TODO: IGNITE-22470 - поменять код/доработать тесты/поправить документацию
 public class IndexMetaStorage implements IgniteComponent {
     private static final String INDEX_META_VERSION_KEY_PREFIX = "index.meta.version.";
 
