@@ -199,8 +199,7 @@ public class ClientCompute implements IgniteCompute {
             JobDescriptor descriptor,
             Object... args
     ) {
-        return sync(executeColocatedAsync(
-                tableName, key, keyMapper, descriptor.units(), descriptor.jobClassName(), descriptor.options(), args));
+        return sync(executeColocatedAsync(tableName, key, keyMapper, descriptor, args));
     }
 
     /** {@inheritDoc} */

@@ -457,9 +457,10 @@ public class PartitionAwarenessTest extends AbstractClientTest {
     public void testExecuteColocatedObjectKeyRoutesRequestToPrimaryNode() {
         var mapper = Mapper.of(Long.class);
         Table table = defaultTable();
+        JobDescriptor job = JobDescriptor.builder("job").build();
 
-        assertThat(compute().executeColocatedAsync(table.name(), 1L, mapper, List.of(), "job"), willBe(nodeKey1));
-        assertThat(compute().executeColocatedAsync(table.name(), 2L, mapper, List.of(), "job"), willBe(nodeKey2));
+        assertThat(compute().executeColocatedAsync(table.name(), 1L, mapper, job), willBe(nodeKey1));
+        assertThat(compute().executeColocatedAsync(table.name(), 2L, mapper, job), willBe(nodeKey2));
     }
 
     @ParameterizedTest

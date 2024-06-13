@@ -35,7 +35,6 @@ import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionContext;
-import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.compute.IgniteComputeImpl;
 import org.apache.ignite.internal.wrapper.Wrappers;
@@ -168,16 +167,12 @@ class ItComputeApiThreadingTest extends ClusterPerClassIntegrationTest {
         EXECUTE_COLOCATED_BY_TUPLE_ASYNC(compute -> compute.executeColocatedAsync(TABLE_NAME, KEY_TUPLE, JobDescriptor.builder()
                 .jobClassName(NoOpJob.class.getName())
                 .build())),
-        EXECUTE_COLOCATED_BY_TUPLE_WITH_OPTIONS_ASYNC(compute -> compute.executeColocatedAsync(TABLE_NAME, KEY_TUPLE, JobDescriptor.builder()
-                .jobClassName(NoOpJob.class.getName())
-                .build())
-        ),
-        EXECUTE_COLOCATED_BY_KEY_ASYNC(compute -> compute.executeColocatedAsync(
-                TABLE_NAME, KEY, Mapper.of(Integer.class), List.of(), NoOpJob.class.getName())
-        ),
-        EXECUTE_COLOCATED_BY_KEY_WITH_OPTIONS_ASYNC(compute -> compute.executeColocatedAsync(
-                TABLE_NAME, KEY, Mapper.of(Integer.class), List.of(), NoOpJob.class.getName(), DEFAULT)
-        ),
+        EXECUTE_COLOCATED_BY_TUPLE_WITH_OPTIONS_ASYNC(compute ->
+                compute.executeColocatedAsync(TABLE_NAME, KEY_TUPLE, JobDescriptor.builder(NoOpJob.class).build())),
+        EXECUTE_COLOCATED_BY_KEY_ASYNC(compute ->
+                compute.executeColocatedAsync(TABLE_NAME, KEY, Mapper.of(Integer.class), JobDescriptor.builder(NoOpJob.class).build())),
+        EXECUTE_COLOCATED_BY_KEY_WITH_OPTIONS_ASYNC(compute ->
+                compute.executeColocatedAsync(TABLE_NAME, KEY, Mapper.of(Integer.class), JobDescriptor.builder(NoOpJob.class).build())),
         EXECUTE_BROADCAST_ASYNC(compute -> compute.executeBroadcastAsync(justNonEntryNode(), List.of(), NoOpJob.class.getName())),
         EXECUTE_BROADCAST_WITH_OPTIONS_ASYNC(compute -> compute.executeBroadcastAsync(
                 justNonEntryNode(), List.of(), NoOpJob.class.getName(), DEFAULT

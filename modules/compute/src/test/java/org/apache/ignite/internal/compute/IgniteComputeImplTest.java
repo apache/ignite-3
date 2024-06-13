@@ -198,8 +198,7 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
                         "test",
                         1,
                         Mapper.of(Integer.class),
-                        testDeploymentUnits,
-                        JOB_CLASS_NAME,
+                        JobDescriptor.builder(JOB_CLASS_NAME).units(testDeploymentUnits).build(),
                         "a", 42
                 ),
                 willBe("remoteResponse")
