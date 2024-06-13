@@ -68,19 +68,10 @@ public class JobDescriptor {
      *
      * @return Job descriptor builder.
      */
-    public static Builder builder() {
-        return new Builder();
-    }
-
-    /**
-     * Create a new builder.
-     *
-     * @return Job descriptor builder.
-     */
     public static Builder builder(String jobClassName) {
         Objects.requireNonNull(jobClassName);
 
-        return new Builder().jobClassName(jobClassName);
+        return new Builder(jobClassName);
     }
 
     /**
@@ -91,33 +82,19 @@ public class JobDescriptor {
     public static Builder builder(Class<? extends ComputeJob<?>> jobClass) {
         Objects.requireNonNull(jobClass);
 
-        return new Builder().jobClass(jobClass);
+        return new Builder(jobClass.getName());
     }
 
     /**
      * Builder.
      */
     public static class Builder {
-        private String jobClassName;
+        private final String jobClassName;
         private List<DeploymentUnit> units;
         private JobExecutionOptions options;
 
-        /**
-         * Sets the job class name.
-         *
-         * @param jobClassName Job class name.
-         * @return This builder.
-         */
-        @Deprecated
-        public Builder jobClassName(String jobClassName) {
+        private Builder(String jobClassName) {
             this.jobClassName = jobClassName;
-            return this;
-        }
-
-        @Deprecated
-        public Builder jobClass(Class<? extends ComputeJob<?>> jobClass) {
-            this.jobClassName = jobClass.getName();
-            return this;
         }
 
         /**
