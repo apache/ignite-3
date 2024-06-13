@@ -53,6 +53,7 @@ import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactory;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
+import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.PartitionCalculator;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
@@ -253,7 +254,8 @@ public class PartitionPruningPredicateSelfTest extends BaseIgniteAbstractTest {
 
         Object val = SqlTestUtils.generateValueByType(current.nextInt(100), columnType);
         assert val != null;
-        
+
+        // Adjust Decimal for the necessary scale and precision.
         if (val instanceof BigDecimal) {
             val = BigDecimal.ONE;
         }

@@ -273,7 +273,7 @@ public class NativeTypes {
 
         return NANO_SCALE - trailingZeroes;
     }
-    
+
     public static int truncateNanosRetainingMillis(int nanos) {
         return (nanos / MILLIS_IN_NANOS) * MILLIS_IN_NANOS;
     }

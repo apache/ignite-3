@@ -17,7 +17,6 @@
 
 package org.apache.ignite.client;
 
-import static java.time.temporal.ChronoField.NANO_OF_SECOND;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.anyOf;
 import static org.hamcrest.Matchers.containsString;

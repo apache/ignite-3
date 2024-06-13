@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.marshaller.testobjects;
 
-import static org.apache.ignite.internal.util.TemporalTypeUtils.normalizeNanos;
-
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.time.Instant;
