@@ -556,8 +556,11 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         var key = new TestPojo(1);
         Mapper<TestPojo> mapper = Mapper.of(TestPojo.class);
 
+        IgniteCompute igniteCompute = client().compute();
         IgniteException cause = getExceptionInJobExecutionAsync(
-                client().compute().submitColocated(TABLE_NAME, key, mapper, List.of(), ExceptionJob.class.getName())
+                igniteCompute.submitColocated(TABLE_NAME, key, mapper, JobDescriptor.builder()
+                        .jobClassName(ExceptionJob.class.getName())
+                        .build(), new Object[]{})
         );
 
         assertComputeExceptionWithClassAndMessage(cause);
@@ -581,8 +584,11 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         var key = new TestPojo(2);
         Mapper<TestPojo> mapper = Mapper.of(TestPojo.class);
 
+        IgniteCompute igniteCompute = client().compute();
         IgniteException cause = getExceptionInJobExecutionAsync(
-                client().compute().submitColocated(TABLE_NAME, key, mapper, List.of(), ExceptionJob.class.getName())
+                igniteCompute.submitColocated(TABLE_NAME, key, mapper, JobDescriptor.builder()
+                        .jobClassName(ExceptionJob.class.getName())
+                        .build(), new Object[]{})
         );
 
         assertComputeExceptionWithStackTrace(cause);
@@ -659,13 +665,11 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     void testExecuteColocatedPojoRunsComputeJobOnKeyNode(int key, int port) {
         var keyPojo = new TestPojo(key);
 
-        JobExecution<String> pojoExecution = client().compute().submitColocated(
-                TABLE_NAME,
-                keyPojo,
-                Mapper.of(TestPojo.class),
-                List.of(),
-                NodeNameJob.class.getName()
-        );
+        IgniteCompute igniteCompute = client().compute();
+        Mapper<TestPojo> keyMapper = Mapper.of(TestPojo.class);
+        JobExecution<String> pojoExecution = igniteCompute.submitColocated(TABLE_NAME, keyPojo, keyMapper, JobDescriptor.builder()
+                .jobClassName(NodeNameJob.class.getName())
+                .build(), new Object[]{});
 
         String expectedNode = "itcct_n_" + port;
         assertThat(pojoExecution.resultAsync(), willBe(expectedNode));
@@ -697,14 +701,11 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         var keyPojo = new TestPojo(key);
         int sleepMs = 1_000_000;
 
-        JobExecution<String> pojoExecution = client().compute().submitColocated(
-                TABLE_NAME,
-                keyPojo,
-                Mapper.of(TestPojo.class),
-                List.of(),
-                SleepJob.class.getName(),
-                sleepMs
-        );
+        IgniteCompute igniteCompute = client().compute();
+        Mapper<TestPojo> keyMapper = Mapper.of(TestPojo.class);
+        JobExecution<String> pojoExecution = igniteCompute.submitColocated(TABLE_NAME, keyPojo, keyMapper, JobDescriptor.builder()
+                .jobClassName(SleepJob.class.getName())
+                .build(), new Object[]{sleepMs});
 
         await().until(pojoExecution::statusAsync, willBe(jobStatusWithState(EXECUTING)));
 

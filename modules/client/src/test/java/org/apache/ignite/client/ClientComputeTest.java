@@ -210,8 +210,11 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
                     .jobClassName("job")
                     .build(), new Object[]{});
 
-            JobExecution<String> execution2 = client.compute()
-                    .submitColocated(TABLE_NAME, 1L, Mapper.of(Long.class), List.of(), "job");
+            IgniteCompute igniteCompute1 = client.compute();
+            Mapper<Long> keyMapper = Mapper.of(Long.class);
+            JobExecution<String> execution2 = igniteCompute1.submitColocated(TABLE_NAME, 1L, keyMapper, JobDescriptor.builder()
+                    .jobClassName("job")
+                    .build(), new Object[]{});
 
             assertThat(execution1.resultAsync(), willBe("s2"));
             assertThat(execution2.resultAsync(), willBe("s2"));

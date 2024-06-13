@@ -483,8 +483,13 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
 
         IgniteImpl entryNode = node(0);
 
-        JobExecution<String> execution = entryNode.compute()
-                .submitColocated("test", 1, Mapper.of(Integer.class), units(), getNodeNameJobClassName());
+        IgniteCompute igniteCompute = entryNode.compute();
+        Mapper<Integer> keyMapper = Mapper.of(Integer.class);
+        List<DeploymentUnit> units = units();
+        JobExecution<String> execution = igniteCompute.submitColocated("test", 1, keyMapper, JobDescriptor.builder()
+                .jobClassName(getNodeNameJobClassName())
+                .units(units)
+                .build(), new Object[]{});
 
         assertThat(execution.resultAsync(), willBe(in(allNodeNames())));
         assertThat(execution.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
