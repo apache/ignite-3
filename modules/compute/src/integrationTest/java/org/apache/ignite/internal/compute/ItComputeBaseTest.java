@@ -475,8 +475,8 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
 
         IgniteImpl entryNode = node(0);
 
-        String actualNodeName = entryNode.compute()
-                .executeColocated("test", 1, Mapper.of(Integer.class), units(), getNodeNameJobClassName());
+        String actualNodeName = entryNode.compute().executeColocated(
+                "test", 1, Mapper.of(Integer.class), JobDescriptor.builder(getNodeNameJobClassName()).units(units()).build());
 
         assertThat(actualNodeName, in(allNodeNames()));
     }

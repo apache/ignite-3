@@ -572,7 +572,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         Mapper<TestPojo> mapper = Mapper.of(TestPojo.class);
 
         IgniteException cause = getExceptionInJobExecutionSync(
-                () -> client().compute().executeColocated(TABLE_NAME, key, mapper, List.of(), ExceptionJob.class.getName())
+                () -> client().compute().executeColocated(TABLE_NAME, key, mapper, JobDescriptor.builder(ExceptionJob.class).build())
         );
 
         assertComputeExceptionWithClassAndMessage(cause);
@@ -601,7 +601,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         Mapper<TestPojo> mapper = Mapper.of(TestPojo.class);
 
         IgniteException cause = getExceptionInJobExecutionSync(
-                () -> client().compute().executeColocated(TABLE_NAME, key, mapper, List.of(), ExceptionJob.class.getName())
+                () -> client().compute().executeColocated(TABLE_NAME, key, mapper, JobDescriptor.builder(ExceptionJob.class).build())
         );
 
         assertComputeExceptionWithStackTrace(cause);
@@ -805,8 +805,8 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         TestPojo pojoKey = new TestPojo(1);
         Tuple tupleKey = Tuple.create().set("key", pojoKey.key);
 
-        var tupleRes = client().compute().executeColocated(tableName, tupleKey, JobDescriptor.builder(NodeNameJob.class.getName()).build());
-        var pojoRes = client().compute().executeColocated(tableName, pojoKey, mapper, List.of(), NodeNameJob.class.getName());
+        var tupleRes = client().compute().executeColocated(tableName, tupleKey, JobDescriptor.builder(NodeNameJob.class).build());
+        var pojoRes = client().compute().executeColocated(tableName, pojoKey, mapper, JobDescriptor.builder(NodeNameJob.class).build());
 
         assertEquals(tupleRes, pojoRes);
     }

@@ -163,10 +163,10 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
         initServers(reqId -> false);
 
         try (var client = getClient(server2)) {
-            Tuple key = Tuple.create().set("key", "k");
+            JobDescriptor job = JobDescriptor.builder("job").build();
 
-            String res1 = client.compute().executeColocated(TABLE_NAME, key, JobDescriptor.builder("job").build());
-            String res2 = client.compute().executeColocated(TABLE_NAME, 1L, Mapper.of(Long.class), List.of(), "job");
+            String res1 = client.compute().executeColocated(TABLE_NAME, Tuple.create().set("key", "k"), job);
+            String res2 = client.compute().executeColocated(TABLE_NAME, 1L, Mapper.of(Long.class), job);
 
             assertEquals("s2", res1);
             assertEquals("s2", res2);
@@ -241,7 +241,7 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
                 IgniteTestUtils.setFieldValue(table, "partitionAssignment", null);
             }
 
-            String res2 = client.compute().executeColocated(tableName, 1L, Mapper.of(Long.class), List.of(), "job");
+            String res2 = client.compute().executeColocated(tableName, 1L, Mapper.of(Long.class), JobDescriptor.builder("job").build());
 
             assertEquals("s3", res1);
             assertEquals("s3", res2);

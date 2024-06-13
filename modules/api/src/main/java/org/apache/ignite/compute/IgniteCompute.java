@@ -239,63 +239,6 @@ public interface IgniteCompute {
             Object... args);
 
     /**
-     * Executes a job of the given class on the node where the given key is located. The node is a leader of the corresponding RAFT group.
-     *
-     * @param <R> Job result type.
-     * @param tableName Name of the table whose key is used to determine the node to execute the job on.
-     * @param key Key that identifies the node to execute the job on.
-     * @param keyMapper Mapper used to map the key to a binary representation.
-     * @param units Deployment units. Can be empty.
-     * @param jobClassName Name of the job class to execute.
-     * @param options Job execution options (priority, max retries).
-     * @param args Arguments of the job.
-     * @return Job result.
-     * @throws ComputeException If there is any problem executing the job.
-     */
-    default <K, R> R executeColocated(
-            String tableName,
-            K key,
-            Mapper<K> keyMapper,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
-            Object... args) {
-        return executeColocated(tableName, key, keyMapper, JobDescriptor.builder()
-                .jobClassName(jobClassName)
-                .units(units)
-                .options(options)
-                .build(), args);
-    }
-
-    /**
-     * Executes a job of the given class on the node where the given key is located. The node is a leader
-     * of the corresponding RAFT group.
-     *
-     * @param tableName Name of the table whose key is used to determine the node to execute the job on.
-     * @param key Key that identifies the node to execute the job on.
-     * @param keyMapper Mapper used to map the key to a binary representation.
-     * @param units Deployment units. Can be empty.
-     * @param jobClassName Name of the job class to execute.
-     * @param args Arguments of the job.
-     * @param <R> Job result type.
-     * @return Job result.
-     * @throws ComputeException If there is any problem executing the job.
-     */
-    default <K, R> R executeColocated(
-            String tableName,
-            K key,
-            Mapper<K> keyMapper,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            Object... args
-    ) {
-        return executeColocated(tableName, key, keyMapper, JobDescriptor.builder()
-                .jobClassName(jobClassName)
-                .units(units)
-                .build(), args);
-    }
-
-    /**
      * Submits a {@link ComputeJob} of the given class for an execution on all nodes in the given node set.
      *
      * @param <R> Job result type.
