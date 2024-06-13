@@ -444,13 +444,10 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         Tuple t1 = Tuple.create().set("ID", 1L);
         Tuple t2 = Tuple.create().set("ID", 2L);
 
-        assertThat(compute().executeColocatedAsync(table.name(), t1, JobDescriptor.builder()
-                .jobClassName("job")
-                .build()), willBe(nodeKey1));
+        JobDescriptor job = JobDescriptor.builder("job").build();
 
-        assertThat(compute().executeColocatedAsync(table.name(), t2, JobDescriptor.builder()
-                .jobClassName("job")
-                .build()), willBe(nodeKey2));
+        assertThat(compute().executeColocatedAsync(table.name(), t1, job), willBe(nodeKey1));
+        assertThat(compute().executeColocatedAsync(table.name(), t2, job), willBe(nodeKey2));
     }
 
     @Test

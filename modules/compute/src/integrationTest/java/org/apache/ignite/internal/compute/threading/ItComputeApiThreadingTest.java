@@ -168,12 +168,8 @@ class ItComputeApiThreadingTest extends ClusterPerClassIntegrationTest {
     private enum ComputeSubmitOperation {
         SUBMIT(compute -> compute.submit(justNonEntryNode(), JobDescriptor.builder(NoOpJob.class).build())),
         SUBMIT_COLOCATED_BY_TUPLE(compute -> compute.submitColocated(TABLE_NAME, KEY_TUPLE, JobDescriptor.builder(NoOpJob.class).build())),
-        SUBMIT_COLOCATED_BY_KEY(compute -> {
-            Mapper<Integer> keyMapper = Mapper.of(Integer.class);
-            return compute.submitColocated(TABLE_NAME, KEY, keyMapper, JobDescriptor.builder()
-                    .jobClassName(NoOpJob.class.getName())
-                    .build());
-        }
+        SUBMIT_COLOCATED_BY_KEY(compute -> compute.submitColocated(
+                TABLE_NAME, KEY, Mapper.of(Integer.class), JobDescriptor.builder(NoOpJob.class).build())
         ),
         SUBMIT_BROADCAST(compute -> compute
                 .submitBroadcast(justNonEntryNode(), JobDescriptor.builder(NoOpJob.class).build())

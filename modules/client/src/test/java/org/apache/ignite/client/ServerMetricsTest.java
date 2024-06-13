@@ -98,13 +98,7 @@ public class ServerMetricsTest extends AbstractClientTest {
 
         FakeCompute.latch = new CountDownLatch(1);
 
-        IgniteCompute igniteCompute = client.compute();
-        Set<ClusterNode> nodes = getClusterNodes("s1");
-        igniteCompute.submit(nodes, JobDescriptor.builder()
-                .jobClassName("job")
-                .units(List.of())
-                .options(DEFAULT)
-                .build());
+        client.compute().submit(getClusterNodes("s1"), JobDescriptor.builder("job").build());
 
         assertTrue(
                 IgniteTestUtils.waitForCondition(() -> testServer.metrics().requestsActive() == 1, 1000),
@@ -121,13 +115,7 @@ public class ServerMetricsTest extends AbstractClientTest {
     public void testRequestsProcessed() throws Exception {
         long processed = testServer.metrics().requestsProcessed();
 
-        IgniteCompute igniteCompute = client.compute();
-        Set<ClusterNode> nodes = getClusterNodes("s1");
-        igniteCompute.submit(nodes, JobDescriptor.builder()
-                .jobClassName("job")
-                .units(List.of())
-                .options(DEFAULT)
-                .build());
+        client.compute().submit(getClusterNodes("s1"), JobDescriptor.builder("job").build());
 
         assertTrue(
                 IgniteTestUtils.waitForCondition(() -> testServer.metrics().requestsProcessed() == processed + 1, 1000),
@@ -160,13 +148,7 @@ public class ServerMetricsTest extends AbstractClientTest {
         assertFalse(testServer.metrics().enabled());
         assertEquals(0, testServer.metrics().requestsProcessed());
 
-        IgniteCompute igniteCompute = client.compute();
-        Set<ClusterNode> nodes = getClusterNodes("s1");
-        igniteCompute.execute(nodes, JobDescriptor.builder()
-                .jobClassName("job")
-                .units(List.of())
-                .options(DEFAULT)
-                .build());
+        client.compute().execute(getClusterNodes("s1"), JobDescriptor.builder("job").build());
 
         assertEquals(0, testServer.metrics().requestsProcessed());
         assertFalse(testServer.metrics().enabled());
