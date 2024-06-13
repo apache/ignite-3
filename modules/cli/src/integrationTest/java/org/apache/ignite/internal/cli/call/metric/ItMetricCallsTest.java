@@ -35,7 +35,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /** Tests for metrics calls. */
-public class ItMetricCallsTest extends CliIntegrationTest {
+class ItMetricCallsTest extends CliIntegrationTest {
     private final UrlCallInput urlInput = new UrlCallInput(NODE_URL);
 
     @Inject
@@ -62,7 +62,7 @@ public class ItMetricCallsTest extends CliIntegrationTest {
     }
 
     @Test
-    @DisplayName("Should display metric sets list when cluster is up and running")
+    @DisplayName("Should display metric sets when cluster is up and running")
     void nodeMetricSetsListContainsAllMetrics() {
         // When
         CallOutput<List<MetricSet>> metricSetsOutput = nodeMetricSetListCall.execute(urlInput);
@@ -73,13 +73,16 @@ public class ItMetricCallsTest extends CliIntegrationTest {
         assertThat(metricSourcesOutput.hasError()).isFalse();
 
         // And
+        List<String> allMetricsSource =
+                metricSourcesOutput.body().stream().map(MetricSource::getName).collect(Collectors.toList());
         List<String> enabledMetrics =
                 metricSetsOutput.body().stream().map(MetricSet::getName).collect(Collectors.toList());
 
-        List<String> allMetrics =
-                metricSourcesOutput.body().stream().map(MetricSource::getName).collect(Collectors.toList());
+        assertThat(allMetricsSource).isNotEmpty();
+        assertThat(enabledMetrics).isNotEmpty();
 
-        assertThat(enabledMetrics).containsAll(allMetrics);
+        // Since all metrics are enabled by default, we must observe metric sets from all metric sources.
+        assertThat(enabledMetrics).containsAll(allMetricsSource);
     }
 
     @Test
