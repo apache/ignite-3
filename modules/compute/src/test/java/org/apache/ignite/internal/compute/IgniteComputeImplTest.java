@@ -143,11 +143,10 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
 
         JobExecutionOptions options = JobExecutionOptions.builder().priority(1).maxRetries(2).build();
         assertThat(
-                compute.executeAsync(singleton(localNode), JobDescriptor.builder()
-                        .jobClassName(JOB_CLASS_NAME)
-                        .units(testDeploymentUnits)
-                        .options(options)
-                        .build(), new Object[]{"a", 42}),
+                compute.executeAsync(
+                        singleton(localNode),
+                        JobDescriptor.builder(JOB_CLASS_NAME).units(testDeploymentUnits).options(options).build(),
+                        "a", 42),
                 willBe("jobResponse")
         );
 
@@ -162,11 +161,10 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
         JobExecutionOptions options = JobExecutionOptions.builder().priority(1).maxRetries(2).build();
 
         assertThat(
-                compute.executeAsync(singleton(remoteNode), JobDescriptor.builder()
-                        .jobClassName(JOB_CLASS_NAME)
-                        .units(testDeploymentUnits)
-                        .options(options)
-                        .build(), new Object[]{"a", 42}),
+                compute.executeAsync(
+                        singleton(remoteNode),
+                        JobDescriptor.builder(JOB_CLASS_NAME).units(testDeploymentUnits).options(options).build(),
+                        "a", 42),
                 willBe("remoteResponse")
         );
 
@@ -182,7 +180,7 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
                 compute.executeColocatedAsync(
                         "test",
                         Tuple.create(Map.of("k", 1)),
-                        JobDescriptor.builder().jobClassName(JOB_CLASS_NAME).units(testDeploymentUnits).build(),
+                        JobDescriptor.builder(JOB_CLASS_NAME).units(testDeploymentUnits).build(),
                         "a", 42),
                 willBe("remoteResponse")
         );
