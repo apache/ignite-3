@@ -264,7 +264,7 @@ public class NativeTypes {
         if (nanos == 0) {
             return 0;
         }
-        
+
         int trailingZeroes = 0;
         while (nanos % 10 == 0) {
             trailingZeroes++;
