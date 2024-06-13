@@ -22,13 +22,11 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverReplicaMessage;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
-import org.apache.ignite.internal.replicator.Replica;
-import org.apache.ignite.internal.replicator.ReplicaResult;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 
@@ -36,10 +34,9 @@ import org.apache.ignite.internal.replicator.message.ReplicaRequest;
  * Replica for the zone based partitions.
  */
 public class ZonePartitionReplicaImpl implements Replica {
+    private static final IgniteLogger LOG = Loggers.forClass(ZonePartitionReplicaImpl.class);
 
     private final ReplicationGroupId replicaGrpId;
-
-    private final ReplicaListener listener;
 
     private final Map<TablePartitionId, Replica> replicas = new ConcurrentHashMap<>();
 
@@ -48,7 +45,6 @@ public class ZonePartitionReplicaImpl implements Replica {
             ReplicaListener listener
     )  {
         this.replicaGrpId = replicaGrpId;
-        this.listener = listener;
     }
 
     @Override
@@ -59,9 +55,8 @@ public class ZonePartitionReplicaImpl implements Replica {
     @Override
     public CompletableFuture<ReplicaResult> processRequest(ReplicaRequest request, String senderId) {
         if (!(request.groupId() instanceof TablePartitionId)) {
-            System.out.println("KKK non table message " + request);
-            return listener.invoke(request, senderId);
-//            return replicas.get(request.groupId()).processRequest(request, senderId);
+            LOG.info("Non table request is not supported by the zone partition yet");
+            return nullCompletedFuture();
         }
 
         return replicas.get(request.groupId()).processRequest(request, senderId);
@@ -82,6 +77,12 @@ public class ZonePartitionReplicaImpl implements Replica {
         return nullCompletedFuture();
     }
 
+    /**
+     * Add table replica.
+     *
+     * @param partitionId Table partition id.
+     * @param replica Table replica.
+     */
     public void addReplica(TablePartitionId partitionId, Replica replica) {
         replicas.put(partitionId, replica);
     }

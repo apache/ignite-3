@@ -725,8 +725,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         CompletableFuture<ReplicaListener> newReplicaListenerFut = newRaftClientFut.thenApply(createListener);
 
-//        return CompletableFuture.allOf(resultFuture, startReplica(()).thenApply(() -> replica);
-
         return startReplica(replicaGrpId, storageIndexTracker, newReplicaListenerFut);
     }
 

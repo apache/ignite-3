@@ -995,7 +995,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             storageIndexTracker,
                             replicaGrpId,
                             newConfiguration).thenApply(r -> {
-                                // KKK races. must be replaced by replica return value
                                 partitionReplicaLifecycleManager
                                         .addTableReplica(
                                                 new ZonePartitionId(zoneId, partId),

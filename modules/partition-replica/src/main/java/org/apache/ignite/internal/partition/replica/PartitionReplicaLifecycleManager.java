@@ -41,7 +41,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutionException;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
@@ -236,30 +235,18 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
         }
     }
 
-    private Replica getReplica(ZonePartitionId zonePartitionId) {
-        CompletableFuture<Replica> replicaFut = replicaMgr.getReplica(zonePartitionId);
-        if (replicaFut == null) {
-            try {
-                Thread.sleep(100);
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
-            return getReplica(zonePartitionId);
-        }
-
-        try {
-            return replicaFut.get();
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        } catch (ExecutionException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
+    /**
+     * Add table replica to the aggregated zone replica
+     *
+     * @param zonePartitionId Zone partition id.
+     * @param replicationGroupId Table partition id.
+     * @param replica Table replica
+     * @return Future, which will be completed when operation done
+     */
     public CompletableFuture<Void> addTableReplica(ZonePartitionId zonePartitionId, TablePartitionId replicationGroupId, Replica replica) {
-        ((ZonePartitionReplicaImpl) getReplica(zonePartitionId)).addReplica(replicationGroupId, replica);
-        return nullCompletedFuture();
-//        return zoneReplica.thenAccept(zr -> ((ZonePartitionReplica) zr).addReplica(replicationGroupId, replica));
+        return replicaMgr
+                .replica(zonePartitionId)
+                .thenAccept(r -> ((ZonePartitionReplicaImpl) r).addReplica(replicationGroupId, replica));
     }
 
     /**
