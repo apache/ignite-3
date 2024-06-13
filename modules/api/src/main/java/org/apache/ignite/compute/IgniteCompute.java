@@ -133,9 +133,7 @@ public interface IgniteCompute {
      *
      * @param tableName Name of the table whose key is used to determine the node to execute the job on.
      * @param key Key that identifies the node to execute the job on.
-     * @param units Deployment units. Can be empty.
-     * @param jobClassName Name of the job class to execute.
-     * @param options Job execution options (priority, max retries).
+     * @param descriptor Job descriptor.
      * @param args Arguments of the job.
      * @param <R> Job result type.
      * @return Job result future.
@@ -143,16 +141,10 @@ public interface IgniteCompute {
     default <R> CompletableFuture<R> executeColocatedAsync(
             String tableName,
             Tuple key,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
+            JobDescriptor descriptor,
             Object... args
     ) {
-        return this.<R>submitColocated(tableName, key, JobDescriptor.builder()
-                .jobClassName(jobClassName)
-                .units(units)
-                .options(options)
-                .build(), args).resultAsync();
+        return this.<R>submitColocated(tableName, key, descriptor, args).resultAsync();
     }
 
     /**

@@ -168,8 +168,9 @@ class ItComputeApiThreadingTest extends ClusterPerClassIntegrationTest {
         EXECUTE_COLOCATED_BY_TUPLE_ASYNC(compute -> compute.executeColocatedAsync(
                 TABLE_NAME, KEY_TUPLE, List.of(), NoOpJob.class.getName()
         )),
-        EXECUTE_COLOCATED_BY_TUPLE_WITH_OPTIONS_ASYNC(compute -> compute.executeColocatedAsync(
-                TABLE_NAME, KEY_TUPLE, List.of(), NoOpJob.class.getName(), JobExecutionOptions.DEFAULT)
+        EXECUTE_COLOCATED_BY_TUPLE_WITH_OPTIONS_ASYNC(compute -> compute.executeColocatedAsync(TABLE_NAME, KEY_TUPLE, JobDescriptor.builder()
+                .jobClassName(NoOpJob.class.getName())
+                .build())
         ),
         EXECUTE_COLOCATED_BY_KEY_ASYNC(compute -> compute.executeColocatedAsync(
                 TABLE_NAME, KEY, Mapper.of(Integer.class), List.of(), NoOpJob.class.getName())

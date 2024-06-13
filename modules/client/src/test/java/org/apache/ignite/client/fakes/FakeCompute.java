@@ -162,7 +162,11 @@ public class FakeCompute implements IgniteComputeInternal {
             JobExecutionOptions options,
             Object... args
     ) {
-        return sync(executeColocatedAsync(tableName, key, units, jobClassName, options, args));
+        return sync(this.executeColocatedAsync(tableName, key, JobDescriptor.builder()
+                .jobClassName(jobClassName)
+                .units(units)
+                .options(options)
+                .build(), args));
     }
 
     /** {@inheritDoc} */
