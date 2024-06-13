@@ -97,6 +97,7 @@ import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaSafeTimeSyncRequest;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
 import org.apache.ignite.internal.thread.ExecutorChooser;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.internal.thread.ThreadAttributes;
@@ -184,6 +185,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     // TODO: IGNITE-20063 Maybe get rid of it
     private final ExecutorService executor;
 
+    private final ExecutorService replicasCreationExecutor;
+
     private String localNodeId;
 
     private String localNodeConsistentId;
@@ -250,6 +253,15 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 TimeUnit.SECONDS,
                 new LinkedBlockingQueue<>(),
                 NamedThreadFactory.create(nodeName, "replica", LOG)
+        );
+
+        replicasCreationExecutor = new ThreadPoolExecutor(
+                threadCount,
+                threadCount,
+                30,
+                TimeUnit.SECONDS,
+                new LinkedBlockingQueue<>(),
+                IgniteThreadFactory.create(nodeName, "replica-manager", LOG, STORAGE_READ, STORAGE_WRITE)
         );
     }
 
@@ -596,12 +608,11 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         LOG.info("Replica is about to start [replicationGroupId={}].", replicaGrpId);
 
         return newRaftClientFut
-                // TODO: will be removed in https://issues.apache.org/jira/browse/IGNITE-22218
-                .thenApply(raftClient -> {
+                .thenApplyAsync(raftClient -> {
+                    // TODO: will be removed in https://issues.apache.org/jira/browse/IGNITE-22218
                     updateTableRaftService.accept(raftClient);
-                    return raftClient;
-                })
-                .thenApply(createListener)
+                    return createListener.apply(raftClient);
+                }, replicasCreationExecutor)
                 .thenCompose(replicaListener -> startReplica(replicaGrpId, storageIndexTracker, replicaListener));
     }
 
@@ -834,6 +845,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         shutdownAndAwaitTermination(scheduledIdleSafeTimeSyncExecutor, shutdownTimeoutSeconds, TimeUnit.SECONDS);
         shutdownAndAwaitTermination(executor, shutdownTimeoutSeconds, TimeUnit.SECONDS);
+        shutdownAndAwaitTermination(replicasCreationExecutor, shutdownTimeoutSeconds, TimeUnit.SECONDS);
 
         assert replicas.values().stream().noneMatch(CompletableFuture::isDone)
                 : "There are replicas alive [replicas="
