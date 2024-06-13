@@ -136,7 +136,7 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
         CompletableFuture<Integer> result1 = igniteCompute1.executeAsync(nodes1, JobDescriptor.builder()
                 .jobClassName("org.apache.ignite.internal.compute.UnitJob")
                 .units(jobUnits)
-                .build(), new Object[]{});
+                .build());
         assertThat(result1, willBe(1));
 
         DeploymentUnit secondVersion = new DeploymentUnit("latest-unit", Version.parseVersion("1.0.1"));
@@ -147,7 +147,7 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
         CompletableFuture<String> result2 = igniteCompute.executeAsync(nodes, JobDescriptor.builder()
                 .jobClassName("org.apache.ignite.internal.compute.UnitJob")
                 .units(jobUnits)
-                .build(), new Object[]{});
+                .build());
         assertThat(result2, willBe("Hello World!"));
     }
 

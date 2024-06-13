@@ -372,7 +372,7 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
                         .jobClassName(InteractiveJobs.globalJob().name())
                         .units(List.of())
                         .options(DEFAULT)
-                        .build(), new Object[]{})
+                        .build())
         );
     }
 

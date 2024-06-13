@@ -371,7 +371,7 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
                 .jobClassName(BlockingJob.class.getName())
                 .units(List.of())
                 .options(DEFAULT)
-                .build(), new Object[]{});
+                .build());
     }
 
     private static void unblockJob() {

@@ -155,6 +155,6 @@ abstract class ItComputeErrorsBaseTest extends ClusterPerClassIntegrationTest {
                 .jobClassName(InteractiveJobs.globalJob().name())
                 .units(List.of())
                 .options(DEFAULT)
-                .build(), new Object[]{}));
+                .build()));
     }
 }

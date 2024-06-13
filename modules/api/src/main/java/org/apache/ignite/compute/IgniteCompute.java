@@ -225,56 +225,6 @@ public interface IgniteCompute {
      * @param <R> Job result type.
      * @param tableName Name of the table whose key is used to determine the node to execute the job on.
      * @param key Key that identifies the node to execute the job on.
-     * @param units Deployment units. Can be empty.
-     * @param jobClassName Name of the job class to execute.
-     * @param options Job execution options (priority, max retries).
-     * @param args Arguments of the job.
-     * @return Job result.
-     * @throws ComputeException If there is any problem executing the job.
-     */
-    default <R> R executeColocated(
-            String tableName,
-            Tuple key,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
-            Object... args) {
-        return executeColocated(tableName, key, JobDescriptor.builder(jobClassName)
-                .units(units)
-                .options(options)
-                .build(), args);
-    }
-
-    /**
-     * Executes a job of the given class on the node where the given key is located
-     * with default execution options {@link JobExecutionOptions#DEFAULT}.
-     * The node is a leader of the corresponding RAFT group.
-     *
-     * @param tableName Name of the table whose key is used to determine the node to execute the job on.
-     * @param key Key that identifies the node to execute the job on.
-     * @param units Deployment units. Can be empty.
-     * @param jobClassName Name of the job class to execute.
-     * @param args Arguments of the job.
-     * @param <R> Job result type.
-     * @return Job result.
-     * @throws ComputeException If there is any problem executing the job.
-     */
-    default <R> R executeColocated(
-            String tableName,
-            Tuple key,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            Object... args
-    ) {
-        return executeColocated(tableName, key, units, jobClassName, DEFAULT, args);
-    }
-
-    /**
-     * Executes a job of the given class on the node where the given key is located. The node is a leader of the corresponding RAFT group.
-     *
-     * @param <R> Job result type.
-     * @param tableName Name of the table whose key is used to determine the node to execute the job on.
-     * @param key Key that identifies the node to execute the job on.
      * @param keyMapper Mapper used to map the key to a binary representation.
      * @param units Deployment units. Can be empty.
      * @param jobClassName Name of the job class to execute.

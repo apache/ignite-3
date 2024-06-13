@@ -446,11 +446,11 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
         assertThat(compute().executeColocatedAsync(table.name(), t1, JobDescriptor.builder()
                 .jobClassName("job")
-                .build(), new Object[]{}), willBe(nodeKey1));
+                .build()), willBe(nodeKey1));
 
         assertThat(compute().executeColocatedAsync(table.name(), t2, JobDescriptor.builder()
                 .jobClassName("job")
-                .build(), new Object[]{}), willBe(nodeKey2));
+                .build()), willBe(nodeKey2));
     }
 
     @Test

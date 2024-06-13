@@ -19,7 +19,6 @@ package org.apache.ignite.client;
 
 import static org.apache.ignite.client.AbstractClientTest.getClient;
 import static org.apache.ignite.client.AbstractClientTest.getClusterNodes;
-import static org.apache.ignite.compute.JobExecutionOptions.DEFAULT;
 import static org.apache.ignite.compute.JobState.COMPLETED;
 import static org.apache.ignite.compute.JobState.FAILED;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
@@ -166,7 +165,7 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
         try (var client = getClient(server2)) {
             Tuple key = Tuple.create().set("key", "k");
 
-            String res1 = client.compute().executeColocated(TABLE_NAME, key, List.of(), "job");
+            String res1 = client.compute().executeColocated(TABLE_NAME, key, JobDescriptor.builder("job").build());
             String res2 = client.compute().executeColocated(TABLE_NAME, 1L, Mapper.of(Long.class), List.of(), "job");
 
             assertEquals("s2", res1);
@@ -229,7 +228,7 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
         try (var client = getClient(server3)) {
             Tuple key = Tuple.create().set("key", "k");
 
-            String res1 = client.compute().executeColocated(tableName, key, List.of(), "job");
+            String res1 = client.compute().executeColocated(tableName, key, JobDescriptor.builder("job").build());
 
             // Drop table and create a new one with a different ID.
             ((FakeIgniteTables) ignite.tables()).dropTable(tableName);
