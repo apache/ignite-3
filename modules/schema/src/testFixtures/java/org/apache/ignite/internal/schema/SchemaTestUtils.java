@@ -70,8 +70,8 @@ public final class SchemaTestUtils {
             NativeTypes.decimalOf(25, 5),
             NativeTypes.bitmaskOf(22),
             NativeTypes.time(0),
-            NativeTypes.datetime(6),
-            NativeTypes.timestamp(6),
+            NativeTypes.datetime(3),
+            NativeTypes.timestamp(3),
             NativeTypes.BYTES,
             NativeTypes.STRING);
 
@@ -181,9 +181,9 @@ public final class SchemaTestUtils {
             case TIME:
                 return NativeTypes.time(0);
             case DATETIME:
-                return NativeTypes.datetime(6);
+                return NativeTypes.datetime(3);
             case TIMESTAMP:
-                return NativeTypes.timestamp(6);
+                return NativeTypes.timestamp(3);
             case NUMBER:
                 return NativeTypes.numberOf(10);
             case STRING:

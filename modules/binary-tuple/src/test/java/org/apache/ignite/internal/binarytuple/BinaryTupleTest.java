@@ -502,7 +502,7 @@ public class BinaryTupleTest {
     @Test
     public void timeTest() {
         LocalTime now = LocalTime.now();
-        LocalTime value = now.withNano(NativeTypes.truncateTimeNanosToMillis(now.getNano()));
+        LocalTime value = now.withNano(NativeTypes.truncateNanosRetainingMillis(now.getNano()));
 
         {
             BinaryTupleBuilder builder = new BinaryTupleBuilder(1);
@@ -563,7 +563,7 @@ public class BinaryTupleTest {
     @Test
     public void dateTimeTest() {
         LocalDateTime now = LocalDateTime.now();
-        LocalDateTime value = now.withNano(NativeTypes.truncateTimeNanosToMillis(now.getNano()));
+        LocalDateTime value = now.withNano(NativeTypes.truncateNanosRetainingMillis(now.getNano()));
 
         {
             BinaryTupleBuilder builder = new BinaryTupleBuilder(1);
@@ -620,7 +620,7 @@ public class BinaryTupleTest {
     @Test
     public void timestampTest() {
         Instant now = Instant.now();
-        Instant value = Instant.ofEpochSecond(now.getEpochSecond(), NativeTypes.truncateTimeNanosToMillis(now.getNano()));
+        Instant value = Instant.ofEpochSecond(now.getEpochSecond(), NativeTypes.truncateNanosRetainingMillis(now.getNano()));
 
         {
             BinaryTupleBuilder builder = new BinaryTupleBuilder(1);

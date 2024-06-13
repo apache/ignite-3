@@ -37,6 +37,10 @@ public class NativeTypes {
      */
     public static final int MAX_TIME_PRECISION = 3;
 
+    private static final int NANO_SCALE = 9;
+
+    private static final int MILLIS_IN_NANOS = 1_000_000;
+
     /**
      * BOOLEAN type.
      */
@@ -254,21 +258,23 @@ public class NativeTypes {
         }
     }
 
-    private static int derivePrecisionFromNanos(int nanos) {
+    private static int derivePrecisionFromNanos(int value) {
+        int nanos = truncateNanosRetainingMillis(value);
+
         if (nanos == 0) {
             return 0;
         }
-
+        
         int trailingZeroes = 0;
         while (nanos % 10 == 0) {
             trailingZeroes++;
             nanos /= 10;
         }
 
-        return MAX_TIME_PRECISION - trailingZeroes;
+        return NANO_SCALE - trailingZeroes;
     }
     
-    public static int truncateTimeNanosToMillis(int nanos) {
-        return (nanos / 1_000_000) * 1_000_000;
+    public static int truncateNanosRetainingMillis(int nanos) {
+        return (nanos / MILLIS_IN_NANOS) * MILLIS_IN_NANOS;
     }
 }

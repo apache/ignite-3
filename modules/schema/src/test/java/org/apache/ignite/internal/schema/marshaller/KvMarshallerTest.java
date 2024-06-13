@@ -873,8 +873,8 @@ public class KvMarshallerTest {
 
                 new Column("dateCol".toUpperCase(), DATE, nullable),
                 new Column("timeCol".toUpperCase(), time(0), nullable),
-                new Column("dateTimeCol".toUpperCase(), datetime(6), nullable),
-                new Column("timestampCol".toUpperCase(), timestamp(6), nullable),
+                new Column("dateTimeCol".toUpperCase(), datetime(3), nullable),
+                new Column("timestampCol".toUpperCase(), timestamp(3), nullable),
 
                 new Column("uuidCol".toUpperCase(), UUID, nullable),
                 new Column("bitmaskCol".toUpperCase(), NativeTypes.bitmaskOf(42), nullable),

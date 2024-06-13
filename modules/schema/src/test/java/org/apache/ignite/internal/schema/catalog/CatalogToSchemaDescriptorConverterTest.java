@@ -54,7 +54,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 public class CatalogToSchemaDescriptorConverterTest extends AbstractSchemaConverterTest {
     private static final int TEST_LENGTH = 15;
 
-    private static final int TEST_PRECISION = 8;
+    private static final int TEST_PRECISION = 2;
 
     private static final int TEST_SCALE = 5;
 

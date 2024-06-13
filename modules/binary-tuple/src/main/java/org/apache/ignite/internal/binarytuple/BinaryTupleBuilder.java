@@ -504,7 +504,7 @@ public class BinaryTupleBuilder {
      */
     public BinaryTupleBuilder appendTimestampNotNull(Instant value) {
         long seconds = value.getEpochSecond();
-        int nanos = NativeTypes.truncateTimeNanosToMillis(value.getNano());
+        int nanos = NativeTypes.truncateNanosRetainingMillis(value.getNano());
         putLong(seconds);
         if (nanos != 0) {
             putInt(nanos);
@@ -782,8 +782,7 @@ public class BinaryTupleBuilder {
         long hour = value.getHour();
         long minute = value.getMinute();
         long second = value.getSecond();
-//        long nanos = (value.getNano() / MAX_TIME_PRECISION) * MAX_TIME_PRECISION;
-        long nanos = NativeTypes.truncateTimeNanosToMillis(value.getNano());
+        long nanos = NativeTypes.truncateNanosRetainingMillis(value.getNano());
 
         if ((nanos % 1000) != 0) {
             long time = (hour << 42) | (minute << 36) | (second << 30) | nanos;
