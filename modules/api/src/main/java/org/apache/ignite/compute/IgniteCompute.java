@@ -199,11 +199,7 @@ public interface IgniteCompute {
             String jobClassName,
             Object... args
     ) {
-        return this.<K, R>submitColocated(tableName, key, keyMapper, JobDescriptor.builder()
-                .jobClassName(jobClassName)
-                .units(units)
-                .options(DEFAULT)
-                .build(), args).resultAsync();
+        return this.<K, R>submitColocated(tableName, key, keyMapper, JobDescriptor.builder(jobClassName).units(units).build(), args).resultAsync();
     }
 
     /**

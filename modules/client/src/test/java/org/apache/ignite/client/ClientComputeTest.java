@@ -95,25 +95,13 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
 
             IgniteCompute igniteCompute2 = client.compute();
             Set<ClusterNode> nodes2 = getClusterNodes("s1");
-            JobExecution<String> execution1 = igniteCompute2.submit(nodes2, JobDescriptor.builder()
-                    .jobClassName("job")
-                    .units(List.of())
-                    .options(DEFAULT)
-                    .build(), new Object[]{});
+            JobExecution<String> execution1 = igniteCompute2.submit(nodes2, JobDescriptor.builder("job").build());
             IgniteCompute igniteCompute1 = client.compute();
             Set<ClusterNode> nodes1 = getClusterNodes("s2");
-            JobExecution<String> execution2 = igniteCompute1.submit(nodes1, JobDescriptor.builder()
-                    .jobClassName("job")
-                    .units(List.of())
-                    .options(DEFAULT)
-                    .build(), new Object[]{});
+            JobExecution<String> execution2 = igniteCompute1.submit(nodes1, JobDescriptor.builder("job").build());
             IgniteCompute igniteCompute = client.compute();
             Set<ClusterNode> nodes = getClusterNodes("s3");
-            JobExecution<String> execution3 = igniteCompute.submit(nodes, JobDescriptor.builder()
-                    .jobClassName("job")
-                    .units(List.of())
-                    .options(DEFAULT)
-                    .build(), new Object[]{});
+            JobExecution<String> execution3 = igniteCompute.submit(nodes, JobDescriptor.builder("job").build());
 
             assertThat(execution1.resultAsync(), willBe("s1"));
             assertThat(execution2.resultAsync(), willBe("s2"));
@@ -132,25 +120,13 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
         try (var client = getClient(server3)) {
             IgniteCompute igniteCompute2 = client.compute();
             Set<ClusterNode> nodes2 = getClusterNodes("s1");
-            JobExecution<String> execution1 = igniteCompute2.submit(nodes2, JobDescriptor.builder()
-                    .jobClassName("job")
-                    .units(List.of())
-                    .options(DEFAULT)
-                    .build(), new Object[]{});
+            JobExecution<String> execution1 = igniteCompute2.submit(nodes2, JobDescriptor.builder("job").build());
             IgniteCompute igniteCompute1 = client.compute();
             Set<ClusterNode> nodes1 = getClusterNodes("s2");
-            JobExecution<String> execution2 = igniteCompute1.submit(nodes1, JobDescriptor.builder()
-                    .jobClassName("job")
-                    .units(List.of())
-                    .options(DEFAULT)
-                    .build(), new Object[]{});
+            JobExecution<String> execution2 = igniteCompute1.submit(nodes1, JobDescriptor.builder("job").build());
             IgniteCompute igniteCompute = client.compute();
             Set<ClusterNode> nodes = getClusterNodes("s3");
-            JobExecution<String> execution3 = igniteCompute.submit(nodes, JobDescriptor.builder()
-                    .jobClassName("job")
-                    .units(List.of())
-                    .options(DEFAULT)
-                    .build(), new Object[]{});
+            JobExecution<String> execution3 = igniteCompute.submit(nodes, JobDescriptor.builder("job").build());
 
             assertThat(execution1.resultAsync(), willBe("s3"));
             assertThat(execution2.resultAsync(), willBe("s3"));
@@ -176,7 +152,7 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
                 CompletableFuture<String> fut = igniteCompute.executeAsync(nodes, JobDescriptor.builder()
                         .jobClassName("job")
                         .units(List.of())
-                        .build(), new Object[]{});
+                        .build());
 
                 assertThat(fut, willBe("s3"));
             }
@@ -208,13 +184,13 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
             IgniteCompute igniteCompute = client.compute();
             JobExecution<String> execution1 = igniteCompute.submitColocated(TABLE_NAME, key, JobDescriptor.builder()
                     .jobClassName("job")
-                    .build(), new Object[]{});
+                    .build());
 
             IgniteCompute igniteCompute1 = client.compute();
             Mapper<Long> keyMapper = Mapper.of(Long.class);
             JobExecution<String> execution2 = igniteCompute1.submitColocated(TABLE_NAME, 1L, keyMapper, JobDescriptor.builder()
                     .jobClassName("job")
-                    .build(), new Object[]{});
+                    .build());
 
             assertThat(execution1.resultAsync(), willBe("s2"));
             assertThat(execution2.resultAsync(), willBe("s2"));
@@ -334,11 +310,7 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
     private static String getUnits(IgniteClient client, List<DeploymentUnit> units) {
         IgniteCompute igniteCompute = client.compute();
         Set<ClusterNode> nodes = getClusterNodes("s1");
-        return igniteCompute.execute(nodes, JobDescriptor.builder()
-                .jobClassName(FakeCompute.GET_UNITS)
-                .units(units)
-                .options(DEFAULT)
-                .build(), new Object[]{});
+        return igniteCompute.execute(nodes, JobDescriptor.builder(FakeCompute.GET_UNITS).units(units).build());
     }
 
     @Test
@@ -350,11 +322,7 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
 
             IgniteCompute igniteCompute = client.compute();
             Set<ClusterNode> nodes = getClusterNodes("s1");
-            JobExecution<String> execution = igniteCompute.submit(nodes, JobDescriptor.builder()
-                    .jobClassName("job")
-                    .units(List.of())
-                    .options(DEFAULT)
-                    .build(), new Object[]{});
+            JobExecution<String> execution = igniteCompute.submit(nodes, JobDescriptor.builder("job").build());
 
             assertThat(execution.resultAsync(), willThrowFast(IgniteException.class));
             assertThat(execution.statusAsync(), willBe(jobStatusWithState(FAILED)));
