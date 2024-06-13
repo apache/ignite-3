@@ -20,7 +20,6 @@ package org.apache.ignite.compute;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
-import static org.apache.ignite.compute.JobExecutionOptions.DEFAULT;
 
 import java.util.HashMap;
 import java.util.List;
