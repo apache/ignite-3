@@ -117,16 +117,8 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     @Test
     void testExecuteOnSpecificNode() {
-        IgniteCompute igniteCompute1 = client().compute();
-        Set<ClusterNode> nodes1 = Set.of(node(0));
-        String res1 = igniteCompute1.execute(nodes1, JobDescriptor.builder(NodeNameJob.class).build());
-        IgniteCompute igniteCompute = client().compute();
-        Set<ClusterNode> nodes = Set.of(node(1));
-        String res2 = igniteCompute.execute(nodes, JobDescriptor.builder()
-                .jobClassName(NodeNameJob.class.getName())
-                .units(List.of())
-                .options(DEFAULT)
-                .build());
+        String res1 = client().compute().execute(Set.of(node(0)), JobDescriptor.builder(NodeNameJob.class).build());
+        String res2 = client().compute().execute(Set.of(node(1)), JobDescriptor.builder(NodeNameJob.class).build());
 
         assertEquals("itcct_n_3344", res1);
         assertEquals("itcct_n_3345", res2);
@@ -134,12 +126,8 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     @Test
     void testExecuteOnSpecificNodeAsync() {
-        IgniteCompute igniteCompute1 = client().compute();
-        Set<ClusterNode> nodes1 = Set.of(node(0));
-        JobExecution<String> execution1 = igniteCompute1.submit(nodes1, JobDescriptor.builder(NodeNameJob.class).build());
-        IgniteCompute igniteCompute = client().compute();
-        Set<ClusterNode> nodes = Set.of(node(1));
-        JobExecution<String> execution2 = igniteCompute.submit(nodes, JobDescriptor.builder(NodeNameJob.class).build());
+        JobExecution<String> execution1 = client().compute().submit(Set.of(node(0)), JobDescriptor.builder(NodeNameJob.class).build());
+        JobExecution<String> execution2 = client().compute().submit(Set.of(node(1)), JobDescriptor.builder(NodeNameJob.class).build());
 
         assertThat(execution1.resultAsync(), willBe("itcct_n_3344"));
         assertThat(execution2.resultAsync(), willBe("itcct_n_3345"));
@@ -150,9 +138,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     @Test
     void testCancellingCompletedJob() {
-        IgniteCompute igniteCompute = client().compute();
-        Set<ClusterNode> nodes = Set.of(node(0));
-        JobExecution<String> execution = igniteCompute.submit(nodes, JobDescriptor.builder(NodeNameJob.class).build());
+        JobExecution<String> execution = client().compute().submit(Set.of(node(0)), JobDescriptor.builder(NodeNameJob.class).build());
 
         assertThat(execution.resultAsync(), willBe("itcct_n_3344"));
 
@@ -163,9 +149,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     @Test
     void testChangingPriorityCompletedJob() {
-        IgniteCompute igniteCompute = client().compute();
-        Set<ClusterNode> nodes = Set.of(node(0));
-        JobExecution<String> execution = igniteCompute.submit(nodes, JobDescriptor.builder(NodeNameJob.class).build());
+        JobExecution<String> execution = client().compute().submit(Set.of(node(0)), JobDescriptor.builder(NodeNameJob.class).build());
 
         assertThat(execution.resultAsync(), willBe("itcct_n_3344"));
 
@@ -177,20 +161,10 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     @Test
     void testCancelOnSpecificNodeAsync() {
         int sleepMs = 1_000_000;
-        IgniteCompute igniteCompute1 = client().compute();
-        Set<ClusterNode> nodes1 = Set.of(node(0));
-        JobExecution<String> execution1 = igniteCompute1.submit(nodes1, JobDescriptor.builder()
-                .jobClassName(SleepJob.class.getName())
-                .units(List.of())
-                .options(DEFAULT)
-                .build(), new Object[]{sleepMs});
-        IgniteCompute igniteCompute = client().compute();
-        Set<ClusterNode> nodes = Set.of(node(1));
-        JobExecution<String> execution2 = igniteCompute.submit(nodes, JobDescriptor.builder()
-                .jobClassName(SleepJob.class.getName())
-                .units(List.of())
-                .options(DEFAULT)
-                .build(), new Object[]{sleepMs});
+        JobDescriptor sleepJob = JobDescriptor.builder(SleepJob.class).build();
+
+        JobExecution<String> execution1 = client().compute().submit(Set.of(node(0)), sleepJob, sleepMs);
+        JobExecution<String> execution2 = client().compute().submit(Set.of(node(1)), sleepJob, sleepMs);
 
         await().until(execution1::statusAsync, willBe(jobStatusWithState(EXECUTING)));
         await().until(execution2::statusAsync, willBe(jobStatusWithState(EXECUTING)));
