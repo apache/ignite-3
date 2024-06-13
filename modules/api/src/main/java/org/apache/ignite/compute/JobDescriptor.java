@@ -119,25 +119,43 @@ public class JobDescriptor {
         }
 
         /**
+         * Sets the deployment units.
          *
-         * @param units
-         * @return
+         * @param units Deployment units.
+         * @return This builder.
          */
         public Builder units(List<DeploymentUnit> units) {
             this.units = units;
             return this;
         }
 
+        /**
+         * Sets the deployment units.
+         *
+         * @param units Deployment units.
+         * @return This builder.
+         */
         public Builder units(DeploymentUnit... units) {
             this.units = List.of(units);
             return this;
         }
 
+        /**
+         * Sets the job execution options.
+         *
+         * @param options Job execution options.
+         * @return This builder.
+         */
         public Builder options(JobExecutionOptions options) {
             this.options = options;
             return this;
         }
 
+        /**
+         * Builds the job descriptor.
+         *
+         * @return Job descriptor.
+         */
         public JobDescriptor build() {
             Objects.requireNonNull(jobClassName, "Job class name must be set");
 
