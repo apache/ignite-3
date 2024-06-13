@@ -38,7 +38,7 @@ import static org.mockito.Mockito.when;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -130,7 +130,7 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
                 raftGroupServiceFactory,
                 raftManager,
                 volatileLogStorageFactoryCreator,
-                Executors.newSingleThreadExecutor()
+                ForkJoinPool.commonPool()
         );
 
         assertThat(replicaManager.startAsync(new ComponentContext()), willCompleteSuccessfully());

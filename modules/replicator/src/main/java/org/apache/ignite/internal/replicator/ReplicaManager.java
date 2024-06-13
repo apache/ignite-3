@@ -195,9 +195,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
     private final ReplicaLifecycle replicaLifecycle;
 
-    private String localNodeId;
+    private volatile String localNodeId;
 
-    private String localNodeConsistentId;
+    private volatile String localNodeConsistentId;
 
     /**
      * Constructor for a replica service.
@@ -642,7 +642,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     executor,
                     placementDriver,
                     clockService,
-                    this
+                    replicaLifecycle::reserveReplica
             );
 
             return replicas.compute(replicaGrpId, (k, existingReplicaFuture) -> {
@@ -1022,18 +1022,22 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     }
 
     /**
-     * Can possibly start replica if it's not running or is stopping.
+     * Can possibly start replica if it's not running or is stopping. Nothing happens if the replica is already running
+     * ({@link ReplicaState#ASSIGNED} or {@link ReplicaState#PRIMARY_ONLY}) and {@code forcedAssignments} is {@code null}.
+     * If the replica is {@link ReplicaState#ASSIGNED} and {@code forcedAssignments} is not {@code null} then peers will be
+     * reset to the given assignments. See {@link ReplicaState} for exact replica state transitions.
      *
      * @param groupId Group id.
-     * @param startOperation Replica start operation.
+     * @param startOperation Replica start operation. Will be called if this method decides to start the replica.
      * @param forcedAssignments Assignments to reset forcibly, if needed. Assignments reset is only available when replica is started.
+     * @return Completable future, the result means whether the replica was started.
      */
-    public CompletableFuture<Boolean> weakReplicaStart(
+    public CompletableFuture<Boolean> weakStartReplica(
             ReplicationGroupId groupId,
             Supplier<CompletableFuture<Boolean>> startOperation,
             @Nullable Assignments forcedAssignments
     ) {
-        return replicaLifecycle.weakReplicaStart(groupId, startOperation, forcedAssignments);
+        return replicaLifecycle.weakStartReplica(groupId, startOperation, forcedAssignments);
     }
 
     /**
@@ -1041,27 +1045,19 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * the reason is {@link WeakReplicaStopReason#EXCLUDED_FROM_ASSIGNMENTS} then the replica can be not stopped if it is still
      * a primary. If the reason is {@link WeakReplicaStopReason#PRIMARY_EXPIRED} then the replica is stopped only if its state
      * is {@link ReplicaState#PRIMARY_ONLY}, because this assumes that it was excluded from assignments before.
+     * See {@link ReplicaState} for exact replica state transitions.
      *
      * @param groupId Group id.
      * @param reason Reason to stop replica.
      * @param stopOperation Replica stop operation.
+     * @return Completable future, the result means whether the replica was stopped.
      */
-    public CompletableFuture<Void> weakReplicaStop(
+    public CompletableFuture<Void> weakStopReplica(
             ReplicationGroupId groupId,
             WeakReplicaStopReason reason,
             Supplier<CompletableFuture<Void>> stopOperation
     ) {
-        return replicaLifecycle.weakReplicaStop(groupId, reason, stopOperation);
-    }
-
-    /**
-     * Reserve replica as primary.
-     *
-     * @param groupId Group id.
-     * @return Whether the replica was successfully reserved.
-     */
-    boolean reserveReplica(ReplicationGroupId groupId) {
-        return replicaLifecycle.reserveReplica(groupId);
+        return replicaLifecycle.weakStopReplica(groupId, reason, stopOperation);
     }
 
     /**
@@ -1106,10 +1102,14 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         final ReplicaManager replicaManager;
 
-        String localNodeId;
+        volatile String localNodeId;
 
-        ReplicaLifecycle(Executor replicaStartStopPool, ClockService clockService, PlacementDriver placementDriver,
-                ReplicaManager replicaManager) {
+        ReplicaLifecycle(
+                Executor replicaStartStopPool,
+                ClockService clockService,
+                PlacementDriver placementDriver,
+                ReplicaManager replicaManager
+        ) {
             this.replicaStartStopPool = replicaStartStopPool;
             this.clockService = clockService;
             this.placementDriver = placementDriver;
@@ -1123,19 +1123,20 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         }
 
         private CompletableFuture<Boolean> onPrimaryElected(PrimaryReplicaEventParameters parameters) {
-            ReplicaLifecycleContext context = getContext(parameters.groupId());
+            ReplicationGroupId groupId = parameters.groupId();
+            ReplicaLifecycleContext context = getContext(groupId);
 
             synchronized (context) {
                 if (localNodeId.equals(parameters.leaseholderId())) {
                     assert context.replicaState != ReplicaState.STOPPED : "Unexpected primary replica state STOPPED [groupId="
-                            + parameters.groupId() + "].";
+                            + groupId + "].";
 
-                    context.reservedForPrimary = true;
+                    assert context.reservedForPrimary : "Replica is elected as primary but not reserved [groupId=" + groupId + "].";
                 } else {
                     context.reservedForPrimary = false;
 
                     if (context.replicaState == ReplicaState.PRIMARY_ONLY) {
-                        stopReplica(parameters.groupId(), context, context.deferredStopOperation);
+                        stopReplica(groupId, context, context.deferredStopOperation);
                     }
                 }
             }
@@ -1169,8 +1170,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
          * @param groupId Group id.
          * @param startOperation Replica start operation.
          * @param forcedAssignments Assignments to reset forcibly, if needed. Assignments reset is only available when replica is started.
+         * @return Completable future, the result means whether the replica was started.
          */
-        CompletableFuture<Boolean> weakReplicaStart(
+        CompletableFuture<Boolean> weakStartReplica(
                 ReplicationGroupId groupId,
                 Supplier<CompletableFuture<Boolean>> startOperation,
                 @Nullable Assignments forcedAssignments
@@ -1239,8 +1241,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
          * @param groupId Group id.
          * @param reason Reason to stop replica.
          * @param stopOperation Replica stop operation.
+         * @return Completable future, the result means whether the replica was stopped.
          */
-        CompletableFuture<Void> weakReplicaStop(
+        CompletableFuture<Void> weakStopReplica(
                 ReplicationGroupId groupId,
                 WeakReplicaStopReason reason,
                 Supplier<CompletableFuture<Void>> stopOperation
@@ -1309,6 +1312,12 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             return context.previousOperationFuture.thenApply(v -> null);
         }
 
+        /**
+         * Reserve replica as primary.
+         *
+         * @param groupId Group id.
+         * @return Whether the replica was successfully reserved.
+         */
         boolean reserveReplica(ReplicationGroupId groupId) {
             ReplicaLifecycleContext context = getContext(groupId);
 
@@ -1353,7 +1362,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         /**
          * Whether the replica is reserved to serve as a primary even if it is not included into assignments. If it is {@code} true,
-         * then {@link #weakReplicaStop(ReplicationGroupId, WeakReplicaStopReason, Supplier)} transfers {@link ReplicaState#ASSIGNED}
+         * then {@link #weakStopReplica(ReplicationGroupId, WeakReplicaStopReason, Supplier)} transfers {@link ReplicaState#ASSIGNED}
          * to {@link ReplicaState#PRIMARY_ONLY} instead of {@link ReplicaState#STOPPING}.
          * Replica is reserved when it is primary and when it is in progress of lease negotiation. The negotiation moves this flag to
          * {@code true}. Primary replica expiration or the election of different node as a leaseholder moves this flag to {@code false}.
@@ -1377,7 +1386,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * <br>
      * Transitions:
      * <br>
-     * On {@link #weakReplicaStart(ReplicationGroupId, Supplier, Assignments)} (this assumes that the replica is included into assignments):
+     * On {@link #weakStartReplica(ReplicationGroupId, Supplier, Assignments)} (this assumes that the replica is included into assignments):
      * <ul>
      *     <li>if {@link #ASSIGNED}: next state is {@link #ASSIGNED};</li>
      *     <li>if {@link #PRIMARY_ONLY}: next state is {@link #ASSIGNED};</li>
@@ -1385,7 +1394,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      *         completes;</li>
      *     <li>if {@link #STARTING}: produces {@link AssertionError}.</li>
      * </ul>
-     * On {@link #weakReplicaStop(ReplicationGroupId, WeakReplicaStopReason, Supplier)} the next state also depends on given
+     * On {@link #weakStopReplica(ReplicationGroupId, WeakReplicaStopReason, Supplier)} the next state also depends on given
      * {@link WeakReplicaStopReason}:
      * <ul>
      *     <li>if {@link WeakReplicaStopReason#EXCLUDED_FROM_ASSIGNMENTS}:</li>

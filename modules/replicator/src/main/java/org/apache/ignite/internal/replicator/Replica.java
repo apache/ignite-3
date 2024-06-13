@@ -28,6 +28,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
@@ -94,7 +95,7 @@ public class Replica {
 
     private final ClockService clockService;
 
-    private final ReplicaManager replicaManager;
+    private final Function<ReplicationGroupId, Boolean> replicaReservationClosure;
 
     /**
      * The constructor of a replica server.
@@ -106,6 +107,8 @@ public class Replica {
      * @param executor External executor.
      * @param placementDriver Placement driver.
      * @param clockService Clock service.
+     * @param replicaReservationClosure Closure that will be called to reserve the replica for becoming primary. It returns whether
+     *     the reservation was successful.
      */
     public Replica(
             ReplicationGroupId replicaGrpId,
@@ -115,7 +118,7 @@ public class Replica {
             ExecutorService executor,
             PlacementDriver placementDriver,
             ClockService clockService,
-            ReplicaManager replicaManager
+            Function<ReplicationGroupId, Boolean> replicaReservationClosure
     ) {
         this.replicaGrpId = replicaGrpId;
         this.listener = listener;
@@ -125,7 +128,7 @@ public class Replica {
         this.executor = executor;
         this.placementDriver = placementDriver;
         this.clockService = clockService;
-        this.replicaManager = replicaManager;
+        this.replicaReservationClosure = replicaReservationClosure;
 
         raftClient.subscribeLeader(this::onLeaderElected);
     }
@@ -292,7 +295,7 @@ public class Replica {
     private CompletableFuture<Void> waitForActualState(long expirationTime) {
         LOG.info("Waiting for actual storage state, group=" + groupId());
 
-        if (!replicaManager.reserveReplica(groupId())) {
+        if (!replicaReservationClosure.apply(groupId())) {
             throw new IllegalStateException("Replica reservation failed [groupId=" + groupId() + "].");
         }
 
@@ -304,17 +307,6 @@ public class Replica {
         return retryOperationUntilSuccess(raftClient::readIndex, e -> currentTimeMillis() > expirationTime, executor)
                 .orTimeout(timeout, TimeUnit.MILLISECONDS)
                 .thenCompose(storageIndexTracker::waitFor);
-    }
-
-    /**
-     * Returns consistent id of the most convenient primary node.
-     *
-     * @return Node consistent id.
-     */
-    public String proposedPrimary() {
-        Peer leased = raftClient.leader();
-
-        return leased != null ? leased.consistentId() : localNode.name();
     }
 
     /**

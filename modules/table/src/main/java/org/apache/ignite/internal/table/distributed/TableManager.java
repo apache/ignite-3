@@ -619,7 +619,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         if (topologyService.localMember().id().equals(parameters.leaseholderId())) {
             TablePartitionId groupId = (TablePartitionId) parameters.groupId();
 
-            replicaMgr.weakReplicaStop(
+            replicaMgr.weakStopReplica(
                     groupId,
                     WeakReplicaStopReason.PRIMARY_EXPIRED,
                     () -> stopAndDestroyPartition(groupId, tablesVv.latestCausalityToken())
@@ -956,7 +956,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     ? nonStableNodeAssignments
                     : null;
 
-            startGroupFut = replicaMgr.weakReplicaStart(
+            startGroupFut = replicaMgr.weakStartReplica(
                     replicaGrpId,
                     () -> shouldStartGroupFut.thenComposeAsync(startGroup -> inBusyLock(busyLock, () -> {
                         // (1) if partitionReplicatorNodeRecovery#shouldStartGroup fails -> do start nothing
@@ -2287,7 +2287,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private CompletableFuture<Void> weakStopAndDestroyPartition(TablePartitionId tablePartitionId, long causalityToken) {
-        return replicaMgr.weakReplicaStop(
+        return replicaMgr.weakStopReplica(
                 tablePartitionId,
                 WeakReplicaStopReason.EXCLUDED_FROM_ASSIGNMENTS,
                 () -> stopAndDestroyPartition(tablePartitionId, causalityToken)
@@ -2307,14 +2307,14 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     /**
      * Stops all resources associated with a given partition, like replicas and partition trackers. Calls
-     * {@link ReplicaManager#weakReplicaStop} in order to change the replica state.
+     * {@link ReplicaManager#weakStopReplica} in order to change the replica state.
      *
      * @param tablePartitionId Partition ID.
      * @param table Table which this partition belongs to.
      * @return Future that will be completed after all resources have been closed.
      */
     private CompletableFuture<Void> stopPartitionForRestart(TablePartitionId tablePartitionId, TableImpl table) {
-        return replicaMgr.weakReplicaStop(tablePartitionId, WeakReplicaStopReason.RESTART, () -> stopPartition(tablePartitionId, table));
+        return replicaMgr.weakStopReplica(tablePartitionId, WeakReplicaStopReason.RESTART, () -> stopPartition(tablePartitionId, table));
     }
 
     /**

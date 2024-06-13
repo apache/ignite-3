@@ -120,10 +120,6 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
         var listener = mock(ReplicaListener.class);
         when(listener.raftClient()).thenReturn(raftClient);
 
-        ReplicaManager replicaManager = mock(ReplicaManager.class);
-
-        when(replicaManager.reserveReplica(any())).thenAnswer(inv -> reservationSuccess);
-
         return new Replica(
                 GRP_ID,
                 listener,
@@ -132,7 +128,7 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
                 executor,
                 new TestPlacementDriver(LOCAL_NODE),
                 new TestClockService(new HybridClockImpl()),
-                replicaManager
+                unused -> reservationSuccess
         );
     }
 
