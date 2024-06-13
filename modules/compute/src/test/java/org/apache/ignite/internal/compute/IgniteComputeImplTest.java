@@ -111,10 +111,10 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
         respondWhenExecutingSimpleJobLocally(ExecutionOptions.DEFAULT);
 
         assertThat(
-                compute.executeAsync(singleton(localNode), JobDescriptor.builder()
-                        .jobClassName(JOB_CLASS_NAME)
-                        .units(testDeploymentUnits)
-                        .build(), new Object[]{"a", 42}),
+                compute.executeAsync(
+                        singleton(localNode),
+                        JobDescriptor.builder(JOB_CLASS_NAME).units(testDeploymentUnits).build(),
+                        "a", 42),
                 willBe("jobResponse")
         );
 
@@ -126,10 +126,10 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
         respondWhenExecutingSimpleJobRemotely(ExecutionOptions.DEFAULT);
 
         assertThat(
-                compute.executeAsync(singleton(remoteNode), JobDescriptor.builder()
-                        .jobClassName(JOB_CLASS_NAME)
-                        .units(testDeploymentUnits)
-                        .build(), new Object[]{"a", 42}),
+                compute.executeAsync(
+                        singleton(remoteNode),
+                        JobDescriptor.builder(JOB_CLASS_NAME).units(testDeploymentUnits).build(),
+                        "a", 42),
                 willBe("remoteResponse")
         );
 
