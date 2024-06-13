@@ -23,16 +23,19 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import java.nio.file.Path;
 import org.apache.ignite.EmbeddedNode;
 import org.apache.ignite.InitParameters;
-import org.apache.ignite.internal.IgniteIntegrationTest;
 import org.apache.ignite.internal.app.IgniteRunner;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Tests the start ignite nodes.
  */
-public class IgniteRunnerTest extends IgniteIntegrationTest {
+@ExtendWith(WorkDirectoryExtension.class)
+public class IgniteRunnerTest extends BaseIgniteAbstractTest {
     private static final String NODE_NAME = "node";
 
     @WorkDirectory

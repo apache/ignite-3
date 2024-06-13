@@ -31,21 +31,24 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.EmbeddedNode;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.InitParameters;
-import org.apache.ignite.internal.IgniteIntegrationTest;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.function.Executable;
 
 /**
  * Ignition interface tests.
  */
-abstract class AbstractSchemaChangeTest extends IgniteIntegrationTest {
+@ExtendWith(WorkDirectoryExtension.class)
+abstract class AbstractSchemaChangeTest extends BaseIgniteAbstractTest {
     /** Table name. */
     public static final String TABLE = "TBL1";
 
@@ -55,14 +58,12 @@ abstract class AbstractSchemaChangeTest extends IgniteIntegrationTest {
     /** Nodes bootstrap configuration. */
     private final Map<String, String> nodesBootstrapCfg = new LinkedHashMap<>();
 
+    private List<EmbeddedNode> nodes;
+
     /** Work directory. */
     @WorkDirectory
     private Path workDir;
-    private List<EmbeddedNode> nodes;
 
-    /**
-     * Before each.
-     */
     @BeforeEach
     void setUp(TestInfo testInfo) {
         String node0Name = testNodeName(testInfo, PORTS[0]);
@@ -112,9 +113,6 @@ abstract class AbstractSchemaChangeTest extends IgniteIntegrationTest {
         );
     }
 
-    /**
-     * After each.
-     */
     @AfterEach
     void afterEach() throws Exception {
         IgniteUtils.closeAll(nodes.stream().map(node -> node::stop));

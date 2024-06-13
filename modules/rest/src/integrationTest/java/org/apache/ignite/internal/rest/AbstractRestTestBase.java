@@ -37,20 +37,22 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import org.apache.ignite.EmbeddedNode;
-import org.apache.ignite.Ignite;
-import org.apache.ignite.internal.IgniteIntegrationTest;
 import org.apache.ignite.internal.rest.api.Problem;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Base class for integration REST test.
  */
-public abstract class AbstractRestTestBase extends IgniteIntegrationTest {
+@ExtendWith(WorkDirectoryExtension.class)
+public abstract class AbstractRestTestBase extends BaseIgniteAbstractTest {
     /** Network ports of the test nodes. */
     static final int[] NETWORK_PORTS = {3344, 3345, 3346};
 
@@ -68,9 +70,6 @@ public abstract class AbstractRestTestBase extends IgniteIntegrationTest {
 
     /** Node names that is starting (before init) or started (after init). */
     protected final List<String> nodeNames = new ArrayList<>();
-
-    /** Collection of started nodes. */
-    final List<Ignite> startedNodes = new ArrayList<>();
 
     /** Collection of starting nodes. */
     protected final List<EmbeddedNode> nodes = new ArrayList<>();

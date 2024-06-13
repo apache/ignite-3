@@ -29,8 +29,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import org.apache.ignite.EmbeddedNode;
 import org.apache.ignite.InitParameters;
-import org.apache.ignite.internal.IgniteIntegrationTest;
 import org.apache.ignite.internal.app.IgniteRunner;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -42,7 +42,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Test that after Ignite is started there is a file with REST server address in working directory.
  */
 @ExtendWith(WorkDirectoryExtension.class)
-public class ItRestAddressReportTest extends IgniteIntegrationTest {
+public class ItRestAddressReportTest extends BaseIgniteAbstractTest {
     private static final String NODE_NAME = "node";
 
     @WorkDirectory
