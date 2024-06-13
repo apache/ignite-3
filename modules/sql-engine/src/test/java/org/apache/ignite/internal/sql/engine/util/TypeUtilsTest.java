@@ -112,12 +112,24 @@ public class TypeUtilsTest extends BaseIgniteAbstractTest {
 
         {
             RelDataType rowType = typeFactory.builder()
-                    .add("c2", typeFactory.createSqlType(SqlTypeName.INTEGER))
                     .add("c1", typeFactory.createSqlType(SqlTypeName.VARCHAR, 6))
+                    .add("c2", typeFactory.createSqlType(SqlTypeName.VARCHAR, 5))
                     .build();
 
             Object[] input = {null, "12345    "};
             Object[] expected = {null, "12345 "};
+
+            expectOutputRow(rowType, input, expected);
+        }
+
+        {
+            RelDataType rowType = typeFactory.builder()
+                    .add("c1", typeFactory.createSqlType(SqlTypeName.VARCHAR, 6))
+                    .add("c2", typeFactory.createSqlType(SqlTypeName.VARCHAR, 5))
+                    .build();
+
+            Object[] input = {"12345    ", null};
+            Object[] expected = {"12345 ", null};
 
             expectOutputRow(rowType, input, expected);
         }
@@ -137,12 +149,37 @@ public class TypeUtilsTest extends BaseIgniteAbstractTest {
         {
             RelDataType rowType = typeFactory.builder()
                     .add("c1", typeFactory.createSqlType(SqlTypeName.VARCHAR, 6))
+                    .add("c2", typeFactory.createSqlType(SqlTypeName.VARCHAR, 7))
+                    .add("c3", typeFactory.createSqlType(SqlTypeName.VARCHAR, 3))
+                    .build();
+
+            Object[] input = {"12345    ", null, "123 "};
+            Object[] expected = {"12345 ", null, "123"};
+
+            expectOutputRow(rowType, input, expected);
+        }
+
+        {
+            RelDataType rowType = typeFactory.builder()
+                    .add("c1", typeFactory.createSqlType(SqlTypeName.VARCHAR, 6))
                     .add("c2", typeFactory.createSqlType(SqlTypeName.INTEGER))
                     .add("c3", typeFactory.createSqlType(SqlTypeName.VARCHAR, 3))
                     .build();
 
             Object[] input = {"12345    ", null, "123 "};
             Object[] expected = {"12345 ", null, "123"};
+
+            expectOutputRow(rowType, input, expected);
+        }
+
+
+        {
+            RelDataType rowType = typeFactory.builder()
+                    .add("c1", typeFactory.createSqlType(SqlTypeName.INTEGER))
+                    .build();
+
+            Object[] input = {2};
+            Object[] expected = {2};
 
             expectOutputRow(rowType, input, expected);
         }
