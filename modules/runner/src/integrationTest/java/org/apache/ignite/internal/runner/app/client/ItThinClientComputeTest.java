@@ -309,8 +309,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     void testBroadcastOneNode() {
         Map<ClusterNode, JobExecution<String>> executionsPerNode = client().compute().submitBroadcast(
                 Set.of(node(1)),
-                List.of(),
-                NodeNameJob.class.getName(),
+                JobDescriptor.builder(NodeNameJob.class).build(),
                 "_",
                 123);
 
@@ -326,8 +325,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     void testBroadcastAllNodes() {
         Map<ClusterNode, JobExecution<String>> executionsPerNode = client().compute().submitBroadcast(
                 new HashSet<>(sortedNodes()),
-                List.of(),
-                NodeNameJob.class.getName(),
+                JobDescriptor.builder(NodeNameJob.class).build(),
                 "_",
                 123);
 
@@ -348,10 +346,8 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         int sleepMs = 1_000_000;
         Map<ClusterNode, JobExecution<String>> executionsPerNode = client().compute().submitBroadcast(
                 new HashSet<>(sortedNodes()),
-                List.of(),
-                SleepJob.class.getName(),
-                sleepMs
-        );
+                JobDescriptor.builder(SleepJob.class).build(),
+                sleepMs);
 
         assertEquals(2, executionsPerNode.size());
 
@@ -491,8 +487,8 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     @Test
     void testExceptionInBroadcastJobPropagatesToClient() {
         Map<ClusterNode, JobExecution<String>> executions = client().compute().submitBroadcast(
-                Set.of(node(0), node(1)), List.of(), ExceptionJob.class.getName()
-        );
+                Set.of(node(0), node(1)),
+                JobDescriptor.builder(ExceptionJob.class).build());
 
         assertComputeExceptionWithClassAndMessage(getExceptionInJobExecutionAsync(executions.get(node(0))));
 

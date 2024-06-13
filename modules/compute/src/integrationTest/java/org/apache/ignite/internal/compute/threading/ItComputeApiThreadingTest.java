@@ -228,11 +228,11 @@ class ItComputeApiThreadingTest extends ClusterPerClassIntegrationTest {
         }
         ),
         SUBMIT_BROADCAST(compute -> compute
-                .submitBroadcast(justNonEntryNode(), List.of(), NoOpJob.class.getName())
+                .submitBroadcast(justNonEntryNode(), JobDescriptor.builder(NoOpJob.class).build())
                 .values().iterator().next()
         ),
         SUBMIT_BROADCAST_WITH_OPTIONS(compute -> compute
-                .submitBroadcast(justNonEntryNode(), List.of(), NoOpJob.class.getName(), DEFAULT)
+                .submitBroadcast(justNonEntryNode(), JobDescriptor.builder(NoOpJob.class).build())
                 .values().iterator().next()
         );
 

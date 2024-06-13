@@ -216,9 +216,7 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
         // When start broadcast job.
         Map<ClusterNode, JobExecution<Object>> executions = compute(entryNode).submitBroadcast(
                 clusterNodesByNames(workerCandidates(node(0), node(1), node(2))),
-                List.of(),
-                InteractiveJobs.interactiveJobName()
-        );
+                JobDescriptor.builder(InteractiveJobs.interactiveJobName()).build());
 
         // Then all three jobs are alive.
         assertThat(executions.size(), is(3));

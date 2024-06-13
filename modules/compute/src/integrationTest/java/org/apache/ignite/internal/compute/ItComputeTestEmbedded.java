@@ -409,8 +409,9 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
 
         IgniteImpl entryNode = node(entryNodeIndex);
 
-        Map<ClusterNode, JobExecution<Object>> executionsMap = entryNode.compute()
-                .submitBroadcast(new HashSet<>(entryNode.clusterNodes()), List.of(), NullReturningJob.class.getName());
+        Map<ClusterNode, JobExecution<Object>> executionsMap = entryNode.compute().submitBroadcast(
+                new HashSet<>(entryNode.clusterNodes()),
+                JobDescriptor.builder(NullReturningJob.class.getName()).build());
         assertThat(executionsMap.keySet(), equalTo(new HashSet<>(entryNode.clusterNodes())));
 
         List<JobExecution<Object>> executions = new ArrayList<>(executionsMap.values());

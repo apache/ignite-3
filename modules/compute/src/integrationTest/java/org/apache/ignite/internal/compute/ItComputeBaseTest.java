@@ -338,8 +338,10 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     void broadcastsJobWithArgumentsAsync() {
         IgniteImpl entryNode = node(0);
 
-        Map<ClusterNode, JobExecution<String>> results = entryNode.compute()
-                .submitBroadcast(Set.of(entryNode.node(), node(1).node(), node(2).node()), units(), concatJobClassName(), "a", 42);
+        Map<ClusterNode, JobExecution<String>> results = entryNode.compute().submitBroadcast(
+                Set.of(entryNode.node(), node(1).node(), node(2).node()),
+                JobDescriptor.builder(concatJobClassName()).units(units()).build(),
+                "a", 42);
 
         assertThat(results, is(aMapWithSize(3)));
         for (int i = 0; i < 3; i++) {
@@ -355,8 +357,9 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     void broadcastExecutesJobOnRespectiveNodes() {
         IgniteImpl entryNode = node(0);
 
-        Map<ClusterNode, JobExecution<String>> results = entryNode.compute()
-                .submitBroadcast(Set.of(entryNode.node(), node(1).node(), node(2).node()), units(), getNodeNameJobClassName());
+        Map<ClusterNode, JobExecution<String>> results = entryNode.compute().submitBroadcast(
+                Set.of(entryNode.node(), node(1).node(), node(2).node()),
+                JobDescriptor.builder(getNodeNameJobClassName()).units(units()).build());
 
         assertThat(results, is(aMapWithSize(3)));
         for (int i = 0; i < 3; i++) {
@@ -372,8 +375,9 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     void broadcastsFailingJob() throws Exception {
         IgniteImpl entryNode = node(0);
 
-        Map<ClusterNode, JobExecution<String>> results = entryNode.compute()
-                .submitBroadcast(Set.of(entryNode.node(), node(1).node(), node(2).node()), units(), failingJobClassName());
+        Map<ClusterNode, JobExecution<String>> results = entryNode.compute().submitBroadcast(
+                Set.of(entryNode.node(), node(1).node(), node(2).node()),
+                JobDescriptor.builder(failingJobClassName()).units(units()).build());
 
         assertThat(results, is(aMapWithSize(3)));
         for (int i = 0; i < 3; i++) {

@@ -132,8 +132,7 @@ abstract class ItComputeErrorsBaseTest extends ClusterPerClassIntegrationTest {
 
         // When broadcast a job
         Map<ClusterNode, JobExecution<Object>> executions = compute().submitBroadcast(
-                nodes, List.of(), InteractiveJobs.interactiveJobName()
-        );
+                nodes, JobDescriptor.builder(InteractiveJobs.interactiveJobName()).build());
 
         // Then one job is alive
         assertThat(executions.size(), is(2));
