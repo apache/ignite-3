@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.index;
 
+import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_AVAILABLE;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_BUILDING;
@@ -24,15 +25,25 @@ import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_CREAT
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_REMOVED;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_STOPPING;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.TABLE_ALTER;
-import static org.apache.ignite.internal.event.EventListener.fromConsumer;
+import static org.apache.ignite.internal.event.EventListener.fromFunction;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
 import static org.apache.ignite.internal.lowwatermark.event.LowWatermarkEvent.LOW_WATERMARK_CHANGED;
+import static org.apache.ignite.internal.metastorage.dsl.Conditions.exists;
+import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
+import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
+import static org.apache.ignite.internal.metastorage.dsl.Operations.noop;
+import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
+import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.READ_ONLY;
 import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.REMOVED;
 import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.statusOnRemoveIndex;
+import static org.apache.ignite.internal.util.ByteUtils.intToBytes;
+import static org.apache.ignite.internal.util.ByteUtils.toBytes;
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.StringUtils.incrementLastChar;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
@@ -60,6 +71,7 @@ import org.apache.ignite.internal.lowwatermark.event.ChangeLowWatermarkEventPara
 import org.apache.ignite.internal.lowwatermark.event.LowWatermarkEvent;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.vault.VaultEntry;
@@ -93,14 +105,23 @@ import org.jetbrains.annotations.TestOnly;
  *     less than or equal to the active catalog version for the new watermark.</li>
  * </ul>
  */
+// TODO: IGNITE-22470 - поменять код/доработать тесты/поправить документацию
 public class IndexMetaStorage implements IgniteComponent {
+    // TODO: IGNITE-22470 избавиться
     private static final String INDEX_META_KEY_PREFIX = "index.meta.";
+
+    private static final String INDEX_META_VERSION_KEY_PREFIX = "index.meta.version.";
+
+    private static final String INDEX_META_VALUE_KEY_PREFIX = "index.meta.value.";
 
     private final CatalogService catalogService;
 
     private final LowWatermark lowWatermark;
 
+    // TODO: IGNITE-22470 избавиться
     private final VaultManager vaultManager;
+
+    private final MetaStorageManager metaStorageManager;
 
     private final Map<Integer, IndexMeta> indexMetaByIndexId = new ConcurrentHashMap<>();
 
@@ -108,24 +129,26 @@ public class IndexMetaStorage implements IgniteComponent {
     public IndexMetaStorage(
             CatalogService catalogService,
             LowWatermark lowWatermark,
-            VaultManager vaultManager
+            VaultManager vaultManager,
+            MetaStorageManager metaStorageManager
     ) {
         this.catalogService = catalogService;
         this.lowWatermark = lowWatermark;
         this.vaultManager = vaultManager;
+        this.metaStorageManager = metaStorageManager;
     }
 
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
-        catalogService.listen(INDEX_CREATE, fromConsumer(this::onCatalogIndexCreateEvent));
-        catalogService.listen(INDEX_REMOVED, fromConsumer(this::onCatalogIndexRemovedEvent));
-        catalogService.listen(INDEX_BUILDING, fromConsumer(this::onCatalogIndexBuildingEvent));
-        catalogService.listen(INDEX_AVAILABLE, fromConsumer(this::onCatalogIndexAvailableEvent));
-        catalogService.listen(INDEX_STOPPING, fromConsumer(this::onCatalogIndexStoppingEvent));
+        catalogService.listen(INDEX_CREATE, fromFunction(this::onCatalogIndexCreateEvent));
+        catalogService.listen(INDEX_REMOVED, fromFunction(this::onCatalogIndexRemovedEvent));
+        catalogService.listen(INDEX_BUILDING, fromFunction(this::onCatalogIndexBuildingEvent));
+        catalogService.listen(INDEX_AVAILABLE, fromFunction(this::onCatalogIndexAvailableEvent));
+        catalogService.listen(INDEX_STOPPING, fromFunction(this::onCatalogIndexStoppingEvent));
 
-        catalogService.listen(TABLE_ALTER, fromConsumer(this::onCatalogTableAlterEvent));
+        catalogService.listen(TABLE_ALTER, fromFunction(this::onCatalogTableAlterEvent));
 
-        lowWatermark.listen(LOW_WATERMARK_CHANGED, fromConsumer(this::onLwmChanged));
+        lowWatermark.listen(LOW_WATERMARK_CHANGED, fromFunction(this::onLwmChanged));
 
         recoverIndexMetas();
 
@@ -154,24 +177,26 @@ public class IndexMetaStorage implements IgniteComponent {
         return List.copyOf(indexMetaByIndexId.values());
     }
 
-    private void onCatalogIndexCreateEvent(CreateIndexEventParameters parameters) {
+    private CompletableFuture<Boolean> onCatalogIndexCreateEvent(CreateIndexEventParameters parameters) {
         CatalogIndexDescriptor catalogIndexDescriptor = parameters.indexDescriptor();
 
         Catalog catalog = catalog(parameters.catalogVersion());
 
-        updateAndSaveIndexMetaToVault(catalogIndexDescriptor.id(), indexMeta -> {
-            assert indexMeta == null : catalogIndexDescriptor.id();
+        return updateAndSaveIndexMetaToMetastore(catalogIndexDescriptor.id(), indexMeta -> {
+            assert indexMeta == null : "indexId=" + catalogIndexDescriptor.id() + "catalogVersion=" + catalog.version();
 
-            return new IndexMeta(catalogIndexDescriptor, catalog);
-        });
+            return IndexMeta.of(catalogIndexDescriptor, catalog);
+        }).thenApply(unused -> false);
     }
 
-    private void onCatalogIndexRemovedEvent(RemoveIndexEventParameters parameters) {
+    private CompletableFuture<Boolean> onCatalogIndexRemovedEvent(RemoveIndexEventParameters parameters) {
         int indexId = parameters.indexId();
 
         int eventCatalogVersion = parameters.catalogVersion();
 
         Catalog catalog = catalog(eventCatalogVersion);
+
+        CompletableFuture<?>[] resultFuture = new CompletableFuture<?>[1];
 
         lowWatermark.getLowWatermarkSafe(lwm -> {
             int lwmCatalogVersion = catalogService.activeCatalogVersion(hybridTimestampToLong(lwm));
@@ -180,24 +205,28 @@ public class IndexMetaStorage implements IgniteComponent {
                 // There is no need to add a read-only index, since the index should be destroyed under the updated low watermark.
                 IndexMeta removed = indexMetaByIndexId.remove(indexId);
 
-                assert removed != null : indexId;
+                assert removed != null : "indexId=" + indexId + ", catalogVersion=" + catalog.version();
 
-                removeFromVault(removed);
+                resultFuture[0] = removeFromMetastore(removed);
             } else {
-                updateAndSaveIndexMetaToVault(indexId, indexMeta -> {
-                    assert indexMeta != null : indexId;
+                resultFuture[0] = updateAndSaveIndexMetaToMetastore(indexId, indexMeta -> {
+                    assert indexMeta != null : "indexId=" + indexId + ", catalogVersion=" + catalog.version();
 
                     return setNewStatus(indexMeta, statusOnRemoveIndex(indexMeta.status()), catalog);
                 });
             }
         });
+
+        assert resultFuture[0] != null : "indexId=" + indexId + ", catalogVersion=" + catalog.version();
+
+        return resultFuture[0].thenApply(unused -> false);
     }
 
-    private void onCatalogIndexBuildingEvent(StartBuildingIndexEventParameters parameters) {
-        updateIndexStatus(parameters);
+    private CompletableFuture<Boolean> onCatalogIndexBuildingEvent(StartBuildingIndexEventParameters parameters) {
+        return updateIndexStatus(parameters);
     }
 
-    private void onCatalogIndexAvailableEvent(MakeIndexAvailableEventParameters parameters) {
+    private CompletableFuture<Boolean> onCatalogIndexAvailableEvent(MakeIndexAvailableEventParameters parameters) {
         int catalogVersion = parameters.catalogVersion();
         int indexId = parameters.indexId();
 
@@ -205,27 +234,29 @@ public class IndexMetaStorage implements IgniteComponent {
         CatalogTableDescriptor catalogTableDescriptor = catalogTableDescriptor(catalogIndexDescriptor.tableId(), catalogVersion);
 
         if (indexId != catalogTableDescriptor.primaryKeyIndexId()) {
-            updateIndexStatus(parameters);
+            return updateIndexStatus(parameters);
         }
+
+        return falseCompletedFuture();
     }
 
-    private void onCatalogIndexStoppingEvent(StoppingIndexEventParameters parameters) {
-        updateIndexStatus(parameters);
+    private CompletableFuture<Boolean> onCatalogIndexStoppingEvent(StoppingIndexEventParameters parameters) {
+        return updateIndexStatus(parameters);
     }
 
-    private void updateIndexStatus(IndexEventParameters parameters) {
+    private CompletableFuture<Boolean> updateIndexStatus(IndexEventParameters parameters) {
         CatalogIndexDescriptor catalogIndexDescriptor = catalogIndexDescriptor(parameters.indexId(), parameters.catalogVersion());
 
         Catalog catalog = catalog(parameters.catalogVersion());
 
-        updateAndSaveIndexMetaToVault(catalogIndexDescriptor.id(), indexMeta -> {
-            assert indexMeta != null : catalogIndexDescriptor.id();
+        return updateAndSaveIndexMetaToMetastore(catalogIndexDescriptor.id(), indexMeta -> {
+            assert indexMeta != null : "indexId=" + catalogIndexDescriptor.id() + ", catalogVersion=" + catalog.version();
 
             return setNewStatus(indexMeta, MetaIndexStatus.convert(catalogIndexDescriptor.status()), catalog);
-        });
+        }).thenApply(unused -> false);
     }
 
-    private void onCatalogTableAlterEvent(TableEventParameters parameters) {
+    private CompletableFuture<Boolean> onCatalogTableAlterEvent(TableEventParameters parameters) {
         if (parameters instanceof RenameTableEventParameters) {
             int catalogVersion = parameters.catalogVersion();
 
@@ -235,18 +266,22 @@ public class IndexMetaStorage implements IgniteComponent {
 
             CatalogIndexDescriptor catalogIndexDescriptor = catalogIndexDescriptor(indexId, catalogVersion);
 
-            updateAndSaveIndexMetaToVault(indexId, indexMeta -> {
-                assert indexMeta != null : indexId;
+            return updateAndSaveIndexMetaToMetastore(indexId, indexMeta -> {
+                assert indexMeta != null : "indexId=" + indexId + ", catalogVersion=" + catalogVersion;
 
-                return indexMeta.indexName(catalogIndexDescriptor.name());
-            });
+                return indexMeta.indexName(parameters.catalogVersion(), catalogIndexDescriptor.name());
+            }).thenApply(unused -> false);
         }
+
+        return falseCompletedFuture();
     }
 
-    private void onLwmChanged(ChangeLowWatermarkEventParameters parameters) {
+    private CompletableFuture<Boolean> onLwmChanged(ChangeLowWatermarkEventParameters parameters) {
         int lwmCatalogVersion = catalogService.activeCatalogVersion(parameters.newLowWatermark().longValue());
 
         Iterator<IndexMeta> it = indexMetaByIndexId.values().iterator();
+
+        var futures = new ArrayList<CompletableFuture<?>>();
 
         while (it.hasNext()) {
             IndexMeta indexMeta = it.next();
@@ -254,9 +289,11 @@ public class IndexMetaStorage implements IgniteComponent {
             if (shouldBeRemoved(indexMeta, lwmCatalogVersion)) {
                 it.remove();
 
-                removeFromVault(indexMeta);
+                futures.add(removeFromMetastore(indexMeta));
             }
         }
+
+        return allOf(futures.toArray(CompletableFuture[]::new)).thenApply(unused -> false);
     }
 
     // TODO: IGNITE-22442 Improve recovery
@@ -273,10 +310,13 @@ public class IndexMetaStorage implements IgniteComponent {
 
             if (indexMetaFromVault == null) {
                 // We did not have time to save at the index creation event.
-                updateAndSaveIndexMetaToVault(indexId, indexMeta -> new IndexMeta(catalogIndexDescriptor, catalog));
+                updateAndSaveIndexMetaToVault(indexId, indexMeta -> IndexMeta.of(catalogIndexDescriptor, catalog));
             } else if (!catalogIndexDescriptor.name().equals(indexMetaFromVault.indexName())) {
                 // We did not have time to process the index renaming event.
-                updateAndSaveIndexMetaToVault(indexId, indexMeta -> indexMetaFromVault.indexName(catalogIndexDescriptor.name()));
+                updateAndSaveIndexMetaToVault(
+                        indexId,
+                        indexMeta -> indexMetaFromVault.indexName(catalog.version(), catalogIndexDescriptor.name())
+                );
             } else if (MetaIndexStatus.convert(catalogIndexDescriptor.status()) != indexMetaFromVault.status()) {
                 // We did not have time to process the index status change event.
                 updateAndSaveIndexMetaToVault(
@@ -351,7 +391,7 @@ public class IndexMetaStorage implements IgniteComponent {
     }
 
     private void saveToVault(IndexMeta indexMeta) {
-        vaultManager.put(indexMetaVaultKey(indexMeta), ByteUtils.toBytes(indexMeta));
+        vaultManager.put(indexMetaVaultKey(indexMeta), toBytes(indexMeta));
     }
 
     private void removeFromVault(IndexMeta indexMeta) {
@@ -386,5 +426,59 @@ public class IndexMetaStorage implements IgniteComponent {
         MetaIndexStatus status = indexMeta.status();
 
         return (status == READ_ONLY || status == REMOVED) && indexMeta.statusChanges().get(status).catalogVersion() <= lwmCatalogVersion;
+    }
+
+    private static ByteArray indexMetaVersionKey(IndexMeta indexMeta) {
+        return ByteArray.fromString(INDEX_META_VERSION_KEY_PREFIX + indexMeta.indexId());
+    }
+
+    private static ByteArray indexMetaValueKey(IndexMeta indexMeta) {
+        return ByteArray.fromString(INDEX_META_VALUE_KEY_PREFIX + indexMeta.indexId());
+    }
+
+    private CompletableFuture<?> saveToMetastore(@Nullable IndexMeta oldMeta, IndexMeta newMeta) {
+        assert oldMeta == null || oldMeta.indexId() == newMeta.indexId() :
+                "oldMeta.indexId=" + oldMeta.indexId() + ", newMeta.indexId" + newMeta.indexId();
+        assert oldMeta == null || oldMeta.catalogVersion() < newMeta.catalogVersion() :
+                "oldMeta.catalogVersion=" + oldMeta.catalogVersion() + ", newMeta.catalogVersion=" + newMeta.catalogVersion();
+
+        ByteArray versionKey = indexMetaVersionKey(newMeta);
+
+        return metaStorageManager.invoke(
+                oldMeta == null ? notExists(versionKey) : value(versionKey).eq(intToBytes(oldMeta.catalogVersion())),
+                List.of(
+                        put(versionKey, intToBytes(newMeta.catalogVersion())),
+                        put(indexMetaValueKey(newMeta), toBytes(newMeta))
+                ),
+                List.of(noop())
+        );
+    }
+
+    private CompletableFuture<?> removeFromMetastore(IndexMeta indexMeta) {
+        ByteArray versionKey = indexMetaVersionKey(indexMeta);
+
+        return metaStorageManager.invoke(
+                exists(versionKey),
+                List.of(remove(versionKey), remove(indexMetaValueKey(indexMeta))),
+                List.of(noop())
+        );
+    }
+
+    private CompletableFuture<?> updateAndSaveIndexMetaToMetastore(
+            int indexId,
+            Function<@Nullable IndexMeta, IndexMeta> updateFunction
+    ) {
+        IndexMeta[] oldMeta = new IndexMeta[1];
+
+        IndexMeta newMeta = indexMetaByIndexId.compute(
+                indexId,
+                (id, indexMeta) -> {
+                    oldMeta[0] = indexMeta;
+
+                    return updateFunction.apply(indexMeta);
+                }
+        );
+
+        return saveToMetastore(oldMeta[0], newMeta);
     }
 }
