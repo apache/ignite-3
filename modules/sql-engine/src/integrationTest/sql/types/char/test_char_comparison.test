@@ -1,0 +1,68 @@
+# name: test/sql/types/char/test_char_comparison.test
+# feature: E021-12 (Character comparison)
+# group: [char]
+
+# Literal have type char(n), that's why trailing whitespace is ignored
+
+# https://issues.apache.org/jira/browse/IGNITE-22472
+skipif ignite3
+query T
+SELECT 'a'::char(1) < 'a'::char(2) 
+----
+false
+
+# https://issues.apache.org/jira/browse/IGNITE-22472
+skipif ignite3
+query T
+SELECT 'a'::char(2) > 'a'::char(1) 
+----
+false
+
+query TT
+SELECT 'a'::char(1) <= 'a'::char(2), 'a'::char(2) >= 'a'::char(1) 
+----
+true	true
+
+query TT
+SELECT 'a'::char(1) = 'a'::char(2), 'a'::char(1) != 'a'::char(2) 
+----
+true	false
+
+query TT
+SELECT 'a'::char(2) = 'a'::char(1), 'a'::char(1) != 'a'::char(2) 
+----
+true	false
+
+query TT
+SELECT 'a'::char(1) <= 'a'::char(2), 'a'::char(2) >= 'a'::char(1)  
+----
+true	true
+
+query TTTT
+SELECT 'b' > 'a', 'b' >= 'a', 'b' < 'a', 'b' != 'a'
+----
+true	true	false	true
+
+# https://issues.apache.org/jira/browse/IGNITE-22472
+skipif ignite3
+query T
+'a ' > 'a'
+----
+false
+
+# https://issues.apache.org/jira/browse/IGNITE-22472
+skipif ignite3
+query T
+'a ' < 'a'
+----
+false
+
+query TT
+SELECT 'a ' >= 'a', 'a ' != 'a'
+----
+true	false
+
+query TTTT
+SELECT ' a' > 'a', ' a' >= 'a', ' a' < 'a', ' a' != 'a'
+----
+false	false	true	true
