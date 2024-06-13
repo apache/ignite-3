@@ -187,9 +187,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
     private final ExecutorService replicasCreationExecutor;
 
-    private String localNodeId;
+    private volatile String localNodeId;
 
-    private String localNodeConsistentId;
+    private volatile String localNodeConsistentId;
 
     /**
      * Constructor for a replica service.
