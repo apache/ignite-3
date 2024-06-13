@@ -76,7 +76,7 @@ public class CollectionUtilsTest {
     void testSetUnion() {
         assertTrue(union(null, null).isEmpty());
         assertTrue(union(Set.of(), null).isEmpty());
-        assertTrue(union(null).isEmpty());
+        assertTrue(union(null, new Object[]{}).isEmpty());
 
         assertEquals(Set.of(1), union(Set.of(1), null));
         assertEquals(Set.of(1), union(Set.of(1), new Integer[]{}));
