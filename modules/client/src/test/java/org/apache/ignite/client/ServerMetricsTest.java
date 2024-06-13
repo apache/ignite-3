@@ -128,13 +128,7 @@ public class ServerMetricsTest extends AbstractClientTest {
 
         FakeCompute.err = new RuntimeException("test");
 
-        IgniteCompute igniteCompute = client.compute();
-        Set<ClusterNode> nodes = getClusterNodes("s1");
-        igniteCompute.submit(nodes, JobDescriptor.builder()
-                .jobClassName("job")
-                .units(List.of())
-                .options(DEFAULT)
-                .build());
+        client.compute().submit(getClusterNodes("s1"), JobDescriptor.builder("job").build());
 
         assertTrue(
                 IgniteTestUtils.waitForCondition(() -> testServer.metrics().requestsFailed() == 1, 1000),

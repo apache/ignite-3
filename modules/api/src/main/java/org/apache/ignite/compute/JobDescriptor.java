@@ -108,11 +108,13 @@ public class JobDescriptor {
          * @param jobClassName Job class name.
          * @return This builder.
          */
+        @Deprecated
         public Builder jobClassName(String jobClassName) {
             this.jobClassName = jobClassName;
             return this;
         }
 
+        @Deprecated
         public Builder jobClass(Class<? extends ComputeJob<?>> jobClass) {
             this.jobClassName = jobClass.getName();
             return this;
