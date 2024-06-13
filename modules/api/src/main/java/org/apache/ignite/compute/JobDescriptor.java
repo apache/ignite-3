@@ -94,11 +94,20 @@ public class JobDescriptor {
         return new Builder().jobClass(jobClass);
     }
 
+    /**
+     * Builder.
+     */
     public static class Builder {
         private String jobClassName;
         private List<DeploymentUnit> units;
         private JobExecutionOptions options;
 
+        /**
+         * Sets the job class name.
+         *
+         * @param jobClassName Job class name.
+         * @return This builder.
+         */
         public Builder jobClassName(String jobClassName) {
             this.jobClassName = jobClassName;
             return this;
@@ -109,6 +118,11 @@ public class JobDescriptor {
             return this;
         }
 
+        /**
+         *
+         * @param units
+         * @return
+         */
         public Builder units(List<DeploymentUnit> units) {
             this.units = units;
             return this;

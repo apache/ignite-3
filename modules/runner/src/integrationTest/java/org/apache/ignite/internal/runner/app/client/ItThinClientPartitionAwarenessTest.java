@@ -25,7 +25,6 @@ import java.util.List;
 import java.util.stream.Collectors;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.compute.ComputeJob;
-import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.internal.runner.app.client.proxy.IgniteClientProxy;
@@ -86,7 +85,8 @@ public class ItThinClientPartitionAwarenessTest extends ItAbstractThinClientTest
         for (int key = 0; key < 50; key++) {
             // Get actual primary node using compute.
             Tuple keyTuple = Tuple.create().set("key", key);
-            var primaryNodeName = proxyClient.compute().executeColocated(TABLE_NAME, keyTuple, JobDescriptor.builder(NodeNameJob.class.getName()).build());
+            var primaryNodeName = proxyClient.compute().executeColocated(
+                    TABLE_NAME, keyTuple, JobDescriptor.builder(NodeNameJob.class.getName()).build());
 
             // Perform request and check routing with proxy.
             resetRequestCount();
