@@ -241,16 +241,10 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
     public <R> R executeColocated(
             String tableName,
             Tuple key,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
+            JobDescriptor descriptor,
             Object... args
     ) {
-        return sync(this.executeColocatedAsync(tableName, key, JobDescriptor.builder()
-                .jobClassName(jobClassName)
-                .units(units)
-                .options(options)
-                .build(), args));
+        return sync(this.executeColocatedAsync(tableName, key, descriptor, args));
     }
 
     @Override

@@ -93,12 +93,10 @@ public class AntiHijackIgniteCompute implements IgniteCompute, Wrapper {
     public <R> R executeColocated(
             String tableName,
             Tuple key,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
+            JobDescriptor descriptor,
             Object... args
     ) {
-        return compute.executeColocated(tableName, key, units, jobClassName, options, args);
+        return compute.executeColocated(tableName, key, descriptor, args);
     }
 
     @Override
