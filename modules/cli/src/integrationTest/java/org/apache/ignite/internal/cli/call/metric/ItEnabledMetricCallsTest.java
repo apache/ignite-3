@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.cli.call.metric;
 
-import static org.apache.ignite.internal.cli.call.metric.ItMetricCallsTest.ALL_METRIC_SOURCES;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 

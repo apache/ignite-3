@@ -35,17 +35,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /** Tests for metrics calls. */
-class ItMetricCallsTest extends CliIntegrationTest {
-    static final MetricSource[] ALL_METRIC_SOURCES = {
-            new MetricSource().name("jvm").enabled(true),
-            new MetricSource().name("os").enabled(true),
-            new MetricSource().name("raft").enabled(true),
-            new MetricSource().name("metastorage").enabled(true),
-            new MetricSource().name("client.handler").enabled(true),
-            new MetricSource().name("sql.client").enabled(true),
-            new MetricSource().name("sql.plan.cache").enabled(true)
-    };
-
+public class ItMetricCallsTest extends CliIntegrationTest {
     private final UrlCallInput urlInput = new UrlCallInput(NODE_URL);
 
     @Inject
