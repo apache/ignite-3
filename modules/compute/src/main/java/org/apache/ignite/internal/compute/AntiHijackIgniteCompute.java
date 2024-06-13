@@ -104,12 +104,10 @@ public class AntiHijackIgniteCompute implements IgniteCompute, Wrapper {
             String tableName,
             K key,
             Mapper<K> keyMapper,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
+            JobDescriptor descriptor,
             Object... args
     ) {
-        return compute.executeColocated(tableName, key, keyMapper, units, jobClassName, options, args);
+        return compute.executeColocated(tableName, key, keyMapper, descriptor, args);
     }
 
     @Override

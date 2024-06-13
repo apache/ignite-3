@@ -169,12 +169,11 @@ public class FakeCompute implements IgniteComputeInternal {
             String tableName,
             K key,
             Mapper<K> keyMapper,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
+            JobDescriptor descriptor,
             Object... args
     ) {
-        return sync(executeColocatedAsync(tableName, key, keyMapper, units, jobClassName, options, args));
+        return sync(executeColocatedAsync(
+                tableName, key, keyMapper, descriptor.units(), descriptor.jobClassName(), descriptor.options(), args));
     }
 
     @Override
