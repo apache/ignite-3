@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.compute;
 
-import static org.apache.ignite.compute.JobExecutionOptions.DEFAULT;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -290,12 +289,11 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
 
         // When start colocated job on node that is not primary replica.
         IgniteImpl entryNode = anyNodeExcept(primaryReplica);
-        IgniteCompute igniteCompute = compute(entryNode);
-        Tuple key = Tuple.create(1).set("K", 1);
         TestingJobExecution<Object> execution = new TestingJobExecution<>(
-                igniteCompute.submitColocated(TABLE_NAME, key, JobDescriptor.builder()
-                        .jobClassName(InteractiveJobs.globalJob().name())
-                        .build()));
+                compute(entryNode).submitColocated(
+                        TABLE_NAME,
+                        Tuple.create(1).set("K", 1),
+                        JobDescriptor.builder(InteractiveJobs.globalJob().name()).build()));
 
         // Then the job is alive.
         InteractiveJobs.globalJob().assertAlive();
@@ -363,14 +361,10 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
     }
 
     private TestingJobExecution<String> executeGlobalInteractiveJob(IgniteImpl entryNode, Set<String> nodes) {
-        IgniteCompute igniteCompute = compute(entryNode);
-        Set<ClusterNode> nodes1 = clusterNodesByNames(nodes);
         return new TestingJobExecution<>(
-                igniteCompute.submit(nodes1, JobDescriptor.builder()
-                        .jobClassName(InteractiveJobs.globalJob().name())
-                        .units(List.of())
-                        .options(DEFAULT)
-                        .build())
+                compute(entryNode).submit(
+                        clusterNodesByNames(nodes),
+                        JobDescriptor.builder(InteractiveJobs.globalJob().name()).build())
         );
     }
 
