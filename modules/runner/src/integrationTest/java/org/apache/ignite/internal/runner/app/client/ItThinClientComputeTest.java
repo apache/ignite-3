@@ -807,7 +807,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         public List<ComputeJobRunner> split(TaskExecutionContext context, Object... args) {
             return context.ignite().clusterNodes().stream()
                     .map(node -> ComputeJobRunner.builder()
-                            .jobClassName(NodeNameJob.class.getName())
+                            .jobDescriptor(JobDescriptor.builder(NodeNameJob.class).build())
                             .nodes(Set.of(node))
                             .args(args)
                             .build())
@@ -827,7 +827,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         public List<ComputeJobRunner> split(TaskExecutionContext context, Object... args) {
             return context.ignite().clusterNodes().stream()
                     .map(node -> ComputeJobRunner.builder()
-                            .jobClassName(ConcatJob.class.getName())
+                            .jobDescriptor(JobDescriptor.builder(ConcatJob.class).build())
                             .nodes(Set.of(node))
                             .args(args)
                             .build())
@@ -860,7 +860,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         public List<ComputeJobRunner> split(TaskExecutionContext context, Object... args) {
             return context.ignite().clusterNodes().stream()
                     .map(node -> ComputeJobRunner.builder()
-                            .jobClassName(NodeNameJob.class.getName())
+                            .jobDescriptor(JobDescriptor.builder(NodeNameJob.class).build())
                             .nodes(Set.of(node))
                             .args(args)
                             .build())
