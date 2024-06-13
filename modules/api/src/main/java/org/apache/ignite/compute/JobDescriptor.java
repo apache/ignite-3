@@ -94,6 +94,8 @@ public class JobDescriptor {
         private JobExecutionOptions options;
 
         private Builder(String jobClassName) {
+            Objects.requireNonNull(jobClassName);
+
             this.jobClassName = jobClassName;
         }
 
@@ -136,8 +138,6 @@ public class JobDescriptor {
          * @return Job descriptor.
          */
         public JobDescriptor build() {
-            Objects.requireNonNull(jobClassName, "Job class name must be set");
-
             return new JobDescriptor(
                     jobClassName,
                     units == null ? List.of() : units,
