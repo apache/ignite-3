@@ -102,7 +102,7 @@ class ItStartTest extends BaseIgniteAbstractTest {
                         .<Executable>map(probe -> () -> assertThat(
                                 "Wrong thread for " + probe.expectation.name,
                                 probe.threadNameRef.get(),
-                                startsWith(startThreadNamePrefix())
+                                startsWith(joinThreadNamePrefix())
                         ))
                         .collect(toList())
         );
@@ -110,6 +110,10 @@ class ItStartTest extends BaseIgniteAbstractTest {
 
     private String startThreadNamePrefix() {
         return "%" + IgniteTestUtils.testNodeName(testInfo, 0) + "%start-";
+    }
+
+    private String joinThreadNamePrefix() {
+        return "%" + IgniteTestUtils.testNodeName(testInfo, 0) + "%join-";
     }
 
     private static LoggingProbe installProbe(Expectation expectation, Map<String, LogInspector> inspectors) {
@@ -143,14 +147,15 @@ class ItStartTest extends BaseIgniteAbstractTest {
 
         cluster.shutdown();
 
-        assertThatStartThreadsAreStopped();
+        assertThatThreadsAreStopped(startThreadNamePrefix());
+        assertThatThreadsAreStopped(joinThreadNamePrefix());
     }
 
-    private void assertThatStartThreadsAreStopped() {
+    private static void assertThatThreadsAreStopped(String threadNamePrefix) {
         List<String> aliveStartThreads = Thread.getAllStackTraces().keySet().stream()
                 .filter(Thread::isAlive)
                 .map(Thread::getName)
-                .filter(name -> name.startsWith(startThreadNamePrefix()))
+                .filter(name -> name.startsWith(threadNamePrefix))
                 .collect(toList());
 
         assertThat(aliveStartThreads, is(empty()));

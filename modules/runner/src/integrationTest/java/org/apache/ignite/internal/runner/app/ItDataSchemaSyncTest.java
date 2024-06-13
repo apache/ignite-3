@@ -59,7 +59,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 /**
  * There is a test of table schema synchronization.
  */
-@ExtendWith({WorkDirectoryExtension.class})
+@ExtendWith(WorkDirectoryExtension.class)
 public class ItDataSchemaSyncTest extends IgniteAbstractTest {
     public static final String TABLE_NAME = "tbl1";
 

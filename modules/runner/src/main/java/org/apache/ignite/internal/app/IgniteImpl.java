@@ -1026,7 +1026,7 @@ public class IgniteImpl implements Ignite {
      * <p>When this method returns, the node is partially started and ready to accept the init command (that is, its
      * REST endpoint is functional).
      */
-    public void start() {
+    void start() {
         ExecutorService startupExecutor = Executors.newSingleThreadExecutor(
                 IgniteThreadFactory.create(name, "start", LOG, STORAGE_READ, STORAGE_WRITE)
         );
@@ -1047,7 +1047,8 @@ public class IgniteImpl implements Ignite {
 
             // Start the components that are required to join the cluster.
             lifecycleManager.startComponents(
-                    componentContext, threadPoolsManager,
+                    componentContext,
+                    threadPoolsManager,
                     clockWaiter,
                     failureProcessor,
                     criticalWorkerRegistry,
@@ -1074,7 +1075,12 @@ public class IgniteImpl implements Ignite {
         }
     }
 
-    public CompletableFuture<Ignite> joinClusterAsync() {
+    /**
+     * Continues the join process, returns the Ignite API future which will be completed when node is joined the logical topology.
+     *
+     * @return Ignite API future.
+     */
+    CompletableFuture<Ignite> joinClusterAsync() {
         LOG.info("Joining the cluster");
 
         ExecutorService joinExecutor = Executors.newSingleThreadExecutor(
@@ -1103,7 +1109,8 @@ public class IgniteImpl implements Ignite {
                     // Start all other components after the join request has completed and the node has been validated.
                     try {
                         lifecycleManager.startComponents(
-                                componentContext, catalogManager,
+                                componentContext,
+                                catalogManager,
                                 clusterCfgMgr,
                                 authenticationManager,
                                 placementDriverMgr,

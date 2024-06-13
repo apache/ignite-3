@@ -77,7 +77,7 @@ public class EmbeddedNodeImpl implements EmbeddedNode {
 
     private volatile @Nullable IgniteImpl instance;
 
-    private CompletableFuture<Ignite> igniteFuture;
+    private volatile @Nullable CompletableFuture<Ignite> igniteFuture;
 
     /**
      * Constructs an embedded node.
@@ -124,11 +124,13 @@ public class EmbeddedNodeImpl implements EmbeddedNode {
 
     @Override
     public CompletableFuture<Ignite> igniteAsync() {
+        IgniteImpl instance = this.instance;
         if (instance == null) {
             throw new IgniteException("Node not started");
         }
 
         // We need to cache the future so that this method could be called multiple times.
+        CompletableFuture<Ignite> igniteFuture = this.igniteFuture;
         if (igniteFuture == null) {
             igniteFuture = instance.joinClusterAsync()
                     .handle((ignite, e) -> {
@@ -140,12 +142,14 @@ public class EmbeddedNodeImpl implements EmbeddedNode {
                             throw handleStartException(e);
                         }
                     });
+            this.igniteFuture = igniteFuture;
         }
         return igniteFuture;
     }
 
     @Override
     public CompletableFuture<Void> initClusterAsync(InitParameters parameters) {
+        IgniteImpl instance = this.instance;
         if (instance == null) {
             throw new IgniteException("Node not started");
         }
@@ -167,9 +171,13 @@ public class EmbeddedNodeImpl implements EmbeddedNode {
 
     @Override
     public CompletableFuture<Void> stopAsync() {
+        IgniteImpl instance = this.instance;
         if (instance != null) {
             try {
-                return instance.stopAsync().thenRun(() -> instance = null);
+                return instance.stopAsync().thenRun(() -> {
+                    this.instance = null;
+                    this.igniteFuture = null;
+                });
             } catch (Exception e) {
                 throw new IgniteException(Common.NODE_STOPPING_ERR, e);
             }
@@ -188,19 +196,19 @@ public class EmbeddedNodeImpl implements EmbeddedNode {
 
     @Override
     public void start() {
-        if (instance != null) {
+        if (this.instance != null) {
             throw new IgniteException("Node is already started.");
         }
-        instance = new IgniteImpl(this, configPath, workDir, classLoader);
+        IgniteImpl instance = new IgniteImpl(this, configPath, workDir, classLoader);
 
         ackBanner();
 
         try {
             instance.start();
         } catch (Exception e) {
-            instance = null;
             throw handleStartException(e);
         }
+        this.instance = instance;
     }
 
     private static IgniteException handleStartException(Throwable e) {
