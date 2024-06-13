@@ -20,6 +20,7 @@ package org.apache.ignite.internal.failure.handlers;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.NodeStopper;
 import org.apache.ignite.internal.failure.handlers.configuration.StopNodeOrHaltFailureHandlerView;
 import org.apache.ignite.internal.tostring.S;
 
@@ -35,6 +36,9 @@ public class StopNodeOrHaltFailureHandler extends AbstractFailureHandler {
      */
     private static final int KILL_EXIT_CODE = 130;
 
+    /** Node stopper. */
+    private final NodeStopper nodeStopper;
+
     /** Try stop. */
     private final boolean tryStop;
 
@@ -43,18 +47,13 @@ public class StopNodeOrHaltFailureHandler extends AbstractFailureHandler {
 
     /**
      * Creates a new instance of a failure processor.
-     */
-    public StopNodeOrHaltFailureHandler() {
-        this(false, 0);
-    }
-
-    /**
-     * Creates a new instance of a failure processor.
      *
+     * @param nodeStopper Node stopper.
      * @param tryStop Try stop.
      * @param timeout Stop node timeout in milliseconds.
      */
-    public StopNodeOrHaltFailureHandler(boolean tryStop, long timeout) {
+    public StopNodeOrHaltFailureHandler(NodeStopper nodeStopper, boolean tryStop, long timeout) {
+        this.nodeStopper = nodeStopper;
         this.tryStop = tryStop;
         this.timeout = timeout;
     }
@@ -62,21 +61,23 @@ public class StopNodeOrHaltFailureHandler extends AbstractFailureHandler {
     /**
      * Creates a new instance of a failure processor.
      *
+     * @param nodeStopper Node stopper.
      * @param view Configuration view.
      */
-    public StopNodeOrHaltFailureHandler(StopNodeOrHaltFailureHandlerView view) {
+    public StopNodeOrHaltFailureHandler(NodeStopper nodeStopper, StopNodeOrHaltFailureHandlerView view) {
+        this.nodeStopper = nodeStopper;
         tryStop = view.tryStop();
         timeout = view.timeout();
     }
 
     @Override
-    protected boolean handle(Runnable nodeStopper, FailureContext failureCtx) {
+    protected boolean handle(FailureContext failureCtx) {
         if (tryStop) {
             CountDownLatch latch = new CountDownLatch(1);
 
             new Thread(
                     () -> {
-                        nodeStopper.run();
+                        nodeStopper.stopNode();
 
                         latch.countDown();
                     },

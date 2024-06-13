@@ -125,10 +125,9 @@ public class TestNode implements LifecycleAware {
         MailboxRegistry mailboxRegistry = registerService(new MailboxRegistryImpl());
 
         FailureProcessor failureProcessor = new FailureProcessor(
-                () -> {},
                 new AbstractFailureHandler() {
                     @Override
-                    public boolean handle(Runnable nodeStopper, FailureContext failureCtx) {
+                    public boolean handle(FailureContext failureCtx) {
                         exceptionRaised = true;
                         return true;
                     }

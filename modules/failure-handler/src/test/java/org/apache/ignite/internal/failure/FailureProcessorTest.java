@@ -41,14 +41,14 @@ class FailureProcessorTest extends BaseIgniteAbstractTest {
     void testFailureProcessing() {
         FailureHandler handler = mock(FailureHandler.class);
 
-        FailureProcessor failureProcessor = new FailureProcessor(() -> {}, handler);
+        FailureProcessor failureProcessor = new FailureProcessor(handler);
 
         try {
             assertThat(failureProcessor.startAsync(new ComponentContext()), willSucceedFast());
 
             failureProcessor.process(new FailureContext(FailureType.CRITICAL_ERROR, null));
 
-            verify(handler, times(1)).onFailure(any(), any());
+            verify(handler, times(1)).onFailure(any());
         } finally {
             assertThat(failureProcessor.stopAsync(new ComponentContext()), willSucceedFast());
         }
@@ -58,7 +58,7 @@ class FailureProcessorTest extends BaseIgniteAbstractTest {
     void testIgnoredFailureTypes() {
         FailureHandler handler = new NoOpFailureHandler();
 
-        FailureProcessor failureProcessor = new FailureProcessor(() -> {}, handler);
+        FailureProcessor failureProcessor = new FailureProcessor(handler);
 
         try {
             assertThat(failureProcessor.startAsync(new ComponentContext()), willSucceedFast());

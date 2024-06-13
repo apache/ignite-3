@@ -185,7 +185,7 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
             storage = new RocksDbKeyValueStorage(
                     clusterService.nodeName(),
                     metaStorageDir,
-                    new NoOpFailureProcessor(clusterService.nodeName()));
+                    new NoOpFailureProcessor());
 
             metaStorageManager = new MetaStorageManagerImpl(
                     clusterService,

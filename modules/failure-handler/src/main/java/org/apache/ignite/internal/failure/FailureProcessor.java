@@ -64,7 +64,7 @@ public class FailureProcessor implements IgniteComponent {
     private volatile FailureHandler handler;
 
     /** Node stopper. */
-    private final Runnable nodeStopper;
+    private final NodeStopper nodeStopper;
 
     /** Interceptor of fail handler. Main purpose to make testing easier. */
     private @Nullable FailureHandler interceptor;
@@ -75,11 +75,10 @@ public class FailureProcessor implements IgniteComponent {
     /**
      * Creates a new instance of a failure processor.
      *
-     * @param nodeStopper Node.
      * @param handler Handler.
      */
-    public FailureProcessor(Runnable nodeStopper, FailureHandler handler) {
-        this.nodeStopper = nodeStopper;
+    public FailureProcessor(FailureHandler handler) {
+        this.nodeStopper = () -> {};
         this.handler = handler;
         this.configuration = null;
     }
@@ -87,10 +86,10 @@ public class FailureProcessor implements IgniteComponent {
     /**
      * Creates a new instance of a failure processor.
      *
-     * @param nodeStopper Node.
+     * @param nodeStopper Node stopper.
      * @param configuration Failure processor configuration.
      */
-    public FailureProcessor(Runnable nodeStopper, FailureProcessorConfiguration configuration) {
+    public FailureProcessor(NodeStopper nodeStopper, FailureProcessorConfiguration configuration) {
         this.nodeStopper = nodeStopper;
         this.configuration = configuration;
     }
@@ -138,7 +137,7 @@ public class FailureProcessor implements IgniteComponent {
         assert handler != null : "Failure handler is not initialized.";
 
         if (interceptor != null) {
-            interceptor.onFailure(nodeStopper, failureCtx);
+            interceptor.onFailure(failureCtx);
         }
 
         // Node already terminating, no reason to process more errors.
@@ -152,7 +151,7 @@ public class FailureProcessor implements IgniteComponent {
             LOG.error(FAILURE_LOG_MSG, failureCtx.error(), handler, failureCtx);
         }
 
-        boolean invalidated = handler.onFailure(nodeStopper, failureCtx);
+        boolean invalidated = handler.onFailure(failureCtx);
 
         if (invalidated) {
             this.failureCtx = failureCtx;
@@ -178,11 +177,11 @@ public class FailureProcessor implements IgniteComponent {
                 break;
 
             case StopNodeFailureHandlerConfigurationSchema.TYPE:
-                hnd = new StopNodeFailureHandler();
+                hnd = new StopNodeFailureHandler(nodeStopper);
                 break;
 
             case StopNodeOrHaltFailureHandlerConfigurationSchema.TYPE:
-                hnd = new StopNodeOrHaltFailureHandler((StopNodeOrHaltFailureHandlerView) handlerView);
+                hnd = new StopNodeOrHaltFailureHandler(nodeStopper, (StopNodeOrHaltFailureHandlerView) handlerView);
                 break;
 
             default:

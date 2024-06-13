@@ -74,7 +74,7 @@ public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
 
     @BeforeEach
     public void beforeTest() {
-        var failureProcessor = new FailureProcessor(() -> {}, new NoOpFailureHandler());
+        var failureProcessor = new FailureProcessor(new NoOpFailureHandler());
         taskExecutor = new QueryTaskExecutorImpl("no_node", 4, failureProcessor);
         taskExecutor.start();
     }

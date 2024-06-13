@@ -464,7 +464,7 @@ public class IgniteImpl implements Ignite {
 
         MessageSerializationRegistry serializationRegistry = createSerializationRegistry(serviceProviderClassLoader);
 
-        failureProcessor = new FailureProcessor(node::stopAsync, nodeConfigRegistry.getConfiguration(FailureProcessorConfiguration.KEY));
+        failureProcessor = new FailureProcessor(node::stop, nodeConfigRegistry.getConfiguration(FailureProcessorConfiguration.KEY));
 
         CriticalWorkersConfiguration criticalWorkersConfiguration = nodeConfigRegistry.getConfiguration(CriticalWorkersConfiguration.KEY);
 

@@ -18,15 +18,22 @@
 package org.apache.ignite.internal.failure.handlers;
 
 import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.NodeStopper;
 import org.apache.ignite.internal.tostring.S;
 
 /**
- * Handler will stop node in case of critical error using {@code EmbeddedNode.stopAsync()} call.
+ * Handler will stop node in case of critical error using provided {@link NodeStopper}.
  */
 public class StopNodeFailureHandler extends AbstractFailureHandler {
+    private final NodeStopper nodeStopper;
+
+    public StopNodeFailureHandler(NodeStopper nodeStopper) {
+        this.nodeStopper = nodeStopper;
+    }
+
     @Override
-    protected boolean handle(Runnable nodeStopper, FailureContext failureCtx) {
-        nodeStopper.run();
+    protected boolean handle(FailureContext failureCtx) {
+        nodeStopper.stopNode();
 
         return true;
     }

@@ -645,7 +645,7 @@ public class ExchangeExecutionTest extends AbstractExecutionTest<Object[]> {
 
     private static QueryTaskExecutor getOrCreateTaskExecutor(String name) {
         return executors.computeIfAbsent(name, name0 -> {
-            var failureProcessor = new FailureProcessor(() -> {}, new NoOpFailureHandler());
+            var failureProcessor = new FailureProcessor(new NoOpFailureHandler());
             var executor = new QueryTaskExecutorImpl(name0, 4, failureProcessor);
 
             executor.start();

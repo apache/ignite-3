@@ -842,7 +842,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
             throw new IllegalArgumentException(format("Node id should be one of {}, but was '{}'", nodeNames, nodeName));
         }
 
-        var failureProcessor = new FailureProcessor(() -> {}, new NoOpFailureHandler());
+        var failureProcessor = new FailureProcessor(new NoOpFailureHandler());
         var taskExecutor = new QueryTaskExecutorImpl(nodeName, 4, failureProcessor);
         executers.add(taskExecutor);
 

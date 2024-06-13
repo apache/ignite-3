@@ -144,7 +144,7 @@ public class ClusterServiceTestUtils {
                 serializationRegistry,
                 staleIds,
                 new NoOpCriticalWorkerRegistry(),
-                new FailureProcessor(() -> {}, new NoOpFailureHandler())
+                new FailureProcessor(new NoOpFailureHandler())
         );
 
         assert nodeFinder instanceof StaticNodeFinder : "Only StaticNodeFinder is supported at the moment";

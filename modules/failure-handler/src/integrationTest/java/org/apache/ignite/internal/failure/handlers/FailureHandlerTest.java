@@ -23,6 +23,7 @@ import static org.awaitility.Awaitility.await;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import org.apache.ignite.EmbeddedNode;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
@@ -45,20 +46,20 @@ public class FailureHandlerTest extends ClusterPerTestIntegrationTest {
 
     @Test
     void testStopNodeFailureHandler() {
-        testFailureHandler(new StopNodeFailureHandler());
+        testFailureHandler(node -> new StopNodeFailureHandler(node::stop));
     }
 
     @Test
     void testStopNodeOrHaltFailureHandler() {
-        testFailureHandler(new StopNodeOrHaltFailureHandler(true, TIMEOUT_MILLIS));
+        testFailureHandler(node -> new StopNodeOrHaltFailureHandler(node::stop, true, TIMEOUT_MILLIS));
     }
 
-    private void testFailureHandler(FailureHandler hnd) {
+    private void testFailureHandler(Function<EmbeddedNode, FailureHandler> handlerFactory) {
         EmbeddedNode node = cluster.startEmbeddedNode(0);
         CompletableFuture<Ignite> fut = node.igniteAsync();
 
+        FailureHandler hnd = handlerFactory.apply(node);
         hnd.onFailure(
-                node::stopAsync,
                 new FailureContext(
                         FailureType.CRITICAL_ERROR,
                         new IgniteInternalException(ILLEGAL_ARGUMENT_ERR, "Test error")));

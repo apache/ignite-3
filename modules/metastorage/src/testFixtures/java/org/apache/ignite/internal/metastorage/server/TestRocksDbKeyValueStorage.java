@@ -36,7 +36,7 @@ public class TestRocksDbKeyValueStorage extends RocksDbKeyValueStorage {
      * @param dbPath RocksDB path.
      */
     public TestRocksDbKeyValueStorage(String nodeName, Path dbPath) {
-        super(nodeName, dbPath, new NoOpFailureProcessor(nodeName));
+        super(nodeName, dbPath, new NoOpFailureProcessor());
     }
 
     @Override

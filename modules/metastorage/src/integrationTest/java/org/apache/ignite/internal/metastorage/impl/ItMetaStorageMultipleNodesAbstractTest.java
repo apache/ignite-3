@@ -173,7 +173,7 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
                     new TestConfigurationValidator()
             );
 
-            this.failureProcessor = new NoOpFailureProcessor(name());
+            this.failureProcessor = new NoOpFailureProcessor();
 
             this.cmgManager = new ClusterManagementGroupManager(
                     vaultManager,
