@@ -907,8 +907,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             return nullCompletedFuture();
         }
 
-        CompletableFuture<Void> resultFuture = new CompletableFuture<>();
-
         CompletableFuture<Boolean> shouldStartGroupFut = isRecovery
                 ? partitionReplicatorNodeRecovery.initiateGroupReentryIfNeeded(
                         replicaGrpId,
@@ -918,7 +916,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 )
                 : trueCompletedFuture();
 
-        shouldStartGroupFut
+        return shouldStartGroupFut
                 .thenComposeAsync(startGroup -> inBusyLock(busyLock, () -> {
                     // (1) if partitionReplicatorNodeRecovery#initiateGroupReentryIfNeeded fails => do start nothing
                     if (!startGroup) {
@@ -983,17 +981,14 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         throw new AssertionError("Loza was stopped before Table manager", e);
                     }
                 }), ioExecutor)
-                .whenComplete((res, ex) -> {
+                .handle((res, ex) -> {
                     if (ex != null) {
                         LOG.warn("Unable to update raft groups on the node [tableId={}, partitionId={}]", ex, tableId, partId);
 
-                        resultFuture.completeExceptionally(ex);
-                    } else {
-                        resultFuture.complete(null);
+                        throw new CompletionException(ex);
                     }
+                    return null;
                 });
-
-        return resultFuture;
     }
 
     private boolean shouldStartRaftListeners(Assignments assignments, @Nullable Assignments nonStableNodeAssignments) {
