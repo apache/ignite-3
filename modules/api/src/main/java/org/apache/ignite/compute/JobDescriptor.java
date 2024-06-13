@@ -20,6 +20,9 @@ package org.apache.ignite.compute;
 import java.util.List;
 import java.util.Objects;
 
+/**
+ * Compute job descriptor.
+ */
 public class JobDescriptor {
     private final String jobClassName;
 
@@ -33,27 +36,61 @@ public class JobDescriptor {
         this.options = options;
     }
 
+    /**
+     * Job class name.
+     *
+     * @return Job class name.
+     */
     public String jobClassName() {
         return jobClassName;
     }
 
+    /**
+     * Deployment units.
+     *
+     * @return Deployment units.
+     */
     public List<DeploymentUnit> units() {
         return units;
     }
 
+    /**
+     * Job execution options.
+     *
+     * @return Job execution options.
+     */
     public JobExecutionOptions options() {
         return options;
     }
 
+    /**
+     * Create a new builder.
+     *
+     * @return Job descriptor builder.
+     */
     public static Builder builder() {
         return new Builder();
     }
 
+    /**
+     * Create a new builder.
+     *
+     * @return Job descriptor builder.
+     */
     public static Builder builder(String jobClassName) {
+        Objects.requireNonNull(jobClassName);
+
         return new Builder().jobClassName(jobClassName);
     }
 
+    /**
+     * Create a new builder.
+     *
+     * @return Job descriptor builder.
+     */
     public static Builder builder(Class<? extends ComputeJob<?>> jobClass) {
+        Objects.requireNonNull(jobClass);
+
         return new Builder().jobClass(jobClass);
     }
 
