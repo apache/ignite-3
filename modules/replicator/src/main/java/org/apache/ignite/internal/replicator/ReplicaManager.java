@@ -1159,7 +1159,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                         context.assertReservation(parameters.groupId());
                         // Unreserve if primary replica expired, only if its lease start time is greater,
                         // otherwise it means that event is too late relatively to lease negotiation start and should be ignored.
-                        if (parameters.startTime().compareTo(context.leaseStartTime) == 0) {
+                        if (parameters.startTime().equals(context.leaseStartTime)) {
                             context.unreserve();
                         }
                     }
@@ -1193,7 +1193,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             synchronized (context) {
                 ReplicaState state = context.replicaState;
 
-                LOG.info("Weak replica start [grp={}, state={}, future={}].", groupId, state, context.previousOperationFuture);
+                LOG.debug("Weak replica start [grp={}, state={}, future={}].", groupId, state, context.previousOperationFuture);
 
                 if (state == ReplicaState.STOPPED || state == ReplicaState.STOPPING) {
                     return startReplica(groupId, context, startOperation);
@@ -1235,7 +1235,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                             }
                         }
 
-                        LOG.info("Weak replica start complete [state={}, partitionStarted={}].", context.replicaState, partitionStarted);
+                        LOG.debug("Weak replica start complete [state={}, partitionStarted={}].", context.replicaState, partitionStarted);
 
                         return partitionStarted;
                     }));
@@ -1264,7 +1264,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             synchronized (context) {
                 ReplicaState state = context.replicaState;
 
-                LOG.info("Weak replica stop [grpId={}, state={}, reason={}, reservedForPrimary={}, future={}].", groupId, state,
+                LOG.debug("Weak replica stop [grpId={}, state={}, reason={}, reservedForPrimary={}, future={}].", groupId, state,
                         reason, context.reservedForPrimary, context.previousOperationFuture);
 
                 if (reason == WeakReplicaStopReason.EXCLUDED_FROM_ASSIGNMENTS) {
@@ -1293,7 +1293,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     } // else: no-op.
                 }
 
-                LOG.info("Weak replica stop complete [grpId={}, state={}].", groupId, context.replicaState);
+                LOG.debug("Weak replica stop complete [grpId={}, state={}].", groupId, context.replicaState);
 
                 return nullCompletedFuture();
             }
@@ -1318,7 +1318,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                             }
                         }
 
-                        LOG.info("Weak replica stop complete [grpId={}, state={}].", groupId, context.replicaState);
+                        LOG.debug("Weak replica stop complete [grpId={}, state={}].", groupId, context.replicaState);
 
                         return true;
                     }));
