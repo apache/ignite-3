@@ -842,7 +842,7 @@ public class TestBuilders {
         @Override
         public TableBuilder addColumn(String name, NativeType type, boolean nullable) {
             columns.add(new ColumnDescriptorImpl(
-                    name, false, false, nullable, columns.size(), type, DefaultValueStrategy.DEFAULT_NULL, null
+                    name, false, false, false, nullable, columns.size(), type, DefaultValueStrategy.DEFAULT_NULL, null
             ));
 
             return this;
@@ -861,7 +861,7 @@ public class TestBuilders {
                 return addColumn(name, type);
             } else {
                 ColumnDescriptorImpl desc = new ColumnDescriptorImpl(
-                        name, false, false, true, columns.size(), type, DefaultValueStrategy.DEFAULT_CONSTANT, () -> defaultValue
+                        name, false, false, false, true, columns.size(), type, DefaultValueStrategy.DEFAULT_CONSTANT, () -> defaultValue
                 );
                 columns.add(desc);
             }
@@ -873,7 +873,7 @@ public class TestBuilders {
         @Override
         public TableBuilder addKeyColumn(String name, NativeType type) {
             columns.add(new ColumnDescriptorImpl(
-                    name, true, false, false, columns.size(), type, DefaultValueStrategy.DEFAULT_NULL, null
+                    name, true, false, false, false, columns.size(), type, DefaultValueStrategy.DEFAULT_NULL, null
             ));
 
             return this;

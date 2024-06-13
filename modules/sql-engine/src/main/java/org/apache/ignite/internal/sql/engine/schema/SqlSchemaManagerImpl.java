@@ -56,6 +56,7 @@ import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.cache.Cache;
 import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.lang.ErrorGroups.Common;
 
 /**
@@ -257,6 +258,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                 desc.name(),
                 desc.key(),
                 true,
+                false,
                 desc.nullable(),
                 desc.logicalIndex(),
                 desc.physicalType(),
