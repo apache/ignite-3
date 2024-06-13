@@ -1141,7 +1141,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                         context.unreserve();
 
                         if (context.replicaState == ReplicaState.PRIMARY_ONLY) {
-                            stopReplica(groupId, context, context.deferredStopOperation);
+                            stopReplica(groupId, context, context.deferredStopOperation, WeakReplicaStopReason.PRIMARY_EXPIRED);
                         }
                     }
                 }
@@ -1264,7 +1264,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             synchronized (context) {
                 ReplicaState state = context.replicaState;
 
-                LOG.info("Weak replica stop [grpId={}, state={}, reason={}, isPrimaryLocal={}, future={}].", groupId, state,
+                LOG.info("Weak replica stop [grpId={}, state={}, reason={}, reservedForPrimary={}, future={}].", groupId, state,
                         reason, context.reservedForPrimary, context.previousOperationFuture);
 
                 if (reason == WeakReplicaStopReason.EXCLUDED_FROM_ASSIGNMENTS) {
@@ -1273,23 +1273,23 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                             context.replicaState = ReplicaState.PRIMARY_ONLY;
                             context.deferredStopOperation = stopOperation;
                         } else {
-                            return stopReplica(groupId, context, stopOperation);
+                            return stopReplica(groupId, context, stopOperation, reason);
                         }
                     } else if (state == ReplicaState.STARTING) {
-                        return stopReplica(groupId, context, stopOperation);
+                        return stopReplica(groupId, context, stopOperation, reason);
                     } else if (state == ReplicaState.STOPPED) {
                         // We need to stop replica and destroy storages anyway, because they can be already created.
                         // See TODO-s for IGNITE-19713
-                        return stopReplica(groupId, context, stopOperation);
+                        return stopReplica(groupId, context, stopOperation, reason);
                     } // else: no-op.
                 } else if (reason == WeakReplicaStopReason.RESTART) {
                     // Explicit restart: always stop.
-                    return stopReplica(groupId, context, stopOperation);
+                    return stopReplica(groupId, context, stopOperation, reason);
                 } else {
                     assert reason == WeakReplicaStopReason.PRIMARY_EXPIRED : "Unknown replica stop reason: " + reason;
 
                     if (state == ReplicaState.PRIMARY_ONLY) {
-                        return stopReplica(groupId, context, stopOperation);
+                        return stopReplica(groupId, context, stopOperation, reason);
                     } // else: no-op.
                 }
 
@@ -1302,7 +1302,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         private CompletableFuture<Void> stopReplica(
                 ReplicationGroupId groupId,
                 ReplicaStateContext context,
-                Supplier<CompletableFuture<Void>> stopOperation
+                Supplier<CompletableFuture<Void>> stopOperation,
+                WeakReplicaStopReason reason
         ) {
             context.replicaState = ReplicaState.STOPPING;
             context.previousOperationFuture = context.previousOperationFuture
@@ -1310,7 +1311,11 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     .thenCompose(stopOperationFuture -> stopOperationFuture.thenApply(v -> {
                         synchronized (context) {
                             context.replicaState = ReplicaState.STOPPED;
-                            replicaContexts.remove(groupId);
+
+                            if (reason != WeakReplicaStopReason.RESTART) {
+                                // No need to remove the context while restarting, it can lead to the loss of reservation context.
+                                replicaContexts.remove(groupId);
+                            }
                         }
 
                         LOG.info("Weak replica stop complete [grpId={}, state={}].", groupId, context.replicaState);
