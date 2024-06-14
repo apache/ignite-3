@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.runner.app;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.MAX_TIME_PRECISION;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZone;
@@ -555,7 +556,7 @@ public class PlatformTestNodeRunner {
 
             context.ignite().sql().execute(null, "CREATE TABLE " + tableName + "(key BIGINT PRIMARY KEY, val INT)");
 
-            return tableName;
+            return completedFuture(tableName);
         }
     }
 
@@ -569,7 +570,7 @@ public class PlatformTestNodeRunner {
             String tableName = (String) args[0];
             context.ignite().sql().execute(null, "DROP TABLE " + tableName + "");
 
-            return tableName;
+            return completedFuture(tableName);
         }
     }
 
@@ -712,7 +713,7 @@ public class PlatformTestNodeRunner {
             try {
                 Row row = marsh.marshal(tuple);
 
-                return row.colocationHash();
+                return completedFuture(row.colocationHash());
             } catch (TupleMarshallerException e) {
                 throw new RuntimeException(e);
             }
@@ -736,7 +737,7 @@ public class PlatformTestNodeRunner {
             TupleMarshaller marsh = view.marshaller(1);
 
             try {
-                return marsh.marshal(key).colocationHash();
+                return completedFuture(marsh.marshal(key).colocationHash());
             } catch (TupleMarshallerException e) {
                 throw new RuntimeException(e);
             }
