@@ -443,9 +443,15 @@ public class PrepareServiceImpl implements PrepareService {
                     );
                 }
 
-                return new MultiStepPlan(
+                MultiStepPlan multiStepPlan = new MultiStepPlan(
                         nextPlanId(), SqlQueryType.DML, clonedTree, DML_METADATA, parameterMetadata, catalogVersion
                 );
+
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug("Plan prepared: \n{}\n\n{}", parsedResult.originalQuery(), multiStepPlan.explain());
+                }
+
+                return multiStepPlan;
             }, planningPool));
 
             return planFut.thenApply(Function.identity());

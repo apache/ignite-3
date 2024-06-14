@@ -224,7 +224,7 @@ public class ScannableTableImpl implements ScannableTable {
             @Nullable InternalTransaction explicitTx,
             RowFactory<RowT> rowFactory,
             RowT key,
-            @Nullable BitSet requiredColumns
+            BitSet requiredColumns
     ) {
         TableRowConverter converter = converterFactory.create(requiredColumns);
 

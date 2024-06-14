@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.IntStream;
+import java.util.stream.StreamSupport;
 import org.apache.calcite.rel.core.TableModify;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
@@ -120,7 +121,13 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
         this.updateColumns = updateColumns;
 
         this.mapping = mapping(table.descriptor(), updateColumns);
-        this.insertRowMapping = IntStream.range(0, table.descriptor().columnsCount()).toArray();
+
+        //TODO: Virtual columns should never be inserted.
+        int virtualColumnsCount = (int) StreamSupport.stream(table.descriptor().spliterator(), false)
+                .filter(ColumnDescriptor::system)
+                .count();
+
+        this.insertRowMapping = IntStream.range(0, table.descriptor().columnsCount() - virtualColumnsCount).toArray();
     }
 
     /** {@inheritDoc} */
@@ -432,7 +439,12 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
             return null;
         }
 
-        int columnCount = descriptor.columnsCount();
+        //TODO: Virtual columns should never be updated.
+        int virtualColumnsCount = (int) StreamSupport.stream(descriptor.spliterator(), false)
+                .filter(ColumnDescriptor::system)
+                .count();
+
+        int columnCount = descriptor.columnsCount() - virtualColumnsCount;
 
         int[] mapping = new int[columnCount];
 

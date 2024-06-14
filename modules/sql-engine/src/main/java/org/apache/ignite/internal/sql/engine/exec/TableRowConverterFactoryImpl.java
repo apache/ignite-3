@@ -18,6 +18,9 @@
 package org.apache.ignite.internal.sql.engine.exec;
 
 import java.util.BitSet;
+import java.util.function.Function;
+import java.util.function.IntFunction;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
@@ -34,7 +37,8 @@ public class TableRowConverterFactoryImpl implements TableRowConverterFactory {
     private final SchemaDescriptor schemaDescriptor;
     private final BinaryTupleSchema fullTupleSchema;
     private final TableRowConverter fullRowConverter;
-    private int partVirtualColumnIndex = -1;
+    private final BitSet tableColumnSet;
+    private IntFunction<VirtualColumn> virtualColumnFactory;
 
     /**
      * Creates a factory from given schema and indexes of primary key.
@@ -59,25 +63,38 @@ public class TableRowConverterFactoryImpl implements TableRowConverterFactory {
                 schemaDescriptor
         );
 
+        tableColumnSet = new BitSet();
+        tableColumnSet.set(0, schemaDescriptor.length());
+
         ColumnDescriptor columnDescriptor = tableDescriptor.columnDescriptor(Commons.PART_COL_NAME);
 
         if (columnDescriptor != null) {
             assert columnDescriptor.system();
 
-            partVirtualColumnIndex = columnDescriptor.logicalIndex();
+            tableColumnSet.set(columnDescriptor.logicalIndex());
+            virtualColumnFactory = (partId) -> new VirtualColumn(columnDescriptor.logicalIndex(), partId);
         }
     }
 
     @Override
     public TableRowConverter create(@Nullable BitSet requiredColumns) {
+        // TODO: fix this. UpdatableTable must pass the bitset with updatable columns.
+        if (requiredColumns == null) {
+            return fullRowConverter;
+        }
+
         return create(requiredColumns, -1);
     }
 
     @Override
     public TableRowConverter create(@Nullable BitSet requiredColumns, int partId) {
-        boolean hasVirtualColumn = requiredColumns != null && partVirtualColumnIndex != -1 && requiredColumns.get(partVirtualColumnIndex);
+        if (requiredColumns == null) {
+            requiredColumns = tableColumnSet;
+        }
 
-        if (requiredColumns == null || (requiredColumns.cardinality() == schemaDescriptor.length() && !hasVirtualColumn)) {
+        boolean requireVirtualColumn = requiredColumns.nextSetBit(schemaDescriptor.length()) != -1;
+
+        if (!requireVirtualColumn && requiredColumns.cardinality() == schemaDescriptor.length()) {
             return fullRowConverter;
         }
 
@@ -86,7 +103,7 @@ public class TableRowConverterFactoryImpl implements TableRowConverterFactory {
                 fullTupleSchema,
                 schemaDescriptor,
                 requiredColumns,
-                hasVirtualColumn ? new VirtualColumn(partVirtualColumnIndex, partId) : null
+                requireVirtualColumn ? virtualColumnFactory.apply(partId) : null
         );
     }
 }

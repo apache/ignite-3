@@ -57,7 +57,7 @@ public class ProjectedTableRowConverterImpl extends TableRowConverterImpl {
         super(schemaRegistry, schemaDescriptor);
 
         this.fullTupleSchema = fullTupleSchema;
-        this.virtualColumn = virtualColumn;
+        this.virtualColumn = virtualColumn; // TODO: Extract virtual column case into a separate class.
 
         int size = requiredColumns.cardinality();
 
@@ -96,14 +96,17 @@ public class ProjectedTableRowConverterImpl extends TableRowConverterImpl {
     }
 
     private InternalTuple injectVirtualColumn(InternalTuple tableTuple) {
+        assert virtualColumn != null : virtualColumn;
+
         return new FieldDeserializingProjectedTuple(
                 fullTupleSchema,
                 tableTuple,
                 requiredColumnsMapping
         ) {
+            @Nullable VirtualColumn vcol = virtualColumn;
             @Override
             public int intValue(int col) {
-                if (projection[col] == virtualColumn.columnIndex) {
+                if (vcol != null && projection[col] == vcol.columnIndex) {
                     return (Integer) virtualColumn.value;
                 }
 
@@ -112,7 +115,7 @@ public class ProjectedTableRowConverterImpl extends TableRowConverterImpl {
 
             @Override
             public Integer intValueBoxed(int col) {
-                if (projection[col] == virtualColumn.columnIndex) {
+                if (vcol != null && projection[col] == virtualColumn.columnIndex) {
                     return (Integer) virtualColumn.value;
                 }
 
@@ -129,8 +132,9 @@ public class ProjectedTableRowConverterImpl extends TableRowConverterImpl {
 
                     newProjection[i] = i;
 
-                    if (col == virtualColumn.columnIndex) {
-                        builder.appendInt((Integer) virtualColumn.value);
+                    if (vcol != null && col == vcol.columnIndex) {
+                        builder.appendInt((Integer) vcol.value);
+                        vcol = null;
                         continue;
                     }
 

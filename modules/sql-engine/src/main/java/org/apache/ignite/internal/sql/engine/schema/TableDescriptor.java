@@ -47,9 +47,7 @@ public interface TableDescriptor extends InitializerExpressionFactory, Iterable<
      * @param factory     Type factory.
      * @return Row type.
      */
-    default RelDataType insertRowType(IgniteTypeFactory factory) {
-        return rowType(factory, null);
-    }
+    RelDataType insertRowType(IgniteTypeFactory factory);
 
     /**
      * Returns column descriptor for given field name.

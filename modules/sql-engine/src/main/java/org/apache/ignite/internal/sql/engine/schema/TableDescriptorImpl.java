@@ -57,9 +57,7 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
 
     private final RelDataType rowType;
 
-    private final ImmutableBitSet insertFields;
-
-    private final int partFieldIdx;
+    private final ImmutableBitSet storeFields;
 
     /**
      * Constructor.
@@ -72,7 +70,7 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
 
         Map<String, ColumnDescriptor> descriptorsMap = newHashMap(columnDescriptors.size());
 
-        RelDataTypeFactory factory = Commons.typeFactory();
+        IgniteTypeFactory factory = Commons.typeFactory();
         RelDataTypeFactory.Builder typeBuilder = new RelDataTypeFactory.Builder(factory);
         BitSet virtualFields = new BitSet();
         for (ColumnDescriptor descriptor : columnDescriptors) {
@@ -89,13 +87,10 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
         this.rowType = typeBuilder.build();
 
         if (virtualFields.isEmpty()) {
-            insertFields = null;
-            partFieldIdx = -1;
+            storeFields = ImmutableBitSet.range(descriptors.length);
         } else {
             virtualFields.flip(0, descriptors.length);
-            insertFields = ImmutableBitSet.fromBitSet(virtualFields);
-
-            partFieldIdx = descriptorsMap.get(Commons.PART_COL_NAME).logicalIndex();
+            storeFields = ImmutableBitSet.fromBitSet(virtualFields);
         }
     }
 
@@ -177,7 +172,7 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
     /** {@inheritDoc} */
     @Override
     public RelDataType insertRowType(IgniteTypeFactory factory) {
-        return rowType(factory, insertFields);
+        return rowType(factory, storeFields);
     }
 
     /** {@inheritDoc} */

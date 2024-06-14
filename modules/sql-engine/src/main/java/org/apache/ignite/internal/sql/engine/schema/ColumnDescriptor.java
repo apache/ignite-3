@@ -30,6 +30,7 @@ public interface ColumnDescriptor {
     /** Returns {@code true} if this column is part of the primary key. */
     boolean key();
 
+    // TODO: rename to virtual
     /** Returns {@code true} if this column should not be expanded in query until user explicitly specify it as part of the statement. */
     boolean hidden();
 
