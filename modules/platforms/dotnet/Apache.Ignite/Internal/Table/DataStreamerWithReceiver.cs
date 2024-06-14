@@ -89,6 +89,7 @@ internal static class DataStreamerWithReceiver
         IgniteArgumentCheck.NotNull(data);
         DataStreamer.ValidateOptions(options);
 
+        // TODO: Return channel instead of IAsyncEnumerable. Or return a task, but pass in the channel?
         Channel<TResult> resultChannel = CreateResultChannel<TResult>(options.PageSize);
 
         // ConcurrentDictionary is not necessary because we consume the source sequentially.
