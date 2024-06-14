@@ -48,6 +48,7 @@ import com.facebook.presto.bytecode.ParameterizedType;
 import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.bytecode.expression.BytecodeExpressions;
 import java.lang.reflect.Field;
+import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.List;
@@ -72,6 +73,7 @@ import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.ObjectFactory;
 import org.apache.ignite.table.mapper.Mapper;
+import org.apache.ignite.table.mapper.TypeConverter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -180,7 +182,7 @@ public class RecordMarshallerTest {
         Mapper<TestObject> mapper = Mapper.builder(TestObject.class)
                 .map("id", "key")
                 .map("intCol", "col1")
-                .map("stringCol", "col3")
+                .map("dateCol", "col3", new TestTypeConverter())
                 .build();
 
         RecordMarshaller<TestObject> marshaller = factory.create(schema, mapper);
@@ -442,7 +444,7 @@ public class RecordMarshallerTest {
 
         private Long longCol2;
 
-        private String stringCol;
+        private LocalDate dateCol;
 
         static TestObject randomObject(Random rnd) {
             final TestObject obj = new TestObject();
@@ -450,7 +452,7 @@ public class RecordMarshallerTest {
             obj.id = rnd.nextLong();
             obj.intCol = rnd.nextInt();
             obj.longCol2 = rnd.nextLong();
-            obj.stringCol = IgniteTestUtils.randomString(rnd, 100);
+            obj.dateCol = LocalDate.now();
 
             return obj;
         }
@@ -470,7 +472,7 @@ public class RecordMarshallerTest {
             return id == that.id
                     && intCol == that.intCol
                     && Objects.equals(longCol2, that.longCol2)
-                    && Objects.equals(stringCol, that.stringCol);
+                    && Objects.equals(dateCol, that.dateCol);
         }
 
         @Override
@@ -580,6 +582,18 @@ public class RecordMarshallerTest {
         @Override
         public int hashCode() {
             return Objects.hash(primLongCol);
+        }
+    }
+
+    private static class TestTypeConverter implements TypeConverter<LocalDate, String> {
+        @Override
+        public String toColumnType(LocalDate val) {
+            return val.toString();
+        }
+
+        @Override
+        public LocalDate toObjectType(String val) {
+            return LocalDate.parse(val);
         }
     }
 }

@@ -357,6 +357,25 @@ public class ItSetOpTest extends BaseSqlIntegrationTest {
         assertEquals(3, rows.size());
     }
 
+    @Test
+    public void testUnionNestedSortLimit() {
+        sql("CREATE TABLE test (a INTEGER PRIMARY KEY, v VARCHAR(100))");
+        sql("INSERT INTO test VALUES (1, 'a'), (2, 'b'), (3, 'c'), (4, 'd')");
+
+        assertQuery("SELECT a FROM\n"
+                + "  (SELECT a FROM test ORDER BY a LIMIT 1 OFFSET 1) t(a)\n"
+                + "UNION ALL\n"
+                + "SELECT a FROM\n"
+                + "  (SELECT a FROM\n"
+                + "    (SELECT a FROM test ORDER BY a LIMIT 3 OFFSET 2) i(a)\n"
+                + "    ORDER BY a OFFSET 1\n"
+                + "  ) t(a)\n"
+                + "\n")
+                .returns(2)
+                .returns(4)
+                .check();
+    }
+
     private static void createTable(String tableName) {
         sql("CREATE TABLE " + tableName + "(id INT PRIMARY KEY, name VARCHAR, salary DOUBLE)");
     }

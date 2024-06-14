@@ -20,7 +20,6 @@ package org.apache.ignite.compute;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
-import static org.apache.ignite.compute.JobExecutionOptions.DEFAULT;
 
 import java.util.HashMap;
 import java.util.List;
@@ -46,39 +45,15 @@ public interface IgniteCompute {
      *
      * @param <R> Job result type.
      * @param nodes Candidate nodes; the job will be executed on one of them.
-     * @param units Deployment units. Can be empty.
-     * @param jobClassName Name of the job class to execute.
-     * @param options Job execution options (priority, max retries).
+     * @param descriptor Job descriptor.
      * @param args Arguments of the job.
      * @return Job execution object.
      */
     <T, R> JobExecution<R> submit(
             Set<ClusterNode> nodes,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
+            JobDescriptor descriptor,
             T args
     );
-
-    /**
-     * Submits a {@link ComputeJob} of the given class for an execution on a single node from a set of candidate nodes
-     * with default execution options {@link JobExecutionOptions#DEFAULT}.
-     *
-     * @param nodes Candidate nodes; the job will be executed on one of them.
-     * @param units Deployment units. Can be empty.
-     * @param jobClassName Name of the job class to execute.
-     * @param args Arguments of the job.
-     * @param <R> Job result type.
-     * @return Job execution object.
-     */
-    default <T, R> JobExecution<R> submit(
-            Set<ClusterNode> nodes,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            T args
-    ) {
-        return submit(nodes, units, jobClassName, DEFAULT, args);
-    }
 
     /**
      * Submits a {@link ComputeJob} of the given class for an execution on a single node from a set of candidate nodes. A shortcut for
@@ -86,40 +61,16 @@ public interface IgniteCompute {
      *
      * @param <R> Job result type.
      * @param nodes Candidate nodes; the job will be executed on one of them.
-     * @param units Deployment units. Can be empty.
-     * @param jobClassName Name of the job class to execute.
-     * @param options Job execution options (priority, max retries).
+     * @param descriptor Job descriptor.
      * @param args Arguments of the job.
      * @return Job result future.
      */
     default <T, R> CompletableFuture<R> executeAsync(
             Set<ClusterNode> nodes,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
+            JobDescriptor descriptor,
             T args
     ) {
-        return this.<T, R>submit(nodes, units, jobClassName, options, args).resultAsync();
-    }
-
-    /**
-     * Submits a {@link ComputeJob} of the given class for an execution on a single node from a set of candidate nodes
-     * with default execution options {@link JobExecutionOptions#DEFAULT}. A shortcut for {@code submit(...).resultAsync()}.
-     *
-     * @param nodes Candidate nodes; the job will be executed on one of them.
-     * @param units Deployment units. Can be empty.
-     * @param jobClassName Name of the job class to execute.
-     * @param args Arguments of the job.
-     * @param <R> Job result type.
-     * @return Job result future.
-     */
-    default <T, R> CompletableFuture<R> executeAsync(
-            Set<ClusterNode> nodes,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            @Nullable T args
-    ) {
-        return this.<T, R>submit(nodes, units, jobClassName, args).resultAsync();
+        return this.<R>submit(nodes, descriptor, args).resultAsync();
     }
 
     /**
@@ -127,41 +78,16 @@ public interface IgniteCompute {
      *
      * @param <R> Job result type
      * @param nodes Candidate nodes; the job will be executed on one of them.
-     * @param units Deployment units. Can be empty.
-     * @param jobClassName Name of the job class to execute.
-     * @param options Job execution options (priority, max retries).
+     * @param descriptor Job descriptor.
      * @param args Arguments of the job.
      * @return Job result.
      * @throws ComputeException If there is any problem executing the job.
      */
     <T, R> R execute(
             Set<ClusterNode> nodes,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
-            @Nullable T args
+            JobDescriptor descriptor,
+            T args
     );
-
-    /**
-     * Executes a {@link ComputeJob} of the given class on a single node from a set of candidate nodes
-     * with default execution options {@link JobExecutionOptions#DEFAULT}.
-     *
-     * @param nodes Candidate nodes; the job will be executed on one of them.
-     * @param units Deployment units. Can be empty.
-     * @param jobClassName Name of the job class to execute.
-     * @param args Arguments of the job.
-     * @param <R> Job result type
-     * @return Job result.
-     * @throws ComputeException If there is any problem executing the job.
-     */
-    default <T, R> R execute(
-            Set<ClusterNode> nodes,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            @Nullable T args
-    ) {
-        return execute(nodes, units, jobClassName, DEFAULT, args);
-    }
 
     /**
      * Submits a job of the given class for the execution on the node where the given key is located. The node is a leader of the
@@ -169,9 +95,7 @@ public interface IgniteCompute {
      *
      * @param tableName Name of the table whose key is used to determine the node to execute the job on.
      * @param key Key that identifies the node to execute the job on.
-     * @param units Deployment units. Can be empty.
-     * @param jobClassName Name of the job class to execute.
-     * @param options Job execution options (priority, max retries).
+     * @param descriptor Job descriptor.
      * @param args Arguments of the job.
      * @param <R> Job result type.
      * @return Job execution object.
@@ -179,33 +103,9 @@ public interface IgniteCompute {
     <T, R> JobExecution<R> submitColocated(
             String tableName,
             Tuple key,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
-            @Nullable T args
+            JobDescriptor descriptor,
+            T args
     );
-
-    /**
-     * Submits a job of the given class for the execution on the node where the given key is located with default execution options
-     * {@link JobExecutionOptions#DEFAULT}. The node is a leader of the corresponding RAFT group.
-     *
-     * @param tableName Name of the table whose key is used to determine the node to execute the job on.
-     * @param key Key that identifies the node to execute the job on.
-     * @param units Deployment units. Can be empty.
-     * @param jobClassName Name of the job class to execute.
-     * @param args Arguments of the job.
-     * @param <R> Job result type.
-     * @return Job execution object.
-     */
-    default <T, R> JobExecution<R> submitColocated(
-            String tableName,
-            Tuple key,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            @Nullable T args
-    ) {
-        return submitColocated(tableName, key, units, jobClassName, DEFAULT, args);
-    }
 
     /**
      * Submits a job of the given class for the execution on the node where the given key is located. The node is a leader of the
@@ -214,10 +114,8 @@ public interface IgniteCompute {
      * @param tableName Name of the table whose key is used to determine the node to execute the job on.
      * @param key Key that identifies the node to execute the job on.
      * @param keyMapper Mapper used to map the key to a binary representation.
-     * @param units Deployment units. Can be empty.
-     * @param jobClassName Name of the job class to execute.
+     * @param descriptor Job descriptor.
      * @param args Arguments of the job.
-     * @param options Job execution options (priority, max retries).
      * @param <R> Job result type.
      * @return Job execution object.
      */
@@ -225,45 +123,17 @@ public interface IgniteCompute {
             String tableName,
             K key,
             Mapper<K> keyMapper,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
+            JobDescriptor descriptor,
             @Nullable T args
     );
 
     /**
-     * Submits a job of the given class for the execution on the node where the given key is located with default execution options
-     * {@link JobExecutionOptions#DEFAULT}. The node is a leader of the corresponding RAFT group.
-     *
-     * @param tableName Name of the table whose key is used to determine the node to execute the job on.
-     * @param key Key that identifies the node to execute the job on.
-     * @param keyMapper Mapper used to map the key to a binary representation.
-     * @param units Deployment units. Can be empty.
-     * @param jobClassName Name of the job class to execute.
-     * @param args Arguments of the job.
-     * @param <R> Job result type.
-     * @return Job execution object.
-     */
-    default <K, T, R> JobExecution<R> submitColocated(
-            String tableName,
-            K key,
-            Mapper<K> keyMapper,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            @Nullable T args
-    ) {
-        return submitColocated(tableName, key, keyMapper, units, jobClassName, DEFAULT, args);
-    }
-
-    /**
      * Submits a job of the given class for the execution on the node where the given key is located. The node is a leader of the
      * corresponding RAFT group. A shortcut for {@code submitColocated(...).resultAsync()}.
      *
      * @param tableName Name of the table whose key is used to determine the node to execute the job on.
      * @param key Key that identifies the node to execute the job on.
-     * @param units Deployment units. Can be empty.
-     * @param jobClassName Name of the job class to execute.
-     * @param options Job execution options (priority, max retries).
+     * @param descriptor Job descriptor.
      * @param args Arguments of the job.
      * @param <R> Job result type.
      * @return Job result future.
@@ -271,35 +141,10 @@ public interface IgniteCompute {
     default <T, R> CompletableFuture<R> executeColocatedAsync(
             String tableName,
             Tuple key,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
+            JobDescriptor descriptor,
             @Nullable T args
     ) {
-        return this.<T, R>submitColocated(tableName, key, units, jobClassName, options, args).resultAsync();
-    }
-
-    /**
-     * Submits a job of the given class for the execution on the node where the given key is located with default execution options
-     * {@link JobExecutionOptions#DEFAULT}. The node is a leader of the corresponding RAFT group. A shortcut for
-     * {@code submitColocated(...).resultAsync()}.
-     *
-     * @param tableName Name of the table whose key is used to determine the node to execute the job on.
-     * @param key Key that identifies the node to execute the job on.
-     * @param units Deployment units. Can be empty.
-     * @param jobClassName Name of the job class to execute.
-     * @param args Arguments of the job.
-     * @param <R> Job result type.
-     * @return Job result future.
-     */
-    default <T, R> CompletableFuture<R> executeColocatedAsync(
-            String tableName,
-            Tuple key,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            @Nullable T args
-    ) {
-        return this.<T, R>submitColocated(tableName, key, units, jobClassName, args).resultAsync();
+        return this.<R>submitColocated(tableName, key, descriptor, args).resultAsync();
     }
 
     /**
@@ -309,35 +154,7 @@ public interface IgniteCompute {
      * @param tableName Name of the table whose key is used to determine the node to execute the job on.
      * @param key Key that identifies the node to execute the job on.
      * @param keyMapper Mapper used to map the key to a binary representation.
-     * @param units Deployment units. Can be empty.
-     * @param jobClassName Name of the job class to execute.
-     * @param args Arguments of the job.
-     * @param options Job execution options (priority, max retries).
-     * @param <R> Job result type.
-     * @return Job result future.
-     */
-    default <K, T, R> CompletableFuture<R> executeColocatedAsync(
-            String tableName,
-            K key,
-            Mapper<K> keyMapper,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
-            @Nullable T args
-    ) {
-        return this.<K, T, R>submitColocated(tableName, key, keyMapper, units, jobClassName, options, args).resultAsync();
-    }
-
-    /**
-     * Submits a job of the given class for the execution on the node where the given key is located with default execution options
-     * {@link JobExecutionOptions#DEFAULT}. The node is a leader of the corresponding RAFT group. A shortcut for
-     * {@code submitColocated(...).resultAsync()}.
-     *
-     * @param tableName Name of the table whose key is used to determine the node to execute the job on.
-     * @param key Key that identifies the node to execute the job on.
-     * @param keyMapper Mapper used to map the key to a binary representation.
-     * @param units Deployment units. Can be empty.
-     * @param jobClassName Name of the job class to execute.
+     * @param descriptor Job descriptor.
      * @param args Arguments of the job.
      * @param <R> Job result type.
      * @return Job result future.
@@ -346,11 +163,10 @@ public interface IgniteCompute {
             String tableName,
             K key,
             Mapper<K> keyMapper,
-            List<DeploymentUnit> units,
-            String jobClassName,
+            JobDescriptor descriptor,
             @Nullable T args
     ) {
-        return this.<K, T, R>submitColocated(tableName, key, keyMapper, units, jobClassName, args).resultAsync();
+        return this.<K, R>submitColocated(tableName, key, keyMapper, descriptor, args).resultAsync();
     }
 
     /**
@@ -359,9 +175,7 @@ public interface IgniteCompute {
      * @param <R> Job result type.
      * @param tableName Name of the table whose key is used to determine the node to execute the job on.
      * @param key Key that identifies the node to execute the job on.
-     * @param units Deployment units. Can be empty.
-     * @param jobClassName Name of the job class to execute.
-     * @param options Job execution options (priority, max retries).
+     * @param descriptor Job descriptor.
      * @param args Arguments of the job.
      * @return Job result.
      * @throws ComputeException If there is any problem executing the job.
@@ -369,34 +183,8 @@ public interface IgniteCompute {
     <T, R> R executeColocated(
             String tableName,
             Tuple key,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
+            JobDescriptor descriptor,
             @Nullable T args);
-
-    /**
-     * Executes a job of the given class on the node where the given key is located
-     * with default execution options {@link JobExecutionOptions#DEFAULT}.
-     * The node is a leader of the corresponding RAFT group.
-     *
-     * @param tableName Name of the table whose key is used to determine the node to execute the job on.
-     * @param key Key that identifies the node to execute the job on.
-     * @param units Deployment units. Can be empty.
-     * @param jobClassName Name of the job class to execute.
-     * @param args Arguments of the job.
-     * @param <R> Job result type.
-     * @return Job result.
-     * @throws ComputeException If there is any problem executing the job.
-     */
-    default <T, R> R executeColocated(
-            String tableName,
-            Tuple key,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            @Nullable T args
-    ) {
-        return executeColocated(tableName, key, units, jobClassName, DEFAULT, args);
-    }
 
     /**
      * Executes a job of the given class on the node where the given key is located. The node is a leader of the corresponding RAFT group.
@@ -405,9 +193,7 @@ public interface IgniteCompute {
      * @param tableName Name of the table whose key is used to determine the node to execute the job on.
      * @param key Key that identifies the node to execute the job on.
      * @param keyMapper Mapper used to map the key to a binary representation.
-     * @param units Deployment units. Can be empty.
-     * @param jobClassName Name of the job class to execute.
-     * @param options Job execution options (priority, max retries).
+     * @param descriptor Job descriptor.
      * @param args Arguments of the job.
      * @return Job result.
      * @throws ComputeException If there is any problem executing the job.
@@ -416,95 +202,40 @@ public interface IgniteCompute {
             String tableName,
             K key,
             Mapper<K> keyMapper,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
+            JobDescriptor descriptor,
             @Nullable T args);
-
-    /**
-     * Executes a job of the given class on the node where the given key is located. The node is a leader
-     * of the corresponding RAFT group.
-     *
-     * @param tableName Name of the table whose key is used to determine the node to execute the job on.
-     * @param key Key that identifies the node to execute the job on.
-     * @param keyMapper Mapper used to map the key to a binary representation.
-     * @param units Deployment units. Can be empty.
-     * @param jobClassName Name of the job class to execute.
-     * @param args Arguments of the job.
-     * @param <R> Job result type.
-     * @return Job result.
-     * @throws ComputeException If there is any problem executing the job.
-     */
-    default <K, T, R> R executeColocated(
-            String tableName,
-            K key,
-            Mapper<K> keyMapper,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            @Nullable T args
-    ) {
-        return executeColocated(tableName, key, keyMapper, units, jobClassName, DEFAULT, args);
-    }
 
     /**
      * Submits a {@link ComputeJob} of the given class for an execution on all nodes in the given node set.
      *
      * @param <R> Job result type.
      * @param nodes Nodes to execute the job on.
-     * @param units Deployment units. Can be empty.
-     * @param jobClassName Name of the job class to execute.
-     * @param options Job execution options (priority, max retries).
+     * @param descriptor Job descriptor.
      * @param args Arguments of the job.
      * @return Map from node to job execution object.
      */
     <T, R> Map<ClusterNode, JobExecution<R>> submitBroadcast(
             Set<ClusterNode> nodes,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
-            @Nullable T args
+            JobDescriptor descriptor,
+            T args
     );
-
-    /**
-     * Submits a {@link ComputeJob} of the given class for an execution on all nodes in the given node set
-     * with default execution options {@link JobExecutionOptions#DEFAULT}.
-     *
-     * @param nodes Nodes to execute the job on.
-     * @param units Deployment units. Can be empty.
-     * @param jobClassName Name of the job class to execute.
-     * @param args Arguments of the job.
-     * @param <R> Job result type.
-     * @return Map from node to job execution object.
-     */
-    default <T, R> Map<ClusterNode, JobExecution<R>> submitBroadcast(
-            Set<ClusterNode> nodes,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            @Nullable T args
-    ) {
-        return submitBroadcast(nodes, units, jobClassName, DEFAULT, args);
-    }
 
     /**
      * Executes a {@link ComputeJob} of the given class on all nodes in the given node set.
      *
      * @param <R> Job result type.
      * @param nodes Nodes to execute the job on.
-     * @param units Deployment units. Can be empty.
-     * @param jobClassName Name of the job class to execute.
-     * @param options Job execution options (priority, max retries).
+     * @param descriptor Job descriptor.
      * @param args Arguments of the job.
      * @return Map from node to job result.
      */
     default <T, R> CompletableFuture<Map<ClusterNode, R>> executeBroadcastAsync(
             Set<ClusterNode> nodes,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
+            JobDescriptor descriptor,
             @Nullable T args
     ) {
         Map<ClusterNode, CompletableFuture<R>> futures = nodes.stream()
-                .collect(toMap(identity(), node -> executeAsync(Set.of(node), units, jobClassName, options, args)));
+                .collect(toMap(identity(), node -> this.executeAsync(Set.of(node), descriptor, args)));
 
         return allOf(futures.values().toArray(CompletableFuture[]::new))
                 .thenApply(ignored -> {
@@ -520,72 +251,27 @@ public interface IgniteCompute {
     }
 
     /**
-     * Executes a {@link ComputeJob} of the given class on all nodes in the given node set
-     * with default execution options {@link JobExecutionOptions#DEFAULT}.
-     *
-     * @param nodes Nodes to execute the job on.
-     * @param units Deployment units. Can be empty.
-     * @param jobClassName Name of the job class to execute.
-     * @param args Arguments of the job.
-     * @param <R> Job result type.
-     * @return Map from node to job result.
-     */
-    default <T, R> CompletableFuture<Map<ClusterNode, R>> executeBroadcastAsync(
-            Set<ClusterNode> nodes,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            @Nullable T args
-    ) {
-        return executeBroadcastAsync(nodes, units, jobClassName, DEFAULT, args);
-    }
-
-    /**
      * Executes a {@link ComputeJob} of the given class on all nodes in the given node set.
      *
      * @param <R> Job result type.
      * @param nodes Nodes to execute the job on.
-     * @param units Deployment units. Can be empty.
-     * @param jobClassName Name of the job class to execute.
-     * @param options Job execution options (priority, max retries).
+     * @param descriptor Job descriptor.
      * @param args Arguments of the job.
      * @return Map from node to job result.
      * @throws ComputeException If there is any problem executing the job.
      */
     default <T, R> Map<ClusterNode, R> executeBroadcast(
             Set<ClusterNode> nodes,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
+            JobDescriptor descriptor,
             @Nullable T args
     ) {
         Map<ClusterNode, R> map = new HashMap<>();
 
         for (ClusterNode node : nodes) {
-            map.put(node, execute(Set.of(node), units, jobClassName, options, args));
+            map.put(node, execute(Set.of(node), descriptor, args));
         }
 
         return map;
-    }
-
-    /**
-     * Executes a {@link ComputeJob} of the given class on all nodes in the given node set
-     * with default execution options {@link JobExecutionOptions#DEFAULT}.
-     *
-     * @param nodes Nodes to execute the job on.
-     * @param units Deployment units. Can be empty.
-     * @param jobClassName Name of the job class to execute.
-     * @param args Arguments of the job.
-     * @param <R> Job result type.
-     * @return Map from node to job result.
-     * @throws ComputeException If there is any problem executing the job.
-     */
-    default <T, R> Map<ClusterNode, R> executeBroadcast(
-            Set<ClusterNode> nodes,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            @Nullable T args
-    ) {
-        return executeBroadcast(nodes, units, jobClassName, DEFAULT, args);
     }
 
     /**

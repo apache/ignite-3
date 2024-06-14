@@ -381,10 +381,19 @@ public class ItFunctionsTest extends BaseSqlIntegrationTest {
 
         assertQuery("SELECT SUBSTRING(s from i for l) from (values ('abc', null, 2)) as t (s, i, l);").returns(null).check();
 
-        assertQuery("SELECT SUBSTRING('1234567', 2.1, 3.1);").returns("234").check();
-        assertQuery("SELECT SUBSTRING('1234567', 2.1, 3);").returns("234").check();
-        assertQuery("SELECT SUBSTRING('1234567', 2, 3.1);").returns("234").check();
-        assertQuery("SELECT SUBSTRING('1234567', 2.1);").returns("234567").check();
+        assertThrowsSqlException(Sql.STMT_VALIDATION_ERR,
+                "Cannot apply 'SUBSTRING' to arguments of type 'SUBSTRING(<CHAR(7)> FROM <DECIMAL(2, 1)> FOR <DECIMAL(2, 1)>)'",
+                () -> sql("SELECT SUBSTRING('1234567', 2.1, 3.1)"));
+        assertThrowsSqlException(Sql.STMT_VALIDATION_ERR,
+                "Cannot apply 'SUBSTRING' to arguments of type 'SUBSTRING(<CHAR(7)> FROM <DECIMAL(2, 1)> FOR <INTEGER>)'",
+                () -> sql("SELECT SUBSTRING('1234567', 2.1, 3)"));
+        assertThrowsSqlException(Sql.STMT_VALIDATION_ERR,
+                "Cannot apply 'SUBSTRING' to arguments of type 'SUBSTRING(<CHAR(7)> FROM <INTEGER> FOR <DECIMAL(2, 1)>)'",
+                () -> sql("SELECT SUBSTRING('1234567', 2, 3.1)"));
+        // Uncomment after IGNITE-22417
+        //        assertThrowsSqlException(Sql.STMT_VALIDATION_ERR,
+        //                "Cannot apply 'SUBSTRING' to arguments of type 'SUBSTRING(<CHAR(7)> FROM <DECIMAL(2, 1)>)'",
+        //                () -> sql("SELECT SUBSTRING('1234567', 2.1)"));
 
         // type coercion
         assertQuery("SELECT SUBSTRING('1234567', 2, '1');").returns("2").check();
@@ -395,8 +404,6 @@ public class ItFunctionsTest extends BaseSqlIntegrationTest {
         assertQuery(String.format("SELECT SUBSTRING('1234567', %d::BIGINT)", 1)).returns("1234567").check();
         assertQuery(String.format("SELECT SUBSTRING('1234567', %d)", Long.MIN_VALUE)).returns("1234567").check();
         assertQuery(String.format("SELECT SUBSTRING('1234567', %d)", Integer.MIN_VALUE)).returns("1234567").check();
-        assertQuery(String.format("SELECT SUBSTRING('1234567', %d, %d)", Integer.MIN_VALUE, 10L + Integer.MAX_VALUE))
-                .returns("1234567").check();
         assertQuery(String.format("SELECT SUBSTRING('1234567', %d, %d)", -1, 5)).returns("123").check();
 
         assertThrowsSqlException(Sql.RUNTIME_ERR, "negative substring length", () -> sql("SELECT SUBSTRING('1234567', 1, -1)"));

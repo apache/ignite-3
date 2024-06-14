@@ -61,7 +61,7 @@ public class ItThinClientColocationTest extends ClusterPerClassIntegrationTest {
     @MethodSource("nativeTypes")
     public void testClientAndServerColocationHashesAreSame(NativeType type)
             throws TupleMarshallerException {
-        var columnName = "col1";
+        var columnName = "COL1";
 
         TupleMarshaller serverMarshaller = tupleMarshaller(type, columnName);
         ClientSchema clientSchema = clientSchema(type, columnName);

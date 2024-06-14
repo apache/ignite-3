@@ -21,11 +21,11 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.compute.utils.InteractiveJobs;
 import org.apache.ignite.internal.compute.utils.TestingJobExecution;
@@ -95,6 +95,6 @@ public class ItFailoverCandidateNotFoundTest extends ClusterPerTestIntegrationTe
     }
 
     private static TestingJobExecution<String> executeGlobalInteractiveJob(IgniteCompute compute, Set<ClusterNode> nodes) {
-        return new TestingJobExecution<>(compute.submit(nodes, List.of(), InteractiveJobs.globalJob().name(), null));
+        return new TestingJobExecution<>(compute.submit(nodes, JobDescriptor.builder(InteractiveJobs.globalJob().name(), null).build()));
     }
 }

@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.streamer;
 
-import static org.apache.ignite.internal.util.CompletableFutures.copyStateTo;
-
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
@@ -30,6 +28,7 @@ import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -45,7 +44,9 @@ import org.jetbrains.annotations.Nullable;
  * @param <P> Partition type.
  */
 public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
-    private final StreamerBatchSender<V, P> batchSender;
+    private final StreamerBatchSender<V, P, R> batchSender;
+
+    private final @Nullable Subscriber<R> resultSubscriber;
 
     private final Function<E, T> keyFunc;
 
@@ -67,7 +68,7 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
     // We don't expect thousands of node failures, so it should be fine.
     private final ConcurrentHashMap<P, StreamerBuffer<V>> buffers = new ConcurrentHashMap<>();
 
-    private final ConcurrentMap<P, CompletableFuture<Void>> pendingRequests = new ConcurrentHashMap<>();
+    private final ConcurrentMap<P, CompletableFuture<Collection<R>>> pendingRequests = new ConcurrentHashMap<>();
 
     private final IgniteLogger log;
 
@@ -77,6 +78,8 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
 
     private @Nullable Flow.Subscription subscription;
 
+    private @Nullable ResultSubscription resultSubscription;
+
     private @Nullable ScheduledFuture<?> flushTask;
 
     private boolean closed;
@@ -85,10 +88,19 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
      * Constructor.
      *
      * @param batchSender Batch sender.
-     * @param options Data streamer options.
+     * @param resultSubscriber Result subscriber.
+     * @param keyFunc Key function.
+     * @param payloadFunc Payload function.
+     * @param deleteFunc Delete function.
+     * @param partitionAwarenessProvider Partition awareness provider.
+     * @param options Streamer options.
+     * @param flushExecutor Flush executor.
+     * @param log Logger.
+     * @param metrics Metrics.
      */
     public StreamerSubscriber(
-            StreamerBatchSender<V, P> batchSender,
+            StreamerBatchSender<V, P, R> batchSender,
+            @Nullable Flow.Subscriber<R> resultSubscriber,
             Function<E, T> keyFunc,
             Function<E, V> payloadFunc,
             Function<E, Boolean> deleteFunc,
@@ -106,6 +118,7 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
         assert log != null;
 
         this.batchSender = batchSender;
+        this.resultSubscriber = resultSubscriber;
         this.keyFunc = keyFunc;
         this.payloadFunc = payloadFunc;
         this.deleteFunc = deleteFunc;
@@ -124,6 +137,11 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
         }
 
         this.subscription = subscription;
+
+        if (resultSubscriber != null) {
+            resultSubscription = new ResultSubscription();
+            resultSubscriber.onSubscribe(resultSubscription);
+        }
 
         // Refresh schemas and partition assignment, then request initial batch.
         partitionAwarenessProvider.refreshAsync()
@@ -196,7 +214,7 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
         );
     }
 
-    private CompletableFuture<Void> sendBatch(P partition, Collection<V> batch, BitSet deleted) {
+    private CompletableFuture<Collection<R>> sendBatch(P partition, Collection<V> batch, BitSet deleted) {
         // If a connection fails, the batch goes to default connection thanks to built-it retry mechanism.
         try {
             return batchSender.sendAsync(partition, batch, deleted).whenComplete((res, err) -> {
@@ -222,6 +240,8 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
                         close(refreshErr);
                         return null;
                     });
+
+                    invokeResultSubscriber(res);
                 }
             });
         } catch (Exception e) {
@@ -231,15 +251,38 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
         }
     }
 
+    private void invokeResultSubscriber(Collection<R> res) {
+        if (res == null || resultSubscriber == null) {
+            return;
+        }
+
+        ResultSubscription sub = resultSubscription();
+
+        if (sub == null) {
+            return;
+        }
+
+        for (R r : res) {
+            if (sub.cancelled.get()) {
+                return;
+            }
+
+            resultSubscriber.onNext(r);
+        }
+    }
+
+    private synchronized @Nullable ResultSubscription resultSubscription() {
+        return resultSubscription;
+    }
+
     private synchronized void close(@Nullable Throwable throwable) {
         if (flushTask != null) {
             flushTask.cancel(false);
         }
 
-        var s = subscription;
-
-        if (s != null) {
-            s.cancel();
+        var sub = subscription;
+        if (sub != null) {
+            sub.cancel();
         }
 
         if (throwable == null) {
@@ -247,9 +290,27 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
 
             var futs = pendingRequests.values().toArray(new CompletableFuture[0]);
 
-            CompletableFuture.allOf(futs).whenComplete(copyStateTo(completionFut));
+            CompletableFuture.allOf(futs).whenComplete((v, e) -> {
+                if (e != null) {
+                    if (resultSubscriber != null) {
+                        resultSubscriber.onError(e);
+                    }
+
+                    completionFut.completeExceptionally(e);
+                } else {
+                    if (resultSubscriber != null) {
+                        resultSubscriber.onComplete();
+                    }
+
+                    completionFut.complete(null);
+                }
+            });
         } else {
             completionFut.completeExceptionally(throwable);
+
+            if (resultSubscriber != null) {
+                resultSubscriber.onError(throwable);
+            }
         }
 
         closed = true;
@@ -317,5 +378,19 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
                 // No-op.
             }
         };
+    }
+
+    private static class ResultSubscription implements Subscription {
+        AtomicBoolean cancelled = new AtomicBoolean();
+
+        @Override
+        public void request(long n) {
+            // No-op: result subscriber ignores backpressure and follows the pace of the user-defined publisher.
+        }
+
+        @Override
+        public void cancel() {
+            cancelled.set(true);
+        }
     }
 }

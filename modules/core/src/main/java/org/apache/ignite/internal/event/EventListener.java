@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedF
 
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 /** A listener that handles events from an event producer. */
 @FunctionalInterface
@@ -50,6 +51,20 @@ public interface EventListener<P extends EventParameters> {
             }
 
             return falseCompletedFuture();
+        };
+    }
+
+    /**
+     * Creates an adapter using the passed function; if an error occurs when calling the function, the failed future will be returned with
+     * this error.
+     */
+    static <P extends EventParameters> EventListener<P> fromFunction(Function<P, CompletableFuture<Boolean>> callback) {
+        return parameters -> {
+            try {
+                return callback.apply(parameters);
+            } catch (Throwable e) {
+                return failedFuture(e);
+            }
         };
     }
 }

@@ -21,6 +21,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.handlers.configuration.StopNodeOrHaltFailureHandlerView;
 import org.apache.ignite.internal.tostring.S;
 
 /**
@@ -57,6 +58,16 @@ public class StopNodeOrHaltFailureHandler extends AbstractFailureHandler {
     public StopNodeOrHaltFailureHandler(boolean tryStop, long timeout) {
         this.tryStop = tryStop;
         this.timeout = timeout;
+    }
+
+    /**
+     * Creates a new instance of a failure processor.
+     *
+     * @param view Configuration view.
+     */
+    public StopNodeOrHaltFailureHandler(StopNodeOrHaltFailureHandlerView view) {
+        tryStop = view.tryStop();
+        timeout = view.timeout();
     }
 
     @Override

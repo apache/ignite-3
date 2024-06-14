@@ -654,7 +654,7 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
 
         // Partition-aware (best effort) sender with retries.
         // The batch may go to a different node when a direct connection is not available.
-        StreamerBatchSender<Entry<K, V>, Integer> batchSender = (partition, items, deleted) -> tbl.doSchemaOutOpAsync(
+        StreamerBatchSender<Entry<K, V>, Integer, Void> batchSender = (partition, items, deleted) -> tbl.doSchemaOutOpAsync(
                 ClientOp.STREAMER_BATCH_SEND,
                 (s, w) -> {
                     w.out().packInt(tbl.tableId());

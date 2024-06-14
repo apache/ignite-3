@@ -23,11 +23,11 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.NodeNotFoundException;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
@@ -88,7 +88,10 @@ abstract class ItComputeErrorsBaseTest extends ClusterPerClassIntegrationTest {
         Set<ClusterNode> nodes = Set.of(existingNode, nonExistingNode);
 
         // And execute a job
-        String workerNodeName = compute().execute(nodes, List.of(), InteractiveJobs.globalJob().name(), RETURN_WORKER_NAME.name());
+        String workerNodeName = compute().execute(
+                nodes,
+                JobDescriptor.builder(InteractiveJobs.globalJob().name()).build(),
+                RETURN_WORKER_NAME.name());
 
         // Then existing node was a worker and executed the job.
         assertThat(workerNodeName, is(existingNode.name()));
@@ -102,7 +105,7 @@ abstract class ItComputeErrorsBaseTest extends ClusterPerClassIntegrationTest {
         // Then job fails.
         assertThrows(
                 NodeNotFoundException.class,
-                () -> compute().execute(nodes, List.of(), InteractiveJobs.globalJob().name(), null),
+                () -> compute().execute(nodes, JobDescriptor.builder(InteractiveJobs.globalJob().name(), null).build()),
                 "None of the specified nodes are present in the cluster: [" + nonExistingNode.name() + "]"
         );
     }
@@ -118,8 +121,7 @@ abstract class ItComputeErrorsBaseTest extends ClusterPerClassIntegrationTest {
 
         // When broadcast a job
         Map<ClusterNode, JobExecution<Object>> executions = compute().submitBroadcast(
-                nodes, List.of(), InteractiveJobs.interactiveJobName(), null
-        );
+                nodes, JobDescriptor.builder(InteractiveJobs.interactiveJobName()).build(), null);
 
         // Then one job is alive
         assertThat(executions.size(), is(2));
@@ -136,6 +138,6 @@ abstract class ItComputeErrorsBaseTest extends ClusterPerClassIntegrationTest {
     protected abstract IgniteCompute compute();
 
     private TestingJobExecution<String> executeGlobalInteractiveJob(Set<ClusterNode> nodes) {
-        return new TestingJobExecution<>(compute().submit(nodes, List.of(), InteractiveJobs.globalJob().name(), null));
+        return new TestingJobExecution<>(compute().submit(nodes, JobDescriptor.builder(InteractiveJobs.globalJob().name(), null).build()));
     }
 }

@@ -46,4 +46,9 @@ public class ExecutorInclinedRaftCommandRunner implements RaftCommandRunner {
 
         return future.thenApplyAsync(identity(), completionExecutor);
     }
+
+    /** Returns decorated Raft-client. */
+    public RaftCommandRunner decoratedCommandRunner() {
+        return commandRunner;
+    }
 }

@@ -24,6 +24,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import org.apache.ignite.compute.DeploymentUnit;
+import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.compute.task.ComputeJobRunner;
 import org.apache.ignite.compute.task.MapReduceTask;
@@ -35,14 +36,15 @@ public class MapReduce implements MapReduceTask<List<DeploymentUnit>, Integer> {
     public List<ComputeJobRunner> split(TaskExecutionContext taskContext, List<DeploymentUnit> deploymentUnits) {
         return taskContext.ignite().clusterNodes().stream().map(node ->
                 ComputeJobRunner.builder()
-                        .jobClassName(GetNodeNameJob.class.getName())
-                        .units(deploymentUnits)
+                        .jobDescriptor(JobDescriptor.builder(GetNodeNameJob.class)
+                                .units(deploymentUnits)
+                                .options(JobExecutionOptions.builder()
+                                    .maxRetries(10)
+                                    .priority(Integer.MAX_VALUE)
+                                    .build())
+                                .build())
                         .nodes(Set.of(node))
-                        .options(JobExecutionOptions.builder()
-                                .maxRetries(10)
-                                .priority(Integer.MAX_VALUE)
-                                .build()
-                        ).build()
+                        .build()
         ).collect(toList());
     }
 

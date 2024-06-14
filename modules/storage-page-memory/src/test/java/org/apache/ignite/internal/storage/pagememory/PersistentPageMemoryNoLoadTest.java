@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory.persistence;
+package org.apache.ignite.internal.storage.pagememory;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.configuration.ConfigurationTestUtils.fixConfiguration;
@@ -66,7 +66,12 @@ import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPage
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfigurationSchema;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
+import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMeta.PartitionMetaSnapshot;
+import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
+import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
+import org.apache.ignite.internal.pagememory.persistence.TestPageReadWriteManager;
+import org.apache.ignite.internal.pagememory.persistence.WriteDirtyPage;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointProgress;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
@@ -137,7 +142,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
     ) throws Exception {
         FilePageStoreManager filePageStoreManager = createFilePageStoreManager(workDir);
 
-        PartitionMetaManager partitionMetaManager = new PartitionMetaManager(ioRegistry, PAGE_SIZE);
+        PartitionMetaManager partitionMetaManager = new PartitionMetaManager(ioRegistry, PAGE_SIZE, StoragePartitionMeta.FACTORY);
 
         Collection<DataRegion<PersistentPageMemory>> dataRegions = new ArrayList<>();
 
@@ -199,7 +204,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
     ) throws Exception {
         FilePageStoreManager filePageStoreManager = createFilePageStoreManager(workDir);
 
-        PartitionMetaManager partitionMetaManager = new PartitionMetaManager(ioRegistry, PAGE_SIZE);
+        PartitionMetaManager partitionMetaManager = new PartitionMetaManager(ioRegistry, PAGE_SIZE, StoragePartitionMeta.FACTORY);
 
         Collection<DataRegion<PersistentPageMemory>> dataRegions = new ArrayList<>();
 
@@ -289,7 +294,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
     ) throws Exception {
         FilePageStoreManager filePageStoreManager = spy(createFilePageStoreManager(workDir));
 
-        PartitionMetaManager partitionMetaManager = new PartitionMetaManager(ioRegistry, PAGE_SIZE);
+        PartitionMetaManager partitionMetaManager = new PartitionMetaManager(ioRegistry, PAGE_SIZE, StoragePartitionMeta.FACTORY);
 
         Collection<DataRegion<PersistentPageMemory>> dataRegions = new ArrayList<>();
 
@@ -353,7 +358,8 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
     ) throws Exception {
         FilePageStoreManager filePageStoreManager = createFilePageStoreManager(workDir);
 
-        PartitionMetaManager partitionMetaManager = spy(new PartitionMetaManager(ioRegistry, PAGE_SIZE));
+        PartitionMetaManager partitionMetaManager = new PartitionMetaManager(ioRegistry, PAGE_SIZE, StoragePartitionMeta.FACTORY);
+        partitionMetaManager = spy(partitionMetaManager);
 
         Collection<DataRegion<PersistentPageMemory>> dataRegions = new ArrayList<>();
 
@@ -542,7 +548,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
 
                 CheckpointProgress lastCheckpointProgress = checkpointManager.lastCheckpointProgress();
 
-                PartitionMeta partitionMeta = partitionMetaManager.readOrCreateMeta(
+                StoragePartitionMeta partitionMeta = (StoragePartitionMeta) partitionMetaManager.readOrCreateMeta(
                         lastCheckpointProgress == null ? null : lastCheckpointProgress.id(),
                         groupPartitionId,
                         filePageStore,
