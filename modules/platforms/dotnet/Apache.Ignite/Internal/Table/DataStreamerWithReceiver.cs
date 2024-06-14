@@ -269,12 +269,13 @@ internal static class DataStreamerWithReceiver
 
                 // Wait for the previous batch for this node to preserve item order.
                 await oldTask.ConfigureAwait(false);
-                results = await SendBatchAsync<TResult>(table, buf, count, preferredNode, retryPolicy).ConfigureAwait(false);
+                (results, int resultsCount) = await SendBatchAsync<TResult>(table, buf, count, preferredNode, retryPolicy).ConfigureAwait(false);
 
                 if (results != null)
                 {
-                    foreach (var result in results)
+                    for (var i = 0; i < resultsCount; i++)
                     {
+                        TResult result = results[i];
                         await resultChannel.Writer.WriteAsync(result, cancellationToken).ConfigureAwait(false);
                     }
                 }
@@ -373,7 +374,7 @@ internal static class DataStreamerWithReceiver
         w.Write(builder.Build().Span);
     }
 
-    private static async Task<T[]?> SendBatchAsync<T>(
+    private static async Task<(T[]? ResultsPooledArray, int ResultsCount)> SendBatchAsync<T>(
         Table table,
         PooledArrayBuffer buf,
         int count,
@@ -388,27 +389,14 @@ internal static class DataStreamerWithReceiver
                 retryPolicy)
             .ConfigureAwait(false);
 
-        var results = ReadResults(resBuf.GetReader());
+        var res = resBuf.GetReader().ReadObjectCollectionFromBinaryTuple<T>();
 
         resBuf.Dispose();
 
         Metrics.StreamerBatchesSent.Add(1, socket.MetricsContext.Tags);
         Metrics.StreamerItemsSent.Add(count, socket.MetricsContext.Tags);
 
-        return results;
-
-        static T[]? ReadResults(MsgPackReader r)
-        {
-            if (r.TryReadNil())
-            {
-                return null;
-            }
-
-            var numElements = r.ReadInt32();
-            ReadOnlySpan<byte> bytes = r.ReadBinary();
-            r.readbi
-
-        }
+        return res;
     }
 
     private static ArrayPool<T> GetPool<T>() => ArrayPool<T>.Shared;
