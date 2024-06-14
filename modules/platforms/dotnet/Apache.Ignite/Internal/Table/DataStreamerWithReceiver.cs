@@ -389,14 +389,31 @@ internal static class DataStreamerWithReceiver
                 retryPolicy)
             .ConfigureAwait(false);
 
-        var res = resBuf.GetReader().ReadObjectCollectionFromBinaryTuple<T>();
+        using (resBuf)
+        {
+            Metrics.StreamerBatchesSent.Add(1, socket.MetricsContext.Tags);
+            Metrics.StreamerItemsSent.Add(count, socket.MetricsContext.Tags);
 
-        resBuf.Dispose();
+            return Read(resBuf.GetReader());
+        }
 
-        Metrics.StreamerBatchesSent.Add(1, socket.MetricsContext.Tags);
-        Metrics.StreamerItemsSent.Add(count, socket.MetricsContext.Tags);
+        static (T[]? ResultsPooledArray, int ResultsCount) Read(MsgPackReader reader)
+        {
+            if (reader.TryReadNil())
+            {
+                return (null, 0);
+            }
 
-        return res;
+            var numElements = reader.ReadInt32();
+            if (numElements == 0)
+            {
+                return (null, 0);
+            }
+
+            var tuple = new BinaryTupleReader(reader.ReadBinary(), numElements);
+
+            return tuple.GetObjectCollectionWithType<T>();
+        }
     }
 
     private static ArrayPool<T> GetPool<T>() => ArrayPool<T>.Shared;
