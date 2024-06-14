@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.compute.utils;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -179,9 +180,9 @@ public final class InteractiveJobs {
                             GLOBAL_CHANNEL.offer(ACK);
                             break;
                         case RETURN:
-                            return "Done";
+                            return completedFuture("Done");
                         case RETURN_WORKER_NAME:
-                            return context.ignite().name();
+                            return completedFuture(context.ignite().name());
                         case GET_WORKER_NAME:
                             GLOBAL_CHANNEL.add(context.ignite().name());
                             break;
@@ -245,9 +246,9 @@ public final class InteractiveJobs {
                             NODE_CHANNELS.get(workerNodeName).offer(ACK);
                             break;
                         case RETURN:
-                            return "Done";
+                            return completedFuture("Done");
                         case RETURN_WORKER_NAME:
-                            return workerNodeName;
+                            return completedFuture(workerNodeName);
                         case GET_WORKER_NAME:
                             NODE_CHANNELS.get(workerNodeName).add(workerNodeName);
                             break;

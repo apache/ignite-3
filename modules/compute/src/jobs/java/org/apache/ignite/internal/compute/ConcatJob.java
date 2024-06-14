@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.compute;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+
 import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -27,8 +29,8 @@ import org.apache.ignite.compute.JobExecutionContext;
 public class ConcatJob implements ComputeJob<String> {
     @Override
     public CompletableFuture<String> executeAsync(JobExecutionContext context, Object... args) {
-        return Arrays.stream(args)
+        return completedFuture(Arrays.stream(args)
                 .map(Object::toString)
-                .collect(Collectors.joining());
+                .collect(Collectors.joining()));
     }
 }
