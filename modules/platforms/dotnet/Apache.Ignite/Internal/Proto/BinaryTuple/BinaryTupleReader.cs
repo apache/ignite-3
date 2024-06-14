@@ -512,98 +512,35 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// Gets an object collection with the specified element type.
         /// Opposite of <see cref="BinaryTupleBuilder.AppendObjectCollectionWithType{T}"/>.
         /// </summary>
+        /// <param name="index">Start index.</param>
         /// <typeparam name="T">Element type.</typeparam>
         /// <returns>Pooled array with items and actual item count.</returns>
-        public (T[] Items, int Count) GetObjectCollectionWithType<T>(int startIndex)
+        public (T[] Items, int Count) GetObjectCollectionWithType<T>(int index = 0)
         {
-            int typeId = GetInt(startIndex++);
-            int count = GetInt(startIndex++);
+            int typeId = GetInt(index++);
+            int count = GetInt(index++);
 
             if (count == 0)
             {
                 return (Array.Empty<T>(), 0);
             }
 
-            ColumnType type = (ColumnType)typeId;
+            var items = ArrayPool<T>.Shared.Rent(count);
+            var type = (ColumnType)typeId;
 
-            switch (type)
+            try
             {
-                case ColumnType.Boolean:
+                for (int i = 0; i < count; i++)
                 {
-                    var items = ArrayPool<bool>.Shared.Rent(count);
-                    for (int i = 0; i < count; i++)
-                    {
-                        items[i] = GetBool(startIndex++);
-                    }
-
-                    return ((T[])(object)items, count);
+                    items[i] = (T)GetObject(index + i, type)!;
                 }
 
-                case ColumnType.Int8:
-                {
-                    var items = ArrayPool<sbyte>.Shared.Rent(count);
-                    for (int i = 0; i < count; i++)
-                    {
-                        items[i] = GetByte(startIndex++);
-                    }
-
-                    return ((T[])(object)items, count);
-                }
-
-                case ColumnType.Int16:
-                {
-                    var items = ArrayPool<short>.Shared.Rent(count);
-                    for (int i = 0; i < count; i++)
-                    {
-                        items[i] = GetShort(startIndex++);
-                    }
-
-                    return ((T[])(object)items, count);
-                }
-
-                case ColumnType.Int32:
-                {
-                    var items = ArrayPool<int>.Shared.Rent(count);
-                    for (int i = 0; i < count; i++)
-                    {
-                        items[i] = GetInt(startIndex++);
-                    }
-
-                    return ((T[])(object)items, count);
-                }
-
-                case ColumnType.Int64:
-                    break;
-                case ColumnType.Float:
-                    break;
-                case ColumnType.Double:
-                    break;
-                case ColumnType.Decimal:
-                    break;
-                case ColumnType.Date:
-                    break;
-                case ColumnType.Time:
-                    break;
-                case ColumnType.Datetime:
-                    break;
-                case ColumnType.Timestamp:
-                    break;
-                case ColumnType.Uuid:
-                    break;
-                case ColumnType.Bitmask:
-                    break;
-                case ColumnType.String:
-                    break;
-                case ColumnType.ByteArray:
-                    break;
-                case ColumnType.Period:
-                    break;
-                case ColumnType.Duration:
-                    break;
-                case ColumnType.Number:
-                    break;
-                default:
-                    throw new IgniteClientException(ErrorGroups.Client.Protocol, "Unsupported type: " + typeId);
+                return (items, count);
+            }
+            catch (Exception)
+            {
+                ArrayPool<T>.Shared.Return(items);
+                throw;
             }
         }
 
