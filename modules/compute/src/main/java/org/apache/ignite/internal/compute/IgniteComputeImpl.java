@@ -95,7 +95,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
     }
 
     @Override
-    public <R> JobExecution<R> submit(Set<ClusterNode> nodes, JobDescriptor descriptor, Object... args) {
+    public <T, R> JobExecution<R> submit(Set<ClusterNode> nodes, JobDescriptor descriptor, T args) {
         Objects.requireNonNull(nodes);
         Objects.requireNonNull(descriptor);
 

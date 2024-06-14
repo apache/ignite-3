@@ -85,7 +85,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
         IgniteImpl entryNode = node(0);
 
         IgniteException ex = assertThrows(IgniteException.class, () ->
-                entryNode.compute().execute(Set.of(entryNode.node()), JobDescriptor.builder(jobClassName).units(units()).build()));
+                entryNode.compute().execute(Set.of(entryNode.node()), JobDescriptor.builder(jobClassName).units(units()).build(), null));
 
         assertTraceableException(ex, ComputeException.class, errorCode, msg);
     }
@@ -96,7 +96,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
         IgniteImpl entryNode = node(0);
 
         ExecutionException ex = assertThrows(ExecutionException.class, () -> entryNode.compute().executeAsync(
-                Set.of(entryNode.node()), JobDescriptor.builder(jobClassName).units(units()).build())
+                Set.of(entryNode.node()), JobDescriptor.builder(jobClassName).units(units()).build(), null)
                 .get(1, TimeUnit.SECONDS));
 
         assertTraceableException(ex, ComputeException.class, errorCode, msg);
@@ -355,7 +355,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
         String actualNodeName = node(0).compute().executeColocated(
                 "test",
                 Tuple.create(Map.of("key_int", 2, "key_str", "4")),
-                JobDescriptor.builder(getNodeNameJobClassName(), null).units(units()).build());
+                JobDescriptor.builder(getNodeNameJobClassName()).units(units()).build(), null);
         assertThat(actualNodeName, in(allNodeNames()));
     }
 
@@ -410,7 +410,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
                 "test",
                 1,
                 Mapper.of(Integer.class),
-                JobDescriptor.builder(getNodeNameJobClassName(), null).units(units()).build());
+                JobDescriptor.builder(getNodeNameJobClassName()).units(units()).build(), null);
 
         assertThat(execution.resultAsync(), willBe(in(allNodeNames())));
         assertThat(execution.statusAsync(), willBe(jobStatusWithState(COMPLETED)));

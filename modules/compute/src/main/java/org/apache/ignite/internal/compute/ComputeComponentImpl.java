@@ -220,7 +220,7 @@ public class ComputeComponentImpl implements ComputeComponent {
             ExecutionOptions options,
             T input
     ) {
-        JobExecution<R> result = new ComputeJobFailover<R>(
+        JobExecution<R> result = new ComputeJobFailover<T, R>(
                 this, logicalTopologyService, topologyService,
                 remoteNode, nextWorkerSelector, failoverExecutor, units,
                 jobClassName, options, input
@@ -292,6 +292,7 @@ public class ComputeComponentImpl implements ComputeComponent {
 
         return nullCompletedFuture();
     }
+
 
     private <T, R> JobExecutionInternal<R> execJob(JobContext context, ExecutionOptions options, String jobClassName, T args) {
         try {

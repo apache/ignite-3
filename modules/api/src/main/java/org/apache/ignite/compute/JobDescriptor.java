@@ -79,7 +79,7 @@ public class JobDescriptor {
      *
      * @return Job descriptor builder.
      */
-    public static Builder builder(Class<? extends ComputeJob<?>> jobClass) {
+    public static Builder builder(Class<? extends ComputeJob<?, ?>> jobClass) {
         Objects.requireNonNull(jobClass);
 
         return new Builder(jobClass.getName());

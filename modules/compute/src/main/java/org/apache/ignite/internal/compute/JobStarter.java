@@ -35,10 +35,10 @@ public interface JobStarter {
      * @param <R> Job result type.
      * @return CompletableFuture Job result.
      */
-    <R> JobExecution<R> start(
+    <T, R> JobExecution<R> start(
             ExecutionOptions options,
             List<DeploymentUnit> units,
             String jobClassName,
-            Object... args
+            T args
     );
 }

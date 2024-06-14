@@ -323,7 +323,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
 
         Map<ClusterNode, JobExecution<Object>> executionsMap = entryNode.compute().submitBroadcast(
                 new HashSet<>(entryNode.clusterNodes()),
-                JobDescriptor.builder(NullReturningJob.class.getName(), null).build());
+                JobDescriptor.builder(NullReturningJob.class.getName()).build(), null);
         assertThat(executionsMap.keySet(), equalTo(new HashSet<>(entryNode.clusterNodes())));
 
         List<JobExecution<Object>> executions = new ArrayList<>(executionsMap.values());
@@ -339,18 +339,18 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         return IntStream.range(0, initialNodes()).mapToObj(Arguments::of);
     }
 
-    private static class CustomFailingJob implements ComputeJob<String> {
+    private static class CustomFailingJob implements ComputeJob<Throwable, String> {
         @Override
-        public String execute(JobExecutionContext context, Object... args) {
-            throw ExceptionUtils.sneakyThrow((Throwable) args[0]);
+        public String execute(JobExecutionContext context, Throwable th) {
+            throw ExceptionUtils.sneakyThrow(th);
         }
     }
 
-    private static class WaitLatchJob implements ComputeJob<String> {
+    private static class WaitLatchJob implements ComputeJob<CountDownLatch, String> {
         @Override
-        public String execute(JobExecutionContext context, Object... args) {
+        public String execute(JobExecutionContext context, CountDownLatch latch) {
             try {
-                ((CountDownLatch) args[0]).await();
+                latch.await();
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
@@ -358,13 +358,13 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         }
     }
 
-    private static class WaitLatchThrowExceptionOnFirstExecutionJob implements ComputeJob<String> {
+    private static class WaitLatchThrowExceptionOnFirstExecutionJob implements ComputeJob<CountDownLatch, String> {
         static final AtomicInteger counter = new AtomicInteger(0);
 
         @Override
-        public String execute(JobExecutionContext context, Object... args) {
+        public String execute(JobExecutionContext context, CountDownLatch latch) {
             try {
-                ((CountDownLatch) args[0]).await();
+                latch.await();
                 if (counter.incrementAndGet() == 1) {
                     throw new RuntimeException();
                 }
@@ -375,9 +375,9 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         }
     }
 
-    private static class PerformSyncKvGetPutJob implements ComputeJob<Void> {
+    private static class PerformSyncKvGetPutJob implements ComputeJob<Void, Void> {
         @Override
-        public Void execute(JobExecutionContext context, Object... args) {
+        public Void execute(JobExecutionContext context, Void input) {
             Table table = context.ignite().tables().table("test");
             KeyValueView<Integer, Integer> view = table.keyValueView(Integer.class, Integer.class);
 
@@ -388,9 +388,9 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         }
     }
 
-    private static class NullReturningJob implements ComputeJob<Void> {
+    private static class NullReturningJob implements ComputeJob<Void, Void> {
         @Override
-        public Void execute(JobExecutionContext context, Object... args) {
+        public Void execute(JobExecutionContext context, Void input) {
             return null;
         }
     }

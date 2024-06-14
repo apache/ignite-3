@@ -70,7 +70,7 @@ public interface IgniteCompute {
             JobDescriptor descriptor,
             T args
     ) {
-        return this.<R>submit(nodes, descriptor, args).resultAsync();
+        return this.<T, R>submit(nodes, descriptor, args).resultAsync();
     }
 
     /**
@@ -144,7 +144,7 @@ public interface IgniteCompute {
             JobDescriptor descriptor,
             @Nullable T args
     ) {
-        return this.<R>submitColocated(tableName, key, descriptor, args).resultAsync();
+        return this.<T, R>submitColocated(tableName, key, descriptor, args).resultAsync();
     }
 
     /**
@@ -166,7 +166,7 @@ public interface IgniteCompute {
             JobDescriptor descriptor,
             @Nullable T args
     ) {
-        return this.<K, R>submitColocated(tableName, key, keyMapper, descriptor, args).resultAsync();
+        return this.<K, T, R>submitColocated(tableName, key, keyMapper, descriptor, args).resultAsync();
     }
 
     /**
