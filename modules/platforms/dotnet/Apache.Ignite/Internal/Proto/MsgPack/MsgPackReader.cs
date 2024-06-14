@@ -382,6 +382,11 @@ internal ref struct MsgPackReader
         return tuple.GetObject(0);
     }
 
+    /// <summary>
+    /// Reads object collection from binary tuple. Opposite of <see cref="MsgPackWriter.WriteObjectCollectionAsBinaryTuple"/>.
+    /// </summary>
+    /// <typeparam name="T">Result type.</typeparam>
+    /// <returns>Pooled array with actual item count.</returns>
     public (T[]? PooledArray, int Count) ReadObjectCollectionFromBinaryTuple<T>()
     {
         if (TryReadNil())

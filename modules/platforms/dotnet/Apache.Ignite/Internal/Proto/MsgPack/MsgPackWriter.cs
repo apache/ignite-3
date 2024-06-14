@@ -357,7 +357,7 @@ internal readonly ref struct MsgPackWriter
     }
 
     /// <summary>
-    /// Writes an array of objects with type codes.
+    /// Writes an array of objects with type codes. Opposite of <see cref="MsgPackReader.ReadObjectCollectionFromBinaryTuple{T}"/>.
     /// </summary>
     /// <param name="col">Array.</param>
     public void WriteObjectCollectionAsBinaryTuple(ICollection<object?>? col)
