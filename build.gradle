@@ -76,6 +76,7 @@ allprojects {
     def gitLastCommitHash = new ByteArrayOutputStream()
     exec {
         commandLine "git", "rev-parse", "--short", "HEAD"
+        workingDir = projectDir
         standardOutput = gitLastCommitHash
     }
     version = "3.0.0-SNAPSHOT-$gitLastCommitHash"
