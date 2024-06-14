@@ -115,11 +115,6 @@ public class MetaStorageWriteHandler {
             IdempotentCommand idempotentCommand = ((IdempotentCommand) command);
             CommandId commandId = idempotentCommand.id();
 
-            // TODO: https://issues.apache.org/jira/browse/IGNITE-19417 Remove.
-            if (idempotentCommand.safeTime().getPhysical() % 100 == 0) {
-                evictIdempotentCommandsCache(((IdempotentCommand) command).safeTime());
-            }
-
             IdempotentCommandCachedResult cachedResult = idempotentCommandCache.get(commandId);
 
             if (cachedResult != null) {

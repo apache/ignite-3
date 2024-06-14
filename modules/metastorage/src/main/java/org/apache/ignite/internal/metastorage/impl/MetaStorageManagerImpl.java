@@ -702,7 +702,12 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         }
 
         try {
-            return metaStorageSvcFut.thenCompose(svc -> svc.invoke(cond, success, failure));
+            return metaStorageSvcFut.thenCompose(svc -> {
+                // TODO: https://issues.apache.org/jira/browse/IGNITE-19417 Remove, cache eviction should be triggered by MS GC instead.
+                evictIdempotentCommandsCache();
+
+                return svc.invoke(cond, success, failure);
+            });
         } finally {
             busyLock.leaveBusy();
         }
@@ -715,7 +720,12 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         }
 
         try {
-            return metaStorageSvcFut.thenCompose(svc -> svc.invoke(cond, success, failure));
+            return metaStorageSvcFut.thenCompose(svc -> {
+                // TODO: https://issues.apache.org/jira/browse/IGNITE-19417 Remove, cache eviction should be triggered by MS GC instead.
+                    evictIdempotentCommandsCache();
+
+                return svc.invoke(cond, success, failure);
+            });
         } finally {
             busyLock.leaveBusy();
         }
@@ -728,7 +738,12 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         }
 
         try {
-            return metaStorageSvcFut.thenCompose(svc -> svc.invoke(iif));
+            return metaStorageSvcFut.thenCompose(svc -> {
+                // TODO: https://issues.apache.org/jira/browse/IGNITE-19417 Remove, cache eviction should be triggered by MS GC instead.
+                    evictIdempotentCommandsCache();
+
+                return svc.invoke(iif);
+            });
         } finally {
             busyLock.leaveBusy();
         }
@@ -891,7 +906,6 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     /**
      * Removes obsolete entries from both volatile and persistent idempotent command cache.
      */
-    @TestOnly
     @Deprecated(forRemoval = true)
     // TODO: https://issues.apache.org/jira/browse/IGNITE-19417 cache eviction should be triggered by MS GC instead.
     public void evictIdempotentCommandsCache() {
