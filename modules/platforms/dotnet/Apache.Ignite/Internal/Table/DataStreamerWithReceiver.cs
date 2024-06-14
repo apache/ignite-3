@@ -26,6 +26,7 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Threading;
+using System.Threading.Channels;
 using System.Threading.Tasks;
 using Buffers;
 using Common;
@@ -88,11 +89,7 @@ internal static class DataStreamerWithReceiver
         IgniteArgumentCheck.NotNull(data);
         DataStreamer.ValidateOptions(options);
 
-        if (expectResults)
-        {
-            // TODO IGNITE-22356 Support result retrieval.
-            throw new NotSupportedException("Result retrieval is not yet supported.");
-        }
+        Channel<TResult> resultChannel = CreateResultChannel<TResult>(options.PageSize);
 
         // ConcurrentDictionary is not necessary because we consume the source sequentially.
         // However, locking for batches is required due to auto-flush background task.
@@ -132,13 +129,29 @@ internal static class DataStreamerWithReceiver
                 {
                     await SendAsync(batch).ConfigureAwait(false);
                 }
+
+                // Yield results.
+                // TODO: Results might be blocked by the producer, we should use Task.WhenAny.
+                while (expectResults && resultChannel.Reader.TryRead(out var result))
+                {
+                    yield return result;
+                }
             }
 
+            // Drain batches.
             await Drain().ConfigureAwait(false);
+
+            // Drain results.
+            while (expectResults && resultChannel.Reader.TryRead(out var result))
+            {
+                yield return result;
+            }
         }
         finally
         {
             flushCts.Cancel();
+            resultChannel.Writer.Complete();
+
             foreach (var batch in batches.Values)
             {
                 GetPool<TPayload>().Return(batch.Items);
@@ -148,7 +161,6 @@ internal static class DataStreamerWithReceiver
             }
         }
 
-        // TODO IGNITE-22356 Support result retrieval.
         yield break;
 
         Batch<TPayload> Add(TSource item)
@@ -246,6 +258,7 @@ internal static class DataStreamerWithReceiver
             await Task.Yield();
 
             var buf = ProtoCommon.GetMessageWriter();
+            TResult[]? results = null;
 
             try
             {
@@ -256,12 +269,25 @@ internal static class DataStreamerWithReceiver
 
                 // Wait for the previous batch for this node to preserve item order.
                 await oldTask.ConfigureAwait(false);
-                await SendBatchAsync(table, buf, count, preferredNode, retryPolicy).ConfigureAwait(false);
+                results = await SendBatchAsync<TResult>(table, buf, count, preferredNode, retryPolicy).ConfigureAwait(false);
+
+                if (results != null)
+                {
+                    foreach (var result in results)
+                    {
+                        await resultChannel.Writer.WriteAsync(result, cancellationToken).ConfigureAwait(false);
+                    }
+                }
             }
             finally
             {
                 buf.Dispose();
                 GetPool<TPayload>().Return(items);
+
+                if (results != null)
+                {
+                    GetPool<TResult>().Return(results);
+                }
 
                 Metrics.StreamerItemsQueuedDecrement(count);
                 Metrics.StreamerBatchesActiveDecrement();
@@ -316,6 +342,14 @@ internal static class DataStreamerWithReceiver
         }
     }
 
+    private static Channel<TResult> CreateResultChannel<TResult>(int pageSize) =>
+        Channel.CreateBounded<TResult>(new BoundedChannelOptions(pageSize)
+        {
+            FullMode = BoundedChannelFullMode.Wait,
+            SingleReader = true, // One reader: resulting IAsyncEnumerable.
+            SingleWriter = false // Many writers: batches may complete in parallel.
+        });
+
     private static void WriteReceiverPayload<T>(ref MsgPackWriter w, string className, ICollection<object> args, Span<T> items)
     {
         Debug.Assert(items.Length > 0, "items.Length > 0");
@@ -339,7 +373,7 @@ internal static class DataStreamerWithReceiver
         w.Write(builder.Build().Span);
     }
 
-    private static async Task SendBatchAsync(
+    private static async Task<T[]?> SendBatchAsync<T>(
         Table table,
         PooledArrayBuffer buf,
         int count,
@@ -354,10 +388,27 @@ internal static class DataStreamerWithReceiver
                 retryPolicy)
             .ConfigureAwait(false);
 
+        var results = ReadResults(resBuf.GetReader());
+
         resBuf.Dispose();
 
         Metrics.StreamerBatchesSent.Add(1, socket.MetricsContext.Tags);
         Metrics.StreamerItemsSent.Add(count, socket.MetricsContext.Tags);
+
+        return results;
+
+        static T[]? ReadResults(MsgPackReader r)
+        {
+            if (r.TryReadNil())
+            {
+                return null;
+            }
+
+            var numElements = r.ReadInt32();
+            ReadOnlySpan<byte> bytes = r.ReadBinary();
+            r.readbi
+
+        }
     }
 
     private static ArrayPool<T> GetPool<T>() => ArrayPool<T>.Shared;
