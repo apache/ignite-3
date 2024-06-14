@@ -51,84 +51,84 @@ public class AntiHijackIgniteCompute implements IgniteCompute, Wrapper {
     }
 
     @Override
-    public <R> JobExecution<R> submit(
+    public <T, R> JobExecution<R> submit(
             Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            Object... args
+            T args
     ) {
         return preventThreadHijack(compute.submit(nodes, units, jobClassName, options, args));
     }
 
     @Override
-    public <R> R execute(
+    public <T, R> R execute(
             Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            Object... args
+            T args
     ) {
         return compute.execute(nodes, units, jobClassName, options, args);
     }
 
     @Override
-    public <R> JobExecution<R> submitColocated(
+    public <T, R> JobExecution<R> submitColocated(
             String tableName,
             Tuple key,
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            Object... args
+            T args
     ) {
         return preventThreadHijack(compute.submitColocated(tableName, key, units, jobClassName, options, args));
     }
 
     @Override
-    public <K, R> JobExecution<R> submitColocated(
+    public <K, T, R> JobExecution<R> submitColocated(
             String tableName,
             K key,
             Mapper<K> keyMapper,
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            Object... args
+            T args
     ) {
         return preventThreadHijack(compute.submitColocated(tableName, key, keyMapper, units, jobClassName, options, args));
     }
 
     @Override
-    public <R> R executeColocated(
+    public <T, R> R executeColocated(
             String tableName,
             Tuple key,
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            Object... args
+            T args
     ) {
         return compute.executeColocated(tableName, key, units, jobClassName, options, args);
     }
 
     @Override
-    public <K, R> R executeColocated(
+    public <K, T, R> R executeColocated(
             String tableName,
             K key,
             Mapper<K> keyMapper,
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            Object... args
+            T args
     ) {
         return compute.executeColocated(tableName, key, keyMapper, units, jobClassName, options, args);
     }
 
     @Override
-    public <R> Map<ClusterNode, JobExecution<R>> submitBroadcast(
+    public <T, R> Map<ClusterNode, JobExecution<R>> submitBroadcast(
             Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            Object... args
+            T args
     ) {
         Map<ClusterNode, JobExecution<R>> results = compute.submitBroadcast(nodes, units, jobClassName, options, args);
 
@@ -137,16 +137,16 @@ public class AntiHijackIgniteCompute implements IgniteCompute, Wrapper {
     }
 
     @Override
-    public <R> TaskExecution<R> submitMapReduce(List<DeploymentUnit> units, String taskClassName, Object... args) {
+    public <T, R> TaskExecution<R> submitMapReduce(List<DeploymentUnit> units, String taskClassName, T args) {
         return new AntiHijackTaskExecution<>(compute.submitMapReduce(units, taskClassName, args), asyncContinuationExecutor);
     }
 
     @Override
-    public <R> R executeMapReduce(List<DeploymentUnit> units, String taskClassName, Object... args) {
+    public <T, R> R executeMapReduce(List<DeploymentUnit> units, String taskClassName, T args) {
         return compute.executeMapReduce(units, taskClassName, args);
     }
 
-    private <R> JobExecution<R> preventThreadHijack(JobExecution<R> execution) {
+    private <T, R> JobExecution<R> preventThreadHijack(JobExecution<R> execution) {
         return new AntiHijackJobExecution<>(execution, asyncContinuationExecutor);
     }
 

@@ -21,9 +21,9 @@ import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
 
 /** Compute job that always fails with the {@link JobException}. */
-public class FailingJob implements ComputeJob<String> {
+public class FailingJob implements ComputeJob<Void, String> {
     @Override
-    public String execute(JobExecutionContext context, Object... args) {
+    public String execute(JobExecutionContext context, Void input) {
         throw new JobException("Oops", new Exception());
     }
 }

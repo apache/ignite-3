@@ -28,15 +28,15 @@ import java.util.UUID;
  *
  * @param <R> Result type.
  */
-public interface MapReduceTask<R> {
+public interface MapReduceTask<T, R> {
     /**
      * This method should return a list of compute job execution parameters which will be used to submit compute jobs.
      *
      * @param taskContext Task execution context.
-     * @param args Map reduce task arguments.
+     * @param input Map reduce task argument.
      * @return A list of compute job execution parameters.
      */
-    List<ComputeJobRunner> split(TaskExecutionContext taskContext, Object... args);
+    List<ComputeJobRunner> split(TaskExecutionContext taskContext, T input);
 
     /**
      * This is a finishing step in the task execution. This method will be called with the map from identifiers of compute jobs submitted as

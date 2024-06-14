@@ -171,15 +171,15 @@ public class ComputeMessaging {
      * @param remoteNode The job will be executed on this node.
      * @param units Deployment units. Can be empty.
      * @param jobClassName Name of the job class to execute.
-     * @param args Arguments of the job.
+     * @param input Arguments of the job.
      * @return Job id future that will be completed when the job is submitted on the remote node.
      */
-    public CompletableFuture<UUID> remoteExecuteRequestAsync(
+    public <T> CompletableFuture<UUID> remoteExecuteRequestAsync(
             ExecutionOptions options,
             ClusterNode remoteNode,
             List<DeploymentUnit> units,
             String jobClassName,
-            Object[] args
+            T input
     ) {
         List<DeploymentUnitMsg> deploymentUnitMsgs = units.stream()
                 .map(ComputeUtils::toDeploymentUnitMsg)
@@ -189,7 +189,7 @@ public class ComputeMessaging {
                 .executeOptions(options)
                 .deploymentUnits(deploymentUnitMsgs)
                 .jobClassName(jobClassName)
-                .args(args)
+                .input(input)
                 .build();
 
         return messagingService.invoke(remoteNode, executeRequest, NETWORK_TIMEOUT_MILLIS)
@@ -199,7 +199,7 @@ public class ComputeMessaging {
     private void processExecuteRequest(JobStarter starter, ExecuteRequest request, ClusterNode sender, long correlationId) {
         List<DeploymentUnit> units = toDeploymentUnit(request.deploymentUnits());
 
-        JobExecution<Object> execution = starter.start(request.executeOptions(), units, request.jobClassName(), request.args());
+        JobExecution<Object> execution = starter.start(request.executeOptions(), units, request.jobClassName(), request.input());
         execution.idAsync().whenComplete((jobId, err) -> sendExecuteResponse(jobId, err, sender, correlationId));
     }
 

@@ -71,11 +71,11 @@ public class ComputeExecutorImpl implements ComputeExecutor {
     }
 
     @Override
-    public <R> JobExecutionInternal<R> executeJob(
+    public <T, R> JobExecutionInternal<R> executeJob(
             ExecutionOptions options,
-            Class<? extends ComputeJob<R>> jobClass,
+            Class<? extends ComputeJob<T, R>> jobClass,
             JobClassLoader classLoader,
-            Object[] args
+            T input
     ) {
         assert executorService != null;
 
@@ -83,7 +83,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
         JobExecutionContext context = new JobExecutionContextImpl(ignite, isInterrupted, classLoader);
 
         QueueExecution<R> execution = executorService.submit(
-                () -> ComputeUtils.instantiateJob(jobClass).execute(context, args),
+                () -> ComputeUtils.instantiateJob(jobClass).execute(context, input),
                 options.priority(),
                 options.maxRetries()
         );
@@ -92,14 +92,14 @@ public class ComputeExecutorImpl implements ComputeExecutor {
     }
 
     @Override
-    public <R> TaskExecutionInternal<R> executeTask(
+    public <T, R> TaskExecutionInternal<T, R> executeTask(
             JobSubmitter jobSubmitter,
-            Class<? extends MapReduceTask<R>> taskClass,
-            Object... args
+            Class<? extends MapReduceTask<T, R>> taskClass,
+            T input
     ) {
         assert executorService != null;
 
-        return new TaskExecutionInternal<>(executorService, jobSubmitter, taskClass, () -> ignite, args);
+        return new TaskExecutionInternal<>(executorService, jobSubmitter, taskClass, () -> ignite, input);
     }
 
     @Override

@@ -95,6 +95,6 @@ public class ItFailoverCandidateNotFoundTest extends ClusterPerTestIntegrationTe
     }
 
     private static TestingJobExecution<String> executeGlobalInteractiveJob(IgniteCompute compute, Set<ClusterNode> nodes) {
-        return new TestingJobExecution<>(compute.submit(nodes, List.of(), InteractiveJobs.globalJob().name()));
+        return new TestingJobExecution<>(compute.submit(nodes, List.of(), InteractiveJobs.globalJob().name(), null));
     }
 }

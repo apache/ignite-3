@@ -23,7 +23,7 @@ import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
 
 /** Compute job that concatenates the string representation of its arguments. */
-public class ConcatJob implements ComputeJob<String> {
+public class ConcatJob implements ComputeJob<Object[], String> {
     @Override
     public String execute(JobExecutionContext context, Object... args) {
         return Arrays.stream(args)

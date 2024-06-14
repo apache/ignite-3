@@ -215,7 +215,8 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
         Map<ClusterNode, JobExecution<Object>> executions = compute(entryNode).submitBroadcast(
                 clusterNodesByNames(workerCandidates(node(0), node(1), node(2))),
                 List.of(),
-                InteractiveJobs.interactiveJobName()
+                InteractiveJobs.interactiveJobName(),
+                null
         );
 
         // Then all three jobs are alive.
@@ -294,7 +295,8 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
                 TABLE_NAME,
                 Tuple.create(1).set("K", 1),
                 List.of(),
-                InteractiveJobs.globalJob().name()
+                InteractiveJobs.globalJob().name(),
+                null
         ));
 
         // Then the job is alive.
@@ -364,7 +366,7 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
 
     private TestingJobExecution<String> executeGlobalInteractiveJob(IgniteImpl entryNode, Set<String> nodes) {
         return new TestingJobExecution<>(
-                compute(entryNode).submit(clusterNodesByNames(nodes), List.of(), InteractiveJobs.globalJob().name())
+                compute(entryNode).submit(clusterNodesByNames(nodes), List.of(), InteractiveJobs.globalJob().name(), null)
         );
     }
 

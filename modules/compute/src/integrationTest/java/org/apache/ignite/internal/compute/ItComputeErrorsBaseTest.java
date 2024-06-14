@@ -102,7 +102,7 @@ abstract class ItComputeErrorsBaseTest extends ClusterPerClassIntegrationTest {
         // Then job fails.
         assertThrows(
                 NodeNotFoundException.class,
-                () -> compute().execute(nodes, List.of(), InteractiveJobs.globalJob().name()),
+                () -> compute().execute(nodes, List.of(), InteractiveJobs.globalJob().name(), null),
                 "None of the specified nodes are present in the cluster: [" + nonExistingNode.name() + "]"
         );
     }
@@ -118,7 +118,7 @@ abstract class ItComputeErrorsBaseTest extends ClusterPerClassIntegrationTest {
 
         // When broadcast a job
         Map<ClusterNode, JobExecution<Object>> executions = compute().submitBroadcast(
-                nodes, List.of(), InteractiveJobs.interactiveJobName()
+                nodes, List.of(), InteractiveJobs.interactiveJobName(), null
         );
 
         // Then one job is alive
@@ -136,6 +136,6 @@ abstract class ItComputeErrorsBaseTest extends ClusterPerClassIntegrationTest {
     protected abstract IgniteCompute compute();
 
     private TestingJobExecution<String> executeGlobalInteractiveJob(Set<ClusterNode> nodes) {
-        return new TestingJobExecution<>(compute().submit(nodes, List.of(), InteractiveJobs.globalJob().name()));
+        return new TestingJobExecution<>(compute().submit(nodes, List.of(), InteractiveJobs.globalJob().name(), null));
     }
 }

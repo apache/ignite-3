@@ -21,9 +21,9 @@ import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
 
 /** Compute job. */
-public class UnitJob implements ComputeJob<Integer> {
+public class UnitJob implements ComputeJob<Void, Integer> {
     @Override
-    public Integer execute(JobExecutionContext context, Object... args) {
+    public Integer execute(JobExecutionContext context, Void input) {
         return 1;
     }
 }

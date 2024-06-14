@@ -140,31 +140,31 @@ class ItComputeApiThreadingTest extends ClusterPerClassIntegrationTest {
         return Set.of(CLUSTER.node(1).node());
     }
 
-    private static class NoOpJob implements ComputeJob<String> {
+    private static class NoOpJob implements ComputeJob<Void, String> {
         @Override
-        public String execute(JobExecutionContext context, Object... args) {
+        public String execute(JobExecutionContext context, Void input) {
             return "ok";
         }
     }
 
     private enum ComputeAsyncOperation {
-        EXECUTE_ASYNC(compute -> compute.executeAsync(justNonEntryNode(), List.of(), NoOpJob.class.getName())),
+        EXECUTE_ASYNC(compute -> compute.executeAsync(justNonEntryNode(), List.of(), NoOpJob.class.getName(), null)),
         EXECUTE_WITH_OPTIONS_ASYNC(compute -> compute.executeAsync(
                 justNonEntryNode(), List.of(), NoOpJob.class.getName(), JobExecutionOptions.DEFAULT
         )),
         EXECUTE_COLOCATED_BY_TUPLE_ASYNC(compute -> compute.executeColocatedAsync(
-                TABLE_NAME, KEY_TUPLE, List.of(), NoOpJob.class.getName()
+                TABLE_NAME, KEY_TUPLE, List.of(), NoOpJob.class.getName(), null
         )),
         EXECUTE_COLOCATED_BY_TUPLE_WITH_OPTIONS_ASYNC(compute -> compute.executeColocatedAsync(
                 TABLE_NAME, KEY_TUPLE, List.of(), NoOpJob.class.getName(), JobExecutionOptions.DEFAULT)
         ),
         EXECUTE_COLOCATED_BY_KEY_ASYNC(compute -> compute.executeColocatedAsync(
-                TABLE_NAME, KEY, Mapper.of(Integer.class), List.of(), NoOpJob.class.getName())
+                TABLE_NAME, KEY, Mapper.of(Integer.class), List.of(), NoOpJob.class.getName(), null)
         ),
         EXECUTE_COLOCATED_BY_KEY_WITH_OPTIONS_ASYNC(compute -> compute.executeColocatedAsync(
                 TABLE_NAME, KEY, Mapper.of(Integer.class), List.of(), NoOpJob.class.getName(), JobExecutionOptions.DEFAULT)
         ),
-        EXECUTE_BROADCAST_ASYNC(compute -> compute.executeBroadcastAsync(justNonEntryNode(), List.of(), NoOpJob.class.getName())),
+        EXECUTE_BROADCAST_ASYNC(compute -> compute.executeBroadcastAsync(justNonEntryNode(), List.of(), NoOpJob.class.getName(), null)),
         EXECUTE_BROADCAST_WITH_OPTIONS_ASYNC(compute -> compute.executeBroadcastAsync(
                 justNonEntryNode(), List.of(), NoOpJob.class.getName(), JobExecutionOptions.DEFAULT
         ));
@@ -181,22 +181,22 @@ class ItComputeApiThreadingTest extends ClusterPerClassIntegrationTest {
     }
 
     private enum ComputeSubmitOperation {
-        SUBMIT(compute -> compute.submit(justNonEntryNode(), List.of(), NoOpJob.class.getName())),
+        SUBMIT(compute -> compute.submit(justNonEntryNode(), List.of(), NoOpJob.class.getName(), null)),
         SUBMIT_WITH_OPTIONS(compute -> compute.submit(justNonEntryNode(), List.of(), NoOpJob.class.getName(), JobExecutionOptions.DEFAULT)),
         SUBMIT_COLOCATED_BY_TUPLE(compute -> compute.submitColocated(
-                TABLE_NAME, KEY_TUPLE, List.of(), NoOpJob.class.getName()
+                TABLE_NAME, KEY_TUPLE, List.of(), NoOpJob.class.getName(), null
         )),
         SUBMIT_COLOCATED_BY_TUPLE_WITH_OPTIONS(compute -> compute.submitColocated(
                 TABLE_NAME, KEY_TUPLE, List.of(), NoOpJob.class.getName(), JobExecutionOptions.DEFAULT)
         ),
         SUBMIT_COLOCATED_BY_KEY(compute -> compute.submitColocated(
-                TABLE_NAME, KEY, Mapper.of(Integer.class), List.of(), NoOpJob.class.getName())
+                TABLE_NAME, KEY, Mapper.of(Integer.class), List.of(), NoOpJob.class.getName(), null)
         ),
         SUBMIT_COLOCATED_BY_KEY_WITH_OPTIONS(compute -> compute.submitColocated(
                 TABLE_NAME, KEY, Mapper.of(Integer.class), List.of(), NoOpJob.class.getName(), JobExecutionOptions.DEFAULT)
         ),
         SUBMIT_BROADCAST(compute -> compute
-                .submitBroadcast(justNonEntryNode(), List.of(), NoOpJob.class.getName())
+                .submitBroadcast(justNonEntryNode(), List.of(), NoOpJob.class.getName(), null)
                 .values().iterator().next()
         ),
         SUBMIT_BROADCAST_WITH_OPTIONS(compute -> compute

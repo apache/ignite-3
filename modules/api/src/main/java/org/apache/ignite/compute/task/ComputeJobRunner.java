@@ -40,14 +40,14 @@ public class ComputeJobRunner {
 
     private final JobExecutionOptions options;
 
-    private final Object[] args;
+    private final Object args;
 
     private ComputeJobRunner(
             Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            Object[] args
+            Object args
     ) {
         this.nodes = Collections.unmodifiableSet(nodes);
         this.units = units;
@@ -97,7 +97,7 @@ public class ComputeJobRunner {
      *
      * @return Arguments of the job.
      */
-    public Object[] args() {
+    public Object args() {
         return args;
     }
 
@@ -131,7 +131,7 @@ public class ComputeJobRunner {
 
         private JobExecutionOptions options = JobExecutionOptions.DEFAULT;
 
-        private Object[] args;
+        private Object args;
 
         /**
          * Adds nodes to the set of candidate nodes.
@@ -194,7 +194,7 @@ public class ComputeJobRunner {
          * @param args Arguments of the job.
          * @return Builder instance.
          */
-        public ComputeJobRunnerBuilder args(Object... args) {
+        public ComputeJobRunnerBuilder args(Object args) {
             this.args = args;
             return this;
         }

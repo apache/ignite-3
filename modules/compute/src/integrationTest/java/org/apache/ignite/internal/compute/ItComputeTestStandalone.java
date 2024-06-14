@@ -104,7 +104,7 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
 
         List<DeploymentUnit> nonExistingUnits = List.of(new DeploymentUnit("non-existing", "1.0.0"));
         CompletableFuture<String> result = entryNode.compute()
-                .executeAsync(Set.of(entryNode.node()), nonExistingUnits, concatJobClassName(), "a", 42);
+                .executeAsync(Set.of(entryNode.node()), nonExistingUnits, concatJobClassName(), new Object[] {"a", 42});
 
         CompletionException ex0 = assertThrows(CompletionException.class, result::join);
 
@@ -125,14 +125,14 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
         deployJar(entryNode, firstVersion.name(), firstVersion.version(), "ignite-unit-test-job1-1.0-SNAPSHOT.jar");
 
         CompletableFuture<Integer> result1 = entryNode.compute()
-                .executeAsync(Set.of(entryNode.node()), jobUnits, "org.apache.ignite.internal.compute.UnitJob");
+                .executeAsync(Set.of(entryNode.node()), jobUnits, "org.apache.ignite.internal.compute.UnitJob", null);
         assertThat(result1, willBe(1));
 
         DeploymentUnit secondVersion = new DeploymentUnit("latest-unit", Version.parseVersion("1.0.1"));
         deployJar(entryNode, secondVersion.name(), secondVersion.version(), "ignite-unit-test-job2-1.0-SNAPSHOT.jar");
 
         CompletableFuture<String> result2 = entryNode.compute()
-                .executeAsync(Set.of(entryNode.node()), jobUnits, "org.apache.ignite.internal.compute.UnitJob");
+                .executeAsync(Set.of(entryNode.node()), jobUnits, "org.apache.ignite.internal.compute.UnitJob", null);
         assertThat(result2, willBe("Hello World!"));
     }
 

@@ -153,7 +153,7 @@ public final class InteractiveJobs {
     /**
      * Interactive job that communicates via {@link #GLOBAL_CHANNEL} and {@link #GLOBAL_SIGNALS}.
      */
-    private static class GlobalInteractiveJob implements ComputeJob<String> {
+    private static class GlobalInteractiveJob implements ComputeJob<Object[], String> {
         private static Signal listenSignal() {
             try {
                 return GLOBAL_SIGNALS.take();
@@ -216,7 +216,7 @@ public final class InteractiveJobs {
      * Interactive job that communicates via {@link #NODE_CHANNELS} and {@link #NODE_SIGNALS}. Also, keeps track of how many times it was
      * executed via {@link #RUNNING_INTERACTIVE_JOBS_CNT}.
      */
-    private static class InteractiveJob implements ComputeJob<String> {
+    private static class InteractiveJob implements ComputeJob<Object[], String> {
         private static Signal listenSignal(BlockingQueue<Signal> channel) {
             try {
                 return channel.take();

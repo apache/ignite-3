@@ -21,9 +21,9 @@ import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
 
 /** Compute job that returns the node name. */
-public class GetNodeNameJob implements ComputeJob<String> {
+public class GetNodeNameJob implements ComputeJob<Void, String> {
     @Override
-    public String execute(JobExecutionContext context, Object... args) {
+    public String execute(JobExecutionContext context, Void input) {
         return context.ignite().name();
     }
 }

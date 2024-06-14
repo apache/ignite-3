@@ -94,12 +94,12 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
     }
 
     @Override
-    public <R> JobExecution<R> submit(
+    public <T, R> JobExecution<R> submit(
             Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            Object... args
+            T args
     ) {
         Objects.requireNonNull(nodes);
         Objects.requireNonNull(units);
@@ -114,12 +114,12 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
     }
 
     @Override
-    public <R> JobExecution<R> executeAsyncWithFailover(
+    public <T, R> JobExecution<R> executeAsyncWithFailover(
             Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            Object... args
+            T args
     ) {
         Set<ClusterNode> candidates = new HashSet<>();
         for (ClusterNode node : nodes) {
@@ -149,12 +149,12 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
     }
 
     @Override
-    public <R> R execute(
+    public <T, R> R execute(
             Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            Object... args
+            T args
     ) {
         return sync(executeAsync(nodes, units, jobClassName, options, args));
     }
@@ -170,13 +170,13 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
         return iterator.next();
     }
 
-    private <R> JobExecution<R> executeOnOneNodeWithFailover(
+    private <T, R> JobExecution<R> executeOnOneNodeWithFailover(
             ClusterNode targetNode,
             NextWorkerSelector nextWorkerSelector,
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions jobExecutionOptions,
-            Object[] args
+            T args
     ) {
         ExecutionOptions options = ExecutionOptions.from(jobExecutionOptions);
         if (isLocal(targetNode)) {
@@ -208,13 +208,13 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
     }
 
     @Override
-    public <R> JobExecution<R> submitColocated(
+    public <T, R> JobExecution<R> submitColocated(
             String tableName,
             Tuple tuple,
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            Object... args
+            T args
     ) {
         Objects.requireNonNull(tableName);
         Objects.requireNonNull(tuple);
@@ -229,14 +229,14 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
     }
 
     @Override
-    public <K, R> JobExecution<R> submitColocated(
+    public <K, T, R> JobExecution<R> submitColocated(
             String tableName,
             K key,
             Mapper<K> keyMapper,
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            Object... args
+            T args
     ) {
         Objects.requireNonNull(tableName);
         Objects.requireNonNull(key);
@@ -257,38 +257,38 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
     }
 
     @Override
-    public <R> R executeColocated(
+    public <T, R> R executeColocated(
             String tableName,
             Tuple key,
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            Object... args
+            T args
     ) {
         return sync(executeColocatedAsync(tableName, key, units, jobClassName, options, args));
     }
 
     @Override
-    public <K, R> R executeColocated(
+    public <K, T, R> R executeColocated(
             String tableName,
             K key,
             Mapper<K> keyMapper,
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            Object... args
+            T args
     ) {
         return sync(executeColocatedAsync(tableName, key, keyMapper, units, jobClassName, options, args));
     }
 
     @Override
-    public <R> CompletableFuture<JobExecution<R>> submitColocatedInternal(
+    public <T, R> CompletableFuture<JobExecution<R>> submitColocatedInternal(
             TableViewInternal table,
             Tuple key,
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            Object[] args) {
+            T args) {
         return primaryReplicaForPartitionByTupleKey(table, key)
                 .thenApply(primaryNode -> executeOnOneNodeWithFailover(
                         primaryNode,
@@ -335,12 +335,12 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
     }
 
     @Override
-    public <R> Map<ClusterNode, JobExecution<R>> submitBroadcast(
+    public <T, R> Map<ClusterNode, JobExecution<R>> submitBroadcast(
             Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            Object... args
+            T args
     ) {
         Objects.requireNonNull(nodes);
         Objects.requireNonNull(units);
@@ -361,7 +361,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
     }
 
     @Override
-    public <R> TaskExecution<R> submitMapReduce(List<DeploymentUnit> units, String taskClassName, Object... args) {
+    public <T, R> TaskExecution<R> submitMapReduce(List<DeploymentUnit> units, String taskClassName, T args) {
         Objects.requireNonNull(units);
         Objects.requireNonNull(taskClassName);
 
@@ -369,7 +369,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
     }
 
     @Override
-    public <R> R executeMapReduce(List<DeploymentUnit> units, String taskClassName, Object... args) {
+    public <T, R> R executeMapReduce(List<DeploymentUnit> units, String taskClassName, T args) {
         return sync(executeMapReduceAsync(units, taskClassName, args));
     }
 

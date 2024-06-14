@@ -77,7 +77,6 @@ public class ClientStreamerWithReceiverBatchSendRequest {
                         deploymentUnits,
                         ReceiverRunnerJob.class.getName(),
                         JobExecutionOptions.DEFAULT,
-                        payloadElementCount,
                         payload);
 
                 return jobExecution.resultAsync()
@@ -100,11 +99,10 @@ public class ClientStreamerWithReceiverBatchSendRequest {
         });
     }
 
-    private static class ReceiverRunnerJob implements ComputeJob<List<Object>> {
+    private static class ReceiverRunnerJob implements ComputeJob<byte[], List<Object>> {
         @Override
-        public @Nullable List<Object> execute(JobExecutionContext context, Object... args) {
-            int payloadElementCount = (int) args[0];
-            byte[] payload = (byte[]) args[1];
+        public @Nullable List<Object> execute(JobExecutionContext context, byte[] payload) {
+            int payloadElementCount = payload.length;
 
             var receiverInfo = StreamerReceiverSerializer.deserialize(payload, payloadElementCount);
 

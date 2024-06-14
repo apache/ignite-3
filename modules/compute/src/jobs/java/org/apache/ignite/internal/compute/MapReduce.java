@@ -30,11 +30,9 @@ import org.apache.ignite.compute.task.MapReduceTask;
 import org.apache.ignite.compute.task.TaskExecutionContext;
 
 /** Map reduce task which runs a {@link GetNodeNameJob} on each node and computes a sum of length of all node names. */
-public class MapReduce implements MapReduceTask<Integer> {
+public class MapReduce implements MapReduceTask<List<DeploymentUnit>, Integer> {
     @Override
-    public List<ComputeJobRunner> split(TaskExecutionContext taskContext, Object... args) {
-        List<DeploymentUnit> deploymentUnits = (List<DeploymentUnit>) args[0];
-
+    public List<ComputeJobRunner> split(TaskExecutionContext taskContext, List<DeploymentUnit> deploymentUnits) {
         return taskContext.ignite().clusterNodes().stream().map(node ->
                 ComputeJobRunner.builder()
                         .jobClassName(GetNodeNameJob.class.getName())

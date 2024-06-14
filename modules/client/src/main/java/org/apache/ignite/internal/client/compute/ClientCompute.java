@@ -87,12 +87,12 @@ public class ClientCompute implements IgniteCompute {
 
     /** {@inheritDoc} */
     @Override
-    public <R> JobExecution<R> submit(
+    public <T, R> JobExecution<R> submit(
             Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            Object... args) {
+            T args) {
         Objects.requireNonNull(options);
         Objects.requireNonNull(nodes);
         Objects.requireNonNull(units);
@@ -107,25 +107,25 @@ public class ClientCompute implements IgniteCompute {
 
     /** {@inheritDoc} */
     @Override
-    public <R> R execute(
+    public <T, R> R execute(
             Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            Object... args
+            T args
     ) {
         return sync(executeAsync(nodes, units, jobClassName, options, args));
     }
 
     /** {@inheritDoc} */
     @Override
-    public <R> JobExecution<R> submitColocated(
+    public <T, R> JobExecution<R> submitColocated(
             String tableName,
             Tuple key,
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            Object... args
+            T args
     ) {
         Objects.requireNonNull(tableName);
         Objects.requireNonNull(key);
@@ -138,14 +138,14 @@ public class ClientCompute implements IgniteCompute {
 
     /** {@inheritDoc} */
     @Override
-    public <K, R> JobExecution<R> submitColocated(
+    public <K, T, R> JobExecution<R> submitColocated(
             String tableName,
             K key,
             Mapper<K> keyMapper,
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            Object... args
+            T args
     ) {
         Objects.requireNonNull(tableName);
         Objects.requireNonNull(key);
@@ -176,14 +176,14 @@ public class ClientCompute implements IgniteCompute {
                 .thenCompose(Function.identity());
     }
 
-    private <K> CompletableFuture<SubmitResult> doExecuteColocatedAsync(
+    private <K, T> CompletableFuture<SubmitResult> doExecuteColocatedAsync(
             String tableName,
             K key,
             Mapper<K> keyMapper,
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            Object... args
+            T args
     ) {
         return getTable(tableName)
                 .thenCompose(table -> executeColocatedObjectKey(table, key, keyMapper, units, jobClassName, options, args))
@@ -198,39 +198,39 @@ public class ClientCompute implements IgniteCompute {
 
     /** {@inheritDoc} */
     @Override
-    public <R> R executeColocated(
+    public <T, R> R executeColocated(
             String tableName,
             Tuple key,
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            Object... args
+            T args
     ) {
         return sync(executeColocatedAsync(tableName, key, units, jobClassName, options, args));
     }
 
     /** {@inheritDoc} */
     @Override
-    public <K, R> R executeColocated(
+    public <K, T, R> R executeColocated(
             String tableName,
             K key,
             Mapper<K> keyMapper,
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            Object... args
+            T args
     ) {
         return sync(executeColocatedAsync(tableName, key, keyMapper, units, jobClassName, options, args));
     }
 
     /** {@inheritDoc} */
     @Override
-    public <R> Map<ClusterNode, JobExecution<R>> submitBroadcast(
+    public <T, R> Map<ClusterNode, JobExecution<R>> submitBroadcast(
             Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            Object... args
+            T args
     ) {
         Objects.requireNonNull(nodes);
         Objects.requireNonNull(units);
@@ -252,7 +252,7 @@ public class ClientCompute implements IgniteCompute {
     }
 
     @Override
-    public <R> TaskExecution<R> submitMapReduce(List<DeploymentUnit> units, String taskClassName, Object... args) {
+    public <T, R> TaskExecution<R> submitMapReduce(List<DeploymentUnit> units, String taskClassName, T args) {
         Objects.requireNonNull(units);
         Objects.requireNonNull(taskClassName);
 
@@ -260,7 +260,7 @@ public class ClientCompute implements IgniteCompute {
     }
 
     @Override
-    public <R> R executeMapReduce(List<DeploymentUnit> units, String taskClassName, Object... args) {
+    public <T, R> R executeMapReduce(List<DeploymentUnit> units, String taskClassName, T args) {
         return sync(executeMapReduceAsync(units, taskClassName, args));
     }
 
@@ -278,12 +278,12 @@ public class ClientCompute implements IgniteCompute {
         );
     }
 
-    private CompletableFuture<SubmitResult> executeOnNodesAsync(
+    private <T> CompletableFuture<SubmitResult> executeOnNodesAsync(
             Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            Object[] args
+            T args
     ) {
         ClusterNode node = randomNode(nodes);
 
@@ -315,14 +315,14 @@ public class ClientCompute implements IgniteCompute {
         return iterator.next();
     }
 
-    private static <K> CompletableFuture<SubmitResult> executeColocatedObjectKey(
+    private static <K, T> CompletableFuture<SubmitResult> executeColocatedObjectKey(
             ClientTable t,
             K key,
             Mapper<K> keyMapper,
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            Object[] args) {
+            T args) {
         return executeColocatedInternal(
                 t,
                 (outputChannel, schema) -> ClientRecordSerializer.writeRecRaw(key, keyMapper, schema, outputChannel.out(), TuplePart.KEY),
@@ -350,14 +350,14 @@ public class ClientCompute implements IgniteCompute {
                 args);
     }
 
-    private static CompletableFuture<SubmitResult> executeColocatedInternal(
+    private static <T> CompletableFuture<SubmitResult> executeColocatedInternal(
             ClientTable t,
             BiConsumer<PayloadOutputChannel, ClientSchema> keyWriter,
             PartitionAwarenessProvider partitionAwarenessProvider,
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            Object[] args) {
+            T args) {
         return t.doSchemaOutOpAsync(
                 ClientOp.COMPUTE_EXECUTE_COLOCATED,
                 (schema, outputChannel) -> {
@@ -435,7 +435,7 @@ public class ClientCompute implements IgniteCompute {
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            Object[] args) {
+            Object args) {
         w.packDeploymentUnits(units);
 
         w.packString(jobClassName);

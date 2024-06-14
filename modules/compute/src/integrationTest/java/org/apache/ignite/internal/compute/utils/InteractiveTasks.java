@@ -150,7 +150,7 @@ public final class InteractiveTasks {
     /**
      * Interactive map reduce task that communicates via {@link #GLOBAL_CHANNEL} and {@link #GLOBAL_SIGNALS}.
      */
-    private static class GlobalInteractiveMapReduceTask implements MapReduceTask<List<String>> {
+    private static class GlobalInteractiveMapReduceTask implements MapReduceTask<Object[], List<String>> {
         @Override
         public List<ComputeJobRunner> split(TaskExecutionContext context, Object... args) {
             RUNNING_GLOBAL_SPLIT_CNT.incrementAndGet();

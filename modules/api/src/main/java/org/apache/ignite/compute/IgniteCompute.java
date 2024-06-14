@@ -32,6 +32,7 @@ import org.apache.ignite.compute.task.MapReduceTask;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Provides the ability to execute Compute jobs.
@@ -51,12 +52,12 @@ public interface IgniteCompute {
      * @param args Arguments of the job.
      * @return Job execution object.
      */
-    <R> JobExecution<R> submit(
+    <T, R> JobExecution<R> submit(
             Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            Object... args
+            T args
     );
 
     /**
@@ -70,11 +71,11 @@ public interface IgniteCompute {
      * @param <R> Job result type.
      * @return Job execution object.
      */
-    default <R> JobExecution<R> submit(
+    default <T, R> JobExecution<R> submit(
             Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,
-            Object... args
+            T args
     ) {
         return submit(nodes, units, jobClassName, DEFAULT, args);
     }
@@ -91,14 +92,14 @@ public interface IgniteCompute {
      * @param args Arguments of the job.
      * @return Job result future.
      */
-    default <R> CompletableFuture<R> executeAsync(
+    default <T, R> CompletableFuture<R> executeAsync(
             Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            Object... args
+            T args
     ) {
-        return this.<R>submit(nodes, units, jobClassName, options, args).resultAsync();
+        return this.<T, R>submit(nodes, units, jobClassName, options, args).resultAsync();
     }
 
     /**
@@ -112,13 +113,13 @@ public interface IgniteCompute {
      * @param <R> Job result type.
      * @return Job result future.
      */
-    default <R> CompletableFuture<R> executeAsync(
+    default <T, R> CompletableFuture<R> executeAsync(
             Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,
-            Object... args
+            @Nullable T args
     ) {
-        return this.<R>submit(nodes, units, jobClassName, args).resultAsync();
+        return this.<T, R>submit(nodes, units, jobClassName, args).resultAsync();
     }
 
     /**
@@ -133,12 +134,12 @@ public interface IgniteCompute {
      * @return Job result.
      * @throws ComputeException If there is any problem executing the job.
      */
-    <R> R execute(
+    <T, R> R execute(
             Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            Object... args
+            @Nullable T args
     );
 
     /**
@@ -153,11 +154,11 @@ public interface IgniteCompute {
      * @return Job result.
      * @throws ComputeException If there is any problem executing the job.
      */
-    default <R> R execute(
+    default <T, R> R execute(
             Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,
-            Object... args
+            @Nullable T args
     ) {
         return execute(nodes, units, jobClassName, DEFAULT, args);
     }
@@ -175,13 +176,13 @@ public interface IgniteCompute {
      * @param <R> Job result type.
      * @return Job execution object.
      */
-    <R> JobExecution<R> submitColocated(
+    <T, R> JobExecution<R> submitColocated(
             String tableName,
             Tuple key,
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            Object... args
+            @Nullable T args
     );
 
     /**
@@ -196,12 +197,12 @@ public interface IgniteCompute {
      * @param <R> Job result type.
      * @return Job execution object.
      */
-    default <R> JobExecution<R> submitColocated(
+    default <T, R> JobExecution<R> submitColocated(
             String tableName,
             Tuple key,
             List<DeploymentUnit> units,
             String jobClassName,
-            Object... args
+            @Nullable T args
     ) {
         return submitColocated(tableName, key, units, jobClassName, DEFAULT, args);
     }
@@ -220,14 +221,14 @@ public interface IgniteCompute {
      * @param <R> Job result type.
      * @return Job execution object.
      */
-    <K, R> JobExecution<R> submitColocated(
+    <K, T, R> JobExecution<R> submitColocated(
             String tableName,
             K key,
             Mapper<K> keyMapper,
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            Object... args
+            @Nullable T args
     );
 
     /**
@@ -243,13 +244,13 @@ public interface IgniteCompute {
      * @param <R> Job result type.
      * @return Job execution object.
      */
-    default <K, R> JobExecution<R> submitColocated(
+    default <K, T, R> JobExecution<R> submitColocated(
             String tableName,
             K key,
             Mapper<K> keyMapper,
             List<DeploymentUnit> units,
             String jobClassName,
-            Object... args
+            @Nullable T args
     ) {
         return submitColocated(tableName, key, keyMapper, units, jobClassName, DEFAULT, args);
     }
@@ -267,15 +268,15 @@ public interface IgniteCompute {
      * @param <R> Job result type.
      * @return Job result future.
      */
-    default <R> CompletableFuture<R> executeColocatedAsync(
+    default <T, R> CompletableFuture<R> executeColocatedAsync(
             String tableName,
             Tuple key,
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            Object... args
+            @Nullable T args
     ) {
-        return this.<R>submitColocated(tableName, key, units, jobClassName, options, args).resultAsync();
+        return this.<T, R>submitColocated(tableName, key, units, jobClassName, options, args).resultAsync();
     }
 
     /**
@@ -291,14 +292,14 @@ public interface IgniteCompute {
      * @param <R> Job result type.
      * @return Job result future.
      */
-    default <R> CompletableFuture<R> executeColocatedAsync(
+    default <T, R> CompletableFuture<R> executeColocatedAsync(
             String tableName,
             Tuple key,
             List<DeploymentUnit> units,
             String jobClassName,
-            Object... args
+            @Nullable T args
     ) {
-        return this.<R>submitColocated(tableName, key, units, jobClassName, args).resultAsync();
+        return this.<T, R>submitColocated(tableName, key, units, jobClassName, args).resultAsync();
     }
 
     /**
@@ -315,16 +316,16 @@ public interface IgniteCompute {
      * @param <R> Job result type.
      * @return Job result future.
      */
-    default <K, R> CompletableFuture<R> executeColocatedAsync(
+    default <K, T, R> CompletableFuture<R> executeColocatedAsync(
             String tableName,
             K key,
             Mapper<K> keyMapper,
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            Object... args
+            @Nullable T args
     ) {
-        return this.<K, R>submitColocated(tableName, key, keyMapper, units, jobClassName, options, args).resultAsync();
+        return this.<K, T, R>submitColocated(tableName, key, keyMapper, units, jobClassName, options, args).resultAsync();
     }
 
     /**
@@ -341,15 +342,15 @@ public interface IgniteCompute {
      * @param <R> Job result type.
      * @return Job result future.
      */
-    default <K, R> CompletableFuture<R> executeColocatedAsync(
+    default <K, T, R> CompletableFuture<R> executeColocatedAsync(
             String tableName,
             K key,
             Mapper<K> keyMapper,
             List<DeploymentUnit> units,
             String jobClassName,
-            Object... args
+            @Nullable T args
     ) {
-        return this.<K, R>submitColocated(tableName, key, keyMapper, units, jobClassName, args).resultAsync();
+        return this.<K, T, R>submitColocated(tableName, key, keyMapper, units, jobClassName, args).resultAsync();
     }
 
     /**
@@ -365,13 +366,13 @@ public interface IgniteCompute {
      * @return Job result.
      * @throws ComputeException If there is any problem executing the job.
      */
-    <R> R executeColocated(
+    <T, R> R executeColocated(
             String tableName,
             Tuple key,
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            Object... args);
+            @Nullable T args);
 
     /**
      * Executes a job of the given class on the node where the given key is located
@@ -387,12 +388,12 @@ public interface IgniteCompute {
      * @return Job result.
      * @throws ComputeException If there is any problem executing the job.
      */
-    default <R> R executeColocated(
+    default <T, R> R executeColocated(
             String tableName,
             Tuple key,
             List<DeploymentUnit> units,
             String jobClassName,
-            Object... args
+            @Nullable T args
     ) {
         return executeColocated(tableName, key, units, jobClassName, DEFAULT, args);
     }
@@ -411,14 +412,14 @@ public interface IgniteCompute {
      * @return Job result.
      * @throws ComputeException If there is any problem executing the job.
      */
-    <K, R> R executeColocated(
+    <K, T, R> R executeColocated(
             String tableName,
             K key,
             Mapper<K> keyMapper,
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            Object... args);
+            @Nullable T args);
 
     /**
      * Executes a job of the given class on the node where the given key is located. The node is a leader
@@ -434,13 +435,13 @@ public interface IgniteCompute {
      * @return Job result.
      * @throws ComputeException If there is any problem executing the job.
      */
-    default <K, R> R executeColocated(
+    default <K, T, R> R executeColocated(
             String tableName,
             K key,
             Mapper<K> keyMapper,
             List<DeploymentUnit> units,
             String jobClassName,
-            Object... args
+            @Nullable T args
     ) {
         return executeColocated(tableName, key, keyMapper, units, jobClassName, DEFAULT, args);
     }
@@ -456,12 +457,12 @@ public interface IgniteCompute {
      * @param args Arguments of the job.
      * @return Map from node to job execution object.
      */
-    <R> Map<ClusterNode, JobExecution<R>> submitBroadcast(
+    <T, R> Map<ClusterNode, JobExecution<R>> submitBroadcast(
             Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            Object... args
+            @Nullable T args
     );
 
     /**
@@ -475,11 +476,11 @@ public interface IgniteCompute {
      * @param <R> Job result type.
      * @return Map from node to job execution object.
      */
-    default <R> Map<ClusterNode, JobExecution<R>> submitBroadcast(
+    default <T, R> Map<ClusterNode, JobExecution<R>> submitBroadcast(
             Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,
-            Object... args
+            @Nullable T args
     ) {
         return submitBroadcast(nodes, units, jobClassName, DEFAULT, args);
     }
@@ -495,12 +496,12 @@ public interface IgniteCompute {
      * @param args Arguments of the job.
      * @return Map from node to job result.
      */
-    default <R> CompletableFuture<Map<ClusterNode, R>> executeBroadcastAsync(
+    default <T, R> CompletableFuture<Map<ClusterNode, R>> executeBroadcastAsync(
             Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            Object... args
+            @Nullable T args
     ) {
         Map<ClusterNode, CompletableFuture<R>> futures = nodes.stream()
                 .collect(toMap(identity(), node -> executeAsync(Set.of(node), units, jobClassName, options, args)));
@@ -529,11 +530,11 @@ public interface IgniteCompute {
      * @param <R> Job result type.
      * @return Map from node to job result.
      */
-    default <R> CompletableFuture<Map<ClusterNode, R>> executeBroadcastAsync(
+    default <T, R> CompletableFuture<Map<ClusterNode, R>> executeBroadcastAsync(
             Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,
-            Object... args
+            @Nullable T args
     ) {
         return executeBroadcastAsync(nodes, units, jobClassName, DEFAULT, args);
     }
@@ -550,12 +551,12 @@ public interface IgniteCompute {
      * @return Map from node to job result.
      * @throws ComputeException If there is any problem executing the job.
      */
-    default <R> Map<ClusterNode, R> executeBroadcast(
+    default <T, R> Map<ClusterNode, R> executeBroadcast(
             Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            Object... args
+            @Nullable T args
     ) {
         Map<ClusterNode, R> map = new HashMap<>();
 
@@ -578,11 +579,11 @@ public interface IgniteCompute {
      * @return Map from node to job result.
      * @throws ComputeException If there is any problem executing the job.
      */
-    default <R> Map<ClusterNode, R> executeBroadcast(
+    default <T, R> Map<ClusterNode, R> executeBroadcast(
             Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,
-            Object... args
+            @Nullable T args
     ) {
         return executeBroadcast(nodes, units, jobClassName, DEFAULT, args);
     }
@@ -596,19 +597,19 @@ public interface IgniteCompute {
      * @param <R> Task result type.
      * @return Task execution interface.
      */
-    <R> TaskExecution<R> submitMapReduce(List<DeploymentUnit> units, String taskClassName, Object... args);
+    <T, R> TaskExecution<R> submitMapReduce(List<DeploymentUnit> units, String taskClassName, @Nullable T args);
 
     /**
      * Submits a {@link MapReduceTask} of the given class for an execution. A shortcut for {@code submitMapReduce(...).resultAsync()}.
      *
      * @param units Deployment units.
      * @param taskClassName Map reduce task class name.
-     * @param args Task arguments.
+     * @param input Task arguments.
      * @param <R> Task result type.
      * @return Task result future.
      */
-    default <R> CompletableFuture<R> executeMapReduceAsync(List<DeploymentUnit> units, String taskClassName, Object... args) {
-        return this.<R>submitMapReduce(units, taskClassName, args).resultAsync();
+    default <T, R> CompletableFuture<R> executeMapReduceAsync(List<DeploymentUnit> units, String taskClassName, T input) {
+        return this.<T, R>submitMapReduce(units, taskClassName, input).resultAsync();
     }
 
     /**
@@ -621,5 +622,5 @@ public interface IgniteCompute {
      * @return Task result.
      * @throws ComputeException If there is any problem executing the task.
      */
-    <R> R executeMapReduce(List<DeploymentUnit> units, String taskClassName, Object... args);
+    <T, R> R executeMapReduce(List<DeploymentUnit> units, String taskClassName, @Nullable T args);
 }
