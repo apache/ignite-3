@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Internal.Proto.MsgPack;
 
 using System;
+using System.Buffers;
 using System.Buffers.Binary;
 using System.IO;
 using BinaryTuple;
@@ -379,6 +380,30 @@ internal ref struct MsgPackReader
         var tuple = new BinaryTupleReader(ReadBinary(), 3);
 
         return tuple.GetObject(0);
+    }
+
+    public (T[]? PooledArray, int Count) ReadObjectCollectionFromBinaryTuple<T>()
+    {
+        if (TryReadNil())
+        {
+            return (null, 0);
+        }
+
+        var numElements = ReadInt32();
+        var tuple = new BinaryTupleReader(ReadBinary(), numElements);
+        var idx = 0;
+        var typeId = tuple.GetInt(idx++);
+        var count = tuple.GetInt(idx++);
+
+        var res = ArrayPool<T>.Shared.Rent(count);
+
+        for (var i = 0; i < count; i++)
+        {
+            // TODO.
+            res[i] = default!;
+        }
+
+        return (res, count);
     }
 
     private static InvalidDataException GetInvalidCodeException(string expected, byte code) =>
