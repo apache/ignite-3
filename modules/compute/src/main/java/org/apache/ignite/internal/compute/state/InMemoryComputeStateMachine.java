@@ -139,8 +139,6 @@ public class InMemoryComputeStateMachine implements ComputeStateMachine {
             JobState currentState = currentStatus.state();
             JobState newState = newStateFunction.apply(currentState);
 
-            System.out.println("changeJobState currentState: " + currentState + ", newState: " + newState);
-
             validateStateTransition(jobId, currentState, newState);
 
             JobStatus.Builder builder = currentStatus.toBuilder().state(newState);
