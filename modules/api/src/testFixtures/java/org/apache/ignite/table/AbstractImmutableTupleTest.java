@@ -46,7 +46,7 @@ import org.junit.jupiter.api.Test;
  */
 public abstract class AbstractImmutableTupleTest {
     protected static final int NANOS_IN_SECOND = 9;
-    protected static final int TIMESTAMP_PRECISION = 6;
+    protected static final int TIMESTAMP_PRECISION = 3;
     protected static final int TIME_PRECISION = 0;
 
     protected static final Instant TIMESTAMP_VALUE;

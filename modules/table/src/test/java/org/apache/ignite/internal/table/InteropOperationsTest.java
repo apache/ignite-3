@@ -110,7 +110,7 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
                 NativeTypes.BOOLEAN,
                 NativeTypes.INT8, NativeTypes.INT16, NativeTypes.INT32, NativeTypes.INT64,
                 NativeTypes.FLOAT, NativeTypes.DOUBLE, NativeTypes.UUID, NativeTypes.STRING,
-                NativeTypes.BYTES, NativeTypes.DATE, NativeTypes.time(0), NativeTypes.timestamp(4), NativeTypes.datetime(4),
+                NativeTypes.BYTES, NativeTypes.DATE, NativeTypes.time(0), NativeTypes.timestamp(2), NativeTypes.datetime(2),
                 NativeTypes.numberOf(2), NativeTypes.decimalOf(5, 2), NativeTypes.bitmaskOf(8)
         };
 
