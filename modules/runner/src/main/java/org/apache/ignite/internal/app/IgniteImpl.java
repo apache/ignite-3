@@ -659,7 +659,8 @@ public class IgniteImpl implements Ignite {
                 raftMarshaller,
                 topologyAwareRaftGroupServiceFactory,
                 raftMgr,
-                volatileLogStorageFactoryCreator
+                volatileLogStorageFactoryCreator,
+                threadPoolsManager.tableIoExecutor()
         );
 
         metricManager.configure(clusterConfigRegistry.getConfiguration(MetricConfiguration.KEY));

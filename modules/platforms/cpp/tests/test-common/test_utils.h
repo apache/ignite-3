@@ -82,4 +82,13 @@ bool check_test_node_connectable(std::chrono::seconds timeout);
  */
 void ensure_node_connectable(std::chrono::seconds timeout);
 
+/**
+ * Wait for condition.
+ *
+ * @param timeout Timeout.
+ * @param predicate Predicate.
+ * @return @c true if condition is turned @c true within timeout, @c false otherwise.
+ */
+bool wait_for_condition(std::chrono::seconds timeout, const std::function<bool()> &predicate);
+
 } // namespace ignite
