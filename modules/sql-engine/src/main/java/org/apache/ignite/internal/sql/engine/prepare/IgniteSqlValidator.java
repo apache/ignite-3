@@ -541,6 +541,18 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     }
 
     /** {@inheritDoc} */
+    @Override public void validateCall(SqlCall call, SqlValidatorScope scope) {
+        if (call.getKind() == SqlKind.AS) {
+            final String alias = deriveAlias(call, 0);
+
+            if (isSystemFieldName(alias))
+                throw newValidationError(call, IgniteResource.INSTANCE.illegalAlias(alias));
+        }
+
+        super.validateCall(call, scope);
+    }
+
+    /** {@inheritDoc} */
     @Override
     public RelDataType deriveType(SqlValidatorScope scope, SqlNode expr) {
         if (expr instanceof SqlDynamicParam) {

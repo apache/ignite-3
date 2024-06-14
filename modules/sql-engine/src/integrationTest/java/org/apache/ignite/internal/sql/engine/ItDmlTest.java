@@ -491,6 +491,17 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
         assertEquals(3, pkVals.size());
     }
 
+    @Test
+    @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
+    public void invalidAliases() {
+        sql("CREATE TABLE T(VAL INT)");
+
+        assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Illegal alias. __p_key is reserved name",
+                () -> sql("select val as \"__p_key\" from t"));
+        assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Illegal alias. __part is reserved name",
+                () -> sql("select val as \"__part\" from t"));
+    }
+
     private static Stream<DefaultValueArg> defaultValueArgs() {
         return Stream.of(
                 new DefaultValueArg("BOOLEAN", "TRUE", Boolean.TRUE),
