@@ -164,7 +164,9 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     @ValueSource(booleans = {true, false})
     void testCancelOnSpecificNodeAsync(boolean asyncJob) {
         int sleepMs = 1_000_000;
-        JobDescriptor sleepJob = JobDescriptor.builder(SleepJob.class).build();
+        JobDescriptor sleepJob = JobDescriptor
+                .builder(asyncJob ? AsyncSleepJob.class : SleepJob.class)
+                .build();
 
         JobExecution<String> execution1 = client().compute().submit(Set.of(node(0)), sleepJob, sleepMs);
         JobExecution<String> execution2 = client().compute().submit(Set.of(node(1)), sleepJob, sleepMs);
