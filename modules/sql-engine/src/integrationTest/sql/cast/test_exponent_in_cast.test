@@ -23,9 +23,6 @@ SELECT CAST('  e1' AS DOUBLE);
 statement error: For input string: "E1"
 SELECT CAST('  E1' AS DOUBLE);
 
-statement error: For input string: "1e1"
-SELECT CAST('1e1' AS INTEGER);
-
 statement error: decimal point, nor "e" notation exponential mark.
 SELECT CAST('  1e1' AS INTEGER);
 
@@ -44,6 +41,9 @@ SELECT CAST(1e1 AS TINYINT);
 ----
 10
 
+statement error: For input string: "1e2"
+SELECT CAST('1e2' AS TINYINT);
+
 # overflow
 statement error
 SELECT CAST(1e5 AS TINYINT);
@@ -56,6 +56,9 @@ query T
 SELECT CAST(1e1 AS SMALLINT);
 ----
 10
+
+statement error: For input string: "1e2"
+SELECT CAST('1e2' AS SMALLINT);
 
 # overflow
 statement error
@@ -70,6 +73,9 @@ SELECT CAST(1e1 AS INT);
 ----
 10
 
+statement error: For input string: "1e2"
+SELECT CAST('1e2' AS INT);
+
 # overflow
 statement error
 SELECT CAST(1e20 AS INT);
@@ -82,6 +88,9 @@ query T
 SELECT CAST(1e1 AS BIGINT);
 ----
 10
+
+statement error: For input string: "1e2"
+SELECT CAST('1e2' AS BIGINT);
 
 # overflow
 statement error
