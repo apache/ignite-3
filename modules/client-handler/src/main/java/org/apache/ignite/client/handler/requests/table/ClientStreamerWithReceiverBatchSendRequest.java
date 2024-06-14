@@ -18,6 +18,7 @@
 package org.apache.ignite.client.handler.requests.table;
 
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Compute.COMPUTE_JOB_FAILED_ERR;
 
 import java.util.List;
@@ -114,7 +115,7 @@ public class ClientStreamerWithReceiverBatchSendRequest {
 
             CompletableFuture<List<Object>> receiveFut = receiver.receive(receiverInfo.items(), receiverContext, receiverInfo.args());
 
-            return receiveFut == null ? null : receiveFut.join();
+            return receiveFut == null ? nullCompletedFuture() : receiveFut;
         }
     }
 }

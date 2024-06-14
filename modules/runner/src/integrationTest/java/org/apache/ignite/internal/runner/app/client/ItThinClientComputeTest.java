@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.runner.app.client;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.compute.JobState.CANCELED;
 import static org.apache.ignite.compute.JobState.COMPLETED;
 import static org.apache.ignite.compute.JobState.EXECUTING;
@@ -27,6 +28,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.will;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.JobStatusMatcher.jobStatusWithState;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Compute.COMPUTE_JOB_FAILED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Table.COLUMN_ALREADY_EXISTS_ERR;
@@ -742,7 +744,8 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     private static class NodeNameJob implements ComputeJob<String> {
         @Override
         public CompletableFuture<String> executeAsync(JobExecutionContext context, Object... args) {
-            return context.ignite().name() + Arrays.stream(args).map(Object::toString).collect(Collectors.joining("_"));
+            return completedFuture(
+                    context.ignite().name() + Arrays.stream(args).map(Object::toString).collect(Collectors.joining("_")));
         }
     }
 
@@ -750,10 +753,11 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         @Override
         public CompletableFuture<String> executeAsync(JobExecutionContext context, Object... args) {
             if (args == null) {
-                return null;
+                return nullCompletedFuture();
             }
 
-            return Arrays.stream(args).map(o -> o == null ? "null" : o.toString()).collect(Collectors.joining("_"));
+            return completedFuture(
+                    Arrays.stream(args).map(o -> o == null ? "null" : o.toString()).collect(Collectors.joining("_")));
         }
     }
 
@@ -782,7 +786,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
                 assertEquals(expectedString, valueString, "Unexpected string representation of value");
             }
 
-            return args[0];
+            return completedFuture(args[0]);
         }
     }
 
@@ -802,7 +806,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     private static class DecimalJob implements ComputeJob<BigDecimal> {
         @Override
         public CompletableFuture<BigDecimal> executeAsync(JobExecutionContext context, Object... args) {
-            return new BigDecimal((String) args[0]).setScale((Integer) args[1], RoundingMode.HALF_UP);
+            return completedFuture(new BigDecimal((String) args[0]).setScale((Integer) args[1], RoundingMode.HALF_UP));
         }
     }
 
