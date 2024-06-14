@@ -24,6 +24,7 @@ import java.util.concurrent.CompletableFuture;
  *
  * @param <R> Job result type.
  */
+@SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
 public interface ComputeJob<R> {
     /**
      * Executes the job on an Ignite node.
