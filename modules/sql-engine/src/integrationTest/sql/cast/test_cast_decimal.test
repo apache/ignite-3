@@ -29,3 +29,112 @@ SELECT CAST(x'00'::BINARY AS DECIMAL);
 
 statement error: Cast function cannot convert value of type VARBINARY to type DECIMAL
 SELECT CAST(x'00'::VARBINARY AS DECIMAL);
+
+query T
+SELECT CAST(INTERVAL 11 YEAR AS DECIMAL(5));
+----
+11
+
+query T
+SELECT CAST(INTERVAL 11 MONTH AS DECIMAL(5));
+----
+11
+
+query T
+SELECT CAST(INTERVAL 11 DAYS AS DECIMAL(5));
+----
+11
+
+query T
+SELECT CAST(INTERVAL 11 HOURS AS DECIMAL(5));
+----
+11
+
+query T
+SELECT CAST(INTERVAL 11 MINUTES AS DECIMAL(5));
+----
+11
+
+query T
+SELECT CAST(INTERVAL 11 SECONDS AS DECIMAL(5));
+----
+11
+
+statement error: Cast function cannot convert value of type INTERVAL DAY TO HOUR to type DECIMAL
+SELECT CAST(INTERVAL '0 1' DAYS TO HOURS AS DECIMAL(5));
+
+statement error: Cast function cannot convert value of type INTERVAL DAY TO MINUTE to type DECIMAL
+SELECT CAST(INTERVAL '0 1' DAYS TO MINUTES AS DECIMAL(5));
+
+statement error: Cast function cannot convert value of type INTERVAL DAY TO SECOND to type DECIMAL
+SELECT CAST(INTERVAL '0 1' DAYS TO SECONDS AS DECIMAL(5));
+
+statement error: Cast function cannot convert value of type INTERVAL HOUR TO MINUTE to type DECIMAL
+SELECT CAST(INTERVAL '0 1' HOURS TO MINUTES AS DECIMAL(5));
+
+statement error: Cast function cannot convert value of type INTERVAL HOUR TO SECOND to type DECIMAL
+SELECT CAST(INTERVAL '0 1' HOURS TO SECONDS AS DECIMAL(5));
+
+statement error: Cast function cannot convert value of type INTERVAL MINUTE TO SECOND to type DECIMAL
+SELECT CAST(INTERVAL '0 1' MINUTES TO SECONDS AS DECIMAL(5));
+
+statement error: Cast function cannot convert value of type INTERVAL YEAR TO MONTH to type DECIMAL
+SELECT CAST(INTERVAL '0 0' YEARS TO MONTHS AS DECIMAL(5));
+
+statement error: Cast function cannot convert value of type INTERVAL YEAR TO MONTH to type DECIMAL
+SELECT CAST(INTERVAL '0 1' YEARS TO MONTHS AS DECIMAL(5));
+
+statement error: Cast function cannot convert value of type INTERVAL YEAR TO MONTH to type DECIMAL
+SELECT CAST(INTERVAL '1 0' YEARS TO MONTHS AS DECIMAL(5));
+
+statement error: Cast function cannot convert value of type INTERVAL YEAR TO MONTH to type DECIMAL
+SELECT CAST(INTERVAL '1 1' YEARS TO MONTHS AS DECIMAL(5));
+
+
+statement error: Numeric field overflow
+SELECT CAST(INTERVAL 11 YEAR AS DECIMAL(1));
+
+statement error: Numeric field overflow
+SELECT CAST(INTERVAL 11 MONTH AS DECIMAL(1));
+
+statement error: Numeric field overflow
+SELECT CAST(INTERVAL 11 DAYS AS DECIMAL(1));
+
+statement error: Numeric field overflow
+SELECT CAST(INTERVAL 11 HOURS AS DECIMAL(1));
+
+statement error: Numeric field overflow
+SELECT CAST(INTERVAL 11 MINUTES AS DECIMAL(1));
+
+statement error: Numeric field overflow
+SELECT CAST(INTERVAL 11 SECONDS AS DECIMAL(1));
+
+statement error: Cast function cannot convert value of type INTERVAL DAY TO HOUR to type DECIMAL
+SELECT CAST(INTERVAL '0 1' DAYS TO HOURS AS DECIMAL(1));
+
+statement error: Cast function cannot convert value of type INTERVAL DAY TO MINUTE to type DECIMAL
+SELECT CAST(INTERVAL '0 1' DAYS TO MINUTES AS DECIMAL(1));
+
+statement error: Cast function cannot convert value of type INTERVAL DAY TO SECOND to type DECIMAL
+SELECT CAST(INTERVAL '0 1' DAYS TO SECONDS AS DECIMAL(1));
+
+statement error: Cast function cannot convert value of type INTERVAL HOUR TO MINUTE to type DECIMAL
+SELECT CAST(INTERVAL '0 1' HOURS TO MINUTES AS DECIMAL(1));
+
+statement error: Cast function cannot convert value of type INTERVAL HOUR TO SECOND to type DECIMAL
+SELECT CAST(INTERVAL '0 1' HOURS TO SECONDS AS DECIMAL(1));
+
+statement error: Cast function cannot convert value of type INTERVAL MINUTE TO SECOND to type DECIMAL
+SELECT CAST(INTERVAL '0 1' MINUTES TO SECONDS AS DECIMAL(1));
+
+statement error: Cast function cannot convert value of type INTERVAL YEAR TO MONTH to type DECIMAL
+SELECT CAST(INTERVAL '0 0' YEARS TO MONTHS AS DECIMAL(1));
+
+statement error: Cast function cannot convert value of type INTERVAL YEAR TO MONTH to type DECIMAL
+SELECT CAST(INTERVAL '0 1' YEARS TO MONTHS AS DECIMAL(1));
+
+statement error: Cast function cannot convert value of type INTERVAL YEAR TO MONTH to type DECIMAL
+SELECT CAST(INTERVAL '1 0' YEARS TO MONTHS AS DECIMAL(1));
+
+statement error: Cast function cannot convert value of type INTERVAL YEAR TO MONTH to type DECIMAL
+SELECT CAST(INTERVAL '1 1' YEARS TO MONTHS AS DECIMAL(1));

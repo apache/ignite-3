@@ -34,3 +34,51 @@ SELECT CAST(x'00'::BINARY AS DOUBLE);
 
 statement error: Cast function cannot convert value of type VARBINARY to type DOUBLE
 SELECT CAST(x'00'::VARBINARY AS DOUBLE);
+
+statement error: Cast function cannot convert value
+SELECT CAST(INTERVAL 11 YEAR AS DOUBLE);
+
+statement error: Cast function cannot convert value
+SELECT CAST(INTERVAL 11 MONTH AS DOUBLE);
+
+statement error: Cast function cannot convert value
+SELECT CAST(INTERVAL 11 DAYS AS DOUBLE);
+
+statement error: Cast function cannot convert value
+SELECT CAST(INTERVAL 11 HOURS AS DOUBLE);
+
+statement error: Cast function cannot convert value
+SELECT CAST(INTERVAL 11 MINUTES AS DOUBLE);
+
+statement error: Cast function cannot convert value
+SELECT CAST(INTERVAL 11 SECONDS AS DOUBLE);
+
+statement error: Cast function cannot convert value of type INTERVAL DAY TO HOUR to type DOUBLE
+SELECT CAST(INTERVAL '0 1' DAYS TO HOURS AS DOUBLE);
+
+statement error: Cast function cannot convert value of type INTERVAL DAY TO MINUTE to type DOUBLE
+SELECT CAST(INTERVAL '0 1' DAYS TO MINUTES AS DOUBLE);
+
+statement error: Cast function cannot convert value of type INTERVAL DAY TO SECOND to type DOUBLE
+SELECT CAST(INTERVAL '0 1' DAYS TO SECONDS AS DOUBLE);
+
+statement error: Cast function cannot convert value of type INTERVAL HOUR TO MINUTE to type DOUBLE
+SELECT CAST(INTERVAL '0 1' HOURS TO MINUTES AS DOUBLE);
+
+statement error: Cast function cannot convert value of type INTERVAL HOUR TO SECOND to type DOUBLE
+SELECT CAST(INTERVAL '0 1' HOURS TO SECONDS AS DOUBLE);
+
+statement error: Cast function cannot convert value of type INTERVAL MINUTE TO SECOND to type DOUBLE
+SELECT CAST(INTERVAL '0 1' MINUTES TO SECONDS AS DOUBLE);
+
+statement error: Cast function cannot convert value of type INTERVAL YEAR TO MONTH to type DOUBLE
+SELECT CAST(INTERVAL '0 0' YEARS TO MONTHS AS DOUBLE);
+
+statement error: Cast function cannot convert value of type INTERVAL YEAR TO MONTH to type DOUBLE
+SELECT CAST(INTERVAL '0 1' YEARS TO MONTHS AS DOUBLE);
+
+statement error: Cast function cannot convert value of type INTERVAL YEAR TO MONTH to type DOUBLE
+SELECT CAST(INTERVAL '1 0' YEARS TO MONTHS AS DOUBLE);
+
+statement error: Cast function cannot convert value of type INTERVAL YEAR TO MONTH to type DOUBLE
+SELECT CAST(INTERVAL '1 1' YEARS TO MONTHS AS DOUBLE);

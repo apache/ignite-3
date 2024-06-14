@@ -32,3 +32,63 @@ SELECT CAST(x'00'::BINARY AS TINYINT);
 
 statement error: Cast function cannot convert value of type VARBINARY to type TINYINT
 SELECT CAST(x'00'::VARBINARY AS TINYINT);
+
+query T
+SELECT CAST(INTERVAL 11 YEAR AS TINYINT);
+----
+11
+
+query T
+SELECT CAST(INTERVAL 11 MONTH AS TINYINT);
+----
+11
+
+query T
+SELECT CAST(INTERVAL 11 DAYS AS TINYINT);
+----
+11
+
+query T
+SELECT CAST(INTERVAL 11 HOURS AS TINYINT);
+----
+11
+
+query T
+SELECT CAST(INTERVAL 11 MINUTES AS TINYINT);
+----
+11
+
+query T
+SELECT CAST(INTERVAL 11 SECONDS AS TINYINT);
+----
+11
+
+statement error: Cast function cannot convert value of type INTERVAL DAY TO HOUR to type TINYINT
+SELECT CAST(INTERVAL '0 1' DAYS TO HOURS AS TINYINT);
+
+statement error: Cast function cannot convert value of type INTERVAL DAY TO MINUTE to type TINYINT
+SELECT CAST(INTERVAL '0 1' DAYS TO MINUTES AS TINYINT);
+
+statement error: Cast function cannot convert value of type INTERVAL DAY TO SECOND to type TINYINT
+SELECT CAST(INTERVAL '0 1' DAYS TO SECONDS AS TINYINT);
+
+statement error: Cast function cannot convert value of type INTERVAL HOUR TO MINUTE to type TINYINT
+SELECT CAST(INTERVAL '0 1' HOURS TO MINUTES AS TINYINT);
+
+statement error: Cast function cannot convert value of type INTERVAL HOUR TO SECOND to type TINYINT
+SELECT CAST(INTERVAL '0 1' HOURS TO SECONDS AS TINYINT);
+
+statement error: Cast function cannot convert value of type INTERVAL MINUTE TO SECOND to type TINYINT
+SELECT CAST(INTERVAL '0 1' MINUTES TO SECONDS AS TINYINT);
+
+statement error: Cast function cannot convert value of type INTERVAL YEAR TO MONTH to type TINYINT
+SELECT CAST(INTERVAL '0 0' YEARS TO MONTHS AS TINYINT);
+
+statement error: Cast function cannot convert value of type INTERVAL YEAR TO MONTH to type TINYINT
+SELECT CAST(INTERVAL '0 1' YEARS TO MONTHS AS TINYINT);
+
+statement error: Cast function cannot convert value of type INTERVAL YEAR TO MONTH to type TINYINT
+SELECT CAST(INTERVAL '1 0' YEARS TO MONTHS AS TINYINT);
+
+statement error: Cast function cannot convert value of type INTERVAL YEAR TO MONTH to type TINYINT
+SELECT CAST(INTERVAL '1 1' YEARS TO MONTHS AS TINYINT);
