@@ -49,6 +49,9 @@ class QueueEntry<R> implements Runnable, Comparable<QueueEntry<R>> {
     /** Thread used to run the job, initialized once the job starts executing. */
     private @Nullable Thread workerThread;
 
+    /** Future returned from jobAction.call(). */
+    private @Nullable CompletableFuture<R> jobFuture;
+
     private final Lock lock = new ReentrantLock();
 
     private volatile boolean isInterrupted;
@@ -75,13 +78,13 @@ class QueueEntry<R> implements Runnable, Comparable<QueueEntry<R>> {
         }
 
         try {
-            CompletableFuture<R> jobFut = jobAction.call();
+            jobFuture = jobAction.call();
 
-            if (jobFut == null) {
+            if (jobFuture == null) {
                 // Allow null futures for synchronous jobs.
                 future.complete(null);
             } else {
-                jobFut.whenComplete(copyStateTo(future));
+                jobFuture.whenComplete(copyStateTo(future));
             }
         } catch (Throwable e) {
             future.completeExceptionally(e);
@@ -116,6 +119,11 @@ class QueueEntry<R> implements Runnable, Comparable<QueueEntry<R>> {
                 // Job could handle interruption and exit before this flag is set moving the job to completed state rather than canceled.
                 isInterrupted = true;
                 workerThread.interrupt();
+            }
+
+            if (jobFuture != null) {
+                isInterrupted = true;
+                jobFuture.cancel(true);
             }
         } finally {
             lock.unlock();
