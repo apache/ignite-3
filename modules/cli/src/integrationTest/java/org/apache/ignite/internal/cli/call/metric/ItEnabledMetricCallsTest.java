@@ -75,8 +75,15 @@ class ItEnabledMetricCallsTest extends CliIntegrationTest {
         // Then
         assertThat(output.hasError()).isFalse();
 
+        MetricSource[] expectedMetricSources = {
+                new MetricSource().name("jvm").enabled(true),
+                new MetricSource().name("client.handler").enabled(false),
+                new MetricSource().name("sql.client").enabled(false),
+                new MetricSource().name("sql.plan.cache").enabled(false)
+        };
+
         // And
-        assertThat(output.body()).contains(new MetricSource().name("jvm").enabled(true));
+        assertThat(output.body()).contains(expectedMetricSources);
     }
 
     @Test
