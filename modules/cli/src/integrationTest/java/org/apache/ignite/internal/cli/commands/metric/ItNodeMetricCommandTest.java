@@ -38,10 +38,10 @@ class ItNodeMetricCommandTest extends CliIntegrationTest {
                 this::assertExitCodeIsZero,
                 this::assertErrOutputIsEmpty,
                 () -> assertOutputContains("Set name\tEnabled" + NL),
-                () -> assertOutputContains("jvm\tdisabled" + NL),
-                () -> assertOutputContains("client.handler\tdisabled" + NL),
-                () -> assertOutputContains("sql.client\tdisabled" + NL),
-                () -> assertOutputContains("sql.plan.cache\tdisabled" + NL)
+                () -> assertOutputContains("jvm\tenabled" + NL),
+                () -> assertOutputContains("client.handler\tenabled" + NL),
+                () -> assertOutputContains("sql.client\tenabled" + NL),
+                () -> assertOutputContains("sql.plan.cache\tenabled" + NL)
         );
     }
 

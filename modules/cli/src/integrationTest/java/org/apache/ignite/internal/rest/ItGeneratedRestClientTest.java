@@ -53,8 +53,10 @@ import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
+import org.apache.ignite.internal.cli.CliIntegrationTest;
 import org.apache.ignite.internal.cli.call.cluster.unit.DeployUnitClient;
 import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -71,7 +73,6 @@ import org.apache.ignite.rest.client.invoker.ApiException;
 import org.apache.ignite.rest.client.model.ClusterState;
 import org.apache.ignite.rest.client.model.DeployMode;
 import org.apache.ignite.rest.client.model.InitCommand;
-import org.apache.ignite.rest.client.model.MetricSource;
 import org.apache.ignite.rest.client.model.NodeState;
 import org.apache.ignite.rest.client.model.Problem;
 import org.apache.ignite.rest.client.model.UnitStatus;
@@ -90,7 +91,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(WorkDirectoryExtension.class)
 @MicronautTest(rebuildContext = true)
 @TestInstance(Lifecycle.PER_CLASS)
-public class ItGeneratedRestClientTest {
+public class ItGeneratedRestClientTest extends BaseIgniteAbstractTest {
     /** Start network port for test nodes. */
     private static final int BASE_PORT = 3344;
 
@@ -366,19 +367,12 @@ public class ItGeneratedRestClientTest {
 
     @Test
     void nodeMetricSourcesList() throws ApiException {
-        MetricSource[] expectedMetricSources = {
-                new MetricSource().name("jvm").enabled(false),
-                new MetricSource().name("client.handler").enabled(false),
-                new MetricSource().name("sql.client").enabled(false),
-                new MetricSource().name("sql.plan.cache").enabled(false)
-        };
-
-        assertThat(nodeMetricApi.listNodeMetricSources(), hasItems(expectedMetricSources));
+        assertThat(nodeMetricApi.listNodeMetricSources(), hasItems(CliIntegrationTest.ALL_METRIC_SOURCES));
     }
 
     @Test
     void nodeMetricSetsList() throws ApiException {
-        assertThat(nodeMetricApi.listNodeMetricSets(), empty());
+        assertThat(nodeMetricApi.listNodeMetricSets(), hasSize(CliIntegrationTest.ALL_METRIC_SOURCES.length));
     }
 
     @Test

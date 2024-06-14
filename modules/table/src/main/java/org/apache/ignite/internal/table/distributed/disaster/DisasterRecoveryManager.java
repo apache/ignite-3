@@ -777,6 +777,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         assert previous == null : "tableId=" + tableDescriptor.id();
 
         metricManager.registerSource(metricSource);
+        metricManager.enable(metricSource);
     }
 
     private void unregisterPartitionStatesMetricSource(int tableId) {
