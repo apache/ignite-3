@@ -48,6 +48,8 @@ import org.apache.ignite.lang.IgniteException;
 import org.hamcrest.Matcher;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 @SuppressWarnings("resource")
 class ItMapReduceTest extends ClusterPerClassIntegrationTest {
@@ -127,12 +129,13 @@ class ItMapReduceTest extends ClusterPerClassIntegrationTest {
         assertThat(taskExecution.statusesAsync(), willThrow(IgniteException.class));
     }
 
-    @Test
-    void cancelSplit() throws Exception {
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void cancelSplit(boolean cooperativeCancel) throws Exception {
         IgniteImpl entryNode = CLUSTER.node(0);
 
         // Given running task.
-        TaskExecution<List<String>> taskExecution = startTask(entryNode);
+        TaskExecution<List<String>> taskExecution = startTask(entryNode, cooperativeCancel ? "NO_INTERRUPT" : "");
 
         // Save status before split.
         JobStatus statusBeforeSplit = taskExecution.statusAsync().join();
@@ -219,12 +222,14 @@ class ItMapReduceTest extends ClusterPerClassIntegrationTest {
         assertJobStates(taskExecution, COMPLETED);
     }
 
-    @Test
-    void cancelReduce() throws Exception {
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void cancelReduce(boolean cooperativeCancel) throws Exception {
         IgniteImpl entryNode = CLUSTER.node(0);
 
         // Given running task.
-        TaskExecution<List<String>> taskExecution = entryNode.compute().submitMapReduce(List.of(), InteractiveTasks.GlobalApi.name());
+        String arg = cooperativeCancel ? "NO_INTERRUPT" : "";
+        TaskExecution<List<String>> taskExecution = entryNode.compute().submitMapReduce(List.of(), InteractiveTasks.GlobalApi.name(), arg);
         TestingJobExecution<List<String>> testExecution = new TestingJobExecution<>(taskExecution);
         testExecution.assertExecuting();
         InteractiveTasks.GlobalApi.assertAlive();
@@ -251,8 +256,8 @@ class ItMapReduceTest extends ClusterPerClassIntegrationTest {
         assertJobStates(taskExecution, COMPLETED);
     }
 
-    private static TaskExecution<List<String>> startTask(IgniteImpl entryNode) throws InterruptedException {
-        TaskExecution<List<String>> taskExecution = entryNode.compute().submitMapReduce(List.of(), InteractiveTasks.GlobalApi.name());
+    private static TaskExecution<List<String>> startTask(IgniteImpl entryNode, Object... args) throws InterruptedException {
+        TaskExecution<List<String>> taskExecution = entryNode.compute().submitMapReduce(List.of(), InteractiveTasks.GlobalApi.name(), args);
         new TestingJobExecution<>(taskExecution).assertExecuting();
         InteractiveTasks.GlobalApi.assertAlive();
         return taskExecution;
