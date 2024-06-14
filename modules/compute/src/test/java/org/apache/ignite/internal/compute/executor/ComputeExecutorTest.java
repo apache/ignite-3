@@ -28,6 +28,7 @@ import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.ComputeJob;
@@ -86,7 +87,7 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
 
     private static class InterruptingJob implements ComputeJob<Integer> {
         @Override
-        public Integer execute(JobExecutionContext context, Object... args) {
+        public CompletableFuture<Integer> executeAsync(JobExecutionContext context, Object... args) {
             while (true) {
                 try {
                     Thread.sleep(100);
@@ -116,7 +117,7 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
 
     private static class CancellingJob implements ComputeJob<Integer> {
         @Override
-        public Integer execute(JobExecutionContext context, Object... args) {
+        public CompletableFuture<Integer> executeAsync(JobExecutionContext context, Object... args) {
             while (true) {
                 try {
                     if (context.isInterrupted()) {
@@ -151,7 +152,7 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
     private static class RetryJobFail implements ComputeJob<Integer> {
 
         @Override
-        public Integer execute(JobExecutionContext context, Object... args) {
+        public CompletableFuture<Integer> executeAsync(JobExecutionContext context, Object... args) {
             AtomicInteger runTimes = (AtomicInteger) args[0];
             runTimes.incrementAndGet();
             throw new RuntimeException();
@@ -179,7 +180,7 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
     private static class RetryJobSuccess implements ComputeJob<Integer> {
 
         @Override
-        public Integer execute(JobExecutionContext context, Object... args) {
+        public CompletableFuture<Integer> executeAsync(JobExecutionContext context, Object... args) {
             AtomicInteger runTimes = (AtomicInteger) args[0];
             int maxRetries = (int) args[1];
             if (runTimes.incrementAndGet() <= maxRetries) {
@@ -212,7 +213,7 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
     private static class JobSuccess implements ComputeJob<Integer> {
 
         @Override
-        public Integer execute(JobExecutionContext context, Object... args) {
+        public CompletableFuture<Integer> executeAsync(JobExecutionContext context, Object... args) {
             AtomicInteger runTimes = (AtomicInteger) args[0];
             return runTimes.incrementAndGet();
         }
@@ -235,7 +236,7 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
 
     private static class SimpleJob implements ComputeJob<Integer> {
         @Override
-        public Integer execute(JobExecutionContext context, Object... args) {
+        public CompletableFuture<Integer> executeAsync(JobExecutionContext context, Object... args) {
             return 0;
         }
     }

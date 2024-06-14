@@ -550,7 +550,7 @@ public class PlatformTestNodeRunner {
     @SuppressWarnings("unused") // Used by platform tests.
     private static class CreateTableJob implements ComputeJob<String> {
         @Override
-        public String execute(JobExecutionContext context, Object... args) {
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, Object... args) {
             String tableName = (String) args[0];
 
             context.ignite().sql().execute(null, "CREATE TABLE " + tableName + "(key BIGINT PRIMARY KEY, val INT)");
@@ -565,7 +565,7 @@ public class PlatformTestNodeRunner {
     @SuppressWarnings("unused") // Used by platform tests.
     private static class DropTableJob implements ComputeJob<String> {
         @Override
-        public String execute(JobExecutionContext context, Object... args) {
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, Object... args) {
             String tableName = (String) args[0];
             context.ignite().sql().execute(null, "DROP TABLE " + tableName + "");
 
@@ -579,7 +579,7 @@ public class PlatformTestNodeRunner {
     @SuppressWarnings("unused") // Used by platform tests.
     private static class ExceptionJob implements ComputeJob<String> {
         @Override
-        public String execute(JobExecutionContext context, Object... args) {
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, Object... args) {
             throw new RuntimeException("Test exception: " + args[0]);
         }
     }
@@ -590,7 +590,7 @@ public class PlatformTestNodeRunner {
     @SuppressWarnings("unused") // Used by platform tests.
     private static class CheckedExceptionJob implements ComputeJob<String> {
         @Override
-        public String execute(JobExecutionContext context, Object... args) {
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, Object... args) {
             throw new CompletionException(new IgniteCheckedException(Common.NODE_LEFT_ERR, "TestCheckedEx: " + args[0]));
         }
     }
@@ -601,7 +601,7 @@ public class PlatformTestNodeRunner {
     @SuppressWarnings("unused") // Used by platform tests.
     private static class ColocationHashJob implements ComputeJob<Integer> {
         @Override
-        public Integer execute(JobExecutionContext context, Object... args) {
+        public CompletableFuture<Integer> executeAsync(JobExecutionContext context, Object... args) {
             var columnCount = (int) args[0];
             var buf = (byte[]) args[1];
             var timePrecision = (int) args[2];
@@ -725,7 +725,7 @@ public class PlatformTestNodeRunner {
     @SuppressWarnings("unused") // Used by platform tests.
     private static class TableRowColocationHashJob implements ComputeJob<Integer> {
         @Override
-        public Integer execute(JobExecutionContext context, Object... args) {
+        public CompletableFuture<Integer> executeAsync(JobExecutionContext context, Object... args) {
             String tableName = (String) args[0];
             int i = (int) args[1];
             Tuple key = Tuple.create().set("id", 1 + i).set("id0", 2L + i).set("id1", "3" + i);
@@ -749,7 +749,7 @@ public class PlatformTestNodeRunner {
     @SuppressWarnings("unused") // Used by platform tests.
     private static class EnableAuthenticationJob implements ComputeJob<Void> {
         @Override
-        public Void execute(JobExecutionContext context, Object... args) {
+        public CompletableFuture<Void> executeAsync(JobExecutionContext context, Object... args) {
             boolean enable = ((Integer) args[0]) != 0;
             @SuppressWarnings("resource") IgniteImpl ignite = (IgniteImpl) context.ignite();
 

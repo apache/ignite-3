@@ -41,7 +41,6 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.DataStreamerReceiver;
 import org.apache.ignite.table.DataStreamerReceiverContext;
 import org.apache.ignite.table.IgniteTables;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Client streamer batch request.
@@ -102,7 +101,7 @@ public class ClientStreamerWithReceiverBatchSendRequest {
 
     private static class ReceiverRunnerJob implements ComputeJob<List<Object>> {
         @Override
-        public @Nullable List<Object> execute(JobExecutionContext context, Object... args) {
+        public CompletableFuture<List<Object>> executeAsync(JobExecutionContext context, Object... args) {
             int payloadElementCount = (int) args[0];
             byte[] payload = (byte[]) args[1];
 

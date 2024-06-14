@@ -741,14 +741,14 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     private static class NodeNameJob implements ComputeJob<String> {
         @Override
-        public String execute(JobExecutionContext context, Object... args) {
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, Object... args) {
             return context.ignite().name() + Arrays.stream(args).map(Object::toString).collect(Collectors.joining("_"));
         }
     }
 
     private static class ConcatJob implements ComputeJob<String> {
         @Override
-        public String execute(JobExecutionContext context, Object... args) {
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, Object... args) {
             if (args == null) {
                 return null;
             }
@@ -759,21 +759,21 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     private static class IgniteExceptionJob implements ComputeJob<String> {
         @Override
-        public String execute(JobExecutionContext context, Object... args) {
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, Object... args) {
             throw new CustomException(TRACE_ID, COLUMN_ALREADY_EXISTS_ERR, "Custom job error", null);
         }
     }
 
     private static class ExceptionJob implements ComputeJob<String> {
         @Override
-        public String execute(JobExecutionContext context, Object... args) {
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, Object... args) {
             throw new ArithmeticException("math err");
         }
     }
 
     private static class EchoJob implements ComputeJob<Object> {
         @Override
-        public Object execute(JobExecutionContext context, Object... args) {
+        public CompletableFuture<Object> executeAsync(JobExecutionContext context, Object... args) {
             var value = args[0];
 
             if (!(value instanceof byte[])) {
@@ -788,7 +788,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     private static class SleepJob implements ComputeJob<Void> {
         @Override
-        public Void execute(JobExecutionContext context, Object... args) {
+        public CompletableFuture<Void> executeAsync(JobExecutionContext context, Object... args) {
             try {
                 Thread.sleep((Integer) args[0]);
             } catch (InterruptedException e) {
@@ -801,7 +801,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     private static class DecimalJob implements ComputeJob<BigDecimal> {
         @Override
-        public BigDecimal execute(JobExecutionContext context, Object... args) {
+        public CompletableFuture<BigDecimal> executeAsync(JobExecutionContext context, Object... args) {
             return new BigDecimal((String) args[0]).setScale((Integer) args[1], RoundingMode.HALF_UP);
         }
     }

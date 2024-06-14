@@ -142,7 +142,7 @@ class ItComputeApiThreadingTest extends ClusterPerClassIntegrationTest {
 
     private static class NoOpJob implements ComputeJob<String> {
         @Override
-        public String execute(JobExecutionContext context, Object... args) {
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, Object... args) {
             return "ok";
         }
     }

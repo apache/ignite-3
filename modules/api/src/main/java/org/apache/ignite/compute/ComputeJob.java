@@ -17,6 +17,8 @@
 
 package org.apache.ignite.compute;
 
+import java.util.concurrent.CompletableFuture;
+
 /**
  * A Compute job that may be executed on a single Ignite node, on several nodes, or on the entire cluster.
  *
@@ -30,5 +32,5 @@ public interface ComputeJob<R> {
      * @param args Job arguments.
      * @return Job result.
      */
-    R execute(JobExecutionContext context, Object... args);
+    CompletableFuture<R> executeAsync(JobExecutionContext context, Object... args);
 }

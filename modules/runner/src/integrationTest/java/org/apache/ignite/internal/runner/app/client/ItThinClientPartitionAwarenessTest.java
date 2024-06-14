@@ -22,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.compute.ComputeJob;
@@ -120,7 +121,7 @@ public class ItThinClientPartitionAwarenessTest extends ItAbstractThinClientTest
 
     private static class NodeNameJob implements ComputeJob<String> {
         @Override
-        public String execute(JobExecutionContext context, Object... args) {
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, Object... args) {
             //noinspection resource
             return context.ignite().name() + Arrays.stream(args).map(Object::toString).collect(Collectors.joining("_"));
         }

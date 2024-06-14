@@ -25,6 +25,7 @@ import static org.hamcrest.Matchers.notNullValue;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -163,7 +164,7 @@ public final class InteractiveJobs {
         }
 
         @Override
-        public String execute(JobExecutionContext context, Object... args) {
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, Object... args) {
             RUNNING_INTERACTIVE_JOBS_CNT.incrementAndGet();
 
             offerArgsAsSignals(args);
@@ -226,7 +227,7 @@ public final class InteractiveJobs {
         }
 
         @Override
-        public String execute(JobExecutionContext context, Object... args) {
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, Object... args) {
             RUNNING_INTERACTIVE_JOBS_CNT.incrementAndGet();
 
             try {
