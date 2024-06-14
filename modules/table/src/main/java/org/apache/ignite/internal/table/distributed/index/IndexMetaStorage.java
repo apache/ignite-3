@@ -69,6 +69,7 @@ import org.apache.ignite.internal.catalog.events.RenameTableEventParameters;
 import org.apache.ignite.internal.catalog.events.StartBuildingIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.StoppingIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.TableEventParameters;
+import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
@@ -109,7 +110,6 @@ import org.jetbrains.annotations.TestOnly;
  *     less than or equal to the active catalog version for the new watermark.</li>
  * </ul>
  */
-// TODO: IGNITE-22442 исправить/добавить тестов/может поправить документацию
 public class IndexMetaStorage implements IgniteComponent {
     private static final String INDEX_META_VERSION_KEY_PREFIX = "index.meta.version.";
 
@@ -123,6 +123,20 @@ public class IndexMetaStorage implements IgniteComponent {
 
     private final Map<Integer, IndexMeta> indexMetaByIndexId = new ConcurrentHashMap<>();
 
+    private final EventListener<CreateIndexEventParameters> onCatalogIndexCreateEventListener;
+
+    private final EventListener<RemoveIndexEventParameters> onCatalogIndexRemovedEventListener;
+
+    private final EventListener<StartBuildingIndexEventParameters> onCatalogIndexBuildingEventListener;
+
+    private final EventListener<MakeIndexAvailableEventParameters> onCatalogIndexAvailableEventListener;
+
+    private final EventListener<StoppingIndexEventParameters> onCatalogIndexStoppingEventListener;
+
+    private final EventListener<TableEventParameters> onCatalogTableAlterEventListener;
+
+    private final EventListener<ChangeLowWatermarkEventParameters> onLwmChangedListener;
+
     /** Constructor. */
     public IndexMetaStorage(
             CatalogService catalogService,
@@ -132,20 +146,28 @@ public class IndexMetaStorage implements IgniteComponent {
         this.catalogService = catalogService;
         this.lowWatermark = lowWatermark;
         this.metaStorageManager = metaStorageManager;
+
+        onCatalogIndexCreateEventListener = fromFunction(this::onCatalogIndexCreateEvent);
+        onCatalogIndexRemovedEventListener = fromFunction(this::onCatalogIndexRemovedEvent);
+        onCatalogIndexBuildingEventListener = fromFunction(this::onCatalogIndexBuildingEvent);
+        onCatalogIndexAvailableEventListener = fromFunction(this::onCatalogIndexAvailableEvent);
+        onCatalogIndexStoppingEventListener = fromFunction(this::onCatalogIndexStoppingEvent);
+        onCatalogTableAlterEventListener = fromFunction(this::onCatalogTableAlterEvent);
+        onLwmChangedListener = fromFunction(this::onLwmChanged);
     }
 
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         try {
-            catalogService.listen(INDEX_CREATE, fromFunction(this::onCatalogIndexCreateEvent));
-            catalogService.listen(INDEX_REMOVED, fromFunction(this::onCatalogIndexRemovedEvent));
-            catalogService.listen(INDEX_BUILDING, fromFunction(this::onCatalogIndexBuildingEvent));
-            catalogService.listen(INDEX_AVAILABLE, fromFunction(this::onCatalogIndexAvailableEvent));
-            catalogService.listen(INDEX_STOPPING, fromFunction(this::onCatalogIndexStoppingEvent));
+            catalogService.listen(INDEX_CREATE, onCatalogIndexCreateEventListener);
+            catalogService.listen(INDEX_REMOVED, onCatalogIndexRemovedEventListener);
+            catalogService.listen(INDEX_BUILDING, onCatalogIndexBuildingEventListener);
+            catalogService.listen(INDEX_AVAILABLE, onCatalogIndexAvailableEventListener);
+            catalogService.listen(INDEX_STOPPING, onCatalogIndexStoppingEventListener);
 
-            catalogService.listen(TABLE_ALTER, fromFunction(this::onCatalogTableAlterEvent));
+            catalogService.listen(TABLE_ALTER, onCatalogTableAlterEventListener);
 
-            lowWatermark.listen(LOW_WATERMARK_CHANGED, fromFunction(this::onLwmChanged));
+            lowWatermark.listen(LOW_WATERMARK_CHANGED, onLwmChangedListener);
 
             return recoverIndexMetas();
         } catch (Throwable t) {
@@ -155,6 +177,16 @@ public class IndexMetaStorage implements IgniteComponent {
 
     @Override
     public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
+        catalogService.removeListener(INDEX_CREATE, onCatalogIndexCreateEventListener);
+        catalogService.removeListener(INDEX_REMOVED, onCatalogIndexRemovedEventListener);
+        catalogService.removeListener(INDEX_BUILDING, onCatalogIndexBuildingEventListener);
+        catalogService.removeListener(INDEX_AVAILABLE, onCatalogIndexAvailableEventListener);
+        catalogService.removeListener(INDEX_STOPPING, onCatalogIndexStoppingEventListener);
+
+        catalogService.removeListener(TABLE_ALTER, onCatalogTableAlterEventListener);
+
+        lowWatermark.removeListener(LOW_WATERMARK_CHANGED, onLwmChangedListener);
+
         indexMetaByIndexId.clear();
 
         return nullCompletedFuture();
