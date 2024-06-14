@@ -76,7 +76,13 @@ class QueueEntry<R> implements Runnable, Comparable<QueueEntry<R>> {
 
         try {
             CompletableFuture<R> jobFut = jobAction.call();
-            jobFut.whenComplete(copyStateTo(future));
+
+            if (jobFut == null) {
+                // Allow null futures for synchronous jobs.
+                future.complete(null);
+            } else {
+                jobFut.whenComplete(copyStateTo(future));
+            }
         } catch (Throwable e) {
             future.completeExceptionally(e);
         } finally {
