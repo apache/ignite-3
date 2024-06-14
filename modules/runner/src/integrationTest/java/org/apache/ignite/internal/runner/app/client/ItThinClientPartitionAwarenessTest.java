@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.runner.app.client;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.ArrayList;
@@ -123,7 +124,8 @@ public class ItThinClientPartitionAwarenessTest extends ItAbstractThinClientTest
         @Override
         public CompletableFuture<String> executeAsync(JobExecutionContext context, Object... args) {
             //noinspection resource
-            return context.ignite().name() + Arrays.stream(args).map(Object::toString).collect(Collectors.joining("_"));
+            return completedFuture(
+                    context.ignite().name() + Arrays.stream(args).map(Object::toString).collect(Collectors.joining("_")));
         }
     }
 }

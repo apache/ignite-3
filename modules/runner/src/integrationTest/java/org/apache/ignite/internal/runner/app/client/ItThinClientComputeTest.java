@@ -504,7 +504,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         assertThat(cause.getCause().getMessage(), containsString(
                 "Caused by: java.lang.ArithmeticException: math err" + System.lineSeparator()
                         + "\tat org.apache.ignite.internal.runner.app.client.ItThinClientComputeTest$"
-                        + "ExceptionJob.execute(ItThinClientComputeTest.java:")
+                        + "ExceptionJob.executeAsync(ItThinClientComputeTest.java:")
         );
     }
 
