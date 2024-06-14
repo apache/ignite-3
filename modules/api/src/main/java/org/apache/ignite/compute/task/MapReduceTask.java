@@ -36,7 +36,7 @@ public interface MapReduceTask<R> {
      * @param args Map reduce task arguments.
      * @return A list of compute job execution parameters.
      */
-    List<ComputeJobRunner> split(TaskExecutionContext taskContext, Object... args);
+    List<MapReduceJob> split(TaskExecutionContext taskContext, Object... args);
 
     /**
      * This is a finishing step in the task execution. This method will be called with the map from identifiers of compute jobs submitted as

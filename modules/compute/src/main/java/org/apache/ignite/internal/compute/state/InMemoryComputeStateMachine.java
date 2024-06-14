@@ -32,6 +32,7 @@ import java.util.function.Function;
 import org.apache.ignite.compute.JobState;
 import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.internal.compute.Cleaner;
+import org.apache.ignite.internal.compute.JobStatusImpl;
 import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -74,7 +75,7 @@ public class InMemoryComputeStateMachine implements ComputeStateMachine {
     @Override
     public UUID initJob() {
         UUID uuid = UUID.randomUUID();
-        JobStatus status = JobStatus.builder()
+        JobStatus status = JobStatusImpl.builder()
                 .id(uuid)
                 .state(QUEUED)
                 .createTime(Instant.now())
@@ -141,7 +142,7 @@ public class InMemoryComputeStateMachine implements ComputeStateMachine {
 
             validateStateTransition(jobId, currentState, newState);
 
-            JobStatus.Builder builder = currentStatus.toBuilder().state(newState);
+            JobStatusImpl.Builder builder = new JobStatusImpl.Builder(currentStatus).state(newState);
 
             if (newState == EXECUTING) {
                 builder.startTime(Instant.now());

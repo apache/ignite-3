@@ -119,7 +119,7 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
         public Integer execute(JobExecutionContext context, Object... args) {
             while (true) {
                 try {
-                    if (context.isInterrupted()) {
+                    if (context.isCancelled()) {
                         return 0;
                     }
                     Thread.sleep(100);
