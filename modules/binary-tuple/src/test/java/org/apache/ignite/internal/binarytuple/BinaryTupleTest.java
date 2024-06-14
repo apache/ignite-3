@@ -37,7 +37,7 @@ import java.util.BitSet;
 import java.util.Random;
 import java.util.UUID;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.internal.util.TemporalTypeUtils;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -502,7 +502,7 @@ public class BinaryTupleTest {
     @Test
     public void timeTest() {
         LocalTime now = LocalTime.now();
-        LocalTime value = now.withNano(NativeTypes.truncateNanosRetainingMillis(now.getNano()));
+        LocalTime value = now.withNano(TemporalTypeUtils.normalizeNanos(now.getNano(), 3));
 
         {
             BinaryTupleBuilder builder = new BinaryTupleBuilder(1);
@@ -563,7 +563,7 @@ public class BinaryTupleTest {
     @Test
     public void dateTimeTest() {
         LocalDateTime now = LocalDateTime.now();
-        LocalDateTime value = now.withNano(NativeTypes.truncateNanosRetainingMillis(now.getNano()));
+        LocalDateTime value = now.withNano(TemporalTypeUtils.normalizeNanos(now.getNano(), 3));
 
         {
             BinaryTupleBuilder builder = new BinaryTupleBuilder(1);
@@ -620,7 +620,7 @@ public class BinaryTupleTest {
     @Test
     public void timestampTest() {
         Instant now = Instant.now();
-        Instant value = Instant.ofEpochSecond(now.getEpochSecond(), NativeTypes.truncateNanosRetainingMillis(now.getNano()));
+        Instant value = Instant.ofEpochSecond(now.getEpochSecond(), TemporalTypeUtils.normalizeNanos(now.getNano(), 3));
 
         {
             BinaryTupleBuilder builder = new BinaryTupleBuilder(1);
