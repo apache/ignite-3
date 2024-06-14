@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Internal.Proto.BinaryTuple
 {
     using System;
+    using System.Buffers;
     using System.Buffers.Binary;
     using System.Collections;
     using System.Diagnostics;
@@ -505,6 +506,80 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             var scale = GetInt(index + 1);
 
             return GetObject(index + 2, type, scale);
+        }
+
+        /// <summary>
+        /// Gets an object collection with the specified element type.
+        /// Opposite of <see cref="BinaryTupleBuilder.AppendObjectCollectionWithType{T}"/>.
+        /// </summary>
+        /// <typeparam name="T">Element type.</typeparam>
+        /// <returns>Pooled array with items and actual item count.</returns>
+        public (T[] Items, int Count) GetObjectCollectionWithType<T>(int startIndex)
+        {
+            int typeId = GetInt(startIndex++);
+            int count = GetInt(startIndex++);
+
+            if (count == 0)
+            {
+                return (Array.Empty<T>(), 0);
+            }
+
+            ColumnType type = (ColumnType)typeId;
+
+            switch (type)
+            {
+                case ColumnType.Boolean:
+                {
+                    var items = ArrayPool<bool>.Shared.Rent(count);
+
+                    for (int i = 0; i < count; i++)
+                    {
+                        items[i] = GetBool(startIndex++);
+                    }
+
+                    return ((T[])(object)items, count);
+                }
+                case ColumnType.Null:
+                    break;
+                case ColumnType.Int8:
+                    break;
+                case ColumnType.Int16:
+                    break;
+                case ColumnType.Int32:
+                    break;
+                case ColumnType.Int64:
+                    break;
+                case ColumnType.Float:
+                    break;
+                case ColumnType.Double:
+                    break;
+                case ColumnType.Decimal:
+                    break;
+                case ColumnType.Date:
+                    break;
+                case ColumnType.Time:
+                    break;
+                case ColumnType.Datetime:
+                    break;
+                case ColumnType.Timestamp:
+                    break;
+                case ColumnType.Uuid:
+                    break;
+                case ColumnType.Bitmask:
+                    break;
+                case ColumnType.String:
+                    break;
+                case ColumnType.ByteArray:
+                    break;
+                case ColumnType.Period:
+                    break;
+                case ColumnType.Duration:
+                    break;
+                case ColumnType.Number:
+                    break;
+                default:
+                    throw new IgniteClientException(ErrorGroups.Client.Protocol, "Unsupported type: " + typeId);
+            }
         }
 
         private static LocalDate ReadDate(ReadOnlySpan<byte> span)
