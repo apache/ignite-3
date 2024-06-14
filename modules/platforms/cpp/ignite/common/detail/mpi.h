@@ -17,14 +17,15 @@
 
 #pragma once
 
-#include <mbedtls/bignum.h>
-
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <utility>
 
-namespace ignite {
+struct mbedtls_mpi;
+
+namespace ignite::detail {
 
 /**
  * Enum with the possible values of sign.
@@ -35,18 +36,16 @@ enum mpi_sign : short { POSITIVE = 1, NEGATIVE = -1 };
  * MbedTLS MPI struct wrapper.
  */
 struct mpi {
-    // MbedTLS internal type.
+    // Internal type.
     using type = mbedtls_mpi;
-    // MbedTLS mpi word type.
-    using word = mbedtls_mpi_uint;
-
-    static_assert(std::is_same_v<word, std::uint32_t>, "MbedTLS word should be std::uint32_t.");
+    // mpi word type.
+    using word = std::uint32_t;
 
     /**
      * Support class for the mpi magnitude.
      */
     struct mag_view {
-        mag_view(const mpi::word *ptr, const unsigned short sz)
+        mag_view(mpi::word *ptr, const unsigned short sz)
             : m_ptr{ptr}
             , m_size{sz} {}
 
@@ -55,6 +54,9 @@ struct mpi {
 
         /** Subscript operator. */
         [[nodiscard]] const mpi::word &operator[](const std::size_t n) const { return m_ptr[n]; }
+
+        /** Subscript operator. */
+        [[nodiscard]] mpi::word &operator[](const std::size_t n) { return m_ptr[n]; }
 
         /** Checks if the magnitude is empty. */
         [[nodiscard]] bool empty() const noexcept { return size() == 0; }
@@ -76,7 +78,7 @@ struct mpi {
 
     private:
         /** Pointer to the magnitude array. */
-        const mpi::word *const m_ptr;
+        mpi::word *const m_ptr;
         /** Size of the array. */
         unsigned short m_size;
     };
@@ -102,26 +104,17 @@ struct mpi {
     /** Move operator. */
     mpi &operator=(mpi &&other) noexcept;
 
-    /**
-     * Constructor from magnitude array.
-     *
-     * @param mag Pointer to the magnitude array.
-     * @param size Size of the magnitude array.
-     * @param sign Sign.
-     */
-    mpi(const word *mag, unsigned short size, mpi_sign sign = mpi_sign::POSITIVE);
-
     /** Implicit conversion to the pointer to the mbedtls_mpi. */
-    [[nodiscard]] type *get() { return &val; }
+    [[nodiscard]] type *get() { return val; }
 
     /** Implicit conversion to the pointer to the const mbedtls_mpi. */
-    [[nodiscard]] const type *get() const { return &val; }
+    [[nodiscard]] const type *get() const { return val; }
 
     /** Arrow operator. */
-    [[nodiscard]] type *operator->() { return &val; }
+    [[nodiscard]] type *operator->() { return val; }
 
     /** Arrow operator. */
-    [[nodiscard]] const type *operator->() const { return &val; }
+    [[nodiscard]] const type *operator->() const { return val; }
 
     /** Init internal mpi structure. */
     void init();
@@ -131,16 +124,16 @@ struct mpi {
     void reinit();
 
     /** Returns mpi sign. */
-    [[nodiscard]] mpi_sign sign() const noexcept { return static_cast<mpi_sign>(val.s); }
+    [[nodiscard]] mpi_sign sign() const noexcept;
 
     /** Returns pointer to the mpi magnitude. */
-    [[nodiscard]] word *pointer() const noexcept { return val.p; }
+    [[nodiscard]] word *pointer() const noexcept;
 
     /** Returns length of the mpi magnitude. */
-    [[nodiscard]] unsigned short length() const noexcept { return val.n; }
+    [[nodiscard]] unsigned short length() const noexcept;
 
     /** Returns view of the magnitude. */
-    [[nodiscard]] mag_view magnitude() const noexcept { return {val.p, val.n}; }
+    [[nodiscard]] mag_view magnitude() const noexcept;
 
     /** Returns length of the magnitude in bits. */
     [[nodiscard]] std::size_t magnitude_bit_length() const noexcept;
@@ -152,6 +145,8 @@ struct mpi {
     /** Returns true if mpi is negative. */
     [[nodiscard]] bool is_negative() const noexcept;
 
+    /** Sets mpi sign. */
+    void set_sign(mpi_sign sign);
     /** Make mpi positive. */
     void make_positive() noexcept;
     /** Make mpi negative. */
@@ -216,7 +211,7 @@ struct mpi {
 
 private:
     /** Internal MbedTLS mpi structure. */
-    type val;
+    type *val;
 };
 
-} // namespace ignite
+} // namespace ignite::detail

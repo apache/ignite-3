@@ -17,7 +17,6 @@
 
 #include "big_integer.h"
 
-#include "bits.h"
 #include "bytes.h"
 
 #include <algorithm>
@@ -43,7 +42,7 @@ void big_integer::from_big_endian(const std::byte *data, std::size_t size) {
 
     for (std::size_t i = 0; size >= 4; i++) {
         size -= 4;
-        m_mpi->p[i] = bytes::load<endian::BIG, std::uint32_t>(data + size);
+        m_mpi.magnitude()[i] = bytes::load<endian::BIG, std::uint32_t>(data + size);
     }
 
     if (size > 0) {
@@ -61,10 +60,10 @@ void big_integer::from_big_endian(const std::byte *data, std::size_t size) {
             default:
                 assert(false);
         }
-        m_mpi->p[m_mpi->n - 1] = last;
+        m_mpi.magnitude()[m_mpi.length() - 1] = last;
     }
 
-    m_mpi->s = mpi_sign::POSITIVE;
+    m_mpi.make_positive();
 }
 
 void big_integer::from_negative_big_endian(const std::byte *data, std::size_t size) {
@@ -86,7 +85,7 @@ void big_integer::from_negative_big_endian(const std::byte *data, std::size_t si
 
     for (std::size_t i = 0; size >= 4; i++) {
         size -= 4;
-        m_mpi->p[i] = ~bytes::load<endian::BIG, std::uint32_t>(data + size);
+        m_mpi.magnitude()[i] = ~bytes::load<endian::BIG, std::uint32_t>(data + size);
     }
 
     if (size > 0) {
@@ -104,26 +103,26 @@ void big_integer::from_negative_big_endian(const std::byte *data, std::size_t si
             default:
                 assert(false);
         }
-        m_mpi->p[m_mpi->n - 1] = last;
+        m_mpi.magnitude()[m_mpi.length() - 1] = last;
     }
 
-    for (std::size_t i = 0; i < m_mpi->n; i++) {
-        ++m_mpi->p[i];
-        if (m_mpi->p[i] != 0) {
+    for (std::size_t i = 0; i < m_mpi.length(); i++) {
+        ++m_mpi.magnitude()[i];
+        if (m_mpi.magnitude()[i] != 0) {
             break;
         }
     }
 
-    m_mpi->s = mpi_sign::NEGATIVE;
+    m_mpi.make_negative();
 }
 
 big_integer::big_integer(const int8_t *val, int32_t len, int8_t sign, bool big_endian) {
     assert(val != nullptr);
     assert(len >= 0);
-    assert(sign == mpi_sign::POSITIVE || sign == 0 || sign == mpi_sign::NEGATIVE);
+    assert(sign == detail::mpi_sign::POSITIVE || sign == 0 || sign == detail::mpi_sign::NEGATIVE);
 
     // Normalize sign.
-    sign = sign >= 0 ? mpi_sign::POSITIVE : mpi_sign::NEGATIVE;
+    sign = sign >= 0 ? detail::mpi_sign::POSITIVE : detail::mpi_sign::NEGATIVE;
 
     std::size_t size = len;
     const auto *data = (const std::byte *) (val);
@@ -143,7 +142,7 @@ big_integer::big_integer(const int8_t *val, int32_t len, int8_t sign, bool big_e
         m_mpi.grow((size + 3) / 4);
 
         for (std::size_t i = 0; size >= 4; i++) {
-            m_mpi->p[i] = bytes::load<endian::LITTLE, std::uint32_t>(data);
+            m_mpi.magnitude()[i] = bytes::load<endian::LITTLE, std::uint32_t>(data);
             size -= 4;
             data += 4;
         }
@@ -163,11 +162,11 @@ big_integer::big_integer(const int8_t *val, int32_t len, int8_t sign, bool big_e
                 default:
                     assert(false);
             }
-            m_mpi->p[m_mpi->n - 1] = last;
+            m_mpi.magnitude()[m_mpi.length() - 1] = last;
         }
     }
 
-    m_mpi->s = sign;
+    m_mpi.set_sign(detail::mpi_sign(sign));
 }
 
 big_integer::big_integer(const std::byte *data, std::size_t size) {
@@ -201,11 +200,11 @@ void big_integer::assign_uint64(uint64_t x) {
 
     if (val[1] == 0) {
         m_mpi.grow(1);
-        m_mpi->p[0] = val[0];
+        m_mpi.magnitude()[0] = val[0];
     } else {
         m_mpi.grow(2);
-        m_mpi->p[0] = val[0];
-        m_mpi->p[1] = val[1];
+        m_mpi.magnitude()[0] = val[0];
+        m_mpi.magnitude()[1] = val[1];
     }
 }
 
@@ -244,7 +243,7 @@ std::size_t big_integer::byte_size() const noexcept {
 }
 
 void big_integer::store_bytes(std::byte *data) const {
-    if (m_mpi->n == 0) {
+    if (m_mpi.length() == 0) {
         data[0] = std::byte{0};
         return;
     }
@@ -256,11 +255,11 @@ void big_integer::store_bytes(std::byte *data) const {
     if (is_positive()) {
         for (std::size_t i = 0; size >= 4; i++) {
             size -= 4;
-            bytes::store<endian::BIG, std::uint32_t>(data + size, m_mpi->p[i]);
+            bytes::store<endian::BIG, std::uint32_t>(data + size, m_mpi.magnitude()[i]);
         }
 
         if (size > 0) {
-            std::uint32_t last = m_mpi->n == 0 ? 0u : m_mpi->p[m_mpi->n - 1];
+            std::uint32_t last = m_mpi.length() == 0 ? 0u : m_mpi.magnitude()[m_mpi.length() - 1];
             if (std::int8_t(last) < 0 && size == 1) {
                 last = 0;
             }
@@ -283,7 +282,7 @@ void big_integer::store_bytes(std::byte *data) const {
         std::uint32_t carry = 1;
 
         for (std::size_t i = 0; size >= 4; i++) {
-            std::uint32_t value = ~m_mpi->p[i] + carry;
+            std::uint32_t value = ~m_mpi.magnitude()[i] + carry;
             if (value != 0) {
                 carry = 0;
             }
@@ -293,7 +292,7 @@ void big_integer::store_bytes(std::byte *data) const {
         }
 
         if (size > 0) {
-            std::uint32_t last = ~m_mpi->p[m_mpi->n - 1] + carry;
+            std::uint32_t last = ~m_mpi.magnitude()[m_mpi.length() - 1] + carry;
             if (std::int8_t(last) > 0 && size == 1) {
                 last = -1;
             }
@@ -367,10 +366,6 @@ void big_integer::subtract(const big_integer &other, big_integer &res) const {
     res = m_mpi - other.m_mpi;
 }
 
-void big_integer::add(const std::uint32_t *addend, int32_t len) {
-    m_mpi = m_mpi + mpi_t(addend, len);
-}
-
 void big_integer::add(uint64_t x) {
     if (x == 0)
         return;
@@ -387,11 +382,11 @@ void big_integer::add(uint64_t x) {
 
     if (val[1] == 0) {
         m_mpi.grow(1);
-        m_mpi->p[0] = val[0];
+        m_mpi.magnitude()[0] = val[0];
     } else {
         m_mpi.grow(2);
-        m_mpi->p[0] = val[0];
-        m_mpi->p[1] = val[1];
+        m_mpi.magnitude()[0] = val[0];
+        m_mpi.magnitude()[1] = val[1];
     }
 }
 

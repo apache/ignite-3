@@ -328,7 +328,7 @@ TEST_F(queries_test, data_at_execution) {
     const SQLSMALLINT columns_cnt = 13;
 
     static SQLLEN column_lens[columns_cnt] = {};
-    static SQLCHAR columns[columns_cnt][ODBC_BUFFER_SIZE] {};
+    static SQLCHAR columns[columns_cnt][ODBC_BUFFER_SIZE]{};
 
     SQLRETURN ret;
     // Binding columns.

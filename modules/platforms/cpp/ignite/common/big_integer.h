@@ -20,7 +20,7 @@
 #include "bytes_view.h"
 #include "config.h"
 
-#include "mpi.h"
+#include "detail/mpi.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -37,12 +37,12 @@ namespace ignite {
 class big_integer {
     friend class big_decimal;
 
-    using mpi_t = mpi;
+    using mpi_t = detail::mpi;
     using word_t = mpi_t::word;
 
 public:
     // Magnitude array type.
-    using mag_array_view = mpi::mag_view;
+    using mag_array_view = mpi_t::mag_view;
 
     /**
      * Default constructor. Constructs zero-value big integer.
@@ -126,7 +126,7 @@ public:
      * @param other Other value.
      * @return *this.
      */
-    big_integer &operator=(const mpi &other) {
+    big_integer &operator=(const mpi_t &other) {
         if (&other == &this->m_mpi) {
             return *this;
         }
@@ -142,7 +142,7 @@ public:
      * @param other Other value.
      * @return *this.
      */
-    big_integer &operator=(mpi &&other) noexcept {
+    big_integer &operator=(mpi_t &&other) noexcept {
         using std::swap;
 
         if (&other == &this->m_mpi) {
@@ -398,14 +398,6 @@ private:
      * @param size Byte array size.
      */
     void from_negative_big_endian(const std::byte *data, std::size_t size);
-
-    /**
-     * Add magnitude array to current.
-     *
-     * @param addend Addend.
-     * @param len Length of the addend.
-     */
-    void add(const std::uint32_t *addend, int32_t len);
 
     /**
      * Divide this to another big integer.
