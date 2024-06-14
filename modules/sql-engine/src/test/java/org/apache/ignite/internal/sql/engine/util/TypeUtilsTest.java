@@ -129,7 +129,7 @@ public class TypeUtilsTest extends BaseIgniteAbstractTest {
                     .build();
 
             Object[] input = {"12345    ", null};
-            Object[] expected = {"12345", null};
+            Object[] expected = {"12345 ", null};
 
             expectOutputRow(rowType, input, expected);
         }
@@ -192,7 +192,11 @@ public class TypeUtilsTest extends BaseIgniteAbstractTest {
 
             Object[] input = {"123", "12345 6"};
 
-            assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "", () -> buildTrimmedRow(rowType, input));
+            assertThrowsSqlException(
+                    Sql.STMT_VALIDATION_ERR, 
+                    "Value too long for type: VARCHAR(6)", 
+                    () -> buildTrimmedRow(rowType, input)
+            );
         }
     }
 
