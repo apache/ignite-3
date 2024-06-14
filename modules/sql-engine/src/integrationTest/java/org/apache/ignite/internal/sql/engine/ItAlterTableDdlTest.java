@@ -197,6 +197,7 @@ public class ItAlterTableDdlTest extends BaseSqlIntegrationTest {
     // TODO https://issues.apache.org/jira/browse/IGNITE-19162 Fix test to ensure time/timestamp columns created with desired precision.
     @Test
     public void addColumnWithConstantDefault() {
+        // // SQL Standard 2016 feature E141-07 - Basic integrity constraints. Column defaults
         sql("CREATE TABLE test(id BIGINT DEFAULT 1 PRIMARY KEY)");
 
         sql("ALTER TABLE test ADD COLUMN valint INTEGER DEFAULT 1");
@@ -223,6 +224,7 @@ public class ItAlterTableDdlTest extends BaseSqlIntegrationTest {
     @Test
     @SuppressWarnings("ThrowableNotThrown")
     public void doNotAllowFunctionsInNonPkColumns() {
+        // SQL Standard 2016 feature E141-07 - Basic integrity constraints. Column defaults
         sql("CREATE TABLE t (id VARCHAR PRIMARY KEY, val VARCHAR)");
 
         assertThrowsSqlException(
