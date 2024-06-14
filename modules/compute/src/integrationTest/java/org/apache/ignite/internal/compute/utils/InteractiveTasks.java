@@ -30,6 +30,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.task.ComputeJobRunner;
 import org.apache.ignite.compute.task.MapReduceTask;
 import org.apache.ignite.compute.task.TaskExecutionContext;
@@ -169,7 +170,7 @@ public final class InteractiveTasks {
                         case SPLIT_RETURN_ALL_NODES:
                             return context.ignite().clusterNodes().stream().map(node ->
                                     ComputeJobRunner.builder()
-                                            .jobClassName(InteractiveJobs.interactiveJobName())
+                                            .jobDescriptor(JobDescriptor.builder(InteractiveJobs.interactiveJobName()).build())
                                             .nodes(Set.of(node))
                                             .build()
                             ).collect(toList());

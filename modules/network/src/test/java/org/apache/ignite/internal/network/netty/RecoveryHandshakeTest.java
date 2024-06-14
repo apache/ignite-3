@@ -637,15 +637,24 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
     }
 
     private void exchangeServerToClient(EmbeddedChannel serverSideChannel, EmbeddedChannel clientSideChannel) {
+        runPendingTasks(serverSideChannel, clientSideChannel);
+
         ByteBuf outgoingMessageBuffer = serverSideChannel.readOutbound();
         // No need to release buffer because inbound buffers are released by InboundDecoder
         clientSideChannel.writeInbound(outgoingMessageBuffer);
     }
 
     private void exchangeClientToServer(EmbeddedChannel serverSideChannel, EmbeddedChannel clientSideChannel) {
+        runPendingTasks(serverSideChannel, clientSideChannel);
+
         ByteBuf outgoingMessageBuffer = clientSideChannel.readOutbound();
         // No need to release buffer because inbound buffers are released by InboundDecoder
         serverSideChannel.writeInbound(outgoingMessageBuffer);
+    }
+
+    private void runPendingTasks(EmbeddedChannel channel1, EmbeddedChannel channel2) {
+        channel1.runPendingTasks();
+        channel2.runPendingTasks();
     }
 
     private final Consumer<InNetworkObject> noMessageListener = inNetworkObject ->

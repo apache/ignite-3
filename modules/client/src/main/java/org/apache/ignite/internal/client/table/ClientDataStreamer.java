@@ -42,11 +42,11 @@ import org.jetbrains.annotations.Nullable;
  * Client data streamer.
  */
 class ClientDataStreamer {
-    static <R> CompletableFuture<Void> streamData(
-            Publisher<DataStreamerItem<R>> publisher,
+    static <T> CompletableFuture<Void> streamData(
+            Publisher<DataStreamerItem<T>> publisher,
             DataStreamerOptions options,
-            StreamerBatchSender<R, Integer> batchSender,
-            StreamerPartitionAwarenessProvider<R, Integer> partitionAwarenessProvider,
+            StreamerBatchSender<T, Integer, Void> batchSender,
+            StreamerPartitionAwarenessProvider<T, Integer> partitionAwarenessProvider,
             ClientTable tbl) {
         return streamData(
                 publisher,
@@ -55,6 +55,7 @@ class ClientDataStreamer {
                 x -> x.operationType() == DataStreamerOperationType.REMOVE,
                 options,
                 batchSender,
+                null,
                 partitionAwarenessProvider,
                 tbl);
     }
@@ -73,7 +74,7 @@ class ClientDataStreamer {
             List<DeploymentUnit> deploymentUnits,
             String receiverClassName,
             Object... receiverArgs) {
-        StreamerBatchSender<V, Integer> batchSender = (partitionId, items, deleted) ->
+        StreamerBatchSender<V, Integer, R> batchSender = (partitionId, items, deleted) ->
                 tbl.getPartitionAssignment().thenCompose(
                         partitionAssignment -> tbl.channel().serviceAsync(
                                 ClientOp.STREAMER_WITH_RECEIVER_BATCH_SEND,
@@ -88,17 +89,13 @@ class ClientDataStreamer {
 
                                     StreamerReceiverSerializer.serialize(w, receiverClassName, receiverArgs, items);
                                 },
-                                in -> {
-                                    if (resultSubscriber != null) {
-                                        // TODO: IGNITE-22302 Add resultSubscriber support.
-                                        StreamerReceiverSerializer.deserializeResults(in.in());
-                                    }
-
-                                    return null;
-                                },
+                                in -> resultSubscriber != null
+                                        ? StreamerReceiverSerializer.deserializeResults(in.in())
+                                        : null,
                                 partitionAssignment.get(partitionId),
                                 new RetryLimitPolicy().retryLimit(options.retryLimit()),
-                                false));
+                                false)
+                );
 
         return streamData(
                 publisher,
@@ -107,9 +104,11 @@ class ClientDataStreamer {
                 deleteFunc,
                 options,
                 batchSender,
+                resultSubscriber,
                 partitionAwarenessProvider,
                 tbl);
     }
+
 
     // T = key, E = element, V = payload, R = result.
     @SuppressWarnings("resource")
@@ -119,13 +118,15 @@ class ClientDataStreamer {
             Function<E, V> payloadFunc,
             Function<E, Boolean> deleteFunc,
             DataStreamerOptions options,
-            StreamerBatchSender<V, Integer> batchSender,
+            StreamerBatchSender<V, Integer, R> batchSender,
+            @Nullable Flow.Subscriber<R> resultSubscriber,
             StreamerPartitionAwarenessProvider<T, Integer> partitionAwarenessProvider,
             ClientTable tbl) {
         IgniteLogger log = ClientUtils.logger(tbl.channel().configuration(), StreamerSubscriber.class);
         StreamerOptions streamerOpts = streamerOptions(options);
         StreamerSubscriber<T, E, V, R, Integer> subscriber = new StreamerSubscriber<>(
                 batchSender,
+                resultSubscriber,
                 keyFunc,
                 payloadFunc,
                 deleteFunc,

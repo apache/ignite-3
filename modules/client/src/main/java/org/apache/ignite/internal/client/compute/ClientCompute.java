@@ -37,6 +37,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.compute.TaskExecution;
@@ -85,36 +86,23 @@ public class ClientCompute implements IgniteCompute {
         this.tables = tables;
     }
 
-    /** {@inheritDoc} */
     @Override
-    public <R> JobExecution<R> submit(
-            Set<ClusterNode> nodes,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
-            Object... args) {
-        Objects.requireNonNull(options);
+    public <R> JobExecution<R> submit(Set<ClusterNode> nodes, JobDescriptor descriptor, Object... args) {
         Objects.requireNonNull(nodes);
-        Objects.requireNonNull(units);
-        Objects.requireNonNull(jobClassName);
+        Objects.requireNonNull(descriptor);
 
         if (nodes.isEmpty()) {
             throw new IllegalArgumentException("nodes must not be empty.");
         }
 
-        return new ClientJobExecution<>(ch, executeOnNodesAsync(nodes, units, jobClassName, options, args));
+        return new ClientJobExecution<>(
+                ch,
+                executeOnNodesAsync(nodes, descriptor.units(), descriptor.jobClassName(), descriptor.options(), args));
     }
 
-    /** {@inheritDoc} */
     @Override
-    public <R> R execute(
-            Set<ClusterNode> nodes,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
-            Object... args
-    ) {
-        return sync(executeAsync(nodes, units, jobClassName, options, args));
+    public <R> R execute(Set<ClusterNode> nodes, JobDescriptor descriptor, Object... args) {
+        return sync(this.executeAsync(nodes, descriptor, args));
     }
 
     /** {@inheritDoc} */
@@ -122,18 +110,16 @@ public class ClientCompute implements IgniteCompute {
     public <R> JobExecution<R> submitColocated(
             String tableName,
             Tuple key,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
+            JobDescriptor descriptor,
             Object... args
     ) {
         Objects.requireNonNull(tableName);
         Objects.requireNonNull(key);
-        Objects.requireNonNull(units);
-        Objects.requireNonNull(jobClassName);
-        Objects.requireNonNull(options);
+        Objects.requireNonNull(descriptor);
 
-        return new ClientJobExecution<>(ch, doExecuteColocatedAsync(tableName, key, units, jobClassName, options, args));
+        return new ClientJobExecution<>(
+                ch,
+                doExecuteColocatedAsync(tableName, key, descriptor.units(), descriptor.jobClassName(), descriptor.options(), args));
     }
 
     /** {@inheritDoc} */
@@ -142,19 +128,16 @@ public class ClientCompute implements IgniteCompute {
             String tableName,
             K key,
             Mapper<K> keyMapper,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
+            JobDescriptor descriptor,
             Object... args
     ) {
         Objects.requireNonNull(tableName);
         Objects.requireNonNull(key);
         Objects.requireNonNull(keyMapper);
-        Objects.requireNonNull(options);
-        Objects.requireNonNull(units);
-        Objects.requireNonNull(jobClassName);
+        Objects.requireNonNull(descriptor);
 
-        return new ClientJobExecution<>(ch, doExecuteColocatedAsync(tableName, key, keyMapper, units, jobClassName, options, args));
+        return new ClientJobExecution<>(ch, doExecuteColocatedAsync(
+                tableName, key, keyMapper, descriptor.units(), descriptor.jobClassName(), descriptor.options(), args));
     }
 
     private CompletableFuture<SubmitResult> doExecuteColocatedAsync(
@@ -201,12 +184,10 @@ public class ClientCompute implements IgniteCompute {
     public <R> R executeColocated(
             String tableName,
             Tuple key,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
+            JobDescriptor descriptor,
             Object... args
     ) {
-        return sync(executeColocatedAsync(tableName, key, units, jobClassName, options, args));
+        return sync(this.executeColocatedAsync(tableName, key, descriptor, args));
     }
 
     /** {@inheritDoc} */
@@ -215,33 +196,27 @@ public class ClientCompute implements IgniteCompute {
             String tableName,
             K key,
             Mapper<K> keyMapper,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
+            JobDescriptor descriptor,
             Object... args
     ) {
-        return sync(executeColocatedAsync(tableName, key, keyMapper, units, jobClassName, options, args));
+        return sync(executeColocatedAsync(tableName, key, keyMapper, descriptor, args));
     }
 
     /** {@inheritDoc} */
     @Override
     public <R> Map<ClusterNode, JobExecution<R>> submitBroadcast(
             Set<ClusterNode> nodes,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
+            JobDescriptor descriptor,
             Object... args
     ) {
         Objects.requireNonNull(nodes);
-        Objects.requireNonNull(units);
-        Objects.requireNonNull(jobClassName);
-        Objects.requireNonNull(options);
+        Objects.requireNonNull(descriptor);
 
         Map<ClusterNode, JobExecution<R>> map = new HashMap<>(nodes.size());
 
         for (ClusterNode node : nodes) {
             JobExecution<R> execution = new ClientJobExecution<>(ch, executeOnNodesAsync(
-                    Set.of(node), units, jobClassName, options, args
+                    Set.of(node), descriptor.units(), descriptor.jobClassName(), descriptor.options(), args
             ));
             if (map.put(node, execution) != null) {
                 throw new IllegalStateException("Node can't be specified more than once: " + node);
