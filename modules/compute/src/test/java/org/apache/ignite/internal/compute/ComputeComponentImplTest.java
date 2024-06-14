@@ -690,7 +690,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         /** {@inheritDoc} */
         @Override
         public CompletableFuture<String> executeAsync(JobExecutionContext context, Object... args) {
-            return "jobResponse";
+            return completedFuture("jobResponse");
         }
     }
 
@@ -712,7 +712,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         /** {@inheritDoc} */
         @Override
         public CompletableFuture<String> executeAsync(JobExecutionContext context, Object... args) {
-            return Thread.currentThread().getName();
+            return completedFuture(Thread.currentThread().getName());
         }
     }
 

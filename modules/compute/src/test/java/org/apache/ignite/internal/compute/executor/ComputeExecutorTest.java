@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.compute.executor;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.compute.JobState.CANCELED;
 import static org.apache.ignite.compute.JobState.COMPLETED;
 import static org.apache.ignite.compute.JobState.EXECUTING;
@@ -93,7 +94,7 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
                     Thread.sleep(100);
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
-                    return 0;
+                    return completedFuture(0);
                 }
             }
         }
@@ -121,7 +122,7 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
             while (true) {
                 try {
                     if (context.isInterrupted()) {
-                        return 0;
+                        return completedFuture(0);
                     }
                     Thread.sleep(100);
                 } catch (InterruptedException e) {
@@ -186,7 +187,7 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
             if (runTimes.incrementAndGet() <= maxRetries) {
                 throw new RuntimeException();
             }
-            return 0;
+            return completedFuture(0);
         }
 
     }
@@ -215,7 +216,7 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
         @Override
         public CompletableFuture<Integer> executeAsync(JobExecutionContext context, Object... args) {
             AtomicInteger runTimes = (AtomicInteger) args[0];
-            return runTimes.incrementAndGet();
+            return completedFuture(runTimes.incrementAndGet());
         }
 
     }
@@ -237,7 +238,7 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
     private static class SimpleJob implements ComputeJob<Integer> {
         @Override
         public CompletableFuture<Integer> executeAsync(JobExecutionContext context, Object... args) {
-            return 0;
+            return completedFuture(0);
         }
     }
 }

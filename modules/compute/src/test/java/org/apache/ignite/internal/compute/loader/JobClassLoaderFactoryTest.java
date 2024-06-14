@@ -29,6 +29,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.DeploymentUnit;
@@ -64,14 +65,14 @@ class JobClassLoaderFactoryTest extends BaseIgniteAbstractTest {
             // then classes from the first unit are loaded from the first class loader
             Class<?> clazz1 = classLoader1.loadClass(UNIT_JOB_CLASS_NAME);
             ComputeJob<Integer> job1 = (ComputeJob<Integer>) clazz1.getDeclaredConstructor().newInstance();
-            Integer result1 = job1.executeAsync(null);
-            assertEquals(1, result1);
+            CompletableFuture<Integer> result1 = job1.executeAsync(null);
+            assertEquals(1, result1.join());
 
             // and classes from the second unit are loaded from the second class loader
             Class<?> clazz2 = classLoader2.loadClass(UNIT_JOB_CLASS_NAME);
             ComputeJob<String> job2 = (ComputeJob<String>) clazz2.getDeclaredConstructor().newInstance();
-            String result2 = job2.executeAsync(null);
-            assertEquals("Hello World!", result2);
+            CompletableFuture<String> result2 = job2.executeAsync(null);
+            assertEquals("Hello World!", result2.join());
         }
     }
 
@@ -90,8 +91,8 @@ class JobClassLoaderFactoryTest extends BaseIgniteAbstractTest {
 
             // and classes are loaded in the aplhabetical order
             ComputeJob<Integer> job1 = (ComputeJob<Integer>) unitJobClass.getDeclaredConstructor().newInstance();
-            Integer result1 = job1.executeAsync(null);
-            assertEquals(1, result1);
+            CompletableFuture<Integer> result1 = job1.executeAsync(null);
+            assertEquals(1, result1.join());
 
             Class<?> job1UtilityClass = classLoader.loadClass(JOB1_UTILITY_CLASS_NAME);
             assertNotNull(job1UtilityClass);
