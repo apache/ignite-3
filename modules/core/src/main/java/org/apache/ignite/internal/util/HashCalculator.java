@@ -30,6 +30,7 @@ import java.time.LocalTime;
 import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -367,6 +368,8 @@ public class HashCalculator {
      * @param v Value to hash.
      */
     public static int hashTime(LocalTime v, int precision) {
+        validatePrecision(precision);
+        
         int hourHash = HashUtils.hash32(v.getHour());
         int minuteHash = HashUtils.hash32(v.getMinute(), hourHash);
         int secondHash = HashUtils.hash32(v.getSecond(), minuteHash);
@@ -408,6 +411,7 @@ public class HashCalculator {
      * @param v Value to hash.
      */
     public static int hashTimestamp(Instant v, int precision) {
+        validatePrecision(precision);
         return HashUtils.hash32(TemporalTypeUtils.normalizeNanos(v.getNano(), precision), hashLong(v.getEpochSecond()));
     }
 
@@ -440,5 +444,13 @@ public class HashCalculator {
      */
     public void reset() {
         hash = 0;
+    }
+    
+    // TODO https://issues.apache.org/jira/browse/IGNITE-22504
+    // Remove when time types support for sub-millisecond precision
+    private static void validatePrecision(int precision) {
+        if (precision > NativeTypes.MAX_TIME_PRECISION) {
+            throw new IllegalArgumentException("Unsupported precision: " + precision);
+        }
     }
 }
