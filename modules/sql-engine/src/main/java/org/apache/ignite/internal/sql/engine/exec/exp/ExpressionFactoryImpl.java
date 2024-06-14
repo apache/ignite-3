@@ -43,9 +43,12 @@ import org.apache.calcite.DataContext.Variable;
 import org.apache.calcite.adapter.enumerable.EnumUtils;
 import org.apache.calcite.linq4j.function.Function1;
 import org.apache.calcite.linq4j.tree.BlockBuilder;
+import org.apache.calcite.linq4j.tree.ConstantExpression;
 import org.apache.calcite.linq4j.tree.Expression;
 import org.apache.calcite.linq4j.tree.Expressions;
+import org.apache.calcite.linq4j.tree.MethodCallExpression;
 import org.apache.calcite.linq4j.tree.MethodDeclaration;
+import org.apache.calcite.linq4j.tree.NewExpression;
 import org.apache.calcite.linq4j.tree.ParameterExpression;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelCollation;
@@ -58,6 +61,7 @@ import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexCorrelVariable;
 import org.apache.calcite.rex.RexDynamicParam;
 import org.apache.calcite.rex.RexFieldAccess;
+import org.apache.calcite.rex.RexInterpreter;
 import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexProgram;
@@ -71,6 +75,7 @@ import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowBuilder;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
+import org.apache.ignite.internal.sql.engine.exec.exp.RexImpTable.NullAs;
 import org.apache.ignite.internal.sql.engine.exec.exp.RexToLixTranslator.InputGetter;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AccumulatorWrapper;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AccumulatorsFactory;
@@ -275,8 +280,17 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
     public Supplier<RowT> rowSource(List<RexNode> values) {
         List<RelDataType> typeList = Commons.transform(values, v -> v != null ? v.getType() : NULL_TYPE);
         RowSchema rowSchema = TypeUtils.rowSchemaFromRelTypes(typeList);
+        List<RexLiteral> literalValues = new ArrayList<>(values.size());
 
-        return new ValuesImpl(scalar(values, null), ctx.rowHandler().factory(rowSchema));
+        for (int i = 0; i < values.size(); i++) {
+            if (!(values.get(i) instanceof RexLiteral)) {
+                return new ValuesImpl(scalar(values, null), ctx.rowHandler().factory(rowSchema));
+            }
+
+            literalValues.add((RexLiteral) values.get(i));
+        }
+
+        return new ConstantValuesImpl(literalValues, typeList, ctx.rowHandler().factory(rowSchema));
     }
 
     /** {@inheritDoc} */
@@ -329,10 +343,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
                 RexLiteral literal = values.get(i);
                 Object val = literal.getValueAs(types.get(field));
 
-                // Literal was parsed as UTC timestamp, now we need to adjust it to the client's time zone.
-                if (val != null && literal.getTypeName() == SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE) {
-                    val = IgniteSqlFunctions.subtractTimeZoneOffset((long) val, (TimeZone) ctx.get(Variable.TIME_ZONE.camelName));
-                }
+                val = adjustValueIfNeeded(val, literal.getTypeName());
 
                 rowBuilder.addField(val);
             }
@@ -341,6 +352,15 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         }
 
         return rows;
+    }
+
+    private @Nullable Object adjustValueIfNeeded(@Nullable Object val, SqlTypeName typeName) {
+        // Literal was parsed as UTC timestamp, now we need to adjust it to the client's time zone.
+        if (val != null && typeName == SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE) {
+            return IgniteSqlFunctions.subtractTimeZoneOffset((long) val, (TimeZone) ctx.get(Variable.TIME_ZONE.camelName));
+        }
+
+        return val;
     }
 
     /** {@inheritDoc} */
@@ -764,6 +784,49 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         @Override
         public RowT get() {
             scalar.execute(ctx, null, rowBuilder);
+
+            return rowBuilder.buildAndReset();
+        }
+    }
+
+    private class ConstantValuesImpl implements Supplier<RowT> {
+        private final List<RexLiteral> values;
+
+        private final RowBuilder<RowT> rowBuilder;
+
+        private final List<RelDataType> types;
+
+        /**
+         * Constructor.
+         */
+        private ConstantValuesImpl(List<RexLiteral> values, List<RelDataType> types, RowFactory<RowT> factory) {
+            this.values = values;
+            this.rowBuilder = factory.rowBuilder();
+            this.types = types;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public RowT get() {
+            for (int field = 0; field < values.size(); field++) {
+                RexLiteral literal = values.get(field);
+
+                Expression expr = RexToLixTranslator.translateLiteral(literal, types.get(field), TYPE_FACTORY, NullAs.NULL);
+
+                Object val;
+
+                if (expr instanceof MethodCallExpression || expr instanceof NewExpression) {
+                    val = RexInterpreter.evaluate(literal, Collections.emptyMap());
+                } else {
+                    assert expr == null || expr instanceof ConstantExpression : expr.getClass().getName();
+
+                    val = expr == null ? null : ((ConstantExpression) expr).value;
+                }
+
+                val = adjustValueIfNeeded(val, literal.getTypeName());
+
+                rowBuilder.addField(val);
+            }
 
             return rowBuilder.buildAndReset();
         }
