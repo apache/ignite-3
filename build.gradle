@@ -73,7 +73,12 @@ ext {
 
 allprojects {
     group 'org.apache.ignite'
-    version = "3.0.0-SNAPSHOT"
+    def gitLastCommitHash = new ByteArrayOutputStream()
+    exec {
+        commandLine "git", "rev-parse", "--short", "HEAD"
+        standardOutput = gitLastCommitHash
+    }
+    version = "3.0.0-SNAPSHOT-$gitLastCommitHash"
 
     tasks.withType(Jar) {
         duplicatesStrategy = DuplicatesStrategy.EXCLUDE
@@ -112,6 +117,10 @@ allprojects {
     tasks.withType(Test).configureEach {
         outputs.upToDateWhen { false }
     }
+}
+
+task printVersion {
+    println project.version
 }
 
 subprojects {
