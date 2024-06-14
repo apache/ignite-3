@@ -501,6 +501,8 @@ public class BinaryTupleTest {
      */
     @Test
     public void timeTest() {
+        // TODO https://issues.apache.org/jira/browse/IGNITE-22504
+        // Remove precision update to support sub-millisecond precision.
         LocalTime now = LocalTime.now();
         LocalTime value = now.withNano(TemporalTypeUtils.normalizeNanos(now.getNano(), 3));
 
@@ -562,6 +564,8 @@ public class BinaryTupleTest {
      */
     @Test
     public void dateTimeTest() {
+        // TODO https://issues.apache.org/jira/browse/IGNITE-22504
+        // Remove precision update to support sub-millisecond precision.
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime value = now.withNano(TemporalTypeUtils.normalizeNanos(now.getNano(), 3));
 
@@ -619,6 +623,8 @@ public class BinaryTupleTest {
      */
     @Test
     public void timestampTest() {
+        // TODO https://issues.apache.org/jira/browse/IGNITE-22504
+        // Remove precision update to support sub-millisecond precision.
         Instant now = Instant.now();
         Instant value = Instant.ofEpochSecond(now.getEpochSecond(), TemporalTypeUtils.normalizeNanos(now.getNano(), 3));
 

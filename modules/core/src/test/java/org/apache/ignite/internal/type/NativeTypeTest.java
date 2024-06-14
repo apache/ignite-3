@@ -106,16 +106,22 @@ public class NativeTypeTest {
 
         assertEquals(4, time(0).sizeInBytes());
         assertEquals(4, time(3).sizeInBytes());
+        // TODO https://issues.apache.org/jira/browse/IGNITE-22504
+        //  Sub millisecond precision
         // assertEquals(6, time(4).sizeInBytes());
         // assertEquals(6, time(9).sizeInBytes());
 
         assertEquals(7, datetime(0).sizeInBytes());
         assertEquals(7, datetime(3).sizeInBytes());
+        // TODO https://issues.apache.org/jira/browse/IGNITE-22504
+        //  Sub millisecond precision
         // assertEquals(9, datetime(4).sizeInBytes());
         // assertEquals(9, datetime(9).sizeInBytes());
 
         assertEquals(8, timestamp(0).sizeInBytes());
         assertEquals(12, timestamp(1).sizeInBytes());
+        // TODO https://issues.apache.org/jira/browse/IGNITE-22504
+        //  Sub millisecond precision
         // assertEquals(12, timestamp(9).sizeInBytes());
     }
 
