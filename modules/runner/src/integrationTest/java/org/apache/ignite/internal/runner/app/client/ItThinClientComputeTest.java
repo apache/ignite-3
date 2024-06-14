@@ -325,19 +325,21 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         assertNull(cause.getCause()); // No stack trace by default.
     }
 
-    @Test
-    void testExceptionInJobPropagatesToClientWithClassAndMessageAsync() {
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void testExceptionInJobPropagatesToClientWithClassAndMessageAsync(boolean asyncJob) {
         IgniteException cause = getExceptionInJobExecutionAsync(
-                client().compute().submit(Set.of(node(0)), List.of(), ExceptionJob.class.getName())
+                client().compute().submit(Set.of(node(0)), List.of(), ExceptionJob.class.getName(), asyncJob)
         );
 
         assertComputeExceptionWithClassAndMessage(cause);
     }
 
-    @Test
-    void testExceptionInJobPropagatesToClientWithClassAndMessageSync() {
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void testExceptionInJobPropagatesToClientWithClassAndMessageSync(boolean asyncJob) {
         IgniteException cause = getExceptionInJobExecutionSync(
-                () -> client().compute().execute(Set.of(node(0)), List.of(), ExceptionJob.class.getName())
+                () -> client().compute().execute(Set.of(node(0)), List.of(), ExceptionJob.class.getName(), asyncJob)
         );
 
         assertComputeExceptionWithClassAndMessage(cause);
@@ -771,7 +773,13 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     private static class ExceptionJob implements ComputeJob<String> {
         @Override
         public CompletableFuture<String> executeAsync(JobExecutionContext context, Object... args) {
-            throw new ArithmeticException("math err");
+            boolean asyncJob = args.length > 0 && (Boolean) args[0];
+
+            if (asyncJob) {
+                return CompletableFuture.failedFuture(new ArithmeticException("math err"));
+            } else {
+                throw new ArithmeticException("math err");
+            }
         }
     }
 
