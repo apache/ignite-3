@@ -86,6 +86,7 @@ import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.hamcrest.Matcher;
 import org.hamcrest.Matchers;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -157,11 +158,14 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         assertThat(execution.changePriorityAsync(0), willBe(false));
     }
 
-    @Test
-    void testCancelOnSpecificNodeAsync() {
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void testCancelOnSpecificNodeAsync(boolean asyncJob) {
         int sleepMs = 1_000_000;
-        JobExecution<String> execution1 = client().compute().submit(Set.of(node(0)), List.of(), SleepJob.class.getName(), sleepMs);
-        JobExecution<String> execution2 = client().compute().submit(Set.of(node(1)), List.of(), SleepJob.class.getName(), sleepMs);
+        String job = asyncJob ? AsyncSleepJob.class.getName() : SleepJob.class.getName();
+
+        JobExecution<String> execution1 = client().compute().submit(Set.of(node(0)), List.of(), job, sleepMs);
+        JobExecution<String> execution2 = client().compute().submit(Set.of(node(1)), List.of(), job, sleepMs);
 
         await().until(execution1::statusAsync, willBe(jobStatusWithState(EXECUTING)));
         await().until(execution2::statusAsync, willBe(jobStatusWithState(EXECUTING)));
@@ -800,7 +804,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     private static class SleepJob implements ComputeJob<Void> {
         @Override
-        public CompletableFuture<Void> executeAsync(JobExecutionContext context, Object... args) {
+        public @Nullable CompletableFuture<Void> executeAsync(JobExecutionContext context, Object... args) {
             try {
                 Thread.sleep((Integer) args[0]);
             } catch (InterruptedException e) {
@@ -808,6 +812,19 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
             }
 
             return null;
+        }
+    }
+
+    private static class AsyncSleepJob implements ComputeJob<Void> {
+        @Override
+        public @Nullable CompletableFuture<Void> executeAsync(JobExecutionContext context, Object... args) {
+            return CompletableFuture.runAsync(() -> {
+                try {
+                    Thread.sleep((Integer) args[0]);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+            });
         }
     }
 
