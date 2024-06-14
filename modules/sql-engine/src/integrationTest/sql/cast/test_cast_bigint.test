@@ -6,6 +6,10 @@
 statement ok
 SELECT CAST('100' AS BIGINT);
 
+skipif ignite3
+statement error
+SELECT CAST('100.1' AS BIGINT);
+
 statement error: Character x is neither a decimal digit number, decimal point, nor "e" notation exponential mark.
 SELECT CAST('100x' AS BIGINT);
 

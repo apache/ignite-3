@@ -6,6 +6,11 @@
 statement ok
 SELECT CAST('100.0' AS FLOAT);
 
+query T
+SELECT CAST('100' AS FLOAT);
+----
+100.0
+
 statement error: For input string: "100x"
 SELECT CAST('100x' AS FLOAT);
 

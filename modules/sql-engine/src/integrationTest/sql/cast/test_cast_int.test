@@ -6,6 +6,9 @@
 statement ok
 SELECT CAST('100' AS INT);
 
+statement error
+SELECT CAST('100.1' AS INT);
+
 statement error: Character x is neither a decimal digit number, decimal point, nor "e" notation exponential mark.
 SELECT CAST('100x' AS INT);
 

@@ -6,6 +6,14 @@
 statement ok
 SELECT CAST('100' AS SMALLINT);
 
+statement error
+SELECT CAST('100.1' AS SMALLINT);
+
+query T
+SELECT CAST(1e1 AS SMALLINT);
+----
+10
+
 statement error: Character x is neither a decimal digit number, decimal point, nor "e" notation exponential mark.
 SELECT CAST('100x' AS SMALLINT);
 
