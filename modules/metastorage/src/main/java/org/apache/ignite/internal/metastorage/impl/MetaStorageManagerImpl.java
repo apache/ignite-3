@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.metastorage.impl;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.cancelOrConsume;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
@@ -27,8 +28,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.LongSupplier;
 import org.apache.ignite.configuration.ConfigurationValue;
@@ -68,6 +71,7 @@ import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -140,6 +144,9 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
 
     private volatile MetaStorageListener learnerListener;
 
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-19417 Remove, cache eviction should be triggered by MS GC instead.
+    private final ScheduledExecutorService idempotentCacheVacumizer;
+
     /**
      * The constructor.
      *
@@ -175,6 +182,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         this.metricManager = metricManager;
         this.idempotentCacheTtl = idempotentCacheTtl;
         this.maxClockSkewMillisFuture = maxClockSkewMillisFuture;
+        this.idempotentCacheVacumizer = Executors.newSingleThreadScheduledExecutor(
+                NamedThreadFactory.create(clusterService.nodeName(), "idempotent-cache-cleanup-scheduler", LOG));
     }
 
     /**
@@ -438,6 +447,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
 
         busyLock.block();
 
+        idempotentCacheVacumizer.shutdownNow();
+
         deployWatchesFuture.cancel(true);
 
         recoveryFinishedFuture.cancel(true);
@@ -502,6 +513,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
                                 MetaStorageManagerImpl.this.onRevisionApplied(revision);
                             }
                         });
+
+                        idempotentCacheVacumizer.scheduleWithFixedDelay(this::evictIdempotentCommandsCache, 0, 1, MINUTES);
                     }))
                     .whenComplete((v, e) -> {
                         if (e == null) {
@@ -702,12 +715,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         }
 
         try {
-            return metaStorageSvcFut.thenCompose(svc -> {
-                // TODO: https://issues.apache.org/jira/browse/IGNITE-19417 Remove, cache eviction should be triggered by MS GC instead.
-                evictIdempotentCommandsCache();
-
-                return svc.invoke(cond, success, failure);
-            });
+            return metaStorageSvcFut.thenCompose(svc -> svc.invoke(cond, success, failure));
         } finally {
             busyLock.leaveBusy();
         }
@@ -720,12 +728,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         }
 
         try {
-            return metaStorageSvcFut.thenCompose(svc -> {
-                // TODO: https://issues.apache.org/jira/browse/IGNITE-19417 Remove, cache eviction should be triggered by MS GC instead.
-                    evictIdempotentCommandsCache();
-
-                return svc.invoke(cond, success, failure);
-            });
+            return metaStorageSvcFut.thenCompose(svc -> svc.invoke(cond, success, failure));
         } finally {
             busyLock.leaveBusy();
         }
@@ -738,12 +741,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         }
 
         try {
-            return metaStorageSvcFut.thenCompose(svc -> {
-                // TODO: https://issues.apache.org/jira/browse/IGNITE-19417 Remove, cache eviction should be triggered by MS GC instead.
-                    evictIdempotentCommandsCache();
-
-                return svc.invoke(iif);
-            });
+            return metaStorageSvcFut.thenCompose(svc -> svc.invoke(iif));
         } finally {
             busyLock.leaveBusy();
         }
