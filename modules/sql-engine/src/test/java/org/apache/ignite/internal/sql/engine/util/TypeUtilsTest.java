@@ -117,7 +117,7 @@ public class TypeUtilsTest extends BaseIgniteAbstractTest {
                     .build();
 
             Object[] input = {null, "12345    "};
-            Object[] expected = {null, "12345 "};
+            Object[] expected = {null, "12345"};
 
             expectOutputRow(rowType, input, expected);
         }
@@ -129,7 +129,7 @@ public class TypeUtilsTest extends BaseIgniteAbstractTest {
                     .build();
 
             Object[] input = {"12345    ", null};
-            Object[] expected = {"12345 ", null};
+            Object[] expected = {"12345", null};
 
             expectOutputRow(rowType, input, expected);
         }
