@@ -73,7 +73,7 @@ public class IndexMeta implements Serializable {
     /**
      * Creates a index meta instance.
      *
-     * @param catalogIndexDescriptor Catalog index descriptor based on which the meta will be created.
+     * @param catalogIndexDescriptor Catalog index descriptor to create meta from.
      * @param catalog Catalog version from which the {@code catalogIndexDescriptor} was taken.
      */
     static IndexMeta of(CatalogIndexDescriptor catalogIndexDescriptor, Catalog catalog) {
