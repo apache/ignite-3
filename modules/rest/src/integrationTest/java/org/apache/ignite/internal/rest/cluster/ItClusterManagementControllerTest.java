@@ -65,7 +65,8 @@ public class ItClusterManagementControllerTest extends AbstractRestTestBase {
         assertThat(beforeInitProblem.title(), is("Cluster is not initialized"));
         assertThat(
                 beforeInitProblem.detail(),
-                is("Cluster is not initialized. Call /management/v1/cluster/init in order to initialize cluster.")
+                is("Cluster is not initialized. Use 'cluster init' command to initialize the cluster."
+                        + "Example: cluster init --name=<clusterName> --metastorage-group=<node name>")
         );
 
         // Given cluster initialized
