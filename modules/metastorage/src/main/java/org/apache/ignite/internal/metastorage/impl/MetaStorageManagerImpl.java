@@ -426,6 +426,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
                 });
 
         metricManager.registerSource(metaStorageMetricSource);
+        metricManager.enable(metaStorageMetricSource);
 
         return nullCompletedFuture();
     }
