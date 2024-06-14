@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.compute.queue;
 
+import static org.apache.ignite.internal.util.CompletableFutures.copyStateTo;
+
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
@@ -38,7 +40,7 @@ class QueueEntry<R> implements Runnable, Comparable<QueueEntry<R>> {
 
     private final CompletableFuture<R> future = new CompletableFuture<>();
 
-    private final Callable<R> jobAction;
+    private final Callable<CompletableFuture<R>> jobAction;
 
     private final int priority;
 
@@ -57,7 +59,7 @@ class QueueEntry<R> implements Runnable, Comparable<QueueEntry<R>> {
      * @param jobAction Compute job callable.
      * @param priority Job priority.
      */
-    QueueEntry(Callable<R> jobAction, int priority) {
+    QueueEntry(Callable<CompletableFuture<R>> jobAction, int priority) {
         this.jobAction = jobAction;
         this.priority = priority;
         seqNum = seq.getAndIncrement();
@@ -73,7 +75,8 @@ class QueueEntry<R> implements Runnable, Comparable<QueueEntry<R>> {
         }
 
         try {
-            future.complete(jobAction.call());
+            CompletableFuture<R> jobFut = jobAction.call();
+            jobFut.whenComplete(copyStateTo(future));
         } catch (Throwable e) {
             future.completeExceptionally(e);
         } finally {
@@ -147,6 +150,6 @@ class QueueEntry<R> implements Runnable, Comparable<QueueEntry<R>> {
 
     @Override
     public int hashCode() {
-        return (int) (seqNum ^ (seqNum >>> 32));
+        return Long.hashCode(seqNum);
     }
 }
