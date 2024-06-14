@@ -531,7 +531,6 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                 case ColumnType.Boolean:
                 {
                     var items = ArrayPool<bool>.Shared.Rent(count);
-
                     for (int i = 0; i < count; i++)
                     {
                         items[i] = GetBool(startIndex++);
@@ -539,14 +538,40 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
                     return ((T[])(object)items, count);
                 }
-                case ColumnType.Null:
-                    break;
+
                 case ColumnType.Int8:
-                    break;
+                {
+                    var items = ArrayPool<sbyte>.Shared.Rent(count);
+                    for (int i = 0; i < count; i++)
+                    {
+                        items[i] = GetByte(startIndex++);
+                    }
+
+                    return ((T[])(object)items, count);
+                }
+
                 case ColumnType.Int16:
-                    break;
+                {
+                    var items = ArrayPool<short>.Shared.Rent(count);
+                    for (int i = 0; i < count; i++)
+                    {
+                        items[i] = GetShort(startIndex++);
+                    }
+
+                    return ((T[])(object)items, count);
+                }
+
                 case ColumnType.Int32:
-                    break;
+                {
+                    var items = ArrayPool<int>.Shared.Rent(count);
+                    for (int i = 0; i < count; i++)
+                    {
+                        items[i] = GetInt(startIndex++);
+                    }
+
+                    return ((T[])(object)items, count);
+                }
+
                 case ColumnType.Int64:
                     break;
                 case ColumnType.Float:
