@@ -73,6 +73,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.affinity.Assignments;
 import org.apache.ignite.internal.catalog.CatalogManager;
@@ -284,6 +285,14 @@ public class TableManagerTest extends IgniteAbstractTest {
         when(replicaMgr.startRaftClient(any(), any(), any()))
                 .thenReturn(completedFuture(mock(TopologyAwareRaftGroupService.class)));
         when(replicaMgr.stopReplica(any())).thenReturn(trueCompletedFuture());
+        when(replicaMgr.weakStartReplica(any(), any(), any())).thenAnswer(inv -> {
+            Supplier<CompletableFuture<Void>> startOperation = inv.getArgument(1);
+            return startOperation.get();
+        });
+        when(replicaMgr.weakStopReplica(any(), any(), any())).thenAnswer(inv -> {
+            Supplier<CompletableFuture<Void>> stopOperation = inv.getArgument(2);
+            return stopOperation.get();
+        });
 
         tblManagerFut = new CompletableFuture<>();
 

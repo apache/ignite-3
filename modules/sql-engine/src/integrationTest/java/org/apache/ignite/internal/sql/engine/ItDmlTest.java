@@ -194,6 +194,7 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
 
     @Test
     public void testNullDefault() {
+        // SQL Standard 2016 feature E141-07 - Basic integrity constraints. Column defaults
         sql("CREATE TABLE test_null_def (id INTEGER PRIMARY KEY, col INTEGER DEFAULT NULL)");
 
         sql("INSERT INTO test_null_def VALUES(1, DEFAULT)");
@@ -630,6 +631,7 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
     @Test
     public void testDropDefault() {
         // SQL Standard 2016 feature F221 - Explicit defaults
+        // SQL Standard 2016 feature E141-07 - Basic integrity constraints. Column defaults
         for (DefaultValueArg arg : defaultValueArgs().collect(Collectors.toList())) {
             try {
                 sql(format("CREATE TABLE test (id INT PRIMARY KEY, val {} DEFAULT {})", arg.sqlType, arg.sqlVal));
