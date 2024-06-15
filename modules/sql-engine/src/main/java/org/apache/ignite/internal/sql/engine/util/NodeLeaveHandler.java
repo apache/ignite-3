@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.sql.engine.util;
 
 import java.util.function.Consumer;
+import org.apache.ignite.internal.network.TopologyEventHandler;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.TopologyEventHandler;
 
 /**
  * NodeLeaveHandler.
