@@ -630,7 +630,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * Starts a replica. If a replica with the same partition id already exists, the method throws an exception.
      *
      * @param replicaGrpId Replication group id.
-     * @param listener Replica listener.
      * @param snapshotStorageFactory Snapshot storage factory for raft group option's parameterization.
      * @param newConfiguration A configuration for new raft group.
      * @param raftGroupListener Raft group listener for raft group starting.
@@ -641,7 +640,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      */
     public CompletableFuture<Replica> startReplica(
             ReplicationGroupId replicaGrpId,
-            ReplicaListener listener,
             SnapshotStorageFactory snapshotStorageFactory,
             PeersAndLearners newConfiguration,
             RaftGroupListener raftGroupListener,
@@ -664,8 +662,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         LOG.info("Replica is about to start [replicationGroupId={}].", replicaGrpId);
 
         Replica newReplica = new ZonePartitionReplicaImpl(
-                replicaGrpId,
-                listener
+                replicaGrpId
         );
 
         CompletableFuture<Replica> replicaFuture = replicas.compute(replicaGrpId, (k, existingReplicaFuture) -> {
@@ -720,10 +717,11 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     ) throws NodeStoppingException {
         LOG.info("Replica is about to start [replicationGroupId={}].", replicaGrpId);
 
-        CompletableFuture<Boolean> resultFuture = newRaftClientFut.thenAccept(updateTableRaftService)
-                .thenApply((v) -> true);
+        CompletableFuture<TopologyAwareRaftGroupService> resultFuture = newRaftClientFut
+                .thenAccept(updateTableRaftService)
+                .thenCompose((v) -> newRaftClientFut);
 
-        CompletableFuture<ReplicaListener> newReplicaListenerFut = newRaftClientFut.thenApply(createListener);
+        CompletableFuture<ReplicaListener> newReplicaListenerFut = resultFuture.thenApply(createListener);
 
         return startReplica(replicaGrpId, storageIndexTracker, newReplicaListenerFut);
     }

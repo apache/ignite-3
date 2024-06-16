@@ -152,6 +152,7 @@ import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfigurationSchema;
 import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
 import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileConfigurationSchema;
+import org.apache.ignite.internal.partition.replica.PartitionReplicaLifecycleManager;
 import org.apache.ignite.internal.partition.replica.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.Loza;
@@ -1276,7 +1277,13 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     resourcesRegistry,
                     lowWatermark,
                     transactionInflights,
-                    null
+                    new PartitionReplicaLifecycleManager(
+                            catalogManager,
+                            replicaManager,
+                            distributionZoneManager,
+                            metaStorageManager,
+                            clusterService.topologyService()
+                    )
             ) {
                 @Override
                 protected TxStateTableStorage createTxStateTableStorage(

@@ -194,7 +194,6 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
         try {
             return replicaMgr.startReplica(
                     replicaGrpId,
-                    new ZonePartitionReplicaListener(),
                     new FailFastSnapshotStorageFactory(),
                     realConfiguration,
                     raftGroupListener,
@@ -236,7 +235,7 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
     }
 
     /**
-     * Add table replica to the aggregated zone replica
+     * Add table replica to the aggregated zone replica.
      *
      * @param zonePartitionId Zone partition id.
      * @param replicationGroupId Table partition id.
@@ -244,6 +243,10 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
      * @return Future, which will be completed when operation done
      */
     public CompletableFuture<Void> addTableReplica(ZonePartitionId zonePartitionId, TablePartitionId replicationGroupId, Replica replica) {
+        if (!ENABLED) {
+            return nullCompletedFuture();
+        }
+
         return replicaMgr
                 .replica(zonePartitionId)
                 .thenAccept(r -> ((ZonePartitionReplicaImpl) r).addReplica(replicationGroupId, replica));

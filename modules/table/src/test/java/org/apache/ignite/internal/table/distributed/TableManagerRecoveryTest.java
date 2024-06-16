@@ -83,6 +83,7 @@ import org.apache.ignite.internal.metastorage.server.TestRocksDbKeyValueStorage;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
+import org.apache.ignite.internal.partition.replica.PartitionReplicaLifecycleManager;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.Loza;
@@ -343,7 +344,13 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 new RemotelyTriggeredResourceRegistry(),
                 lowWatermark,
                 new TransactionInflights(placementDriver, clockService),
-                null
+                new PartitionReplicaLifecycleManager(
+                        catalogManager,
+                        replicaMgr,
+                        distributionZoneManager,
+                        metaStorageManager,
+                        topologyService
+                )
         ) {
 
             @Override

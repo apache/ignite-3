@@ -27,7 +27,6 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverReplicaMessage;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
-import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.TableAware;
 
@@ -42,8 +41,7 @@ public class ZonePartitionReplicaImpl implements Replica {
     private final Map<TablePartitionId, Replica> replicas = new ConcurrentHashMap<>();
 
     public ZonePartitionReplicaImpl(
-            ReplicationGroupId replicaGrpId,
-            ReplicaListener listener
+            ReplicationGroupId replicaGrpId
     )  {
         this.replicaGrpId = replicaGrpId;
     }
@@ -56,7 +54,7 @@ public class ZonePartitionReplicaImpl implements Replica {
     @Override
     public CompletableFuture<ReplicaResult> processRequest(ReplicaRequest request, String senderId) {
         if (!(request instanceof TableAware)) {
-            LOG.info("Non table request is not supported by the zone partition yet");
+            LOG.info("Non table request is not supported by the zone partition yet " + request);
             return nullCompletedFuture();
         } else {
             int partitionId;
@@ -68,7 +66,8 @@ public class ZonePartitionReplicaImpl implements Replica {
             } else if (replicationGroupId instanceof ZonePartitionId) {
                 partitionId = ((ZonePartitionId) replicationGroupId).partitionId();
             } else {
-                throw new IllegalArgumentException("Requests with replication group type " + request.groupId().getClass() + " is not supported");
+                throw new IllegalArgumentException("Requests with replication group type "
+                        + request.groupId().getClass() + " is not supported");
             }
 
             return replicas.get(new TablePartitionId(((TableAware) request).tableId(), partitionId))
