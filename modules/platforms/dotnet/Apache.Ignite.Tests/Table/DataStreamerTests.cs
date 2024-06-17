@@ -759,26 +759,18 @@ public class DataStreamerTests : IgniteTestsBase
             receiverArgs: new object[] { Table.Name, "arg1", 22 },
             options: DataStreamerOptions.Default with { PageSize = 1 });
 
-        // Read only part of the results.
         var cts = new CancellationTokenSource();
 
         await using var enumerator = results.GetAsyncEnumerator(cts.Token);
         Assert.IsTrue(await enumerator.MoveNextAsync());
 
+        // Cancel the resulting enumerator before it's fully consumed. This stops the streamer.
         cts.Cancel();
         Assert.ThrowsAsync<TaskCanceledException>(async () => await enumerator.MoveNextAsync());
 
-        await Task.Delay(1000);
-
-        for (int i = 0; i < Count; i++)
-        {
-            var res = await TupleView.GetAsync(null, GetTuple(i));
-
-            var expectedVal = $"value{i * 10}_arg1_22";
-
-            Assert.IsTrue(res.HasValue, $"Key {i} not found");
-            Assert.AreEqual(expectedVal, res.Value[ValCol]);
-        }
+        // Only part of the data was streamed.
+        var streamedData = await TupleView.GetAllAsync(null, Enumerable.Range(0, Count).Select(x => GetTuple(x)));
+        Assert.Less(streamedData.Count(x => x.HasValue), Count / 2);
     }
 
     private static async IAsyncEnumerable<IIgniteTuple> GetFakeServerData(int count)
