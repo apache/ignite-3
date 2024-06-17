@@ -90,7 +90,7 @@ public interface PageIdAllocator {
     ) throws IgniteInternalCheckedException {
         long pageId = 0;
 
-        if (reuseList != null) {
+        if (useRecycled && reuseList != null) {
             pageId = bag != null ? bag.pollFreePage() : 0;
 
             if (pageId == 0) {
