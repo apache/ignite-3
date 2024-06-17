@@ -24,6 +24,9 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
 import java.math.BigDecimal;
@@ -64,6 +67,7 @@ import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
+import org.apache.ignite.internal.sql.engine.framework.TestBuilders.ExecutionContextBuilder;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.ExactBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.MultiBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.RangeBounds;
@@ -94,15 +98,7 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
     public void prepare() {
         typeFactory = Commons.typeFactory();
 
-        FragmentDescription fragmentDescription = new FragmentDescription(1, true,
-                Long2ObjectMaps.emptyMap(), null, null, null);
-
-        ExecutionContext<Object[]> ctx = TestBuilders.executionContext()
-                .queryId(UUID.randomUUID())
-                .localNode(new ClusterNodeImpl("1", "node-1", new NetworkAddress("localhost", 1234)))
-                .fragment(fragmentDescription)
-                .executor(Mockito.mock(QueryTaskExecutor.class))
-                .build();
+        ExecutionContext<Object[]> ctx = defaultContextBuilder().build();
 
         expFactory = new ExpressionFactoryImpl<>(ctx, SqlConformanceEnum.DEFAULT);
     }
@@ -693,8 +689,9 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
         assertEquals(List.of(), actual);
     }
 
+    /** Ensures that row assembly from constant expressions (literals) is performed without compilation. */
     @Test
-    public void testRowSource() {
+    public void testRowSourceExpressionNotCompiledWithConstantValues() {
         RexBuilder rexBuilder = Commons.rexBuilder();
         IgniteTypeFactory tf = Commons.typeFactory();
 
@@ -704,8 +701,36 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
         RexNode val10 = rexBuilder.makeExactLiteral(new BigDecimal("1"), intType);
         RexNode val11 = rexBuilder.makeExactLiteral(new BigDecimal("2"), bigIntType);
 
-        Object[] actual = expFactory.rowSource(List.of(val10, val11)).get();
+        ExpressionFactoryImpl<Object[]> expFactorySpy = Mockito.spy(expFactory);
+
+        Object[] actual = expFactorySpy.rowSource(List.of(val10, val11)).get();
         assertEquals(List.of(1, 2L), Arrays.asList(actual));
+
+        verify(expFactorySpy, times(0)).scalar(any(), any());
+    }
+
+    /** Ensures that row assembly from non-constant expressions is performed with compilation. */
+    @Test
+    public void testRowSourceExpressionCompiledWithDynamicParameters() {
+        ExecutionContext<Object[]> ctx = defaultContextBuilder()
+                .dynamicParameters(1, 2)
+                .build();
+
+        RexBuilder rexBuilder = Commons.rexBuilder();
+
+        RelDataType intType = typeFactory.createSqlType(SqlTypeName.INTEGER);
+        RelDataType bigIntType = typeFactory.createSqlType(SqlTypeName.BIGINT);
+
+        RexNode val10 = rexBuilder.makeDynamicParam(intType, 0);
+        RexNode val11 = rexBuilder.makeDynamicParam(bigIntType, 1);
+
+        ExpressionFactoryImpl<Object[]> expFactory = new ExpressionFactoryImpl<>(ctx, SqlConformanceEnum.DEFAULT);
+        ExpressionFactoryImpl<Object[]> expFactorySpy = Mockito.spy(expFactory);
+
+        Object[] actual = expFactorySpy.rowSource(List.of(val10, val11)).get();
+        assertEquals(List.of(1, 2L), Arrays.asList(actual));
+
+        verify(expFactorySpy, times(1)).scalar(any(), any());
     }
 
     @Test
@@ -717,6 +742,17 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
         Object actual = expFactory.execute(rexBuilder.makeLiteral("42", varcharType)).get();
 
         assertEquals("42", actual);
+    }
+
+    private static ExecutionContextBuilder defaultContextBuilder() {
+        FragmentDescription fragmentDescription = new FragmentDescription(1, true,
+                Long2ObjectMaps.emptyMap(), null, null, null);
+
+        return TestBuilders.executionContext()
+                .queryId(UUID.randomUUID())
+                .localNode(new ClusterNodeImpl("1", "node-1", new NetworkAddress("localhost", 1234)))
+                .fragment(fragmentDescription)
+                .executor(Mockito.mock(QueryTaskExecutor.class));
     }
 
     static final class TestRange {
