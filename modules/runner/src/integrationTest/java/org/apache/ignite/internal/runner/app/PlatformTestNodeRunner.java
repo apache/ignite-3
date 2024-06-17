@@ -838,4 +838,12 @@ public class PlatformTestNodeRunner {
             return null;
         }
     }
+
+    @SuppressWarnings("unused") // Used by platform tests.
+    private static class EchoArgsReceiver implements DataStreamerReceiver<Object, Object> {
+        @Override
+        public CompletableFuture<List<Object>> receive(List<Object> page, DataStreamerReceiverContext ctx, Object... args) {
+            return CompletableFuture.completedFuture(List.of(args));
+        }
+    }
 }
