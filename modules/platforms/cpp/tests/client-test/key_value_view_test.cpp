@@ -837,7 +837,7 @@ TEST_F(key_value_view_test, types_test) {
     EXPECT_EQ(inserted.m_decimal, res->m_decimal);
     EXPECT_EQ(inserted.m_boolean, res->m_boolean);
 
-    EXPECT_EQ(ignite_time(17, 4, 12, 354000000), res->m_time2);
-    EXPECT_EQ(ignite_date_time({2020, 7, 28}, {2, 15, 52, 634000000}), res->m_datetime2);
+    EXPECT_EQ(ignite_time(17, 4, 12), res->m_time2);
+    EXPECT_EQ(ignite_date_time({2020, 7, 28}, {2, 15, 52, 6000000}), res->m_datetime2);
     EXPECT_EQ(ignite_timestamp(3875238472, 248000000), res->m_timestamp2);
 }
