@@ -597,4 +597,16 @@ public class CatalogUtils {
         throw new CatalogValidationException(
                 format("Default of unsupported kind: [col={}, defaultType={}]", columnName, defaultValue.type));
     }
+
+    /**
+     * Check if provided column type can be persisted, or fail otherwise.
+     */
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-15200
+    //  Remove this after interval type support is added.
+    static void ensureTypeCanBeStored(String columnName, ColumnType columnType) {
+        if (columnType == ColumnType.PERIOD || columnType == ColumnType.DURATION) {
+            throw new CatalogValidationException(
+                    format("Column of type '{}' cannot be persisted [col={}].", columnType, columnName));
+        }
+    }
 }

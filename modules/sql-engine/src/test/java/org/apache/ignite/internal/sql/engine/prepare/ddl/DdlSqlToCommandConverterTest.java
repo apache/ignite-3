@@ -96,6 +96,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestFactory;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mockito;
 
@@ -302,6 +303,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
     }
 
     @TestFactory
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15200")
     public Stream<DynamicTest> numericDefaultWithIntervalTypes() {
         List<DynamicTest> testItems = new ArrayList<>();
         PlanningContext ctx = createContext();
@@ -338,6 +340,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
     }
 
     @TestFactory
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15200")
     public Stream<DynamicTest> nonIntervalDefaultsWithIntervalTypes() {
         List<DynamicTest> testItems = new ArrayList<>();
         PlanningContext ctx = createContext();
@@ -665,6 +668,70 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
         );
 
         assertThat(ex.getMessage(), containsString("String cannot be empty"));
+    }
+
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-15200
+    //  Remove this after interval type support is added.
+    @ParameterizedTest
+    @MethodSource("intervalTypeNames")
+    public void testCreateTableDoNotAllowIntervalTypes(SqlTypeName sqlTypeName) throws SqlParseException {
+        String typeName = intervalSqlName(sqlTypeName);
+        String error = format("Type {} cannot be used in a column definition [column=P].", sqlTypeName.getSpaceName());
+        
+        {
+            var node = parse(format("CREATE TABLE t (id INTEGER PRIMARY KEY, p INTERVAL {})", typeName));
+            assertThat(node, instanceOf(SqlDdl.class));
+
+            assertThrowsSqlException(STMT_VALIDATION_ERR, error,
+                    () -> converter.convert((SqlDdl) node, createContext()));
+        }
+
+        {
+            var node = parse(format("CREATE TABLE t (id INTEGER PRIMARY KEY, p INTERVAL {} NOT NULL)", typeName));
+            assertThat(node, instanceOf(SqlDdl.class));
+
+            assertThrowsSqlException(STMT_VALIDATION_ERR, error,
+                    () -> converter.convert((SqlDdl) node, createContext()));
+        }
+    }
+
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-15200
+    //  Remove this after interval type support is added.
+    @ParameterizedTest
+    @MethodSource("intervalTypeNames")
+    public void testAlterTableNotAllowIntervalTypes(SqlTypeName sqlTypeName) throws SqlParseException {
+        String typeName = intervalSqlName(sqlTypeName);
+        String error = format("Type {} cannot be used in a column definition [column=P].", sqlTypeName.getSpaceName());
+        
+        {
+            var node = parse(format("ALTER TABLE t ADD COLUMN p INTERVAL {}", typeName));
+            assertThat(node, instanceOf(SqlDdl.class));
+            
+            assertThrowsSqlException(STMT_VALIDATION_ERR, error,
+                    () -> converter.convert((SqlDdl) node, createContext()));
+        }
+
+        {
+            var node = parse(format("ALTER TABLE t ADD COLUMN p INTERVAL {} NOT NULL", typeName));
+            assertThat(node, instanceOf(SqlDdl.class));
+
+            assertThrowsSqlException(STMT_VALIDATION_ERR, error,
+                    () -> converter.convert((SqlDdl) node, createContext()));
+        }
+    }
+
+    private static Set<SqlTypeName> intervalTypeNames() {
+        return INTERVAL_TYPES;
+    }
+    
+    private static String intervalSqlName(SqlTypeName intervalType) {
+        String typeName;
+        if (intervalType.getStartUnit() != intervalType.getEndUnit()) {
+            typeName = intervalType.getStartUnit().name() + " TO " + intervalType.getEndUnit().name();
+        } else {
+            typeName = intervalType.getStartUnit().name();
+        }
+        return typeName;
     }
 
     private static Matcher<CatalogTableColumnDescriptor> columnThat(String description,
