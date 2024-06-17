@@ -321,11 +321,18 @@ namespace Apache.Ignite.Internal.Table
         {
             options ??= DataStreamerOptions.Default;
 
-            var resultChannel = Channel.CreateBounded<TResult>(new BoundedChannelOptions(options.PageSize)
+            var resultChannelCapacity = options.PageSize;
+
+            Channel<TResult> resultChannel = Channel.CreateBounded<TResult>(new BoundedChannelOptions(resultChannelCapacity)
             {
+                // Backpressure - streamer will wait for results to be consumed before streaming more.
                 FullMode = BoundedChannelFullMode.Wait,
-                SingleReader = true, // One reader: resulting IAsyncEnumerable.
-                SingleWriter = false // Many writers: batches may complete in parallel.
+
+                // One reader: resulting IAsyncEnumerable.
+                SingleReader = true,
+
+                // Many writers: batches may complete in parallel.
+                SingleWriter = false
             });
 
             // Stream in background.
