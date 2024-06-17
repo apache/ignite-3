@@ -164,7 +164,7 @@ public class JobStatusImpl implements JobStatus {
          *
          * @param status Job status for copy.
          */
-        public Builder(JobStatus status) {
+        private Builder(JobStatus status) {
             this.id = status.id();
             this.state = status.state();
             this.createTime = status.createTime();
