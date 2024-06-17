@@ -120,6 +120,13 @@ public interface PageIdAllocator {
         return pageId;
     }
 
+    /**
+     * Replaces the "partition ID" part of the given page ID with given partition ID.
+     *
+     * @param pageId Original page ID.
+     * @param partId Partition id to insert.
+     * @return Page ID with replaced partition ID.
+     */
     private static long replacePartitionId(long pageId, int partId) {
         long partitionIdZeroMask = ~(PageIdUtils.PART_ID_MASK << PageIdUtils.PAGE_IDX_SIZE);
 
