@@ -105,11 +105,11 @@ SELECT CAST(CAST('1970-1-1' AS date) AS BOOLEAN)
 statement error: Cast function cannot convert value of type TIME(0) to type BOOLEAN
 SELECT CAST(CAST('00:00:00' AS time) AS BOOLEAN)
 
-statement error: Cast function cannot convert value of type TIME(9) to type BOOLEAN
-SELECT CAST(CAST('00:00:00.000000000' AS time(9)) AS BOOLEAN)
+statement error: Cast function cannot convert value of type TIME(3) to type BOOLEAN
+SELECT CAST(CAST('00:00:00.000' AS time(3)) AS BOOLEAN)
 
-statement error: Cast function cannot convert value of type TIMESTAMP(6) to type BOOLEAN
+statement error: Cast function cannot convert value of type TIMESTAMP(3) to type BOOLEAN
 SELECT CAST(CAST('1970-1-1 00:00:00' AS timestamp) AS BOOLEAN)
 
-statement error: Cast function cannot convert value of type TIMESTAMP(9) to type BOOLEAN
-SELECT CAST(CAST('1970-1-1 00:00:00.000000000' AS timestamp(9)) AS BOOLEAN)
+statement error: Cast function cannot convert value of type TIMESTAMP(3) to type BOOLEAN
+SELECT CAST(CAST('1970-1-1 00:00:00.000' AS timestamp(3)) AS BOOLEAN)

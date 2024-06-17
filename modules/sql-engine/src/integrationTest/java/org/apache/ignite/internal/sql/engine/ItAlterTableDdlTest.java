@@ -194,7 +194,7 @@ public class ItAlterTableDdlTest extends BaseSqlIntegrationTest {
                 .check();
     }
 
-    // TODO https://issues.apache.org/jira/browse/IGNITE-19162 Fix test to ensure time/timestamp columns created with desired precision.
+    // TODO https://issues.apache.org/jira/browse/IGNITE-22504 Fix test to ensure time/timestamp columns created with desired precision.
     @Test
     public void addColumnWithConstantDefault() {
         // // SQL Standard 2016 feature E141-07 - Basic integrity constraints. Column defaults

@@ -90,8 +90,8 @@ public class RowTest {
                 new Column("keyUuidCol", UUID, false),
                 new Column("keyDateCol", DATE, false),
                 new Column("keyTimeCol", time(0), false),
-                new Column("keyDateTimeCol", datetime(6), false),
-                new Column("keyTimeStampCol", timestamp(6), false),
+                new Column("keyDateTimeCol", datetime(3), false),
+                new Column("keyTimeStampCol", timestamp(3), false),
                 new Column("keyBitmask1Col", NativeTypes.bitmaskOf(4), false),
                 new Column("keyBitmask2Col", NativeTypes.bitmaskOf(22), false)
         };
@@ -107,8 +107,8 @@ public class RowTest {
                 new Column("valUuidCol", UUID, false),
                 new Column("valDateCol", DATE, false),
                 new Column("valTimeCol", time(0), false),
-                new Column("valDateTimeCol", datetime(6), false),
-                new Column("valTimeStampCol", timestamp(6), false),
+                new Column("valDateTimeCol", datetime(3), false),
+                new Column("valTimeStampCol", timestamp(3), false),
                 new Column("valBitmask1Col", NativeTypes.bitmaskOf(4), false),
                 new Column("valBitmask2Col", NativeTypes.bitmaskOf(22), false)
         };
@@ -132,8 +132,8 @@ public class RowTest {
                 new Column("keyUuidCol", UUID, false),
                 new Column("keyDateCol", DATE, false),
                 new Column("keyTimeCol", time(0), false),
-                new Column("keyDateTimeCol", datetime(6), false),
-                new Column("keyTimeStampCol", timestamp(6), false),
+                new Column("keyDateTimeCol", datetime(3), false),
+                new Column("keyTimeStampCol", timestamp(3), false),
                 new Column("keyBitmask1Col", NativeTypes.bitmaskOf(4), false),
                 new Column("keyBitmask2Col", NativeTypes.bitmaskOf(22), false),
         };
@@ -149,8 +149,8 @@ public class RowTest {
                 new Column("valUuidCol", UUID, true),
                 new Column("valDateCol", DATE, true),
                 new Column("valTimeCol", time(0), true),
-                new Column("valDateTimeCol", datetime(6), true),
-                new Column("valTimeStampCol", timestamp(6), true),
+                new Column("valDateTimeCol", datetime(3), true),
+                new Column("valTimeStampCol", timestamp(3), true),
                 new Column("valBitmask1Col", NativeTypes.bitmaskOf(4), true),
                 new Column("valBitmask2Col", NativeTypes.bitmaskOf(22), true),
         };
@@ -168,7 +168,7 @@ public class RowTest {
                 new Column("keyShortCol", INT16, false),
                 new Column("keyIntCol", INT32, false),
                 new Column("keyLongCol", INT64, false),
-                new Column("keyDateTimeCol", datetime(6), false),
+                new Column("keyDateTimeCol", datetime(3), false),
                 new Column("keyBytesCol", BYTES, false),
                 new Column("keyStringCol", STRING, false),
                 new Column("keyNumberCol", NativeTypes.numberOf(9), false),
@@ -180,7 +180,7 @@ public class RowTest {
                 new Column("valShortCol", INT16, true),
                 new Column("valIntCol", INT32, true),
                 new Column("valLongCol", INT64, true),
-                new Column("valDateTimeCol", datetime(6), true),
+                new Column("valDateTimeCol", datetime(3), true),
                 new Column("valBytesCol", BYTES, true),
                 new Column("valStringCol", STRING, true),
                 new Column("valNumberCol", NativeTypes.numberOf(9), true),
@@ -198,19 +198,19 @@ public class RowTest {
         Column[] keyCols = new Column[]{
                 new Column("keyTimestampCol1", timestamp(0), false),
                 new Column("keyTimestampCol2", timestamp(1), false),
-                new Column("keyTimestampCol3", timestamp(4), false),
-                new Column("keyTimestampCol4", timestamp(9), false),
+                new Column("keyTimestampCol3", timestamp(2), false),
+                new Column("keyTimestampCol4", timestamp(3), false),
         };
 
         Column[] valCols = new Column[]{
                 new Column("valDateTimeCol1", datetime(0), false),
                 new Column("valDateTimeCol2", datetime(1), true),
-                new Column("valDateTimeCol3", datetime(4), false),
-                new Column("valDateTimeCol4", datetime(9), true),
+                new Column("valDateTimeCol3", datetime(2), false),
+                new Column("valDateTimeCol4", datetime(3), true),
                 new Column("valTimeCol1", time(0), true),
                 new Column("valTimeCol2", time(1), true),
-                new Column("valTimeCol3", time(4), false),
-                new Column("valTimeCol4", time(9), false),
+                new Column("valTimeCol3", time(2), false),
+                new Column("valTimeCol4", time(3), false),
         };
 
         checkSchema(keyCols, valCols);

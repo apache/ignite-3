@@ -227,7 +227,7 @@ public class JoinWithUsingPlannerTest extends AbstractPlannerTest {
 
         List<TypeArg> types1 = Arrays.stream(ColumnType.values())
                 .filter(c -> !unsupportedTypes.contains(c))
-                .map(c -> TypeUtils.columnType2NativeType(c, 5, 2, 5))
+                .map(c -> TypeUtils.columnType2NativeType(c, 3, 2, 3))
                 .map(TypeArg::new)
                 .collect(Collectors.toList());
 

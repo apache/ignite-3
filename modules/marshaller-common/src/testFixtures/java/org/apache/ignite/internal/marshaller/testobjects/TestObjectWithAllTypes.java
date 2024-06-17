@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.marshaller.testobjects;
 
-import static org.apache.ignite.internal.util.TemporalTypeUtils.normalizeNanos;
-
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.time.Instant;
@@ -66,8 +64,7 @@ public class TestObjectWithAllTypes {
         obj.dateCol = LocalDate.ofYearDay(1990 + rnd.nextInt(50), 1 + rnd.nextInt(360));
         obj.timeCol = LocalTime.of(rnd.nextInt(24), rnd.nextInt(60));
         obj.dateTimeCol = LocalDateTime.of(obj.dateCol, obj.timeCol);
-        obj.timestampCol = Instant.ofEpochMilli(rnd.nextLong()).truncatedTo(ChronoUnit.SECONDS)
-                .plusNanos(normalizeNanos(rnd.nextInt(1_000_000_000), 6));
+        obj.timestampCol = Instant.ofEpochMilli(rnd.nextLong()).truncatedTo(ChronoUnit.SECONDS);
 
         obj.stringCol = IgniteTestUtils.randomString(rnd, rnd.nextInt(255));
         obj.bytesCol = IgniteTestUtils.randomBytes(rnd, rnd.nextInt(255));

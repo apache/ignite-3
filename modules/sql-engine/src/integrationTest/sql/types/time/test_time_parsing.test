@@ -1,0 +1,104 @@
+# name: test/sql/types/time/time_parsing.test
+# description: Test time parsing
+# group: [time]
+# note: according to SQL standard default TIME precision is 0 (Sql 2011 Part 2 Section 6.1 syntax rule 34)
+
+statement ok
+PRAGMA enable_verification
+
+query I
+SELECT '14:42:04'::TIME::VARCHAR
+----
+14:42:04
+
+# milliseconds
+query I
+SELECT '14:42:04.35'::TIME(2)::VARCHAR
+----
+14:42:04.35
+
+query I
+SELECT '14:42:04.999'::TIME(3)::VARCHAR
+----
+14:42:04.999
+
+# trailing zeros get truncated
+query I
+SELECT '14:42:04.990'::TIME(2)::VARCHAR
+----
+14:42:04.99
+
+# TODO https://issues.apache.org/jira/browse/IGNITE-22504 Support sub-millisecond precision
+skipif ignite3
+query I
+SELECT '14:42:04'::TIME::VARCHAR
+----
+14:42:04
+
+# TODO https://issues.apache.org/jira/browse/IGNITE-22504 Support sub-millisecond precision
+# microseconds
+skipif ignite3
+query I
+SELECT '14:42:04.35'::TIME::VARCHAR
+----
+14:42:04.35
+
+# TODO https://issues.apache.org/jira/browse/IGNITE-22504 Support sub-millisecond precision
+skipif ignite3
+# we support up until microsecond precision (max 0-999999)
+query I
+SELECT '14:42:04.999999'::TIME::VARCHAR
+----
+14:42:04.999999
+
+# TODO https://issues.apache.org/jira/browse/IGNITE-22504 Support sub-millisecond precision
+# microseconds
+skipif ignite3
+# nanosecond precision gets truncated
+query I
+SELECT '14:42:04.999999999'::TIME::VARCHAR
+----
+14:42:04.999999
+
+# trailing zeros get truncated
+query I
+SELECT '14:42:04.000000'::TIME::VARCHAR
+----
+14:42:04
+
+# Default time precision is 0 
+query I
+SELECT '14:42:04.500'::TIME::VARCHAR
+----
+14:42:04
+
+# TODO https://issues.apache.org/jira/browse/IGNITE-15619 Invalid time format
+# out of range
+skipif ignite3
+statement error
+SELECT '50:42:04.500'::TIME::VARCHAR
+
+# TODO https://issues.apache.org/jira/browse/IGNITE-15619 Invalid time format
+skipif ignite3
+statement error
+SELECT '100:42:04.500'::TIME::VARCHAR
+
+# TODO https://issues.apache.org/jira/browse/IGNITE-15619 Invalid time format
+skipif ignite3
+statement error
+SELECT '14:70:04.500'::TIME::VARCHAR
+
+# TODO https://issues.apache.org/jira/browse/IGNITE-15619 Invalid time format
+skipif ignite3
+statement error
+SELECT '14:100:04.500'::TIME::VARCHAR
+
+# TODO https://issues.apache.org/jira/browse/IGNITE-15619 Invalid time format
+skipif ignite3
+statement error
+SELECT '14:42:70.500'::TIME::VARCHAR
+
+# TODO https://issues.apache.org/jira/browse/IGNITE-15619 Invalid time format
+# invalid separator
+statement error
+SELECT '14-42-04'::TIME::VARCHAR

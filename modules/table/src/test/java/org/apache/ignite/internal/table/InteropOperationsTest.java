@@ -110,7 +110,7 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
                 NativeTypes.BOOLEAN,
                 NativeTypes.INT8, NativeTypes.INT16, NativeTypes.INT32, NativeTypes.INT64,
                 NativeTypes.FLOAT, NativeTypes.DOUBLE, NativeTypes.UUID, NativeTypes.STRING,
-                NativeTypes.BYTES, NativeTypes.DATE, NativeTypes.time(0), NativeTypes.timestamp(4), NativeTypes.datetime(4),
+                NativeTypes.BYTES, NativeTypes.DATE, NativeTypes.time(0), NativeTypes.timestamp(2), NativeTypes.datetime(2),
                 NativeTypes.numberOf(2), NativeTypes.decimalOf(5, 2), NativeTypes.bitmaskOf(8)
         };
 
@@ -407,9 +407,9 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
                 res.set(colName, LocalDate.ofYearDay(2021, id));
             } else if (NativeTypes.time(0).equals(type)) {
                 res.set(colName, LocalTime.ofSecondOfDay(id));
-            } else if (NativeTypes.datetime(6).equals(type)) {
+            } else if (NativeTypes.datetime(3).equals(type)) {
                 res.set(colName, LocalDateTime.ofEpochSecond(id, 0, ZoneOffset.UTC));
-            } else if (NativeTypes.timestamp(6).equals(type)) {
+            } else if (NativeTypes.timestamp(3).equals(type)) {
                 res.set(colName, Instant.ofEpochSecond(id));
             } else if (NativeTypes.numberOf(2).equals(type)) {
                 res.set(colName, BigInteger.valueOf(id));
@@ -474,9 +474,9 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
                 assertEquals(expected.dateValue(colName), t.dateValue(colName));
             } else if (NativeTypes.time(0).equals(type)) {
                 assertEquals(expected.timeValue(colName), t.timeValue(colName));
-            } else if (NativeTypes.datetime(6).equals(type)) {
+            } else if (NativeTypes.datetime(3).equals(type)) {
                 assertEquals(expected.datetimeValue(colName), t.datetimeValue(colName));
-            } else if (NativeTypes.timestamp(6).equals(type)) {
+            } else if (NativeTypes.timestamp(3).equals(type)) {
                 assertEquals(expected.timestampValue(colName), expected.timestampValue(colName));
             } else if (NativeTypes.numberOf(2).equals(type)) {
                 assertEquals((BigInteger) expected.value(colName), t.value(colName));

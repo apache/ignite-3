@@ -328,9 +328,9 @@ public class PlatformTestNodeRunner {
                         ColumnParams.builder().name("TIME").type(TIME).precision(maxTimePrecision).nullable(true).build(),
                         ColumnParams.builder().name("TIME2").type(TIME).precision(2).nullable(true).build(),
                         ColumnParams.builder().name("DATETIME").type(DATETIME).precision(maxTimePrecision).nullable(true).build(),
-                        ColumnParams.builder().name("DATETIME2").type(DATETIME).precision(3).nullable(true).build(),
+                        ColumnParams.builder().name("DATETIME2").type(DATETIME).precision(2).nullable(true).build(),
                         ColumnParams.builder().name("TIMESTAMP").type(TIMESTAMP).precision(maxTimePrecision).nullable(true).build(),
-                        ColumnParams.builder().name("TIMESTAMP2").type(TIMESTAMP).precision(4).nullable(true).build(),
+                        ColumnParams.builder().name("TIMESTAMP2").type(TIMESTAMP).precision(2).nullable(true).build(),
                         ColumnParams.builder().name("BLOB").type(BYTE_ARRAY).length(1000).nullable(true).build(),
                         ColumnParams.builder().name("DECIMAL").type(DECIMAL).precision(19).scale(3).nullable(true).build(),
                         ColumnParams.builder().name("BOOLEAN").type(BOOLEAN).nullable(true).build()
@@ -465,20 +465,20 @@ public class PlatformTestNodeRunner {
 
         createTwoColumnTable(
                 ignite,
-                ColumnParams.builder().name("KEY").type(DATETIME).precision(6).build(),
-                ColumnParams.builder().name("VAL").type(DATETIME).precision(6).nullable(true).build()
+                ColumnParams.builder().name("KEY").type(DATETIME).precision(3).build(),
+                ColumnParams.builder().name("VAL").type(DATETIME).precision(3).nullable(true).build()
         );
 
         createTwoColumnTable(
                 ignite,
-                ColumnParams.builder().name("KEY").type(TIME).precision(6).build(),
-                ColumnParams.builder().name("VAL").type(TIME).precision(6).nullable(true).build()
+                ColumnParams.builder().name("KEY").type(TIME).precision(3).build(),
+                ColumnParams.builder().name("VAL").type(TIME).precision(3).nullable(true).build()
         );
 
         createTwoColumnTable(
                 ignite,
-                ColumnParams.builder().name("KEY").type(TIMESTAMP).precision(6).build(),
-                ColumnParams.builder().name("VAL").type(TIMESTAMP).precision(6).nullable(true).build()
+                ColumnParams.builder().name("KEY").type(TIMESTAMP).precision(3).build(),
+                ColumnParams.builder().name("VAL").type(TIMESTAMP).precision(3).nullable(true).build()
         );
 
         createTwoColumnTable(

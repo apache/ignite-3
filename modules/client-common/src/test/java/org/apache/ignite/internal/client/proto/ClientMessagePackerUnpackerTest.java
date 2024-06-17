@@ -45,9 +45,12 @@ public class ClientMessagePackerUnpackerTest {
     private final Random rnd = new Random();
 
     /** Args of all types. */
-    private final Object[] argsAllTypes = new Object[]{(byte) 4, (short) 8, 15, 16L, 23.0f, 42.0d, "TEST_STRING", null, UUID.randomUUID(),
-            LocalTime.now(), LocalDate.now(), LocalDateTime.now(), Instant.now(), Period.of(1, 2, 3),
-            Duration.of(1, ChronoUnit.DAYS)};
+    private final Object[] argsAllTypes = {(byte) 4, (short) 8, 15, 16L, 23.0f, 42.0d, "TEST_STRING", null, UUID.randomUUID(),
+            LocalTime.now().truncatedTo(ChronoUnit.MILLIS), LocalDate.now(), 
+            LocalDateTime.now().truncatedTo(ChronoUnit.MILLIS), Instant.now().truncatedTo(ChronoUnit.MILLIS), 
+            Period.of(1, 2, 3),
+            Duration.of(1, ChronoUnit.DAYS)
+    };
 
     @Test
     public void testPackerCloseReleasesPooledBuffer() {

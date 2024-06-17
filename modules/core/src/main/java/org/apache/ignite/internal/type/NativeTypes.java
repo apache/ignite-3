@@ -23,6 +23,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.BitSet;
+import org.apache.ignite.internal.util.TemporalTypeUtils;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.Nullable;
 
@@ -35,7 +36,7 @@ public class NativeTypes {
      *
      * <p>SQL`16 part 2 section 6.1 syntax rule 38
      */
-    public static final int MAX_TIME_PRECISION = 9;
+    public static final int MAX_TIME_PRECISION = 3;
 
     /**
      * BOOLEAN type.
@@ -89,6 +90,11 @@ public class NativeTypes {
 
     /** Timezone-free three-part value representing a year, month, and day. */
     public static final NativeType DATE = new NativeType(NativeTypeSpec.DATE, 3);
+
+    /**
+     * Nanosecond time precision.
+     */
+    private static final int NANO_TIME_PRECISION = 9;
 
     /** Don't allow to create an instance. */
     private NativeTypes() {
@@ -254,7 +260,9 @@ public class NativeTypes {
         }
     }
 
-    private static int derivePrecisionFromNanos(int nanos) {
+    private static int derivePrecisionFromNanos(int value) {
+        int nanos = TemporalTypeUtils.normalizeNanos(value, 3);
+
         if (nanos == 0) {
             return 0;
         }
@@ -265,6 +273,7 @@ public class NativeTypes {
             nanos /= 10;
         }
 
-        return MAX_TIME_PRECISION - trailingZeroes;
+        return NANO_TIME_PRECISION - trailingZeroes;
     }
+
 }

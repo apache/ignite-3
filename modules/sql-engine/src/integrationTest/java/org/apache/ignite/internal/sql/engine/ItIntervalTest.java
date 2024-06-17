@@ -84,7 +84,7 @@ public class ItIntervalTest extends BaseSqlIntegrationTest {
 
         assertEquals(Duration.ofSeconds(123), eval("INTERVAL '123' SECONDS"));
         assertEquals(Duration.ofMillis(123987), eval("INTERVAL '123.987' SECONDS"));
-        // TODO: uncomment after IGNITE-19162
+        // TODO: uncomment after https://issues.apache.org/jira/browse/IGNITE-22504
         // assertEquals(Duration.ofMillis(123987654), eval("INTERVAL '123.987654' SECONDS"));
 
         // Interval range overflow

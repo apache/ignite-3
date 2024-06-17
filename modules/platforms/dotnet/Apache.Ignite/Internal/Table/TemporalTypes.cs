@@ -29,7 +29,7 @@ internal static class TemporalTypes
     /// <summary>
     /// Max <see cref="ColumnType.Time"/> type precision.
     /// </summary>
-    public const int MaxTimePrecision = 9;
+    public const int MaxTimePrecision = 3;
 
     /// <summary>
     /// Normalize nanoseconds regarding the precision.

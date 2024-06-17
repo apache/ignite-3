@@ -91,10 +91,10 @@ public class InlineUtilsTest extends BaseIgniteAbstractTest {
         assertEquals(4, inlineSize(nativeType = NativeTypes.time(0)));
         nativeTypeSpecs.remove(nativeType.spec());
 
-        assertEquals(9, inlineSize(nativeType = NativeTypes.datetime(6)));
+        assertEquals(7, inlineSize(nativeType = NativeTypes.datetime(3)));
         nativeTypeSpecs.remove(nativeType.spec());
 
-        assertEquals(12, inlineSize(nativeType = NativeTypes.timestamp(6)));
+        assertEquals(12, inlineSize(nativeType = NativeTypes.timestamp(3)));
         nativeTypeSpecs.remove(nativeType.spec());
 
         // Variable length type checking.

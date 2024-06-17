@@ -63,10 +63,10 @@ public class RuntimeSortedIndexTest extends IgniteAbstractTest {
             new Pair(new NativeType[]{NativeTypes.INT32, NativeTypes.STRING, NativeTypes.INT32}, ImmutableIntList.of(1)),
             new Pair(new NativeType[]{NativeTypes.INT32, NativeTypes.DATE, NativeTypes.INT32}, ImmutableIntList.of(1)),
             new Pair(new NativeType[]{NativeTypes.INT32, NativeTypes.time(0), NativeTypes.INT32}, ImmutableIntList.of(1)),
-            new Pair(new NativeType[]{NativeTypes.INT32, NativeTypes.datetime(6), NativeTypes.INT32}, ImmutableIntList.of(1)),
-            new Pair(new NativeType[]{NativeTypes.INT32, NativeTypes.timestamp(6), NativeTypes.INT32}, ImmutableIntList.of(1)),
+            new Pair(new NativeType[]{NativeTypes.INT32, NativeTypes.datetime(3), NativeTypes.INT32}, ImmutableIntList.of(1)),
+            new Pair(new NativeType[]{NativeTypes.INT32, NativeTypes.timestamp(3), NativeTypes.INT32}, ImmutableIntList.of(1)),
             new Pair(new NativeType[]{NativeTypes.INT32, NativeTypes.STRING, NativeTypes.time(0),
-                    NativeTypes.DATE, NativeTypes.datetime(6), NativeTypes.INT32}, ImmutableIntList.of(1, 2, 3, 4))
+                    NativeTypes.DATE, NativeTypes.datetime(3), NativeTypes.INT32}, ImmutableIntList.of(1, 2, 3, 4))
     };
 
     /** Search count. */

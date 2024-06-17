@@ -25,6 +25,7 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.time.Duration;
 import java.time.Period;
+import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.Set;
 import java.util.function.Function;
@@ -176,9 +177,9 @@ public class ClientTupleTest extends AbstractMutableTupleTest {
         assertEquals(BITSET_VALUE, tuple.bitmaskValue("bits"));
 
         assertEquals(DATE_VALUE, tuple.dateValue("date"));
-        assertEquals(TIME_VALUE, tuple.timeValue("time"));
-        assertEquals(DATETIME_VALUE, tuple.datetimeValue("datetime"));
-        assertEquals(TIMESTAMP_VALUE, tuple.timestampValue("timestamp"));
+        assertEquals(TIME_VALUE.truncatedTo(ChronoUnit.MILLIS), tuple.timeValue("time").truncatedTo(ChronoUnit.MILLIS));
+        assertEquals(DATETIME_VALUE.truncatedTo(ChronoUnit.MILLIS), tuple.datetimeValue("datetime").truncatedTo(ChronoUnit.MILLIS));
+        assertEquals(TIMESTAMP_VALUE.truncatedTo(ChronoUnit.MILLIS), tuple.timestampValue("timestamp").truncatedTo(ChronoUnit.MILLIS));
     }
 
     @SuppressWarnings("ThrowableNotThrown")
@@ -250,9 +251,9 @@ public class ClientTupleTest extends AbstractMutableTupleTest {
                 .set("UUID", UUID_VALUE)
                 .set("BITS", BITSET_VALUE)
                 .set("DATE", DATE_VALUE)
-                .set("TIME", TIME_VALUE)
-                .set("DATETIME", DATETIME_VALUE)
-                .set("TIMESTAMP", TIMESTAMP_VALUE)
+                .set("TIME", TIME_VALUE.truncatedTo(ChronoUnit.MILLIS))
+                .set("DATETIME", DATETIME_VALUE.truncatedTo(ChronoUnit.MILLIS))
+                .set("TIMESTAMP", TIMESTAMP_VALUE.truncatedTo(ChronoUnit.MILLIS))
                 .set("BOOL", true)
                 .set("DECIMAL", BigDecimal.valueOf(1.234))
                 .set("BYTES", BYTE_ARRAY_VALUE)

@@ -277,7 +277,7 @@ public class FakeIgniteTables implements IgniteTablesInternal {
                         new Column("zdouble".toUpperCase(), NativeTypes.DOUBLE, true),
                         new Column("zdate".toUpperCase(), NativeTypes.DATE, true),
                         new Column("ztime".toUpperCase(), NativeTypes.time(0), true),
-                        new Column("ztimestamp".toUpperCase(), NativeTypes.timestamp(6), true),
+                        new Column("ztimestamp".toUpperCase(), NativeTypes.timestamp(3), true),
                         new Column("zstring".toUpperCase(), NativeTypes.STRING, true),
                         new Column("zbytes".toUpperCase(), NativeTypes.BYTES, true),
                         new Column("zuuid".toUpperCase(), NativeTypes.UUID, true),

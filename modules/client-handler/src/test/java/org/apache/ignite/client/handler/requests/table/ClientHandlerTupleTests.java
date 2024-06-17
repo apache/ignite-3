@@ -38,6 +38,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Month;
+import java.time.temporal.ChronoUnit;
 import java.util.Random;
 import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
@@ -185,9 +186,9 @@ public class ClientHandlerTupleTests {
                 .set("valDoubleCol", 0.066d)
                 .set("keyUuidCol", GUID)
                 .set("valDateCol", DATE)
-                .set("valDateTimeCol", DATE_TIME)
-                .set("valTimeCol", TIME)
-                .set("valTimeStampCol", TIMESTAMP)
+                .set("valDateTimeCol", DATE_TIME.truncatedTo(ChronoUnit.MILLIS))
+                .set("valTimeCol", TIME.truncatedTo(ChronoUnit.MILLIS))
+                .set("valTimeStampCol", TIMESTAMP.truncatedTo(ChronoUnit.MILLIS))
                 .set("valBitmask1Col", IgniteTestUtils.randomBitSet(rnd, 12))
                 .set("valBytesCol", IgniteTestUtils.randomBytes(rnd, 13))
                 .set("valStringCol", IgniteTestUtils.randomString(rnd, 14))
