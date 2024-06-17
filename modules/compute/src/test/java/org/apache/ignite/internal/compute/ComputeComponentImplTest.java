@@ -68,7 +68,6 @@ import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.JobState;
-import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
@@ -316,7 +315,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
 
     private void respondWithJobStatusResponseWhenJobStatusRequestIsSent(UUID jobId, JobState jobState) {
         JobStatusResponse jobStatusResponse = new ComputeMessagesFactory().jobStatusResponse()
-                .status(JobStatus.builder().id(jobId).state(jobState).createTime(Instant.now()).build())
+                .status(JobStatusImpl.builder().id(jobId).state(jobState).createTime(Instant.now()).build())
                 .build();
         when(messagingService.invoke(any(ClusterNode.class), argThat(msg -> jobStatusRequestWithJobId(msg, jobId)), anyLong()))
                 .thenReturn(completedFuture(jobStatusResponse));

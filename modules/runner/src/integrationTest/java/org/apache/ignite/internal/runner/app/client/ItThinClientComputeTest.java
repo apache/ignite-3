@@ -76,9 +76,9 @@ import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionContext;
-import org.apache.ignite.compute.TaskExecution;
-import org.apache.ignite.compute.task.ComputeJobRunner;
+import org.apache.ignite.compute.task.MapReduceJob;
 import org.apache.ignite.compute.task.MapReduceTask;
+import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.compute.task.TaskExecutionContext;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
@@ -804,9 +804,9 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     private static class MapReduceNodeNameTask implements MapReduceTask<String> {
         @Override
-        public List<ComputeJobRunner> split(TaskExecutionContext context, Object... args) {
+        public List<MapReduceJob> split(TaskExecutionContext context, Object... args) {
             return context.ignite().clusterNodes().stream()
-                    .map(node -> ComputeJobRunner.builder()
+                    .map(node -> MapReduceJob.builder()
                             .jobDescriptor(JobDescriptor.builder(NodeNameJob.class).build())
                             .nodes(Set.of(node))
                             .args(args)
@@ -824,9 +824,9 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     private static class MapReduceArgsTask implements MapReduceTask<String> {
         @Override
-        public List<ComputeJobRunner> split(TaskExecutionContext context, Object... args) {
+        public List<MapReduceJob> split(TaskExecutionContext context, Object... args) {
             return context.ignite().clusterNodes().stream()
-                    .map(node -> ComputeJobRunner.builder()
+                    .map(node -> MapReduceJob.builder()
                             .jobDescriptor(JobDescriptor.builder(ConcatJob.class).build())
                             .nodes(Set.of(node))
                             .args(args)
@@ -844,7 +844,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     private static class MapReduceExceptionOnSplitTask implements MapReduceTask<String> {
         @Override
-        public List<ComputeJobRunner> split(TaskExecutionContext context, Object... args) {
+        public List<MapReduceJob> split(TaskExecutionContext context, Object... args) {
             throw new CustomException(TRACE_ID, COLUMN_ALREADY_EXISTS_ERR, "Custom job error", null);
         }
 
@@ -857,9 +857,9 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     private static class MapReduceExceptionOnReduceTask implements MapReduceTask<String> {
 
         @Override
-        public List<ComputeJobRunner> split(TaskExecutionContext context, Object... args) {
+        public List<MapReduceJob> split(TaskExecutionContext context, Object... args) {
             return context.ignite().clusterNodes().stream()
-                    .map(node -> ComputeJobRunner.builder()
+                    .map(node -> MapReduceJob.builder()
                             .jobDescriptor(JobDescriptor.builder(NodeNameJob.class).build())
                             .nodes(Set.of(node))
                             .args(args)
