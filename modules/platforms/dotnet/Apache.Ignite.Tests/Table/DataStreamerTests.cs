@@ -714,13 +714,6 @@ public class DataStreamerTests : IgniteTestsBase
     }
 
     [Test]
-    public async Task TestResultAsyncEnumerableBackpressure()
-    {
-        await Task.Delay(1);
-        Assert.Fail("TODO");
-    }
-
-    [Test]
     public async Task TestResultConsumerEarlyExit()
     {
         IAsyncEnumerable<string> results = PocoView.StreamDataAsync<int, string, string>(
