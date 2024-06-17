@@ -659,7 +659,7 @@ namespace Apache.Ignite.Tests.Table
                 BitMask: new BitArray(new byte[] { 1 }),
                 Time: dt.TimeOfDay,
                 DateTime: dt,
-                Timestamp: Instant.FromDateTimeUtc(DateTime.UtcNow),
+                Timestamp: TestUtils.TruncateInstantToMillis(Instant.FromDateTimeUtc(DateTime.UtcNow)),
                 Blob: new byte[] { 1, 2, 3 },
                 Decimal: 123.456m,
                 Boolean: true);

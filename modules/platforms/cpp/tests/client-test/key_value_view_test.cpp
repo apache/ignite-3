@@ -805,10 +805,10 @@ TEST_F(key_value_view_test, types_test) {
     inserted.m_bitmask = bit_array{16, true};
     inserted.m_time = {17, 4, 12, 3543634};
     inserted.m_time2 = {17, 4, 12, 3543634};
-    inserted.m_datetime = {{2020, 7, 28}, {2, 15, 52, 6349879}};
-    inserted.m_datetime2 = {{2020, 7, 28}, {2, 15, 52, 6349879}};
-    inserted.m_timestamp = {3875238472, 248760634};
-    inserted.m_timestamp2 = {3875238472, 248760634};
+    inserted.m_datetime = {{2020, 7, 28}, {2, 15, 52, 634000000}};
+    inserted.m_datetime2 = {{2020, 7, 28}, {2, 15, 52, 634000000}};
+    inserted.m_timestamp = {3875238472, 248000000};
+    inserted.m_timestamp2 = {3875238472, 248000000};
     inserted.m_blob = {std::byte(1), std::byte(2), std::byte(42)};
     inserted.m_decimal = big_decimal{123456789098765};
     inserted.m_boolean = true;
