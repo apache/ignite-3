@@ -164,7 +164,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
             boolean initNew = false;
 
             if (meta.freeListRootPageId() == 0) {
-                long rootPageId = pageMemory.allocatePage(getTableId(), partId, FLAG_AUX);
+                long rootPageId = pageMemory.allocatePageNoReuse(getTableId(), partId, FLAG_AUX);
 
                 meta.freeListRootPageId(lastCheckpointId(), rootPageId);
 

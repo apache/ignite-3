@@ -274,7 +274,7 @@ class IndexStorageFactory {
         try {
             PageMemory pageMemory = tableStorage.dataRegion().pageMemory();
 
-            long metaPageId = pageMemory.allocatePage(tableStorage.getTableId(), partitionId, PageIdAllocator.FLAG_AUX);
+            long metaPageId = pageMemory.allocatePageNoReuse(tableStorage.getTableId(), partitionId, PageIdAllocator.FLAG_AUX);
 
             T tree = treeConstructor.createTree(metaPageId);
 

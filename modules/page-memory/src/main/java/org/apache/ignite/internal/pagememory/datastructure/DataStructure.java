@@ -165,7 +165,7 @@ public abstract class DataStructure implements ManuallyCloseable {
      * @throws IgniteInternalCheckedException If failed.
      */
     protected long allocatePageNoReuse() throws IgniteInternalCheckedException {
-        return pageMem.allocatePage(grpId, partId, defaultPageFlag);
+        return pageMem.allocatePageNoReuse(grpId, partId, defaultPageFlag);
     }
 
     /**

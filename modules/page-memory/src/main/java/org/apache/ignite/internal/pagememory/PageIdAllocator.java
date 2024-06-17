@@ -49,18 +49,18 @@ public interface PageIdAllocator {
     int MAX_PARTITION_ID = 65500;
 
     /**
-     * Allocates a page from the space for the given partition ID and the given flags.
+     * Allocates a page from the space for the given partition ID and the given flags. Does not reuse pages.
      *
      * @param groupId Group ID.
      * @param partitionId Partition ID.
      * @return Allocated page ID.
      */
-    long allocatePage(int groupId, int partitionId, byte flags) throws IgniteInternalCheckedException;
+    long allocatePageNoReuse(int groupId, int partitionId, byte flags) throws IgniteInternalCheckedException;
 
     /**
-     * Allocates a page from the space for the given partition ID and the given flags. If reuse list is provided, tries to recycle page.
+     * Allocates a page from the space for the given partition ID and the given flags. If reuse list is provided, tries to reuse page.
      *
-     * @param reuseList Reuse list to recycle pages from.
+     * @param reuseList Reuse list to reuse pages from.
      * @param groupId Group ID.
      * @param partitionId Partition ID.
      * @return Allocated page ID.
@@ -73,6 +73,9 @@ public interface PageIdAllocator {
     /**
      * Allocates a page from the space for the given partition ID and the given flags.
      *
+     * @param reuseList Reuse list to reuse pages from.
+     * @param bag Reuse Bag.
+     * @param useRecycled Use recycled page.
      * @param groupId Group ID.
      * @param partitionId Partition ID.
      * @return Allocated page ID.
@@ -105,7 +108,7 @@ public interface PageIdAllocator {
         }
 
         if (pageId == 0) {
-            pageId = allocatePage(groupId, partitionId, flags);
+            pageId = allocatePageNoReuse(groupId, partitionId, flags);
         }
 
         assert pageId != 0;
