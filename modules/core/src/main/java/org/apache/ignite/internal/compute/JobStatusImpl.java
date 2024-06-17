@@ -156,7 +156,7 @@ public class JobStatusImpl implements JobStatus {
         /**
          * Constructor.
          */
-        public Builder() {
+        private Builder() {
         }
 
         /**
