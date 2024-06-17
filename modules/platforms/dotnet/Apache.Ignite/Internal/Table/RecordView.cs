@@ -389,7 +389,7 @@ namespace Apache.Ignite.Internal.Table
                 }
                 catch (Exception e)
                 {
-                    resultChannel.Writer.Complete(e);
+                    resultChannel.Writer.TryComplete(e);
                 }
             }
         }

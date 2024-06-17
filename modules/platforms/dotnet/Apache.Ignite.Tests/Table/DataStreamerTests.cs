@@ -734,6 +734,7 @@ public class DataStreamerTests : IgniteTestsBase
 
         // Read only part of the results.
         var resultSet = await results.Take(3).ToListAsync();
+        Assert.AreEqual(3, resultSet.Count);
 
         for (int i = 0; i < Count; i++)
         {
@@ -743,13 +744,7 @@ public class DataStreamerTests : IgniteTestsBase
 
             Assert.IsTrue(res.HasValue, $"Key {i} not found");
             Assert.AreEqual(expectedVal, res.Value[ValCol]);
-
-            // TODO
-            // CollectionAssert.Contains(resultSet, expectedVal);
         }
-
-        // TODO
-        // Assert.AreEqual(Count, resultSet.Count);
     }
 
     [Test]
