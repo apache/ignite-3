@@ -19,7 +19,6 @@ namespace Apache.Ignite.Internal.Table
 {
     using System;
     using System.Collections.Generic;
-    using System.Diagnostics;
     using System.Diagnostics.CodeAnalysis;
     using System.Linq;
     using System.Threading;
@@ -321,7 +320,11 @@ namespace Apache.Ignite.Internal.Table
         {
             options ??= DataStreamerOptions.Default;
 
-            var resultChannelCapacity = options.PageSize;
+            // Validate before using for channel capacity.
+            DataStreamer.ValidateOptions(options);
+
+            // Double the page size to read the next page while the previous one is being consumed.
+            var resultChannelCapacity = options.PageSize * 2;
 
             Channel<TResult> resultChannel = Channel.CreateBounded<TResult>(new BoundedChannelOptions(resultChannelCapacity)
             {

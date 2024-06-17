@@ -179,7 +179,7 @@ public class DataStreamerTests : IgniteTestsBase
     }
 
     [Test]
-    public void TestOptionsValidation()
+    public void TestOptionsValidation([Values(true, false, null)] bool? withReceiverResults)
     {
         AssertException(DataStreamerOptions.Default with { PageSize = -10 }, "PageSize should be positive.");
         AssertException(DataStreamerOptions.Default with { RetryLimit = -1 }, "RetryLimit should be non-negative.");
@@ -190,7 +190,42 @@ public class DataStreamerTests : IgniteTestsBase
         void AssertException(DataStreamerOptions options, string message)
         {
             var ex = Assert.ThrowsAsync<ArgumentException>(
-                async () => await Table.RecordBinaryView.StreamDataAsync(Array.Empty<IIgniteTuple>().ToAsyncEnumerable(), options));
+                async () =>
+                {
+                    switch (withReceiverResults)
+                    {
+                        // No receiver.
+                        case null:
+                            await Table.RecordBinaryView.StreamDataAsync(Array.Empty<IIgniteTuple>().ToAsyncEnumerable(), options);
+                            break;
+
+                        // Receiver without results.
+                        case false:
+                            await Table.RecordBinaryView.StreamDataAsync<IIgniteTuple, string>(
+                                Array.Empty<IIgniteTuple>().ToAsyncEnumerable(),
+                                t => t,
+                                t => t.ToString()!,
+                                Array.Empty<DeploymentUnit>(),
+                                TestReceiverClassName,
+                                null,
+                                options);
+
+                            break;
+
+                        // Receiver with results.
+                        case true:
+                            await Table.RecordBinaryView.StreamDataAsync<IIgniteTuple, string, string>(
+                                Array.Empty<IIgniteTuple>().ToAsyncEnumerable(),
+                                t => t,
+                                t => t.ToString()!,
+                                Array.Empty<DeploymentUnit>(),
+                                TestReceiverClassName,
+                                null,
+                                options).ToListAsync();
+
+                            break;
+                    }
+                });
 
             StringAssert.Contains(message, ex?.Message);
         }
