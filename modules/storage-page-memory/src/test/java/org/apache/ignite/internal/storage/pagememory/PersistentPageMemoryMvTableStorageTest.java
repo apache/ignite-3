@@ -29,7 +29,6 @@ import java.nio.file.Path;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureProcessor;
-import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfiguration;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.AbstractMvTableStorageTest;
@@ -65,15 +64,6 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
             @InjectConfiguration("mock.profiles.default.engine = aipersist")
             StorageConfiguration storageConfiguration
     ) {
-        if (testInfo.getTags().contains(LOW_MEMORY_TAG)) {
-            PersistentPageMemoryProfileConfiguration profileConfig
-                    = (PersistentPageMemoryProfileConfiguration) storageConfiguration
-                    .profiles()
-                    .get("default");
-
-            assertThat(profileConfig.size().update(1024L), willCompleteSuccessfully());
-        }
-
         var ioRegistry = new PageIoRegistry();
 
         ioRegistry.loadFromServiceLoader();

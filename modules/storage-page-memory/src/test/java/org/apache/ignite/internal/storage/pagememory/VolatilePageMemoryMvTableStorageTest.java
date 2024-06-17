@@ -29,7 +29,6 @@ import java.nio.ByteBuffer;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
-import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileConfiguration;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -65,13 +64,6 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
             @InjectConfiguration("mock.profiles.default = {engine = \"aimem\"}")
             StorageConfiguration storageConfiguration
     ) {
-        if (testInfo.getTags().contains(LOW_MEMORY_TAG)) {
-            VolatilePageMemoryProfileConfiguration profileConfig
-                    = (VolatilePageMemoryProfileConfiguration) storageConfiguration.profiles().get("default");
-
-            assertThat(profileConfig.initSize().update(256 * 1024L), willCompleteSuccessfully());
-            assertThat(profileConfig.maxSize().update(256 * 1024L), willCompleteSuccessfully());
-        }
         var ioRegistry = new PageIoRegistry();
 
         ioRegistry.loadFromServiceLoader();
@@ -231,6 +223,18 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
         assertThat(tableStorage.destroy(), willSucceedFast());
 
         assertIndexDataDestructionCompletes(emptyIndexPagesBeforeDestroy);
+    }
+
+    @Test
+    public void testDestroyTablesNoLeakages() {
+        int limit = 100000;
+        for (int i = 1; i < limit; i++) {
+            MvTableStorage mvTableStorage = createMvTableStorage();
+
+            getOrCreateMvPartition(mvTableStorage, PARTITION_ID);
+
+            assertThat(mvTableStorage.destroy(), willCompleteSuccessfully());
+        }
     }
 
     private VolatilePageMemoryDataRegion dataRegion() {
