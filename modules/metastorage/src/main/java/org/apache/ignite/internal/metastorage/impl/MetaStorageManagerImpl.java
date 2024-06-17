@@ -436,6 +436,9 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
 
         metricManager.registerSource(metaStorageMetricSource);
 
+        idempotentCacheVacumizer = Executors.newSingleThreadScheduledExecutor(
+                NamedThreadFactory.create(clusterService.nodeName(), "idempotent-cache-cleanup-scheduler", LOG));
+
         return nullCompletedFuture();
     }
 
