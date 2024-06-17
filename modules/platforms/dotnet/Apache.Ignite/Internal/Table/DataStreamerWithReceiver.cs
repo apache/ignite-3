@@ -128,13 +128,11 @@ internal static class DataStreamerWithReceiver
                 }
             }
 
-            // Drain batches.
             await Drain().ConfigureAwait(false);
         }
         finally
         {
             flushCts.Cancel();
-
             foreach (var batch in batches.Values)
             {
                 GetPool<TPayload>().Return(batch.Items);
@@ -324,7 +322,6 @@ internal static class DataStreamerWithReceiver
 
             var expectResults = resultChannel != null;
             w.Write(expectResults);
-
             WriteReceiverPayload(ref w, receiverClassName, receiverArgs ?? Array.Empty<object>(), items);
         }
     }
