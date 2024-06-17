@@ -47,10 +47,11 @@ import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.compute.JobState;
 import org.apache.ignite.compute.JobStatus;
-import org.apache.ignite.compute.TaskExecution;
+import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.internal.compute.ComputeUtils;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.compute.JobExecutionContextImpl;
+import org.apache.ignite.internal.compute.JobStatusImpl;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.network.ClusterNode;
@@ -205,7 +206,7 @@ public class FakeCompute implements IgniteComputeInternal {
     private <R> JobExecution<R> jobExecution(CompletableFuture<R> result) {
         UUID jobId = UUID.randomUUID();
 
-        JobStatus status = JobStatus.builder()
+        JobStatus status = JobStatusImpl.builder()
                 .id(jobId)
                 .state(EXECUTING)
                 .createTime(Instant.now())
@@ -215,7 +216,7 @@ public class FakeCompute implements IgniteComputeInternal {
 
         result.whenComplete((r, throwable) -> {
             JobState state = throwable != null ? FAILED : COMPLETED;
-            JobStatus newStatus = status.toBuilder().id(jobId).state(state).finishTime(Instant.now()).build();
+            JobStatus newStatus = JobStatusImpl.toBuilder(status).state(state).finishTime(Instant.now()).build();
             statuses.put(jobId, newStatus);
         });
         return new JobExecution<>() {
@@ -243,7 +244,7 @@ public class FakeCompute implements IgniteComputeInternal {
 
     private <R> TaskExecution<R> taskExecution(CompletableFuture<R> result) {
         BiFunction<UUID, JobState, JobStatus> toStatus = (id, jobState) ->
-                JobStatus.builder()
+                JobStatusImpl.builder()
                         .id(id)
                         .state(jobState)
                         .createTime(Instant.now())

@@ -43,9 +43,10 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobState;
 import org.apache.ignite.compute.JobStatus;
-import org.apache.ignite.compute.task.ComputeJobRunner;
+import org.apache.ignite.compute.task.MapReduceJob;
 import org.apache.ignite.compute.task.MapReduceTask;
 import org.apache.ignite.compute.task.TaskExecutionContext;
+import org.apache.ignite.internal.compute.JobStatusImpl;
 import org.apache.ignite.internal.compute.queue.PriorityQueueExecutor;
 import org.apache.ignite.internal.compute.queue.QueueExecution;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -101,7 +102,7 @@ public class TaskExecutionInternal<R> implements JobExecution<R> {
         );
 
         executionsFuture = splitExecution.resultAsync().thenApply(splitResult -> {
-            List<ComputeJobRunner> runners = splitResult.runners();
+            List<MapReduceJob> runners = splitResult.runners();
             LOG.debug("Submitting {} jobs for {}", runners.size(), taskClass.getName());
             return submit(runners, jobSubmitter);
         });
@@ -126,12 +127,16 @@ public class TaskExecutionInternal<R> implements JobExecution<R> {
         if (throwable != null) {
             // Capture the reduce execution failure reason and time.
             JobState state = throwable instanceof CancellationException ? CANCELED : FAILED;
-            reduceFailedStatus.set(
-                    splitExecution.status().toBuilder()
-                            .state(state)
-                            .finishTime(Instant.now())
-                            .build()
-            );
+
+            JobStatus status = splitExecution.status();
+            if (status != null) {
+                reduceFailedStatus.set(
+                        JobStatusImpl.toBuilder(status)
+                                .state(state)
+                                .finishTime(Instant.now())
+                                .build()
+                );
+            }
         }
     }
 
@@ -160,7 +165,7 @@ public class TaskExecutionInternal<R> implements JobExecution<R> {
                     if (reduceStatus == null) {
                         return null;
                     }
-                    return reduceStatus.toBuilder()
+                    return JobStatusImpl.toBuilder(reduceStatus)
                             .id(splitStatus.id())
                             .createTime(splitStatus.createTime())
                             .startTime(splitStatus.startTime())
@@ -171,7 +176,7 @@ public class TaskExecutionInternal<R> implements JobExecution<R> {
         }
 
         // At this point split is complete but reduce job is not submitted yet.
-        return completedFuture(splitStatus.toBuilder()
+        return completedFuture(JobStatusImpl.toBuilder(splitStatus)
                 .state(EXECUTING)
                 .finishTime(null)
                 .build());
@@ -268,7 +273,7 @@ public class TaskExecutionInternal<R> implements JobExecution<R> {
         });
     }
 
-    private static <R> List<JobExecution<Object>> submit(List<ComputeJobRunner> runners, JobSubmitter jobSubmitter) {
+    private static <R> List<JobExecution<Object>> submit(List<MapReduceJob> runners, JobSubmitter jobSubmitter) {
         return runners.stream()
                 .map(jobSubmitter::submit)
                 .collect(toList());
@@ -277,14 +282,14 @@ public class TaskExecutionInternal<R> implements JobExecution<R> {
     private static class SplitResult<R> {
         private final MapReduceTask<R> task;
 
-        private final List<ComputeJobRunner> runners;
+        private final List<MapReduceJob> runners;
 
-        private SplitResult(MapReduceTask<R> task, List<ComputeJobRunner> runners) {
+        private SplitResult(MapReduceTask<R> task, List<MapReduceJob> runners) {
             this.task = task;
             this.runners = runners;
         }
 
-        private List<ComputeJobRunner> runners() {
+        private List<MapReduceJob> runners() {
             return runners;
         }
 

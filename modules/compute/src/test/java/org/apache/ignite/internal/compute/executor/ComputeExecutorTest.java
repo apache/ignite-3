@@ -121,7 +121,7 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
         public CompletableFuture<Integer> executeAsync(JobExecutionContext context, Object... args) {
             while (true) {
                 try {
-                    if (context.isInterrupted()) {
+                    if (context.isCancelled()) {
                         return completedFuture(0);
                     }
                     Thread.sleep(100);
