@@ -148,7 +148,7 @@ public class JobContextManager {
     }
 
     private CompletableFuture<List<DeploymentUnit>> normalizeVersions(List<DeploymentUnit> units) {
-        return mapList(units, this::normalizeVersion, CompletableFutures::allOf);
+        return mapList(units, this::normalizeVersion, CompletableFutures::allOfToList);
     }
 
     private CompletableFuture<Void> onDemandDeploy(List<DeploymentUnit> units) {
