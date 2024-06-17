@@ -54,7 +54,6 @@ else()
             msgpack-c
             URL https://github.com/msgpack/msgpack-c/releases/download/c-6.0.1/msgpack-c-6.0.1.tar.gz
             URL_HASH MD5=090df53a59b845767fcfc48221b30ee9
-            OVERRIDE_FIND_PACKAGE
     )
     FetchContent_GetProperties(msgpack-c)
     if(NOT msgpack-c_POPULATED)
@@ -67,7 +66,6 @@ else()
             mbedtls
             URL https://github.com/Mbed-TLS/mbedtls/releases/download/v3.6.0/mbedtls-3.6.0.tar.bz2
             URL_HASH MD5=6b5a45b10e7d1c768ecec69ecf8e7abd
-            OVERRIDE_FIND_PACKAGE
     )
     FetchContent_GetProperties(mbedtls)
     if(NOT mbedtls_POPULATED)
@@ -81,7 +79,6 @@ else()
                 googletest
                 URL https://github.com/google/googletest/archive/refs/tags/v1.14.0.tar.gz
                 URL_HASH MD5=c8340a482851ef6a3fe618a082304cfc
-                OVERRIDE_FIND_PACKAGE
         )
         FetchContent_GetProperties(googletest)
         if(NOT googletest_POPULATED)
