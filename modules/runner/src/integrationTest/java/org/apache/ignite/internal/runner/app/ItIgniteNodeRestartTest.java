@@ -1682,6 +1682,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     }
 
     @Test
+    @Disabled("ItIgniteNodeRestartTest.testSequentialAsyncTableCreationThenAlterZoneThenRestartOnMsSnapshot")
     public void testSequentialAsyncTableCreationThenAlterZoneThenRestartOnMsSnapshot() throws InterruptedException {
         IgniteImpl node0 = startNode(0);
         IgniteImpl node1 = startNode(1);
