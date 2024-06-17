@@ -49,7 +49,6 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInfo;
 
 /**
  * Tests for {@link VolatilePageMemoryTableStorage}.
@@ -59,7 +58,6 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
 
     @BeforeEach
     void setUp(
-            TestInfo testInfo,
             @InjectConfiguration VolatilePageMemoryStorageEngineConfiguration engineConfig,
             @InjectConfiguration("mock.profiles.default = {engine = \"aimem\"}")
             StorageConfiguration storageConfiguration
