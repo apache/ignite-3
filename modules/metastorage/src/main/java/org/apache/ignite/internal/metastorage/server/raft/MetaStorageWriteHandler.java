@@ -393,7 +393,7 @@ public class MetaStorageWriteHandler {
                         .map(commandId -> ArrayUtils.concat(new byte[]{}, ByteUtils.toBytes(commandId)))
                         .collect(toList());
 
-                storage.removeAll(commandIdStorageKeys, safeTime);
+                storage.removeAll(commandIdStorageKeys, null);
 
                 commandIdsToRemove.forEach(idempotentCommandCache.keySet()::remove);
             }
