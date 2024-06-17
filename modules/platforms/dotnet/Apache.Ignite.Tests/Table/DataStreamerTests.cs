@@ -720,6 +720,14 @@ public class DataStreamerTests : IgniteTestsBase
         Assert.Fail("TODO");
     }
 
+    [Test]
+    public async Task TestResultAsyncEnumerableCancellation()
+    {
+        // TODO: What should happen if I cancel or break the result enumeration?
+        await Task.Delay(1);
+        Assert.Fail("TODO");
+    }
+
     private static async IAsyncEnumerable<IIgniteTuple> GetFakeServerData(int count)
     {
         for (var i = 0; i < count; i++)
