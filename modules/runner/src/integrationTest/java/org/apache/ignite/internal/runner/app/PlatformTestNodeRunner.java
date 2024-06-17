@@ -790,18 +790,22 @@ public class PlatformTestNodeRunner {
 
             Table table = ctx.ignite().tables().table(tableName);
             RecordView<Tuple> recordView = table.recordView();
+            List<String> res = new ArrayList<>();
 
             for (String s : page) {
                 String[] parts = s.split("-", 2);
+                String val = parts[1] + "_" + arg1 + "_" + arg2;
 
                 Tuple rec = Tuple.create()
                         .set("key", Long.parseLong(parts[0]))
-                        .set("val", parts[1] + "_" + arg1 + "_" + arg2);
+                        .set("val", val);
+
+                res.add(val);
 
                 recordView.upsert(null, rec);
             }
 
-            return null;
+            return CompletableFuture.completedFuture(res);
         }
     }
 
