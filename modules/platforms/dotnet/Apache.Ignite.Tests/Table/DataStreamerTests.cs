@@ -723,9 +723,31 @@ public class DataStreamerTests : IgniteTestsBase
     [Test]
     public async Task TestResultAsyncEnumerableCancellation()
     {
-        // TODO: What should happen if I cancel or break the result enumeration?
-        await Task.Delay(1);
-        Assert.Fail("TODO");
+        IAsyncEnumerable<string> results = PocoView.StreamDataAsync<int, string, string>(
+            Enumerable.Range(0, Count).ToAsyncEnumerable(),
+            keySelector: x => GetPoco(x),
+            payloadSelector: x => $"{x}-value{x * 10}",
+            units: Array.Empty<DeploymentUnit>(),
+            receiverClassName: TestReceiverClassName,
+            receiverArgs: new object[] { Table.Name, "arg1", 22 },
+            options: DataStreamerOptions.Default with { PageSize = 1 });
+
+        // Read only part of the results.
+        var resultSet = await results.Take(3).ToListAsync();
+
+        for (int i = 0; i < Count; i++)
+        {
+            var res = await TupleView.GetAsync(null, GetTuple(i));
+
+            var expectedVal = $"value{i * 10}_arg1_22";
+
+            Assert.IsTrue(res.HasValue);
+            Assert.AreEqual(expectedVal, res.Value[ValCol]);
+
+            CollectionAssert.Contains(resultSet, expectedVal);
+        }
+
+        Assert.AreEqual(Count, resultSet.Count);
     }
 
     private static async IAsyncEnumerable<IIgniteTuple> GetFakeServerData(int count)
