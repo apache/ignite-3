@@ -48,6 +48,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -625,6 +626,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     topologyAwareRaftGroupServiceFactory,
                     raftManager,
                     view -> new LocalLogStorageFactory(),
+                    ForkJoinPool.commonPool(),
                     t -> (converter.get(t) != null) ? converter.get(t) : t
             );
 

@@ -44,6 +44,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -198,7 +199,8 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                 mock(ThreadLocalPartitionCommandsMarshaller.class),
                 mock(TopologyAwareRaftGroupServiceFactory.class),
                 raftManager,
-                view -> new LocalLogStorageFactory()
+                view -> new LocalLogStorageFactory(),
+                ForkJoinPool.commonPool()
         );
 
         assertThat(replicaManager.startAsync(new ComponentContext()), willCompleteSuccessfully());

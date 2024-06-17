@@ -19,6 +19,7 @@ package org.apache.ignite.internal.compute;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.util.CompletableFutures.allOfToList;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Compute.RESULT_NOT_FOUND_ERR;
 
@@ -34,8 +35,7 @@ import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
 import org.apache.ignite.internal.compute.messaging.RemoteJobExecution;
-import org.apache.ignite.internal.util.CompletableFutures;
-import org.apache.ignite.network.TopologyService;
+import org.apache.ignite.internal.network.TopologyService;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -108,7 +108,7 @@ public class ExecutionManager {
                 .map(JobExecution::statusAsync)
                 .toArray(CompletableFuture[]::new);
 
-        return CompletableFutures.allOf(statusFutures)
+        return allOfToList(statusFutures)
                 .thenApply(statuses -> statuses.stream()
                         .filter(Objects::nonNull)
                         .collect(toList()));

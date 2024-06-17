@@ -107,4 +107,22 @@ void ensure_node_connectable(std::chrono::seconds timeout) {
     }
 }
 
+bool wait_for_condition(std::chrono::seconds timeout, const std::function<bool()> &predicate) {
+    auto start_time = std::chrono::steady_clock::now();
+    do {
+        bool success;
+        try {
+            success = predicate();
+        } catch (...) {
+            success = false;
+        }
+
+        if (success)
+            return true;
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(300));
+    } while ((std::chrono::steady_clock::now() - start_time) < timeout);
+    return false;
+}
+
 } // namespace ignite

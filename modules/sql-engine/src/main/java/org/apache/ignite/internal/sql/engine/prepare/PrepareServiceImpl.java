@@ -196,6 +196,7 @@ public class PrepareServiceImpl implements PrepareService {
         planningPool.allowCoreThreadTimeOut(true);
 
         metricManager.registerSource(sqlPlanCacheMetricSource);
+        metricManager.enable(sqlPlanCacheMetricSource);
 
         IgnitePlanner.warmup();
     }

@@ -44,6 +44,7 @@ import org.apache.ignite.internal.cli.core.repl.registry.JdbcUrlRegistry;
 import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
 import org.apache.ignite.internal.cli.event.EventPublisher;
 import org.apache.ignite.internal.cli.event.Events;
+import org.apache.ignite.rest.client.model.MetricSource;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -54,6 +55,17 @@ import picocli.CommandLine;
  */
 @MicronautTest(rebuildContext = true)
 public abstract class CliIntegrationTest extends ClusterPerClassIntegrationTest {
+
+    public static final MetricSource[] ALL_METRIC_SOURCES = {
+            new MetricSource().name("jvm").enabled(true),
+            new MetricSource().name("os").enabled(true),
+            new MetricSource().name("raft").enabled(true),
+            new MetricSource().name("metastorage").enabled(true),
+            new MetricSource().name("client.handler").enabled(true),
+            new MetricSource().name("sql.client").enabled(true),
+            new MetricSource().name("sql.plan.cache").enabled(true)
+    };
+
     /** Correct ignite jdbc url. */
     protected static final String JDBC_URL = "jdbc:ignite:thin://127.0.0.1:" + Cluster.BASE_CLIENT_PORT;
 

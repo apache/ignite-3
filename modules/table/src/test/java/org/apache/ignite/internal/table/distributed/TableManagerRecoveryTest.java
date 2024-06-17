@@ -83,6 +83,7 @@ import org.apache.ignite.internal.metastorage.server.TestRocksDbKeyValueStorage;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
+import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.Loza;
@@ -122,7 +123,6 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.sql.IgniteSql;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -284,6 +284,8 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         when(replicaMgr.startRaftClient(any(), any(), any()))
                 .thenReturn(completedFuture(mock(TopologyAwareRaftGroupService.class)));
         when(replicaMgr.stopReplica(any())).thenReturn(trueCompletedFuture());
+        when(replicaMgr.weakStartReplica(any(), any(), any())).thenReturn(trueCompletedFuture());
+        when(replicaMgr.weakStopReplica(any(), any(), any())).thenReturn(nullCompletedFuture());
 
         try (MockedStatic<SchemaUtils> schemaServiceMock = mockStatic(SchemaUtils.class)) {
             schemaServiceMock.when(() -> SchemaUtils.prepareSchemaDescriptor(any()))

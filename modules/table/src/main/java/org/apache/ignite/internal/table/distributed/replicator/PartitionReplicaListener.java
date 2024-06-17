@@ -38,6 +38,7 @@ import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
+import static org.apache.ignite.internal.util.CompletableFutures.allOfToList;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyCollectionCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
@@ -89,6 +90,7 @@ import org.apache.ignite.internal.lang.IgniteTriFunction;
 import org.apache.ignite.internal.lang.SafeTimeReorderException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.ClusterNodeResolver;
 import org.apache.ignite.internal.partition.replica.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replica.network.TimedBinaryRow;
 import org.apache.ignite.internal.partition.replica.network.command.BuildIndexCommand;
@@ -186,7 +188,6 @@ import org.apache.ignite.internal.tx.message.VacuumTxStatesCommand;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequest;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicatedInfo;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
-import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.CursorUtils;
 import org.apache.ignite.internal.util.ExceptionUtils;
@@ -198,7 +199,6 @@ import org.apache.ignite.internal.util.TrackerClosedException;
 import org.apache.ignite.lang.ErrorGroups.Replicator;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.ClusterNodeResolver;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 
@@ -1111,7 +1111,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 resolutionFuts[i] = resolveRowByPkForReadOnly(primaryKeys.get(i), readTimestamp);
             }
 
-            return CompletableFutures.allOf(resolutionFuts);
+            return allOfToList(resolutionFuts);
         });
     }
 
@@ -2224,7 +2224,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             resolutionFuts[i] = resolveRowByPkForReadOnly(primaryKeys.get(i), readTimestamp);
         }
 
-        return CompletableFutures.allOf(resolutionFuts);
+        return allOfToList(resolutionFuts);
     }
 
     /**

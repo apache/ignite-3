@@ -41,6 +41,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.compute.JobState;
@@ -78,16 +79,6 @@ public class FakeCompute implements IgniteComputeInternal {
     public FakeCompute(String nodeName, Ignite ignite) {
         this.nodeName = nodeName;
         this.ignite = ignite;
-    }
-
-    @Override
-    public <R> JobExecution<R> submit(
-            Set<ClusterNode> nodes,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
-            Object... args) {
-        return executeAsyncWithFailover(nodes, units, jobClassName, options, args);
     }
 
     @Override
@@ -130,25 +121,21 @@ public class FakeCompute implements IgniteComputeInternal {
         return completedFuture(jobExecution(future != null ? future : completedFuture((R) nodeName)));
     }
 
-    /** {@inheritDoc} */
     @Override
-    public <R> R execute(
-            Set<ClusterNode> nodes,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
-            Object... args
-    ) {
-        return sync(executeAsync(nodes, units, jobClassName, options, args));
+    public <R> JobExecution<R> submit(Set<ClusterNode> nodes, JobDescriptor descriptor, Object... args) {
+        return executeAsyncWithFailover(nodes, descriptor.units(), descriptor.jobClassName(), descriptor.options(), args);
+    }
+
+    @Override
+    public <R> R execute(Set<ClusterNode> nodes, JobDescriptor descriptor, Object... args) {
+        return sync(this.executeAsync(nodes, descriptor, args));
     }
 
     @Override
     public <R> JobExecution<R> submitColocated(
             String tableName,
             Tuple key,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
+            JobDescriptor descriptor,
             Object... args
     ) {
         return jobExecution(future != null ? future : completedFuture((R) nodeName));
@@ -159,9 +146,7 @@ public class FakeCompute implements IgniteComputeInternal {
             String tableName,
             K key,
             Mapper<K> keyMapper,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
+            JobDescriptor descriptor,
             Object... args
     ) {
         return jobExecution(future != null ? future : completedFuture((R) nodeName));
@@ -172,12 +157,10 @@ public class FakeCompute implements IgniteComputeInternal {
     public <R> R executeColocated(
             String tableName,
             Tuple key,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
+            JobDescriptor descriptor,
             Object... args
     ) {
-        return sync(executeColocatedAsync(tableName, key, units, jobClassName, options, args));
+        return sync(this.executeColocatedAsync(tableName, key, descriptor, args));
     }
 
     /** {@inheritDoc} */
@@ -186,20 +169,16 @@ public class FakeCompute implements IgniteComputeInternal {
             String tableName,
             K key,
             Mapper<K> keyMapper,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
+            JobDescriptor descriptor,
             Object... args
     ) {
-        return sync(executeColocatedAsync(tableName, key, keyMapper, units, jobClassName, options, args));
+        return sync(executeColocatedAsync(tableName, key, keyMapper, descriptor, args));
     }
 
     @Override
     public <R> Map<ClusterNode, JobExecution<R>> submitBroadcast(
             Set<ClusterNode> nodes,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
+            JobDescriptor descriptor,
             Object... args
     ) {
         return null;

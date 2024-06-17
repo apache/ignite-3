@@ -59,7 +59,20 @@ start() {
 }
 
 stop() {
-  kill -9 "$(cat ${IGNITE_HOME}/pid)"
+  ignite_pid="$(cat ${IGNITE_HOME}/pid)"
+  kill "$ignite_pid"
+
+  max_attempts=10
+  count=0
+  while ps -p "$ignite_pid" > /dev/null && [ "$count" -lt "$max_attempts" ]; do
+    sleep 10
+    count=$((count + 1))
+  done
+
+  if ps -p "$ignite_pid" > /dev/null; then
+    kill -9 "$ignite_pid"
+  fi
+
   rm ${WORK_DIR}/rest-address
 }
 
