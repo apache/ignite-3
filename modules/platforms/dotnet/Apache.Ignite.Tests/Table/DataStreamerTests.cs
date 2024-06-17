@@ -53,6 +53,29 @@ public class DataStreamerTests : IgniteTestsBase
 
     private const int DeletedKey = Count + 1;
 
+    private static readonly object[] AllSupportedTypes =
+    {
+        true,
+        sbyte.MaxValue,
+        short.MinValue,
+        int.MaxValue,
+        long.MinValue,
+        float.MaxValue,
+        double.MinValue,
+        decimal.One,
+        new LocalDate(1234, 5, 6),
+        new LocalTime(12, 3, 4, 567),
+        new LocalDateTime(1234, 5, 6, 7, 8, 9),
+        Instant.FromUnixTimeSeconds(123456),
+        Guid.Empty,
+        new BitArray(new[] { byte.MaxValue }),
+        "str123",
+        new byte[] { 1, 2, 3 },
+        Period.FromDays(999),
+        Duration.FromSeconds(12345),
+        new BigInteger(12.34)
+    };
+
     private static int _unknownKey = 333000;
 
     [SetUp]
@@ -676,41 +699,18 @@ public class DataStreamerTests : IgniteTestsBase
             ex.Message);
     }
 
-    [Test]
-    public async Task TestEchoReceiverAllDataTypes()
+    [TestCaseSource(nameof(AllSupportedTypes))]
+    public async Task TestEchoReceiverAllDataTypes(object arg)
     {
-        var args = new object[]
-        {
-            true,
-            sbyte.MaxValue,
-            short.MinValue,
-            int.MaxValue,
-            long.MinValue,
-            float.MaxValue,
-            double.MinValue,
-            decimal.One,
-            new LocalDate(1234, 5, 6),
-            new LocalTime(12, 3, 4, 567),
-            new LocalDateTime(1234, 5, 6, 7, 8, 9),
-            Instant.FromUnixTimeSeconds(123456),
-            Guid.Empty,
-            new BitArray(new[] { false, true, false, true }),
-            "str123",
-            new byte[] { 1, 2, 3 },
-            Period.FromDays(999),
-            Duration.FromSeconds(12345),
-            new BigInteger(12.34)
-        };
-
         var res = await PocoView.StreamDataAsync<object, object, object>(
             new object[] { 1 }.ToAsyncEnumerable(),
             keySelector: x => new Poco(),
             payloadSelector: x => x.ToString()!,
             units: Array.Empty<DeploymentUnit>(),
             receiverClassName: EchoArgsReceiverClassName,
-            receiverArgs: args).ToArrayAsync();
+            receiverArgs: new[] { arg }).SingleAsync();
 
-        CollectionAssert.AreEqual(args, res);
+        Assert.AreEqual(arg, res);
     }
 
     [Test]
