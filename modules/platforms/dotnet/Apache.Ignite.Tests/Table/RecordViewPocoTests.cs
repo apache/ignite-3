@@ -644,7 +644,7 @@ namespace Apache.Ignite.Tests.Table
         {
             var pocoView = PocoAllColumnsNullableView;
 
-            var dt = LocalDateTime.FromDateTime(DateTime.UtcNow);
+            var dt = LocalDateTime.FromDateTime(DateTime.UtcNow).With(TestUtils.TruncateTimeToMillis);
             var poco = new PocoAllColumnsNullable(
                 Key: 123,
                 Str: "str",
@@ -657,7 +657,7 @@ namespace Apache.Ignite.Tests.Table
                 Uuid: Guid.NewGuid(),
                 Date: dt.Date,
                 BitMask: new BitArray(new byte[] { 1 }),
-                Time: dt.TimeOfDay,
+                Time: dt.TimeOfDay.With(TestUtils.TruncateTimeToMillis),
                 DateTime: dt,
                 Timestamp: TestUtils.TruncateInstantToMillis(Instant.FromDateTimeUtc(DateTime.UtcNow)),
                 Blob: new byte[] { 1, 2, 3 },

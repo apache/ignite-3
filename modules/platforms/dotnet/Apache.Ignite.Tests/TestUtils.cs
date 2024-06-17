@@ -42,6 +42,7 @@ namespace Apache.Ignite.Tests
 
         public static bool IsWindows => RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
 
+        // TODO IGNITE-22504 Remove this property when sub-millisecond precision becomes available
         public static Func<LocalTime, LocalTime> TruncateTimeToMillis { get; } =
             time => new LocalTime(time.Hour, time.Minute, time.Second, time.Millisecond);
 
@@ -104,6 +105,7 @@ namespace Apache.Ignite.Tests
 #endif
         }
 
+        // TODO IGNITE-22504 Remove this method when sub-millisecond precision becomes available
         public static Instant TruncateInstantToMillis(Instant instant)
         {
             return Instant.FromUnixTimeMilliseconds(instant.ToUnixTimeMilliseconds());

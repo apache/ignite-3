@@ -981,8 +981,9 @@ TEST_F(record_binary_view_test, types_test) {
         {"uuid", uuid(0x123e4567e89b12d3, 0x7456426614174000)},
         {"date", ignite_date(2023, 2, 7)},
         {"bitmask", bit_array(16, true)},
-        {"time", ignite_time(17, 4, 12, 3543634)},
-        {"time2", ignite_time(17, 4, 12, 3543634)},
+        // TODO: IGNITE-22504 Add nanoseconds to time/datetime/timestamp values
+        {"time", ignite_time(17, 4, 12, 354000000)},
+        {"time2", ignite_time(17, 4, 12, 354000000)},
         {"datetime", ignite_date_time({2020, 7, 28}, {2, 15, 52, 634000000})},
         {"datetime2", ignite_date_time({2020, 7, 28}, {2, 15, 52, 634000000})},
         {"timestamp", ignite_timestamp(3875238472, 248000000)},
@@ -1002,11 +1003,11 @@ TEST_F(record_binary_view_test, types_test) {
         const auto &column = inserted.column_name(i);
 
         if (column == "time2") {
-            EXPECT_EQ(res->get(column), primitive{ignite_time(17, 4, 12)});
+            EXPECT_EQ(res->get(column), primitive{ignite_time(17, 4, 12, 354000000)});
         } else if (column == "datetime2") {
-            EXPECT_EQ(res->get(column), primitive{ignite_date_time({2020, 7, 28}, {2, 15, 52, 6000000})});
+            EXPECT_EQ(res->get(column), primitive{ignite_date_time({2020, 7, 28}, {2, 15, 52, 634000000})});
         } else if (column == "timestamp2") {
-            EXPECT_EQ(res->get(column), primitive{ignite_timestamp(3875238472, 248700000)});
+            EXPECT_EQ(res->get(column), primitive{ignite_timestamp(3875238472, 248000000)});
         } else {
             std::cout << "Column " + column << std::endl;
             EXPECT_EQ(res->get(column), inserted.get(column));
