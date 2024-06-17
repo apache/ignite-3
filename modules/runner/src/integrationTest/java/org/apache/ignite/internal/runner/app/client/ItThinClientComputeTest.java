@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.runner.app.client;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.compute.JobState.CANCELED;
 import static org.apache.ignite.compute.JobState.COMPLETED;
 import static org.apache.ignite.compute.JobState.EXECUTING;
@@ -776,7 +777,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
             boolean asyncJob = args.length > 0 && (Boolean) args[0];
 
             if (asyncJob) {
-                return CompletableFuture.failedFuture(new ArithmeticException("math err"));
+                return failedFuture(new ArithmeticException("math err"));
             } else {
                 throw new ArithmeticException("math err");
             }
