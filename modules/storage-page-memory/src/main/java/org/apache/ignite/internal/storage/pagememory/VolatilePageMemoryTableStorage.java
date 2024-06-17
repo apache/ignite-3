@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.storage.pagememory;
 
-import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.concurrent.CompletableFuture;
@@ -86,8 +85,6 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
     }
 
     private IndexMetaTree createIndexMetaTree(int partitionId) {
-        long metaPageId = dataRegion.pageMemory().allocatePage(getTableId(), partitionId, FLAG_AUX);
-
         try {
             return new IndexMetaTree(
                     getTableId(),
@@ -96,7 +93,7 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
                     dataRegion.pageMemory(),
                     PageLockListenerNoOp.INSTANCE,
                     new AtomicLong(),
-                    metaPageId,
+                    0,
                     dataRegion.reuseList(),
                     true
             );
@@ -106,8 +103,6 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
     }
 
     private GcQueue createGarbageCollectionTree(int partitionId) {
-        long metaPageId = dataRegion.pageMemory().allocatePage(getTableId(), partitionId, FLAG_AUX);
-
         try {
             return new GcQueue(
                     getTableId(),
@@ -116,7 +111,7 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
                     dataRegion.pageMemory(),
                     PageLockListenerNoOp.INSTANCE,
                     new AtomicLong(),
-                    metaPageId,
+                    0,
                     dataRegion.reuseList(),
                     true
             );
@@ -143,8 +138,6 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
      */
     private VersionChainTree createVersionChainTree(int partId) throws StorageException {
         try {
-            long metaPageId = dataRegion.pageMemory().allocatePage(getTableId(), partId, FLAG_AUX);
-
             return new VersionChainTree(
                     getTableId(),
                     Integer.toString(getTableId()),
@@ -152,7 +145,7 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
                     dataRegion.pageMemory(),
                     PageLockListenerNoOp.INSTANCE,
                     new AtomicLong(),
-                    metaPageId,
+                    0,
                     dataRegion.reuseList(),
                     true
             );

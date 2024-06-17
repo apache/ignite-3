@@ -29,6 +29,7 @@ import java.nio.file.Path;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfiguration;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.AbstractMvTableStorageTest;
@@ -44,6 +45,7 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -57,11 +59,21 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
 
     @BeforeEach
     void setUp(
+            TestInfo testInfo,
             @WorkDirectory Path workDir,
             @InjectConfiguration PersistentPageMemoryStorageEngineConfiguration engineConfig,
             @InjectConfiguration("mock.profiles.default.engine = aipersist")
             StorageConfiguration storageConfiguration
     ) {
+        if (testInfo.getTags().contains(LOW_MEMORY_TAG)) {
+            PersistentPageMemoryProfileConfiguration profileConfig
+                    = (PersistentPageMemoryProfileConfiguration) storageConfiguration
+                    .profiles()
+                    .get("default");
+
+            assertThat(profileConfig.size().update(1024L), willCompleteSuccessfully());
+        }
+
         var ioRegistry = new PageIoRegistry();
 
         ioRegistry.loadFromServiceLoader();

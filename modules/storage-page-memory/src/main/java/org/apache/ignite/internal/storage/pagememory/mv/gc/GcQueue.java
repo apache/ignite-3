@@ -46,7 +46,7 @@ public class GcQueue extends BplusTree<GcRowVersion, GcRowVersion> {
      * @param pageMem Page memory.
      * @param lockLsnr Page lock listener.
      * @param globalRmvId Global remove ID.
-     * @param metaPageId Meta page ID.
+     * @param metaPageId Meta page ID. If 0, then allocates new page.
      * @param reuseList Reuse list.
      * @param initNew {@code True} if new tree should be created.
      * @throws IgniteInternalCheckedException If failed.

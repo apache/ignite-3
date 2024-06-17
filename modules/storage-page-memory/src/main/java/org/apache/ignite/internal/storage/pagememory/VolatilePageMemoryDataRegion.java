@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.storage.pagememory;
 
-import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAllManually;
 
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
@@ -89,8 +88,6 @@ public class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemo
     private FreeListImpl createFreeList(
             PageMemory pageMemory
     ) throws IgniteInternalCheckedException {
-        long metaPageId = pageMemory.allocatePage(FREE_LIST_GROUP_ID, FREE_LIST_PARTITION_ID, FLAG_AUX);
-
         return new FreeListImpl(
                 FREE_LIST_GROUP_ID,
                 FREE_LIST_PARTITION_ID,
@@ -98,7 +95,7 @@ public class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemo
                 pageMemory,
                 null,
                 PageLockListenerNoOp.INSTANCE,
-                metaPageId,
+                0,
                 true,
                 // Because in memory.
                 null,

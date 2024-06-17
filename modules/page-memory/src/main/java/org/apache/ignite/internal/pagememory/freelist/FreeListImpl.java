@@ -332,7 +332,7 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
      * @param pageMem Page memory.
      * @param reuseList Reuse list or {@code null} if this free list will be a reuse list for itself.
      * @param lockLsnr Page lock listener.
-     * @param metaPageId Metadata page ID.
+     * @param metaPageId Metadata page ID. If 0 then new page is allocated.
      * @param initNew {@code True} if new metadata should be initialized.
      * @param pageListCacheLimit Page list cache limit.
      * @throws IgniteInternalCheckedException If failed.
@@ -357,7 +357,8 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
                 lockLsnr,
                 LOG,
                 BUCKETS,
-                metaPageId
+                metaPageId,
+                reuseList
         );
 
         this.pageListCacheLimit = pageListCacheLimit;

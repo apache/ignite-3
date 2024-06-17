@@ -57,6 +57,7 @@ import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolder;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
 import org.apache.ignite.internal.pagememory.reuse.ReuseBag;
+import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.pagememory.util.PageHandler;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.internal.pagememory.util.PageLockListener;
@@ -186,7 +187,8 @@ public abstract class PagesList extends DataStructure {
      * @param lockLsnr Page lock listener.
      * @param log Logger.
      * @param buckets Number of buckets.
-     * @param metaPageId Metadata page ID.
+     * @param metaPageId Metadata page ID. If 0, then allocates new page.
+     * @param reuseList Reuse list.
      */
     protected PagesList(
             String name,
@@ -196,14 +198,22 @@ public abstract class PagesList extends DataStructure {
             PageLockListener lockLsnr,
             IgniteLogger log,
             int buckets,
-            long metaPageId
-    ) {
+            long metaPageId,
+            @Nullable ReuseList reuseList
+    ) throws IgniteInternalCheckedException {
         super(name, grpId, null, partId, pageMem, lockLsnr, FLAG_AUX);
 
         this.log = log;
 
+        this.reuseList = reuseList;
+
+        if (metaPageId == 0) {
+            this.metaPageId = allocatePage(null);
+        } else {
+            this.metaPageId = metaPageId;
+        }
+
         this.buckets = buckets;
-        this.metaPageId = metaPageId;
 
         onheapListCachingEnabled = isCachingApplicable();
 

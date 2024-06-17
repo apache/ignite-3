@@ -92,6 +92,7 @@ import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -101,6 +102,8 @@ import org.junit.jupiter.params.provider.ValueSource;
  */
 @SuppressWarnings("JUnitTestMethodInProductSource")
 public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
+    protected static final String LOW_MEMORY_TAG = "lowMemory";
+
     private static final String TABLE_NAME = "FOO";
 
     private static final String PK_INDEX_NAME = pkIndexName(TABLE_NAME);
@@ -1018,6 +1021,20 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         checkForPresenceRows(mvPartitionStorage, null, null, rows);
         assertThat(hashIndexStorage, is(nullValue()));
         assertThat(sortedIndexStorage, is(nullValue()));
+    }
+
+    @Test
+    @Tag(LOW_MEMORY_TAG)
+    public void testDestroyTableNoLeaks() {
+        int limit = 1000;
+        for (int i = 0; i < limit; i++) {
+
+            MvTableStorage mvTableStorage = createMvTableStorage();
+
+            getOrCreateMvPartition(mvTableStorage, PARTITION_ID);
+
+            assertThat(mvTableStorage.destroy(), willCompleteSuccessfully());
+        }
     }
 
     private static void createTestTableAndIndexes(CatalogService catalogService) {
