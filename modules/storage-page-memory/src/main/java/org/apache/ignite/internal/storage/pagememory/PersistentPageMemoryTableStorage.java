@@ -207,7 +207,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
             boolean initNew = false;
 
             if (meta.versionChainTreeRootPageId() == 0) {
-                long rootPageId = pageMemory.allocatePage(getTableId(), partId, FLAG_AUX);
+                long rootPageId = pageMemory.allocatePage(reuseList, getTableId(), partId, FLAG_AUX);
 
                 meta.versionChainTreeRootPageId(lastCheckpointId(), rootPageId);
 
@@ -249,7 +249,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
             boolean initNew = false;
 
             if (meta.indexTreeMetaPageId() == 0) {
-                long rootPageId = pageMemory.allocatePage(getTableId(), partitionId, FLAG_AUX);
+                long rootPageId = pageMemory.allocatePage(reuseList, getTableId(), partitionId, FLAG_AUX);
 
                 meta.indexTreeMetaPageId(lastCheckpointId(), rootPageId);
 
@@ -291,7 +291,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
             boolean initNew = false;
 
             if (meta.gcQueueMetaPageId() == 0) {
-                long rootPageId = pageMemory.allocatePage(getTableId(), partitionId, FLAG_AUX);
+                long rootPageId = pageMemory.allocatePage(reuseList, getTableId(), partitionId, FLAG_AUX);
 
                 meta.gcQueueMetaPageId(lastCheckpointId(), rootPageId);
 

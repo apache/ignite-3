@@ -932,7 +932,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             IoVersions<? extends BplusInnerIo<L>> innerIos,
             IoVersions<? extends BplusLeafIo<L>> leafIos,
             IoVersions<? extends BplusMetaIo> metaIos
-    ) throws IgniteInternalCheckedException {
+    ) {
         this(name, grpId, grpName, partId, pageMem, lockLsnr, globalRmvId, metaPageId, reuseList);
 
         setIos(innerIos, leafIos, metaIos);
@@ -947,7 +947,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
      * @param pageMem Page memory.
      * @param lockLsnr Page lock listener.
      * @param globalRmvId Remove ID.
-     * @param metaPageId Meta page ID. If 0, then allocates new page.
+     * @param metaPageId Meta page ID.
      * @param reuseList Reuse list.
      */
     protected BplusTree(
@@ -960,21 +960,18 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             AtomicLong globalRmvId,
             long metaPageId,
             @Nullable ReuseList reuseList
-    ) throws IgniteInternalCheckedException {
+    ) {
         super(name, grpId, grpName, partId, pageMem, lockLsnr, FLAG_AUX);
 
         // TODO: IGNITE-16350 Move to config.
         minFill = 0.0f; // Testing worst case when merge happens only on empty page.
         maxFill = 0.0f; // Avoiding random effects on testing.
 
+        assert metaPageId != 0L;
+
+        this.metaPageId = metaPageId;
         this.reuseList = reuseList;
         this.globalRmvId = globalRmvId;
-
-        if (metaPageId == 0) {
-            this.metaPageId = allocatePage(null);
-        } else {
-            this.metaPageId = metaPageId;
-        }
 
         // Initialize page handlers.
         askNeighbor = new AskNeighbor();

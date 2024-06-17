@@ -72,8 +72,7 @@ public class ReuseListImpl extends PagesList implements ReuseList {
                 lockLsnr,
                 log,
                 1,
-                0,
-                null
+                metaPageId
         );
 
         bucketCache = new PagesCache(pageListCacheLimit);

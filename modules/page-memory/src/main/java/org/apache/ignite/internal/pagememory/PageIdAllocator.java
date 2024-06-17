@@ -17,7 +17,16 @@
 
 package org.apache.ignite.internal.pagememory;
 
+import static org.apache.ignite.internal.pagememory.util.PageIdUtils.flag;
+import static org.apache.ignite.internal.pagememory.util.PageIdUtils.itemId;
+import static org.apache.ignite.internal.pagememory.util.PageIdUtils.partitionId;
+import static org.apache.ignite.internal.pagememory.util.PageIdUtils.toDetailString;
+
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.pagememory.reuse.ReuseBag;
+import org.apache.ignite.internal.pagememory.reuse.ReuseList;
+import org.apache.ignite.internal.pagememory.util.PageIdUtils;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Class responsible for allocating/freeing page IDs.
@@ -47,6 +56,74 @@ public interface PageIdAllocator {
      * @return Allocated page ID.
      */
     long allocatePage(int groupId, int partitionId, byte flags) throws IgniteInternalCheckedException;
+
+    /**
+     * Allocates a page from the space for the given partition ID and the given flags. If reuse list is provided, tries to recycle page.
+     *
+     * @param reuseList Reuse list to recycle pages from.
+     * @param groupId Group ID.
+     * @param partitionId Partition ID.
+     * @return Allocated page ID.
+     */
+    default long allocatePage(@Nullable ReuseList reuseList, int groupId, int partitionId, byte flags)
+            throws IgniteInternalCheckedException {
+        return allocatePage(reuseList, null, true, groupId, partitionId, flags);
+    }
+
+    /**
+     * Allocates a page from the space for the given partition ID and the given flags.
+     *
+     * @param groupId Group ID.
+     * @param partitionId Partition ID.
+     * @return Allocated page ID.
+     */
+    default long allocatePage(
+            @Nullable ReuseList reuseList,
+            @Nullable ReuseBag bag,
+            boolean useRecycled,
+            int groupId,
+            int partitionId,
+            byte flags
+    ) throws IgniteInternalCheckedException {
+        long pageId = 0;
+
+        if (reuseList != null) {
+            pageId = bag != null ? bag.pollFreePage() : 0;
+
+            if (pageId == 0) {
+                pageId = reuseList.takeRecycledPage();
+            }
+
+            // Recycled. "pollFreePage" result should be reinitialized to move rotatedId to itemId.
+            if (pageId != 0) {
+                // Replace the partition ID, because the reused page might have come from a different data structure if the reuse
+                // list is shared between them.
+                pageId = replacePartitionId(pageId, partitionId);
+
+                pageId = reuseList.initRecycledPage(pageId, flags, null);
+            }
+        }
+
+        if (pageId == 0) {
+            pageId = allocatePage(groupId, partitionId, flags);
+        }
+
+        assert pageId != 0;
+
+        assert partitionId(pageId) >= 0 && partitionId(pageId) <= MAX_PARTITION_ID : toDetailString(pageId);
+
+        assert flag(pageId) != FLAG_DATA || itemId(pageId) == 0 : toDetailString(pageId);
+
+        return pageId;
+    }
+
+    private static long replacePartitionId(long pageId, int partId) {
+        long partitionIdZeroMask = ~(PageIdUtils.PART_ID_MASK << PageIdUtils.PAGE_IDX_SIZE);
+
+        long partitionIdMask = ((long) partId) << PageIdUtils.PAGE_IDX_SIZE;
+
+        return pageId & partitionIdZeroMask | partitionIdMask;
+    }
 
     /**
      * Frees the given page.
