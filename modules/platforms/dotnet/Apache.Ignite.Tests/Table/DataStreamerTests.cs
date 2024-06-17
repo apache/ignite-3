@@ -368,6 +368,35 @@ public class DataStreamerTests : IgniteTestsBase
     }
 
     [Test]
+    public async Task TestWithReceiverWithResultsRecordBinaryView()
+    {
+        var results = TupleView.StreamDataAsync<int, string, string>(
+            Enumerable.Range(0, Count).ToAsyncEnumerable(),
+            keySelector: x => GetTuple(x),
+            payloadSelector: x => $"{x}-value{x * 10}",
+            units: Array.Empty<DeploymentUnit>(),
+            receiverClassName: TestReceiverClassName,
+            receiverArgs: new object[] { Table.Name, "arg1", 22 },
+            options: DataStreamerOptions.Default);
+
+        var resultSet = await results.ToHashSetAsync();
+
+        for (int i = 0; i < Count; i++)
+        {
+            var res = await TupleView.GetAsync(null, GetTuple(i));
+
+            var expectedVal = $"value{i * 10}_arg1_22";
+
+            Assert.IsTrue(res.HasValue);
+            Assert.AreEqual(expectedVal, res.Value[ValCol]);
+
+            CollectionAssert.Contains(resultSet, expectedVal);
+        }
+
+        Assert.AreEqual(Count, resultSet.Count);
+    }
+
+    [Test]
     public async Task TestWithReceiverRecordView()
     {
         await PocoView.StreamDataAsync<int, string>(
