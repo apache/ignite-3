@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.compute.JobState.COMPLETED;
 import static org.apache.ignite.compute.JobState.EXECUTING;
 import static org.apache.ignite.compute.JobState.FAILED;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 
 import java.time.Instant;
@@ -99,8 +100,9 @@ public class FakeCompute implements IgniteComputeInternal {
             throw new RuntimeException(e);
         }
 
-        if (err != null) {
-            throw err;
+        var err0 = err;
+        if (err0 != null) {
+            throw err0;
         }
 
         if (jobClassName.startsWith("org.apache.ignite")) {
@@ -109,10 +111,11 @@ public class FakeCompute implements IgniteComputeInternal {
             CompletableFuture<R> jobFut = job.executeAsync(
                     new JobExecutionContextImpl(ignite, new AtomicBoolean(), this.getClass().getClassLoader()), args);
 
-            return jobExecution(jobFut);
+            return jobExecution(jobFut != null ? jobFut : nullCompletedFuture());
         }
 
-        return jobExecution(future != null ? future : completedFuture((R) nodeName));
+        var future0 = future;
+        return jobExecution(future0 != null ? future0 : completedFuture((R) nodeName));
     }
 
     /** {@inheritDoc} */
