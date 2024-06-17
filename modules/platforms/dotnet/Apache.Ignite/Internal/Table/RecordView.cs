@@ -21,6 +21,7 @@ namespace Apache.Ignite.Internal.Table
     using System.Collections.Generic;
     using System.Diagnostics.CodeAnalysis;
     using System.Linq;
+    using System.Runtime.CompilerServices;
     using System.Threading;
     using System.Threading.Channels;
     using System.Threading.Tasks;
@@ -307,7 +308,7 @@ namespace Apache.Ignite.Internal.Table
                 cancellationToken).ConfigureAwait(false);
 
         /// <inheritdoc/>
-        public IAsyncEnumerable<TResult> StreamDataAsync<TSource, TPayload, TResult>(
+        public async IAsyncEnumerable<TResult> StreamDataAsync<TSource, TPayload, TResult>(
             IAsyncEnumerable<TSource> data,
             Func<TSource, T> keySelector,
             Func<TSource, TPayload> payloadSelector,
@@ -315,7 +316,7 @@ namespace Apache.Ignite.Internal.Table
             string receiverClassName,
             ICollection<object>? receiverArgs,
             DataStreamerOptions? options,
-            CancellationToken cancellationToken = default)
+            [EnumeratorCancellation] CancellationToken cancellationToken = default)
             where TPayload : notnull
         {
             options ??= DataStreamerOptions.Default;
@@ -342,7 +343,23 @@ namespace Apache.Ignite.Internal.Table
             _ = Stream();
 
             // Result async enumerable is returned immediately. It will be completed when the streaming completes.
-            return resultChannel.Reader.ReadAllAsync(cancellationToken);
+            var reader = resultChannel.Reader;
+
+            try
+            {
+                while (await reader.WaitToReadAsync(cancellationToken).ConfigureAwait(false))
+                {
+                    while (reader.TryRead(out var item))
+                    {
+                        yield return item;
+                    }
+                }
+            }
+            finally
+            {
+                // Consumer has stopped reading, complete the channel.
+                resultChannel.Writer.TryComplete();
+            }
 
             [SuppressMessage(
                 "Design",
