@@ -17,7 +17,7 @@
 package org.apache.ignite.raft.jraft.rpc;
 
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.network.TopologyEventHandler;
+import org.apache.ignite.internal.network.TopologyEventHandler;
 import org.apache.ignite.raft.jraft.Lifecycle;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.RemotingException;

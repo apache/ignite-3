@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.client.fakes.FakeIgnite;
+import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.junit.jupiter.api.AfterEach;
@@ -66,7 +67,7 @@ public class RequestBalancingTest extends BaseIgniteAbstractTest {
 
             // Execute on unknown node to fall back to balancing.
             List<Object> res = IntStream.range(0, 5)
-                    .mapToObj(i -> client.compute().<String>execute(getClusterNodes("s123"), List.of(), "job"))
+                    .mapToObj(i -> client.compute().execute(getClusterNodes("s123"), JobDescriptor.builder("job").build()))
                     .collect(Collectors.toList());
 
             assertEquals(5, res.size());

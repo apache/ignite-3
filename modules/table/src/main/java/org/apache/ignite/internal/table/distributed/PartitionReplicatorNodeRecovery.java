@@ -41,6 +41,8 @@ import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.network.MessagingService;
+import org.apache.ignite.internal.network.TopologyEventHandler;
+import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replica.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.partition.replica.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replica.network.message.DataPresence;
@@ -58,8 +60,6 @@ import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.utils.RebalanceUtilEx;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.TopologyEventHandler;
-import org.apache.ignite.network.TopologyService;
 
 /**
  * Code specific to recovering a partition replicator group node. This includes a case when we lost metadata

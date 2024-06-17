@@ -15,28 +15,33 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.network;
+package org.apache.ignite.internal.network;
+
+import org.apache.ignite.network.ClusterNode;
 
 /**
- * Interface for handling the topology change events.
+ * A class that returns a single {@link ClusterNode} for every request.
  */
-public interface TopologyEventHandler {
-    /**
-     * Called when a new cluster member has been detected.
-     *
-     * @param member New cluster member.
-     */
-    default void onAppeared(ClusterNode member) {
-        // no-op
-    }
+public class SingleClusterNodeResolver implements ClusterNodeResolver {
+
+    private final ClusterNode clusterNode;
 
     /**
-     * Indicates that a member has left a cluster. Called only when a member leaves permanently (i.e., it is not possible to
-     * re-establish a connection to it).
+     * Constructor.
      *
-     * @param member Member that has left the cluster.
+     * @param clusterNode Default cluster node that will be returned as a result of all method calls.
      */
-    default void onDisappeared(ClusterNode member) {
-        // no-op
+    public SingleClusterNodeResolver(ClusterNode clusterNode) {
+        this.clusterNode = clusterNode;
+    }
+
+    @Override
+    public ClusterNode getByConsistentId(String consistentId) {
+        return clusterNode;
+    }
+
+    @Override
+    public ClusterNode getById(String id) {
+        return clusterNode;
     }
 }
