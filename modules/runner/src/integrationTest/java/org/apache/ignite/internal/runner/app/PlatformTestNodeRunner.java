@@ -846,4 +846,12 @@ public class PlatformTestNodeRunner {
             return CompletableFuture.completedFuture(List.of(args));
         }
     }
+
+    @SuppressWarnings("unused") // Used by platform tests.
+    private static class EchoReceiver implements DataStreamerReceiver<Object, Object> {
+        @Override
+        public CompletableFuture<List<Object>> receive(List<Object> page, DataStreamerReceiverContext ctx, Object... args) {
+            return CompletableFuture.completedFuture(page);
+        }
+    }
 }
