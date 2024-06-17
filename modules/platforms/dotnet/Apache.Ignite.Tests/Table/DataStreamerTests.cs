@@ -22,6 +22,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
+using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -678,8 +679,28 @@ public class DataStreamerTests : IgniteTestsBase
     [Test]
     public async Task TestEchoReceiverAllDataTypes()
     {
-        // TODO: All types.
-        var arg = "str";
+        var args = new object[]
+        {
+            true,
+            sbyte.MaxValue,
+            short.MinValue,
+            int.MaxValue,
+            long.MinValue,
+            float.MaxValue,
+            double.MinValue,
+            decimal.One,
+            new LocalDate(1234, 5, 6),
+            new LocalTime(12, 3, 4, 567),
+            new LocalDateTime(1234, 5, 6, 7, 8, 9),
+            Instant.FromUnixTimeSeconds(123456),
+            Guid.Empty,
+            new BitArray(new[] { false, true, false, true }),
+            "str123",
+            new byte[] { 1, 2, 3 },
+            Period.FromDays(999),
+            Duration.FromSeconds(12345),
+            new BigInteger(12.34)
+        };
 
         var res = await PocoView.StreamDataAsync<object, object, object>(
             new object[] { 1 }.ToAsyncEnumerable(),
@@ -687,9 +708,9 @@ public class DataStreamerTests : IgniteTestsBase
             payloadSelector: x => x.ToString()!,
             units: Array.Empty<DeploymentUnit>(),
             receiverClassName: EchoArgsReceiverClassName,
-            receiverArgs: new object[] { arg }).SingleAsync();
+            receiverArgs: args).ToArrayAsync();
 
-        Assert.AreEqual(arg, res);
+        CollectionAssert.AreEqual(args, res);
     }
 
     [Test]
