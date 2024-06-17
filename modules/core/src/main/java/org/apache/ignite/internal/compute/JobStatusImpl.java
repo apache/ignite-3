@@ -22,6 +22,7 @@ import java.util.Objects;
 import java.util.UUID;
 import org.apache.ignite.compute.JobState;
 import org.apache.ignite.compute.JobStatus;
+import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -137,7 +138,7 @@ public class JobStatusImpl implements JobStatus {
 
     @Override
     public String toString() {
-    return S.toString(this);
+        return S.toString(this);
     }
 
     /**
