@@ -23,7 +23,7 @@
 #include <memory>
 #include <utility>
 
-namespace ignite {
+namespace ignite::detail {
 
 /**
  * Make future error.
@@ -55,4 +55,4 @@ std::future<T> make_future_value(T value) {
     return promise.get_future();
 }
 
-} // namespace ignite
+} // namespace ignite::detail

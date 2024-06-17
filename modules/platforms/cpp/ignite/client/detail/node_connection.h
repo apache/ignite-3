@@ -23,7 +23,7 @@
 #include <ignite/client/ignite_client_configuration.h>
 #include <ignite/protocol/client_operation.h>
 
-#include <ignite/common/utils.h>
+#include <ignite/common/detail/utils.h>
 #include <ignite/network/async_client_pool.h>
 #include <ignite/protocol/reader.h>
 #include <ignite/protocol/writer.h>

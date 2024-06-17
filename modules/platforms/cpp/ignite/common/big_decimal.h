@@ -77,9 +77,19 @@ public:
      * @param val big_integer value.
      * @param scale Scale.
      */
-    big_decimal(big_integer val, int32_t scale)
+    big_decimal(const big_integer &val, int32_t scale)
         : m_scale(scale)
-        , m_magnitude(std::move(val)) {}
+        , m_magnitude(val) {}
+
+    /**
+     * big_integer constructor with scale.
+     *
+     * @param val big_integer value.
+     * @param scale Scale.
+     */
+    big_decimal(big_integer &&val, int32_t scale)
+        : m_scale(scale)
+        , m_magnitude(std::forward<big_integer>(val)) {}
 
     /**
      * String constructor.
@@ -178,11 +188,11 @@ public:
      *
      * @param other Other instance.
      */
-    void swap(big_decimal &second) {
+    friend void swap(big_decimal &lhs, big_decimal &rhs) {
         using std::swap;
 
-        swap(m_scale, second.m_scale);
-        m_magnitude.swap(second.m_magnitude);
+        swap(lhs.m_scale, rhs.m_scale);
+        swap(lhs.m_magnitude, rhs.m_magnitude);
     }
 
     /**
@@ -241,6 +251,38 @@ public:
 
         m_scale = 0;
     }
+
+    /**
+     * Add another big decimal to this.
+     *
+     * @param other Addendum. Can be *this.
+     * @param res Result placed there. Can be *this.
+     */
+    void add(const big_decimal &other, big_decimal &res) const;
+
+    /**
+     * Subtract another big decimal from this.
+     *
+     * @param other Subtrahend. Can be *this.
+     * @param res  Result placed there. Can be *this.
+     */
+    void subtract(const big_decimal &other, big_decimal &res) const;
+
+    /**
+     * Muitiply this to another big decimal.
+     *
+     * @param other Another instance. Can be *this.
+     * @param res Result placed there. Can be *this.
+     */
+    void multiply(const big_decimal &other, big_decimal &res) const;
+
+    /**
+     * Divide this to another big decimal.
+     *
+     * @param divisor Divisor. Can be *this.
+     * @param res Result placed there. Can be *this.
+     */
+    void divide(const big_decimal &other, big_decimal &res) const;
 
     /**
      * Reverses sign of this value.
@@ -367,6 +409,58 @@ inline bool operator>(const big_decimal &lhs, const big_decimal &rhs) noexcept {
  */
 inline bool operator>=(const big_decimal &lhs, const big_decimal &rhs) noexcept {
     return lhs.compare(rhs) >= 0;
+}
+
+/**
+ * @brief Sum operator.
+ *
+ * @param lhs First value.
+ * @param rhs Second value.
+ * @return New value that holds result of lhs + rhs.
+ */
+inline big_decimal operator+(const big_decimal &lhs, const big_decimal &rhs) noexcept {
+    big_decimal res;
+    lhs.add(rhs, res);
+    return res;
+}
+
+/**
+ * @brief Subtract operator.
+ *
+ * @param lhs First value.
+ * @param rhs Second value.
+ * @return New value that holds result of lhs - rhs.
+ */
+inline big_decimal operator-(const big_decimal &lhs, const big_decimal &rhs) noexcept {
+    big_decimal res;
+    lhs.subtract(rhs, res);
+    return res;
+}
+
+/**
+ * @brief Multiply operator.
+ *
+ * @param lhs First value.
+ * @param rhs Second value.
+ * @return New value that holds result of lhs * rhs.
+ */
+inline big_decimal operator*(const big_decimal &lhs, const big_decimal &rhs) noexcept {
+    big_decimal res;
+    lhs.multiply(rhs, res);
+    return res;
+}
+
+/**
+ * @brief Divide operator.
+ *
+ * @param lhs First value.
+ * @param rhs Second value.
+ * @return New value that holds result of lhs / rhs.
+ */
+inline big_decimal operator/(const big_decimal &lhs, const big_decimal &rhs) noexcept {
+    big_decimal res;
+    lhs.divide(rhs, res);
+    return res;
 }
 
 } // namespace ignite
