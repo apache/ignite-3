@@ -31,6 +31,7 @@ namespace Apache.Ignite.Tests
     using Internal.Proto;
     using Internal.Transactions;
     using Microsoft.Extensions.Logging;
+    using NodaTime;
     using NUnit.Framework;
 
     public static class TestUtils
@@ -40,6 +41,9 @@ namespace Apache.Ignite.Tests
         public static readonly string RepoRootDir = Path.Combine(GetSolutionDir(), "..", "..", "..");
 
         public static bool IsWindows => RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
+
+        public static Func<LocalTime, LocalTime> TruncateTimeToMillis { get; } =
+            time => new LocalTime(time.Hour, time.Minute, time.Second, time.Millisecond);
 
         public static void WaitForCondition(Func<bool> condition, int timeoutMs = 1000, Func<string>? messageFactory = null) =>
             WaitForConditionAsync(() => Task.FromResult(condition()), timeoutMs, messageFactory).GetAwaiter().GetResult();
@@ -98,6 +102,11 @@ namespace Apache.Ignite.Tests
                     return $"Leaked buffers: {bufs}";
                 });
 #endif
+        }
+
+        public static Instant TruncateInstantToMillis(Instant instant)
+        {
+            return Instant.FromUnixTimeMilliseconds(instant.ToUnixTimeMilliseconds());
         }
 
         internal static async Task ForceLazyTxStart(ITransaction tx, IIgnite client, PreferredNode preferredNode = default) =>

@@ -251,7 +251,7 @@ namespace Apache.Ignite.Tests.Compute
             await Test(new BitArray(new[] { byte.MaxValue }), "{0, 1, 2, 3, 4, 5, 6, 7}");
             await Test(LocalDate.MinIsoValue, "-9998-01-01");
             await Test(LocalTime.Noon, "12:00");
-            await Test(LocalDateTime.MaxIsoValue, "9999-12-31T23:59:59.999999999");
+            await Test(LocalDateTime.MaxIsoValue.With(TestUtils.TruncateTimeToMillis), "9999-12-31T23:59:59.999");
             await Test(Instant.FromUtc(2001, 3, 4, 5, 6));
 
             await Test(BigInteger.One);
@@ -649,6 +649,12 @@ namespace Apache.Ignite.Tests.Compute
         [TestCase("1.123456789", 5)]
         public async Task TestBigDecimalPropagation(string number, int scale)
         {
+            // Set the default culture for all threads in the application domain
+            CultureInfo culture = new CultureInfo("en-US");
+
+            CultureInfo.DefaultThreadCurrentCulture = culture;
+            CultureInfo.DefaultThreadCurrentUICulture = culture;
+
             var res = await Client.Compute.SubmitAsync<decimal>(await GetNodeAsync(1), Units, DecimalJob, number, scale);
             var resVal = await res.GetResultAsync();
 

@@ -514,7 +514,7 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
         [Test]
         public void TestTime()
         {
-            var val = LocalDateTime.FromDateTime(DateTime.UtcNow).TimeOfDay;
+            var val = LocalDateTime.FromDateTime(DateTime.UtcNow).With(TestUtils.TruncateTimeToMillis).TimeOfDay;
 
             var reader = BuildAndRead(
                 (ref BinaryTupleBuilder b) =>
@@ -531,7 +531,7 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
             Assert.AreEqual(default(LocalTime), reader.GetTime(0));
             Assert.AreEqual(val, reader.GetTime(1));
             Assert.AreEqual(LocalTime.MinValue, reader.GetTime(2));
-            Assert.AreEqual(LocalTime.MaxValue, reader.GetTime(3));
+            Assert.AreEqual(LocalTime.MaxValue.With(TestUtils.TruncateTimeToMillis), reader.GetTime(3));
             Assert.AreEqual(LocalTime.Midnight, reader.GetTime(4));
             Assert.AreEqual(LocalTime.Noon, reader.GetTime(5));
         }
@@ -539,36 +539,41 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
         [Test]
         public void TestDateTime()
         {
-            var val = LocalDateTime.FromDateTime(DateTime.UtcNow);
+            var utc = LocalDateTime.FromDateTime(DateTime.UtcNow);
+            var val = utc.With(TestUtils.TruncateTimeToMillis);
+            var maxDateTime = LocalDateTime.MaxIsoValue.With(TestUtils.TruncateTimeToMillis);
+            var minDateTime = LocalDateTime.MinIsoValue;
 
             var reader = BuildAndRead(
                 (ref BinaryTupleBuilder b) =>
                 {
                     b.AppendDateTime(default, 0);
                     b.AppendDateTime(val, TemporalTypes.MaxTimePrecision);
-                    b.AppendDateTime(LocalDateTime.MaxIsoValue, TemporalTypes.MaxTimePrecision);
-                    b.AppendDateTime(LocalDateTime.MinIsoValue, TemporalTypes.MaxTimePrecision);
+                    b.AppendDateTime(maxDateTime, TemporalTypes.MaxTimePrecision);
+                    b.AppendDateTime(minDateTime, TemporalTypes.MaxTimePrecision);
                 },
                 4);
 
             Assert.AreEqual(default(LocalDateTime), reader.GetDateTime(0));
             Assert.AreEqual(val, reader.GetDateTime(1));
-            Assert.AreEqual(LocalDateTime.MaxIsoValue, reader.GetDateTime(2));
-            Assert.AreEqual(LocalDateTime.MinIsoValue, reader.GetDateTime(3));
+            Assert.AreEqual(maxDateTime, reader.GetDateTime(2));
+            Assert.AreEqual(minDateTime, reader.GetDateTime(3));
         }
 
         [Test]
         public void TestTimestamp()
         {
-            var val = Instant.FromDateTimeUtc(DateTime.UtcNow);
+            var val = TestUtils.TruncateInstantToMillis(Instant.FromDateTimeUtc(DateTime.UtcNow));
+            var maxInstant = TestUtils.TruncateInstantToMillis(Instant.MaxValue);
+            var minInstant = Instant.MinValue;
 
             var reader = BuildAndRead(
                 (ref BinaryTupleBuilder b) =>
                 {
                     b.AppendTimestamp(default, 0);
                     b.AppendTimestamp(val, TemporalTypes.MaxTimePrecision);
-                    b.AppendTimestamp(Instant.MaxValue, TemporalTypes.MaxTimePrecision);
-                    b.AppendTimestamp(Instant.MinValue, TemporalTypes.MaxTimePrecision);
+                    b.AppendTimestamp(maxInstant, TemporalTypes.MaxTimePrecision);
+                    b.AppendTimestamp(minInstant, TemporalTypes.MaxTimePrecision);
                     b.AppendTimestamp(NodaConstants.BclEpoch, TemporalTypes.MaxTimePrecision);
                     b.AppendTimestamp(NodaConstants.JulianEpoch, TemporalTypes.MaxTimePrecision);
                 },
@@ -576,8 +581,8 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
 
             Assert.AreEqual(NodaConstants.UnixEpoch, reader.GetTimestamp(0));
             Assert.AreEqual(val, reader.GetTimestamp(1));
-            Assert.AreEqual(Instant.MaxValue, reader.GetTimestamp(2));
-            Assert.AreEqual(Instant.MinValue, reader.GetTimestamp(3));
+            Assert.AreEqual(maxInstant, reader.GetTimestamp(2));
+            Assert.AreEqual(minInstant, reader.GetTimestamp(3));
             Assert.AreEqual(NodaConstants.BclEpoch, reader.GetTimestamp(4));
             Assert.AreEqual(NodaConstants.JulianEpoch, reader.GetTimestamp(5));
         }
@@ -672,8 +677,9 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
         {
             var guid = Guid.NewGuid();
             var utcNow = DateTime.UtcNow;
+            var dateTime = LocalDateTime.FromDateTime(utcNow).With(TestUtils.TruncateTimeToMillis);
             var date = LocalDate.FromDateTime(utcNow);
-            var dateTime = LocalDateTime.FromDateTime(utcNow);
+            var instant = TestUtils.TruncateInstantToMillis(Instant.FromDateTimeUtc(utcNow));
             var bitArray = new BitArray(new[] { byte.MaxValue });
             var bytes = new byte[] { 1, 2 };
 
@@ -710,7 +716,7 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
                     b.AppendTimeNullable(null, 0);
                     b.AppendDateTimeNullable(dateTime, TemporalTypes.MaxTimePrecision);
                     b.AppendDateTimeNullable(null, 0);
-                    b.AppendTimestampNullable(Instant.FromDateTimeUtc(utcNow), TemporalTypes.MaxTimePrecision);
+                    b.AppendTimestampNullable(instant, TemporalTypes.MaxTimePrecision);
                     b.AppendTimestampNullable(null, 0);
                     b.AppendDurationNullable(Duration.FromMinutes(1));
                     b.AppendDurationNullable(null);
@@ -749,7 +755,7 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
             Assert.IsNull(reader.GetTimeNullable(27));
             Assert.AreEqual(dateTime, reader.GetDateTimeNullable(28));
             Assert.IsNull(reader.GetDateTimeNullable(29));
-            Assert.AreEqual(Instant.FromDateTimeUtc(utcNow), reader.GetTimestampNullable(30));
+            Assert.AreEqual(instant, reader.GetTimestampNullable(30));
             Assert.IsNull(reader.GetTimestampNullable(31));
             Assert.AreEqual(Duration.FromMinutes(1), reader.GetDurationNullable(32));
             Assert.IsNull(reader.GetDurationNullable(33));
@@ -761,9 +767,10 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
         public void TestObject()
         {
             var guid = Guid.NewGuid();
-            var utcNow = DateTime.UtcNow;
+            var utcNow= DateTime.UtcNow;
             var date = LocalDate.FromDateTime(utcNow);
-            var dateTime = LocalDateTime.FromDateTime(utcNow);
+            var dateTime = LocalDateTime.FromDateTime(utcNow).With(TestUtils.TruncateTimeToMillis);
+            var instant = TestUtils.TruncateInstantToMillis(Instant.FromDateTimeUtc(utcNow));
             var bitArray = new BitArray(new[] { byte.MaxValue });
             var bytes = new byte[] { 1, 2 };
 
@@ -786,7 +793,7 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
                     b.AppendObject(LocalTime.FromMinutesSinceMidnight(123), ColumnType.Time, precision: TemporalTypes.MaxTimePrecision);
                     b.AppendObject(date, ColumnType.Date);
                     b.AppendObject(dateTime, ColumnType.Datetime, precision: TemporalTypes.MaxTimePrecision);
-                    b.AppendObject(Instant.FromDateTimeUtc(utcNow), ColumnType.Timestamp, precision: TemporalTypes.MaxTimePrecision);
+                    b.AppendObject(instant, ColumnType.Timestamp, precision: TemporalTypes.MaxTimePrecision);
                 },
                 17);
 
@@ -806,7 +813,7 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
             Assert.AreEqual(LocalTime.FromMinutesSinceMidnight(123), reader.GetObject(13, ColumnType.Time));
             Assert.AreEqual(date, reader.GetObject(14, ColumnType.Date));
             Assert.AreEqual(dateTime, reader.GetObject(15, ColumnType.Datetime));
-            Assert.AreEqual(Instant.FromDateTimeUtc(utcNow), reader.GetObject(16, ColumnType.Timestamp));
+            Assert.AreEqual(instant, reader.GetObject(16, ColumnType.Timestamp));
         }
 
         [Test]
@@ -814,8 +821,9 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
         {
             var guid = Guid.NewGuid();
             var utcNow = DateTime.UtcNow;
+            var dateTime = LocalDateTime.FromDateTime(utcNow).With(TestUtils.TruncateTimeToMillis);
             var date = LocalDate.FromDateTime(utcNow);
-            var dateTime = LocalDateTime.FromDateTime(utcNow);
+            var instant = TestUtils.TruncateInstantToMillis(Instant.FromDateTimeUtc(utcNow));
             var bitArray = new BitArray(new[] { byte.MaxValue });
             var bytes = new byte[] { 1, 2 };
 
@@ -838,7 +846,7 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
                     b.AppendObjectWithType(LocalTime.FromMinutesSinceMidnight(123));
                     b.AppendObjectWithType(date);
                     b.AppendObjectWithType(dateTime);
-                    b.AppendObjectWithType(Instant.FromDateTimeUtc(utcNow));
+                    b.AppendObjectWithType(instant);
                 },
                 17 * 3);
 
@@ -858,7 +866,7 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
             Assert.AreEqual(LocalTime.FromMinutesSinceMidnight(123), reader.GetObject(39));
             Assert.AreEqual(date, reader.GetObject(42));
             Assert.AreEqual(dateTime, reader.GetObject(45));
-            Assert.AreEqual(Instant.FromDateTimeUtc(utcNow), reader.GetObject(48));
+            Assert.AreEqual(instant, reader.GetObject(48));
         }
 
         [Test]

@@ -544,7 +544,9 @@ namespace Apache.Ignite.Tests.Table
             var tupleView = table!.RecordBinaryView;
 
             var keyTuple = new IgniteTuple { ["Key"] = 123L };
-            var dt = LocalDateTime.FromDateTime(DateTime.UtcNow);
+            var dt = LocalDateTime.FromDateTime(DateTime.UtcNow).With(TestUtils.TruncateTimeToMillis);
+            var instant = TestUtils.TruncateInstantToMillis(Instant.FromDateTimeUtc(DateTime.UtcNow));
+
             var tuple = new IgniteTuple
             {
                 ["Key"] = 123L,
@@ -560,7 +562,7 @@ namespace Apache.Ignite.Tests.Table
                 ["BitMask"] = new BitArray(new byte[] { 1 }),
                 ["Time"] = dt.TimeOfDay,
                 ["DateTime"] = dt,
-                ["Timestamp"] = Instant.FromDateTimeUtc(DateTime.UtcNow),
+                ["Timestamp"] = instant,
                 ["Blob"] = new byte[] { 1, 2, 3 },
                 ["Decimal"] = 123.456m,
                 ["Boolean"] = true
