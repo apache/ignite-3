@@ -82,8 +82,8 @@ public interface IDataStreamerTarget<T>
     /// <returns>
     /// A <see cref="IAsyncEnumerable{T}"/> with the results from the receiver.
     /// <para />
-    /// The resulting async enumerable applies back-pressure to the data source, so it should be either fully consumed
-    /// or disposed to complete the streaming.
+    /// The resulting async enumerator applies back-pressure to the data source, so it should be either fully consumed
+    /// or disposed to complete the streaming. Disposing the enumerator before it is fully consumed will ignore the remaining results.
     /// </returns>
     /// <typeparam name="TSource">Source item type.</typeparam>
     /// <typeparam name="TPayload">Payload type.</typeparam>

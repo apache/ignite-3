@@ -750,8 +750,35 @@ public class DataStreamerTests : IgniteTestsBase
     [Test]
     public async Task TestResultConsumerCancellation()
     {
-        await Task.Delay(1);
-        Assert.Fail("TODO");
+        IAsyncEnumerable<string> results = PocoView.StreamDataAsync<int, string, string>(
+            Enumerable.Range(0, Count).ToAsyncEnumerable(),
+            keySelector: x => GetPoco(x),
+            payloadSelector: x => $"{x}-value{x * 10}",
+            units: Array.Empty<DeploymentUnit>(),
+            receiverClassName: TestReceiverClassName,
+            receiverArgs: new object[] { Table.Name, "arg1", 22 },
+            options: DataStreamerOptions.Default with { PageSize = 1 });
+
+        // Read only part of the results.
+        var cts = new CancellationTokenSource();
+
+        await using var enumerator = results.GetAsyncEnumerator(cts.Token);
+        Assert.IsTrue(await enumerator.MoveNextAsync());
+
+        cts.Cancel();
+        Assert.ThrowsAsync<TaskCanceledException>(async () => await enumerator.MoveNextAsync());
+
+        await Task.Delay(1000);
+
+        for (int i = 0; i < Count; i++)
+        {
+            var res = await TupleView.GetAsync(null, GetTuple(i));
+
+            var expectedVal = $"value{i * 10}_arg1_22";
+
+            Assert.IsTrue(res.HasValue, $"Key {i} not found");
+            Assert.AreEqual(expectedVal, res.Value[ValCol]);
+        }
     }
 
     private static async IAsyncEnumerable<IIgniteTuple> GetFakeServerData(int count)
