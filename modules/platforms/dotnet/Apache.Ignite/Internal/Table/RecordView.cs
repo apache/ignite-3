@@ -23,6 +23,7 @@ namespace Apache.Ignite.Internal.Table
     using System.Diagnostics.CodeAnalysis;
     using System.Linq;
     using System.Threading;
+    using System.Threading.Channels;
     using System.Threading.Tasks;
     using Buffers;
     using Common;
@@ -316,19 +317,52 @@ namespace Apache.Ignite.Internal.Table
             ICollection<object>? receiverArgs,
             DataStreamerOptions? options,
             CancellationToken cancellationToken = default)
-            where TPayload : notnull =>
-            DataStreamerWithReceiver.StreamDataAsync<TSource, T, TPayload, TResult>(
-                data,
-                _table,
-                keySelector,
-                payloadSelector,
-                keyWriter: _ser.Handler,
-                options ?? DataStreamerOptions.Default,
-                expectResults: true,
-                units,
-                receiverClassName,
-                receiverArgs,
-                cancellationToken);
+            where TPayload : notnull
+        {
+            options ??= DataStreamerOptions.Default;
+
+            var resultChannel = Channel.CreateBounded<TResult>(new BoundedChannelOptions(options.PageSize)
+            {
+                FullMode = BoundedChannelFullMode.Wait,
+                SingleReader = true, // One reader: resulting IAsyncEnumerable.
+                SingleWriter = false // Many writers: batches may complete in parallel.
+            });
+
+            // Stream in background.
+            _ = Stream();
+
+            // Result async enumerable is returned immediately. It will be completed when the streaming completes.
+            return resultChannel.Reader.ReadAllAsync(cancellationToken);
+
+            [SuppressMessage(
+                "Design",
+                "CA1031:Do not catch general exception types",
+                Justification = "All exceptions should be propagated to the result channel.")]
+            async Task Stream()
+            {
+                try
+                {
+                    await DataStreamerWithReceiver.StreamDataAsync(
+                        data,
+                        _table,
+                        keySelector,
+                        payloadSelector,
+                        keyWriter: _ser.Handler,
+                        options,
+                        resultChannel,
+                        units,
+                        receiverClassName,
+                        receiverArgs,
+                        cancellationToken).ConfigureAwait(false);
+
+                    resultChannel.Writer.Complete();
+                }
+                catch (Exception e)
+                {
+                    resultChannel.Writer.Complete(e);
+                }
+            }
+        }
 
         /// <inheritdoc/>
         public async Task StreamDataAsync<TSource, TPayload>(
@@ -342,24 +376,18 @@ namespace Apache.Ignite.Internal.Table
             CancellationToken cancellationToken = default)
             where TPayload : notnull
         {
-            IAsyncEnumerable<object> results = DataStreamerWithReceiver.StreamDataAsync<TSource, T, TPayload, object>(
+            await DataStreamerWithReceiver.StreamDataAsync<TSource, T, TPayload, object>(
                 data,
                 _table,
                 keySelector,
                 payloadSelector,
                 keyWriter: _ser.Handler,
                 options ?? DataStreamerOptions.Default,
-                expectResults: false,
+                resultChannel: null,
                 units,
                 receiverClassName,
                 receiverArgs,
-                cancellationToken);
-
-            // Await streaming completion.
-            await foreach (var unused in results)
-            {
-                Debug.Fail("Got results with expectResults=false: " + unused);
-            }
+                cancellationToken).ConfigureAwait(false);
         }
 
         /// <inheritdoc/>

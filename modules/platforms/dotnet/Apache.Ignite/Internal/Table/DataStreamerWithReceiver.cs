@@ -23,7 +23,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
-using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Channels;
@@ -61,7 +60,7 @@ internal static class DataStreamerWithReceiver
     /// <param name="payloadSelector">Payload func.</param>
     /// <param name="keyWriter">Key writer.</param>
     /// <param name="options">Options.</param>
-    /// <param name="expectResults">Whether to expect results from the receiver.</param>
+    /// <param name="resultChannel">Channel for results from the receiver. Null when results are not expected.</param>
     /// <param name="units">Deployment units. Can be empty.</param>
     /// <param name="receiverClassName">Java class name of the streamer receiver to execute on the server.</param>
     /// <param name="receiverArgs">Receiver args.</param>
@@ -71,26 +70,23 @@ internal static class DataStreamerWithReceiver
     /// <typeparam name="TPayload">Payload type.</typeparam>
     /// <typeparam name="TResult">Result type.</typeparam>
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
-    internal static async IAsyncEnumerable<TResult> StreamDataAsync<TSource, TKey, TPayload, TResult>(
+    internal static async Task StreamDataAsync<TSource, TKey, TPayload, TResult>(
         IAsyncEnumerable<TSource> data,
         Table table,
         Func<TSource, TKey> keySelector,
         Func<TSource, TPayload> payloadSelector,
         IRecordSerializerHandler<TKey> keyWriter,
         DataStreamerOptions options,
-        bool expectResults,
+        Channel<TResult>? resultChannel,
         IEnumerable<DeploymentUnit> units,
         string receiverClassName,
         ICollection<object>? receiverArgs,
-        [EnumeratorCancellation] CancellationToken cancellationToken)
+        CancellationToken cancellationToken)
         where TKey : notnull
         where TPayload : notnull
     {
         IgniteArgumentCheck.NotNull(data);
         DataStreamer.ValidateOptions(options);
-
-        // TODO: Return channel instead of IAsyncEnumerable. Or return a task, but pass in the channel?
-        Channel<TResult> resultChannel = CreateResultChannel<TResult>(options.PageSize);
 
         // ConcurrentDictionary is not necessary because we consume the source sequentially.
         // However, locking for batches is required due to auto-flush background task.
@@ -130,28 +126,14 @@ internal static class DataStreamerWithReceiver
                 {
                     await SendAsync(batch).ConfigureAwait(false);
                 }
-
-                // Yield results.
-                // TODO: Results might be blocked by the producer, we should use Task.WhenAny.
-                while (expectResults && resultChannel.Reader.TryRead(out var result))
-                {
-                    yield return result;
-                }
             }
 
             // Drain batches.
             await Drain().ConfigureAwait(false);
-
-            // Drain results.
-            while (expectResults && resultChannel.Reader.TryRead(out var result))
-            {
-                yield return result;
-            }
         }
         finally
         {
             flushCts.Cancel();
-            resultChannel.Writer.Complete();
 
             foreach (var batch in batches.Values)
             {
@@ -162,7 +144,7 @@ internal static class DataStreamerWithReceiver
             }
         }
 
-        yield break;
+        return;
 
         Batch<TPayload> Add(TSource item)
         {
@@ -272,7 +254,7 @@ internal static class DataStreamerWithReceiver
                 await oldTask.ConfigureAwait(false);
                 (results, int resultsCount) = await SendBatchAsync<TResult>(table, buf, count, preferredNode, retryPolicy).ConfigureAwait(false);
 
-                if (results != null)
+                if (results != null && resultChannel != null)
                 {
                     for (var i = 0; i < resultsCount; i++)
                     {
@@ -339,18 +321,12 @@ internal static class DataStreamerWithReceiver
 
             Compute.WriteUnits(units0, buf);
 
+            var expectResults = resultChannel != null;
             w.Write(expectResults);
+
             WriteReceiverPayload(ref w, receiverClassName, receiverArgs ?? Array.Empty<object>(), items);
         }
     }
-
-    private static Channel<TResult> CreateResultChannel<TResult>(int pageSize) =>
-        Channel.CreateBounded<TResult>(new BoundedChannelOptions(pageSize)
-        {
-            FullMode = BoundedChannelFullMode.Wait,
-            SingleReader = true, // One reader: resulting IAsyncEnumerable.
-            SingleWriter = false // Many writers: batches may complete in parallel.
-        });
 
     private static void WriteReceiverPayload<T>(ref MsgPackWriter w, string className, ICollection<object> args, Span<T> items)
     {
