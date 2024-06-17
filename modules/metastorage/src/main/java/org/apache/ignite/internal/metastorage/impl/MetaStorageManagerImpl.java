@@ -19,6 +19,7 @@ package org.apache.ignite.internal.metastorage.impl;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.cancelOrConsume;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
@@ -183,7 +184,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         this.idempotentCacheTtl = idempotentCacheTtl;
         this.maxClockSkewMillisFuture = maxClockSkewMillisFuture;
         this.idempotentCacheVacumizer = Executors.newSingleThreadScheduledExecutor(
-                NamedThreadFactory.create(clusterService.nodeName(), "idempotent-cache-cleanup-scheduler", LOG));
+                NamedThreadFactory.create(clusterService.nodeName(), "idempotent-cache-vacumizer", LOG));
     }
 
     /**
@@ -515,7 +516,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
                             }
                         });
 
-                        idempotentCacheVacumizer.scheduleWithFixedDelay(this::evictIdempotentCommandsCache, 0, 1, MINUTES);
+                        idempotentCacheVacumizer.scheduleWithFixedDelay(this::evictIdempotentCommandsCache, 0, 1, SECONDS);
                     }))
                     .whenComplete((v, e) -> {
                         if (e == null) {
