@@ -370,7 +370,7 @@ public class DataStreamerTests : IgniteTestsBase
     [Test]
     public async Task TestWithReceiverWithResultsRecordBinaryView()
     {
-        var results = TupleView.StreamDataAsync<int, string, string>(
+        IAsyncEnumerable<string> results = TupleView.StreamDataAsync<int, string, string>(
             Enumerable.Range(0, Count).ToAsyncEnumerable(),
             keySelector: x => GetTuple(x),
             payloadSelector: x => $"{x}-value{x * 10}",
@@ -464,6 +464,34 @@ public class DataStreamerTests : IgniteTestsBase
             Assert.IsTrue(res.HasValue);
             Assert.AreEqual($"value{i * 10}_arg1_22", res.Value[ValCol]);
         }
+    }
+
+    [Test]
+    public async Task TestWithReceiverResultsKeyValueBinaryView()
+    {
+        IAsyncEnumerable<string> results = Table.KeyValueBinaryView.StreamDataAsync<int, string, string>(
+            Enumerable.Range(0, Count).ToAsyncEnumerable(),
+            keySelector: x => new KeyValuePair<IIgniteTuple, IIgniteTuple>(GetTuple(x), new IgniteTuple()),
+            payloadSelector: x => $"{x}-value{x * 10}",
+            units: Array.Empty<DeploymentUnit>(),
+            receiverClassName: TestReceiverClassName,
+            receiverArgs: new object[] { Table.Name, "arg1", 22 });
+
+        var resultSet = await results.ToHashSetAsync();
+
+        for (int i = 0; i < Count; i++)
+        {
+            var res = await TupleView.GetAsync(null, GetTuple(i));
+
+            var expectedVal = $"value{i * 10}_arg1_22";
+
+            Assert.IsTrue(res.HasValue);
+            Assert.AreEqual(expectedVal, res.Value[ValCol]);
+
+            CollectionAssert.Contains(resultSet, expectedVal);
+        }
+
+        Assert.AreEqual(Count, resultSet.Count);
     }
 
     [Test]
