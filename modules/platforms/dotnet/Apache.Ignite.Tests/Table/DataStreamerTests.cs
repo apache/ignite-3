@@ -42,6 +42,8 @@ public class DataStreamerTests : IgniteTestsBase
 {
     private const string TestReceiverClassName = ComputeTests.PlatformTestNodeRunner + "$TestReceiver";
 
+    private const string EchoArgsReceiverClassName = ComputeTests.PlatformTestNodeRunner + "$EchoArgsReceiver";
+
     private const string UpsertElementTypeNameReceiverClassName = ComputeTests.PlatformTestNodeRunner + "$UpsertElementTypeNameReceiver";
 
     private const int Count = 100;
@@ -671,6 +673,30 @@ public class DataStreamerTests : IgniteTestsBase
         Assert.AreEqual(
             "Value cannot be null. (Parameter 'payload')",
             ex.Message);
+    }
+
+    [Test]
+    public async Task TestEchoReceiverAllDataTypes()
+    {
+        // TODO: All types.
+        var arg = "str";
+
+        var res = await PocoView.StreamDataAsync<object, object, object>(
+            new object[] { 1 }.ToAsyncEnumerable(),
+            keySelector: x => new Poco(),
+            payloadSelector: x => x.ToString()!,
+            units: Array.Empty<DeploymentUnit>(),
+            receiverClassName: EchoArgsReceiverClassName,
+            receiverArgs: new object[] { arg }).SingleAsync();
+
+        Assert.AreEqual(arg, res);
+    }
+
+    [Test]
+    public async Task TestResultAsyncEnumerableBackpressure()
+    {
+        await Task.Delay(1);
+        Assert.Fail("TODO");
     }
 
     private static async IAsyncEnumerable<IIgniteTuple> GetFakeServerData(int count)
