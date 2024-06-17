@@ -416,6 +416,37 @@ public class IndexMetaStorageRecoveryTest extends BaseIndexMetaStorageTest {
         assertNull(fromMetastore(indexId));
     }
 
+    @Test
+    void testMissingMultipleIndexUpdates() throws Exception {
+        assertThat(indexMetaStorage.stopAsync(new ComponentContext()), willCompleteSuccessfully());
+
+        int registeredIndexCatalogVersion = executeCatalogUpdate(() -> createSimpleHashIndex(catalogManager, TABLE_NAME, INDEX_NAME));
+
+        int indexId = indexId(INDEX_NAME);
+        int tableId = tableId(TABLE_NAME);
+
+        int buildingIndexCatalogVersion = executeCatalogUpdate(() -> startBuildingIndex(catalogManager, indexId));
+        int availableIndexCatalogVersion = executeCatalogUpdate(() -> makeIndexAvailable(catalogManager, indexId));
+        int stoppingIndexCatalogVersion = executeCatalogUpdate(() -> dropSimpleIndex(catalogManager, INDEX_NAME));
+        int removingIndexCatalogVersion = executeCatalogUpdate(() -> removeIndex(catalogManager, indexId));
+
+        restartComponents();
+
+        IndexMeta indexMeta = indexMetaStorage.indexMeta(indexId);
+        IndexMeta fromMetastore = fromMetastore(indexId);
+
+        Map<MetaIndexStatus, MetaIndexStatusChange> expectedStatuses = Map.of(
+                REGISTERED, toChangeInfo(registeredIndexCatalogVersion),
+                BUILDING, toChangeInfo(buildingIndexCatalogVersion),
+                AVAILABLE, toChangeInfo(availableIndexCatalogVersion),
+                STOPPING, toChangeInfo(stoppingIndexCatalogVersion),
+                READ_ONLY, toChangeInfo(removingIndexCatalogVersion)
+        );
+
+        checkFields(indexMeta, indexId, tableId, INDEX_NAME, READ_ONLY, expectedStatuses, removingIndexCatalogVersion);
+        checkFields(fromMetastore, indexId, tableId, INDEX_NAME, READ_ONLY, expectedStatuses, removingIndexCatalogVersion);
+    }
+
     private void executeCatalogUpdateWithDropEvents(RunnableX task) {
         CompletableFuture<Void> startDropEventsFuture = interceptor.startDropEvents();
 

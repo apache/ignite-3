@@ -26,6 +26,7 @@ import static org.apache.ignite.compute.JobState.EXECUTING;
 import static org.apache.ignite.compute.JobState.FAILED;
 import static org.apache.ignite.internal.compute.ComputeUtils.instantiateTask;
 import static org.apache.ignite.internal.util.ArrayUtils.concat;
+import static org.apache.ignite.internal.util.CompletableFutures.allOfToList;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 
@@ -49,7 +50,6 @@ import org.apache.ignite.internal.compute.queue.PriorityQueueExecutor;
 import org.apache.ignite.internal.compute.queue.QueueExecution;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.util.CompletableFutures;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -243,7 +243,7 @@ public class TaskExecutionInternal<R> implements JobExecution<R> {
                     .map(JobExecution::statusAsync)
                     .toArray(CompletableFuture[]::new);
 
-            return CompletableFutures.allOf(statusFutures);
+            return allOfToList(statusFutures);
         });
 
     }

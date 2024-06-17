@@ -19,8 +19,8 @@ package org.apache.ignite.internal.cluster.management.topology.api;
 
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.TopologyService;
 
 /**
  * Used for getting information about the cluster's Logical Topology.
