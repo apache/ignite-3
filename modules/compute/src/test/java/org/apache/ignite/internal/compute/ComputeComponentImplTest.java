@@ -688,15 +688,15 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
     private static class SimpleJob implements ComputeJob<String> {
         /** {@inheritDoc} */
         @Override
-        public String execute(JobExecutionContext context, Object... args) {
-            return "jobResponse";
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, Object... args) {
+            return completedFuture("jobResponse");
         }
     }
 
     private static class FailingJob implements ComputeJob<String> {
         /** {@inheritDoc} */
         @Override
-        public String execute(JobExecutionContext context, Object... args) {
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, Object... args) {
             throw new JobException("Oops", new Exception());
         }
     }
@@ -710,15 +710,15 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
     private static class GetThreadNameJob implements ComputeJob<String> {
         /** {@inheritDoc} */
         @Override
-        public String execute(JobExecutionContext context, Object... args) {
-            return Thread.currentThread().getName();
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, Object... args) {
+            return completedFuture(Thread.currentThread().getName());
         }
     }
 
     private static class LongJob implements ComputeJob<String> {
         /** {@inheritDoc} */
         @Override
-        public String execute(JobExecutionContext context, Object... args) {
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, Object... args) {
             try {
                 Thread.sleep(1_000_000);
             } catch (InterruptedException e) {

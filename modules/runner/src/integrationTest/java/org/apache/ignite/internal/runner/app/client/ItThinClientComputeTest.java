@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.runner.app.client;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.compute.JobState.CANCELED;
 import static org.apache.ignite.compute.JobState.COMPLETED;
 import static org.apache.ignite.compute.JobState.EXECUTING;
@@ -27,6 +29,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.will;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.JobStatusMatcher.jobStatusWithState;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Compute.COMPUTE_JOB_FAILED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Table.COLUMN_ALREADY_EXISTS_ERR;
@@ -86,6 +89,7 @@ import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.hamcrest.Matcher;
 import org.hamcrest.Matchers;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -157,10 +161,13 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         assertThat(execution.changePriorityAsync(0), willBe(false));
     }
 
-    @Test
-    void testCancelOnSpecificNodeAsync() {
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void testCancelOnSpecificNodeAsync(boolean asyncJob) {
         int sleepMs = 1_000_000;
-        JobDescriptor sleepJob = JobDescriptor.builder(SleepJob.class).build();
+        JobDescriptor sleepJob = JobDescriptor
+                .builder(asyncJob ? AsyncSleepJob.class : SleepJob.class)
+                .build();
 
         JobExecution<String> execution1 = client().compute().submit(Set.of(node(0)), sleepJob, sleepMs);
         JobExecution<String> execution2 = client().compute().submit(Set.of(node(1)), sleepJob, sleepMs);
@@ -326,19 +333,21 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         assertNull(cause.getCause()); // No stack trace by default.
     }
 
-    @Test
-    void testExceptionInJobPropagatesToClientWithClassAndMessageAsync() {
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void testExceptionInJobPropagatesToClientWithClassAndMessageAsync(boolean asyncJob) {
         IgniteException cause = getExceptionInJobExecutionAsync(
-                client().compute().submit(Set.of(node(0)), JobDescriptor.builder(ExceptionJob.class).build())
+                client().compute().submit(Set.of(node(0)), JobDescriptor.builder(ExceptionJob.class).build(), asyncJob)
         );
 
         assertComputeExceptionWithClassAndMessage(cause);
     }
 
-    @Test
-    void testExceptionInJobPropagatesToClientWithClassAndMessageSync() {
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void testExceptionInJobPropagatesToClientWithClassAndMessageSync(boolean asyncJob) {
         IgniteException cause = getExceptionInJobExecutionSync(
-                () -> client().compute().execute(Set.of(node(0)), JobDescriptor.builder(ExceptionJob.class).build())
+                () -> client().compute().execute(Set.of(node(0)), JobDescriptor.builder(ExceptionJob.class).build(), asyncJob)
         );
 
         assertComputeExceptionWithClassAndMessage(cause);
@@ -509,7 +518,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         assertThat(cause.getCause().getMessage(), containsString(
                 "Caused by: java.lang.ArithmeticException: math err" + System.lineSeparator()
                         + "\tat org.apache.ignite.internal.runner.app.client.ItThinClientComputeTest$"
-                        + "ExceptionJob.execute(ItThinClientComputeTest.java:")
+                        + "ExceptionJob.executeAsync(ItThinClientComputeTest.java:")
         );
     }
 
@@ -737,39 +746,47 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     private static class NodeNameJob implements ComputeJob<String> {
         @Override
-        public String execute(JobExecutionContext context, Object... args) {
-            return context.ignite().name() + Arrays.stream(args).map(Object::toString).collect(Collectors.joining("_"));
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, Object... args) {
+            return completedFuture(
+                    context.ignite().name() + Arrays.stream(args).map(Object::toString).collect(Collectors.joining("_")));
         }
     }
 
     private static class ConcatJob implements ComputeJob<String> {
         @Override
-        public String execute(JobExecutionContext context, Object... args) {
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, Object... args) {
             if (args == null) {
-                return null;
+                return nullCompletedFuture();
             }
 
-            return Arrays.stream(args).map(o -> o == null ? "null" : o.toString()).collect(Collectors.joining("_"));
+            return completedFuture(
+                    Arrays.stream(args).map(o -> o == null ? "null" : o.toString()).collect(Collectors.joining("_")));
         }
     }
 
     private static class IgniteExceptionJob implements ComputeJob<String> {
         @Override
-        public String execute(JobExecutionContext context, Object... args) {
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, Object... args) {
             throw new CustomException(TRACE_ID, COLUMN_ALREADY_EXISTS_ERR, "Custom job error", null);
         }
     }
 
     private static class ExceptionJob implements ComputeJob<String> {
         @Override
-        public String execute(JobExecutionContext context, Object... args) {
-            throw new ArithmeticException("math err");
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, Object... args) {
+            boolean asyncJob = args.length > 0 && (Boolean) args[0];
+
+            if (asyncJob) {
+                return failedFuture(new ArithmeticException("math err"));
+            } else {
+                throw new ArithmeticException("math err");
+            }
         }
     }
 
     private static class EchoJob implements ComputeJob<Object> {
         @Override
-        public Object execute(JobExecutionContext context, Object... args) {
+        public CompletableFuture<Object> executeAsync(JobExecutionContext context, Object... args) {
             var value = args[0];
 
             if (!(value instanceof byte[])) {
@@ -778,13 +795,13 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
                 assertEquals(expectedString, valueString, "Unexpected string representation of value");
             }
 
-            return args[0];
+            return completedFuture(args[0]);
         }
     }
 
     private static class SleepJob implements ComputeJob<Void> {
         @Override
-        public Void execute(JobExecutionContext context, Object... args) {
+        public @Nullable CompletableFuture<Void> executeAsync(JobExecutionContext context, Object... args) {
             try {
                 Thread.sleep((Integer) args[0]);
             } catch (InterruptedException e) {
@@ -795,10 +812,23 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         }
     }
 
+    private static class AsyncSleepJob implements ComputeJob<Void> {
+        @Override
+        public @Nullable CompletableFuture<Void> executeAsync(JobExecutionContext context, Object... args) {
+            return CompletableFuture.runAsync(() -> {
+                try {
+                    Thread.sleep((Integer) args[0]);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+            });
+        }
+    }
+
     private static class DecimalJob implements ComputeJob<BigDecimal> {
         @Override
-        public BigDecimal execute(JobExecutionContext context, Object... args) {
-            return new BigDecimal((String) args[0]).setScale((Integer) args[1], RoundingMode.HALF_UP);
+        public CompletableFuture<BigDecimal> executeAsync(JobExecutionContext context, Object... args) {
+            return completedFuture(new BigDecimal((String) args[0]).setScale((Integer) args[1], RoundingMode.HALF_UP));
         }
     }
 

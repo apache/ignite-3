@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.runner.app;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.MAX_TIME_PRECISION;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZone;
@@ -550,12 +551,12 @@ public class PlatformTestNodeRunner {
     @SuppressWarnings("unused") // Used by platform tests.
     private static class CreateTableJob implements ComputeJob<String> {
         @Override
-        public String execute(JobExecutionContext context, Object... args) {
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, Object... args) {
             String tableName = (String) args[0];
 
             context.ignite().sql().execute(null, "CREATE TABLE " + tableName + "(key BIGINT PRIMARY KEY, val INT)");
 
-            return tableName;
+            return completedFuture(tableName);
         }
     }
 
@@ -565,11 +566,11 @@ public class PlatformTestNodeRunner {
     @SuppressWarnings("unused") // Used by platform tests.
     private static class DropTableJob implements ComputeJob<String> {
         @Override
-        public String execute(JobExecutionContext context, Object... args) {
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, Object... args) {
             String tableName = (String) args[0];
             context.ignite().sql().execute(null, "DROP TABLE " + tableName + "");
 
-            return tableName;
+            return completedFuture(tableName);
         }
     }
 
@@ -579,7 +580,7 @@ public class PlatformTestNodeRunner {
     @SuppressWarnings("unused") // Used by platform tests.
     private static class ExceptionJob implements ComputeJob<String> {
         @Override
-        public String execute(JobExecutionContext context, Object... args) {
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, Object... args) {
             throw new RuntimeException("Test exception: " + args[0]);
         }
     }
@@ -590,7 +591,7 @@ public class PlatformTestNodeRunner {
     @SuppressWarnings("unused") // Used by platform tests.
     private static class CheckedExceptionJob implements ComputeJob<String> {
         @Override
-        public String execute(JobExecutionContext context, Object... args) {
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, Object... args) {
             throw new CompletionException(new IgniteCheckedException(Common.NODE_LEFT_ERR, "TestCheckedEx: " + args[0]));
         }
     }
@@ -601,7 +602,7 @@ public class PlatformTestNodeRunner {
     @SuppressWarnings("unused") // Used by platform tests.
     private static class ColocationHashJob implements ComputeJob<Integer> {
         @Override
-        public Integer execute(JobExecutionContext context, Object... args) {
+        public CompletableFuture<Integer> executeAsync(JobExecutionContext context, Object... args) {
             var columnCount = (int) args[0];
             var buf = (byte[]) args[1];
             var timePrecision = (int) args[2];
@@ -712,7 +713,7 @@ public class PlatformTestNodeRunner {
             try {
                 Row row = marsh.marshal(tuple);
 
-                return row.colocationHash();
+                return completedFuture(row.colocationHash());
             } catch (TupleMarshallerException e) {
                 throw new RuntimeException(e);
             }
@@ -725,7 +726,7 @@ public class PlatformTestNodeRunner {
     @SuppressWarnings("unused") // Used by platform tests.
     private static class TableRowColocationHashJob implements ComputeJob<Integer> {
         @Override
-        public Integer execute(JobExecutionContext context, Object... args) {
+        public CompletableFuture<Integer> executeAsync(JobExecutionContext context, Object... args) {
             String tableName = (String) args[0];
             int i = (int) args[1];
             Tuple key = Tuple.create().set("id", 1 + i).set("id0", 2L + i).set("id1", "3" + i);
@@ -736,7 +737,7 @@ public class PlatformTestNodeRunner {
             TupleMarshaller marsh = view.marshaller(1);
 
             try {
-                return marsh.marshal(key).colocationHash();
+                return completedFuture(marsh.marshal(key).colocationHash());
             } catch (TupleMarshallerException e) {
                 throw new RuntimeException(e);
             }
@@ -749,7 +750,7 @@ public class PlatformTestNodeRunner {
     @SuppressWarnings("unused") // Used by platform tests.
     private static class EnableAuthenticationJob implements ComputeJob<Void> {
         @Override
-        public Void execute(JobExecutionContext context, Object... args) {
+        public CompletableFuture<Void> executeAsync(JobExecutionContext context, Object... args) {
             boolean enable = ((Integer) args[0]) != 0;
             @SuppressWarnings("resource") IgniteImpl ignite = (IgniteImpl) context.ignite();
 

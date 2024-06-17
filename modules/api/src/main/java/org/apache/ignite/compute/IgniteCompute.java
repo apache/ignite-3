@@ -37,7 +37,7 @@ import org.apache.ignite.table.mapper.Mapper;
  * Provides the ability to execute Compute jobs.
  *
  * @see ComputeJob
- * @see ComputeJob#execute(JobExecutionContext, Object...)
+ * @see ComputeJob#executeAsync(JobExecutionContext, Object...)
  */
 public interface IgniteCompute {
     /**

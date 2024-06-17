@@ -94,7 +94,8 @@ public class TaskExecutionInternal<R> implements JobExecution<R> {
         splitExecution = executorService.submit(
                 () -> {
                     MapReduceTask<R> task = instantiateTask(taskClass);
-                    return new SplitResult<>(task, task.split(context, args));
+
+                    return completedFuture(new SplitResult<>(task, task.split(context, args)));
                 },
                 Integer.MAX_VALUE,
                 0
@@ -115,7 +116,7 @@ public class TaskExecutionInternal<R> implements JobExecution<R> {
             MapReduceTask<R> task = splitExecution.resultAsync().thenApply(SplitResult::task).join();
 
             return executorService.submit(
-                    () -> task.reduce(results),
+                    () -> completedFuture(task.reduce(results)),
                     Integer.MAX_VALUE,
                     0
             );

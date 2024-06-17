@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.compute.JobState.COMPLETED;
 import static org.apache.ignite.compute.JobState.EXECUTING;
 import static org.apache.ignite.compute.JobState.FAILED;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 
 import java.time.Instant;
@@ -100,19 +101,22 @@ public class FakeCompute implements IgniteComputeInternal {
             throw new RuntimeException(e);
         }
 
-        if (err != null) {
-            throw err;
+        var err0 = err;
+        if (err0 != null) {
+            throw err0;
         }
 
         if (jobClassName.startsWith("org.apache.ignite")) {
-            Class<ComputeJob<Object>> jobClass = ComputeUtils.jobClass(this.getClass().getClassLoader(), jobClassName);
-            ComputeJob<Object> job = ComputeUtils.instantiateJob(jobClass);
-            Object jobRes = job.execute(new JobExecutionContextImpl(ignite, new AtomicBoolean(), this.getClass().getClassLoader()), args);
+            Class<ComputeJob<R>> jobClass = ComputeUtils.jobClass(this.getClass().getClassLoader(), jobClassName);
+            ComputeJob<R> job = ComputeUtils.instantiateJob(jobClass);
+            CompletableFuture<R> jobFut = job.executeAsync(
+                    new JobExecutionContextImpl(ignite, new AtomicBoolean(), this.getClass().getClassLoader()), args);
 
-            return jobExecution(completedFuture((R) jobRes));
+            return jobExecution(jobFut != null ? jobFut : nullCompletedFuture());
         }
 
-        return jobExecution(future != null ? future : completedFuture((R) nodeName));
+        var future0 = future;
+        return jobExecution(future0 != null ? future0 : completedFuture((R) nodeName));
     }
 
     /** {@inheritDoc} */
