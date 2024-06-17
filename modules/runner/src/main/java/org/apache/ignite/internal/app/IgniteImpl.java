@@ -1051,8 +1051,13 @@ public class IgniteImpl implements Ignite {
         ComponentContext componentContext = new ComponentContext(startupExecutor);
 
         try {
-            metricManager.registerSource(new JvmMetricSource());
-            metricManager.registerSource(new OsMetricSource());
+            JvmMetricSource jvmMetrics = new JvmMetricSource();
+            metricManager.registerSource(jvmMetrics);
+            metricManager.enable(jvmMetrics);
+
+            OsMetricSource osMetrics = new OsMetricSource();
+            metricManager.registerSource(osMetrics);
+            metricManager.enable(osMetrics);
 
             lifecycleManager.startComponent(longJvmPauseDetector, componentContext);
 

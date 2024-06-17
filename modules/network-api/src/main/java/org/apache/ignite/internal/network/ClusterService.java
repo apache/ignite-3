@@ -24,7 +24,6 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.network.NodeMetadata;
-import org.apache.ignite.network.TopologyService;
 
 /**
  * Class, that represents the network-related resources of a node and provides entry points for working with the network members of a

@@ -19,9 +19,9 @@ package org.apache.ignite.internal.network.file;
 
 import java.util.Collection;
 import org.apache.ignite.internal.network.AbstractTopologyService;
+import org.apache.ignite.internal.network.TopologyEventHandler;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.network.TopologyEventHandler;
 import org.jetbrains.annotations.Nullable;
 
 /**

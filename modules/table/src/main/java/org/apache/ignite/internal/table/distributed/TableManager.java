@@ -58,6 +58,7 @@ import static org.apache.ignite.internal.table.distributed.index.IndexUtils.regi
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
+import static org.apache.ignite.internal.util.CompletableFutures.allOfToList;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -139,6 +140,7 @@ import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.SimpleCondition;
 import org.apache.ignite.internal.network.MessagingService;
+import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
@@ -220,7 +222,6 @@ import org.apache.ignite.internal.worker.ThreadAssertions;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.Table;
 import org.jetbrains.annotations.Nullable;
@@ -1529,7 +1530,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             .map(tableDescriptor -> tableAsyncInternalBusy(tableDescriptor.id()))
                             .toArray(CompletableFuture[]::new);
 
-                    return CompletableFutures.allOf(tableImplFutures);
+                    return allOfToList(tableImplFutures);
                 }));
     }
 
