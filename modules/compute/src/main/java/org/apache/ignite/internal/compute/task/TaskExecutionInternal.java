@@ -130,7 +130,7 @@ public class TaskExecutionInternal<R> implements JobExecution<R> {
             JobStatus status = splitExecution.status();
             if (status != null) {
                 reduceFailedStatus.set(
-                        new JobStatusImpl.Builder(status)
+                        JobStatusImpl.toBuilder(status)
                                 .state(state)
                                 .finishTime(Instant.now())
                                 .build()
@@ -164,7 +164,7 @@ public class TaskExecutionInternal<R> implements JobExecution<R> {
                     if (reduceStatus == null) {
                         return null;
                     }
-                    return new JobStatusImpl.Builder(reduceStatus)
+                    return JobStatusImpl.toBuilder(reduceStatus)
                             .id(splitStatus.id())
                             .createTime(splitStatus.createTime())
                             .startTime(splitStatus.startTime())
@@ -175,7 +175,7 @@ public class TaskExecutionInternal<R> implements JobExecution<R> {
         }
 
         // At this point split is complete but reduce job is not submitted yet.
-        return completedFuture(new JobStatusImpl.Builder(splitStatus)
+        return completedFuture(JobStatusImpl.toBuilder(splitStatus)
                 .state(EXECUTING)
                 .finishTime(null)
                 .build());

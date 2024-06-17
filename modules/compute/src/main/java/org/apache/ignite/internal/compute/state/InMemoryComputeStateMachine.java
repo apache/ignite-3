@@ -142,7 +142,7 @@ public class InMemoryComputeStateMachine implements ComputeStateMachine {
 
             validateStateTransition(jobId, currentState, newState);
 
-            JobStatusImpl.Builder builder = new JobStatusImpl.Builder(currentStatus).state(newState);
+            JobStatusImpl.Builder builder = JobStatusImpl.toBuilder(currentStatus).state(newState);
 
             if (newState == EXECUTING) {
                 builder.startTime(Instant.now());

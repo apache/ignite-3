@@ -131,8 +131,8 @@ public class JobStatusImpl implements JobStatus {
      *
      * @return Builder.
      */
-    public Builder toBuilder() {
-        return new Builder(this);
+    public static Builder toBuilder(JobStatus status) {
+        return new Builder(status);
     }
 
     @Override

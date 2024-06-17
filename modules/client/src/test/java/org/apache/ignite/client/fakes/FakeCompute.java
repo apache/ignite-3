@@ -212,7 +212,7 @@ public class FakeCompute implements IgniteComputeInternal {
 
         result.whenComplete((r, throwable) -> {
             JobState state = throwable != null ? FAILED : COMPLETED;
-            JobStatus newStatus = new JobStatusImpl.Builder(status).id(jobId).state(state).finishTime(Instant.now()).build();
+            JobStatus newStatus = JobStatusImpl.toBuilder(status).state(state).finishTime(Instant.now()).build();
             statuses.put(jobId, newStatus);
         });
         return new JobExecution<>() {

@@ -127,7 +127,7 @@ class FailSafeJobExecution<T> implements JobExecution<T> {
             capturedStatus.compareAndSet(null, jobStatus);
         }
 
-        return new JobStatusImpl.Builder(jobStatus)
+        return JobStatusImpl.toBuilder(jobStatus)
                 .createTime(capturedStatus.get().createTime())
                 .id(capturedStatus.get().id())
                 .build();
