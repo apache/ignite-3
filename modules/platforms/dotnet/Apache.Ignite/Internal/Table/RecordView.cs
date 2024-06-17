@@ -340,7 +340,7 @@ namespace Apache.Ignite.Internal.Table
             });
 
             // Stream in background.
-            _ = Stream();
+            var streamTask = Stream();
 
             // Result async enumerable is returned immediately. It will be completed when the streaming completes.
             var reader = resultChannel.Reader;
@@ -359,6 +359,9 @@ namespace Apache.Ignite.Internal.Table
             {
                 // Consumer has stopped reading, complete the channel.
                 resultChannel.Writer.TryComplete();
+
+                // Wait for the streamer to complete even if the result consumer has stopped reading.
+                await streamTask.ConfigureAwait(false);
             }
 
             [SuppressMessage(

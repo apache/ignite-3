@@ -262,6 +262,11 @@ internal static class DataStreamerWithReceiver
                     }
                 }
             }
+            catch (ChannelClosedException)
+            {
+                // Consumer does not want more results, stop returning them, but keep streaming.
+                resultChannel = null;
+            }
             finally
             {
                 buf.Dispose();
