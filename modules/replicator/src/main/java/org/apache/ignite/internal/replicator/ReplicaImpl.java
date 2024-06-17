@@ -28,6 +28,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiFunction;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
@@ -61,16 +62,16 @@ public class ReplicaImpl implements Replica {
     private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
 
     /** Replica group identity, this id is the same as the considered partition's id. */
-    protected ReplicationGroupId replicaGrpId;
+    private final ReplicationGroupId replicaGrpId;
 
     /** Replica listener. */
-    protected ReplicaListener listener;
+    private final ReplicaListener listener;
 
     /** Storage index tracker. */
     private final PendingComparableValuesTracker<Long, Void> storageIndexTracker;
 
     /** Topology aware Raft client. */
-    protected TopologyAwareRaftGroupService raftClient;
+    private final TopologyAwareRaftGroupService raftClient;
 
     /** Instance of the local node. */
     private final ClusterNode localNode;
@@ -94,6 +95,8 @@ public class ReplicaImpl implements Replica {
 
     private final ClockService clockService;
 
+    private final BiFunction<ReplicationGroupId, HybridTimestamp, Boolean> replicaReservationClosure;
+
     /**
      * The constructor of a replica server.
      *
@@ -104,6 +107,8 @@ public class ReplicaImpl implements Replica {
      * @param executor External executor.
      * @param placementDriver Placement driver.
      * @param clockService Clock service.
+     * @param replicaReservationClosure Closure that will be called to reserve the replica for becoming primary. It returns whether
+     *     the reservation was successful.
      */
     public ReplicaImpl(
             ReplicationGroupId replicaGrpId,
@@ -112,7 +117,8 @@ public class ReplicaImpl implements Replica {
             ClusterNode localNode,
             ExecutorService executor,
             PlacementDriver placementDriver,
-            ClockService clockService
+            ClockService clockService,
+            BiFunction<ReplicationGroupId, HybridTimestamp, Boolean> replicaReservationClosure
     ) {
         this.replicaGrpId = replicaGrpId;
         this.listener = listener;
@@ -122,6 +128,7 @@ public class ReplicaImpl implements Replica {
         this.executor = executor;
         this.placementDriver = placementDriver;
         this.clockService = clockService;
+        this.replicaReservationClosure = replicaReservationClosure;
 
         raftClient.subscribeLeader(this::onLeaderElected);
     }
@@ -203,7 +210,7 @@ public class ReplicaImpl implements Replica {
                 // Replica must wait till storage index reaches the current leader's index to make sure that all updates made on the
                 // group leader are received.
 
-                return waitForActualState(msg.leaseExpirationTime().getPhysical())
+                return waitForActualState(msg.leaseStartTime(), msg.leaseExpirationTime().getPhysical())
                         .thenCompose(v -> sendPrimaryReplicaChangeToReplicationGroup(msg.leaseStartTime().longValue()))
                         .thenCompose(v -> {
                             CompletableFuture<LeaseGrantedMessageResponse> respFut =
@@ -218,7 +225,7 @@ public class ReplicaImpl implements Replica {
                         });
             } else {
                 if (leader.equals(localNode)) {
-                    return waitForActualState(msg.leaseExpirationTime().getPhysical())
+                    return waitForActualState(msg.leaseStartTime(), msg.leaseExpirationTime().getPhysical())
                             .thenCompose(v -> sendPrimaryReplicaChangeToReplicationGroup(msg.leaseStartTime().longValue()))
                             .thenCompose(v -> acceptLease(msg.leaseStartTime(), msg.leaseExpirationTime()));
                 } else {
@@ -252,7 +259,7 @@ public class ReplicaImpl implements Replica {
     }
 
     private CompletableFuture<LeaseGrantedMessageResponse> proposeLeaseRedirect(ClusterNode groupLeader) {
-        LOG.info("Proposing lease redirection, proposed node=" + groupLeader);
+        LOG.info("Proposing lease redirection [groupId={}, proposed node={}].", groupId(), groupLeader);
 
         LeaseGrantedMessageResponse resp = PLACEMENT_DRIVER_MESSAGES_FACTORY.leaseGrantedMessageResponse()
                 .accepted(false)
@@ -267,11 +274,16 @@ public class ReplicaImpl implements Replica {
      * timeout exception, and in this case, replica would not answer to placement driver, because the response is useless. Placement driver
      * should handle this.
      *
+     * @param startTime Lease start time.
      * @param expirationTime Lease expiration time.
      * @return Future that is completed when local storage catches up the index that is actual for leader on the moment of request.
      */
-    private CompletableFuture<Void> waitForActualState(long expirationTime) {
+    private CompletableFuture<Void> waitForActualState(HybridTimestamp startTime, long expirationTime) {
         LOG.info("Waiting for actual storage state, group=" + groupId());
+
+        if (!replicaReservationClosure.apply(groupId(), startTime)) {
+            throw new IllegalStateException("Replica reservation failed [groupId=" + groupId() + "].");
+        }
 
         long timeout = expirationTime - currentTimeMillis();
         if (timeout <= 0) {
@@ -281,17 +293,6 @@ public class ReplicaImpl implements Replica {
         return retryOperationUntilSuccess(raftClient::readIndex, e -> currentTimeMillis() > expirationTime, executor)
                 .orTimeout(timeout, TimeUnit.MILLISECONDS)
                 .thenCompose(storageIndexTracker::waitFor);
-    }
-
-    /**
-     * Returns consistent id of the most convenient primary node.
-     *
-     * @return Node consistent id.
-     */
-    public String proposedPrimary() {
-        Peer leased = raftClient.leader();
-
-        return leased != null ? leased.consistentId() : localNode.name();
     }
 
     @Override
