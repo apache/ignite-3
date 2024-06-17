@@ -365,17 +365,21 @@ public class DataStreamerTests : IgniteTestsBase
             receiverArgs: new object[] { Table.Name, "arg1", 22 },
             options: DataStreamerOptions.Default);
 
-        await foreach (var res in results)
-        {
-        }
+        var resultSet = await results.ToHashSetAsync();
 
         for (int i = 0; i < Count; i++)
         {
             var res = await TupleView.GetAsync(null, GetTuple(i));
 
+            var expectedVal = $"value{i * 10}_arg1_22";
+
             Assert.IsTrue(res.HasValue);
-            Assert.AreEqual($"value{i * 10}_arg1_22", res.Value[ValCol]);
+            Assert.AreEqual(expectedVal, res.Value[ValCol]);
+
+            CollectionAssert.Contains(resultSet, expectedVal);
         }
+
+        Assert.AreEqual(Count, resultSet.Count);
     }
 
     [Test]
