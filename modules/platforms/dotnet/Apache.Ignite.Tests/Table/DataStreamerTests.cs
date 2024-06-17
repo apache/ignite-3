@@ -721,7 +721,7 @@ public class DataStreamerTests : IgniteTestsBase
     }
 
     [Test]
-    public async Task TestResultAsyncEnumerableCancellation()
+    public async Task TestResultConsumerEarlyExit()
     {
         IAsyncEnumerable<string> results = PocoView.StreamDataAsync<int, string, string>(
             Enumerable.Range(0, Count).ToAsyncEnumerable(),
@@ -750,6 +750,13 @@ public class DataStreamerTests : IgniteTestsBase
 
         // TODO
         // Assert.AreEqual(Count, resultSet.Count);
+    }
+
+    [Test]
+    public async Task TestResultConsumerCancellation()
+    {
+        await Task.Delay(1);
+        Assert.Fail("TODO");
     }
 
     private static async IAsyncEnumerable<IIgniteTuple> GetFakeServerData(int count)
