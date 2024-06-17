@@ -252,7 +252,8 @@ internal static class DataStreamerWithReceiver
 
                 // Wait for the previous batch for this node to preserve item order.
                 await oldTask.ConfigureAwait(false);
-                (results, int resultsCount) = await SendBatchAsync<TResult>(table, buf, count, preferredNode, retryPolicy).ConfigureAwait(false);
+                (results, int resultsCount) = await SendBatchAsync<TResult>(
+                    table, buf, count, preferredNode, retryPolicy, expectResults: resultChannel != null).ConfigureAwait(false);
 
                 if (results != null && resultChannel != null)
                 {
@@ -356,7 +357,8 @@ internal static class DataStreamerWithReceiver
         PooledArrayBuffer buf,
         int count,
         PreferredNode preferredNode,
-        IRetryPolicy retryPolicy)
+        IRetryPolicy retryPolicy,
+        bool expectResults)
     {
         var (resBuf, socket) = await table.Socket.DoOutInOpAndGetSocketAsync(
                 ClientOp.StreamerWithReceiverBatchSend,
@@ -371,7 +373,9 @@ internal static class DataStreamerWithReceiver
             Metrics.StreamerBatchesSent.Add(1, socket.MetricsContext.Tags);
             Metrics.StreamerItemsSent.Add(count, socket.MetricsContext.Tags);
 
-            return Read(resBuf.GetReader());
+            return expectResults
+                ? Read(resBuf.GetReader())
+                : (null, 0);
         }
 
         static (T[]? ResultsPooledArray, int ResultsCount) Read(MsgPackReader reader)
