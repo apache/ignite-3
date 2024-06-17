@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.compute.ComputeUtils.resultFromJobResul
 import static org.apache.ignite.internal.compute.ComputeUtils.statusFromJobStatusResponse;
 import static org.apache.ignite.internal.compute.ComputeUtils.statusesFromJobStatusesResponse;
 import static org.apache.ignite.internal.compute.ComputeUtils.toDeploymentUnit;
+import static org.apache.ignite.internal.util.CompletableFutures.allOfToList;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Compute.CANCELLING_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Compute.CHANGE_JOB_PRIORITY_ERR;
@@ -66,7 +67,6 @@ import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.TopologyService;
-import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
@@ -492,7 +492,7 @@ public class ComputeMessaging {
                 .map(request::apply)
                 .toArray(CompletableFuture[]::new);
 
-        return CompletableFutures.allOf(futures).exceptionally(throwable -> {
+        return allOfToList(futures).exceptionally(throwable -> {
             throw error.apply(throwable);
         });
     }

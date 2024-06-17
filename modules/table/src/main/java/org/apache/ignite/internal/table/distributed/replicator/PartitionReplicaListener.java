@@ -38,6 +38,7 @@ import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
+import static org.apache.ignite.internal.util.CompletableFutures.allOfToList;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyCollectionCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
@@ -186,7 +187,6 @@ import org.apache.ignite.internal.tx.message.VacuumTxStatesCommand;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequest;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicatedInfo;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
-import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.CursorUtils;
 import org.apache.ignite.internal.util.ExceptionUtils;
@@ -1110,7 +1110,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 resolutionFuts[i] = resolveRowByPkForReadOnly(primaryKeys.get(i), readTimestamp);
             }
 
-            return CompletableFutures.allOf(resolutionFuts);
+            return allOfToList(resolutionFuts);
         });
     }
 
@@ -2223,7 +2223,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             resolutionFuts[i] = resolveRowByPkForReadOnly(primaryKeys.get(i), readTimestamp);
         }
 
-        return CompletableFutures.allOf(resolutionFuts);
+        return allOfToList(resolutionFuts);
     }
 
     /**

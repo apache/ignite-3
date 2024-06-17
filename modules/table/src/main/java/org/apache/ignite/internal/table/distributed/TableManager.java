@@ -58,6 +58,7 @@ import static org.apache.ignite.internal.table.distributed.index.IndexUtils.regi
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
+import static org.apache.ignite.internal.util.CompletableFutures.allOfToList;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -1529,7 +1530,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             .map(tableDescriptor -> tableAsyncInternalBusy(tableDescriptor.id()))
                             .toArray(CompletableFuture[]::new);
 
-                    return CompletableFutures.allOf(tableImplFutures);
+                    return allOfToList(tableImplFutures);
                 }));
     }
 
