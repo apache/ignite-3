@@ -137,13 +137,7 @@ public class JobStatusImpl implements JobStatus {
 
     @Override
     public String toString() {
-        return "JobStatus{"
-                + "id=" + id
-                + ", state=" + state
-                + ", createTime=" + createTime
-                + ", startTime=" + startTime
-                + ", finishTime=" + finishTime
-                + '}';
+    return S.toString(this);
     }
 
     /**
