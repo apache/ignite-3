@@ -209,7 +209,7 @@ public class ClientHandlerModule implements IgniteComponent {
 
         metricManager.registerSource(metrics);
         if (configuration.metricsEnabled()) {
-            metrics.enable();
+            metricManager.enable(metrics);
         }
 
         primaryReplicaTracker.start();

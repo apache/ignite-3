@@ -89,6 +89,7 @@ import org.apache.ignite.internal.lang.IgniteTriFunction;
 import org.apache.ignite.internal.lang.SafeTimeReorderException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.ClusterNodeResolver;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.ExecutorInclinedRaftCommandRunner;
@@ -197,7 +198,6 @@ import org.apache.ignite.internal.util.TrackerClosedException;
 import org.apache.ignite.lang.ErrorGroups.Replicator;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.ClusterNodeResolver;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 

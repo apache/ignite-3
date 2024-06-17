@@ -31,11 +31,11 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.AbstractTopologyService;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
+import org.apache.ignite.internal.network.TopologyEventHandler;
+import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeMetadata;
-import org.apache.ignite.network.TopologyEventHandler;
-import org.apache.ignite.network.TopologyService;
 import org.jetbrains.annotations.Nullable;
 
 /**

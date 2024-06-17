@@ -73,6 +73,7 @@ import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.systemview.api.SystemView;
@@ -91,7 +92,6 @@ import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.TopologyService;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -777,6 +777,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         assert previous == null : "tableId=" + tableDescriptor.id();
 
         metricManager.registerSource(metricSource);
+        metricManager.enable(metricSource);
     }
 
     private void unregisterPartitionStatesMetricSource(int tableId) {

@@ -129,8 +129,5 @@ INSERT INTO tmp (c5) VALUES('a'::CHAR(5));
 statement ok
 INSERT INTO tmp (c5) VALUES('a'::CHAR(3));
 
-# https://issues.apache.org/jira/browse/IGNITE-22451 
-# Error: Row has not been fully built. Index: 2, fields: 3
-skipif ignite3
 statement ok
 UPDATE tmp SET c5=c5::CHAR(6)
