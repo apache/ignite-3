@@ -18,7 +18,6 @@
 package org.apache.ignite.client.handler.requests.table;
 
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Compute.COMPUTE_JOB_FAILED_ERR;
 
 import java.util.List;
@@ -42,6 +41,7 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.DataStreamerReceiver;
 import org.apache.ignite.table.DataStreamerReceiverContext;
 import org.apache.ignite.table.IgniteTables;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Client streamer batch request.
@@ -102,7 +102,7 @@ public class ClientStreamerWithReceiverBatchSendRequest {
 
     private static class ReceiverRunnerJob implements ComputeJob<List<Object>> {
         @Override
-        public CompletableFuture<List<Object>> executeAsync(JobExecutionContext context, Object... args) {
+        public @Nullable CompletableFuture<List<Object>> executeAsync(JobExecutionContext context, Object... args) {
             int payloadElementCount = (int) args[0];
             byte[] payload = (byte[]) args[1];
 
@@ -113,9 +113,7 @@ public class ClientStreamerWithReceiverBatchSendRequest {
             DataStreamerReceiver<Object, Object> receiver = ComputeUtils.instantiateReceiver(receiverClass);
             DataStreamerReceiverContext receiverContext = context::ignite;
 
-            CompletableFuture<List<Object>> receiveFut = receiver.receive(receiverInfo.items(), receiverContext, receiverInfo.args());
-
-            return receiveFut == null ? nullCompletedFuture() : receiveFut;
+            return receiver.receive(receiverInfo.items(), receiverContext, receiverInfo.args());
         }
     }
 }
