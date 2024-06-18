@@ -29,7 +29,6 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLongKeepingOrder;
-import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytesKeepingOrder;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -500,7 +499,7 @@ public class DistributionZoneManagerScaleUpScaleDownTest extends BaseDistributio
             if (Arrays.stream(iif.cond().keys()).anyMatch(k -> Arrays.equals(keyScaleDown, k))) {
                 keyValueStorage.putAll(
                         List.of(keyScaleDown, keyDataNodes),
-                        List.of(longToBytes(revisionOfScaleDown + 100), keyValueStorage.get(zoneDataNodesKey(zoneId).bytes()).value()),
+                        List.of(longToBytesKeepingOrder(revisionOfScaleDown + 100), keyValueStorage.get(zoneDataNodesKey(zoneId).bytes()).value()),
                         HybridTimestamp.MIN_VALUE
                 );
             }

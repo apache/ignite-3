@@ -1554,7 +1554,7 @@ public class IgniteImpl implements Ignite {
 
     // TODO: IGNITE-18493 - remove/move this
     @TestOnly
-    public void dropMessages(BiPredicate<String, NetworkMessage> predicate) {
+    public void dropMessages(BiPredicate<@Nullable String, NetworkMessage> predicate) {
         ((DefaultMessagingService) clusterSvc.messagingService()).dropMessages(predicate);
     }
 

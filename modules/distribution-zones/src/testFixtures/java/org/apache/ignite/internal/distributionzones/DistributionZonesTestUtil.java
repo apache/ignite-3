@@ -281,7 +281,7 @@ public class DistributionZonesTestUtil {
         assertValueInStorage(
                 keyValueStorage,
                 zoneScaleDownChangeTriggerKey(zoneId).bytes(),
-                ByteUtils::bytesToLong,
+                ByteUtils::bytesToLongKeepingOrder,
                 revision,
                 2000
         );

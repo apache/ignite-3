@@ -620,7 +620,10 @@ public class DefaultMessagingService extends AbstractMessagingService {
      */
     @TestOnly
     public void dropMessages(BiPredicate<String, NetworkMessage> predicate) {
-        dropMessagesPredicate = predicate;
+        BiPredicate<String, NetworkMessage> dropMessagesPredicate = this.dropMessagesPredicate;
+
+        // Allow for multiple filters at once, convenient for complex tests.
+        this.dropMessagesPredicate = dropMessagesPredicate == null ? predicate : dropMessagesPredicate.or(predicate);
     }
 
     /**

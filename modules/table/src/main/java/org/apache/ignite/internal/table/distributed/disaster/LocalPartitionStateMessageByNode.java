@@ -50,4 +50,9 @@ public class LocalPartitionStateMessageByNode {
     public void put(String nodeName, LocalPartitionStateMessage state) {
         map.put(nodeName, state);
     }
+
+    @Override
+    public String toString() {
+        return map.toString();
+    }
 }
