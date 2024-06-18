@@ -19,7 +19,6 @@ package org.apache.ignite.internal.metastorage.impl;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.TimeUnit.MINUTES;
-import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.cancelOrConsume;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
@@ -516,7 +515,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
                             }
                         });
 
-                        idempotentCacheVacumizer.scheduleWithFixedDelay(this::evictIdempotentCommandsCache, 0, 1, SECONDS);
+                        idempotentCacheVacumizer.scheduleWithFixedDelay(this::evictIdempotentCommandsCache, 1, 1, MINUTES);
                     }))
                     .whenComplete((v, e) -> {
                         if (e == null) {
