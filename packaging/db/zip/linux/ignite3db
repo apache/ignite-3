@@ -27,70 +27,19 @@ cd .. # now SCRIPT_DIR points at parent dir for bin
 # if IGNITE_HOME is not set than it will be parent directory for bin
 if [ -z ${IGNITE_HOME+x} ]; then IGNITE_HOME=$(pwd); fi
 
-
 . @CONF_DIR@/@VARS_FILE_NAME@
 . @LIB_DIR@/@BOOTSTRAP_FILE_NAME@
 
 cd ${IGNITE_HOME} || exit
 
-start() {
-  echo "Starting Ignite 3..."
+# Check if JAVA_HOME is set
+if [ -z ${JAVA_HOME+x} ]; then
+    echo "Error: JAVA_HOME is not set. Please set the JAVA_HOME variable in your environment to match the location of your Java installation."
+    exit 1
+fi
 
-  STARTUP_LOG_FILE="${LOG_DIR}/ignite3db-startup.log"
+CMD="${JAVA_CMD_WITH_ARGS} ${APPLICATION_ARGS}"
+$CMD
 
-  CMD="${JAVA_CMD_WITH_ARGS} ${APPLICATION_ARGS}"
-  $CMD >>"${STARTUP_LOG_FILE}" 2>&1 </dev/null & echo $! >${IGNITE_HOME}/pid
-
-  rest_address_file=${WORK_DIR}/rest-address
-  max_attempts=30
-  count=0
-  while [ ! -f "$rest_address_file" ] && [ "$count" -lt "$max_attempts" ]; do
-    sleep 1
-    count=$((count + 1))
-  done
-
- if [ ! -f "$rest_address_file" ]; then
-     echo "Failure: Application did not start within the expected time frame. Check out ${STARTUP_LOG_FILE}" >&2
-     exit 1
- else
-     rest_address=$(cat "$rest_address_file")
-     echo "Node named ${NODE_NAME} started successfully. REST addresses are [$rest_address]"
- fi
-}
-
-stop() {
-  ignite_pid="$(cat ${IGNITE_HOME}/pid)"
-  kill "$ignite_pid"
-
-  max_attempts=10
-  count=0
-  while ps -p "$ignite_pid" > /dev/null && [ "$count" -lt "$max_attempts" ]; do
-    sleep 10
-    count=$((count + 1))
-  done
-
-  if ps -p "$ignite_pid" > /dev/null; then
-    kill -9 "$ignite_pid"
-  fi
-
-  rm ${WORK_DIR}/rest-address
-}
-
-case $1 in
-start)
-  start
-  ;;
-stop)
-  stop
-  ;;
-restart)
-  stop
-  start
-  ;;
-*)
-  echo "Unknown command '$1', available commands: start, stop, restart"
-  exit 1
-  ;;
-esac
 
 
