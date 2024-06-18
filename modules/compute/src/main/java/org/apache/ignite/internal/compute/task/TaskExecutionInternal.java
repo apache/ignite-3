@@ -27,6 +27,7 @@ import static org.apache.ignite.compute.JobState.FAILED;
 import static org.apache.ignite.internal.compute.ComputeUtils.instantiateTask;
 import static org.apache.ignite.internal.util.ArrayUtils.concat;
 import static org.apache.ignite.internal.util.CompletableFutures.allOfToList;
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 
@@ -191,7 +192,9 @@ public class TaskExecutionInternal<R> implements JobExecution<R> {
 
     @Override
     public CompletableFuture<@Nullable Boolean> cancelAsync() {
-        isCancelled.set(true);
+        if (!isCancelled.compareAndSet(false, true)) {
+            return falseCompletedFuture();
+        }
 
         // If the split job is not complete, this will cancel the executions future.
         if (splitExecution.cancel()) {

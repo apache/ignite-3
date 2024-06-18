@@ -198,7 +198,7 @@ public final class InteractiveTasks {
                             ).collect(toList());
                         case CHECK_CANCEL:
                             if (context.isCancelled()) {
-                                throw new RuntimeException();
+                                throw new RuntimeException("Task is cancelled");
                             }
                             break;
                         default:
@@ -228,7 +228,7 @@ public final class InteractiveTasks {
                                     .collect(toList());
                         case CHECK_CANCEL:
                             if (context.isCancelled()) {
-                                throw new RuntimeException();
+                                throw new RuntimeException("Task is cancelled");
                             }
                             break;
                         default:

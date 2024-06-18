@@ -148,6 +148,9 @@ class ItMapReduceTest extends ClusterPerClassIntegrationTest {
 
         // And statuses list will fail.
         assertThat(taskExecution.statusesAsync(), willThrow(RuntimeException.class));
+
+        // And second cancel will fail.
+        assertThat(taskExecution.cancelAsync(), willBe(false));
     }
 
     @Test
@@ -194,6 +197,9 @@ class ItMapReduceTest extends ClusterPerClassIntegrationTest {
 
         // And statuses list contains canceled statuses.
         assertJobStates(taskExecution, CANCELED);
+
+        // And second cancel will fail.
+        assertThat(taskExecution.cancelAsync(), willBe(false));
     }
 
     @Test
@@ -254,6 +260,9 @@ class ItMapReduceTest extends ClusterPerClassIntegrationTest {
 
         // And statuses list contains completed statuses.
         assertJobStates(taskExecution, COMPLETED);
+
+        // And second cancel will fail.
+        assertThat(taskExecution.cancelAsync(), willBe(false));
     }
 
     private static TaskExecution<List<String>> startTask(IgniteImpl entryNode, Object... args) throws InterruptedException {
