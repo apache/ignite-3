@@ -126,6 +126,7 @@ public class LeaseUpdater {
      * @param topologyService Topology service.
      * @param leaseTracker Lease tracker.
      * @param clockService Clock service.
+     * @param assignmentsTracker Assignments tracker.
      */
     LeaseUpdater(
             String nodeName,
@@ -133,7 +134,8 @@ public class LeaseUpdater {
             MetaStorageManager msManager,
             LogicalTopologyService topologyService,
             LeaseTracker leaseTracker,
-            ClockService clockService
+            ClockService clockService,
+            AssignmentsTracker assignmentsTracker
     ) {
         this.nodeName = nodeName;
         this.clusterService = clusterService;
@@ -142,7 +144,7 @@ public class LeaseUpdater {
         this.clockService = clockService;
 
         this.longLeaseInterval = IgniteSystemProperties.getLong("IGNITE_LONG_LEASE", 120_000);
-        this.assignmentsTracker = new AssignmentsTracker(msManager);
+        this.assignmentsTracker = assignmentsTracker;
         this.topologyTracker = new TopologyTracker(topologyService);
         this.updater = new Updater();
 

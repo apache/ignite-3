@@ -39,6 +39,7 @@ dependencies {
     implementation project(':ignite-replicator')
     implementation project(':ignite-cluster-management')
     implementation project(':ignite-low-watermark')
+    implementation project(':ignite-affinity')
     implementation libs.jetbrains.annotations
 
     testImplementation(testFixtures(project(':ignite-configuration')))

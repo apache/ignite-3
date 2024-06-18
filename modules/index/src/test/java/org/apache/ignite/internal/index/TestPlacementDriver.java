@@ -17,10 +17,13 @@
 
 package org.apache.ignite.internal.index;
 
+import static java.util.concurrent.CompletableFuture.failedFuture;
+
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.affinity.TokenizedAssignments;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
@@ -52,6 +55,14 @@ class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEvent, Pri
     @Override
     public CompletableFuture<Void> previousPrimaryExpired(ReplicationGroupId grpId) {
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public CompletableFuture<TokenizedAssignments> getAssignments(
+            ReplicationGroupId replicationGroupId,
+            HybridTimestamp clusterTimeToAwait
+    ) {
+        return failedFuture(new UnsupportedOperationException("getAssignments() is not supported in FakePlacementDriver yet."));
     }
 
     CompletableFuture<Void> setPrimaryReplicaMeta(

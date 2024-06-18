@@ -15,7 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.placementdriver;
+package org.apache.ignite.internal.affinity;
 
-public interface PlacementDriver extends LeasePlacementDriver, AssignmentsPlacementDriver {
+import java.io.Serializable;
+import java.util.Set;
+
+/**
+ * Set of nodes along with associated token that is guaranteed to be changed if the set was changed.
+ */
+public interface TokenizedAssignments extends Serializable {
+    /** Returns a set of nodes, represented by this assignments instance. */
+    Set<Assignment> nodes();
+
+    /** Returns a token associated with given assignments that is guaranteed to be changed if assignments were changed. */
+    long token();
 }

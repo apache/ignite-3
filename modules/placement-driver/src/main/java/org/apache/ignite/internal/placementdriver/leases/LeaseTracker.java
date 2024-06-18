@@ -42,6 +42,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.apache.ignite.internal.affinity.Assignments;
+import org.apache.ignite.internal.affinity.TokenizedAssignments;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -54,6 +56,8 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
+import org.apache.ignite.internal.placementdriver.AssignmentsTracker;
+import org.apache.ignite.internal.placementdriver.LeasePlacementDriver;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.PrimaryReplicaAwaitException;
 import org.apache.ignite.internal.placementdriver.PrimaryReplicaAwaitTimeoutException;
@@ -70,7 +74,8 @@ import org.jetbrains.annotations.Nullable;
  * Class tracks cluster leases in memory.
  * At first, the class state recoveries from Vault, then updates on watch's listener.
  */
-public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, PrimaryReplicaEventParameters> implements PlacementDriver {
+public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, PrimaryReplicaEventParameters> implements
+        LeasePlacementDriver {
     /** Ignite logger. */
     private static final IgniteLogger LOG = Loggers.forClass(LeaseTracker.class);
 
