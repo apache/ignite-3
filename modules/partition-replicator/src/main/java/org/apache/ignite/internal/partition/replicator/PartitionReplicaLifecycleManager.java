@@ -19,6 +19,7 @@ package org.apache.ignite.internal.partition.replicator;
 
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_CREATE;
@@ -70,7 +71,6 @@ import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 
 /**
@@ -197,7 +197,7 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
                     RaftGroupEventsListener.noopLsnr
             ).thenRun(() -> replicationGroupIds.add(replicaGrpId));
         } catch (NodeStoppingException e) {
-            throw new IgniteException(e);
+            return failedFuture(e);
         }
     }
 
