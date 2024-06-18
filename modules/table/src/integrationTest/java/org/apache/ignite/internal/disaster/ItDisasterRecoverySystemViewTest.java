@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.disaster;
 
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.partition.replica.network.disaster.LocalPartitionStateEnum.HEALTHY;
+import static org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum.HEALTHY;
 import static org.apache.ignite.internal.table.TableTestUtils.TABLE_NAME;
 import static org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionStateEnum.AVAILABLE;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;

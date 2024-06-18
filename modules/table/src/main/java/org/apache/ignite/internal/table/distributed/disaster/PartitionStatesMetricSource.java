@@ -17,17 +17,17 @@
 
 package org.apache.ignite.internal.table.distributed.disaster;
 
-import static org.apache.ignite.internal.partition.replica.network.disaster.LocalPartitionStateEnum.BROKEN;
-import static org.apache.ignite.internal.partition.replica.network.disaster.LocalPartitionStateEnum.HEALTHY;
-import static org.apache.ignite.internal.partition.replica.network.disaster.LocalPartitionStateEnum.INITIALIZING;
-import static org.apache.ignite.internal.partition.replica.network.disaster.LocalPartitionStateEnum.INSTALLING_SNAPSHOT;
-import static org.apache.ignite.internal.partition.replica.network.disaster.LocalPartitionStateEnum.UNAVAILABLE;
+import static org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum.BROKEN;
+import static org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum.HEALTHY;
+import static org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum.INITIALIZING;
+import static org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum.INSTALLING_SNAPSHOT;
+import static org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum.UNAVAILABLE;
 
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.metrics.MetricSet;
 import org.apache.ignite.internal.metrics.MetricSetBuilder;
 import org.apache.ignite.internal.metrics.MetricSource;
-import org.apache.ignite.internal.partition.replica.network.disaster.LocalPartitionStateEnum;
+import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.jetbrains.annotations.Nullable;
 

@@ -42,7 +42,7 @@ dependencies {
     implementation project(':ignite-compute')
     implementation project(':ignite-eventlog')
     implementation project(':ignite-system-view-api')
-    implementation project(':ignite-partition-replica')
+    implementation project(':ignite-partition-replicator')
     implementation libs.jetbrains.annotations
     implementation libs.micronaut.inject
     implementation libs.micronaut.http.server.netty

@@ -201,6 +201,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     private volatile String localNodeConsistentId;
 
     /* Temporary converter to support the zone based partitions in tests. **/
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 remove this code
     private Function<ReplicationGroupId, ReplicationGroupId> groupIdConverter = Function.identity();
 
     /**
@@ -222,6 +223,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      *      volatile tables.
      * @param groupIdConverter Temporary converter to support the zone based partitions in tests.
      */
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 remove this method
     @TestOnly
     public ReplicaManager(
             String nodeName,

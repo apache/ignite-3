@@ -48,7 +48,7 @@ dependencies {
     implementation project(':ignite-low-watermark')
     implementation project(':ignite-system-view-api')
     implementation project(':ignite-metrics')
-    implementation project(':ignite-partition-replica')
+    implementation project(':ignite-partition-replicator')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
     implementation libs.auto.service.annotations
@@ -102,7 +102,7 @@ dependencies {
     testFixturesImplementation project(':ignite-raft')
     testFixturesImplementation project(':ignite-affinity')
     testFixturesImplementation project(':ignite-configuration-api')
-    testFixturesImplementation project(':ignite-partition-replica')
+    testFixturesImplementation project(':ignite-partition-replicator')
     testFixturesImplementation(testFixtures(project(':ignite-configuration')))
     testFixturesImplementation(testFixtures(project(':ignite-core')))
     testFixturesImplementation(testFixtures(project(':ignite-storage-api')))
@@ -146,7 +146,7 @@ dependencies {
     integrationTestImplementation project(':ignite-metrics')
     integrationTestImplementation project(':ignite-system-view-api')
     integrationTestImplementation project(':ignite-system-view')
-    integrationTestImplementation project(':ignite-partition-replica')
+    integrationTestImplementation project(':ignite-partition-replicator')
     integrationTestImplementation(testFixtures(project))
     integrationTestImplementation(testFixtures(project(':ignite-core')))
     integrationTestImplementation(testFixtures(project(':ignite-table')))
