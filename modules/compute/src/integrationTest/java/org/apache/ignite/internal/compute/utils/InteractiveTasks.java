@@ -31,7 +31,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.compute.JobDescriptor;
-import org.apache.ignite.compute.task.ComputeJobRunner;
+import org.apache.ignite.compute.task.MapReduceJob;
 import org.apache.ignite.compute.task.MapReduceTask;
 import org.apache.ignite.compute.task.TaskExecutionContext;
 
@@ -153,7 +153,7 @@ public final class InteractiveTasks {
      */
     private static class GlobalInteractiveMapReduceTask implements MapReduceTask<List<String>> {
         @Override
-        public List<ComputeJobRunner> split(TaskExecutionContext context, Object... args) {
+        public List<MapReduceJob> split(TaskExecutionContext context, Object... args) {
             RUNNING_GLOBAL_SPLIT_CNT.incrementAndGet();
 
             offerArgsAsSignals(args);
@@ -169,7 +169,7 @@ public final class InteractiveTasks {
                             break;
                         case SPLIT_RETURN_ALL_NODES:
                             return context.ignite().clusterNodes().stream().map(node ->
-                                    ComputeJobRunner.builder()
+                                    MapReduceJob.builder()
                                             .jobDescriptor(JobDescriptor.builder(InteractiveJobs.interactiveJobName()).build())
                                             .nodes(Set.of(node))
                                             .build()

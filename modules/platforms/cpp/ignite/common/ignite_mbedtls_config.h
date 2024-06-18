@@ -15,22 +15,8 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.compute;
+#pragma once
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
-
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.compute.ComputeJob;
-import org.apache.ignite.compute.JobExecutionContext;
-
-/** A compute job without default constructor. */
-public class NonEmptyConstructorJob implements ComputeJob<String> {
-    private NonEmptyConstructorJob(String s) {
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<String> executeAsync(JobExecutionContext context, Object... args) {
-        return completedFuture("");
-    }
-}
+#undef MBEDTLS_HAVE_ASM
+#undef MBEDTLS_AESNI_C
+#define MBEDTLS_HAVE_INT32

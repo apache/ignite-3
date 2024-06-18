@@ -20,8 +20,6 @@
 #include "ignite/odbc/odbc_error.h"
 #include "ignite/odbc/string_utils.h"
 
-#include <ignite/common/utils.h>
-
 #include <algorithm>
 #include <sstream>
 

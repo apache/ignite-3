@@ -42,7 +42,7 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
     private static final IgniteLogger LOG = Loggers.forClass(QueueExecutionImpl.class);
 
     private final UUID jobId;
-    private final Callable<R> job;
+    private final Callable<CompletableFuture<R>> job;
     private final ComputeThreadPoolExecutor executor;
     private final ComputeStateMachine stateMachine;
 
@@ -67,7 +67,7 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
      */
     QueueExecutionImpl(
             UUID jobId,
-            Callable<R> job,
+            Callable<CompletableFuture<R>> job,
             int priority,
             ComputeThreadPoolExecutor executor,
             ComputeStateMachine stateMachine) {
@@ -126,7 +126,7 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
         try {
             QueueEntry<R> queueEntry = this.queueEntry;
 
-            if (executor.removeFromQueue(queueEntry)) {
+            if (queueEntry != null && executor.removeFromQueue(queueEntry)) {
                 this.priority = newPriority;
                 this.queueEntry = null;
                 run();
@@ -152,6 +152,7 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
     private void run() {
         QueueEntry<R> queueEntry = new QueueEntry<>(() -> {
             stateMachine.executeJob(jobId);
+
             return job.call();
         }, priority);
 

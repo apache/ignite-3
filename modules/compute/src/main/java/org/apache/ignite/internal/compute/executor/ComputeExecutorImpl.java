@@ -83,7 +83,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
         JobExecutionContext context = new JobExecutionContextImpl(ignite, isInterrupted, classLoader);
 
         QueueExecution<R> execution = executorService.submit(
-                () -> ComputeUtils.instantiateJob(jobClass).execute(context, args),
+                () -> ComputeUtils.instantiateJob(jobClass).executeAsync(context, args),
                 options.priority(),
                 options.maxRetries()
         );

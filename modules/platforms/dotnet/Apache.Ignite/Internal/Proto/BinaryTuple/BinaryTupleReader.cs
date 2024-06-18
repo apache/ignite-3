@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Internal.Proto.BinaryTuple
 {
     using System;
+    using System.Buffers;
     using System.Buffers.Binary;
     using System.Collections;
     using System.Diagnostics;
@@ -505,6 +506,42 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             var scale = GetInt(index + 1);
 
             return GetObject(index + 2, type, scale);
+        }
+
+        /// <summary>
+        /// Gets an object collection with the specified element type.
+        /// Opposite of <see cref="BinaryTupleBuilder.AppendObjectCollectionWithType{T}"/>.
+        /// </summary>
+        /// <param name="index">Start index.</param>
+        /// <typeparam name="T">Element type.</typeparam>
+        /// <returns>Pooled array with items and actual item count.</returns>
+        public (T[] Items, int Count) GetObjectCollectionWithType<T>(int index = 0)
+        {
+            int typeId = GetInt(index++);
+            int count = GetInt(index++);
+
+            if (count == 0)
+            {
+                return (Array.Empty<T>(), 0);
+            }
+
+            var items = ArrayPool<T>.Shared.Rent(count);
+            var type = (ColumnType)typeId;
+
+            try
+            {
+                for (int i = 0; i < count; i++)
+                {
+                    items[i] = (T)GetObject(index + i, type)!;
+                }
+
+                return (items, count);
+            }
+            catch (Exception)
+            {
+                ArrayPool<T>.Shared.Return(items);
+                throw;
+            }
         }
 
         private static LocalDate ReadDate(ReadOnlySpan<byte> span)

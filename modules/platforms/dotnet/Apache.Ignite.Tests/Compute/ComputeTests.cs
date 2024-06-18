@@ -416,7 +416,7 @@ namespace Apache.Ignite.Tests.Compute
             var str = ex.ToString();
 
             StringAssert.Contains(
-                "at org.apache.ignite.internal.runner.app.PlatformTestNodeRunner$ExceptionJob.execute(PlatformTestNodeRunner.java:",
+                "at org.apache.ignite.internal.runner.app.PlatformTestNodeRunner$ExceptionJob.executeAsync(PlatformTestNodeRunner.java:",
                 str);
         }
 
