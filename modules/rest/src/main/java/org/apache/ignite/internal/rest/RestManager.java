@@ -36,8 +36,7 @@ public class RestManager {
     private static final String CLUSTER_NOT_INITIALIZED_TITLE = "Cluster is not initialized";
 
     private static final String CLUSTER_NOT_INITIALIZED_REASON = "Cluster is not initialized. "
-            + "Use 'cluster init' command to initialize the cluster. "
-            + "Example: cluster init --name=<clusterName> --metastorage-group=<node name>";
+            + "Call /management/v1/cluster/init in order to initialize cluster.";
 
     private static final String[] DEFAULT_ENDPOINTS = {
             "/management/v1/configuration/node",
