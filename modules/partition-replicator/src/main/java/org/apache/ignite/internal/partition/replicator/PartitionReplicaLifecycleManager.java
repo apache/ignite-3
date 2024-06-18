@@ -76,8 +76,8 @@ import org.apache.ignite.network.ClusterNode;
 /**
  * The main responsibilities of this class:
  * - Start the appropriate replication nodes on the zone creation.
- * - Stop the same entities on the zone removing.
- * - Support the rebalance mechanism and start the new replication entities when the rebalance triggers occurred.
+ * - Stop the same nodes on the zone removing.
+ * - Support the rebalance mechanism and start the new replication nodes when the rebalance triggers occurred.
  */
 public class PartitionReplicaLifecycleManager implements IgniteComponent {
     public static final String FEATURE_FLAG_NAME = "IGNITE_ZONE_BASED_REPLICATION";
@@ -151,13 +151,13 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
             CompletableFuture<List<Assignments>> assignmentsFutureAfterInvoke =
                     writeTableAssignmentsToMetastore(createZoneEventParameters.zoneDescriptor().id(), assignmentsFuture);
 
-            return createZoneReplicationEntities(assignmentsFutureAfterInvoke, createZoneEventParameters.zoneDescriptor().id());
+            return createZoneReplicationNodes(assignmentsFutureAfterInvoke, createZoneEventParameters.zoneDescriptor().id());
         });
     }
 
-    private CompletableFuture<Void> createZoneReplicationEntities(CompletableFuture<List<Assignments>> assignmentsFuture, int zoneId) {
-        return assignmentsFuture.thenCompose(assignments -> {
-            assert assignments != null : IgniteStringFormatter.format("Zone [id={}] has empty assignments.", zoneId);
+    private CompletableFuture<Void> createZoneReplicationNodes(CompletableFuture<List<Assignments>> assignmentsFuture, int zoneId) {
+        return inBusyLockAsync(busyLock, () -> assignmentsFuture.thenCompose(assignments -> {
+            assert assignments != null : IgniteStringFormatter.format("Zone has empty assignments [id={}].", zoneId);
 
             List<CompletableFuture<?>> partitionsStartFutures = new ArrayList<>();
 
@@ -168,11 +168,10 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
             }
 
             return allOf(partitionsStartFutures.toArray(new CompletableFuture<?>[0]));
-        });
+        }));
     }
 
     private CompletableFuture<Void> createZonePartitionReplicationNodes(int zoneId, int partId, Assignments assignments) {
-
         Assignment localMemberAssignment = assignments.nodes().stream()
                 .filter(a -> a.consistentId().equals(localNode().name()))
                 .findAny()
