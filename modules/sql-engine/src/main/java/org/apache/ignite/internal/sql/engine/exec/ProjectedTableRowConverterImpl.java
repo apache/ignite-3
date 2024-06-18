@@ -18,20 +18,18 @@
 package org.apache.ignite.internal.sql.engine.exec;
 
 import java.util.BitSet;
-import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
+import java.util.List;
 import org.apache.ignite.internal.lang.InternalTuple;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
-import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
+import org.apache.ignite.internal.sql.engine.util.ExtendedFieldDeserializingProjectedTuple;
 import org.apache.ignite.internal.sql.engine.util.FieldDeserializingProjectedTuple;
 import org.apache.ignite.internal.sql.engine.util.FormatAwareProjectedTuple;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Converts rows to execution engine representation.
@@ -44,7 +42,7 @@ public class ProjectedTableRowConverterImpl extends TableRowConverterImpl {
 
     private final BinaryTupleSchema fullTupleSchema;
 
-    private final VirtualColumn virtualColumn;
+    private final List<VirtualColumn> virtualColumns;
 
     /** Constructor. */
     ProjectedTableRowConverterImpl(
@@ -52,12 +50,12 @@ public class ProjectedTableRowConverterImpl extends TableRowConverterImpl {
             BinaryTupleSchema fullTupleSchema,
             SchemaDescriptor schemaDescriptor,
             BitSet requiredColumns,
-            @Nullable VirtualColumn virtualColumn
+            List<VirtualColumn> extraColumns
     ) {
         super(schemaRegistry, schemaDescriptor);
 
         this.fullTupleSchema = fullTupleSchema;
-        this.virtualColumn = virtualColumn; // TODO: Extract virtual column case into a separate class.
+        this.virtualColumns = extraColumns;
 
         int size = requiredColumns.cardinality();
 
@@ -70,8 +68,8 @@ public class ProjectedTableRowConverterImpl extends TableRowConverterImpl {
             }
         }
 
-        if (virtualColumn != null) {
-            requiredColumnsMapping[requiredIndex] = virtualColumn.columnIndex;
+        for (VirtualColumn col : extraColumns) {
+            requiredColumnsMapping[requiredIndex++] = col.columnIndex();
         }
     }
 
@@ -84,8 +82,8 @@ public class ProjectedTableRowConverterImpl extends TableRowConverterImpl {
                 ? new BinaryTuple(schemaDescriptor.length(), tableRow.tupleSlice())
                 : schemaRegistry.resolve(tableRow, schemaDescriptor);
 
-        if (virtualColumn != null) {
-            tuple = injectVirtualColumn(tableTuple);
+        if (!virtualColumns.isEmpty()) {
+            tuple = new ExtendedFieldDeserializingProjectedTuple(fullTupleSchema, tableTuple, requiredColumnsMapping, virtualColumns);
         } else if (rowSchemaMatches) {
             tuple = new FormatAwareProjectedTuple(tableTuple, requiredColumnsMapping);
         } else {
@@ -93,59 +91,5 @@ public class ProjectedTableRowConverterImpl extends TableRowConverterImpl {
         }
 
         return factory.create(tuple);
-    }
-
-    private InternalTuple injectVirtualColumn(InternalTuple tableTuple) {
-        assert virtualColumn != null : virtualColumn;
-
-        return new FieldDeserializingProjectedTuple(
-                fullTupleSchema,
-                tableTuple,
-                requiredColumnsMapping
-        ) {
-            @Nullable VirtualColumn vcol = virtualColumn;
-            @Override
-            public int intValue(int col) {
-                if (vcol != null && projection[col] == vcol.columnIndex) {
-                    return (Integer) virtualColumn.value;
-                }
-
-                return super.intValue(col);
-            }
-
-            @Override
-            public Integer intValueBoxed(int col) {
-                if (vcol != null && projection[col] == virtualColumn.columnIndex) {
-                    return (Integer) virtualColumn.value;
-                }
-
-                return super.intValueBoxed(col);
-            }
-
-            @Override
-            protected void normalize() {
-                var builder = new BinaryTupleBuilder(projection.length);
-                var newProjection = new int[projection.length];
-
-                for (int i = 0; i < projection.length; i++) {
-                    int col = projection[i];
-
-                    newProjection[i] = i;
-
-                    if (vcol != null && col == vcol.columnIndex) {
-                        builder.appendInt((Integer) vcol.value);
-                        vcol = null;
-                        continue;
-                    }
-
-                    Element element = schema.element(col);
-
-                    BinaryRowConverter.appendValue(builder, element, schema.value(delegate, col));
-                }
-
-                delegate = new BinaryTuple(projection.length, builder.build());
-                projection = newProjection;
-            }
-        };
     }
 }

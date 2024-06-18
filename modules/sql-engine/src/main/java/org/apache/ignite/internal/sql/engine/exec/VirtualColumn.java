@@ -17,20 +17,41 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
-import org.apache.ignite.internal.tostring.IgniteToStringInclude;
+import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.type.NativeType;
 
 /**
  * Virtual column implementation.
  */
 public class VirtualColumn {
-    @IgniteToStringInclude
-    final int columnIndex;
-    final Object value;
+    private final int columnIndex;
+    private final NativeType type;
+    private final boolean nullable;
+    @IgniteToStringExclude
+    private final Object value;
 
-    public VirtualColumn(int columnIndex, Object value) {
+    VirtualColumn(int columnIndex, NativeType type, boolean nullable, Object value) {
         this.columnIndex = columnIndex;
         this.value = value;
+        this.type = type;
+        this.nullable = nullable;
+    }
+
+    public int columnIndex() {
+        return columnIndex;
+    }
+
+    public NativeType type() {
+        return type;
+    }
+
+    public boolean isNullable() {
+        return nullable;
+    }
+
+    public <T> T value() {
+        return (T) value;
     }
 
     @Override

@@ -18,15 +18,15 @@
 package org.apache.ignite.internal.sql.engine.exec;
 
 import java.util.BitSet;
-import java.util.function.Function;
+import java.util.List;
 import java.util.function.IntFunction;
-import java.util.function.Supplier;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -64,15 +64,14 @@ public class TableRowConverterFactoryImpl implements TableRowConverterFactory {
         );
 
         tableColumnSet = new BitSet();
-        tableColumnSet.set(0, schemaDescriptor.length());
+        tableColumnSet.set(0, tableDescriptor.columnsCount());
 
         ColumnDescriptor columnDescriptor = tableDescriptor.columnDescriptor(Commons.PART_COL_NAME);
 
         if (columnDescriptor != null) {
             assert columnDescriptor.system();
 
-            tableColumnSet.set(columnDescriptor.logicalIndex());
-            virtualColumnFactory = (partId) -> new VirtualColumn(columnDescriptor.logicalIndex(), partId);
+            virtualColumnFactory = (partId) -> new VirtualColumn(columnDescriptor.logicalIndex(), NativeTypes.INT32, false, partId);
         }
     }
 
@@ -103,7 +102,7 @@ public class TableRowConverterFactoryImpl implements TableRowConverterFactory {
                 fullTupleSchema,
                 schemaDescriptor,
                 requiredColumns,
-                requireVirtualColumn ? virtualColumnFactory.apply(partId) : null
+                requireVirtualColumn ? List.of(virtualColumnFactory.apply(partId)) : List.of()
         );
     }
 }
