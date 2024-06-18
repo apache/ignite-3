@@ -99,30 +99,46 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
 
     @Override
     public <R> JobExecution<R> submit(JobTarget target, JobDescriptor descriptor, Object... args) {
+        Objects.requireNonNull(target);
+        Objects.requireNonNull(descriptor);
+
         if (target instanceof NodesJobTarget) {
-            return submit(((NodesJobTarget) target).nodes(), descriptor, args);
-        } else if (target instanceof ColocatedExecutionTarget) {
+            Set<ClusterNode> nodes = ((NodesJobTarget) target).nodes();
+
+            return executeAsyncWithFailover(nodes, descriptor.units(), descriptor.jobClassName(), descriptor.options(), args);
+        }
+
+        if (target instanceof ColocatedExecutionTarget) {
             ColocatedExecutionTarget colocatedTarget = (ColocatedExecutionTarget) target;
             var mapper = (Mapper<? super Object>) colocatedTarget.keyMapper();
 
             if (mapper != null) {
-                return submitColocated(
-                        colocatedTarget.tableName(),
-                        colocatedTarget.key(),
-                        mapper,
-                        descriptor,
-                        args);
+                String tableName = colocatedTarget.tableName();
+                Object key = colocatedTarget.key();
+
+                CompletableFuture<JobExecution<R>> jobFut = requiredTable(tableName)
+                        .thenCompose(table -> primaryReplicaForPartitionByMappedKey(table, key, mapper)
+                                .thenApply(primaryNode -> executeOnOneNodeWithFailover(
+                                        primaryNode,
+                                        new NextColocatedWorkerSelector<>(placementDriver, topologyService, clock, table, key, mapper),
+                                        descriptor.units(),
+                                        descriptor.jobClassName(),
+                                        descriptor.options(),
+                                        args
+                                )));
+
+                return new JobExecutionFutureWrapper<>(jobFut);
             } else {
                 return submitColocated(colocatedTarget.tableName(), (Tuple) colocatedTarget.key(), descriptor, args);
             }
-        } else {
-            throw new IllegalArgumentException("Unsupported job target: " + target);
         }
+
+        throw new IllegalArgumentException("Unsupported job target: " + target);
     }
 
     @Override
     public <R> R execute(JobTarget target, JobDescriptor descriptor, Object... args) {
-        return sync(this.executeAsync(target, descriptor, args));
+        return sync(this.<R>submit(target, descriptor, args).resultAsync());
     }
 
     @Override
