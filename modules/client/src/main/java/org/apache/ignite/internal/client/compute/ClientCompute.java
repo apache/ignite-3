@@ -139,60 +139,6 @@ public class ClientCompute implements IgniteCompute {
         return sync(this.<R>submit(target, descriptor, args).resultAsync());
     }
 
-    @Override
-    public <R> JobExecution<R> submit(Set<ClusterNode> nodes, JobDescriptor descriptor, Object... args) {
-        Objects.requireNonNull(nodes);
-        Objects.requireNonNull(descriptor);
-
-        if (nodes.isEmpty()) {
-            throw new IllegalArgumentException("nodes must not be empty.");
-        }
-
-        return new ClientJobExecution<>(
-                ch,
-                executeOnNodesAsync(nodes, descriptor.units(), descriptor.jobClassName(), descriptor.options(), args));
-    }
-
-    @Override
-    public <R> R execute(Set<ClusterNode> nodes, JobDescriptor descriptor, Object... args) {
-        return sync(this.executeAsync(nodes, descriptor, args));
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public <R> JobExecution<R> submitColocated(
-            String tableName,
-            Tuple key,
-            JobDescriptor descriptor,
-            Object... args
-    ) {
-        Objects.requireNonNull(tableName);
-        Objects.requireNonNull(key);
-        Objects.requireNonNull(descriptor);
-
-        return new ClientJobExecution<>(
-                ch,
-                doExecuteColocatedAsync(tableName, key, descriptor.units(), descriptor.jobClassName(), descriptor.options(), args));
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public <K, R> JobExecution<R> submitColocated(
-            String tableName,
-            K key,
-            Mapper<K> keyMapper,
-            JobDescriptor descriptor,
-            Object... args
-    ) {
-        Objects.requireNonNull(tableName);
-        Objects.requireNonNull(key);
-        Objects.requireNonNull(keyMapper);
-        Objects.requireNonNull(descriptor);
-
-        return new ClientJobExecution<>(ch, doExecuteColocatedAsync(
-                tableName, key, keyMapper, descriptor.units(), descriptor.jobClassName(), descriptor.options(), args));
-    }
-
     private CompletableFuture<SubmitResult> doExecuteColocatedAsync(
             String tableName,
             Tuple key,
@@ -230,29 +176,6 @@ public class ClientCompute implements IgniteCompute {
                         () -> doExecuteColocatedAsync(tableName, key, keyMapper, units, jobClassName, options, args)
                 ))
                 .thenCompose(Function.identity());
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public <R> R executeColocated(
-            String tableName,
-            Tuple key,
-            JobDescriptor descriptor,
-            Object... args
-    ) {
-        return sync(this.executeColocatedAsync(tableName, key, descriptor, args));
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public <K, R> R executeColocated(
-            String tableName,
-            K key,
-            Mapper<K> keyMapper,
-            JobDescriptor descriptor,
-            Object... args
-    ) {
-        return sync(executeColocatedAsync(tableName, key, keyMapper, descriptor, args));
     }
 
     /** {@inheritDoc} */
