@@ -91,25 +91,47 @@ public class ClientCompute implements IgniteCompute {
 
     @Override
     public <R> JobExecution<R> submit(JobTarget target, JobDescriptor descriptor, Object... args) {
+        Objects.requireNonNull(target);
+        Objects.requireNonNull(descriptor);
+
         if (target instanceof NodesJobTarget) {
-            return submit(((NodesJobTarget) target).nodes(), descriptor, args);
-        } else if (target instanceof ColocatedExecutionTarget) {
+            return new ClientJobExecution<>(
+                    ch,
+                    executeOnNodesAsync((
+                                    (NodesJobTarget) target).nodes(),
+                            descriptor.units(),
+                            descriptor.jobClassName(),
+                            descriptor.options(),
+                            args));
+        }
+
+        if (target instanceof ColocatedExecutionTarget) {
             ColocatedExecutionTarget colocatedTarget = (ColocatedExecutionTarget) target;
             var mapper = (Mapper<? super Object>) colocatedTarget.keyMapper();
 
             if (mapper != null) {
-                return submitColocated(
+                return new ClientJobExecution<>(ch, doExecuteColocatedAsync(
                         colocatedTarget.tableName(),
                         colocatedTarget.key(),
                         mapper,
-                        descriptor,
-                        args);
+                        descriptor.units(),
+                        descriptor.jobClassName(),
+                        descriptor.options(),
+                        args));
             } else {
-                return submitColocated(colocatedTarget.tableName(), (Tuple) colocatedTarget.key(), descriptor, args);
+                return new ClientJobExecution<>(
+                        ch,
+                        doExecuteColocatedAsync(
+                                colocatedTarget.tableName(),
+                                (Tuple) colocatedTarget.key(),
+                                descriptor.units(),
+                                descriptor.jobClassName(),
+                                descriptor.options(),
+                                args));
             }
-        } else {
-            throw new IllegalArgumentException("Unsupported job target: " + target);
         }
+
+        throw new IllegalArgumentException("Unsupported job target: " + target);
     }
 
     @Override
