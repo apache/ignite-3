@@ -38,7 +38,7 @@ public class MapReduce implements MapReduceTask<Integer> {
     public CompletableFuture<List<MapReduceJob>> splitAsync(TaskExecutionContext taskContext, Object... args) {
         List<DeploymentUnit> deploymentUnits = (List<DeploymentUnit>) args[0];
 
-        return completedFuture(taskContext.ignite().clusterNodes().stream().map(node ->
+        return taskContext.ignite().clusterNodesAsync().thenApply(nodes -> nodes.stream().map(node ->
                 MapReduceJob.builder()
                         .jobDescriptor(JobDescriptor.builder(GetNodeNameJob.class)
                                 .units(deploymentUnits)
