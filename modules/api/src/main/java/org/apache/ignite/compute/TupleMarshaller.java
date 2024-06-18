@@ -17,30 +17,16 @@
 
 package org.apache.ignite.compute;
 
-import java.util.concurrent.CompletableFuture;
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.table.Tuple;
 
-/**
- */
-@SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
-public interface ComputeJob<T, R> {
-    /**
-     * Executes the job on an Ignite node.
-     *
-     * @param context The execution context.
-     * @param args Job arguments.
-     * @return Job future. Can be null if the job is synchronous and does not return any result.
-     */
-    @Nullable CompletableFuture<R> executeAsync(JobExecutionContext context, T input);
-
-
-    default Marshaller<T, ?> inputMarshaller() {
-        return new TupleMarshaller<>() {
-        };
+interface TupleMarshaller<T> extends Marshaller<T, Tuple> {
+    @Override
+    default Tuple marshal(T object) {
+        return BinaryTupleMarshallilng.marshal(object);
     }
 
-    default Marshaller<R, ?> resultMarhaller() {
-        return new TupleMarshaller<>() {
-        };
+    @Override
+    default T unmarshal(Tuple raw) {
+        return BinaryTupleMarshallilng.unmarshal(raw);
     }
 }

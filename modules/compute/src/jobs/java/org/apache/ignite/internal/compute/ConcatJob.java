@@ -17,20 +17,37 @@
 
 package org.apache.ignite.internal.compute;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
-
-import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
+import org.apache.ignite.compute.Marshaller;
+import org.apache.ignite.internal.compute.ConcatJob.Pojo;
+import org.apache.ignite.table.Tuple;
 
 /** Compute job that concatenates the string representation of its arguments. */
-public class ConcatJob implements ComputeJob<Object[], String> {
+public class ConcatJob implements ComputeJob<Tuple, Pojo> {
     @Override
-    public CompletableFuture<String> executeAsync(JobExecutionContext context, Object... args) {
-        return completedFuture(Arrays.stream(args)
-                .map(Object::toString)
-                .collect(Collectors.joining()));
+    public CompletableFuture<Pojo> executeAsync(JobExecutionContext context, Tuple input) {
+        return null;
+    }
+
+    @Override
+    public Marshaller<Pojo, byte[]> resultMarhaller() {
+        return new Marshaller<>() {
+            @Override
+            public byte[] marshal(Pojo object) {
+                return new byte[2];
+            }
+
+            @Override
+            public Pojo unmarshal(byte[] raw) {
+                return new Pojo();
+            }
+        };
+    }
+
+    static class Pojo {
+       int i;
     }
 }
+
