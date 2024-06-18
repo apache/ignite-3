@@ -32,6 +32,8 @@ public interface Replica {
      *
      * @return RAFT client.
      */
+    // TODO:https://issues.apache.org/jira/browse/IGNITE-22036 remove this method
+    @Deprecated(forRemoval = true)
     TopologyAwareRaftGroupService raftClient();
 
     /**

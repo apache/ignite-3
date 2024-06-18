@@ -17,11 +17,11 @@
 
 package org.apache.ignite.internal.table.distributed.disaster;
 
-import static org.apache.ignite.internal.partition.replica.network.disaster.LocalPartitionStateEnum.HEALTHY;
-import static org.apache.ignite.internal.partition.replica.network.disaster.LocalPartitionStateEnum.INITIALIZING;
-import static org.apache.ignite.internal.partition.replica.network.disaster.LocalPartitionStateEnum.INSTALLING_SNAPSHOT;
+import static org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum.HEALTHY;
+import static org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum.INITIALIZING;
+import static org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum.INSTALLING_SNAPSHOT;
 
-import org.apache.ignite.internal.partition.replica.network.disaster.LocalPartitionStateEnum;
+import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum;
 import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.core.State;
 

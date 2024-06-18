@@ -20,7 +20,7 @@ package org.apache.ignite.internal.sql.engine.exec;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.partition.replica.network.replication.BinaryTupleMessage;
+import org.apache.ignite.internal.partition.replicator.network.replication.BinaryTupleMessage;
 import org.apache.ignite.internal.sql.engine.exec.rel.Inbox;
 import org.apache.ignite.internal.sql.engine.exec.rel.Outbox;
 import org.jetbrains.annotations.Nullable;

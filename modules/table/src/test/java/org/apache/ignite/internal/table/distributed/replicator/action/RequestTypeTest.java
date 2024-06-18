@@ -18,18 +18,18 @@
 package org.apache.ignite.internal.table.distributed.replicator.action;
 
 
-import static org.apache.ignite.internal.partition.replica.network.replication.RequestType.RO_GET;
-import static org.apache.ignite.internal.partition.replica.network.replication.RequestType.RO_GET_ALL;
-import static org.apache.ignite.internal.partition.replica.network.replication.RequestType.RO_SCAN;
-import static org.apache.ignite.internal.partition.replica.network.replication.RequestType.RW_GET;
-import static org.apache.ignite.internal.partition.replica.network.replication.RequestType.RW_GET_ALL;
-import static org.apache.ignite.internal.partition.replica.network.replication.RequestType.RW_SCAN;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RO_GET;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RO_GET_ALL;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RO_SCAN;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_GET;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_GET_ALL;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_SCAN;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.EnumSet;
 import java.util.Set;
-import org.apache.ignite.internal.partition.replica.network.replication.RequestType;
+import org.apache.ignite.internal.partition.replicator.network.replication.RequestType;
 import org.junit.jupiter.api.Test;
 
 class RequestTypeTest {

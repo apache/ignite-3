@@ -33,7 +33,7 @@ import java.util.Arrays;
 import java.util.UUID;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.CatalogService;
-import org.apache.ignite.internal.partition.replica.network.PartitionReplicationMessagesFactory;
+import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;

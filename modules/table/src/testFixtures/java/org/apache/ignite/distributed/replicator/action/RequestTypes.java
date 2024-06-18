@@ -17,7 +17,7 @@
 
 package org.apache.ignite.distributed.replicator.action;
 
-import org.apache.ignite.internal.partition.replica.network.replication.RequestType;
+import org.apache.ignite.internal.partition.replicator.network.replication.RequestType;
 
 /**
  * Transaction operation type.

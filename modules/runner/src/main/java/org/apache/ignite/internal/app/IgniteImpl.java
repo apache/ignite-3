@@ -153,8 +153,8 @@ import org.apache.ignite.internal.network.scalecube.ScaleCubeClusterServiceFacto
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.internal.network.serialization.SerializationRegistryServiceLoader;
 import org.apache.ignite.internal.network.wrapper.JumpToExecutorByConsistentIdAfterSend;
-import org.apache.ignite.internal.partition.replica.PartitionReplicaLifecycleManager;
-import org.apache.ignite.internal.partition.replica.network.PartitionReplicationMessageGroup;
+import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
+import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.PlacementDriverManager;
 import org.apache.ignite.internal.raft.Loza;

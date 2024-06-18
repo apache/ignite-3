@@ -31,7 +31,7 @@ import java.util.PriorityQueue;
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
-import org.apache.ignite.internal.partition.replica.network.replication.BinaryTupleMessage;
+import org.apache.ignite.internal.partition.replicator.network.replication.BinaryTupleMessage;
 import org.apache.ignite.internal.sql.engine.NodeLeftException;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeService;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;

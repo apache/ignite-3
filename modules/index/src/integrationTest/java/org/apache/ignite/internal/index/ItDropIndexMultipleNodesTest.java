@@ -44,7 +44,7 @@ import org.apache.ignite.internal.catalog.events.RemoveIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.StartBuildingIndexEventParameters;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.event.EventParameters;
-import org.apache.ignite.internal.partition.replica.network.replication.BuildIndexReplicaRequest;
+import org.apache.ignite.internal.partition.replicator.network.replication.BuildIndexReplicaRequest;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.tx.Transaction;
