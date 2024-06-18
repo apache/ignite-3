@@ -17,17 +17,17 @@
 
 package org.apache.ignite.compute;
 
-import java.util.Collection;
 import java.util.Objects;
+import java.util.Set;
 import org.apache.ignite.network.ClusterNode;
 
 /**
  * Nodes-based job execution target.
  */
 public class NodesJobTarget implements JobTarget {
-    private final Collection<ClusterNode> nodes;
+    private final Set<ClusterNode> nodes;
 
-    public NodesJobTarget(Collection<ClusterNode> nodes) {
+    public NodesJobTarget(Set<ClusterNode> nodes) {
         Objects.requireNonNull(nodes);
 
         if (nodes.isEmpty()) {
@@ -35,5 +35,9 @@ public class NodesJobTarget implements JobTarget {
         }
 
         this.nodes = nodes;
+    }
+
+    public Set<ClusterNode> nodes() {
+        return nodes;
     }
 }

@@ -17,8 +17,7 @@
 
 package org.apache.ignite.compute;
 
-import java.util.Collection;
-import java.util.List;
+import java.util.Set;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
@@ -34,7 +33,7 @@ public interface JobTarget {
      * @return Job target.
      */
     static JobTarget node(ClusterNode node) {
-        return new NodesJobTarget(List.of(node));
+        return new NodesJobTarget(Set.of(node));
     }
 
     /**
@@ -44,7 +43,7 @@ public interface JobTarget {
      * @return Job target.
      */
     static JobTarget anyNode(ClusterNode... nodes) {
-        return new NodesJobTarget(List.of(nodes));
+        return new NodesJobTarget(Set.of(nodes));
     }
 
     /**
@@ -53,7 +52,7 @@ public interface JobTarget {
      * @param nodes Collection of nodes.
      * @return Job target.
      */
-    static JobTarget anyNode(Collection<ClusterNode> nodes) {
+    static JobTarget anyNode(Set<ClusterNode> nodes) {
         return new NodesJobTarget(nodes);
     }
 
