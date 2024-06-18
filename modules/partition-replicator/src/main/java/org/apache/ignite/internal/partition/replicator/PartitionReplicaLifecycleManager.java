@@ -112,7 +112,8 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
      * @param metaStorageMgr Metastorage manager.
      * @param topologyService Topology service.
      */
-    public PartitionReplicaLifecycleManager(CatalogManager catalogMgr,
+    public PartitionReplicaLifecycleManager(
+            CatalogManager catalogMgr,
             ReplicaManager replicaMgr,
             DistributionZoneManager distributionZoneMgr,
             MetaStorageManager metaStorageMgr,
@@ -140,7 +141,6 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
     }
 
     private CompletableFuture<Void> onCreateZone(CreateZoneEventParameters createZoneEventParameters) {
-
         return inBusyLockAsync(busyLock, () -> {
             CompletableFuture<List<Assignments>> assignmentsFuture = getOrCreateAssignments(
                     createZoneEventParameters.zoneDescriptor(),
@@ -186,7 +186,7 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
 
         ZonePartitionId replicaGrpId = new ZonePartitionId(zoneId, partId);
 
-        RaftGroupListener raftGroupListener = new PartitionGroupListener();
+        RaftGroupListener raftGroupListener = new ZonePartitionRaftListener();
 
         try {
             return replicaMgr.startReplica(
