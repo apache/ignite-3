@@ -34,9 +34,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -181,7 +179,7 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
             return nullCompletedFuture();
         }
 
-        PeersAndLearners realConfiguration = configurationFromAssignments(assignments.nodes());
+        PeersAndLearners realConfiguration = PeersAndLearners.fromAssignments(assignments.nodes());
 
         ZonePartitionId replicaGrpId = new ZonePartitionId(zoneId, partId);
 
@@ -199,21 +197,6 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
         } catch (NodeStoppingException e) {
             return failedFuture(e);
         }
-    }
-
-    private static PeersAndLearners configurationFromAssignments(Collection<Assignment> assignments) {
-        var peers = new HashSet<String>();
-        var learners = new HashSet<String>();
-
-        for (Assignment assignment : assignments) {
-            if (assignment.isPeer()) {
-                peers.add(assignment.consistentId());
-            } else {
-                learners.add(assignment.consistentId());
-            }
-        }
-
-        return PeersAndLearners.fromConsistentIds(peers, learners);
     }
 
     private ClusterNode localNode() {
