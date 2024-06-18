@@ -67,8 +67,8 @@ public final class InteractiveTasks {
     private static final AtomicInteger RUNNING_GLOBAL_SPLIT_CNT = new AtomicInteger(0);
 
     /**
-     * This counter indicated how many {@link GlobalInteractiveMapReduceTask#reduce(TaskExecutionContext, Map)} methods are running now.
-     * This counter increased each time the {@link GlobalInteractiveMapReduceTask#reduce(TaskExecutionContext, Map)} is called and decreased
+     * This counter indicates how many {@link GlobalInteractiveMapReduceTask#reduce(TaskExecutionContext, Map)} methods are running now.
+     * This counter is increased every time the {@link GlobalInteractiveMapReduceTask#reduce(TaskExecutionContext, Map)} is called and decreased
      * when the method is finished (whatever the result is). Checked in {@link #clearState}.
      */
     private static final AtomicInteger RUNNING_GLOBAL_REDUCE_CNT = new AtomicInteger(0);
