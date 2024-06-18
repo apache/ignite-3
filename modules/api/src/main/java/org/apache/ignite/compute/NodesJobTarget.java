@@ -18,6 +18,7 @@
 package org.apache.ignite.compute;
 
 import java.util.Collection;
+import java.util.Objects;
 import org.apache.ignite.network.ClusterNode;
 
 /**
@@ -27,6 +28,12 @@ public class NodesJobTarget implements JobTarget {
     private final Collection<ClusterNode> nodes;
 
     public NodesJobTarget(Collection<ClusterNode> nodes) {
+        Objects.requireNonNull(nodes);
+
+        if (nodes.isEmpty()) {
+            throw new IllegalArgumentException("Nodes collection must not be empty.");
+        }
+
         this.nodes = nodes;
     }
 }

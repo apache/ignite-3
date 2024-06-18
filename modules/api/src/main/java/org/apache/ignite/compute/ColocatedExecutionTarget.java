@@ -25,7 +25,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Colocated job execution target.
  */
-public class ColocatedExecutionTarget {
+public class ColocatedExecutionTarget implements JobTarget {
     private final String tableName;
 
     private final Object key;

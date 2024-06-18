@@ -27,23 +27,55 @@ import org.apache.ignite.table.mapper.Mapper;
  * Job execution target.
  */
 public interface JobTarget {
+    /**
+     * Creates a job target for a specific node.
+     *
+     * @param node Node.
+     * @return Job target.
+     */
     static JobTarget node(ClusterNode node) {
         return new NodesJobTarget(List.of(node));
     }
 
+    /**
+     * Creates a job target for any node from the provided collection.
+     *
+     * @param nodes Collection of nodes.
+     * @return Job target.
+     */
     static JobTarget anyNode(ClusterNode... nodes) {
         return new NodesJobTarget(List.of(nodes));
     }
 
+    /**
+     * Creates a job target for any node from the provided collection.
+     *
+     * @param nodes Collection of nodes.
+     * @return Job target.
+     */
     static JobTarget anyNode(Collection<ClusterNode> nodes) {
         return new NodesJobTarget(nodes);
     }
 
+    /**
+     * Creates a colocated job target for a specific table and key.
+     *
+     * @param tableName Table name.
+     * @param key Key.
+     * @return Job target.
+     */
     static JobTarget colocated(String tableName, Tuple key) {
-        return null; // TODO
+        return new ColocatedExecutionTarget(tableName, key, null);
     }
 
+    /**
+     * Creates a colocated job target for a specific table and key with mapper.
+     *
+     * @param tableName Table name.
+     * @param key Key.
+     * @return Job target.
+     */
     static <K> JobTarget colocated(String tableName, K key, Mapper<K> keyMapper) {
-        return null; // TODO
+        return new ColocatedExecutionTarget(tableName, key, keyMapper);
     }
 }
