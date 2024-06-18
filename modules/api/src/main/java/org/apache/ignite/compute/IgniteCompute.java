@@ -106,11 +106,13 @@ public interface IgniteCompute {
      * @param args Arguments of the job.
      * @return Job execution object.
      */
-    <R> JobExecution<R> submit(
+    default <R> JobExecution<R> submit(
             Set<ClusterNode> nodes,
             JobDescriptor descriptor,
             Object... args
-    );
+    ) {
+        return submit(JobTarget.anyNode(nodes), descriptor, args);
+    }
 
     /**
      * Submits a {@link ComputeJob} of the given class for an execution on a single node from a set of candidate nodes. A shortcut for
@@ -140,11 +142,13 @@ public interface IgniteCompute {
      * @return Job result.
      * @throws ComputeException If there is any problem executing the job.
      */
-    <R> R execute(
+    default <R> R execute(
             Set<ClusterNode> nodes,
             JobDescriptor descriptor,
             Object... args
-    );
+    ) {
+        return execute(JobTarget.anyNode(nodes), descriptor, args);
+    }
 
     /**
      * Submits a job of the given class for the execution on the node where the given key is located. The node is a leader of the
@@ -157,12 +161,14 @@ public interface IgniteCompute {
      * @param <R> Job result type.
      * @return Job execution object.
      */
-    <R> JobExecution<R> submitColocated(
+    default <R> JobExecution<R> submitColocated(
             String tableName,
             Tuple key,
             JobDescriptor descriptor,
             Object... args
-    );
+    ) {
+        return submit(JobTarget.colocated(tableName, key), descriptor, args);
+    }
 
     /**
      * Submits a job of the given class for the execution on the node where the given key is located. The node is a leader of the
@@ -176,13 +182,15 @@ public interface IgniteCompute {
      * @param <R> Job result type.
      * @return Job execution object.
      */
-    <K, R> JobExecution<R> submitColocated(
+    default <K, R> JobExecution<R> submitColocated(
             String tableName,
             K key,
             Mapper<K> keyMapper,
             JobDescriptor descriptor,
             Object... args
-    );
+    ) {
+        return submit(JobTarget.colocated(tableName, key, keyMapper), descriptor, args);
+    }
 
     /**
      * Submits a job of the given class for the execution on the node where the given key is located. The node is a leader of the
@@ -237,11 +245,13 @@ public interface IgniteCompute {
      * @return Job result.
      * @throws ComputeException If there is any problem executing the job.
      */
-    <R> R executeColocated(
+    default <R> R executeColocated(
             String tableName,
             Tuple key,
             JobDescriptor descriptor,
-            Object... args);
+            Object... args) {
+        return execute(JobTarget.colocated(tableName, key), descriptor, args);
+    }
 
     /**
      * Executes a job of the given class on the node where the given key is located. The node is a leader of the corresponding RAFT group.
@@ -255,12 +265,14 @@ public interface IgniteCompute {
      * @return Job result.
      * @throws ComputeException If there is any problem executing the job.
      */
-    <K, R> R executeColocated(
+    default <K, R> R executeColocated(
             String tableName,
             K key,
             Mapper<K> keyMapper,
             JobDescriptor descriptor,
-            Object... args);
+            Object... args) {
+        return execute(JobTarget.colocated(tableName, key, keyMapper), descriptor, args);
+    }
 
 
 

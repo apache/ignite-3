@@ -21,11 +21,11 @@ public interface JobTarget {
         return null; // TODO
     }
 
-    static JobTarget colocated(Tuple key) {
+    static JobTarget colocated(String tableName, Tuple key) {
         return null; // TODO
     }
 
-    static <K> JobTarget colocated(K key, Mapper<K> keyMapper) {
+    static <K> JobTarget colocated(String tableName, K key, Mapper<K> keyMapper) {
         return null; // TODO
     }
 }
