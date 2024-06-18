@@ -32,9 +32,9 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
 
     @Override
     public CompletableFuture<ReplicaResult> invoke(ReplicaRequest request, String senderId) {
-        var res =
-                new BinaryRowImpl(1,
-                        new BinaryTupleBuilder(2).appendLong(1).appendInt(-1).build());
+        var res = new BinaryRowImpl(
+                1,
+                new BinaryTupleBuilder(2).appendLong(1).appendInt(-1).build());
         return CompletableFuture.completedFuture(new ReplicaResult(
                 res,
                 CompletableFuture.completedFuture(res)));

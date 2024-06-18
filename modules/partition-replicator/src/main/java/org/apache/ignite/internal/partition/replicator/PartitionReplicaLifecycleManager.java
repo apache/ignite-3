@@ -149,7 +149,7 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
             );
 
             CompletableFuture<List<Assignments>> assignmentsFutureAfterInvoke =
-                    writeTableAssignmentsToMetastore(createZoneEventParameters.zoneDescriptor().id(), assignmentsFuture);
+                    writeZoneAssignmentsToMetastore(createZoneEventParameters.zoneDescriptor().id(), assignmentsFuture);
 
             return createZoneReplicationNodes(assignmentsFutureAfterInvoke, createZoneEventParameters.zoneDescriptor().id());
         });
@@ -239,7 +239,7 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
      * @param assignmentsFuture Assignments future, to get the assignments that should be written.
      * @return Real list of assignments.
      */
-    private CompletableFuture<List<Assignments>> writeTableAssignmentsToMetastore(
+    private CompletableFuture<List<Assignments>> writeZoneAssignmentsToMetastore(
             int zoneId,
             CompletableFuture<List<Assignments>> assignmentsFuture
     ) {

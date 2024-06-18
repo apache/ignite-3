@@ -60,7 +60,7 @@ import org.apache.ignite.internal.partition.replicator.network.replication.ScanC
  */
 @MessageGroup(groupType = GROUP_TYPE, groupName = "PartitionReplicationMessages")
 public interface PartitionReplicationMessageGroup {
-    /** Table message group type. */
+    /** Zone message group type. */
     short GROUP_TYPE = 9;
 
     /**
@@ -187,7 +187,7 @@ public interface PartitionReplicationMessageGroup {
     short TIMED_BINARY_ROW_MESSAGE = 24;
 
     /**
-     * Message types for Table module RAFT commands.
+     * Message types for partition replicator module RAFT commands.
      *
      * <p>NOTE: Commands must be immutable because they will be stored in the replication log.</p>
      */
