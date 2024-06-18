@@ -29,6 +29,7 @@ import java.util.stream.Collectors;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
+import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.compute.NodeNotFoundException;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.compute.utils.InteractiveJobs;
@@ -138,6 +139,7 @@ abstract class ItComputeErrorsBaseTest extends ClusterPerClassIntegrationTest {
     protected abstract IgniteCompute compute();
 
     private TestingJobExecution<String> executeGlobalInteractiveJob(Set<ClusterNode> nodes) {
-        return new TestingJobExecution<>(compute().submit(nodes, JobDescriptor.builder(InteractiveJobs.globalJob().name()).build()));
+        return new TestingJobExecution<>(
+                compute().submit(JobTarget.anyNode(nodes), JobDescriptor.builder(InteractiveJobs.globalJob().name()).build()));
     }
 }

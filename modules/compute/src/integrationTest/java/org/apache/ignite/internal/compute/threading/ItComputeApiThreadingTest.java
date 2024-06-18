@@ -34,6 +34,7 @@ import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionContext;
+import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.compute.IgniteComputeImpl;
 import org.apache.ignite.internal.wrapper.Wrappers;
@@ -148,7 +149,7 @@ class ItComputeApiThreadingTest extends ClusterPerClassIntegrationTest {
     }
 
     private enum ComputeAsyncOperation {
-        EXECUTE_ASYNC(compute -> compute.executeAsync(justNonEntryNode(), JobDescriptor.builder(NoOpJob.class).build())),
+        EXECUTE_ASYNC(compute -> compute.executeAsync(JobTarget.anyNode(justNonEntryNode()), JobDescriptor.builder(NoOpJob.class).build())),
         EXECUTE_COLOCATED_BY_TUPLE_ASYNC(compute ->
                 compute.executeColocatedAsync(TABLE_NAME, KEY_TUPLE, JobDescriptor.builder(NoOpJob.class).build())),
         EXECUTE_COLOCATED_BY_KEY_ASYNC(compute ->
@@ -167,7 +168,7 @@ class ItComputeApiThreadingTest extends ClusterPerClassIntegrationTest {
     }
 
     private enum ComputeSubmitOperation {
-        SUBMIT(compute -> compute.submit(justNonEntryNode(), JobDescriptor.builder(NoOpJob.class).build())),
+        SUBMIT(compute -> compute.submit(JobTarget.anyNode(justNonEntryNode()), JobDescriptor.builder(NoOpJob.class).build())),
         SUBMIT_COLOCATED_BY_TUPLE(compute -> compute.submitColocated(TABLE_NAME, KEY_TUPLE, JobDescriptor.builder(NoOpJob.class).build())),
         SUBMIT_COLOCATED_BY_KEY(compute -> compute.submitColocated(
                 TABLE_NAME, KEY, Mapper.of(Integer.class), JobDescriptor.builder(NoOpJob.class).build())
