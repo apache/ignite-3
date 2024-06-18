@@ -111,12 +111,12 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
         if (target instanceof ColocatedExecutionTarget) {
             ColocatedExecutionTarget colocatedTarget = (ColocatedExecutionTarget) target;
             var mapper = (Mapper<? super Object>) colocatedTarget.keyMapper();
+            String tableName = colocatedTarget.tableName();
+            Object key = colocatedTarget.key();
 
+            CompletableFuture<JobExecution<R>> jobFut;
             if (mapper != null) {
-                String tableName = colocatedTarget.tableName();
-                Object key = colocatedTarget.key();
-
-                CompletableFuture<JobExecution<R>> jobFut = requiredTable(tableName)
+                jobFut = requiredTable(tableName)
                         .thenCompose(table -> primaryReplicaForPartitionByMappedKey(table, key, mapper)
                                 .thenApply(primaryNode -> executeOnOneNodeWithFailover(
                                         primaryNode,
@@ -127,10 +127,18 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
                                         args
                                 )));
 
-                return new JobExecutionFutureWrapper<>(jobFut);
             } else {
-                return submitColocated(colocatedTarget.tableName(), (Tuple) colocatedTarget.key(), descriptor, args);
+                jobFut = requiredTable(tableName)
+                        .thenCompose(table -> submitColocatedInternal(
+                                table,
+                                (Tuple) key,
+                                descriptor.units(),
+                                descriptor.jobClassName(),
+                                descriptor.options(),
+                                args));
             }
+
+            return new JobExecutionFutureWrapper<>(jobFut);
         }
 
         throw new IllegalArgumentException("Unsupported job target: " + target);
