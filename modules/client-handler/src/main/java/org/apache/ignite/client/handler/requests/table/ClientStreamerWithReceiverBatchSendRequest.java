@@ -101,7 +101,7 @@ public class ClientStreamerWithReceiverBatchSendRequest {
 
     private static class ReceiverRunnerJob implements ComputeJob<byte[], List<Object>> {
         @Override
-        public @Nullable List<Object> execute(JobExecutionContext context, byte[] payload) {
+        public @Nullable CompletableFuture<List<Object>> executeAsync(JobExecutionContext context, byte[] payload) {
             int payloadElementCount = payload.length;
 
             var receiverInfo = StreamerReceiverSerializer.deserialize(payload, payloadElementCount);
@@ -111,9 +111,7 @@ public class ClientStreamerWithReceiverBatchSendRequest {
             DataStreamerReceiver<Object, Object> receiver = ComputeUtils.instantiateReceiver(receiverClass);
             DataStreamerReceiverContext receiverContext = context::ignite;
 
-            CompletableFuture<List<Object>> receiveFut = receiver.receive(receiverInfo.items(), receiverContext, receiverInfo.args());
-
-            return receiveFut == null ? null : receiveFut.join();
+            return receiver.receive(receiverInfo.items(), receiverContext, receiverInfo.args());
         }
     }
 }

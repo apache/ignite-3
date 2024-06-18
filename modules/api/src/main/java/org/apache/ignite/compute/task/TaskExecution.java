@@ -15,12 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.compute;
+package org.apache.ignite.compute.task;
 
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import org.apache.ignite.compute.JobExecution;
+import org.apache.ignite.compute.JobStatus;
 import org.jetbrains.annotations.Nullable;
 
 /**

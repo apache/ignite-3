@@ -29,9 +29,9 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.lang.ErrorGroups.Compute;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.TopologyService;
 
 /**
  * This is a helper class for {@link ComputeComponent} to handle job failures. You can think about this class as a "retryable compute job

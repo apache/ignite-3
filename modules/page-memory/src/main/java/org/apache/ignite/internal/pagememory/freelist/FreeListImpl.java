@@ -489,7 +489,7 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
     private long allocateDataPage(int part) throws IgniteInternalCheckedException {
         assert part <= PageIdAllocator.MAX_PARTITION_ID;
 
-        return pageMem.allocatePage(grpId, part, FLAG_DATA);
+        return pageMem.allocatePage(reuseList, grpId, part, FLAG_DATA);
     }
 
     @Override

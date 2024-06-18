@@ -17,13 +17,16 @@
 
 package org.apache.ignite.internal.compute;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
 
 /** Compute job. */
 public class UnitJob implements ComputeJob<Void, Integer> {
     @Override
-    public Integer execute(JobExecutionContext context, Void input) {
-        return 1;
+    public CompletableFuture<Integer> executeAsync(JobExecutionContext context, Void input) {
+        return completedFuture(1);
     }
 }

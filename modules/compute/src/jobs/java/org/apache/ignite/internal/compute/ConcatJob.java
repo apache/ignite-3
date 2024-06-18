@@ -17,7 +17,10 @@
 
 package org.apache.ignite.internal.compute;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+
 import java.util.Arrays;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
@@ -25,9 +28,9 @@ import org.apache.ignite.compute.JobExecutionContext;
 /** Compute job that concatenates the string representation of its arguments. */
 public class ConcatJob implements ComputeJob<Object[], String> {
     @Override
-    public String execute(JobExecutionContext context, Object... args) {
-        return Arrays.stream(args)
+    public CompletableFuture<String> executeAsync(JobExecutionContext context, Object... args) {
+        return completedFuture(Arrays.stream(args)
                 .map(Object::toString)
-                .collect(Collectors.joining());
+                .collect(Collectors.joining()));
     }
 }

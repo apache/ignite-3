@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.runner.app;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.MAX_TIME_PRECISION;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZone;
@@ -538,10 +539,10 @@ public class PlatformTestNodeRunner {
     @SuppressWarnings("unused") // Used by platform tests.
     private static class CreateTableJob implements ComputeJob<String, String> {
         @Override
-        public String execute(JobExecutionContext context, String tableName) {
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, String tableName) {
             context.ignite().sql().execute(null, "CREATE TABLE " + tableName + "(key BIGINT PRIMARY KEY, val INT)");
 
-            return tableName;
+            return completedFuture(tableName);
         }
     }
 
@@ -551,10 +552,10 @@ public class PlatformTestNodeRunner {
     @SuppressWarnings("unused") // Used by platform tests.
     private static class DropTableJob implements ComputeJob<String, String> {
         @Override
-        public String execute(JobExecutionContext context, String tableName) {
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, String tableName) {
             context.ignite().sql().execute(null, "DROP TABLE " + tableName + "");
 
-            return tableName;
+            return completedFuture(tableName);
         }
     }
 
@@ -564,7 +565,7 @@ public class PlatformTestNodeRunner {
     @SuppressWarnings("unused") // Used by platform tests.
     private static class ExceptionJob implements ComputeJob<String, String> {
         @Override
-        public String execute(JobExecutionContext context, String msg) {
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, String msg) {
             throw new RuntimeException("Test exception: " + msg);
         }
     }
@@ -575,7 +576,7 @@ public class PlatformTestNodeRunner {
     @SuppressWarnings("unused") // Used by platform tests.
     private static class CheckedExceptionJob implements ComputeJob<String, String> {
         @Override
-        public String execute(JobExecutionContext context, String msg) {
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, String msg) {
             throw new CompletionException(new IgniteCheckedException(Common.NODE_LEFT_ERR, "TestCheckedEx: " + msg));
         }
     }
@@ -587,7 +588,7 @@ public class PlatformTestNodeRunner {
     // TODO: https://issues.apache.org/jira/browse/IGNITE-22508
     private static class ColocationHashJob implements ComputeJob<byte[], Integer> {
         @Override
-        public Integer execute(JobExecutionContext context, byte[] args) {
+        public CompletableFuture<Integer> executeAsync(JobExecutionContext context, byte[] args) {
             throw new IllegalStateException("https://issues.apache.org/jira/browse/IGNITE-22508");
 //            var columnCount = (int) args[0];
 //            var buf = (byte[]) args[1];
@@ -699,7 +700,7 @@ public class PlatformTestNodeRunner {
 //            try {
 //                Row row = marsh.marshal(tuple);
 //
-//                return row.colocationHash();
+//                return completedFuture(row.colocationHash());
 //            } catch (TupleMarshallerException e) {
 //                throw new RuntimeException(e);
 //            }
@@ -713,7 +714,7 @@ public class PlatformTestNodeRunner {
     private static class TableRowColocationHashJob implements ComputeJob<byte[], Integer> {
         // TODO: https://issues.apache.org/jira/browse/IGNITE-22508
         @Override
-        public Integer execute(JobExecutionContext context, byte[] args) {
+        public CompletableFuture<Integer> executeAsync(JobExecutionContext context, byte[] args) {
             return 1;
 //            String tableName = (String) args[0];
 //            int i = (int) args[1];
@@ -725,7 +726,7 @@ public class PlatformTestNodeRunner {
 //            TupleMarshaller marsh = view.marshaller(1);
 //
 //            try {
-//                return marsh.marshal(key).colocationHash();
+//                return completedFuture(marsh.marshal(key).colocationHash());
 //            } catch (TupleMarshallerException e) {
 //                throw new RuntimeException(e);
 //            }
@@ -738,7 +739,7 @@ public class PlatformTestNodeRunner {
     @SuppressWarnings("unused") // Used by platform tests.
     private static class EnableAuthenticationJob implements ComputeJob<Integer, Void> {
         @Override
-        public Void execute(JobExecutionContext context, Integer flag) {
+        public CompletableFuture<Void> executeAsync(JobExecutionContext context, Integer flag) {
             boolean enable = flag != 0;
             @SuppressWarnings("resource") IgniteImpl ignite = (IgniteImpl) context.ignite();
 
@@ -779,18 +780,22 @@ public class PlatformTestNodeRunner {
 
             Table table = ctx.ignite().tables().table(tableName);
             RecordView<Tuple> recordView = table.recordView();
+            List<String> res = new ArrayList<>();
 
             for (String s : page) {
                 String[] parts = s.split("-", 2);
+                String val = parts[1] + "_" + arg1 + "_" + arg2;
 
                 Tuple rec = Tuple.create()
                         .set("key", Long.parseLong(parts[0]))
-                        .set("val", parts[1] + "_" + arg1 + "_" + arg2);
+                        .set("val", val);
+
+                res.add(val);
 
                 recordView.upsert(null, rec);
             }
 
-            return null;
+            return CompletableFuture.completedFuture(res);
         }
     }
 
@@ -821,6 +826,22 @@ public class PlatformTestNodeRunner {
             }
 
             return null;
+        }
+    }
+
+    @SuppressWarnings("unused") // Used by platform tests.
+    private static class EchoArgsReceiver implements DataStreamerReceiver<Object, Object> {
+        @Override
+        public CompletableFuture<List<Object>> receive(List<Object> page, DataStreamerReceiverContext ctx, Object... args) {
+            return CompletableFuture.completedFuture(List.of(args));
+        }
+    }
+
+    @SuppressWarnings("unused") // Used by platform tests.
+    private static class EchoReceiver implements DataStreamerReceiver<Object, Object> {
+        @Override
+        public CompletableFuture<List<Object>> receive(List<Object> page, DataStreamerReceiverContext ctx, Object... args) {
+            return CompletableFuture.completedFuture(page);
         }
     }
 }

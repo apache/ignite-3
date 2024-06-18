@@ -155,50 +155,7 @@ public abstract class DataStructure implements ManuallyCloseable {
      * @throws IgniteInternalCheckedException If failed.
      */
     protected final long allocatePage(@Nullable ReuseBag bag, boolean useRecycled) throws IgniteInternalCheckedException {
-        long pageId = 0;
-
-        if (useRecycled && reuseList != null) {
-            pageId = bag != null ? bag.pollFreePage() : 0;
-
-            if (pageId == 0) {
-                pageId = reuseList.takeRecycledPage();
-            }
-
-            // Recycled. "pollFreePage" result should be reinitialized to move rotatedId to itemId.
-            if (pageId != 0) {
-                // Replace the partition ID, because the reused page might have come from a different data structure if the reuse
-                // list is shared between them.
-                pageId = replacePartitionId(pageId);
-
-                pageId = reuseList.initRecycledPage(pageId, defaultPageFlag, null);
-            }
-        }
-
-        if (pageId == 0) {
-            pageId = allocatePageNoReuse();
-        }
-
-        assert pageId != 0;
-
-        assert partitionId(pageId) >= 0 && partitionId(pageId) <= MAX_PARTITION_ID : toDetailString(pageId);
-
-        assert flag(pageId) != FLAG_DATA || itemId(pageId) == 0 : toDetailString(pageId);
-
-        return pageId;
-    }
-
-    /**
-     * Replaces the "partition ID" part of the given page ID with the partition ID that his data structure is responsible for.
-     *
-     * @param pageId Original page ID.
-     * @return Page ID with replaced partition ID.
-     */
-    private long replacePartitionId(long pageId) {
-        long partitionIdZeroMask = ~(PageIdUtils.PART_ID_MASK << PageIdUtils.PAGE_IDX_SIZE);
-
-        long partitionIdMask = ((long) partId) << PageIdUtils.PAGE_IDX_SIZE;
-
-        return pageId & partitionIdZeroMask | partitionIdMask;
+        return pageMem.allocatePage(reuseList, bag, useRecycled, grpId, partId, defaultPageFlag);
     }
 
     /**
@@ -208,7 +165,7 @@ public abstract class DataStructure implements ManuallyCloseable {
      * @throws IgniteInternalCheckedException If failed.
      */
     protected long allocatePageNoReuse() throws IgniteInternalCheckedException {
-        return pageMem.allocatePage(grpId, partId, defaultPageFlag);
+        return pageMem.allocatePageNoReuse(grpId, partId, defaultPageFlag);
     }
 
     /**

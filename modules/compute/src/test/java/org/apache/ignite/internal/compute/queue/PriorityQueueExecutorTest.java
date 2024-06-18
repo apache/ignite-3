@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.compute.queue;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.compute.JobState.CANCELED;
 import static org.apache.ignite.compute.JobState.COMPLETED;
 import static org.apache.ignite.compute.JobState.EXECUTING;
@@ -231,7 +232,7 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
                 try {
                     latch.await();
                 } catch (InterruptedException e) {
-                    return 0;
+                    return completedFuture(0);
                 }
             }
         });
@@ -254,7 +255,7 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
         CountDownLatch latch = new CountDownLatch(1);
         QueueExecution<Object> execution = priorityQueueExecutor.submit(() -> {
             latch.await();
-            return 0;
+            return completedFuture(0);
         });
 
         JobStatus executingStatus = await().until(execution::status, jobStatusWithState(EXECUTING));
@@ -272,7 +273,7 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
     void completedTaskCancel() {
         initExecutor(1);
 
-        QueueExecution<Object> execution = priorityQueueExecutor.submit(() -> 0);
+        QueueExecution<Object> execution = priorityQueueExecutor.submit(() -> completedFuture(0));
 
         await().until(execution::status, jobStatusWithState(COMPLETED));
 
@@ -290,13 +291,13 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
         CountDownLatch latch = new CountDownLatch(1);
         QueueExecution<Object> runningExecution = priorityQueueExecutor.submit(() -> {
             latch.await();
-            return 0;
+            return completedFuture(0);
         });
 
         await().until(runningExecution::status, jobStatusWithState(EXECUTING));
 
         // Put the task in the queue
-        QueueExecution<Object> execution = priorityQueueExecutor.submit(() -> 0);
+        QueueExecution<Object> execution = priorityQueueExecutor.submit(() -> completedFuture(0));
         await().until(execution::status, jobStatusWithState(QUEUED));
 
         // Cancel the task
@@ -340,7 +341,7 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
             if (runTimes.incrementAndGet() <= maxRetries) {
                 throw new RuntimeException();
             }
-            return 0;
+            return completedFuture(0);
         }, 0, maxRetries);
 
         await().until(execution::status, jobStatusWithState(COMPLETED));
@@ -385,7 +386,7 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
 
         QueueExecution<Integer> runningExecution3 =  priorityQueueExecutor.submit(() -> {
             latch3.await();
-            return 2;
+            return completedFuture(2);
         }, 1, 0);
 
         CompletableFuture<Integer> task3 = runningExecution3.resultAsync();
@@ -436,7 +437,7 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
 
         QueueExecution<Integer> runningExecution =  priorityQueueExecutor.submit(() -> {
             latch3.await();
-            return 2;
+            return completedFuture(2);
         }, 1, 0);
 
         CompletableFuture<Integer> task3 = runningExecution.resultAsync();
@@ -491,7 +492,7 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
         // Start two tasks
         QueueExecution<Integer> runningExecution1 =  priorityQueueExecutor.submit(() -> {
             latch1.await();
-            return 2;
+            return completedFuture(2);
         }, 1, 0);
 
         CompletableFuture<Integer> task1 = runningExecution1.resultAsync();
@@ -528,7 +529,7 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
         // Start three tasks
         QueueExecution<Integer> runningExecution =  priorityQueueExecutor.submit(() -> {
             latch1.await();
-            return 2;
+            return completedFuture(2);
         }, 1, 0);
 
         CompletableFuture<Integer> task1 = runningExecution.resultAsync();
@@ -582,6 +583,6 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
     }
 
     private <R> CompletableFuture<R> submit(Callable<R> job, int priority, int maxRetries) {
-        return priorityQueueExecutor.submit(job, priority, maxRetries).resultAsync();
+        return priorityQueueExecutor.submit(() -> completedFuture(job.call()), priority, maxRetries).resultAsync();
     }
 }

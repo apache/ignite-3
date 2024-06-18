@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.compute;
 
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
@@ -24,7 +25,7 @@ import org.apache.ignite.compute.JobExecutionContext;
 /** Compute job that sleeps for a number of milliseconds passed in the argument. */
 public class SleepJob implements ComputeJob<Long, Void> {
     @Override
-    public Void execute(JobExecutionContext jobExecutionContext, Long timeout) {
+    public CompletableFuture<Void> executeAsync(JobExecutionContext jobExecutionContext, Long timeout) {
         try {
             TimeUnit.SECONDS.sleep(timeout);
             return null;

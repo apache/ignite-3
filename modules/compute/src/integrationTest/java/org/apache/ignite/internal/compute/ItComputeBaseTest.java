@@ -48,7 +48,7 @@ import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
-import org.apache.ignite.compute.TaskExecution;
+import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.util.ExceptionUtils;

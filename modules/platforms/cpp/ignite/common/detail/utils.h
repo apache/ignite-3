@@ -15,31 +15,44 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.network;
+#pragma once
+
+#include <ignite/common/ignite_error.h>
+
+#include <future>
+#include <memory>
+#include <utility>
+
+namespace ignite::detail {
 
 /**
- * A class that returns a single {@link ClusterNode} for every request.
+ * Make future error.
+ *
+ * @tparam T Value type.
+ * @param err Error.
+ * @return Failed future with the specified error.
  */
-public class SingleClusterNodeResolver implements ClusterNodeResolver {
+template<typename T>
+std::future<T> make_future_error(ignite_error err) {
+    std::promise<T> promise;
+    promise.set_exception(std::make_exception_ptr(std::move(err)));
 
-    private final ClusterNode clusterNode;
-
-    /**
-     * Constructor.
-     *
-     * @param clusterNode Default cluster node that will be returned as a result of all method calls.
-     */
-    public SingleClusterNodeResolver(ClusterNode clusterNode) {
-        this.clusterNode = clusterNode;
-    }
-
-    @Override
-    public ClusterNode getByConsistentId(String consistentId) {
-        return clusterNode;
-    }
-
-    @Override
-    public ClusterNode getById(String id) {
-        return clusterNode;
-    }
+    return promise.get_future();
 }
+
+/**
+ * Make future value.
+ *
+ * @tparam T Value type.
+ * @param value Value.
+ * @return Failed future with the specified error.
+ */
+template<typename T>
+std::future<T> make_future_value(T value) {
+    std::promise<T> promise;
+    promise.set_value(std::move(value));
+
+    return promise.get_future();
+}
+
+} // namespace ignite::detail

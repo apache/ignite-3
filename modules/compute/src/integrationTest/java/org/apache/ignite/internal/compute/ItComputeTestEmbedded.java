@@ -341,14 +341,14 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
 
     private static class CustomFailingJob implements ComputeJob<Throwable, String> {
         @Override
-        public String execute(JobExecutionContext context, Throwable th) {
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, Throwable th) {
             throw ExceptionUtils.sneakyThrow(th);
         }
     }
 
     private static class WaitLatchJob implements ComputeJob<CountDownLatch, String> {
         @Override
-        public String execute(JobExecutionContext context, CountDownLatch latch) {
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, CountDownLatch latch) {
             try {
                 latch.await();
             } catch (InterruptedException e) {
@@ -362,7 +362,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         static final AtomicInteger counter = new AtomicInteger(0);
 
         @Override
-        public String execute(JobExecutionContext context, CountDownLatch latch) {
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, CountDownLatch latch) {
             try {
                 latch.await();
                 if (counter.incrementAndGet() == 1) {
@@ -377,7 +377,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
 
     private static class PerformSyncKvGetPutJob implements ComputeJob<Void, Void> {
         @Override
-        public Void execute(JobExecutionContext context, Void input) {
+        public CompletableFuture<Void> executeAsync(JobExecutionContext context, Void input) {
             Table table = context.ignite().tables().table("test");
             KeyValueView<Integer, Integer> view = table.keyValueView(Integer.class, Integer.class);
 
@@ -390,7 +390,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
 
     private static class NullReturningJob implements ComputeJob<Void, Void> {
         @Override
-        public Void execute(JobExecutionContext context, Void input) {
+        public CompletableFuture<Void> executeAsync(JobExecutionContext context, Void input) {
             return null;
         }
     }

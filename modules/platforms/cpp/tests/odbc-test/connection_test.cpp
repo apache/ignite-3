@@ -62,7 +62,7 @@ TEST_F(connection_test, dbms_cluster_name) {
 }
 
 TEST_F(connection_test, timezone_passed) {
-    EXPECT_NO_THROW(odbc_connect_throw(get_basic_connection_string()+ "timezone=UTC+5;"));
+    EXPECT_NO_THROW(odbc_connect_throw(get_basic_connection_string() + "timezone=UTC+5;"));
     auto ret = exec_query("SELECT CURRENT_TIMESTAMP");
     ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
@@ -77,10 +77,10 @@ TEST_F(connection_test, timezone_passed) {
 
     ASSERT_GT(column_len, 0);
     ASSERT_LT(column_len, 1024);
-    std::string ts0((char*)buffer, column_len);
+    std::string ts0((char *) buffer, column_len);
     odbc_clean_up();
 
-    EXPECT_NO_THROW(odbc_connect_throw(get_basic_connection_string()+ "timezone=UTC-8;"));
+    EXPECT_NO_THROW(odbc_connect_throw(get_basic_connection_string() + "timezone=UTC-8;"));
     ret = exec_query("SELECT CURRENT_TIMESTAMP");
     ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
@@ -92,7 +92,7 @@ TEST_F(connection_test, timezone_passed) {
 
     ASSERT_GT(column_len, 0);
     ASSERT_LT(column_len, 1024);
-    std::string ts1((char*)buffer, column_len);
+    std::string ts1((char *) buffer, column_len);
     odbc_clean_up();
 
     EXPECT_NE(ts0, ts1);

@@ -28,6 +28,7 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.task.MapReduceTask;
+import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
@@ -37,7 +38,7 @@ import org.jetbrains.annotations.Nullable;
  * Provides the ability to execute Compute jobs.
  *
  * @see ComputeJob
- * @see ComputeJob#execute(JobExecutionContext, Object...)
+ * @see ComputeJob#executeAsync(JobExecutionContext, Object...)
  */
 public interface IgniteCompute {
     /**

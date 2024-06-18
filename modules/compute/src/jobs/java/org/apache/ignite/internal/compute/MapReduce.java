@@ -26,16 +26,16 @@ import java.util.UUID;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecutionOptions;
-import org.apache.ignite.compute.task.ComputeJobRunner;
+import org.apache.ignite.compute.task.MapReduceJob;
 import org.apache.ignite.compute.task.MapReduceTask;
 import org.apache.ignite.compute.task.TaskExecutionContext;
 
 /** Map reduce task which runs a {@link GetNodeNameJob} on each node and computes a sum of length of all node names. */
 public class MapReduce implements MapReduceTask<List<DeploymentUnit>, Integer> {
     @Override
-    public List<ComputeJobRunner> split(TaskExecutionContext taskContext, List<DeploymentUnit> deploymentUnits) {
+    public List<MapReduceJob> split(TaskExecutionContext taskContext, List<DeploymentUnit> deploymentUnits) {
         return taskContext.ignite().clusterNodes().stream().map(node ->
-                ComputeJobRunner.builder()
+                MapReduceJob.builder()
                         .jobDescriptor(JobDescriptor.builder(GetNodeNameJob.class)
                                 .units(deploymentUnits)
                                 .options(JobExecutionOptions.builder()

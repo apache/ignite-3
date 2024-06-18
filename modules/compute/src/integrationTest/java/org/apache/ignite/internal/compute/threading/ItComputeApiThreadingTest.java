@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.compute.threading;
 
 import static java.lang.Thread.currentThread;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.PublicApiThreadingTests.anIgniteThread;
 import static org.apache.ignite.internal.PublicApiThreadingTests.asyncContinuationPool;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
@@ -141,8 +142,8 @@ class ItComputeApiThreadingTest extends ClusterPerClassIntegrationTest {
 
     private static class NoOpJob implements ComputeJob<Void, String> {
         @Override
-        public String execute(JobExecutionContext context, Void input) {
-            return "ok";
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, Void input) {
+            return completedFuture("ok");
         }
     }
 

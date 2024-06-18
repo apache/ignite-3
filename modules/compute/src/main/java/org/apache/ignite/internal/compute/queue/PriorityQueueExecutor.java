@@ -21,6 +21,7 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
@@ -71,7 +72,7 @@ public class PriorityQueueExecutor {
      * @param maxRetries Number of retries of the execution after failure, {@code 0} means the execution will not be retried.
      * @return Completable future which will be finished when compute job finished.
      */
-    public <R> QueueExecution<R> submit(Callable<R> job, int priority, int maxRetries) {
+    public <R> QueueExecution<R> submit(Callable<CompletableFuture<R>> job, int priority, int maxRetries) {
         Objects.requireNonNull(job);
 
         UUID jobId = stateMachine.initJob();
@@ -88,7 +89,7 @@ public class PriorityQueueExecutor {
      * @param <R> Job result type.
      * @return Completable future which will be finished when compute job finished.
      */
-    public <R> QueueExecution<R> submit(Callable<R> job) {
+    public <R> QueueExecution<R> submit(Callable<CompletableFuture<R>> job) {
         return submit(job, 0, 0);
     }
 

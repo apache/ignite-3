@@ -47,9 +47,10 @@ import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.compute.NodeNotFoundException;
-import org.apache.ignite.compute.TaskExecution;
-import org.apache.ignite.compute.task.ComputeJobRunner;
+import org.apache.ignite.compute.task.MapReduceJob;
+import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.sql.SqlCommon;
@@ -61,7 +62,6 @@ import org.apache.ignite.lang.ErrorGroups.Compute;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.jetbrains.annotations.Nullable;
@@ -346,7 +346,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
         return sync(executeMapReduceAsync(units, taskClassName, args));
     }
 
-    private JobExecution<Object> submitJob(ComputeJobRunner runner) {
+    private JobExecution<Object> submitJob(MapReduceJob runner) {
         return submit(runner.nodes(), runner.jobDescriptor(), runner.args());
     }
 
