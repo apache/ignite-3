@@ -215,7 +215,7 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
         // When start broadcast job.
         Map<ClusterNode, JobExecution<Object>> executions = compute(entryNode).submitBroadcast(
                 clusterNodesByNames(workerCandidates(node(0), node(1), node(2))),
-                JobDescriptor.builder(InteractiveJobs.interactiveJobName()).build(), null);
+                JobDescriptor.builder(InteractiveJobs.interactiveJobName()).build(), new Object[]{});
 
         // Then all three jobs are alive.
         assertThat(executions.size(), is(3));
@@ -293,7 +293,7 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
                 compute(entryNode).submitColocated(
                         TABLE_NAME,
                         Tuple.create(1).set("K", 1),
-                        JobDescriptor.builder(InteractiveJobs.globalJob().name()).build(), null));
+                        JobDescriptor.builder(InteractiveJobs.globalJob().name()).build(), new Object[]{}));
 
         // Then the job is alive.
         InteractiveJobs.globalJob().assertAlive();
@@ -364,7 +364,7 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
         return new TestingJobExecution<>(
                 compute(entryNode).submit(
                         clusterNodesByNames(nodes),
-                        JobDescriptor.builder(InteractiveJobs.globalJob().name()).build(), null)
+                        JobDescriptor.builder(InteractiveJobs.globalJob().name()).build(), new Object[]{})
         );
     }
 

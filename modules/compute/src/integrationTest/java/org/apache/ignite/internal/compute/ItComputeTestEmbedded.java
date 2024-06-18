@@ -180,11 +180,12 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         JobDescriptor job = JobDescriptor.builder(WaitLatchJob.class).units(units()).build();
 
         // Start 1 task in executor with 1 thread
-        JobExecution<String> execution1 = entryNode.compute().submit(nodes, job, new Object[]{countDownLatch});
+        JobExecution<String> execution1 = entryNode.compute().submit(nodes, job, countDownLatch);
+
         await().until(execution1::statusAsync, willBe(jobStatusWithState(JobState.EXECUTING)));
 
         // Start one more task
-        JobExecution<String> execution2 = entryNode.compute().submit(nodes, job, new Object[]{new CountDownLatch(1)});
+        JobExecution<String> execution2 = entryNode.compute().submit(nodes, job, new CountDownLatch(1));
         await().until(execution2::statusAsync, willBe(jobStatusWithState(JobState.QUEUED)));
 
         // Start third task it should be before task2 in the queue due to higher priority in options

@@ -183,7 +183,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void executesLocally() {
-        JobExecution<String> execution = computeComponent.executeLocally(List.of(), SimpleJob.class.getName(), "a", 42);
+        JobExecution<String> execution = computeComponent.executeLocally(List.of(), SimpleJob.class.getName(), new Object[]{"a", 42});
 
         assertThat(execution.resultAsync(), willBe("jobResponse"));
         assertThat(execution.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
@@ -195,7 +195,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void getsStatusAndCancelsLocally() {
-        JobExecution<String> execution = computeComponent.executeLocally(List.of(), LongJob.class.getName());
+        JobExecution<String> execution = computeComponent.executeLocally(List.of(), LongJob.class.getName(), null);
 
         await().until(execution::statusAsync, willBe(jobStatusWithState(EXECUTING)));
 
@@ -208,10 +208,10 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void statusCancelAndChangePriorityTriesLocalNodeFirst() {
-        JobExecution<String> runningExecution = computeComponent.executeLocally(List.of(), LongJob.class.getName());
+        JobExecution<String> runningExecution = computeComponent.executeLocally(List.of(), LongJob.class.getName(), null);
         await().until(runningExecution::statusAsync, willBe(jobStatusWithState(EXECUTING)));
 
-        JobExecution<String> queuedExecution = computeComponent.executeLocally(List.of(), LongJob.class.getName());
+        JobExecution<String> queuedExecution = computeComponent.executeLocally(List.of(), LongJob.class.getName(), null);
         await().until(queuedExecution::statusAsync, willBe(jobStatusWithState(QUEUED)));
 
         UUID jobId = queuedExecution.statusAsync().join().id();
@@ -249,7 +249,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         respondWithJobStatusResponseWhenJobStatusRequestIsSent(jobId, COMPLETED);
         respondWithJobCancelResponseWhenJobCancelRequestIsSent(jobId, false);
 
-        JobExecution<String> execution = computeComponent.executeRemotely(remoteNode, List.of(), SimpleJob.class.getName(), "a", 42);
+        JobExecution<String> execution = computeComponent.executeRemotely(remoteNode, List.of(), SimpleJob.class.getName(), new Object[]{"a", 42});
         assertThat(execution.resultAsync(), willBe("remoteResponse"));
 
         // Verify that second invocation of resultAsync will not result in the network communication (i.e. the result is cached locally)
@@ -272,13 +272,13 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         respondWithJobStatusResponseWhenJobStatusRequestIsSent(jobId, EXECUTING);
         respondWithJobCancelResponseWhenJobCancelRequestIsSent(jobId, true);
 
-        JobExecution<String> execution = computeComponent.executeRemotely(remoteNode, List.of(), LongJob.class.getName());
+        JobExecution<String> execution = computeComponent.executeRemotely(remoteNode, List.of(), LongJob.class.getName(), null);
 
         assertThat(execution.statusAsync(), willBe(jobStatusWithState(EXECUTING)));
         assertThat(execution.resultAsync(), willBe("remoteResponse"));
         assertThat(execution.cancelAsync(), willBe(true));
 
-        assertThatExecuteRequestWasSent(LongJob.class.getName());
+        assertThatExecuteRequestWasSent(LongJob.class.getName(), null);
         assertThatJobResultRequestWasSent(jobId);
         assertThatJobStatusRequestWasSent(jobId);
         assertThatJobCancelRequestWasSent(jobId);
@@ -290,7 +290,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         respondWithExecuteResponseWhenExecuteRequestIsSent(jobId);
         respondWithJobChangePriorityResponseWhenJobChangePriorityRequestIsSent(jobId);
 
-        JobExecution<String> execution = computeComponent.executeRemotely(remoteNode, List.of(), LongJob.class.getName());
+        JobExecution<String> execution = computeComponent.executeRemotely(remoteNode, List.of(), LongJob.class.getName(), null);
 
         assertThat(execution.changePriorityAsync(1), willBe(true));
 
@@ -373,7 +373,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         ExecuteRequest capturedRequest = invokeAndCaptureRequest(ExecuteRequest.class);
 
         assertThat(capturedRequest.jobClassName(), is(jobClassName));
-        assertThat(capturedRequest.args(), is(equalTo(args)));
+        assertThat(capturedRequest.input(), is(equalTo(args)));
     }
 
     private void assertThatJobResultRequestWasSent(UUID jobId) {
@@ -428,7 +428,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
                 .executeOptions(DEFAULT)
                 .deploymentUnits(List.of())
                 .jobClassName(SimpleJob.class.getName())
-                .args(new Object[]{"a", 42})
+                .input(new Object[]{"a", 42})
                 .build();
         ExecuteResponse executeResponse = sendRequestAndCaptureResponse(executeRequest, testNode, 123L);
 
@@ -495,7 +495,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
                 .executeOptions(DEFAULT)
                 .deploymentUnits(List.of())
                 .jobClassName(SimpleJob.class.getName())
-                .args(new Object[]{"a", 42})
+                .input(new Object[]{"a", 42})
                 .build();
         ExecuteResponse response = sendRequestAndCaptureResponse(request, testNode, 123L);
 
@@ -675,17 +675,17 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
     }
 
     private CompletableFuture<String> executeLocally(List<DeploymentUnit> units, String jobClassName, Object... args) {
-        return computeComponent.<String>executeLocally(units, jobClassName, args).resultAsync();
+        return computeComponent.<Object[], String>executeLocally(units, jobClassName, args).resultAsync();
     }
 
     private CompletableFuture<String> executeRemotely(
             String jobClassName,
             Object... args
     ) {
-        return computeComponent.<String>executeRemotely(remoteNode, List.of(), jobClassName, args).resultAsync();
+        return computeComponent.<Object[], String>executeRemotely(remoteNode, List.of(), jobClassName, args).resultAsync();
     }
 
-    private static class SimpleJob implements ComputeJob<String> {
+    private static class SimpleJob implements ComputeJob<Object[], String> {
         /** {@inheritDoc} */
         @Override
         public CompletableFuture<String> executeAsync(JobExecutionContext context, Object... args) {
@@ -693,7 +693,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         }
     }
 
-    private static class FailingJob implements ComputeJob<String> {
+    private static class FailingJob implements ComputeJob<Object[], String> {
         /** {@inheritDoc} */
         @Override
         public CompletableFuture<String> executeAsync(JobExecutionContext context, Object... args) {
@@ -707,7 +707,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         }
     }
 
-    private static class GetThreadNameJob implements ComputeJob<String> {
+    private static class GetThreadNameJob implements ComputeJob<Object[], String> {
         /** {@inheritDoc} */
         @Override
         public CompletableFuture<String> executeAsync(JobExecutionContext context, Object... args) {
@@ -715,10 +715,10 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         }
     }
 
-    private static class LongJob implements ComputeJob<String> {
+    private static class LongJob implements ComputeJob<Void, String> {
         /** {@inheritDoc} */
         @Override
-        public CompletableFuture<String> executeAsync(JobExecutionContext context, Object... args) {
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, Void args) {
             try {
                 Thread.sleep(1_000_000);
             } catch (InterruptedException e) {

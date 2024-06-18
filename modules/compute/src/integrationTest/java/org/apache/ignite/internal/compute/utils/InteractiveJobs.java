@@ -155,7 +155,7 @@ public final class InteractiveJobs {
     /**
      * Interactive job that communicates via {@link #GLOBAL_CHANNEL} and {@link #GLOBAL_SIGNALS}.
      */
-    private static class GlobalInteractiveJob implements ComputeJob<Object[], String> {
+    private static class GlobalInteractiveJob implements ComputeJob<String, String> {
         private static Signal listenSignal() {
             try {
                 return GLOBAL_SIGNALS.take();
@@ -165,7 +165,7 @@ public final class InteractiveJobs {
         }
 
         @Override
-        public CompletableFuture<String> executeAsync(JobExecutionContext context, Object... args) {
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, String args) {
             RUNNING_INTERACTIVE_JOBS_CNT.incrementAndGet();
 
             offerArgsAsSignals(args);
@@ -200,16 +200,11 @@ public final class InteractiveJobs {
          *
          * @param args Job args.
          */
-        private static void offerArgsAsSignals(Object[] args) {
-            for (Object arg : args) {
-                if (arg instanceof String) {
-                    String signal = (String) arg;
-                    try {
-                        GLOBAL_SIGNALS.offer(Signal.valueOf(signal));
-                    } catch (IllegalArgumentException ignored) {
-                        // Ignore non-signal strings
-                    }
-                }
+        private static void offerArgsAsSignals(String arg) {
+            try {
+                GLOBAL_SIGNALS.offer(Signal.valueOf(arg));
+            } catch (IllegalArgumentException ignored) {
+                // Ignore non-signal strings
             }
         }
     }

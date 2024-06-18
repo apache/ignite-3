@@ -114,11 +114,11 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
                 compute.executeAsync(
                         singleton(localNode),
                         JobDescriptor.builder(JOB_CLASS_NAME).units(testDeploymentUnits).build(),
-                        "a", 42),
+                        new Object[] {"a", 42}),
                 willBe("jobResponse")
         );
 
-        verify(computeComponent).executeLocally(ExecutionOptions.DEFAULT, testDeploymentUnits, JOB_CLASS_NAME, "a", 42);
+        verify(computeComponent).executeLocally(ExecutionOptions.DEFAULT, testDeploymentUnits, JOB_CLASS_NAME, new Object[]{"a", 42});
     }
 
     @Test
@@ -129,7 +129,7 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
                 compute.executeAsync(
                         singleton(remoteNode),
                         JobDescriptor.builder(JOB_CLASS_NAME).units(testDeploymentUnits).build(),
-                        "a", 42),
+                        new Object[]{"a", 42}),
                 willBe("remoteResponse")
         );
 
@@ -146,11 +146,11 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
                 compute.executeAsync(
                         singleton(localNode),
                         JobDescriptor.builder(JOB_CLASS_NAME).units(testDeploymentUnits).options(options).build(),
-                        "a", 42),
+                        new Object[]{"a", 42}),
                 willBe("jobResponse")
         );
 
-        verify(computeComponent).executeLocally(expectedOptions, testDeploymentUnits, JOB_CLASS_NAME, "a", 42);
+        verify(computeComponent).executeLocally(expectedOptions, testDeploymentUnits, JOB_CLASS_NAME, new Object[]{"a", 42});
     }
 
     @Test
@@ -164,7 +164,7 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
                 compute.executeAsync(
                         singleton(remoteNode),
                         JobDescriptor.builder(JOB_CLASS_NAME).units(testDeploymentUnits).options(options).build(),
-                        "a", 42),
+                        new Object[]{"a", 42}),
                 willBe("remoteResponse")
         );
 
@@ -181,7 +181,7 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
                         "test",
                         Tuple.create(Map.of("k", 1)),
                         JobDescriptor.builder(JOB_CLASS_NAME).units(testDeploymentUnits).build(),
-                        "a", 42),
+                        new Object[]{"a", 42}),
                 willBe("remoteResponse")
         );
     }
@@ -197,7 +197,7 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
                         1,
                         Mapper.of(Integer.class),
                         JobDescriptor.builder(JOB_CLASS_NAME).units(testDeploymentUnits).build(),
-                        "a", 42
+                        new Object[]{"a", 42}
                 ),
                 willBe("remoteResponse")
         );
@@ -209,7 +209,7 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
         respondWhenExecutingSimpleJobRemotely(ExecutionOptions.DEFAULT);
 
         CompletableFuture<Map<ClusterNode, String>> future = compute.executeBroadcastAsync(
-                Set.of(localNode, remoteNode), JobDescriptor.builder(JOB_CLASS_NAME).units(testDeploymentUnits).build(), "a", 42
+                Set.of(localNode, remoteNode), JobDescriptor.builder(JOB_CLASS_NAME).units(testDeploymentUnits).build(), new Object[]{"a", 42}
         );
 
         assertThat(future, willBe(aMapWithSize(2)));
@@ -227,7 +227,7 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
     }
 
     private void respondWhenExecutingSimpleJobLocally(ExecutionOptions executionOptions) {
-        when(computeComponent.executeLocally(executionOptions, testDeploymentUnits, JOB_CLASS_NAME, "a", 42))
+        when(computeComponent.executeLocally(executionOptions, testDeploymentUnits, JOB_CLASS_NAME, new Object[]{"a", 42}))
                 .thenReturn(completedExecution("jobResponse"));
     }
 

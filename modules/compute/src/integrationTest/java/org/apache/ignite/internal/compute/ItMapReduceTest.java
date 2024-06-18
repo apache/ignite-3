@@ -67,7 +67,7 @@ class ItMapReduceTest extends ClusterPerClassIntegrationTest {
         IgniteImpl entryNode = CLUSTER.node(0);
 
         // Given running task.
-        TaskExecution<List<String>> taskExecution = entryNode.compute().submitMapReduce(List.of(), InteractiveTasks.GlobalApi.name(), null);
+        TaskExecution<List<String>> taskExecution = entryNode.compute().submitMapReduce(List.of(), InteractiveTasks.GlobalApi.name(), new Object[]{});
         TestingJobExecution<List<String>> testExecution = new TestingJobExecution<>(taskExecution);
         testExecution.assertExecuting();
         InteractiveTasks.GlobalApi.assertAlive();
@@ -178,7 +178,7 @@ class ItMapReduceTest extends ClusterPerClassIntegrationTest {
         IgniteImpl entryNode = CLUSTER.node(0);
 
         // Given running task.
-        TaskExecution<List<String>> taskExecution = entryNode.compute().submitMapReduce(List.of(), InteractiveTasks.GlobalApi.name(), null);
+        TaskExecution<List<String>> taskExecution = entryNode.compute().submitMapReduce(List.of(), InteractiveTasks.GlobalApi.name(), new Object[]{});
         TestingJobExecution<List<String>> testExecution = new TestingJobExecution<>(taskExecution);
         testExecution.assertExecuting();
         InteractiveTasks.GlobalApi.assertAlive();
@@ -235,7 +235,7 @@ class ItMapReduceTest extends ClusterPerClassIntegrationTest {
 
         // Given running task.
         String arg = cooperativeCancel ? "NO_INTERRUPT" : "";
-        TaskExecution<List<String>> taskExecution = entryNode.compute().submitMapReduce(List.of(), InteractiveTasks.GlobalApi.name(), arg);
+        TaskExecution<List<String>> taskExecution = entryNode.compute().submitMapReduce(List.of(), InteractiveTasks.GlobalApi.name(), new Object[] {arg});
         TestingJobExecution<List<String>> testExecution = new TestingJobExecution<>(taskExecution);
         testExecution.assertExecuting();
         InteractiveTasks.GlobalApi.assertAlive();
