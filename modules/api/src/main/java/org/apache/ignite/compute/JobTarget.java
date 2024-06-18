@@ -17,6 +17,8 @@
 
 package org.apache.ignite.compute;
 
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.Set;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
@@ -44,6 +46,16 @@ public interface JobTarget {
      */
     static JobTarget anyNode(ClusterNode... nodes) {
         return new NodesJobTarget(Set.of(nodes));
+    }
+
+    /**
+     * Creates a job target for any node from the provided collection.
+     *
+     * @param nodes Collection of nodes.
+     * @return Job target.
+     */
+    static JobTarget anyNode(Collection<ClusterNode> nodes) {
+        return new NodesJobTarget(new HashSet<>(nodes));
     }
 
     /**

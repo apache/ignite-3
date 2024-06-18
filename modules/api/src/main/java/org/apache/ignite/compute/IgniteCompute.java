@@ -98,41 +98,6 @@ public interface IgniteCompute {
 
 
     /**
-     * Submits a {@link ComputeJob} of the given class for an execution on a single node from a set of candidate nodes.
-     *
-     * @param <R> Job result type.
-     * @param nodes Candidate nodes; the job will be executed on one of them.
-     * @param descriptor Job descriptor.
-     * @param args Arguments of the job.
-     * @return Job execution object.
-     */
-    default <R> JobExecution<R> submit(
-            Set<ClusterNode> nodes,
-            JobDescriptor descriptor,
-            Object... args
-    ) {
-        return submit(JobTarget.anyNode(nodes), descriptor, args);
-    }
-
-    /**
-     * Submits a {@link ComputeJob} of the given class for an execution on a single node from a set of candidate nodes. A shortcut for
-     * {@code submit(...).resultAsync()}.
-     *
-     * @param <R> Job result type.
-     * @param nodes Candidate nodes; the job will be executed on one of them.
-     * @param descriptor Job descriptor.
-     * @param args Arguments of the job.
-     * @return Job result future.
-     */
-    default <R> CompletableFuture<R> executeAsync(
-            Set<ClusterNode> nodes,
-            JobDescriptor descriptor,
-            Object... args
-    ) {
-        return this.<R>submit(nodes, descriptor, args).resultAsync();
-    }
-
-    /**
      * Executes a {@link ComputeJob} of the given class on a single node from a set of candidate nodes.
      *
      * @param <R> Job result type
@@ -312,7 +277,7 @@ public interface IgniteCompute {
             Object... args
     ) {
         Map<ClusterNode, CompletableFuture<R>> futures = nodes.stream()
-                .collect(toMap(identity(), node -> this.executeAsync(Set.of(node), descriptor, args)));
+                .collect(toMap(identity(), node -> this.executeAsync(JobTarget.node(node), descriptor, args)));
 
         return allOf(futures.values().toArray(CompletableFuture[]::new))
                 .thenApply(ignored -> {
