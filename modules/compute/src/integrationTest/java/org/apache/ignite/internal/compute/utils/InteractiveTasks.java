@@ -67,9 +67,9 @@ public final class InteractiveTasks {
     private static final AtomicInteger RUNNING_GLOBAL_SPLIT_CNT = new AtomicInteger(0);
 
     /**
-     * This counter indicated how many {@link GlobalInteractiveMapReduceTask#reduce(Map)} methods are running now. This counter increased
-     * each time the {@link GlobalInteractiveMapReduceTask#reduce(Map)} is called and decreased when the method is finished (whatever the
-     * result is). Checked in {@link #clearState}.
+     * This counter indicates how many {@link GlobalInteractiveMapReduceTask#reduce(TaskExecutionContext, Map)} methods are running now.
+     * This counter is increased every time the {@link GlobalInteractiveMapReduceTask#reduce(TaskExecutionContext, Map)} is called and
+     * decreased when the method is finished (whatever the result is). Checked in {@link #clearState}.
      */
     private static final AtomicInteger RUNNING_GLOBAL_REDUCE_CNT = new AtomicInteger(0);
 
@@ -119,15 +119,12 @@ public final class InteractiveTasks {
         /**
          * Ask reduce method to return a concatenation of jobs results.
          */
-        REDUCE_RETURN
-    }
+        REDUCE_RETURN,
 
-    private static Signal listenSignal() {
-        try {
-            return GLOBAL_SIGNALS.take();
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
+        /**
+         * Ask the task to check for cancellation flag and finish if it's set.
+         */
+        CHECK_CANCEL
     }
 
     /**
@@ -152,11 +149,36 @@ public final class InteractiveTasks {
      * Interactive map reduce task that communicates via {@link #GLOBAL_CHANNEL} and {@link #GLOBAL_SIGNALS}.
      */
     private static class GlobalInteractiveMapReduceTask implements MapReduceTask<List<String>> {
+        // When listening for signal is interrupted, if this flag is true, then corresponding method will throw exception,
+        // otherwise it will clean the interrupted status.
+        private boolean throwExceptionOnInterruption = true;
+
+        private static final String NO_INTERRUPT_ARG_NAME = "NO_INTERRUPT";
+
+        private Signal listenSignal() {
+            try {
+                return GLOBAL_SIGNALS.take();
+            } catch (InterruptedException e) {
+                if (throwExceptionOnInterruption) {
+                    throw new RuntimeException(e);
+                } else {
+                    Thread.currentThread().interrupt();
+                    return Signal.CHECK_CANCEL;
+                }
+            }
+        }
+
         @Override
         public List<MapReduceJob> split(TaskExecutionContext context, Object... args) {
             RUNNING_GLOBAL_SPLIT_CNT.incrementAndGet();
 
             offerArgsAsSignals(args);
+            for (Object arg : args) {
+                if (NO_INTERRUPT_ARG_NAME.equals(arg)) {
+                    throwExceptionOnInterruption = false;
+                    break;
+                }
+            }
 
             try {
                 while (true) {
@@ -174,6 +196,11 @@ public final class InteractiveTasks {
                                             .nodes(Set.of(node))
                                             .build()
                             ).collect(toList());
+                        case CHECK_CANCEL:
+                            if (context.isCancelled()) {
+                                throw new RuntimeException("Task is cancelled");
+                            }
+                            break;
                         default:
                             throw new IllegalStateException("Unexpected value: " + receivedSignal);
                     }
@@ -184,7 +211,7 @@ public final class InteractiveTasks {
         }
 
         @Override
-        public List<String> reduce(Map<UUID, ?> results) {
+        public List<String> reduce(TaskExecutionContext context, Map<UUID, ?> results) {
             RUNNING_GLOBAL_REDUCE_CNT.incrementAndGet();
             try {
                 while (true) {
@@ -199,6 +226,11 @@ public final class InteractiveTasks {
                             return results.values().stream()
                                     .map(String.class::cast)
                                     .collect(toList());
+                        case CHECK_CANCEL:
+                            if (context.isCancelled()) {
+                                throw new RuntimeException("Task is cancelled");
+                            }
+                            break;
                         default:
                             throw new IllegalStateException("Unexpected value: " + receivedSignal);
                     }
