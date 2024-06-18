@@ -17,33 +17,31 @@
 
 package org.apache.ignite.compute;
 
-import java.util.Collection;
-import java.util.List;
-import org.apache.ignite.network.ClusterNode;
+import java.util.Objects;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Job execution target.
+ * Colocated job execution target.
  */
-public interface JobTarget {
-    static JobTarget node(ClusterNode node) {
-        return new NodesJobTarget(List.of(node));
-    }
+public class ColocatedExecutionTarget {
+    private final String tableName;
 
-    static JobTarget anyNode(ClusterNode... nodes) {
-        return new NodesJobTarget(List.of(nodes));
-    }
+    private final Object key;
 
-    static JobTarget anyNode(Collection<ClusterNode> nodes) {
-        return new NodesJobTarget(nodes);
-    }
+    private final @Nullable Mapper keyMapper;
 
-    static JobTarget colocated(String tableName, Tuple key) {
-        return null; // TODO
-    }
+    public ColocatedExecutionTarget(String tableName, Object key, @Nullable Mapper keyMapper) {
+        Objects.requireNonNull(tableName);
+        Objects.requireNonNull(key);
 
-    static <K> JobTarget colocated(String tableName, K key, Mapper<K> keyMapper) {
-        return null; // TODO
+        if (keyMapper == null && !(key instanceof Tuple)) {
+            throw new IllegalArgumentException("Key must be an instance of Tuple when keyMapper is not provided.");
+        }
+
+        this.tableName = tableName;
+        this.key = key;
+        this.keyMapper = keyMapper;
     }
 }

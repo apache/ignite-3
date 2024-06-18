@@ -18,32 +18,15 @@
 package org.apache.ignite.compute;
 
 import java.util.Collection;
-import java.util.List;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.table.Tuple;
-import org.apache.ignite.table.mapper.Mapper;
 
 /**
- * Job execution target.
+ * Nodes-based job execution target.
  */
-public interface JobTarget {
-    static JobTarget node(ClusterNode node) {
-        return new NodesJobTarget(List.of(node));
-    }
+public class NodesJobTarget implements JobTarget {
+    private final Collection<ClusterNode> nodes;
 
-    static JobTarget anyNode(ClusterNode... nodes) {
-        return new NodesJobTarget(List.of(nodes));
-    }
-
-    static JobTarget anyNode(Collection<ClusterNode> nodes) {
-        return new NodesJobTarget(nodes);
-    }
-
-    static JobTarget colocated(String tableName, Tuple key) {
-        return null; // TODO
-    }
-
-    static <K> JobTarget colocated(String tableName, K key, Mapper<K> keyMapper) {
-        return null; // TODO
+    public NodesJobTarget(Collection<ClusterNode> nodes) {
+        this.nodes = nodes;
     }
 }

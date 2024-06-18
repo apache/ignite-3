@@ -46,6 +46,7 @@ import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.compute.JobStatus;
+import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.compute.NodeNotFoundException;
 import org.apache.ignite.compute.task.MapReduceJob;
 import org.apache.ignite.compute.task.TaskExecution;
@@ -92,6 +93,16 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
         this.tables = tables;
         this.computeComponent = computeComponent;
         this.clock = clock;
+    }
+
+    @Override
+    public <R> JobExecution<R> submit(JobTarget target, JobDescriptor descriptor, Object... args) {
+        return null;
+    }
+
+    @Override
+    public <R> R execute(JobTarget target, JobDescriptor descriptor, Object... args) {
+        return null;
     }
 
     @Override
