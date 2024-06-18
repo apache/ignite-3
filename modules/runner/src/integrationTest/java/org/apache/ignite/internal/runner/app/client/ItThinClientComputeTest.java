@@ -19,16 +19,16 @@ package org.apache.ignite.internal.runner.app.client;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.compute.JobState.CANCELED;
-import static org.apache.ignite.compute.JobState.COMPLETED;
-import static org.apache.ignite.compute.JobState.EXECUTING;
-import static org.apache.ignite.compute.JobState.FAILED;
-import static org.apache.ignite.compute.JobState.QUEUED;
+import static org.apache.ignite.compute.JobStatus.CANCELED;
+import static org.apache.ignite.compute.JobStatus.COMPLETED;
+import static org.apache.ignite.compute.JobStatus.EXECUTING;
+import static org.apache.ignite.compute.JobStatus.FAILED;
+import static org.apache.ignite.compute.JobStatus.QUEUED;
 import static org.apache.ignite.internal.IgniteExceptionTestUtils.assertTraceableException;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.will;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
-import static org.apache.ignite.internal.testframework.matchers.JobStatusMatcher.jobStatusWithState;
+import static org.apache.ignite.internal.testframework.matchers.JobStateMatcher.jobStateWithStatus;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Compute.COMPUTE_JOB_FAILED_ERR;
@@ -139,8 +139,8 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         assertThat(execution1.resultAsync(), willBe("itcct_n_3344"));
         assertThat(execution2.resultAsync(), willBe("itcct_n_3345"));
 
-        assertThat(execution1.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
-        assertThat(execution2.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
+        assertThat(execution1.stateAsync(), willBe(jobStateWithStatus(COMPLETED)));
+        assertThat(execution2.stateAsync(), willBe(jobStateWithStatus(COMPLETED)));
     }
 
     @Test
@@ -151,7 +151,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         assertThat(execution.resultAsync(), willBe("itcct_n_3344"));
 
-        assertThat(execution.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
+        assertThat(execution.stateAsync(), willBe(jobStateWithStatus(COMPLETED)));
 
         assertThat(execution.cancelAsync(), willBe(false));
     }
@@ -164,7 +164,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         assertThat(execution.resultAsync(), willBe("itcct_n_3344"));
 
-        assertThat(execution.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
+        assertThat(execution.stateAsync(), willBe(jobStateWithStatus(COMPLETED)));
 
         assertThat(execution.changePriorityAsync(0), willBe(false));
     }
@@ -180,14 +180,14 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         JobExecution<String> execution1 = client().compute().submit(JobTarget.node(node(0)), sleepJob, sleepMs);
         JobExecution<String> execution2 = client().compute().submit(JobTarget.node(node(1)), sleepJob, sleepMs);
 
-        await().until(execution1::statusAsync, willBe(jobStatusWithState(EXECUTING)));
-        await().until(execution2::statusAsync, willBe(jobStatusWithState(EXECUTING)));
+        await().until(execution1::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
+        await().until(execution2::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
 
         assertThat(execution1.cancelAsync(), willBe(true));
         assertThat(execution2.cancelAsync(), willBe(true));
 
-        await().until(execution1::statusAsync, willBe(jobStatusWithState(CANCELED)));
-        await().until(execution2::statusAsync, willBe(jobStatusWithState(CANCELED)));
+        await().until(execution1::stateAsync, willBe(jobStateWithStatus(CANCELED)));
+        await().until(execution2::stateAsync, willBe(jobStateWithStatus(CANCELED)));
     }
 
     @Test
@@ -198,15 +198,15 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         // Start 1 task in executor with 1 thread
         JobExecution<String> execution1 = client().compute().submit(target, sleepJob, sleepMs);
-        await().until(execution1::statusAsync, willBe(jobStatusWithState(EXECUTING)));
+        await().until(execution1::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
 
         // Start one more long lasting task
         JobExecution<String> execution2 = client().compute().submit(target, sleepJob, sleepMs);
-        await().until(execution2::statusAsync, willBe(jobStatusWithState(QUEUED)));
+        await().until(execution2::stateAsync, willBe(jobStateWithStatus(QUEUED)));
 
         // Start third task
         JobExecution<String> execution3 = client().compute().submit(target, sleepJob, sleepMs);
-        await().until(execution3::statusAsync, willBe(jobStatusWithState(QUEUED)));
+        await().until(execution3::stateAsync, willBe(jobStateWithStatus(QUEUED)));
 
         // Task 2 and 3 are not completed, in queue state
         assertThat(execution2.resultAsync().isDone(), is(false));
@@ -217,11 +217,11 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         // Cancel task 1, task 3 should start executing
         assertThat(execution1.cancelAsync(), willBe(true));
-        await().until(execution1::statusAsync, willBe(jobStatusWithState(CANCELED)));
-        await().until(execution3::statusAsync, willBe(jobStatusWithState(EXECUTING)));
+        await().until(execution1::stateAsync, willBe(jobStateWithStatus(CANCELED)));
+        await().until(execution3::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
 
         // Task 2 is still queued
-        assertThat(execution2.statusAsync(), willBe(jobStatusWithState(QUEUED)));
+        assertThat(execution2.stateAsync(), willBe(jobStateWithStatus(QUEUED)));
 
         // Cleanup
         assertThat(execution2.cancelAsync(), willBe(true));
@@ -244,7 +244,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
                 execution.resultAsync(),
                 will(oneOf("itcct_n_3344", "itcct_n_3345"))
         );
-        assertThat(execution.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
+        assertThat(execution.stateAsync(), willBe(jobStateWithStatus(COMPLETED)));
     }
 
     @Test
@@ -260,7 +260,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         JobExecution<String> execution = executionsPerNode.get(node(1));
 
         assertThat(execution.resultAsync(), willBe("itcct_n_3345__123"));
-        assertThat(execution.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
+        assertThat(execution.stateAsync(), willBe(jobStateWithStatus(COMPLETED)));
     }
 
     @Test
@@ -279,8 +279,8 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         assertThat(execution1.resultAsync(), willBe("itcct_n_3344__123"));
         assertThat(execution2.resultAsync(), willBe("itcct_n_3345__123"));
 
-        assertThat(execution1.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
-        assertThat(execution2.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
+        assertThat(execution1.stateAsync(), willBe(jobStateWithStatus(COMPLETED)));
+        assertThat(execution2.stateAsync(), willBe(jobStateWithStatus(COMPLETED)));
     }
 
     @Test
@@ -296,14 +296,14 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         JobExecution<String> execution1 = executionsPerNode.get(node(0));
         JobExecution<String> execution2 = executionsPerNode.get(node(1));
 
-        await().until(execution1::statusAsync, willBe(jobStatusWithState(EXECUTING)));
-        await().until(execution2::statusAsync, willBe(jobStatusWithState(EXECUTING)));
+        await().until(execution1::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
+        await().until(execution2::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
 
         assertThat(execution1.cancelAsync(), willBe(true));
         assertThat(execution2.cancelAsync(), willBe(true));
 
-        await().until(execution1::statusAsync, willBe(jobStatusWithState(CANCELED)));
-        await().until(execution2::statusAsync, willBe(jobStatusWithState(CANCELED)));
+        await().until(execution1::stateAsync, willBe(jobStateWithStatus(CANCELED)));
+        await().until(execution2::stateAsync, willBe(jobStateWithStatus(CANCELED)));
     }
 
     @Test
@@ -312,7 +312,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
                 JobTarget.anyNode(client().clusterNodes()), JobDescriptor.builder(ConcatJob.class).build(), 1, "2", 3.3);
 
         assertThat(execution.resultAsync(), willBe("1_2_3.3"));
-        assertThat(execution.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
+        assertThat(execution.stateAsync(), willBe(jobStateWithStatus(COMPLETED)));
     }
 
     @Test
@@ -501,7 +501,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
                 () -> execution.resultAsync().join()
         );
 
-        assertThat(execution.statusAsync(), willBe(jobStatusWithState(FAILED)));
+        assertThat(execution.stateAsync(), willBe(jobStateWithStatus(FAILED)));
 
         return (IgniteException) ex.getCause();
     }
@@ -544,7 +544,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         String expectedNode = "itcct_n_" + port;
         assertThat(tupleExecution.resultAsync(), willBe(expectedNode));
 
-        assertThat(tupleExecution.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
+        assertThat(tupleExecution.stateAsync(), willBe(jobStateWithStatus(COMPLETED)));
     }
 
     @ParameterizedTest
@@ -560,7 +560,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         String expectedNode = "itcct_n_" + port;
         assertThat(pojoExecution.resultAsync(), willBe(expectedNode));
 
-        assertThat(pojoExecution.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
+        assertThat(pojoExecution.stateAsync(), willBe(jobStateWithStatus(COMPLETED)));
     }
 
     @ParameterizedTest
@@ -573,11 +573,11 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         JobExecution<String> tupleExecution = igniteCompute.submit(
                 JobTarget.colocated(TABLE_NAME, keyTuple), JobDescriptor.builder(SleepJob.class).build(), sleepMs);
 
-        await().until(tupleExecution::statusAsync, willBe(jobStatusWithState(EXECUTING)));
+        await().until(tupleExecution::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
 
         assertThat(tupleExecution.cancelAsync(), willBe(true));
 
-        await().until(tupleExecution::statusAsync, willBe(jobStatusWithState(CANCELED)));
+        await().until(tupleExecution::stateAsync, willBe(jobStateWithStatus(CANCELED)));
     }
 
     @ParameterizedTest
@@ -591,11 +591,11 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         JobExecution<String> pojoExecution = igniteCompute.submit(
                 JobTarget.colocated(TABLE_NAME, keyPojo, keyMapper), JobDescriptor.builder(SleepJob.class).build(), sleepMs);
 
-        await().until(pojoExecution::statusAsync, willBe(jobStatusWithState(EXECUTING)));
+        await().until(pojoExecution::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
 
         assertThat(pojoExecution.cancelAsync(), willBe(true));
 
-        await().until(pojoExecution::statusAsync, willBe(jobStatusWithState(CANCELED)));
+        await().until(pojoExecution::stateAsync, willBe(jobStateWithStatus(CANCELED)));
     }
 
     @Test
@@ -708,8 +708,8 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
                 .collect(Collectors.toList());
         assertThat(execution.resultAsync(), willBe(allOf(nodeNames)));
 
-        assertThat(execution.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
-        assertThat(execution.statusesAsync(), willBe(everyItem(jobStatusWithState(COMPLETED))));
+        assertThat(execution.stateAsync(), willBe(jobStateWithStatus(COMPLETED)));
+        assertThat(execution.statesAsync(), willBe(everyItem(jobStateWithStatus(COMPLETED))));
 
         assertThat("compute task and sub tasks ids must be different",
                 execution.idsAsync(), willBe(not(hasItem(execution.idAsync().get()))));
@@ -721,7 +721,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
                 .submitMapReduce(List.of(), MapReduceArgsTask.class.getName(), 1, "2", 3.3);
 
         assertThat(execution.resultAsync(), willBe(containsString("1_2_3.3")));
-        assertThat(execution.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
+        assertThat(execution.stateAsync(), willBe(jobStateWithStatus(COMPLETED)));
     }
 
     @ParameterizedTest

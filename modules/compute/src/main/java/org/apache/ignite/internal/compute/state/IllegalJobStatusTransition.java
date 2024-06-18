@@ -17,27 +17,27 @@
 
 package org.apache.ignite.internal.compute.state;
 
-import static org.apache.ignite.lang.ErrorGroups.Compute.COMPUTE_JOB_STATE_TRANSITION_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Compute.COMPUTE_JOB_STATUS_TRANSITION_ERR;
 
 import java.util.UUID;
-import org.apache.ignite.compute.JobState;
+import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 
 /**
- * Thrown from Compute Jobs state machine {@link ComputeStateMachine} when job state transfer is illegal.
+ * Thrown from Compute Jobs state machine {@link ComputeStateMachine} when job status transition is illegal.
  */
-public class IllegalJobStateTransition extends IgniteInternalException {
-    public IllegalJobStateTransition(UUID jobId) {
-        super(COMPUTE_JOB_STATE_TRANSITION_ERR, "Failed to transfer job state for nonexistent job " + jobId + ".");
+public class IllegalJobStatusTransition extends IgniteInternalException {
+    public IllegalJobStatusTransition(UUID jobId) {
+        super(COMPUTE_JOB_STATUS_TRANSITION_ERR, "Failed to transition job status for nonexistent job " + jobId + ".");
     }
 
-    public IllegalJobStateTransition(UUID jobId, JobState prevState, JobState newState) {
-        super(COMPUTE_JOB_STATE_TRANSITION_ERR, message(jobId, prevState, newState));
+    public IllegalJobStatusTransition(UUID jobId, JobStatus prevStatus, JobStatus newStatus) {
+        super(COMPUTE_JOB_STATUS_TRANSITION_ERR, message(jobId, prevStatus, newStatus));
     }
 
-    private static String message(UUID jobId, JobState prevState, JobState newState) {
-        return "Failed to transfer job " + jobId
-                + " from state " + prevState
-                + " to state " + newState;
+    private static String message(UUID jobId, JobStatus prevStatus, JobStatus newStatus) {
+        return "Failed to transition job " + jobId
+                + " from status " + prevStatus
+                + " to status " + newStatus;
     }
 }

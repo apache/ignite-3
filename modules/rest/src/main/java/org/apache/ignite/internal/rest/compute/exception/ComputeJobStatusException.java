@@ -20,18 +20,18 @@ package org.apache.ignite.internal.rest.compute.exception;
 import static org.apache.ignite.lang.ErrorGroups.Common.ILLEGAL_ARGUMENT_ERR;
 
 import org.apache.ignite.internal.lang.IgniteInternalException;
-import org.apache.ignite.internal.rest.api.compute.JobState;
+import org.apache.ignite.internal.rest.api.compute.JobStatus;
 
 /**
- * Thrown when compute job is in illegal state.
+ * Thrown when compute job has an illegal status.
  */
-public class ComputeJobStateException extends IgniteInternalException {
+public class ComputeJobStatusException extends IgniteInternalException {
     /**
      * Constructor.
      *
      * @param jobId Job ID.
      */
-    public ComputeJobStateException(String jobId, JobState state) {
-        super(ILLEGAL_ARGUMENT_ERR, "Compute job is in illegal state [jobId=" + jobId + ", state=" + state + ']');
+    public ComputeJobStatusException(String jobId, JobStatus status) {
+        super(ILLEGAL_ARGUMENT_ERR, "Compute job has an illegal status [jobId=" + jobId + ", status=" + status + ']');
     }
 }

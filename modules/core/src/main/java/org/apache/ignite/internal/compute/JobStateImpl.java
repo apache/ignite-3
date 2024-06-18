@@ -28,7 +28,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Job status.
  */
-public class JobStatusImpl implements JobStatus {
+public class JobStateImpl implements JobState {
     private static final long serialVersionUID = 8575969461073736006L;
 
     /**
@@ -37,9 +37,9 @@ public class JobStatusImpl implements JobStatus {
     private final UUID id;
 
     /**
-     * Job state.
+     * Job status.
      */
-    private final JobState state;
+    private final JobStatus status;
 
     /**
      * Job create time.
@@ -58,9 +58,9 @@ public class JobStatusImpl implements JobStatus {
     @Nullable
     private final Instant finishTime;
 
-    private JobStatusImpl(Builder builder) {
+    private JobStateImpl(Builder builder) {
         this.id = Objects.requireNonNull(builder.id, "id");
-        this.state = Objects.requireNonNull(builder.state, "state");
+        this.status = Objects.requireNonNull(builder.status, "status");
         this.createTime = Objects.requireNonNull(builder.createTime, "createTime");
         this.startTime = builder.startTime;
         this.finishTime = builder.finishTime;
@@ -86,13 +86,13 @@ public class JobStatusImpl implements JobStatus {
     }
 
     /**
-     * Returns job state.
+     * Returns job status.
      *
-     * @return Job state.
+     * @return Job status.
      */
     @Override
-    public JobState state() {
-        return state;
+    public JobStatus status() {
+        return status;
     }
 
     /**
@@ -132,8 +132,8 @@ public class JobStatusImpl implements JobStatus {
      *
      * @return Builder.
      */
-    public static Builder toBuilder(JobStatus status) {
-        return new Builder(status);
+    public static Builder toBuilder(JobState state) {
+        return new Builder(state);
     }
 
     @Override
@@ -146,7 +146,7 @@ public class JobStatusImpl implements JobStatus {
      */
     public static class Builder {
         private UUID id;
-        private JobState state;
+        private JobStatus status;
         private Instant createTime;
         @Nullable
         private Instant startTime;
@@ -162,14 +162,14 @@ public class JobStatusImpl implements JobStatus {
         /**
          * Constructor.
          *
-         * @param status Job status for copy.
+         * @param state Job state for copy.
          */
-        private Builder(JobStatus status) {
-            this.id = status.id();
-            this.state = status.state();
-            this.createTime = status.createTime();
-            this.startTime = status.startTime();
-            this.finishTime = status.finishTime();
+        private Builder(JobState state) {
+            this.id = state.id();
+            this.status = state.status();
+            this.createTime = state.createTime();
+            this.startTime = state.startTime();
+            this.finishTime = state.finishTime();
         }
 
         /**
@@ -184,13 +184,13 @@ public class JobStatusImpl implements JobStatus {
         }
 
         /**
-         * Sets job state.
+         * Sets job status.
          *
-         * @param state Job state.
+         * @param status Job status.
          * @return This builder.
          */
-        public Builder state(JobState state) {
-            this.state = state;
+        public Builder status(JobStatus status) {
+            this.status = status;
             return this;
         }
 
@@ -228,12 +228,12 @@ public class JobStatusImpl implements JobStatus {
         }
 
         /**
-         * Builds a new JobStatus.
+         * Builds a new JobState.
          *
-         * @return JobStatus.
+         * @return JobState.
          */
-        public JobStatusImpl build() {
-            return new JobStatusImpl(this);
+        public JobStateImpl build() {
+            return new JobStateImpl(this);
         }
     }
 }

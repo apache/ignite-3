@@ -17,24 +17,13 @@
 
 package org.apache.ignite.internal.compute.message;
 
-import java.util.Collection;
-import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.internal.compute.ComputeMessageTypes;
 import org.apache.ignite.internal.network.NetworkMessage;
-import org.apache.ignite.internal.network.annotations.Marshallable;
 import org.apache.ignite.internal.network.annotations.Transferable;
-import org.jetbrains.annotations.Nullable;
 
 /**
- * Remote job statuses response.
+ * Remote job states request.
  */
-@Transferable(ComputeMessageTypes.JOB_STATUSES_RESPONSE)
-public interface JobStatusesResponse extends NetworkMessage {
-    @Nullable
-    @Marshallable
-    Collection<JobStatus> statuses();
-
-    @Nullable
-    @Marshallable
-    Throwable throwable();
+@Transferable(ComputeMessageTypes.JOB_STATES_REQUEST)
+public interface JobStatesRequest extends NetworkMessage {
 }

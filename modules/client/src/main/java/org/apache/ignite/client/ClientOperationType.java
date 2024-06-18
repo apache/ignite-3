@@ -140,9 +140,9 @@ public enum ClientOperationType {
     COMPUTE_EXECUTE_MAPREDUCE,
 
     /**
-     * Get compute job status ({@link org.apache.ignite.compute.JobExecution#statusAsync()}).
+     * Get compute job state ({@link org.apache.ignite.compute.JobExecution#stateAsync()}).
      */
-    COMPUTE_GET_STATUS,
+    COMPUTE_GET_STATE,
 
     /**
      * Cancel compute job ({@link org.apache.ignite.compute.JobExecution#cancelAsync()}).
