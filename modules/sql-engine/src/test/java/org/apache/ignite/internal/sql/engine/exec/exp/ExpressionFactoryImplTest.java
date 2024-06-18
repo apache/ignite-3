@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec.exp;
 
+import static java.util.Collections.singletonList;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -32,14 +33,15 @@ import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
+import java.util.Random;
 import java.util.UUID;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.RelFieldCollation;
 import org.apache.calcite.rel.RelFieldCollation.Direction;
@@ -75,12 +77,16 @@ import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.RexUtils;
+import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
+import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mockito;
 
@@ -108,7 +114,7 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
         RelDataTypeField field = new RelDataTypeFieldImpl(
                 "ID", 0, typeFactory.createSqlType(SqlTypeName.INTEGER)
         );
-        RelRecordType type = new RelRecordType(Collections.singletonList(field));
+        RelRecordType type = new RelRecordType(singletonList(field));
 
         // Imagine we have 2 columns: (id: INTEGER, val: VARCHAR)
         RexDynamicParam firstNode = new RexDynamicParam(typeFactory.createSqlType(SqlTypeName.INTEGER), 0);
@@ -690,47 +696,51 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
     }
 
     /** Ensures that row assembly from constant expressions (literals) is performed without compilation. */
-    @Test
-    public void testRowSourceExpressionNotCompiledWithConstantValues() {
-        RexBuilder rexBuilder = Commons.rexBuilder();
-        IgniteTypeFactory tf = Commons.typeFactory();
-
-        RelDataType intType = tf.createSqlType(SqlTypeName.INTEGER);
-        RelDataType bigIntType = tf.createSqlType(SqlTypeName.BIGINT);
-
-        RexNode val10 = rexBuilder.makeExactLiteral(new BigDecimal("1"), intType);
-        RexNode val11 = rexBuilder.makeExactLiteral(new BigDecimal("2"), bigIntType);
-
-        ExpressionFactoryImpl<Object[]> expFactorySpy = Mockito.spy(expFactory);
-
-        Object[] actual = expFactorySpy.rowSource(List.of(val10, val11)).get();
-        assertEquals(List.of(1, 2L), Arrays.asList(actual));
-
-        verify(expFactorySpy, times(0)).scalar(any(), any());
+    @ParameterizedTest
+    @MethodSource("columnTypes")
+    public void testRowSourceExpressionNotCompiledWithConstantValues(ColumnType columnType) {
+        doTestRowSource(columnType, false);
     }
 
     /** Ensures that row assembly from non-constant expressions is performed with compilation. */
-    @Test
-    public void testRowSourceExpressionCompiledWithDynamicParameters() {
-        ExecutionContext<Object[]> ctx = defaultContextBuilder()
-                .dynamicParameters(1, 2)
-                .build();
+    @ParameterizedTest
+    @MethodSource("columnTypes")
+    public void testRowSourceExpressionCompiled(ColumnType columnType) {
+        doTestRowSource(columnType, true);
+    }
 
-        RexBuilder rexBuilder = Commons.rexBuilder();
+    private void doTestRowSource(ColumnType columnType, boolean compileExpected) {
+        long seed = System.nanoTime();
 
-        RelDataType intType = typeFactory.createSqlType(SqlTypeName.INTEGER);
-        RelDataType bigIntType = typeFactory.createSqlType(SqlTypeName.BIGINT);
+        log.info("Seed: " + seed);
 
-        RexNode val10 = rexBuilder.makeDynamicParam(intType, 0);
-        RexNode val11 = rexBuilder.makeDynamicParam(bigIntType, 1);
+        Random rnd = new Random(seed);
 
-        ExpressionFactoryImpl<Object[]> expFactory = new ExpressionFactoryImpl<>(ctx, SqlConformanceEnum.DEFAULT);
+        Object val = SqlTestUtils.generateValueByType(rnd.nextInt(), columnType);
+        RexNode expr = SqlTestUtils.generateLiteralOrValueExpr(columnType, val);
+
+        UUID uuidVal = UUID.randomUUID();
+        RexNode uuidExpr = SqlTestUtils.generateLiteralOrValueExpr(ColumnType.UUID, uuidVal);
+
         ExpressionFactoryImpl<Object[]> expFactorySpy = Mockito.spy(expFactory);
 
-        Object[] actual = expFactorySpy.rowSource(List.of(val10, val11)).get();
-        assertEquals(List.of(1, 2L), Arrays.asList(actual));
+        List<RexNode> exprList = compileExpected ? List.of(expr, uuidExpr) : List.of(expr);
 
-        verify(expFactorySpy, times(1)).scalar(any(), any());
+        Object[] actual = expFactorySpy.rowSource(exprList).get();
+
+        Object expected;
+
+        if (columnType == ColumnType.FLOAT) {
+            expected = ((BigDecimal) ((RexLiteral) expr).getValue4()).floatValue();
+        } else if (columnType == ColumnType.DOUBLE) {
+            expected = ((BigDecimal) ((RexLiteral) expr).getValue4()).doubleValue();
+        } else {
+            expected = val == null ? null : TypeUtils.toInternal(val, val.getClass());
+        }
+
+        assertEquals(compileExpected ? Arrays.asList(expected, uuidVal) : singletonList(expected), Arrays.asList(actual));
+
+        verify(expFactorySpy, times(compileExpected ? 1 : 0)).scalar(any(), any());
     }
 
     @Test
@@ -753,6 +763,19 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
                 .localNode(new ClusterNodeImpl("1", "node-1", new NetworkAddress("localhost", 1234)))
                 .fragment(fragmentDescription)
                 .executor(Mockito.mock(QueryTaskExecutor.class));
+    }
+
+    private static List<ColumnType> columnTypes() {
+        return Arrays.stream(ColumnType.values())
+                .filter(t -> t != ColumnType.UUID
+                                // TODO https://issues.apache.org/jira/browse/IGNITE-18431
+                                && t != ColumnType.BITMASK
+                                && t != ColumnType.NUMBER
+                                // TODO https://issues.apache.org/jira/browse/IGNITE-15200
+                                && t != ColumnType.DURATION
+                                && t != ColumnType.PERIOD
+                )
+                .collect(Collectors.toList());
     }
 
     static final class TestRange {
