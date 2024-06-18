@@ -27,7 +27,7 @@ std::size_t big_decimal::byte_size() const noexcept {
 }
 
 void big_decimal::store_bytes(std::byte *data) const {
-    bytes::store<endian::LITTLE, std::uint16_t>(data, m_scale);
+    bytes::store<endian::LITTLE, std::int16_t>(data, m_scale);
     get_unscaled_value().store_bytes(data + sizeof(m_scale));
 }
 
