@@ -39,6 +39,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.compute.ColocatedExecutionTarget;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.IgniteCompute;
@@ -47,6 +48,8 @@ import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.compute.JobState;
 import org.apache.ignite.compute.JobStatus;
+import org.apache.ignite.compute.JobTarget;
+import org.apache.ignite.compute.NodesJobTarget;
 import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.internal.compute.ComputeUtils;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
@@ -124,6 +127,34 @@ public class FakeCompute implements IgniteComputeInternal {
     public <R> CompletableFuture<JobExecution<R>> submitColocatedInternal(TableViewInternal table, Tuple key, List<DeploymentUnit> units,
             String jobClassName, JobExecutionOptions options, Object[] args) {
         return completedFuture(jobExecution(future != null ? future : completedFuture((R) nodeName)));
+    }
+
+    @Override
+    public <R> JobExecution<R> submit(JobTarget target, JobDescriptor descriptor, Object... args) {
+        if (target instanceof NodesJobTarget) {
+            return submit(((NodesJobTarget) target).nodes(), descriptor, args);
+        } else if (target instanceof ColocatedExecutionTarget) {
+            ColocatedExecutionTarget colocatedTarget = (ColocatedExecutionTarget) target;
+            var mapper = (Mapper<? super Object>) colocatedTarget.keyMapper();
+
+            if (mapper != null) {
+                return submitColocated(
+                        colocatedTarget.tableName(),
+                        colocatedTarget.key(),
+                        mapper,
+                        descriptor,
+                        args);
+            } else {
+                return submitColocated(colocatedTarget.tableName(), (Tuple) colocatedTarget.key(), descriptor, args);
+            }
+        } else {
+            throw new IllegalArgumentException("Unsupported job target: " + target);
+        }
+    }
+
+    @Override
+    public <R> R execute(JobTarget target, JobDescriptor descriptor, Object... args) {
+        return sync(this.executeAsync(target, descriptor, args));
     }
 
     @Override
