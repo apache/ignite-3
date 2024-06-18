@@ -44,6 +44,63 @@ public interface IgniteCompute {
      * Submits a {@link ComputeJob} of the given class for an execution on a single node from a set of candidate nodes.
      *
      * @param <R> Job result type.
+     * @param target Execution target.
+     * @param descriptor Job descriptor.
+     * @param args Arguments of the job.
+     * @return Job execution object.
+     */
+    <R> JobExecution<R> submit(
+            JobTarget target,
+            JobDescriptor descriptor,
+            Object... args
+    );
+
+    /**
+     * Submits a {@link ComputeJob} of the given class for an execution on a single node from a set of candidate nodes. A shortcut for
+     * {@code submit(...).resultAsync()}.
+     *
+     * @param <R> Job result type.
+     * @param target Execution target.
+     * @param descriptor Job descriptor.
+     * @param args Arguments of the job.
+     * @return Job result future.
+     */
+    default <R> CompletableFuture<R> executeAsync(
+            JobTarget target,
+            JobDescriptor descriptor,
+            Object... args
+    ) {
+        return this.<R>submit(target, descriptor, args).resultAsync();
+    }
+
+    /**
+     * Executes a {@link ComputeJob} of the given class on a single node from a set of candidate nodes.
+     *
+     * @param <R> Job result type
+     * @param target Execution target.
+     * @param descriptor Job descriptor.
+     * @param args Arguments of the job.
+     * @return Job result.
+     * @throws ComputeException If there is any problem executing the job.
+     */
+    <R> R execute(
+            JobTarget target,
+            JobDescriptor descriptor,
+            Object... args
+    );
+
+
+
+
+    /** OLD METHODS BELOW */
+
+
+
+
+    /**
+     * Submits a {@link ComputeJob} of the given class for an execution on a single node from a set of candidate nodes.
+     *
+     * @param <R> Job result type.
      * @param nodes Candidate nodes; the job will be executed on one of them.
      * @param descriptor Job descriptor.
      * @param args Arguments of the job.
@@ -204,6 +261,14 @@ public interface IgniteCompute {
             Mapper<K> keyMapper,
             JobDescriptor descriptor,
             Object... args);
+
+
+
+
+    /** BROADCAST METHODS BELOW - NOT AFFECTED BY ExecutionTarget */
+
+
+
 
     /**
      * Submits a {@link ComputeJob} of the given class for an execution on all nodes in the given node set.
