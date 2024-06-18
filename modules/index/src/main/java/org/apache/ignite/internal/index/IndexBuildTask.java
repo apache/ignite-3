@@ -49,7 +49,8 @@ import org.apache.ignite.network.ClusterNode;
 class IndexBuildTask {
     private static final IgniteLogger LOG = Loggers.forClass(IndexBuildTask.class);
 
-    private static final PartitionReplicationMessagesFactory TABLE_MESSAGES_FACTORY = new PartitionReplicationMessagesFactory();
+    private static final PartitionReplicationMessagesFactory PARTITION_REPLICATION_MESSAGES_FACTORY =
+            new PartitionReplicationMessagesFactory();
 
     private final IndexBuildTaskId taskId;
 
@@ -218,7 +219,7 @@ class IndexBuildTask {
     private BuildIndexReplicaRequest createBuildIndexReplicaRequest(List<RowId> rowIds) {
         boolean finish = rowIds.size() < batchSize;
 
-        return TABLE_MESSAGES_FACTORY.buildIndexReplicaRequest()
+        return PARTITION_REPLICATION_MESSAGES_FACTORY.buildIndexReplicaRequest()
                 .groupId(new TablePartitionId(taskId.getTableId(), taskId.getPartitionId()))
                 .indexId(taskId.getIndexId())
                 .rowIds(rowIds.stream().map(RowId::uuid).collect(toList()))
