@@ -29,7 +29,6 @@ import org.apache.ignite.internal.marshaller.MarshallersProvider;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.SchemaRegistry;
-import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.marshaller.reflection.KvMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
@@ -116,14 +115,10 @@ public class HashPartitionManagerImpl implements PartitionManager {
     public CompletableFuture<Partition> partitionAsync(Tuple key) {
         Objects.requireNonNull(key);
 
-        try {
-            // Taking latest schema version for marshaller here because it's only used to calculate colocation hash, and colocation
-            // columns never change (so they are the same for all schema versions of the table),
-            Row keyRow = new TupleMarshallerImpl(schemaReg.lastKnownSchema()).marshalKey(key);
+        // Taking latest schema version for marshaller here because it's only used to calculate colocation hash, and colocation
+        // columns never change (so they are the same for all schema versions of the table),
+        Row keyRow = new TupleMarshallerImpl(schemaReg.lastKnownSchema()).marshalKey(key);
 
-            return completedFuture(new HashPartition(table.partition(keyRow)));
-        } catch (TupleMarshallerException e) {
-            throw new org.apache.ignite.lang.MarshallerException(e);
-        }
+        return completedFuture(new HashPartition(table.partition(keyRow)));
     }
 }

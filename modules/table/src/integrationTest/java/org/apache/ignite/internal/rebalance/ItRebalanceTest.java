@@ -50,7 +50,6 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.SchemaRegistry;
-import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.table.TableViewInternal;
@@ -209,7 +208,7 @@ public class ItRebalanceTest extends IgniteIntegrationTest {
         waitForTablesCounterInMetastore(0, zoneId, 2);
     }
 
-    private static Row marshalTuple(TableViewInternal table, Tuple tuple) throws TupleMarshallerException {
+    private static Row marshalTuple(TableViewInternal table, Tuple tuple) {
         SchemaRegistry schemaReg = table.schemaView();
         var marshaller = new TupleMarshallerImpl(schemaReg.lastKnownSchema());
 

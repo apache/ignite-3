@@ -39,6 +39,7 @@ import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypeSpec;
+import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
@@ -68,7 +69,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
 
     /** {@inheritDoc} */
     @Override
-    public Row marshal(Tuple tuple) throws TupleMarshallerException {
+    public Row marshal(Tuple tuple) throws MarshallerException {
         try {
             if (tuple instanceof SchemaAware && tuple instanceof BinaryTupleContainer) {
                 SchemaDescriptor tupleSchema = ((SchemaAware) tuple).schema();
@@ -101,13 +102,13 @@ public class TupleMarshallerImpl implements TupleMarshaller {
 
             return buildRow(false, valuesWithStatistics);
         } catch (Exception ex) {
-            throw new TupleMarshallerException("Failed to marshal tuple.", ex);
+            throw new MarshallerException("Failed to marshal tuple.", ex);
         }
     }
 
     /** {@inheritDoc} */
     @Override
-    public Row marshal(Tuple keyTuple, @Nullable Tuple valTuple) throws TupleMarshallerException {
+    public Row marshal(Tuple keyTuple, @Nullable Tuple valTuple) throws MarshallerException {
         try {
             ValuesWithStatistics valuesWithStatistics = new ValuesWithStatistics();
 
@@ -132,13 +133,13 @@ public class TupleMarshallerImpl implements TupleMarshaller {
 
             return buildRow(keyOnly, valuesWithStatistics);
         } catch (Exception ex) {
-            throw new TupleMarshallerException("Failed to marshal tuple.", ex);
+            throw new MarshallerException("Failed to marshal tuple.", ex);
         }
     }
 
     /** {@inheritDoc} */
     @Override
-    public Row marshalKey(Tuple keyTuple) throws TupleMarshallerException {
+    public Row marshalKey(Tuple keyTuple) throws MarshallerException {
         try {
             ValuesWithStatistics valuesWithStatistics = new ValuesWithStatistics();
 
@@ -150,7 +151,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
 
             return buildRow(true, valuesWithStatistics);
         } catch (Exception ex) {
-            throw new TupleMarshallerException("Failed to marshal tuple.", ex);
+            throw new MarshallerException("Failed to marshal tuple.", ex);
         }
     }
 

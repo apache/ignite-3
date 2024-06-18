@@ -38,7 +38,6 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
-import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.table.criteria.SqlRowProjection;
@@ -46,7 +45,6 @@ import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.sql.IgniteSql;
@@ -470,14 +468,10 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
      * @param val Value.
      * @param schemaVersion Schema version to use when marshalling
      * @return Row.
-     * @throws IgniteException If failed to marshal key and/or value.
+     * @throws MarshallerException If failed to marshal key and/or value.
      */
-    private Row marshal(Tuple key, @Nullable Tuple val, int schemaVersion) throws IgniteException {
-        try {
-            return marshallerCache.marshaller(schemaVersion).marshal(key, val);
-        } catch (TupleMarshallerException ex) {
-            throw new MarshallerException(ex);
-        }
+    private Row marshal(Tuple key, @Nullable Tuple val, int schemaVersion) {
+        return marshallerCache.marshaller(schemaVersion).marshal(key, val);
     }
 
     /**

@@ -35,6 +35,10 @@ public class MarshallerException extends IgniteException {
         super(Common.INTERNAL_ERR, cause);
     }
 
+    public MarshallerException(String msg, @Nullable Throwable cause) {
+        super(Common.INTERNAL_ERR, msg, cause);
+    }
+
     /**
      * Creates an exception with the given trace ID, error code, detailed message, and cause.
      *
