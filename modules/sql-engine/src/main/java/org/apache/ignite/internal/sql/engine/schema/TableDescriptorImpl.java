@@ -57,7 +57,7 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
 
     private final RelDataType rowType;
 
-    private final ImmutableBitSet storeFields;
+    private final ImmutableBitSet storedColumns;
 
     /**
      * Constructor.
@@ -72,10 +72,10 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
 
         IgniteTypeFactory factory = Commons.typeFactory();
         RelDataTypeFactory.Builder typeBuilder = new RelDataTypeFactory.Builder(factory);
-        BitSet virtualFields = new BitSet();
+        BitSet virtualColumns = new BitSet();
         for (ColumnDescriptor descriptor : columnDescriptors) {
             if (descriptor.system()) {
-                virtualFields.set(descriptor.logicalIndex());
+                virtualColumns.set(descriptor.logicalIndex());
             }
 
             typeBuilder.add(descriptor.name(), deriveLogicalType(factory, descriptor));
@@ -86,11 +86,11 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
         this.descriptorsMap = descriptorsMap;
         this.rowType = typeBuilder.build();
 
-        if (virtualFields.isEmpty()) {
-            storeFields = ImmutableBitSet.range(descriptors.length);
+        if (virtualColumns.isEmpty()) {
+            storedColumns = ImmutableBitSet.range(descriptors.length);
         } else {
-            virtualFields.flip(0, descriptors.length);
-            storeFields = ImmutableBitSet.fromBitSet(virtualFields);
+            virtualColumns.flip(0, descriptors.length);
+            storedColumns = ImmutableBitSet.fromBitSet(virtualColumns);
         }
     }
 
@@ -172,7 +172,7 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
     /** {@inheritDoc} */
     @Override
     public RelDataType insertRowType(IgniteTypeFactory factory) {
-        return rowType(factory, storeFields);
+        return rowType(factory, storedColumns);
     }
 
     /** {@inheritDoc} */
@@ -191,6 +191,11 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
     @Override
     public int columnsCount() {
         return descriptors.length;
+    }
+
+    @Override
+    public int storedColumns() {
+        return storedColumns.cardinality();
     }
 
     private RelDataType deriveLogicalType(RelDataTypeFactory factory, ColumnDescriptor desc) {

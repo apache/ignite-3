@@ -69,4 +69,13 @@ public interface TableDescriptor extends InitializerExpressionFactory, Iterable<
      * @return Actual count of columns.
      */
     int columnsCount();
+
+    /**
+     * Returns count of columns in the table that can be stored.
+     *
+     * @return Actual count of persistent columns.
+     */
+    default int storedColumns() {
+        return columnsCount();
+    }
 }

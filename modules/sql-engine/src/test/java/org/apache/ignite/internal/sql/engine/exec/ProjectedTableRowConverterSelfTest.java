@@ -92,7 +92,7 @@ public class ProjectedTableRowConverterSelfTest extends BaseIgniteAbstractTest {
                 BinaryTupleSchema.createRowSchema(schema),
                 schema,
                 BitSets.of(1, 3),
-                null
+                List.of()
         );
 
         RowWrapper row = converter.toRow(executionContext, binaryRow, rowFactory);

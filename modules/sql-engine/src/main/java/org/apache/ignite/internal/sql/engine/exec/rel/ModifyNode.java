@@ -22,7 +22,7 @@ import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.IntStream;
+import java.util.function.Predicate;
 import java.util.stream.StreamSupport;
 import org.apache.calcite.rel.core.TableModify;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
@@ -122,12 +122,10 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
 
         this.mapping = mapping(table.descriptor(), updateColumns);
 
-        //TODO: Virtual columns should never be inserted.
-        int virtualColumnsCount = (int) StreamSupport.stream(table.descriptor().spliterator(), false)
-                .filter(ColumnDescriptor::system)
-                .count();
-
-        this.insertRowMapping = IntStream.range(0, table.descriptor().columnsCount() - virtualColumnsCount).toArray();
+        this.insertRowMapping = StreamSupport.stream(table.descriptor().spliterator(), false)
+                        .filter(Predicate.not(ColumnDescriptor::system))
+                        .mapToInt(ColumnDescriptor::logicalIndex)
+                        .toArray();
     }
 
     /** {@inheritDoc} */
@@ -439,12 +437,7 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
             return null;
         }
 
-        //TODO: Virtual columns should never be updated.
-        int virtualColumnsCount = (int) StreamSupport.stream(descriptor.spliterator(), false)
-                .filter(ColumnDescriptor::system)
-                .count();
-
-        int columnCount = descriptor.columnsCount() - virtualColumnsCount;
+        int columnCount = descriptor.storedColumns();
 
         int[] mapping = new int[columnCount];
 
@@ -455,6 +448,8 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
         for (int i = 0; i < updateColumns.size(); i++) {
             String columnName = updateColumns.get(i);
             ColumnDescriptor columnDescriptor = descriptor.columnDescriptor(columnName);
+
+            assert !columnDescriptor.system() : "System column can't be updated";
 
             mapping[columnDescriptor.logicalIndex()] = columnCount + i;
         }
