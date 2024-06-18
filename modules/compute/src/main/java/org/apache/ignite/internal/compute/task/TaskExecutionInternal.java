@@ -56,9 +56,9 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Internal map reduce task execution object. Runs the {@link MapReduceTask#split(TaskExecutionContext, Object...)} method of the task as a
- * compute job, then submits the resulting list of jobs. Waits for completion of all compute jobs, then submits the
- * {@link MapReduceTask#reduce(TaskExecutionContext, Map)} method as a compute job. The result of the task is the result of the split
+ * Internal map reduce task execution object. Runs the {@link MapReduceTask#splitAsync(TaskExecutionContext, Object...)} method of the task
+ * as a compute job, then submits the resulting list of jobs. Waits for completion of all compute jobs, then submits the
+ * {@link MapReduceTask#reduceAsync(TaskExecutionContext, Map)} method as a compute job. The result of the task is the result of the split
  * method.
  *
  * @param <R> Task result type.
@@ -103,7 +103,8 @@ public class TaskExecutionInternal<R> implements JobExecution<R> {
                 () -> {
                     MapReduceTask<R> task = instantiateTask(taskClass);
 
-                    return completedFuture(new SplitResult<>(task, task.split(context, args)));
+                    return task.splitAsync(context, args)
+                            .thenApply(jobs -> new SplitResult<>(task, jobs));
                 },
                 Integer.MAX_VALUE,
                 0
@@ -124,7 +125,7 @@ public class TaskExecutionInternal<R> implements JobExecution<R> {
             MapReduceTask<R> task = splitExecution.resultAsync().thenApply(SplitResult::task).join();
 
             return executorService.submit(
-                    () -> completedFuture(task.reduce(context, results)),
+                    () -> task.reduceAsync(context, results),
                     Integer.MAX_VALUE,
                     0
             );
