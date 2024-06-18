@@ -845,7 +845,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         }
 
         @Override
-        public String reduce(Map<UUID, ?> results) {
+        public String reduce(TaskExecutionContext context, Map<UUID, ?> results) {
             return results.values().stream()
                     .map(String.class::cast)
                     .collect(Collectors.joining(","));
@@ -865,7 +865,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         }
 
         @Override
-        public String reduce(Map<UUID, ?> results) {
+        public String reduce(TaskExecutionContext context, Map<UUID, ?> results) {
             return results.values().stream()
                     .map(String.class::cast)
                     .collect(Collectors.joining(","));
@@ -879,7 +879,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         }
 
         @Override
-        public String reduce(Map<UUID, ?> results) {
+        public String reduce(TaskExecutionContext context, Map<UUID, ?> results) {
             return "expected split exception";
         }
     }
@@ -898,7 +898,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         }
 
         @Override
-        public String reduce(Map<UUID, ?> results) {
+        public String reduce(TaskExecutionContext context, Map<UUID, ?> results) {
             throw new CustomException(TRACE_ID, COLUMN_ALREADY_EXISTS_ERR, "Custom job error", null);
         }
     }

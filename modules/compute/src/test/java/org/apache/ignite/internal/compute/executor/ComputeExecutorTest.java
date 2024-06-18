@@ -75,8 +75,7 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
         JobExecutionInternal<Integer> execution = computeExecutor.executeJob(
                 ExecutionOptions.DEFAULT,
                 InterruptingJob.class,
-                null,
-                new Object[]{}
+                null
         );
         JobStatus executingStatus = await().until(execution::status, jobStatusWithState(EXECUTING));
         assertThat(execution.cancel(), is(true));
@@ -105,8 +104,7 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
         JobExecutionInternal<Integer> execution = computeExecutor.executeJob(
                 ExecutionOptions.DEFAULT,
                 CancellingJob.class,
-                null,
-                new Object[]{}
+                null
         );
         JobStatus executingStatus = await().until(execution::status, jobStatusWithState(EXECUTING));
         assertThat(execution.cancel(), is(true));
@@ -142,7 +140,7 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
                 ExecutionOptions.builder().maxRetries(maxRetries).build(),
                 RetryJobFail.class,
                 null,
-                new Object[]{runTimes}
+                runTimes
         );
 
         await().until(execution::status, jobStatusWithState(FAILED));
@@ -170,7 +168,8 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
                 ExecutionOptions.builder().maxRetries(maxRetries).build(),
                 RetryJobSuccess.class,
                 null,
-                new Object[]{runTimes, maxRetries}
+                runTimes,
+                maxRetries
         );
 
         await().until(execution::status, jobStatusWithState(COMPLETED));
@@ -202,7 +201,7 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
                 ExecutionOptions.builder().maxRetries(maxRetries).build(),
                 JobSuccess.class,
                 null,
-                new Object[]{runTimes}
+                runTimes
         );
 
         await().until(execution::status, jobStatusWithState(COMPLETED));
@@ -226,8 +225,7 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
         JobExecutionInternal<Integer> execution = computeExecutor.executeJob(
                 ExecutionOptions.DEFAULT,
                 SimpleJob.class,
-                null,
-                new Object[]{}
+                null
         );
 
         await().until(execution::status, jobStatusWithState(COMPLETED));

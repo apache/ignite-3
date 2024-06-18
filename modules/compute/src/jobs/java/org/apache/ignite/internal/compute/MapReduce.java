@@ -49,7 +49,7 @@ public class MapReduce implements MapReduceTask<List<DeploymentUnit>, Integer> {
     }
 
     @Override
-    public Integer reduce(Map<UUID, ?> results) {
+    public Integer reduce(TaskExecutionContext taskContext, Map<UUID, ?> results) {
         return results.values().stream()
                 .map(String.class::cast)
                 .map(String::length)

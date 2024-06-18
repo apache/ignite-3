@@ -40,11 +40,12 @@ public interface MapReduceTask<T, R> {
 
     /**
      * This is a finishing step in the task execution. This method will be called with the map from identifiers of compute jobs submitted as
-     * a result of the {@link #split(TaskExecutionContext, Object...)} method call to the results of the execution of the corresponding
-     * job. The return value of this method will be returned as a result of this task.
+     * a result of the {@link #split(TaskExecutionContext, Object...)} method call to the results of the execution of the corresponding job.
+     * The return value of this method will be returned as a result of this task.
      *
+     * @param taskContext Task execution context.
      * @param results Map from compute job ids to their results.
      * @return Final task result.
      */
-    R reduce(Map<UUID, ?> results);
+    R reduce(TaskExecutionContext taskContext, Map<UUID, ?> results);
 }

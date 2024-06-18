@@ -25,6 +25,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.task.MapReduceTask;
+import org.apache.ignite.compute.task.TaskExecutionContext;
 import org.apache.ignite.internal.compute.ComputeUtils;
 import org.apache.ignite.internal.compute.ExecutionOptions;
 import org.apache.ignite.internal.compute.JobExecutionContextImpl;
@@ -34,6 +35,7 @@ import org.apache.ignite.internal.compute.queue.PriorityQueueExecutor;
 import org.apache.ignite.internal.compute.queue.QueueExecution;
 import org.apache.ignite.internal.compute.state.ComputeStateMachine;
 import org.apache.ignite.internal.compute.task.JobSubmitter;
+import org.apache.ignite.internal.compute.task.TaskExecutionContextImpl;
 import org.apache.ignite.internal.compute.task.TaskExecutionInternal;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -99,7 +101,10 @@ public class ComputeExecutorImpl implements ComputeExecutor {
     ) {
         assert executorService != null;
 
-        return new TaskExecutionInternal<>(executorService, jobSubmitter, taskClass, () -> ignite, input);
+        AtomicBoolean isCancelled = new AtomicBoolean();
+        TaskExecutionContext context = new TaskExecutionContextImpl(ignite, isCancelled);
+
+        return new TaskExecutionInternal<>(executorService, jobSubmitter, taskClass, context, isCancelled, input);
     }
 
     @Override

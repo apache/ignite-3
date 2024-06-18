@@ -27,6 +27,7 @@ import static org.apache.ignite.compute.JobState.FAILED;
 import static org.apache.ignite.internal.compute.ComputeUtils.instantiateTask;
 import static org.apache.ignite.internal.util.ArrayUtils.concat;
 import static org.apache.ignite.internal.util.CompletableFutures.allOfToList;
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 
@@ -39,6 +40,7 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobState;
@@ -56,7 +58,8 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Internal map reduce task execution object. Runs the {@link MapReduceTask#split(TaskExecutionContext, Object...)} method of the task as a
  * compute job, then submits the resulting list of jobs. Waits for completion of all compute jobs, then submits the
- * {@link MapReduceTask#reduce(Map)} method as a compute job. The result of the task is the result of the split method.
+ * {@link MapReduceTask#reduce(TaskExecutionContext, Map)} method as a compute job. The result of the task is the result of the split
+ * method.
  *
  * @param <R> Task result type.
  */
@@ -74,6 +77,8 @@ public class TaskExecutionInternal<T, R> implements JobExecution<R> {
 
     private final AtomicReference<JobStatus> reduceFailedStatus = new AtomicReference<>();
 
+    private final AtomicBoolean isCancelled;
+
     /**
      * Construct an execution object and starts executing.
      *
@@ -81,6 +86,7 @@ public class TaskExecutionInternal<T, R> implements JobExecution<R> {
      * @param jobSubmitter Compute jobs submitter.
      * @param taskClass Map reduce task class.
      * @param context Task execution context.
+     * @param isCancelled Flag which is passed to the execution context so that the task can check it for cancellation request.
      * @param input Task argument.
      */
     public TaskExecutionInternal(
@@ -88,8 +94,10 @@ public class TaskExecutionInternal<T, R> implements JobExecution<R> {
             JobSubmitter jobSubmitter,
             Class<? extends MapReduceTask<T, R>> taskClass,
             TaskExecutionContext context,
-            T input
+            AtomicBoolean isCancelled,
+            Object... args
     ) {
+        this.isCancelled = isCancelled;
         LOG.debug("Executing task {}", taskClass.getName());
         splitExecution = executorService.submit(
                 () -> {
@@ -116,7 +124,7 @@ public class TaskExecutionInternal<T, R> implements JobExecution<R> {
             MapReduceTask<T, R> task = splitExecution.resultAsync().thenApply(SplitResult::task).join();
 
             return executorService.submit(
-                    () -> completedFuture(task.reduce(results)),
+                    () -> completedFuture(task.reduce(context, results)),
                     Integer.MAX_VALUE,
                     0
             );
@@ -184,8 +192,14 @@ public class TaskExecutionInternal<T, R> implements JobExecution<R> {
 
     @Override
     public CompletableFuture<@Nullable Boolean> cancelAsync() {
+        if (!isCancelled.compareAndSet(false, true)) {
+            return falseCompletedFuture();
+        }
+
         // If the split job is not complete, this will cancel the executions future.
-        splitExecution.cancel();
+        if (splitExecution.cancel()) {
+            return trueCompletedFuture();
+        }
 
         // This means we didn't submit any jobs yet.
         if (executionsFuture.cancel(true)) {
