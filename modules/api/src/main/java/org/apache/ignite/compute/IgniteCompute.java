@@ -30,8 +30,6 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.task.MapReduceTask;
 import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.table.Tuple;
-import org.apache.ignite.table.mapper.Mapper;
 
 /**
  * Provides the ability to execute Compute jobs.
@@ -88,164 +86,6 @@ public interface IgniteCompute {
             JobDescriptor descriptor,
             Object... args
     );
-
-
-
-
-    /** OLD METHODS BELOW */
-
-
-
-
-    /**
-     * Executes a {@link ComputeJob} of the given class on a single node from a set of candidate nodes.
-     *
-     * @param <R> Job result type
-     * @param nodes Candidate nodes; the job will be executed on one of them.
-     * @param descriptor Job descriptor.
-     * @param args Arguments of the job.
-     * @return Job result.
-     * @throws ComputeException If there is any problem executing the job.
-     */
-    default <R> R execute(
-            Set<ClusterNode> nodes,
-            JobDescriptor descriptor,
-            Object... args
-    ) {
-        return execute(JobTarget.anyNode(nodes), descriptor, args);
-    }
-
-    /**
-     * Submits a job of the given class for the execution on the node where the given key is located. The node is a leader of the
-     * corresponding RAFT group.
-     *
-     * @param tableName Name of the table whose key is used to determine the node to execute the job on.
-     * @param key Key that identifies the node to execute the job on.
-     * @param descriptor Job descriptor.
-     * @param args Arguments of the job.
-     * @param <R> Job result type.
-     * @return Job execution object.
-     */
-    default <R> JobExecution<R> submitColocated(
-            String tableName,
-            Tuple key,
-            JobDescriptor descriptor,
-            Object... args
-    ) {
-        return submit(JobTarget.colocated(tableName, key), descriptor, args);
-    }
-
-    /**
-     * Submits a job of the given class for the execution on the node where the given key is located. The node is a leader of the
-     * corresponding RAFT group.
-     *
-     * @param tableName Name of the table whose key is used to determine the node to execute the job on.
-     * @param key Key that identifies the node to execute the job on.
-     * @param keyMapper Mapper used to map the key to a binary representation.
-     * @param descriptor Job descriptor.
-     * @param args Arguments of the job.
-     * @param <R> Job result type.
-     * @return Job execution object.
-     */
-    default <K, R> JobExecution<R> submitColocated(
-            String tableName,
-            K key,
-            Mapper<K> keyMapper,
-            JobDescriptor descriptor,
-            Object... args
-    ) {
-        return submit(JobTarget.colocated(tableName, key, keyMapper), descriptor, args);
-    }
-
-    /**
-     * Submits a job of the given class for the execution on the node where the given key is located. The node is a leader of the
-     * corresponding RAFT group. A shortcut for {@code submitColocated(...).resultAsync()}.
-     *
-     * @param tableName Name of the table whose key is used to determine the node to execute the job on.
-     * @param key Key that identifies the node to execute the job on.
-     * @param descriptor Job descriptor.
-     * @param args Arguments of the job.
-     * @param <R> Job result type.
-     * @return Job result future.
-     */
-    default <R> CompletableFuture<R> executeColocatedAsync(
-            String tableName,
-            Tuple key,
-            JobDescriptor descriptor,
-            Object... args
-    ) {
-        return this.<R>submitColocated(tableName, key, descriptor, args).resultAsync();
-    }
-
-    /**
-     * Submits a job of the given class for the execution on the node where the given key is located. The node is a leader of the
-     * corresponding RAFT group. A shortcut for {@code submitColocated(...).resultAsync()}.
-     *
-     * @param tableName Name of the table whose key is used to determine the node to execute the job on.
-     * @param key Key that identifies the node to execute the job on.
-     * @param keyMapper Mapper used to map the key to a binary representation.
-     * @param descriptor Job descriptor.
-     * @param args Arguments of the job.
-     * @param <R> Job result type.
-     * @return Job result future.
-     */
-    default <K, R> CompletableFuture<R> executeColocatedAsync(
-            String tableName,
-            K key,
-            Mapper<K> keyMapper,
-            JobDescriptor descriptor,
-            Object... args
-    ) {
-        return this.<K, R>submitColocated(tableName, key, keyMapper, descriptor, args).resultAsync();
-    }
-
-    /**
-     * Executes a job of the given class on the node where the given key is located. The node is a leader of the corresponding RAFT group.
-     *
-     * @param <R> Job result type.
-     * @param tableName Name of the table whose key is used to determine the node to execute the job on.
-     * @param key Key that identifies the node to execute the job on.
-     * @param descriptor Job descriptor.
-     * @param args Arguments of the job.
-     * @return Job result.
-     * @throws ComputeException If there is any problem executing the job.
-     */
-    default <R> R executeColocated(
-            String tableName,
-            Tuple key,
-            JobDescriptor descriptor,
-            Object... args) {
-        return execute(JobTarget.colocated(tableName, key), descriptor, args);
-    }
-
-    /**
-     * Executes a job of the given class on the node where the given key is located. The node is a leader of the corresponding RAFT group.
-     *
-     * @param <R> Job result type.
-     * @param tableName Name of the table whose key is used to determine the node to execute the job on.
-     * @param key Key that identifies the node to execute the job on.
-     * @param keyMapper Mapper used to map the key to a binary representation.
-     * @param descriptor Job descriptor.
-     * @param args Arguments of the job.
-     * @return Job result.
-     * @throws ComputeException If there is any problem executing the job.
-     */
-    default <K, R> R executeColocated(
-            String tableName,
-            K key,
-            Mapper<K> keyMapper,
-            JobDescriptor descriptor,
-            Object... args) {
-        return execute(JobTarget.colocated(tableName, key, keyMapper), descriptor, args);
-    }
-
-
-
-
-    /** BROADCAST METHODS BELOW - NOT AFFECTED BY ExecutionTarget */
-
-
-
 
     /**
      * Submits a {@link ComputeJob} of the given class for an execution on all nodes in the given node set.
@@ -310,7 +150,7 @@ public interface IgniteCompute {
         Map<ClusterNode, R> map = new HashMap<>();
 
         for (ClusterNode node : nodes) {
-            map.put(node, execute(Set.of(node), descriptor, args));
+            map.put(node, execute(JobTarget.node(node), descriptor, args));
         }
 
         return map;
