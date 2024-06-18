@@ -33,10 +33,11 @@ import org.apache.ignite.network.ClusterNode;
 /**
  * Trivial placement driver for tests.
  */
+// TODO: https://issues.apache.org/jira/browse/IGNITE-22522 remove this code
 public class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEvent, PrimaryReplicaEventParameters>  implements
         PlacementDriver {
 
-    private ClusterNode primary;
+    private volatile ClusterNode primary;
 
     /**
      * Set the primary replica.
