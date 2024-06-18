@@ -19,6 +19,7 @@ package org.apache.ignite.internal.partition.replicator.marshaller;
 
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
+import org.apache.ignite.internal.partition.replicator.network.command.CatalogVersionAware;
 import org.apache.ignite.internal.raft.util.OptimizedMarshaller;
 import org.apache.ignite.internal.util.VarIntUtils;
 
@@ -32,7 +33,9 @@ public class PartitionCommandsMarshallerImpl extends OptimizedMarshaller impleme
 
     @Override
     protected void beforeWriteMessage(Object o, ByteBuffer buffer) {
-        int requiredCatalogVersion = NO_VERSION_REQUIRED;
+        int requiredCatalogVersion = o instanceof CatalogVersionAware
+                ? ((CatalogVersionAware) o).requiredCatalogVersion()
+                : NO_VERSION_REQUIRED;
 
         stream.setBuffer(buffer);
         stream.writeInt(requiredCatalogVersion);
@@ -40,7 +43,13 @@ public class PartitionCommandsMarshallerImpl extends OptimizedMarshaller impleme
 
     @Override
     public <T> T unmarshall(ByteBuffer raw) {
+        int requiredCatalogVersion = readRequiredCatalogVersion(raw);
+
         T res = super.unmarshall(raw);
+
+        if (res instanceof CatalogVersionAware) {
+            ((CatalogVersionAware) res).requiredCatalogVersion(requiredCatalogVersion);
+        }
 
         return res;
     }
