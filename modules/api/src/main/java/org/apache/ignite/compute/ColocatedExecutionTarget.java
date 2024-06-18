@@ -30,9 +30,9 @@ public class ColocatedExecutionTarget {
 
     private final Object key;
 
-    private final @Nullable Mapper keyMapper;
+    private final @Nullable Mapper<?> keyMapper;
 
-    public ColocatedExecutionTarget(String tableName, Object key, @Nullable Mapper keyMapper) {
+    public ColocatedExecutionTarget(String tableName, Object key, @Nullable Mapper<?> keyMapper) {
         Objects.requireNonNull(tableName);
         Objects.requireNonNull(key);
 
@@ -43,5 +43,17 @@ public class ColocatedExecutionTarget {
         this.tableName = tableName;
         this.key = key;
         this.keyMapper = keyMapper;
+    }
+
+    public String tableName() {
+        return tableName;
+    }
+
+    public Object key() {
+        return key;
+    }
+
+    public @Nullable Mapper<?> keyMapper() {
+        return keyMapper;
     }
 }
