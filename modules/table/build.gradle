@@ -102,6 +102,7 @@ dependencies {
     testFixturesImplementation project(':ignite-raft')
     testFixturesImplementation project(':ignite-affinity')
     testFixturesImplementation project(':ignite-configuration-api')
+    testFixturesImplementation project(':ignite-metastorage')
     testFixturesImplementation(testFixtures(project(':ignite-configuration')))
     testFixturesImplementation(testFixtures(project(':ignite-core')))
     testFixturesImplementation(testFixtures(project(':ignite-storage-api')))
@@ -114,6 +115,7 @@ dependencies {
     testFixturesImplementation(testFixtures(project(':ignite-failure-handler')))
     testFixturesImplementation(testFixtures(project(':ignite-metrics')))
     testFixturesImplementation(testFixtures(project(':ignite-raft')))
+    testFixturesImplementation(testFixtures(project(':ignite-metastorage')))
     testFixturesImplementation libs.jetbrains.annotations
     testFixturesImplementation libs.fastutil.core
     testFixturesImplementation libs.mockito.core

@@ -27,6 +27,7 @@ import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 
 /** State machine command to build a table index. */
+// TODO: IGNITE-22520 думаю можно будет избавиться от полей
 @Transferable(TableMessageGroup.Commands.BUILD_INDEX)
 public interface BuildIndexCommand extends WriteCommand, CatalogVersionAware {
     /** Returns index ID. */

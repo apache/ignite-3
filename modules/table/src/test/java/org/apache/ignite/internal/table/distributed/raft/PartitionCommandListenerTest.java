@@ -108,6 +108,7 @@ import org.apache.ignite.internal.table.distributed.command.TimedBinaryRowMessag
 import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
 import org.apache.ignite.internal.table.distributed.command.WriteIntentSwitchCommand;
+import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
@@ -207,9 +208,9 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
 
     private CatalogService catalogService;
 
-    private CatalogIndexDescriptor indexDescriptor;
-
     private final ClockService clockService = new TestClockService(new HybridClockImpl());
+
+    private IndexMetaStorage indexMetaStorage;
 
     /**
      * Initializes a table listener before tests.
@@ -241,6 +242,8 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
 
         Catalog catalog = mock(Catalog.class);
 
+        CatalogIndexDescriptor indexDescriptor = mock(CatalogIndexDescriptor.class);
+
         lenient().when(catalog.index(indexId)).thenReturn(indexDescriptor);
         lenient().when(catalogService.catalog(anyInt())).thenReturn(catalog);
 
@@ -255,6 +258,8 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
         lenient().when(tableDescriptor.tableVersion()).thenReturn(SCHEMA.version());
         lenient().when(catalogService.table(anyInt(), anyInt())).thenReturn(tableDescriptor);
 
+        indexMetaStorage = mock(IndexMetaStorage.class);
+
         commandListener = new PartitionListener(
                 mock(TxManager.class),
                 partitionDataStorage,
@@ -264,7 +269,8 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 new PendingComparableValuesTracker<>(0L),
                 catalogService,
                 SCHEMA_REGISTRY,
-                clockService
+                clockService,
+                indexMetaStorage
         );
     }
 
@@ -451,7 +457,8 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 new PendingComparableValuesTracker<>(0L),
                 catalogService,
                 SCHEMA_REGISTRY,
-                clockService
+                clockService,
+                indexMetaStorage
         );
 
         txStateStorage.lastApplied(3L, 1L);
