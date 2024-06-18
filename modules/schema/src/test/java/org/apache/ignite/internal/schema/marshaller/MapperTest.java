@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.schema.marshaller;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -414,6 +416,46 @@ public class MapperTest {
         }
     }
 
+    @Test
+    public void rejectNotSupportedTypesEarly() {
+        {
+            var err = assertThrows(IllegalArgumentException.class, () -> Mapper.of(TestObjectWithNotSupportedFields.class));
+            String error = "Field has no converter: field=value, column=value, type=" + UnknowValue.class.getName();
+
+            assertThat(err.getMessage(), containsString(error));
+        }
+
+        {
+            var err = assertThrows(IllegalArgumentException.class, () -> Mapper.builder(TestObjectWithNotSupportedFields.class)
+                    .automap()
+                    .build()
+            );
+            String error = "Field has no converter: field=value, column=value, type=" + UnknowValue.class.getName();
+
+            assertThat(err.getMessage(), containsString(error));
+        }
+
+        {
+            var err = assertThrows(IllegalArgumentException.class, () -> Mapper.builder(TestObjectWithNotSupportedFields.class)
+                    .map("value", "SOME_VALUE")
+                    .build()
+            );
+            String error = "Field has no converter: field=value, column=SOME_VALUE, type=" + UnknowValue.class.getName();
+
+            assertThat(err.getMessage(), containsString(error));
+        }
+
+        {
+            var err = assertThrows(IllegalArgumentException.class, () -> Mapper.builder(TestObjectWithNotSupportedFields.class)
+                    .map("value", "\"VALUE 1\"")
+                    .build()
+            );
+            String error = "Field has no converter: field=value, column=VALUE 1, type=" + UnknowValue.class.getName();
+
+            assertThat(err.getMessage(), containsString(error));
+        }
+    }
+
     /**
      * Test converter.
      */
@@ -469,5 +511,23 @@ public class MapperTest {
      */
     interface TestInterface {
         int id = 0;
+    }
+
+    /**
+     * Test object.
+     */
+    @SuppressWarnings({"InstanceVariableMayNotBeInitialized", "unused"})
+    static class TestObjectWithNotSupportedFields {
+        private long id;
+
+        private UnknowValue value;
+    }
+
+    /**
+     * Test object.
+     */
+    static class UnknowValue {
+        @SuppressWarnings("unused")
+        private long value;
     }
 }

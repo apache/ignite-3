@@ -17,14 +17,17 @@
 
 package org.apache.ignite.table.mapper;
 
+import static java.lang.String.format;
+
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
-import java.util.AbstractMap.SimpleEntry;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.stream.Collectors;
 import org.apache.ignite.catalog.annotations.Column;
 import org.apache.ignite.lang.util.IgniteNameUtils;
 
@@ -103,12 +106,12 @@ public final class MapperBuilder<T> {
                            || (type.isMemberClass() && !Modifier.isStatic(type.getModifiers()))) {
             throw new IllegalArgumentException(
                     "Unsupported class. Only top-level or nested static classes are supported: " + type.getName());
+        } else if (type.isArray()) {
+            throw new IllegalArgumentException("Unsupported class. Arrays are not supported: " + type.getName());
         } else if (Modifier.isAbstract(type.getModifiers())) {
             throw new IllegalArgumentException("Unsupported class. Abstract classes are not supported: " + type.getName());
         } else if (type.isEnum()) {
             throw new IllegalArgumentException("Unsupported class. Enum is not supported, please use a converter: " + type.getName());
-        } else if (type.isArray()) {
-            throw new IllegalArgumentException("Unsupported class. Arrays are not supported: " + type.getName());
         } else if (type.isAnnotation() || type.isInterface()) {
             throw new IllegalArgumentException("Unsupported class. Interfaces are not supported: " + type.getName());
         }
@@ -147,7 +150,7 @@ public final class MapperBuilder<T> {
             }
         } catch (NoSuchFieldException e) {
             throw new IllegalArgumentException(
-                    String.format("Field not found for class: field=%s, class=%s", fieldName, targetType.getName()));
+                    format("Field not found for class: field=%s, class=%s", fieldName, targetType.getName()));
         }
 
         return fieldName;
@@ -265,34 +268,80 @@ public final class MapperBuilder<T> {
         }
 
         Map<String, String> mapping = this.columnToFields;
+        Map<String, String> fieldToColumn = new HashMap<>(mapping.size());
 
         HashSet<String> fields = new HashSet<>(mapping.size());
-        for (String fldName : mapping.values()) {
+        for (Map.Entry<String, String> e : mapping.entrySet()) {
+            String fldName = e.getValue();
             if (!fields.add(fldName)) {
                 throw new IllegalStateException("More than one column is mapped to the field: field=" + fldName);
             }
+            fieldToColumn.put(fldName, e.getKey());
         }
 
+        List<ColumnToFieldMapping> columnToFields;
         if (automapFlag) {
-            Arrays.stream(targetType.getDeclaredFields())
+            columnToFields = Arrays.stream(targetType.getDeclaredFields())
                     .filter(fld -> !Modifier.isStatic(fld.getModifiers()) && !Modifier.isTransient(fld.getModifiers()))
                     .map(MapperBuilder::getColumnToFieldMapping)
-                    .filter(entry -> !fields.contains(entry.getValue()))
-                    // Ignore manually mapped fields/columns.
-                    .forEach(entry -> mapping.putIfAbsent(entry.getKey().toUpperCase(), entry.getValue()));
+                    .filter(entry -> !fields.contains(entry.fieldName))
+                    .collect(Collectors.toList());
+
+            columnToFields.forEach(entry -> mapping.putIfAbsent(entry.fieldName.toUpperCase(), entry.columnName));
+        } else {
+            columnToFields = Arrays.stream(targetType.getDeclaredFields())
+                    .filter(fld -> !Modifier.isStatic(fld.getModifiers()) && !Modifier.isTransient(fld.getModifiers()))
+                    .filter(fld -> fields.contains(fld.getName()))
+                    .map(fld -> {
+                        String columnName = fieldToColumn.get(fld.getName());
+                        assert columnName != null;
+
+                        return new ColumnToFieldMapping(columnName, fld.getName(), fld.getType());
+                    })
+                    .collect(Collectors.toList());
+        }
+
+        for (ColumnToFieldMapping entry : columnToFields) {
+            Class<?> fieldType = entry.fieldType;
+            TypeConverter<?, ?> converter = columnConverters.get(entry.columnName);
+
+            // nativelySupported returns false for primitive types,
+            // so we need to allow primitives here.
+            if (!fieldType.isPrimitive() && !Mapper.nativelySupported(fieldType) && converter == null) {
+                String message = format(
+                        "Field has no converter: field=%s, column=%s, type=%s",
+                        entry.fieldName, entry.columnName, fieldType.getName()
+                );
+                throw new IllegalArgumentException(message);
+            }
         }
 
         return new PojoMapperImpl<>(targetType, mapping, columnConverters);
     }
 
-    private static SimpleEntry<String, String> getColumnToFieldMapping(Field fld) {
+    private static ColumnToFieldMapping getColumnToFieldMapping(Field fld) {
         String fldName = fld.getName();
-        var column = fld.getAnnotation(Column.class);
+        Column column = fld.getAnnotation(Column.class);
+
         if (column == null) {
-            return new SimpleEntry<>(fldName, fldName);
+            return new ColumnToFieldMapping(fldName, fldName, fld.getType());
         } else {
-            var columnName = column.value().isEmpty() ? fldName : column.value();
-            return new SimpleEntry<>(columnName, fldName);
+            String columnName = column.value().isEmpty() ? fldName : column.value();
+            return new ColumnToFieldMapping(fldName, columnName, fld.getType());
+        }
+    }
+
+    private static class ColumnToFieldMapping {
+        final String fieldName;
+
+        final String columnName;
+
+        final Class<?> fieldType;
+
+        ColumnToFieldMapping(String columnName, String fieldName, Class<?> fieldType) {
+            this.fieldName = fieldName;
+            this.columnName = columnName;
+            this.fieldType = fieldType;
         }
     }
 }
