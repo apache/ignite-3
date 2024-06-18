@@ -132,7 +132,7 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
                 run();
                 return true;
             }
-            LOG.info("Cannot change job priority, job already processing. [job id = {}]", job);
+            LOG.info("Cannot change job priority, job already processing. [job id = {}]", jobId);
         } finally {
             executionLock.unlock();
         }
