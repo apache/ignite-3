@@ -35,6 +35,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.affinity.Assignment;
+import org.apache.ignite.internal.affinity.TokenizedAssignments;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -344,7 +345,7 @@ public class LeaseUpdater {
             Map<ReplicationGroupId, Boolean> toBeNegotiated = new HashMap<>();
             Map<ReplicationGroupId, Lease> renewedLeases = new HashMap<>(leasesCurrent.leaseByGroupId());
 
-            Map<ReplicationGroupId, Set<Assignment>> currentAssignments = assignmentsTracker.assignments();
+            Map<ReplicationGroupId, TokenizedAssignments> currentAssignments = assignmentsTracker.assignments();
             Set<ReplicationGroupId> currentAssignmentsReplicationGroupIds = currentAssignments.keySet();
 
             // Remove all expired leases that are no longer present in assignments.
@@ -354,9 +355,9 @@ public class LeaseUpdater {
             int currentAssignmentsSize = currentAssignments.size();
             int activeLeasesCount = 0;
 
-            for (Map.Entry<ReplicationGroupId, Set<Assignment>> entry : currentAssignments.entrySet()) {
+            for (Map.Entry<ReplicationGroupId, TokenizedAssignments> entry : currentAssignments.entrySet()) {
                 ReplicationGroupId grpId = entry.getKey();
-                Set<Assignment> assignments = entry.getValue();
+                Set<Assignment> assignments = entry.getValue().nodes();
 
                 Lease lease = leaseTracker.getLease(grpId);
 
