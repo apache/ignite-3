@@ -53,6 +53,7 @@ import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.compute.JobState;
+import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -83,7 +84,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         IgniteImpl entryNode = node(0);
 
         JobDescriptor job = JobDescriptor.builder(WaitLatchJob.class).units(units()).build();
-        JobExecution<String> execution = entryNode.compute().submit(Set.of(entryNode.node()), job, new CountDownLatch(1));
+        JobExecution<String> execution = entryNode.compute().submit(JobTarget.node(entryNode.node()), job, new CountDownLatch(1));
 
         await().until(execution::statusAsync, willBe(jobStatusWithState(JobState.EXECUTING)));
 
@@ -97,7 +98,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         IgniteImpl entryNode = node(0);
 
         JobDescriptor job = JobDescriptor.builder(WaitLatchJob.class).units(units()).build();
-        JobExecution<String> execution = entryNode.compute().submit(Set.of(node(1).node()), job, new CountDownLatch(1));
+        JobExecution<String> execution = entryNode.compute().submit(JobTarget.node(node(1).node()), job, new CountDownLatch(1));
 
         await().until(execution::statusAsync, willBe(jobStatusWithState(JobState.EXECUTING)));
 
@@ -111,7 +112,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         IgniteImpl entryNode = node(0);
 
         JobDescriptor job = JobDescriptor.builder(WaitLatchJob.class).units(units()).build();
-        JobExecution<String> execution = entryNode.compute().submit(Set.of(entryNode.node()), job, new CountDownLatch(1));
+        JobExecution<String> execution = entryNode.compute().submit(JobTarget.node(entryNode.node()), job, new CountDownLatch(1));
         await().until(execution::statusAsync, willBe(jobStatusWithState(JobState.EXECUTING)));
 
         assertThat(execution.changePriorityAsync(2), willBe(false));
@@ -123,7 +124,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         IgniteImpl entryNode = node(0);
 
         JobDescriptor job = JobDescriptor.builder(WaitLatchJob.class).units(units()).build();
-        JobExecution<String> execution = entryNode.compute().submit(Set.of(node(1).node()), job, new CountDownLatch(1));
+        JobExecution<String> execution = entryNode.compute().submit(JobTarget.node(node(1).node()), job, new CountDownLatch(1));
         await().until(execution::statusAsync, willBe(jobStatusWithState(JobState.EXECUTING)));
 
         assertThat(execution.changePriorityAsync(2), willBe(false));
@@ -133,21 +134,21 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
     @Test
     void changeJobPriorityLocally() {
         IgniteImpl entryNode = node(0);
-        Set<ClusterNode> nodes = Set.of(entryNode.node());
+        JobTarget jobTarget = JobTarget.node(entryNode.node());
 
         CountDownLatch countDownLatch = new CountDownLatch(1);
         JobDescriptor job = JobDescriptor.builder(WaitLatchJob.class).units(units()).build();
 
         // Start 1 task in executor with 1 thread
-        JobExecution<String> execution1 = entryNode.compute().submit(nodes, job, countDownLatch);
+        JobExecution<String> execution1 = entryNode.compute().submit(jobTarget, job, countDownLatch);
         await().until(execution1::statusAsync, willBe(jobStatusWithState(JobState.EXECUTING)));
 
         // Start one more task
-        JobExecution<String> execution2 = entryNode.compute().submit(nodes, job, new CountDownLatch(1));
+        JobExecution<String> execution2 = entryNode.compute().submit(jobTarget, job, new CountDownLatch(1));
         await().until(execution2::statusAsync, willBe(jobStatusWithState(JobState.QUEUED)));
 
         // Start third task
-        JobExecution<String> execution3 = entryNode.compute().submit(nodes, job, countDownLatch);
+        JobExecution<String> execution3 = entryNode.compute().submit(jobTarget, job, countDownLatch);
         await().until(execution3::statusAsync, willBe(jobStatusWithState(JobState.QUEUED)));
 
         // Task 1 and 2 are not competed, in queue state
@@ -174,23 +175,23 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
     @Test
     void executesJobLocallyWithOptions() {
         IgniteImpl entryNode = node(0);
-        Set<ClusterNode> nodes = Set.of(entryNode.node());
+        JobTarget jobTarget = JobTarget.node(entryNode.node());
 
         CountDownLatch countDownLatch = new CountDownLatch(1);
         JobDescriptor job = JobDescriptor.builder(WaitLatchJob.class).units(units()).build();
 
         // Start 1 task in executor with 1 thread
-        JobExecution<String> execution1 = entryNode.compute().submit(nodes, job, new Object[]{countDownLatch});
+        JobExecution<String> execution1 = entryNode.compute().submit(jobTarget, job, new Object[]{countDownLatch});
         await().until(execution1::statusAsync, willBe(jobStatusWithState(JobState.EXECUTING)));
 
         // Start one more task
-        JobExecution<String> execution2 = entryNode.compute().submit(nodes, job, new Object[]{new CountDownLatch(1)});
+        JobExecution<String> execution2 = entryNode.compute().submit(jobTarget, job, new Object[]{new CountDownLatch(1)});
         await().until(execution2::statusAsync, willBe(jobStatusWithState(JobState.QUEUED)));
 
         // Start third task it should be before task2 in the queue due to higher priority in options
         JobExecutionOptions options = JobExecutionOptions.builder().priority(1).maxRetries(2).build();
         JobExecution<String> execution3 = entryNode.compute().submit(
-                nodes,
+                jobTarget,
                 JobDescriptor.builder(WaitLatchThrowExceptionOnFirstExecutionJob.class)
                     .units(units())
                     .options(options)
