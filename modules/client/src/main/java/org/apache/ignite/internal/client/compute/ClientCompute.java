@@ -146,7 +146,7 @@ public class ClientCompute implements IgniteCompute {
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            Object... args
+            Object args
     ) {
         return getTable(tableName)
                 .thenCompose(table -> executeColocatedTupleKey(table, key, units, jobClassName, options, args))
@@ -314,7 +314,7 @@ public class ClientCompute implements IgniteCompute {
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            Object[] args) {
+            Object args) {
         return executeColocatedInternal(
                 t,
                 (outputChannel, schema) -> ClientTupleSerializer.writeTupleRaw(key, schema, outputChannel, true),

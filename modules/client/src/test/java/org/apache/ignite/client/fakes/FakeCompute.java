@@ -84,12 +84,12 @@ public class FakeCompute implements IgniteComputeInternal {
     }
 
     @Override
-    public <R> JobExecution<R> executeAsyncWithFailover(
+    public <T, R> JobExecution<R> executeAsyncWithFailover(
             Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            Object... args) {
+            T args) {
         if (Objects.equals(jobClassName, GET_UNITS)) {
             String unitString = units.stream().map(DeploymentUnit::render).collect(Collectors.joining(","));
             return completedExecution((R) unitString);
@@ -107,8 +107,8 @@ public class FakeCompute implements IgniteComputeInternal {
         }
 
         if (jobClassName.startsWith("org.apache.ignite")) {
-            Class<ComputeJob<R>> jobClass = ComputeUtils.jobClass(this.getClass().getClassLoader(), jobClassName);
-            ComputeJob<R> job = ComputeUtils.instantiateJob(jobClass);
+            Class<ComputeJob<T, R>> jobClass = ComputeUtils.jobClass(this.getClass().getClassLoader(), jobClassName);
+            ComputeJob<T, R> job = ComputeUtils.instantiateJob(jobClass);
             CompletableFuture<R> jobFut = job.executeAsync(
                     new JobExecutionContextImpl(ignite, new AtomicBoolean(), this.getClass().getClassLoader()), args);
 
@@ -121,81 +121,81 @@ public class FakeCompute implements IgniteComputeInternal {
 
     /** {@inheritDoc} */
     @Override
-    public <R> CompletableFuture<JobExecution<R>> submitColocatedInternal(TableViewInternal table, Tuple key, List<DeploymentUnit> units,
-            String jobClassName, JobExecutionOptions options, Object[] args) {
+        public <T, R> CompletableFuture<JobExecution<R>> submitColocatedInternal(TableViewInternal table, Tuple key, List<DeploymentUnit> units,
+            String jobClassName, JobExecutionOptions options, T args) {
         return completedFuture(jobExecution(future != null ? future : completedFuture((R) nodeName)));
     }
 
     @Override
-    public <R> JobExecution<R> submit(Set<ClusterNode> nodes, JobDescriptor descriptor, Object... args) {
+    public <T, R> JobExecution<R> submit(Set<ClusterNode> nodes, JobDescriptor descriptor, T args) {
         return executeAsyncWithFailover(nodes, descriptor.units(), descriptor.jobClassName(), descriptor.options(), args);
     }
 
     @Override
-    public <R> R execute(Set<ClusterNode> nodes, JobDescriptor descriptor, Object... args) {
+    public <T, R> R execute(Set<ClusterNode> nodes, JobDescriptor descriptor, T args) {
         return sync(this.executeAsync(nodes, descriptor, args));
     }
 
     @Override
-    public <R> JobExecution<R> submitColocated(
+    public <T, R> JobExecution<R> submitColocated(
             String tableName,
             Tuple key,
             JobDescriptor descriptor,
-            Object... args
+            T args
     ) {
         return jobExecution(future != null ? future : completedFuture((R) nodeName));
     }
 
     @Override
-    public <K, R> JobExecution<R> submitColocated(
+    public <K, T, R> JobExecution<R> submitColocated(
             String tableName,
             K key,
             Mapper<K> keyMapper,
             JobDescriptor descriptor,
-            Object... args
+            T args
     ) {
         return jobExecution(future != null ? future : completedFuture((R) nodeName));
     }
 
     /** {@inheritDoc} */
     @Override
-    public <R> R executeColocated(
+    public <T, R> R executeColocated(
             String tableName,
             Tuple key,
             JobDescriptor descriptor,
-            Object... args
+            T args
     ) {
         return sync(this.executeColocatedAsync(tableName, key, descriptor, args));
     }
 
     /** {@inheritDoc} */
     @Override
-    public <K, R> R executeColocated(
+    public <K, T, R> R executeColocated(
             String tableName,
             K key,
             Mapper<K> keyMapper,
             JobDescriptor descriptor,
-            Object... args
+            T args
     ) {
         return sync(executeColocatedAsync(tableName, key, keyMapper, descriptor, args));
     }
 
     @Override
-    public <R> Map<ClusterNode, JobExecution<R>> submitBroadcast(
+    public <T, R> Map<ClusterNode, JobExecution<R>> submitBroadcast(
             Set<ClusterNode> nodes,
             JobDescriptor descriptor,
-            Object... args
+            T args
     ) {
         return null;
     }
 
     @Override
-    public <R> TaskExecution<R> submitMapReduce(List<DeploymentUnit> units, String taskClassName, Object... args) {
+    public <T, R> TaskExecution<R> submitMapReduce(List<DeploymentUnit> units, String taskClassName, T args) {
         return taskExecution(future != null ? future : completedFuture((R) nodeName));
     }
 
     @Override
-    public <R> R executeMapReduce(List<DeploymentUnit> units, String taskClassName, Object... args) {
+    public <T, R> R executeMapReduce(List<DeploymentUnit> units, String taskClassName, T args) {
         return sync(executeMapReduceAsync(units, taskClassName, args));
     }
 

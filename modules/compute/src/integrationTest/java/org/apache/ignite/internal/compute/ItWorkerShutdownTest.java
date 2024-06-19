@@ -293,7 +293,8 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
                 compute(entryNode).submitColocated(
                         TABLE_NAME,
                         Tuple.create(1).set("K", 1),
-                        JobDescriptor.builder(InteractiveJobs.globalJob().name()).build(), null));
+                        JobDescriptor.builder(InteractiveJobs.globalJob().name()).build(),
+                        null));
 
         // Then the job is alive.
         InteractiveJobs.globalJob().assertAlive();

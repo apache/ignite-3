@@ -744,15 +744,15 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
                 .collect(Collectors.toList());
     }
 
-    private static class NodeNameJob implements ComputeJob<String> {
+    private static class NodeNameJob implements ComputeJob<Object[], String> {
         @Override
-        public CompletableFuture<String> executeAsync(JobExecutionContext context, Object... args) {
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, Object[] args) {
             return completedFuture(
                     context.ignite().name() + Arrays.stream(args).map(Object::toString).collect(Collectors.joining("_")));
         }
     }
 
-    private static class ConcatJob implements ComputeJob<String> {
+    private static class ConcatJob implements ComputeJob<Object[], String> {
         @Override
         public CompletableFuture<String> executeAsync(JobExecutionContext context, Object... args) {
             if (args == null) {
@@ -764,14 +764,14 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         }
     }
 
-    private static class IgniteExceptionJob implements ComputeJob<String> {
+    private static class IgniteExceptionJob implements ComputeJob<Object[], String> {
         @Override
         public CompletableFuture<String> executeAsync(JobExecutionContext context, Object... args) {
             throw new CustomException(TRACE_ID, COLUMN_ALREADY_EXISTS_ERR, "Custom job error", null);
         }
     }
 
-    private static class ExceptionJob implements ComputeJob<String> {
+    private static class ExceptionJob implements ComputeJob<Object[], String> {
         @Override
         public CompletableFuture<String> executeAsync(JobExecutionContext context, Object... args) {
             boolean asyncJob = args.length > 0 && (Boolean) args[0];
@@ -784,7 +784,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         }
     }
 
-    private static class EchoJob implements ComputeJob<Object> {
+    private static class EchoJob implements ComputeJob<Object[], Object> {
         @Override
         public CompletableFuture<Object> executeAsync(JobExecutionContext context, Object... args) {
             var value = args[0];
@@ -799,7 +799,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         }
     }
 
-    private static class SleepJob implements ComputeJob<Void> {
+    private static class SleepJob implements ComputeJob<Object[], Void> {
         @Override
         public @Nullable CompletableFuture<Void> executeAsync(JobExecutionContext context, Object... args) {
             try {
@@ -812,7 +812,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         }
     }
 
-    private static class AsyncSleepJob implements ComputeJob<Void> {
+    private static class AsyncSleepJob implements ComputeJob<Object[], Void> {
         @Override
         public @Nullable CompletableFuture<Void> executeAsync(JobExecutionContext context, Object... args) {
             return CompletableFuture.runAsync(() -> {
@@ -825,14 +825,14 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         }
     }
 
-    private static class DecimalJob implements ComputeJob<BigDecimal> {
+    private static class DecimalJob implements ComputeJob<Object[], BigDecimal> {
         @Override
         public CompletableFuture<BigDecimal> executeAsync(JobExecutionContext context, Object... args) {
             return completedFuture(new BigDecimal((String) args[0]).setScale((Integer) args[1], RoundingMode.HALF_UP));
         }
     }
 
-    private static class MapReduceNodeNameTask implements MapReduceTask<String> {
+    private static class MapReduceNodeNameTask implements MapReduceTask<Object[], String> {
         @Override
         public List<MapReduceJob> split(TaskExecutionContext context, Object... args) {
             return context.ignite().clusterNodes().stream()
@@ -852,7 +852,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         }
     }
 
-    private static class MapReduceArgsTask implements MapReduceTask<String> {
+    private static class MapReduceArgsTask implements MapReduceTask<Object[], String> {
         @Override
         public List<MapReduceJob> split(TaskExecutionContext context, Object... args) {
             return context.ignite().clusterNodes().stream()
@@ -872,7 +872,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         }
     }
 
-    private static class MapReduceExceptionOnSplitTask implements MapReduceTask<String> {
+    private static class MapReduceExceptionOnSplitTask implements MapReduceTask<Object[], String> {
         @Override
         public List<MapReduceJob> split(TaskExecutionContext context, Object... args) {
             throw new CustomException(TRACE_ID, COLUMN_ALREADY_EXISTS_ERR, "Custom job error", null);
@@ -884,7 +884,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         }
     }
 
-    private static class MapReduceExceptionOnReduceTask implements MapReduceTask<String> {
+    private static class MapReduceExceptionOnReduceTask implements MapReduceTask<Object[], String> {
 
         @Override
         public List<MapReduceJob> split(TaskExecutionContext context, Object... args) {
