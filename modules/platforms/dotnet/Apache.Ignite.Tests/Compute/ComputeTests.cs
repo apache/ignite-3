@@ -623,21 +623,20 @@ namespace Apache.Ignite.Tests.Compute
             // ReSharper disable once WithExpressionModifiesAllMembers
             var options = JobExecutionOptions.Default with { Priority = 999, MaxRetries = 66 };
             var units = new DeploymentUnit[] { new("unit1", "1.0.0") };
+            var job = new JobDescriptor(FakeServer.GetDetailsJob, units, options);
 
             using var server = new FakeServer();
             using var client = await server.ConnectClientAsync();
 
-            var defaultRes = await client.Compute.SubmitAsync<string>(
-                await GetNodeAsync(1), new(FakeServer.GetDetailsJob, units), JobExecutionOptions.Default);
+            var defaultRes = await client.Compute.SubmitAsync<string>(await GetNodeAsync(1), job with { Options = default });
             StringAssert.Contains("priority = 0, maxRetries = 0", await defaultRes.GetResultAsync());
 
-            var res = await client.Compute.SubmitAsync<string>(await GetNodeAsync(1), new(FakeServer.GetDetailsJob, units), options);
+            var res = await client.Compute.SubmitAsync<string>(await GetNodeAsync(1), job);
             StringAssert.Contains("priority = 999, maxRetries = 66", await res.GetResultAsync());
 
             // Colocated.
             var keyTuple = new IgniteTuple { ["ID"] = 1 };
-            var colocatedRes = await client.Compute.SubmitColocatedAsync<string>(
-                FakeServer.ExistingTableName, keyTuple, new(FakeServer.GetDetailsJob, units), options);
+            var colocatedRes = await client.Compute.SubmitColocatedAsync<string>(FakeServer.ExistingTableName, keyTuple, job);
 
             StringAssert.Contains("priority = 999, maxRetries = 66", await colocatedRes.GetResultAsync());
         }
