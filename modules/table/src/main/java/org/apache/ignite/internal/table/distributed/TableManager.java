@@ -936,22 +936,21 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 )
                 : trueCompletedFuture();
 
-            Assignments forcedAssignments = nonStableNodeAssignments != null && nonStableNodeAssignments.force()
-                    ? nonStableNodeAssignments
-                    : null;
+        Assignments forcedAssignments = nonStableNodeAssignments != null && nonStableNodeAssignments.force()
+                ? nonStableNodeAssignments
+                : null;
 
-            return replicaMgr.weakStartReplica(
-                    replicaGrpId,
-                    () -> shouldStartGroupFut.thenComposeAsync(startGroup -> inBusyLock(busyLock, () -> {
-                        // (1) if partitionReplicatorNodeRecovery#initiateGroupReentryIfNeeded fails => do start nothing
-                        if (!startGroup) {
-                            return falseCompletedFuture();
-                        }
+        Supplier<CompletableFuture<Boolean>> startReplica = () -> shouldStartGroupFut
+                .thenComposeAsync(startGroup -> inBusyLock(busyLock, () -> {
+                    // (1) if partitionReplicatorNodeRecovery#initiateGroupReentryIfNeeded fails => do start nothing
+                    if (!startGroup) {
+                        return falseCompletedFuture();
+                    }
 
                     // (2) if replica already started => check force reset and finish the process
                     if (replicaMgr.isReplicaStarted(replicaGrpId)) {
                         if (nonStableNodeAssignments != null && nonStableNodeAssignments.force()) {
-                            replicaMgr.resetPeers(replicaGrpId, configurationFromAssignments(nonStableNodeAssignments.nodes()));
+                            replicaMgr.resetPeers(replicaGrpId, fromAssignments(nonStableNodeAssignments.nodes()));
                         }
                         return trueCompletedFuture();
                     }
@@ -992,15 +991,15 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                     try {
                         return replicaMgr.startReplica(
-                                raftGroupEventsListener,
-                                raftGroupListener,
-                                mvTableStorage.isVolatile(),
-                                snapshotStorageFactory,
-                                updateTableRaftService,
-                                createListener,
-                                storageIndexTracker,
-                                replicaGrpId,
-                                newConfiguration)
+                                        raftGroupEventsListener,
+                                        raftGroupListener,
+                                        mvTableStorage.isVolatile(),
+                                        snapshotStorageFactory,
+                                        updateTableRaftService,
+                                        createListener,
+                                        storageIndexTracker,
+                                        replicaGrpId,
+                                        newConfiguration)
                                 .thenCompose(unused -> trueCompletedFuture());
                     } catch (NodeStoppingException e) {
                         throw new AssertionError("Loza was stopped before Table manager", e);
@@ -1012,9 +1011,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                         throw new CompletionException(ex);
                     }
-                    return null;
-                }),
-                forcedAssignments);
+                    return true;
+                });
+
+        return replicaMgr.weakStartReplica(replicaGrpId, startReplica, forcedAssignments)
+                .thenAccept(isStarted -> { });
     }
 
     private boolean shouldStartRaftListeners(Assignments assignments, @Nullable Assignments nonStableNodeAssignments) {
