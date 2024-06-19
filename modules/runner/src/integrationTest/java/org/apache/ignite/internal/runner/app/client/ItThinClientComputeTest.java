@@ -145,7 +145,9 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     @Test
     void testCancellingCompletedJob() {
-        JobExecution<String> execution = client().compute().submit(JobTarget.node(node(0)), JobDescriptor.builder(NodeNameJob.class).build());
+        JobExecution<String> execution = client().compute().submit(
+                JobTarget.node(node(0)),
+                JobDescriptor.builder(NodeNameJob.class).build());
 
         assertThat(execution.resultAsync(), willBe("itcct_n_3344"));
 
@@ -156,7 +158,9 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     @Test
     void testChangingPriorityCompletedJob() {
-        JobExecution<String> execution = client().compute().submit(JobTarget.node(node(0)), JobDescriptor.builder(NodeNameJob.class).build());
+        JobExecution<String> execution = client().compute().submit(
+                JobTarget.node(node(0)),
+                JobDescriptor.builder(NodeNameJob.class).build());
 
         assertThat(execution.resultAsync(), willBe("itcct_n_3344"));
 
@@ -455,8 +459,9 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         var key = new TestPojo(1);
         Mapper<TestPojo> mapper = Mapper.of(TestPojo.class);
 
-        IgniteException cause = getExceptionInJobExecutionSync(
-                () -> client().compute().execute(JobTarget.colocated(TABLE_NAME, key, mapper), JobDescriptor.builder(ExceptionJob.class).build())
+        IgniteException cause = getExceptionInJobExecutionSync(() -> client().compute().execute(
+                        JobTarget.colocated(TABLE_NAME, key, mapper),
+                        JobDescriptor.builder(ExceptionJob.class).build())
         );
 
         assertComputeExceptionWithClassAndMessage(cause);
@@ -683,7 +688,11 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     @ParameterizedTest
     @CsvSource({"1E3,-3", "1.12E5,-5", "1.12E5,0", "1.123456789,10", "1.123456789,5"})
     void testBigDecimalPropagation(String number, int scale) {
-        BigDecimal res = client().compute().execute(JobTarget.node(node(0)), JobDescriptor.builder(DecimalJob.class).build(), number, scale);
+        BigDecimal res = client().compute().execute(
+                JobTarget.node(node(0)),
+                JobDescriptor.builder(DecimalJob.class).build(),
+                number,
+                scale);
 
         var expected = new BigDecimal(number).setScale(scale, RoundingMode.HALF_UP);
         assertEquals(expected, res);

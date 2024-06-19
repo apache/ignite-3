@@ -131,7 +131,8 @@ public class FakeCompute implements IgniteComputeInternal {
     @Override
     public <R> JobExecution<R> submit(JobTarget target, JobDescriptor descriptor, Object... args) {
         if (target instanceof NodesJobTarget) {
-            return submit(((NodesJobTarget) target).nodes(), descriptor, args);
+            Set<ClusterNode> nodes = ((NodesJobTarget) target).nodes();
+            return executeAsyncWithFailover(nodes, descriptor.units(), descriptor.jobClassName(), descriptor.options(), args);
         } else if (target instanceof ColocatedExecutionTarget) {
             return jobExecution(future != null ? future : completedFuture((R) nodeName));
         } else {
@@ -142,10 +143,6 @@ public class FakeCompute implements IgniteComputeInternal {
     @Override
     public <R> R execute(JobTarget target, JobDescriptor descriptor, Object... args) {
         return sync(this.executeAsync(target, descriptor, args));
-    }
-
-    public <R> JobExecution<R> submit(Set<ClusterNode> nodes, JobDescriptor descriptor, Object... args) {
-        return executeAsyncWithFailover(nodes, descriptor.units(), descriptor.jobClassName(), descriptor.options(), args);
     }
 
     @Override
