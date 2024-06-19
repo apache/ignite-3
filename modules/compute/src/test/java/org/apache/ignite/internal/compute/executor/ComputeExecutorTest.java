@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.compute.executor;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.compute.JobState.CANCELED;
 import static org.apache.ignite.compute.JobState.COMPLETED;
 import static org.apache.ignite.compute.JobState.EXECUTING;
@@ -28,6 +29,7 @@ import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.ComputeJob;
@@ -73,8 +75,7 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
         JobExecutionInternal<Integer> execution = computeExecutor.executeJob(
                 ExecutionOptions.DEFAULT,
                 InterruptingJob.class,
-                null,
-                new Object[]{}
+                null
         );
         JobStatus executingStatus = await().until(execution::status, jobStatusWithState(EXECUTING));
         assertThat(execution.cancel(), is(true));
@@ -86,13 +87,13 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
 
     private static class InterruptingJob implements ComputeJob<Integer> {
         @Override
-        public Integer execute(JobExecutionContext context, Object... args) {
+        public CompletableFuture<Integer> executeAsync(JobExecutionContext context, Object... args) {
             while (true) {
                 try {
                     Thread.sleep(100);
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
-                    return 0;
+                    return completedFuture(0);
                 }
             }
         }
@@ -103,8 +104,7 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
         JobExecutionInternal<Integer> execution = computeExecutor.executeJob(
                 ExecutionOptions.DEFAULT,
                 CancellingJob.class,
-                null,
-                new Object[]{}
+                null
         );
         JobStatus executingStatus = await().until(execution::status, jobStatusWithState(EXECUTING));
         assertThat(execution.cancel(), is(true));
@@ -116,11 +116,11 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
 
     private static class CancellingJob implements ComputeJob<Integer> {
         @Override
-        public Integer execute(JobExecutionContext context, Object... args) {
+        public CompletableFuture<Integer> executeAsync(JobExecutionContext context, Object... args) {
             while (true) {
                 try {
-                    if (context.isInterrupted()) {
-                        return 0;
+                    if (context.isCancelled()) {
+                        return completedFuture(0);
                     }
                     Thread.sleep(100);
                 } catch (InterruptedException e) {
@@ -140,7 +140,7 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
                 ExecutionOptions.builder().maxRetries(maxRetries).build(),
                 RetryJobFail.class,
                 null,
-                new Object[]{runTimes}
+                runTimes
         );
 
         await().until(execution::status, jobStatusWithState(FAILED));
@@ -151,7 +151,7 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
     private static class RetryJobFail implements ComputeJob<Integer> {
 
         @Override
-        public Integer execute(JobExecutionContext context, Object... args) {
+        public CompletableFuture<Integer> executeAsync(JobExecutionContext context, Object... args) {
             AtomicInteger runTimes = (AtomicInteger) args[0];
             runTimes.incrementAndGet();
             throw new RuntimeException();
@@ -168,7 +168,8 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
                 ExecutionOptions.builder().maxRetries(maxRetries).build(),
                 RetryJobSuccess.class,
                 null,
-                new Object[]{runTimes, maxRetries}
+                runTimes,
+                maxRetries
         );
 
         await().until(execution::status, jobStatusWithState(COMPLETED));
@@ -179,13 +180,13 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
     private static class RetryJobSuccess implements ComputeJob<Integer> {
 
         @Override
-        public Integer execute(JobExecutionContext context, Object... args) {
+        public CompletableFuture<Integer> executeAsync(JobExecutionContext context, Object... args) {
             AtomicInteger runTimes = (AtomicInteger) args[0];
             int maxRetries = (int) args[1];
             if (runTimes.incrementAndGet() <= maxRetries) {
                 throw new RuntimeException();
             }
-            return 0;
+            return completedFuture(0);
         }
 
     }
@@ -200,7 +201,7 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
                 ExecutionOptions.builder().maxRetries(maxRetries).build(),
                 JobSuccess.class,
                 null,
-                new Object[]{runTimes}
+                runTimes
         );
 
         await().until(execution::status, jobStatusWithState(COMPLETED));
@@ -212,9 +213,9 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
     private static class JobSuccess implements ComputeJob<Integer> {
 
         @Override
-        public Integer execute(JobExecutionContext context, Object... args) {
+        public CompletableFuture<Integer> executeAsync(JobExecutionContext context, Object... args) {
             AtomicInteger runTimes = (AtomicInteger) args[0];
-            return runTimes.incrementAndGet();
+            return completedFuture(runTimes.incrementAndGet());
         }
 
     }
@@ -224,8 +225,7 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
         JobExecutionInternal<Integer> execution = computeExecutor.executeJob(
                 ExecutionOptions.DEFAULT,
                 SimpleJob.class,
-                null,
-                new Object[]{}
+                null
         );
 
         await().until(execution::status, jobStatusWithState(COMPLETED));
@@ -235,8 +235,8 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
 
     private static class SimpleJob implements ComputeJob<Integer> {
         @Override
-        public Integer execute(JobExecutionContext context, Object... args) {
-            return 0;
+        public CompletableFuture<Integer> executeAsync(JobExecutionContext context, Object... args) {
+            return completedFuture(0);
         }
     }
 }

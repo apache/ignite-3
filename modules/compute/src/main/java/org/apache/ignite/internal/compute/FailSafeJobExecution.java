@@ -86,7 +86,7 @@ class FailSafeJobExecution<T> implements JobExecution<T> {
     }
 
     private static JobStatus failedStatus() {
-        return JobStatus.builder().id(UUID.randomUUID()).createTime(Instant.now()).state(JobState.FAILED).build();
+        return JobStatusImpl.builder().id(UUID.randomUUID()).createTime(Instant.now()).state(JobState.FAILED).build();
     }
 
     /**
@@ -127,7 +127,7 @@ class FailSafeJobExecution<T> implements JobExecution<T> {
             capturedStatus.compareAndSet(null, jobStatus);
         }
 
-        return jobStatus.toBuilder()
+        return JobStatusImpl.toBuilder(jobStatus)
                 .createTime(capturedStatus.get().createTime())
                 .id(capturedStatus.get().id())
                 .build();

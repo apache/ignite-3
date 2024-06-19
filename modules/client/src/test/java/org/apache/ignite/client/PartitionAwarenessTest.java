@@ -39,6 +39,7 @@ import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.client.fakes.FakeInternalTable;
 import org.apache.ignite.client.handler.FakePlacementDriver;
 import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.tx.ClientLazyTransaction;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -443,17 +444,20 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         Tuple t1 = Tuple.create().set("ID", 1L);
         Tuple t2 = Tuple.create().set("ID", 2L);
 
-        assertThat(compute().executeColocatedAsync(table.name(), t1, List.of(), "job"), willBe(nodeKey1));
-        assertThat(compute().executeColocatedAsync(table.name(), t2, List.of(), "job"), willBe(nodeKey2));
+        JobDescriptor job = JobDescriptor.builder("job").build();
+
+        assertThat(compute().executeColocatedAsync(table.name(), t1, job), willBe(nodeKey1));
+        assertThat(compute().executeColocatedAsync(table.name(), t2, job), willBe(nodeKey2));
     }
 
     @Test
     public void testExecuteColocatedObjectKeyRoutesRequestToPrimaryNode() {
         var mapper = Mapper.of(Long.class);
         Table table = defaultTable();
+        JobDescriptor job = JobDescriptor.builder("job").build();
 
-        assertThat(compute().executeColocatedAsync(table.name(), 1L, mapper, List.of(), "job"), willBe(nodeKey1));
-        assertThat(compute().executeColocatedAsync(table.name(), 2L, mapper, List.of(), "job"), willBe(nodeKey2));
+        assertThat(compute().executeColocatedAsync(table.name(), 1L, mapper, job), willBe(nodeKey1));
+        assertThat(compute().executeColocatedAsync(table.name(), 2L, mapper, job), willBe(nodeKey2));
     }
 
     @ParameterizedTest

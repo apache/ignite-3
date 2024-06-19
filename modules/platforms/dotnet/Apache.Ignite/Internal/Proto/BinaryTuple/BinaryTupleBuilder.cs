@@ -919,6 +919,11 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                     AppendNull(); // Value.
                     break;
 
+                case bool b:
+                    AppendTypeAndScale(ColumnType.Boolean);
+                    AppendBool(b);
+                    break;
+
                 case int i32:
                     AppendTypeAndScale(ColumnType.Int32);
                     AppendInt(i32);
@@ -993,6 +998,16 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                 case Instant instant:
                     AppendTypeAndScale(ColumnType.Timestamp);
                     AppendTimestamp(instant, timestampPrecision);
+                    break;
+
+                case Period period:
+                    AppendTypeAndScale(ColumnType.Period);
+                    AppendPeriod(period);
+                    break;
+
+                case Duration duration:
+                    AppendTypeAndScale(ColumnType.Duration);
+                    AppendDuration(duration);
                     break;
 
                 case BitArray bitArray:

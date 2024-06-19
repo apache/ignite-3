@@ -35,6 +35,7 @@ dependencies {
     implementation project(':ignite-network-api')
     implementation project(':ignite-placement-driver-api')
     implementation project(':ignite-failure-handler')
+    implementation project(':ignite-affinity')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
     implementation libs.auto.service.annotations

@@ -52,11 +52,13 @@ import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
+import static org.apache.ignite.internal.raft.PeersAndLearners.fromAssignments;
 import static org.apache.ignite.internal.table.distributed.TableUtils.droppedTables;
 import static org.apache.ignite.internal.table.distributed.index.IndexUtils.registerIndexesToTable;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
+import static org.apache.ignite.internal.util.CompletableFutures.allOfToList;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -73,7 +75,6 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -139,8 +140,11 @@ import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.SimpleCondition;
 import org.apache.ignite.internal.network.MessagingService;
+import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
+import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.raft.ExecutorInclinedRaftCommandRunner;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
@@ -151,6 +155,7 @@ import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.raft.storage.SnapshotStorageFactory;
 import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
+import org.apache.ignite.internal.replicator.ReplicaManager.WeakReplicaStopReason;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
@@ -216,7 +221,6 @@ import org.apache.ignite.internal.worker.ThreadAssertions;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.Table;
 import org.jetbrains.annotations.Nullable;
@@ -605,8 +609,24 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             implicitTransactionTimeout = txCfg.implicitTransactionTimeout().value();
             attemptsObtainLock = txCfg.attemptsObtainLock().value();
 
+            executorInclinedPlacementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, this::onPrimaryReplicaExpired);
+
             return nullCompletedFuture();
         });
+    }
+
+    private CompletableFuture<Boolean> onPrimaryReplicaExpired(PrimaryReplicaEventParameters parameters) {
+        if (topologyService.localMember().id().equals(parameters.leaseholderId())) {
+            TablePartitionId groupId = (TablePartitionId) parameters.groupId();
+
+            replicaMgr.weakStopReplica(
+                    groupId,
+                    WeakReplicaStopReason.PRIMARY_EXPIRED,
+                    () -> stopAndDestroyPartition(groupId, tablesVv.latestCausalityToken())
+            );
+        }
+
+        return falseCompletedFuture();
     }
 
     private void processAssignmentsOnRecovery(long recoveryRevision) {
@@ -857,9 +877,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             int zoneId,
             boolean isRecovery
     ) {
-        PeersAndLearners realConfiguration = configurationFromAssignments(assignments.nodes());
+        PeersAndLearners realConfiguration = fromAssignments(assignments.nodes());
         PeersAndLearners newConfiguration = nonStableNodeAssignments == null
-                ? realConfiguration : configurationFromAssignments(nonStableNodeAssignments.nodes());
+                ? realConfiguration : fromAssignments(nonStableNodeAssignments.nodes());
 
         var safeTimeTracker = new PendingComparableValuesTracker<HybridTimestamp, Void>(
                 new HybridTimestamp(1, 0)
@@ -916,12 +936,17 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 )
                 : trueCompletedFuture();
 
-        return shouldStartGroupFut
-                .thenComposeAsync(startGroup -> inBusyLock(busyLock, () -> {
-                    // (1) if partitionReplicatorNodeRecovery#initiateGroupReentryIfNeeded fails => do start nothing
-                    if (!startGroup) {
-                        return falseCompletedFuture();
-                    }
+            Assignments forcedAssignments = nonStableNodeAssignments != null && nonStableNodeAssignments.force()
+                    ? nonStableNodeAssignments
+                    : null;
+
+            return replicaMgr.weakStartReplica(
+                    replicaGrpId,
+                    () -> shouldStartGroupFut.thenComposeAsync(startGroup -> inBusyLock(busyLock, () -> {
+                        // (1) if partitionReplicatorNodeRecovery#initiateGroupReentryIfNeeded fails => do start nothing
+                        if (!startGroup) {
+                            return falseCompletedFuture();
+                        }
 
                     // (2) if replica already started => check force reset and finish the process
                     if (replicaMgr.isReplicaStarted(replicaGrpId)) {
@@ -988,7 +1013,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         throw new CompletionException(ex);
                     }
                     return null;
-                });
+                }),
+                forcedAssignments);
     }
 
     private boolean shouldStartRaftListeners(Assignments assignments, @Nullable Assignments nonStableNodeAssignments) {
@@ -1472,7 +1498,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             .map(tableDescriptor -> tableAsyncInternalBusy(tableDescriptor.id()))
                             .toArray(CompletableFuture[]::new);
 
-                    return CompletableFutures.allOf(tableImplFutures);
+                    return allOfToList(tableImplFutures);
                 }));
     }
 
@@ -1741,9 +1767,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         if (LOG.isInfoEnabled()) {
                             var stringKey = new String(pendingAssignmentsEntry.key(), UTF_8);
 
-                            LOG.info("Received update on pending assignments. Check if new raft group should be started"
-                                            + " [key={}, partition={}, table={}, localMemberAddress={}, pendingAssignments={}]",
-                                    stringKey, partId, table.name(), localNode().address(), pendingAssignments);
+                            LOG.info("Received update on pending assignments. Check if new raft group should be started [key={}, "
+                                            + "partition={}, table={}, localMemberAddress={}, pendingAssignments={}, revision={}]",
+                                    stringKey, partId, table.name(), localNode().address(), pendingAssignments, revision);
                         }
 
                         return setTablesPartitionCountersForRebalance(replicaGrpId, revision, pendingAssignments.force())
@@ -1840,7 +1866,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         } else {
             localServicesStartFuture = runAsync(() -> {
                 if (pendingAssignmentsAreForced && replicaMgr.isReplicaStarted(replicaGrpId)) {
-                    replicaMgr.resetPeers(replicaGrpId, configurationFromAssignments(nonStableNodeAssignmentsFinal.nodes()));
+                    replicaMgr.resetPeers(replicaGrpId, fromAssignments(nonStableNodeAssignmentsFinal.nodes()));
                 }
             }, ioExecutor);
         }
@@ -1859,7 +1885,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             tbl.internalTable()
                     .tableRaftService()
                     .partitionRaftGroupService(partitionId)
-                    .updateConfiguration(configurationFromAssignments(cfg));
+                    .updateConfiguration(fromAssignments(cfg));
         }, ioExecutor);
     }
 
@@ -1964,7 +1990,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                 }
 
                                 PeersAndLearners newConfiguration =
-                                        configurationFromAssignments(pendingAssignments);
+                                        fromAssignments(pendingAssignments);
 
                                 return partGrpSvc.changePeersAsync(newConfiguration, leaderWithTerm.term());
                             });
@@ -2065,21 +2091,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 LOG.warn("Unable to process switch reduce event", e);
             }
         };
-    }
-
-    private static PeersAndLearners configurationFromAssignments(Collection<Assignment> assignments) {
-        var peers = new HashSet<String>();
-        var learners = new HashSet<String>();
-
-        for (Assignment assignment : assignments) {
-            if (assignment.isPeer()) {
-                peers.add(assignment.consistentId());
-            } else {
-                learners.add(assignment.consistentId());
-            }
-        }
-
-        return PeersAndLearners.fromConsistentIds(peers, learners);
     }
 
     /**
@@ -2192,6 +2203,14 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     ? Assignments.EMPTY
                     : Assignments.fromBytes(pendingAssignmentsFromMetaStorage);
 
+            if (LOG.isInfoEnabled()) {
+                var stringKey = new String(stableAssignmentsWatchEvent.key(), UTF_8);
+
+                LOG.info("Received update on stable assignments [key={}, partition={}, localMemberAddress={}, "
+                                + "stableAssignments={}, pendingAssignments={}, revision={}]", stringKey, tablePartitionId,
+                        localNode().address(), stableAssignments, pendingAssignments, revision);
+            }
+
             return stopAndDestroyPartitionAndUpdateClients(
                     tablePartitionId,
                     stableAssignments,
@@ -2216,7 +2235,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             t.get(tablePartitionId.tableId()).internalTable()
                     .tableRaftService()
                     .partitionRaftGroupService(tablePartitionId.partitionId())
-                    .updateConfiguration(configurationFromAssignments(stableAssignments));
+                    .updateConfiguration(fromAssignments(stableAssignments));
         });
     }
 
@@ -2241,21 +2260,42 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         if (shouldStopLocalServices) {
             return allOf(
                     clientUpdateFuture,
-                    stopAndDestroyPartition(tablePartitionId, revision)
+                    weakStopAndDestroyPartition(tablePartitionId, revision)
             );
         } else {
             return clientUpdateFuture;
         }
     }
 
+    private CompletableFuture<Void> weakStopAndDestroyPartition(TablePartitionId tablePartitionId, long causalityToken) {
+        return replicaMgr.weakStopReplica(
+                tablePartitionId,
+                WeakReplicaStopReason.EXCLUDED_FROM_ASSIGNMENTS,
+                () -> stopAndDestroyPartition(tablePartitionId, causalityToken)
+        );
+    }
+
     private CompletableFuture<Void> stopAndDestroyPartition(TablePartitionId tablePartitionId, long causalityToken) {
-        return tablesVv.get(causalityToken)
+        return tablesVv
+                .get(causalityToken)
                 .thenCompose(ignore -> {
                     TableImpl table = tables.get(tablePartitionId.tableId());
 
                     return stopPartition(tablePartitionId, table)
                             .thenComposeAsync(v -> destroyPartitionStorages(tablePartitionId, table), ioExecutor);
                 });
+    }
+
+    /**
+     * Stops all resources associated with a given partition, like replicas and partition trackers. Calls
+     * {@link ReplicaManager#weakStopReplica} in order to change the replica state.
+     *
+     * @param tablePartitionId Partition ID.
+     * @param table Table which this partition belongs to.
+     * @return Future that will be completed after all resources have been closed.
+     */
+    private CompletableFuture<Void> stopPartitionForRestart(TablePartitionId tablePartitionId, TableImpl table) {
+        return replicaMgr.weakStopReplica(tablePartitionId, WeakReplicaStopReason.RESTART, () -> stopPartition(tablePartitionId, table));
     }
 
     /**
@@ -2496,7 +2536,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         return inBusyLockAsync(busyLock, () -> tablesVv.get(revision).thenComposeAsync(unused -> inBusyLockAsync(busyLock, () -> {
             TableImpl table = tables.get(tablePartitionId.tableId());
 
-            return stopPartition(tablePartitionId, table).thenComposeAsync(unused1 -> {
+            return stopPartitionForRestart(tablePartitionId, table).thenComposeAsync(unused1 -> {
                 Assignments stableAssignments = stableAssignments(tablePartitionId, revision);
 
                 assert stableAssignments != null : "tablePartitionId=" + tablePartitionId + ", revision=" + revision;

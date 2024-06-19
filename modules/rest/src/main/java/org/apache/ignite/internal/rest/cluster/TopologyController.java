@@ -26,12 +26,12 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.rest.ResourceHolder;
 import org.apache.ignite.internal.rest.api.cluster.ClusterNode;
 import org.apache.ignite.internal.rest.api.cluster.NetworkAddress;
 import org.apache.ignite.internal.rest.api.cluster.NodeMetadata;
 import org.apache.ignite.internal.rest.api.cluster.TopologyApi;
-import org.apache.ignite.network.TopologyService;
 
 /**
  * Cluster topology endpoint implementation.

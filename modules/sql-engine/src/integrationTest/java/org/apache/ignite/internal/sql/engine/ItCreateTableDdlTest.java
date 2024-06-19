@@ -25,8 +25,11 @@ import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThro
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_PARSE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
 import java.util.Objects;
@@ -39,6 +42,8 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.sql.SqlException;
+import org.apache.ignite.table.Table;
+import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.AfterEach;
@@ -219,6 +224,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
 
     @Test
     public void literalAsColumDefault() {
+        // SQL Standard 2016 feature E141-07 - Basic integrity constraints. Column defaults
         sql("CREATE TABLE T0("
                 + "id BIGINT DEFAULT 1 PRIMARY KEY, "
                 + "valdate DATE DEFAULT DATE '2001-12-21',"
@@ -236,6 +242,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
     @Test
     @SuppressWarnings("ThrowableNotThrown")
     public void doNotAllowFunctionsInNonPkColumns() {
+        // SQL Standard 2016 feature E141-07 - Basic integrity constraints. Column defaults
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
                 "Functional defaults are not supported for non-primary key columns",
@@ -411,6 +418,32 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
                 "Length for column 'ID' of type 'BYTE_ARRAY' must be at least 1",
                 () -> sql("CREATE TABLE TEST(ID VARBINARY(0) PRIMARY KEY, VAL0 INT)")
         );
+    }
+
+    @Test
+    public void quotedTableName() {
+        sql("CREATE TABLE \"table Test\" (key INT PRIMARY KEY, \"Col 1\" INT)");
+        sql("CREATE TABLE \"table\"\"Test\"\"\" (key INT PRIMARY KEY, \"Col\"\"1\"\"\" INT)");
+
+        sql("INSERT INTO \"table Test\" VALUES (1, 1)");
+        sql("INSERT INTO \"table\"\"Test\"\"\" VALUES (1, 2)");
+
+        IgniteImpl node = CLUSTER.node(0);
+
+        assertThrows(IllegalArgumentException.class, () -> node.tables().table("table Test"));
+        assertThrows(IllegalArgumentException.class, () -> node.tables().table("table\"Test\""));
+        assertThrows(IllegalArgumentException.class, () -> node.tables().table("table\"\"Test\"\""));
+
+        Table table = node.tables().table("\"table Test\"");
+        assertNotNull(table);
+        assertThat(table.keyValueView().get(null, Tuple.create().set("key", 1)), equalTo(Tuple.create().set("\"Col 1\"", 1)));
+
+        table = node.tables().table("\"table\"\"Test\"\"\"");
+        assertNotNull(table);
+        assertThat(table.keyValueView().get(null, Tuple.create().set("key", 1)), equalTo(Tuple.create().set("\"Col\"\"1\"\"\"", 2)));
+
+        sql("DROP TABLE \"table Test\"");
+        sql("DROP TABLE \"table\"\"Test\"\"\"");
     }
 
     private static CatalogZoneDescriptor getDefaultZone(IgniteImpl node) {

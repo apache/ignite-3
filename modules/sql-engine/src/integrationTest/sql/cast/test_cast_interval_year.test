@@ -1,0 +1,139 @@
+# name: test/sql/cast/test_cast_interval_year.test
+# description: CAST INTERVAL YEAR/MONTH
+# feature: SQL F201(CAST function)
+# group: [cast]
+
+query T
+SELECT CAST(INTERVAL 1 YEARS AS INTERVAL YEARS);
+----
+P1Y
+
+query T
+SELECT CAST('1' AS INTERVAL YEARS);
+----
+P1Y
+
+query T
+SELECT CAST('1'::VARCHAR AS INTERVAL YEARS);
+----
+P1Y
+
+statement error: Cast function cannot convert value of type DATE to type INTERVAL YEAR
+SELECT CAST('2000-01-01'::DATE AS INTERVAL YEARS);
+
+statement error: Cast function cannot convert value of type TIME(0) to type INTERVAL YEAR
+SELECT CAST('10:11:12'::TIME AS INTERVAL YEARS);
+
+statement error: Cast function cannot convert value of type TIMESTAMP(6) to type INTERVAL YEAR
+SELECT CAST('2000-01-01 10:11:12'::TIMESTAMP AS INTERVAL YEARS);
+
+statement error: Cast function cannot convert value of type DATE to type INTERVAL YEAR
+SELECT CAST('2000-01-01'::DATE AS INTERVAL YEARS);
+
+statement error: Cast function cannot convert value of type BOOLEAN to type INTERVAL YEAR
+SELECT CAST(TRUE AS INTERVAL YEARS);
+
+# https://issues.apache.org/jira/browse/IGNITE-22471
+# Similar CAST expressions produce completely different results
+skipif ignite3
+query T
+SELECT CAST(1::TINYINT AS INTERVAL YEARS);
+----
+P1Y
+
+# https://issues.apache.org/jira/browse/IGNITE-22471
+# Similar CAST expressions produce completely different results
+skipif ignite3
+# returns P1M
+query T
+SELECT CAST(1::SMALLINT AS INTERVAL YEARS);
+----
+P1Y
+
+query T
+SELECT CAST(1 AS INTERVAL YEARS);
+----
+P1Y
+
+# https://issues.apache.org/jira/browse/IGNITE-22471
+# Similar CAST expressions produce completely different results
+skipif ignite3
+query T
+SELECT CAST(1::INT AS INTERVAL YEARS);
+----
+PT24H
+
+# https://issues.apache.org/jira/browse/IGNITE-22471
+# Similar CAST expressions produce completely different results
+skipif ignite3
+query T
+SELECT CAST(1::BIGINT AS INTERVAL YEARS);
+----
+PT24H
+
+statement error: Cast function cannot convert value of type REAL to type INTERVAL YEAR
+SELECT CAST(1.0::REAL AS INTERVAL YEARS);
+
+statement error: Cast function cannot convert value of type FLOAT to type INTERVAL YEAR
+SELECT CAST(1.0::FLOAT AS INTERVAL YEARS);
+
+statement error: Cast function cannot convert value of type DOUBLE to type INTERVAL YEAR
+SELECT CAST(1.0::DOUBLE AS INTERVAL YEARS);
+
+# https://issues.apache.org/jira/browse/IGNITE-22471
+# Similar CAST expressions produce completely different results
+skipif ignite3
+query T
+SELECT CAST(1::DECIMAL(5) AS INTERVAL YEARS);
+----
+P1Y
+
+# https://issues.apache.org/jira/browse/IGNITE-22471
+# Similar CAST expressions produce completely different results
+skipif ignite3
+query T
+SELECT CAST(1.25::DECIMAL(5, 2) AS INTERVAL YEARS);
+----
+P1Y
+
+statement error: Cast function cannot convert value of type UUID to type INTERVAL YEAR
+SELECT CAST('c4a0327c-44be-416d-ae90-75c05079789f'::UUID AS INTERVAL YEARS);
+
+statement error: Cast function cannot convert value of type VARBINARY to type INTERVAL YEAR
+SELECT CAST(x'00'::VARBINARY AS INTERVAL YEARS);
+
+statement error: Cast function cannot convert value of type BINARY(1) to type INTERVAL YEAR
+SELECT CAST(x'00'::BINARY AS INTERVAL YEARS);
+
+query T
+SELECT CAST(1 AS INTERVAL YEAR);
+----
+P1Y
+
+query T
+SELECT CAST(1 AS INTERVAL MONTH);
+----
+P1M
+
+# https://issues.apache.org/jira/browse/IGNITE-22471
+# Similar CAST expressions produce completely different results
+skipif ignite3
+query T
+SELECT CAST(1::INT AS INTERVAL YEAR);
+----
+P1Y
+
+query T
+SELECT CAST(1::INT AS INTERVAL MONTH);
+----
+P1M
+
+query T
+SELECT CAST('1-2' AS INTERVAL YEAR TO MONTH);
+----
+P1Y2M
+
+query T
+SELECT CAST('0-0' AS INTERVAL YEAR TO MONTH);
+----
+P0D

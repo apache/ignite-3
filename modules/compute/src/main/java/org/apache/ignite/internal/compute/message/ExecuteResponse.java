@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.compute.message;
 
-import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.internal.compute.ComputeMessageTypes;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Marshallable;
@@ -27,7 +27,7 @@ import org.apache.ignite.internal.network.annotations.Transferable;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Used to implement remote job execution in {@link org.apache.ignite.compute.IgniteCompute#execute(Set, List, String, Object...)}.
+ * Used to implement remote job execution in {@link org.apache.ignite.compute.IgniteCompute#execute(Set, JobDescriptor, Object...)}.
  */
 @Transferable(ComputeMessageTypes.EXECUTE_RESPONSE)
 public interface ExecuteResponse extends NetworkMessage {

@@ -32,13 +32,16 @@ option(ENABLE_UB_SANITIZER "If undefined behavior sanitizer is enabled" OFF)
 option(WARNINGS_AS_ERRORS "Treat warning as errors" OFF)
 option(INSTALL_IGNITE_FILES "Install Ignite files" ON)
 
-set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
+set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_BINARY_DIR})
 list(APPEND CMAKE_PREFIX_PATH ${CMAKE_BINARY_DIR})
 
 get_property(is_multi_config GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
 
 include(dependencies)
+if(${INSTALL_IGNITE_FILES})
+    set(CMAKE_INSTALL_PREFIX ${IGNITE_INSTALL_DESTINATION})
+endif()
 
 # Configure build paths.
 if (is_multi_config)

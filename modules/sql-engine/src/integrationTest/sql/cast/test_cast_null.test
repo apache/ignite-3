@@ -1,0 +1,14 @@
+# name: test/sql/cast/test_cast_null.test
+# description: CAST NULL
+# feature: SQL F201(CAST function)
+# group: [cast]
+
+statement error: Failed to parse query: Incorrect syntax near the keyword 'NULL'
+SELECT CAST(NULL AS NULL);
+
+statement error: Failed to parse query: Encountered "::"
+SELECT NULL::NULL;
+
+statement error: Failed to parse query: Incorrect syntax near the keyword 'NULL'
+SELECT CAST(c AS NULL) FROM (VALUES ('a')) t(c);
+

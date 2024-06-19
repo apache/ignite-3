@@ -22,7 +22,7 @@ import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.convertT
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.JobStatus;
-import org.apache.ignite.compute.TaskExecution;
+import org.apache.ignite.compute.task.TaskExecution;
 import org.jetbrains.annotations.Nullable;
 
 /**

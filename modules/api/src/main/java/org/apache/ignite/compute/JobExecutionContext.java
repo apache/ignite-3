@@ -31,9 +31,9 @@ public interface JobExecutionContext {
     Ignite ignite();
 
     /**
-     * Flag indicating whether the job was interrupted.
+     * Flag indicating whether the job was cancelled.
      *
-     * @return {@code true} when the job was interrupted.
+     * @return {@code true} when the job was cancelled.
      */
-    boolean isInterrupted();
+    boolean isCancelled();
 }
