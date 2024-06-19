@@ -621,9 +621,15 @@ namespace Apache.Ignite.Tests.Compute
         public async Task TestJobExecutionOptionsPropagation()
         {
             // ReSharper disable once WithExpressionModifiesAllMembers
-            var options = JobExecutionOptions.Default with { Priority = 999, MaxRetries = 66 };
-            var units = new DeploymentUnit[] { new("unit1", "1.0.0") };
-            var job = new JobDescriptor(FakeServer.GetDetailsJob, units, options);
+            var job = new JobDescriptor(FakeServer.GetDetailsJob)
+            {
+                Options = JobExecutionOptions.Default with
+                {
+                    Priority = 999,
+                    MaxRetries = 66
+                },
+                DeploymentUnits = new DeploymentUnit[] { new("unit1", "1.0.0") }
+            };
 
             using var server = new FakeServer();
             using var client = await server.ConnectClientAsync();
