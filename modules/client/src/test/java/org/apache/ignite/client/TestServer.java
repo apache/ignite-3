@@ -117,7 +117,6 @@ public class TestServer implements AutoCloseable {
                 null,
                 UUID.randomUUID(),
                 null,
-                null,
                 null
         );
     }
@@ -144,7 +143,8 @@ public class TestServer implements AutoCloseable {
                 clusterId,
                 securityConfiguration,
                 port,
-                null
+                null,
+                true
         );
     }
 
@@ -163,7 +163,8 @@ public class TestServer implements AutoCloseable {
             UUID clusterId,
             @Nullable SecurityConfiguration securityConfiguration,
             @Nullable Integer port,
-            @Nullable HybridClock clock
+            @Nullable HybridClock clock,
+            boolean enableRequestHandling
     ) {
         ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.PARANOID);
 
@@ -262,8 +263,8 @@ public class TestServer implements AutoCloseable {
 
         module.startAsync(componentContext).join();
 
-        if (shouldDropConnection == null) {
-            ((ClientHandlerModule) module).enable();
+        if (enableRequestHandling) {
+            enableClientRequestHandling();
         }
     }
 
@@ -331,6 +332,13 @@ public class TestServer implements AutoCloseable {
         assertThat(stopAsync(new ComponentContext(), module, authenticationManager, bootstrapFactory, cfg), willCompleteSuccessfully());
 
         generator.close();
+    }
+
+    /** Enables request handling. */
+    void enableClientRequestHandling() {
+        if (module instanceof ClientHandlerModule) {
+            ((ClientHandlerModule) module).enable();
+        }
     }
 
     private ClusterNode getClusterNode(String name) {

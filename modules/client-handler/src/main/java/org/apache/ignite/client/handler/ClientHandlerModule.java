@@ -258,7 +258,7 @@ public class ClientHandlerModule implements IgniteComponent {
         return (InetSocketAddress) ch.localAddress();
     }
 
-    /** Enables request processing. */
+    /** Enables request handling. */
     public void enable() {
         Channel channel0 = channel;
 
