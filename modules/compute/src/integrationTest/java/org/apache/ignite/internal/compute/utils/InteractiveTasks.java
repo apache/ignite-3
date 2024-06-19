@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.compute.utils;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -27,6 +28,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -60,16 +62,16 @@ public final class InteractiveTasks {
     private static final BlockingQueue<Object> GLOBAL_CHANNEL = new LinkedBlockingQueue<>();
 
     /**
-     * This counter indicated how many {@link GlobalInteractiveMapReduceTask#split(TaskExecutionContext, Object...)} methods are running
-     * now. This counter increased each time the {@link GlobalInteractiveMapReduceTask#split(TaskExecutionContext, Object...)} is called and
-     * decreased when the method is finished (whatever the result is). Checked in {@link #clearState}.
+     * This counter indicated how many {@link GlobalInteractiveMapReduceTask#splitAsync(TaskExecutionContext, Object...)} methods are
+     * running now. This counter increased each time the {@link GlobalInteractiveMapReduceTask#splitAsync(TaskExecutionContext, Object...)}
+     * is called and decreased when the method is finished (whatever the result is). Checked in {@link #clearState}.
      */
     private static final AtomicInteger RUNNING_GLOBAL_SPLIT_CNT = new AtomicInteger(0);
 
     /**
-     * This counter indicates how many {@link GlobalInteractiveMapReduceTask#reduce(TaskExecutionContext, Map)} methods are running now.
-     * This counter is increased every time the {@link GlobalInteractiveMapReduceTask#reduce(TaskExecutionContext, Map)} is called and
-     * decreased when the method is finished (whatever the result is). Checked in {@link #clearState}.
+     * This counter indicates how many {@link GlobalInteractiveMapReduceTask#reduceAsync(TaskExecutionContext, Map)} methods are running
+     * now. This counter is increased every time the {@link GlobalInteractiveMapReduceTask#reduceAsync(TaskExecutionContext, Map)} is called
+     * and decreased when the method is finished (whatever the result is). Checked in {@link #clearState}.
      */
     private static final AtomicInteger RUNNING_GLOBAL_REDUCE_CNT = new AtomicInteger(0);
 
@@ -168,7 +170,7 @@ public final class InteractiveTasks {
             }
         }
         @Override
-        public List<MapReduceJob> split(TaskExecutionContext context, Object... args) {
+        public CompletableFuture<List<MapReduceJob>> splitAsync(TaskExecutionContext context, Object... args) {
             RUNNING_GLOBAL_SPLIT_CNT.incrementAndGet();
 
             offerArgsAsSignals(args);
@@ -189,12 +191,12 @@ public final class InteractiveTasks {
                             GLOBAL_CHANNEL.offer(ACK);
                             break;
                         case SPLIT_RETURN_ALL_NODES:
-                            return context.ignite().clusterNodes().stream().map(node ->
+                            return completedFuture(context.ignite().clusterNodes().stream().map(node ->
                                     MapReduceJob.builder()
                                             .jobDescriptor(JobDescriptor.builder(InteractiveJobs.interactiveJobName()).build())
                                             .nodes(Set.of(node))
                                             .build()
-                            ).collect(toList());
+                            ).collect(toList()));
                         case CHECK_CANCEL:
                             if (context.isCancelled()) {
                                 throw new RuntimeException("Task is cancelled");
@@ -210,7 +212,7 @@ public final class InteractiveTasks {
         }
 
         @Override
-        public List<String> reduce(TaskExecutionContext context, Map<UUID, ?> results) {
+        public CompletableFuture<List<String>> reduceAsync(TaskExecutionContext context, Map<UUID, ?> results) {
             RUNNING_GLOBAL_REDUCE_CNT.incrementAndGet();
             try {
                 while (true) {
@@ -222,9 +224,9 @@ public final class InteractiveTasks {
                             GLOBAL_CHANNEL.offer(ACK);
                             break;
                         case REDUCE_RETURN:
-                            return results.values().stream()
+                            return completedFuture(results.values().stream()
                                     .map(String.class::cast)
-                                    .collect(toList());
+                                    .collect(toList()));
                         case CHECK_CANCEL:
                             if (context.isCancelled()) {
                                 throw new RuntimeException("Task is cancelled");

@@ -35,6 +35,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Period;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.BitSet;
@@ -42,11 +43,21 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
+import org.apache.calcite.avatica.util.ByteString;
+import org.apache.calcite.rex.RexBuilder;
+import org.apache.calcite.rex.RexLiteral;
+import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.calcite.util.DateString;
+import org.apache.calcite.util.TimeString;
+import org.apache.calcite.util.TimestampString;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
+import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
+import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.lang.ErrorGroup;
 import org.apache.ignite.lang.ErrorGroups;
@@ -275,4 +286,69 @@ public class SqlTestUtils {
         return result;
     }
 
+    /** Generates literal or value expression using specified column type and value. */
+    public static RexNode generateLiteralOrValueExpr(ColumnType type, Object value) {
+        RexBuilder rexBuilder = Commons.rexBuilder();
+        IgniteTypeFactory typeFactory = Commons.typeFactory();
+
+        switch (type) {
+            case NULL:
+                return rexBuilder.makeNullLiteral(typeFactory.createSqlType(SqlTypeName.NULL));
+            case BOOLEAN:
+                return rexBuilder.makeLiteral(value, typeFactory.createSqlType(SqlTypeName.BOOLEAN));
+            case INT8:
+                return rexBuilder.makeLiteral(value, typeFactory.createSqlType(SqlTypeName.TINYINT));
+            case INT16:
+                return rexBuilder.makeLiteral(value, typeFactory.createSqlType(SqlTypeName.SMALLINT));
+            case INT32:
+                return rexBuilder.makeLiteral(value, typeFactory.createSqlType(SqlTypeName.INTEGER));
+            case INT64:
+                return rexBuilder.makeLiteral(value, typeFactory.createSqlType(SqlTypeName.BIGINT));
+            case FLOAT:
+                return rexBuilder.makeLiteral(value, typeFactory.createSqlType(SqlTypeName.REAL));
+            case DOUBLE:
+                return rexBuilder.makeLiteral(value, typeFactory.createSqlType(SqlTypeName.DOUBLE));
+            case DECIMAL:
+                return rexBuilder.makeLiteral(value, typeFactory.createSqlType(SqlTypeName.DECIMAL));
+            case DATE:
+                LocalDate localDate = (LocalDate) value;
+                int epochDay = (int) localDate.toEpochDay();
+
+                return rexBuilder.makeDateLiteral(DateString.fromDaysSinceEpoch(epochDay));
+            case TIME:
+                LocalTime time = (LocalTime) value;
+                int millisOfDay = (int) TimeUnit.NANOSECONDS.toMillis(time.toNanoOfDay());
+
+                return rexBuilder.makeTimeLiteral(TimeString.fromMillisOfDay(millisOfDay), 6);
+            case DATETIME:
+                LocalDateTime localDateTime = (LocalDateTime) value;
+                Instant instant1 = localDateTime.toInstant(ZoneOffset.UTC);
+                TimestampString timestampString = TimestampString.fromMillisSinceEpoch(instant1.toEpochMilli());
+
+                return rexBuilder.makeTimestampWithLocalTimeZoneLiteral(timestampString, 6);
+            case TIMESTAMP:
+                Instant instant = (Instant) value;
+
+                return rexBuilder.makeTimestampLiteral(TimestampString.fromMillisSinceEpoch(instant.toEpochMilli()), 6);
+            case UUID:
+                RexLiteral uuidStr = rexBuilder.makeLiteral(value.toString(), typeFactory.createSqlType(SqlTypeName.VARCHAR));
+                IgniteCustomType uuidType = typeFactory.createCustomType(UuidType.NAME);
+
+                return rexBuilder.makeCast(uuidType, uuidStr);
+            case BITMASK:
+                throw new IllegalArgumentException("Not supported: " + type);
+            case STRING:
+                return rexBuilder.makeLiteral(value, typeFactory.createSqlType(SqlTypeName.VARCHAR));
+            case BYTE_ARRAY:
+                byte[] bytes = (byte[]) value;
+                ByteString byteStr = new ByteString(bytes);
+                return rexBuilder.makeLiteral(byteStr, typeFactory.createSqlType(SqlTypeName.VARBINARY));
+            case PERIOD:
+            case DURATION:
+            case NUMBER:
+                throw new IllegalArgumentException("Not supported: " + type);
+            default:
+                throw new IllegalArgumentException("Unexpected type: " + type);
+        }
+    }
 }

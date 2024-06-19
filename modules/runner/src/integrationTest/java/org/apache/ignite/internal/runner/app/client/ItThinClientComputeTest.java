@@ -834,71 +834,71 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     private static class MapReduceNodeNameTask implements MapReduceTask<Object[], String> {
         @Override
-        public List<MapReduceJob> split(TaskExecutionContext context, Object... args) {
-            return context.ignite().clusterNodes().stream()
+        public CompletableFuture<List<MapReduceJob>> splitAsync(TaskExecutionContext context, Object... args) {
+            return completedFuture(context.ignite().clusterNodes().stream()
                     .map(node -> MapReduceJob.builder()
                             .jobDescriptor(JobDescriptor.builder(NodeNameJob.class).build())
                             .nodes(Set.of(node))
                             .args(args)
                             .build())
-                    .collect(Collectors.toList());
+                    .collect(Collectors.toList()));
         }
 
         @Override
-        public String reduce(TaskExecutionContext context, Map<UUID, ?> results) {
-            return results.values().stream()
+        public CompletableFuture<String> reduceAsync(TaskExecutionContext context, Map<UUID, ?> results) {
+            return completedFuture(results.values().stream()
                     .map(String.class::cast)
-                    .collect(Collectors.joining(","));
+                    .collect(Collectors.joining(",")));
         }
     }
 
     private static class MapReduceArgsTask implements MapReduceTask<Object[], String> {
         @Override
-        public List<MapReduceJob> split(TaskExecutionContext context, Object... args) {
-            return context.ignite().clusterNodes().stream()
+        public CompletableFuture<List<MapReduceJob>> splitAsync(TaskExecutionContext context, Object... args) {
+            return completedFuture(context.ignite().clusterNodes().stream()
                     .map(node -> MapReduceJob.builder()
                             .jobDescriptor(JobDescriptor.builder(ConcatJob.class).build())
                             .nodes(Set.of(node))
                             .args(args)
                             .build())
-                    .collect(Collectors.toList());
+                    .collect(Collectors.toList()));
         }
 
         @Override
-        public String reduce(TaskExecutionContext context, Map<UUID, ?> results) {
-            return results.values().stream()
+        public CompletableFuture<String> reduceAsync(TaskExecutionContext context, Map<UUID, ?> results) {
+            return completedFuture(results.values().stream()
                     .map(String.class::cast)
-                    .collect(Collectors.joining(","));
+                    .collect(Collectors.joining(",")));
         }
     }
 
     private static class MapReduceExceptionOnSplitTask implements MapReduceTask<Object[], String> {
         @Override
-        public List<MapReduceJob> split(TaskExecutionContext context, Object... args) {
+        public CompletableFuture<List<MapReduceJob>> splitAsync(TaskExecutionContext context, Object... args) {
             throw new CustomException(TRACE_ID, COLUMN_ALREADY_EXISTS_ERR, "Custom job error", null);
         }
 
         @Override
-        public String reduce(TaskExecutionContext context, Map<UUID, ?> results) {
-            return "expected split exception";
+        public CompletableFuture<String> reduceAsync(TaskExecutionContext context, Map<UUID, ?> results) {
+            return completedFuture("expected split exception");
         }
     }
 
     private static class MapReduceExceptionOnReduceTask implements MapReduceTask<Object[], String> {
 
         @Override
-        public List<MapReduceJob> split(TaskExecutionContext context, Object... args) {
-            return context.ignite().clusterNodes().stream()
+        public CompletableFuture<List<MapReduceJob>> splitAsync(TaskExecutionContext context, Object... args) {
+            return completedFuture(context.ignite().clusterNodes().stream()
                     .map(node -> MapReduceJob.builder()
                             .jobDescriptor(JobDescriptor.builder(NodeNameJob.class).build())
                             .nodes(Set.of(node))
                             .args(args)
                             .build())
-                    .collect(Collectors.toList());
+                    .collect(Collectors.toList()));
         }
 
         @Override
-        public String reduce(TaskExecutionContext context, Map<UUID, ?> results) {
+        public CompletableFuture<String> reduceAsync(TaskExecutionContext context, Map<UUID, ?> results) {
             throw new CustomException(TRACE_ID, COLUMN_ALREADY_EXISTS_ERR, "Custom job error", null);
         }
     }

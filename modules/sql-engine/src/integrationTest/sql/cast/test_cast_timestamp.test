@@ -1,0 +1,72 @@
+# name: test/sql/cast/test_cast_timestamp.test
+# description: CAST TIME
+# feature: SQL F201(CAST function)
+# group: [cast]
+
+query T
+SELECT CAST('1992-01-01 10:11:12' AS TIMESTAMP);
+----
+1992-01-01T10:11:12
+
+query T
+SELECT CAST('1992-01-01 10:11:12'::TIMESTAMP AS TIMESTAMP);
+----
+1992-01-01T10:11:12
+
+query T
+SELECT CAST('1992-01-01 10:11:12'::VARCHAR AS TIMESTAMP);
+----
+1992-01-01T10:11:12
+
+query T
+SELECT CAST('1992-01-01 10:11:12'::CHAR(19) AS TIMESTAMP);
+----
+1992-01-01T10:11:12
+
+# Current Date + time
+statement ok
+SELECT CAST('10:11:12'::TIME AS TIMESTAMP);
+
+query T
+SELECT CAST('1992-01-01'::DATE AS TIMESTAMP);
+----
+1992-01-01T00:00
+
+statement error: Cast function cannot convert value of type BOOLEAN to type TIMESTAMP(6)
+SELECT CAST(TRUE AS TIMESTAMP);
+
+statement error: Cast function cannot convert value of type TINYINT to type TIMESTAMP(6)
+SELECT CAST(1::TINYINT AS TIMESTAMP);
+
+statement error: Cast function cannot convert value of type SMALLINT to type TIMESTAMP(6)
+SELECT CAST(1::SMALLINT AS TIMESTAMP);
+
+statement error: Cast function cannot convert value of type INTEGER to type TIMESTAMP(6)
+SELECT CAST(1::INT AS TIMESTAMP);
+
+statement error: Cast function cannot convert value of type BIGINT to type TIMESTAMP(6)
+SELECT CAST(1::BIGINT AS TIMESTAMP);
+
+statement error: Cast function cannot convert value of type REAL to type TIMESTAMP(6)
+SELECT CAST(1.0::REAL AS TIMESTAMP);
+
+statement error: Cast function cannot convert value of type FLOAT to type TIMESTAMP(6)
+SELECT CAST(1.0::FLOAT AS TIMESTAMP);
+
+statement error: Cast function cannot convert value of type DOUBLE to type TIMESTAMP(6)
+SELECT CAST(1.0::DOUBLE AS TIMESTAMP);
+
+statement error: Cast function cannot convert value of type  DECIMAL(5, 0) to type TIMESTAMP(6)
+SELECT CAST(1::DECIMAL(5) AS TIMESTAMP);
+
+statement error: Cast function cannot convert value of type DECIMAL(5, 2) to type TIMESTAMP(6)
+SELECT CAST(1::DECIMAL(5, 2) AS TIMESTAMP);
+
+statement error: Cast function cannot convert value of type UUID to type TIMESTAMP(6)
+SELECT CAST('c4a0327c-44be-416d-ae90-75c05079789f'::UUID AS TIMESTAMP);
+
+statement error: Cast function cannot convert value of type VARBINARY to type TIMESTAMP(6)
+SELECT CAST(x'00'::VARBINARY AS TIMESTAMP);
+
+statement error: Cast function cannot convert value of type BINARY(1) to type TIMESTAMP(6)
+SELECT CAST(x'00'::BINARY AS TIMESTAMP);

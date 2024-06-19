@@ -17,12 +17,14 @@
 
 package org.apache.ignite.internal.compute;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecutionOptions;
@@ -33,8 +35,8 @@ import org.apache.ignite.compute.task.TaskExecutionContext;
 /** Map reduce task which runs a {@link GetNodeNameJob} on each node and computes a sum of length of all node names. */
 public class MapReduce implements MapReduceTask<List<DeploymentUnit>, Integer> {
     @Override
-    public List<MapReduceJob> split(TaskExecutionContext taskContext, List<DeploymentUnit> deploymentUnits) {
-        return taskContext.ignite().clusterNodes().stream().map(node ->
+    public CompletableFuture<List<MapReduceJob>> splitAsync(TaskExecutionContext taskContext, List<DeploymentUnit> deploymentUnits) {
+        return taskContext.ignite().clusterNodesAsync().thenApply(nodes -> nodes.stream().map(node ->
                 MapReduceJob.builder()
                         .jobDescriptor(JobDescriptor.builder(GetNodeNameJob.class)
                                 .units(deploymentUnits)
@@ -45,15 +47,15 @@ public class MapReduce implements MapReduceTask<List<DeploymentUnit>, Integer> {
                                 .build())
                         .nodes(Set.of(node))
                         .build()
-        ).collect(toList());
+        ).collect(toList()));
     }
 
     @Override
-    public Integer reduce(TaskExecutionContext taskContext, Map<UUID, ?> results) {
-        return results.values().stream()
+    public CompletableFuture<Integer> reduceAsync(TaskExecutionContext taskContext, Map<UUID, ?> results) {
+        return completedFuture(results.values().stream()
                 .map(String.class::cast)
                 .map(String::length)
                 .reduce(Integer::sum)
-                .orElseThrow();
+                .orElseThrow());
     }
 }

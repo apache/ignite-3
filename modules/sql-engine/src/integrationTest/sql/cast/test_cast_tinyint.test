@@ -1,0 +1,146 @@
+# name: test/sql/cast/test_cast_tinyint.test
+# description: CAST TINYINT
+# feature: SQL F201(CAST function)
+# group: [cast]
+
+statement ok
+SELECT CAST('100' AS TINYINT);
+
+statement error
+SELECT CAST('100.1' AS TINYINT);
+
+query T
+SELECT CAST(1e1 AS TINYINT);
+----
+10
+
+statement error: For input string: "1e2"
+SELECT CAST('1e2' AS TINYINT);
+
+# overflow
+statement error
+SELECT CAST(1e5 AS TINYINT);
+
+# overflow
+statement error
+SELECT CAST(-1e5 AS TINYINT);
+
+query T
+SELECT CAST(100::SMALLINT AS TINYINT);
+----
+100
+
+query T
+SELECT CAST(100::INT AS TINYINT);
+----
+100
+
+query T
+SELECT CAST(100::BIGINT AS TINYINT);
+----
+100
+
+query T
+SELECT CAST(100::DECIMAL AS TINYINT);
+----
+100
+
+query T
+SELECT CAST(100::DECIMAL(3) AS TINYINT);
+----
+100
+
+query T
+SELECT CAST(100.1::DECIMAL(4, 1) AS TINYINT);
+----
+100
+
+query T
+SELECT CAST(100.1::REAL AS TINYINT);
+----
+100
+
+query T
+SELECT CAST(100.1::FLOAT AS TINYINT);
+----
+100
+
+query T
+SELECT CAST(100.1::DOUBLE AS TINYINT);
+----
+100
+
+statement error: Character x is neither a decimal digit number, decimal point, nor "e" notation exponential mark.
+SELECT CAST('100x' AS TINYINT);
+
+statement error: Cast function cannot convert value of type BINARY(1) to type TINYINT
+SELECT CAST(x'00' AS TINYINT);
+
+statement error: Cast function cannot convert value of type DATE to type TINYINT
+SELECT CAST('2000-01-01'::DATE AS TINYINT);
+
+statement error: Cast function cannot convert value of type TIME(0) to type TINYINT
+SELECT CAST('00:00:00'::TIME AS TINYINT);
+
+statement error: Cast function cannot convert value of type TIMESTAMP(6) to type TINYINT
+SELECT CAST('2000-01-01 00:00:00'::TIMESTAMP AS TINYINT);
+
+statement error: Cast function cannot convert value of type UUID to type TINYINT
+SELECT CAST('c4a0327c-44be-416d-ae90-75c05079789f'::UUID AS TINYINT);
+
+statement error: Cast function cannot convert value of type BINARY(1) to type TINYINT
+SELECT CAST(x'00'::BINARY AS TINYINT);
+
+statement error: Cast function cannot convert value of type VARBINARY to type TINYINT
+SELECT CAST(x'00'::VARBINARY AS TINYINT);
+
+query T
+SELECT CAST(INTERVAL 11 YEAR AS TINYINT);
+----
+11
+
+query T
+SELECT CAST(INTERVAL 11 MONTH AS TINYINT);
+----
+11
+
+query T
+SELECT CAST(INTERVAL 11 DAYS AS TINYINT);
+----
+11
+
+query T
+SELECT CAST(INTERVAL 11 HOURS AS TINYINT);
+----
+11
+
+query T
+SELECT CAST(INTERVAL 11 MINUTES AS TINYINT);
+----
+11
+
+query T
+SELECT CAST(INTERVAL 11 SECONDS AS TINYINT);
+----
+11
+
+statement error: Cast function cannot convert value of type INTERVAL DAY TO HOUR to type TINYINT
+SELECT CAST(INTERVAL '0 01' DAYS TO HOURS AS TINYINT);
+
+statement error: Cast function cannot convert value of type INTERVAL DAY TO MINUTE to type TINYINT
+SELECT CAST(INTERVAL '0 01:02' DAYS TO MINUTES AS TINYINT);
+
+statement error: Cast function cannot convert value of type INTERVAL DAY TO SECOND to type TINYINT
+SELECT CAST(INTERVAL '0 01:02:03' DAYS TO SECONDS AS TINYINT);
+
+statement error: Cast function cannot convert value of type INTERVAL HOUR TO MINUTE to type TINYINT
+SELECT CAST(INTERVAL '00:01' HOURS TO MINUTES AS TINYINT);
+
+statement error: Cast function cannot convert value of type INTERVAL HOUR TO SECOND to type TINYINT
+SELECT CAST(INTERVAL '00:01' HOURS TO SECONDS AS TINYINT);
+
+statement error: Cast function cannot convert value of type INTERVAL MINUTE TO SECOND to type TINYINT
+SELECT CAST(INTERVAL '00:01' MINUTES TO SECONDS AS TINYINT);
+
+statement error: Cast function cannot convert value of type INTERVAL YEAR TO MONTH to type TINYINT
+SELECT CAST(INTERVAL '1-1' YEARS TO MONTHS AS TINYINT);

@@ -1,5 +1,6 @@
-# name: test/sql/cast/test_boolean_cast.test
+# name: test/sql/cast/test_cast_boolean.test
 # description: SQL feature T031(BOOLEAN data type). Cast operator.
+# feature: SQL F201(CAST function)
 # group: [cast]
 
 statement ok
@@ -113,3 +114,12 @@ SELECT CAST(CAST('1970-1-1 00:00:00' AS timestamp) AS BOOLEAN)
 
 statement error: Cast function cannot convert value of type TIMESTAMP(9) to type BOOLEAN
 SELECT CAST(CAST('1970-1-1 00:00:00.000000000' AS timestamp(9)) AS BOOLEAN)
+
+statement error: Cast function cannot convert value of type UUID to type BOOLEAN
+SELECT CAST(CAST('c4a0327c-44be-416d-ae90-75c05079789f' AS UUID) AS BOOLEAN)
+
+statement error: Cast function cannot convert value of type BINARY(1) to type BOOLEAN
+SELECT CAST(CAST(x'00' AS BINARY) AS BOOLEAN)
+
+statement error: Cast function cannot convert value of type VARBINARY to type BOOLEAN
+SELECT CAST(CAST(x'00' AS VARBINARY) AS BOOLEAN)
