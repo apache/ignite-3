@@ -703,7 +703,17 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
         assertEquals(List.of(), actual);
     }
 
-    /** Ensures that row assembly from constant expressions (literals) is performed without compilation. */
+    /**
+     * Checks the execution of the {@link ExpressionFactory#rowSource(List)} method.
+     * <ul>
+     * <li>If the input list contains only constant expressions (literals), then row assembly must be performed without compiling the
+     * expressions.</li>
+     * <li>If the input list contains not only literals, then row assembly must be performed with compiling the expressions.</li>
+     * </ul>
+     *
+     * @param columnType Column type.
+     * @param literalsOnly Flag indicating that the list of input expressions should contain only literals.
+     */
     @ParameterizedTest(name = "type={0}, literals={1}")
     @MethodSource("rowSourceTestArgs")
     public void testRowSource(ColumnType columnType, boolean literalsOnly) {
