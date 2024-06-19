@@ -57,7 +57,6 @@ dependencies {
     implementation libs.value.annotations
     implementation libs.janino.compiler
     implementation libs.janino.core
-    implementation libs.calcite.avatica
     implementation libs.jackson.core
     implementation libs.jackson.databind
     implementation libs.jackson.annotations
@@ -91,10 +90,10 @@ dependencies {
     testImplementation project(':ignite-vault')
     testImplementation project(':ignite-placement-driver')
     testImplementation libs.jmh.core
-    testImplementation(testFixtures(project(':ignite-api')))
     testImplementation(testFixtures(project(':ignite-core')))
     testImplementation(testFixtures(project(':ignite-configuration')))
     testImplementation(testFixtures(project(':ignite-schema')))
+    testImplementation(testFixtures(project(':ignite-network-api')))
     testImplementation(testFixtures(project(':ignite-storage-api')))
     testImplementation(testFixtures(project(':ignite-sql-engine')))
     testImplementation(testFixtures(project(':ignite-distribution-zones')))

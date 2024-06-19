@@ -17,13 +17,16 @@
 
 package org.apache.ignite.internal.hlc;
 
-import static org.apache.ignite.internal.hlc.HybridClockTestUtils.mockToEpochMilli;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import java.time.Clock;
+import java.time.Instant;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -162,5 +165,15 @@ class HybridClockTest extends BaseIgniteAbstractTest {
         clock.now();
 
         verify(updateListener, never()).onUpdate(anyLong());
+    }
+
+    private static MockedStatic<Clock> mockToEpochMilli(long expected) {
+        Clock spyClock = spy(Clock.class);
+        MockedStatic<Clock> clockMock = mockStatic(Clock.class);
+
+        clockMock.when(Clock::systemUTC).thenReturn(spyClock);
+        when(spyClock.instant()).thenReturn(Instant.ofEpochMilli(expected));
+
+        return clockMock;
     }
 }

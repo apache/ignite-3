@@ -839,8 +839,11 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
                     b.AppendObjectWithType(date);
                     b.AppendObjectWithType(dateTime);
                     b.AppendObjectWithType(Instant.FromDateTimeUtc(utcNow));
+                    b.AppendObjectWithType(true);
+                    b.AppendObjectWithType(Period.FromDays(2));
+                    b.AppendObjectWithType(Duration.FromDays(3));
                 },
-                17 * 3);
+                20 * 3);
 
             Assert.IsNull(reader.GetObject(0));
             Assert.AreEqual(sbyte.MaxValue, reader.GetObject(3));
@@ -859,6 +862,9 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
             Assert.AreEqual(date, reader.GetObject(42));
             Assert.AreEqual(dateTime, reader.GetObject(45));
             Assert.AreEqual(Instant.FromDateTimeUtc(utcNow), reader.GetObject(48));
+            Assert.IsTrue((bool)reader.GetObject(51)!);
+            Assert.AreEqual(Period.FromDays(2), reader.GetObject(54));
+            Assert.AreEqual(Duration.FromDays(3), reader.GetObject(57));
         }
 
         [Test]

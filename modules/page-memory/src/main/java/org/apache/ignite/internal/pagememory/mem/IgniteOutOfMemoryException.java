@@ -24,7 +24,7 @@ import org.apache.ignite.internal.pagememory.PageMemory;
 /**
  * Exception that signifies that there's no more available page in the data region.
  *
- * @see PageMemory#allocatePage(int, int, byte)
+ * @see PageMemory#allocatePageNoReuse(int, int, byte)
  */
 public class IgniteOutOfMemoryException extends IgniteInternalException {
     /** Serial version uid. */

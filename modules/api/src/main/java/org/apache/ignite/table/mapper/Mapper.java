@@ -24,8 +24,6 @@ import java.time.LocalTime;
 import java.util.BitSet;
 import java.util.Objects;
 import java.util.UUID;
-import java.util.function.Function;
-import org.apache.ignite.table.Tuple;
 
 /**
  * Mapper interface defines marshaller methods for mapping class field names to table columns.
@@ -114,18 +112,6 @@ public interface Mapper<T> {
         }
 
         return builder(type).map(Objects.requireNonNull(fieldName), Objects.requireNonNull(columnName), fieldColumnPairs).build();
-    }
-
-    /**
-     * Adds a manual functional mapping for an object and a row represented by a tuple.
-     *
-     * @param objectToRow Object to tuple function.
-     * @param rowToObject Tuple to object function.
-     * @return {@code this} for chaining.
-     */
-    static <O> Mapper<O> of(Function<O, Tuple> objectToRow, Function<Tuple, O> rowToObject) {
-        // TODO: implement custom user mapping https://issues.apache.org/jira/browse/IGNITE-16116
-        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /**

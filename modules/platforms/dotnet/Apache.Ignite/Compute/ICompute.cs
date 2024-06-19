@@ -31,17 +31,13 @@ public interface ICompute
     /// Submits a compute job represented by the given class for an execution on one of the specified nodes.
     /// </summary>
     /// <param name="nodes">Nodes to use for the job execution.</param>
-    /// <param name="units">Deployment units. Can be empty.</param>
-    /// <param name="jobClassName">Java class name of the job to execute.</param>
-    /// <param name="options">Job execution options.</param>
+    /// <param name="jobDescriptor">Job descriptor.</param>
     /// <param name="args">Job arguments.</param>
     /// <typeparam name="T">Job result type.</typeparam>
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
     Task<IJobExecution<T>> SubmitAsync<T>(
         IEnumerable<IClusterNode> nodes,
-        IEnumerable<DeploymentUnit> units,
-        string jobClassName,
-        JobExecutionOptions options,
+        JobDescriptor jobDescriptor,
         params object?[]? args);
 
     /// <summary>
@@ -49,18 +45,14 @@ public interface ICompute
     /// </summary>
     /// <param name="tableName">Name of the table to be used with <paramref name="key"/> to determine target node.</param>
     /// <param name="key">Table key to be used to determine the target node for job execution.</param>
-    /// <param name="units">Deployment units. Can be empty.</param>
-    /// <param name="jobClassName">Java class name of the job to execute.</param>
-    /// <param name="options">Job execution options.</param>
+    /// <param name="jobDescriptor">Job descriptor.</param>
     /// <param name="args">Job arguments.</param>
     /// <typeparam name="T">Job result type.</typeparam>
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
     Task<IJobExecution<T>> SubmitColocatedAsync<T>(
         string tableName,
         IIgniteTuple key,
-        IEnumerable<DeploymentUnit> units,
-        string jobClassName,
-        JobExecutionOptions options,
+        JobDescriptor jobDescriptor,
         params object?[]? args);
 
     /// <summary>
@@ -68,9 +60,7 @@ public interface ICompute
     /// </summary>
     /// <param name="tableName">Name of the table to be used with <paramref name="key"/> to determine target node.</param>
     /// <param name="key">Table key to be used to determine the target node for job execution.</param>
-    /// <param name="units">Deployment units. Can be empty.</param>
-    /// <param name="jobClassName">Java class name of the job to execute.</param>
-    /// <param name="options">Job execution options.</param>
+    /// <param name="jobDescriptor">Job descriptor.</param>
     /// <param name="args">Job arguments.</param>
     /// <typeparam name="T">Job result type.</typeparam>
     /// <typeparam name="TKey">Key type.</typeparam>
@@ -78,9 +68,7 @@ public interface ICompute
     Task<IJobExecution<T>> SubmitColocatedAsync<T, TKey>(
         string tableName,
         TKey key,
-        IEnumerable<DeploymentUnit> units,
-        string jobClassName,
-        JobExecutionOptions options,
+        JobDescriptor jobDescriptor,
         params object?[]? args)
         where TKey : notnull;
 
@@ -88,16 +76,12 @@ public interface ICompute
     /// Submits a compute job represented by the given class for an execution on all of the specified nodes.
     /// </summary>
     /// <param name="nodes">Nodes to use for the job execution.</param>
-    /// <param name="units">Deployment units. Can be empty.</param>
-    /// <param name="jobClassName">Java class name of the job to execute.</param>
-    /// <param name="options">Job execution options.</param>
+    /// <param name="jobDescriptor">Job descriptor.</param>
     /// <param name="args">Job arguments.</param>
     /// <typeparam name="T">Job result type.</typeparam>
     /// <returns>A map of <see cref="Task"/> representing the asynchronous operation for every node.</returns>
     IDictionary<IClusterNode, Task<IJobExecution<T>>> SubmitBroadcast<T>(
         IEnumerable<IClusterNode> nodes,
-        IEnumerable<DeploymentUnit> units,
-        string jobClassName,
-        JobExecutionOptions options,
+        JobDescriptor jobDescriptor,
         params object?[]? args);
 }

@@ -20,6 +20,7 @@ package org.apache.ignite.internal.runner.app;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+import static org.apache.ignite.internal.util.CompletableFutures.allOfToList;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -35,7 +36,6 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.AfterEach;
@@ -139,7 +139,7 @@ abstract class AbstractSchemaChangeTest extends BaseIgniteAbstractTest {
                 .map(EmbeddedNode::igniteAsync)
                 .toArray(CompletableFuture[]::new);
 
-        return await(CompletableFutures.allOf(futures));
+        return await(allOfToList(futures));
     }
 
     /**

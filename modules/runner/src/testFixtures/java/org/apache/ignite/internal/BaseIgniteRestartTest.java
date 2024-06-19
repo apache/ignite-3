@@ -18,6 +18,7 @@
 package org.apache.ignite.internal;
 
 import static java.util.Collections.reverse;
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIMEM_PROFILE_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -35,6 +36,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.stream.IntStream;
 import org.apache.ignite.EmbeddedNode;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.InitParameters;
@@ -364,6 +366,36 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
         }
 
         return node;
+    }
+
+    /**
+     * Starts an {@code amount} number of nodes (with sequential indices starting from 0).
+     */
+    protected List<IgniteImpl> startNodes(int amount) {
+        boolean initNeeded = CLUSTER_NODES_NAMES.isEmpty();
+
+        List<CompletableFuture<Ignite>> futures = IntStream.range(0, amount)
+                .mapToObj(i -> startNodeAsync(i, null))
+                .collect(toList());
+
+        if (initNeeded) {
+            String nodeName = CLUSTER_NODES_NAMES.get(0);
+
+            InitParameters initParameters = InitParameters.builder()
+                    .destinationNodeName(nodeName)
+                    .metaStorageNodeNames(List.of(nodeName))
+                    .clusterName("cluster")
+                    .build();
+            TestIgnitionManager.init(initParameters);
+        }
+
+        return futures.stream()
+                .map(future -> {
+                    assertThat(future, willCompleteSuccessfully());
+
+                    return (IgniteImpl) future.join();
+                })
+                .collect(toList());
     }
 
     /**

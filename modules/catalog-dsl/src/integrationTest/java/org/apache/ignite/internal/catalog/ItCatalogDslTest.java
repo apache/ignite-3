@@ -86,9 +86,7 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
                 .build();
 
         // When create zone from definition
-        CompletableFuture<Void> zoneAsync = catalog().createZoneAsync(zoneDefinition);
-
-        assertThat(zoneAsync, willCompleteSuccessfully());
+        assertThat(catalog().createZoneAsync(zoneDefinition), willCompleteSuccessfully());
 
         // Then zone was created
         assertThrows(
@@ -98,8 +96,7 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
         );
 
         // When drop zone by definition
-        CompletableFuture<Void> dropZone = catalog().dropZoneAsync(zoneDefinition);
-        assertThat(dropZone, willCompleteSuccessfully());
+        assertThat(catalog().dropZoneAsync(zoneDefinition), willCompleteSuccessfully());
 
         // Then zone was dropped
         assertThrows(
@@ -118,8 +115,7 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
                 .build();
 
         // When create zone from definition
-        CompletableFuture<Void> createZone = catalog().createZoneAsync(zoneDefinition);
-        assertThat(createZone, willCompleteSuccessfully());
+        assertThat(catalog().createZoneAsync(zoneDefinition), willCompleteSuccessfully());
 
         // Then zone was created
         assertThrows(
@@ -129,8 +125,7 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
         );
 
         // When drop zone by name
-        CompletableFuture<Void> dropZone = catalog().dropZoneAsync(ZONE_NAME);
-        assertThat(dropZone, willCompleteSuccessfully());
+        assertThat(catalog().dropZoneAsync(ZONE_NAME), willCompleteSuccessfully());
 
         // Then zone was dropped
         assertThrows(
@@ -149,8 +144,7 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
                 .build();
 
         // When create table from definition
-        CompletableFuture<org.apache.ignite.table.Table> tableFuture = catalog().createTableAsync(tableDefinition);
-        assertThat(tableFuture, will(not(nullValue())));
+        assertThat(catalog().createTableAsync(tableDefinition), will(not(nullValue())));
 
         // Then table was created
         assertThrows(
@@ -160,7 +154,7 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
         );
 
         // When drop table by definition
-        catalog().dropTableAsync(tableDefinition);
+        assertThat(catalog().dropTableAsync(tableDefinition), willCompleteSuccessfully());
 
         // Then table is dropped
         assertThrows(
@@ -179,8 +173,7 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
                 .build();
 
         // When create table from definition
-        CompletableFuture<org.apache.ignite.table.Table> tableFuture = catalog().createTableAsync(tableDefinition);
-        assertThat(tableFuture, will(not(nullValue())));
+        assertThat(catalog().createTableAsync(tableDefinition), will(not(nullValue())));
 
         // Then table was created
         assertThrows(
@@ -190,8 +183,7 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
         );
 
         // When drop table by name
-        CompletableFuture<Void> dropTable = catalog().dropTableAsync(POJO_KV_TABLE_NAME);
-        assertThat(dropTable, willCompleteSuccessfully());
+        assertThat(catalog().dropTableAsync(POJO_KV_TABLE_NAME), willCompleteSuccessfully());
 
         // Then table is dropped
         assertThrows(

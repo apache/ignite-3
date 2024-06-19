@@ -67,11 +67,11 @@ public class ColocationHashCalculationTest {
     public void simple() {
         SchemaDescriptor schema = new SchemaDescriptor(42,
                 new Column[]{
-                        new Column("id0", INT8, false),
-                        new Column("id1", INT32, false),
-                        new Column("id2", STRING, false),
+                        new Column("ID0", INT8, false),
+                        new Column("ID1", INT32, false),
+                        new Column("ID2", STRING, false),
                 },
-                new Column[]{new Column("val", INT32, true)});
+                new Column[]{new Column("VAL", INT32, true)});
 
         RowAssembler rasm = new RowAssembler(schema, -1);
 
@@ -101,12 +101,12 @@ public class ColocationHashCalculationTest {
         Column[] keyCols = IntStream.range(0, SchemaTestUtils.ALL_TYPES.size())
                 .mapToObj(i -> {
                     NativeType t = SchemaTestUtils.ALL_TYPES.get(i);
-                    return new Column("id_" + t.spec().name(), t, false);
+                    return new Column("ID_" + t.spec().name().toUpperCase(), t, false);
                 })
                 .toArray(Column[]::new);
 
         SchemaDescriptor schema = new SchemaDescriptor(42, keyCols,
-                new Column[]{new Column("val", INT32, true)});
+                new Column[]{new Column("VAL", INT32, true)});
 
         Row r = generateRandomRow(rnd, schema);
         assertEquals(colocationHash(r), r.colocationHash());

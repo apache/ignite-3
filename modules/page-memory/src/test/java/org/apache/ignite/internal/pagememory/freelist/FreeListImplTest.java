@@ -140,7 +140,7 @@ public class FreeListImplTest extends BaseIgniteAbstractTest {
 
         pageMemory.start();
 
-        long metaPageId = pageMemory.allocatePage(1, 1, FLAG_DATA);
+        long metaPageId = pageMemory.allocatePageNoReuse(1, 1, FLAG_DATA);
 
         return new FreeListImpl(
                 0,

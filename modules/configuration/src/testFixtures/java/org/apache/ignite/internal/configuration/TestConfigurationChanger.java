@@ -17,7 +17,9 @@
 
 package org.apache.ignite.internal.configuration;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
@@ -49,6 +51,13 @@ public class TestConfigurationChanger extends ConfigurationChanger {
         super(noOpListener(), rootKeys, storage, configurationValidator);
 
         this.generator = generator;
+    }
+
+    @Override
+    public void start() {
+        super.start();
+
+        assertThat(onDefaultsPersisted(), willCompleteSuccessfully());
     }
 
     private static ConfigurationUpdateListener noOpListener() {

@@ -28,10 +28,15 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.Flow.Subscriber;
+import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.SubmissionPublisher;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -360,9 +365,12 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         assertEquals("bar", view.get(null, tupleKey(2)).stringValue("name"));
     }
 
-    @Test
-    public void testWithReceiver() {
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testWithReceiver(boolean returnResults) {
         CompletableFuture<Void> streamerFut;
+
+        var resultSubscriber = returnResults ? new TestSubscriber<String>() : null;
 
         try (var publisher = new SubmissionPublisher<Tuple>()) {
             streamerFut = defaultTable().recordView().streamData(
@@ -370,7 +378,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
                     DataStreamerOptions.builder().retryLimit(0).build(),
                     t -> t,
                     t -> t.stringValue(1),
-                    null,
+                    resultSubscriber,
                     List.of(),
                     TestReceiver.class.getName(),
                     "arg1",
@@ -383,6 +391,11 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         }
 
         assertThat(streamerFut, willCompleteSuccessfully());
+
+        if (returnResults) {
+            assertEquals(1, resultSubscriber.items.size());
+            assertEquals("Received: 3 items, 2 args", resultSubscriber.items.iterator().next());
+        }
     }
 
     @Test
@@ -511,9 +524,9 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
     }
 
     @SuppressWarnings("resource")
-    private static class TestReceiver implements DataStreamerReceiver<String, Void> {
+    private static class TestReceiver implements DataStreamerReceiver<String, String> {
         @Override
-        public CompletableFuture<List<Void>> receive(List<String> page, DataStreamerReceiverContext ctx, Object... args) {
+        public CompletableFuture<List<String>> receive(List<String> page, DataStreamerReceiverContext ctx, Object... args) {
             if ("throw".equals(args[0])) {
                 throw new ArithmeticException("test");
             }
@@ -533,7 +546,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
             assertEquals("arg1", args[0]);
             assertEquals(123, args[1]);
 
-            return CompletableFuture.completedFuture(null);
+            return CompletableFuture.completedFuture(List.of("Received: " + page.size() + " items, " + args.length + " args"));
         }
     }
 
@@ -549,6 +562,28 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
             }
 
             return null;
+        }
+    }
+
+    private static class TestSubscriber<T> implements Subscriber<T> {
+        Set<T> items = Collections.synchronizedSet(new HashSet<>());
+
+        @Override
+        public void onSubscribe(Subscription subscription) {
+            subscription.request(Long.MAX_VALUE);
+        }
+
+        @Override
+        public void onNext(T item) {
+            items.add(item);
+        }
+
+        @Override
+        public void onError(Throwable throwable) {
+        }
+
+        @Override
+        public void onComplete() {
         }
     }
 }

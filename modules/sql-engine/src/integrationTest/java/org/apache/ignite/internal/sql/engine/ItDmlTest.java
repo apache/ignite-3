@@ -32,6 +32,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.calcite.sql.type.SqlTypeName;
@@ -193,6 +194,7 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
 
     @Test
     public void testNullDefault() {
+        // SQL Standard 2016 feature E141-07 - Basic integrity constraints. Column defaults
         sql("CREATE TABLE test_null_def (id INTEGER PRIMARY KEY, col INTEGER DEFAULT NULL)");
 
         sql("INSERT INTO test_null_def VALUES(1, DEFAULT)");
@@ -486,15 +488,14 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
                 .returns(3)
                 .check();
 
-        var pkVals = sql("select \"__p_key\" from t").stream().map(row -> row.get(0)).collect(Collectors.toSet());
+        Set<?> pkVals = sql("select \"__p_key\" from t").stream().map(row -> row.get(0)).collect(Collectors.toSet());
 
         assertEquals(3, pkVals.size());
     }
 
     private static Stream<DefaultValueArg> defaultValueArgs() {
-        return Stream.of(
+        Stream<DefaultValueArg> vals = Stream.of(
                 new DefaultValueArg("BOOLEAN", "TRUE", Boolean.TRUE),
-                new DefaultValueArg("BOOLEAN NOT NULL", "TRUE", Boolean.TRUE),
 
                 new DefaultValueArg("BIGINT", "10", 10L),
                 new DefaultValueArg("INTEGER", "10", 10),
@@ -504,7 +505,6 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
                 new DefaultValueArg("FLOAT", "10.01", 10.01f),
                 new DefaultValueArg("DECIMAL(4, 2)", "10.01", new BigDecimal("10.01")),
                 new DefaultValueArg("VARCHAR", "'10'", "10"),
-                new DefaultValueArg("VARCHAR NOT NULL", "'10'", "10"),
                 new DefaultValueArg("VARCHAR(2)", "'10'", "10"),
 
                 // TODO: IGNITE-17373
@@ -523,10 +523,12 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
                 new DefaultValueArg("BINARY(3)", "x'010203'", new byte[]{1, 2, 3}),
                 new DefaultValueArg("VARBINARY", "x'010203'", new byte[]{1, 2, 3})
         );
+        return vals.flatMap(arg -> Stream.of(arg, new DefaultValueArg(arg.sqlType + " NOT NULL", arg.sqlVal, arg.expectedVal)));
     }
 
     @Test
     public void testInsertDefaultValue() {
+        // SQL Standard 2016 feature F221 - Explicit defaults
         checkDefaultValue(defaultValueArgs().collect(Collectors.toList()));
 
         checkWrongDefault("VARCHAR(1)", "10");
@@ -547,10 +549,10 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
 
     @Test
     public void testInsertDefaultNullValue() {
+        // SQL Standard 2016 feature F221 - Explicit defaults
         checkDefaultValue(defaultValueArgs()
                 .filter(a -> !a.sqlType.endsWith("NOT NULL"))
-                // TODO: uncomment after https://issues.apache.org/jira/browse/IGNITE-21243
-                // .map(a -> new DefaultValueArg(a.sqlType, "NULL", null))
+                .map(a -> new DefaultValueArg(a.sqlType, "NULL", null))
                 .collect(Collectors.toList()));
     }
 
@@ -571,7 +573,7 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
             sql(createStatement);
             sql("INSERT INTO test (id) VALUES (0)");
 
-            var expectedVals = args.stream()
+            List<Object> expectedVals = args.stream()
                     .map(a -> a.expectedVal)
                     .collect(Collectors.toList());
 
@@ -581,7 +583,7 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
                 columnEnumerationBuilder.append(", col_").append(i);
             }
 
-            var columnEnumeration = columnEnumerationBuilder.toString();
+            String columnEnumeration = columnEnumerationBuilder.toString();
 
             checkQueryResult("SELECT " + columnEnumeration + " FROM test", expectedVals);
 
@@ -597,11 +599,58 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
 
     @Test
     public void testCheckNullValueErrorMessageForColumnWithDefaultValue() {
+        // SQL Standard 2016 feature F221 - Explicit defaults
         sql("CREATE TABLE tbl(key int DEFAULT 9 primary key, val varchar)");
 
         var expectedMessage = "Column 'KEY' does not allow NULLs";
 
-        assertThrowsSqlException(Sql.CONSTRAINT_VIOLATION_ERR, expectedMessage, () -> sql("INSERT INTO tbl (key, val) VALUES (NULL,'AA')"));
+        assertThrowsSqlException(
+                Sql.CONSTRAINT_VIOLATION_ERR,
+                expectedMessage,
+                () -> sql("INSERT INTO tbl (key, val) VALUES (NULL,'AA')"));
+    }
+
+    // UPDATE set x = DEFAULT is not supported in parser
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21462")
+    @Test
+    public void testUpdateAllowsDefault() {
+        // SQL Standard 2016 feature F221 - Explicit defaults
+        for (DefaultValueArg arg : defaultValueArgs().collect(Collectors.toList())) {
+            try {
+                sql(format("CREATE TABLE test (id INT PRIMARY KEY, val %s DEFAULT %s)", arg.sqlType, arg.sqlVal));
+                sql("INSERT INTO test (id, val) VALUES (1, NULL)");
+
+                sql("UPDATE test SET val = DEFAULT WHERE id = 1");
+                assertQuery("SELECT val FROM test WHERE id = 1").returns(arg.expectedVal).check();
+            } finally {
+                sql("DROP TABLE IF EXISTS test");
+            }
+        }
+    }
+
+    @Test
+    public void testDropDefault() {
+        // SQL Standard 2016 feature F221 - Explicit defaults
+        // SQL Standard 2016 feature E141-07 - Basic integrity constraints. Column defaults
+        for (DefaultValueArg arg : defaultValueArgs().collect(Collectors.toList())) {
+            try {
+                sql(format("CREATE TABLE test (id INT PRIMARY KEY, val {} DEFAULT {})", arg.sqlType, arg.sqlVal));
+                sql("INSERT INTO test (id) VALUES (1)");
+                assertQuery("SELECT val FROM test WHERE id = 1").returns(arg.expectedVal).check();
+
+                sql("ALTER TABLE test ALTER COLUMN val DROP DEFAULT");
+
+                if (arg.sqlType.endsWith("NOT NULL")) {
+                    assertThrowsSqlException(Sql.CONSTRAINT_VIOLATION_ERR, "Column 'VAL' does not allow NULL",
+                            () -> sql("INSERT INTO test (id) VALUES (2)"));
+                } else {
+                    sql("INSERT INTO test (id) VALUES (2)");
+                    assertQuery("SELECT val FROM test WHERE id = 2").returns(null).check();
+                }
+            } finally {
+                sql("DROP TABLE IF EXISTS test");
+            }
+        }
     }
 
     private void checkQueryResult(String sql, List<Object> expectedVals) {
@@ -639,6 +688,7 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
 
     @Test
     public void testInsertMultipleDefaults() {
+        // SQL Standard 2016 feature F221 - Explicit defaults
         sql("CREATE TABLE integers(i INTEGER PRIMARY KEY, col1 INTEGER DEFAULT 200, col2 INTEGER DEFAULT 300)");
 
         sql("INSERT INTO integers (i) VALUES (0)");
@@ -667,6 +717,7 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
     @Test
     @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
     public void testInsertMultipleDefaultsWithImplicitPk() {
+        // SQL Standard 2016 feature F221 - Explicit defaults
         sql("CREATE TABLE integers(i INTEGER, j INTEGER DEFAULT 100)");
 
         sql("INSERT INTO integers VALUES (1, DEFAULT)");

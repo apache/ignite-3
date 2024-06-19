@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.network.netty;
 
 import io.netty.channel.ChannelPipeline;
+import io.netty.handler.flush.FlushConsolidationHandler;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.stream.ChunkedWriteHandler;
 import java.util.function.Consumer;
@@ -57,6 +58,9 @@ public class PipelineUtils {
      */
     public static void setup(ChannelPipeline pipeline, PerSessionSerializationService serializationService,
             HandshakeManager handshakeManager, Consumer<InNetworkObject> messageListener) {
+        // Consolidate flushes to bigger ones (improves throughput with smaller messages at the price of the latency).
+        pipeline.addLast(new FlushConsolidationHandler(FlushConsolidationHandler.DEFAULT_EXPLICIT_FLUSH_AFTER_FLUSHES, true));
+
         pipeline.addLast(InboundDecoder.NAME, new InboundDecoder(serializationService));
         pipeline.addLast(HandshakeHandler.NAME, new HandshakeHandler(handshakeManager, messageListener, serializationService));
         pipeline.addLast(CHUNKED_WRITE_HANDLER_NAME, new ChunkedWriteHandler());

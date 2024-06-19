@@ -50,6 +50,7 @@ import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.NodeFinder;
 import org.apache.ignite.internal.network.NodeFinderFactory;
+import org.apache.ignite.internal.network.TopologyEventHandler;
 import org.apache.ignite.internal.network.configuration.ClusterMembershipView;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.configuration.NetworkView;
@@ -66,7 +67,6 @@ import org.apache.ignite.internal.worker.CriticalWorkerRegistry;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeMetadata;
-import org.apache.ignite.network.TopologyEventHandler;
 
 /**
  * Cluster service factory that uses ScaleCube for messaging and topology services.

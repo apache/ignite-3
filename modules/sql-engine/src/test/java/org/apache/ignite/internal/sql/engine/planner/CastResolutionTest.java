@@ -152,7 +152,9 @@ public class CastResolutionTest extends AbstractPlannerTest {
 
             for (String toType : toTypes) {
                 // TODO: https://issues.apache.org/jira/browse/IGNITE-21555
-                if (toType.equals(SqlTypeName.TIME_WITH_LOCAL_TIME_ZONE.getName())) {
+                if (toType.equals(SqlTypeName.TIME_WITH_LOCAL_TIME_ZONE.getName())
+                        || toType.equals(SqlTypeName.TIME_TZ.getName())
+                        || toType.equals(SqlTypeName.TIMESTAMP_TZ.getName())) {
                     continue;
                 }
 

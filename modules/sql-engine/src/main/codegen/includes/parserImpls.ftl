@@ -660,13 +660,8 @@ SqlTypeNameSpec IgniteDateTimeTypeName() :
 |
     <TIMESTAMP> { s = span(); }
     precision = PrecisionOpt()
-    withLocalTimeZone = TimeZoneOpt()
+    typeName = TimeZoneOpt(false)
     {
-        if (withLocalTimeZone) {
-            typeName = SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE;
-        } else {
-            typeName = SqlTypeName.TIMESTAMP;
-        }
         return new SqlBasicTypeNameSpec(typeName, precision, s.end(this));
     }
 }

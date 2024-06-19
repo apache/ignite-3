@@ -49,6 +49,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -208,7 +209,8 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
                     null,
                     topologyAwareRaftGroupServiceFactory,
                     raftManager,
-                    new VolatileLogStorageFactoryCreator(nodeName, workDir.resolve("volatile-log-spillout"))
+                    new VolatileLogStorageFactoryCreator(nodeName, workDir.resolve("volatile-log-spillout")),
+                    ForkJoinPool.commonPool()
             );
 
             replicaManagers.put(nodeName, replicaManager);

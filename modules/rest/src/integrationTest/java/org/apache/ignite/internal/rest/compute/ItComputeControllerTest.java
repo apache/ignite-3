@@ -40,8 +40,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.ignite.compute.ComputeJob;
+import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
@@ -363,7 +365,7 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
     }
 
     private static JobExecution<String> runBlockingJob(IgniteImpl entryNode, Set<ClusterNode> nodes) {
-        return entryNode.compute().submit(nodes, List.of(), BlockingJob.class.getName());
+        return entryNode.compute().submit(nodes, JobDescriptor.builder(BlockingJob.class).build());
     }
 
     private static void unblockJob() {
@@ -395,7 +397,7 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
     private static class BlockingJob implements ComputeJob<String> {
         /** {@inheritDoc} */
         @Override
-        public String execute(JobExecutionContext context, Object... args) {
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, Object... args) {
             synchronized (LOCK) {
                 try {
                     LOCK.wait();

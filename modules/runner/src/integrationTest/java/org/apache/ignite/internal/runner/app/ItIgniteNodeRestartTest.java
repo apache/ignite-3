@@ -19,7 +19,6 @@ package org.apache.ignite.internal.runner.app;
 
 import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableManager;
@@ -77,7 +76,6 @@ import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import org.apache.ignite.EmbeddedNode;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.BaseIgniteRestartTest;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.affinity.Assignments;
@@ -505,7 +503,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 new ThreadLocalPartitionCommandsMarshaller(clusterSvc.serializationRegistry()),
                 topologyAwareRaftGroupServiceFactory,
                 raftMgr,
-                view -> new LocalLogStorageFactory()
+                view -> new LocalLogStorageFactory(),
+                threadPoolsManager.tableIoExecutor()
         );
 
         var resourcesRegistry = new RemotelyTriggeredResourceRegistry();
@@ -1418,13 +1417,15 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         TableImpl table = unwrapTableImpl(restartedNode.tables().table(TABLE_NAME));
 
-        assertTrue(waitForCondition(() -> {
+        boolean success = waitForCondition(() -> {
             // Check that only storage for 1 partition left on the restarted node.
             return IntStream.range(0, partitions)
                     .mapToObj(i -> table.internalTable().storage().getMvPartition(i))
                     .filter(Objects::nonNull)
                     .count() == 1;
-        }, 10_000));
+        }, 10_000);
+
+        assertTrue(success);
     }
 
     @Test
@@ -1715,6 +1716,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22521")
     public void testSequentialAsyncTableCreationThenAlterZoneThenRestartOnMsSnapshot() throws InterruptedException {
         IgniteImpl node0 = startNode(0);
         IgniteImpl node1 = startNode(1);
@@ -1774,12 +1776,19 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         IgniteImpl finalNode1 = node1;
 
         // Restart is followed by rebalance, because data nodes are recalculated after full table creation that is completed after restart.
-        assertTrue(waitForCondition(() -> {
+        boolean success = waitForCondition(() -> {
             Set<Assignment> assignments0 = getAssignmentsFromMetaStorage(node0.metaStorageManager(), assignmentsKey.bytes());
             Set<Assignment> assignments1 = getAssignmentsFromMetaStorage(finalNode1.metaStorageManager(), assignmentsKey.bytes());
 
             return assignments0.size() == 1 && assignments0.equals(assignments1);
-        }, 10_000));
+        }, 10_000);
+
+        if (!success) {
+            log.info("Test: assignment on node0:" + getAssignmentsFromMetaStorage(node0.metaStorageManager(), assignmentsKey.bytes()));
+            log.info("Test: assignment on node1:" + getAssignmentsFromMetaStorage(finalNode1.metaStorageManager(), assignmentsKey.bytes()));
+        }
+
+        assertTrue(success);
     }
 
     private int latestCatalogVersionInMs(MetaStorageManager metaStorageManager) {

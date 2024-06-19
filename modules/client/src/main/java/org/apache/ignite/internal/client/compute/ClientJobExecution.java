@@ -29,6 +29,7 @@ import org.apache.ignite.internal.client.PayloadInputChannel;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
+import org.apache.ignite.internal.compute.JobStatusImpl;
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 
@@ -141,7 +142,7 @@ class ClientJobExecution<R> implements JobExecution<R> {
         if (unpacker.tryUnpackNil()) {
             return null;
         }
-        return JobStatus.builder()
+        return JobStatusImpl.builder()
                 .id(unpacker.unpackUuid())
                 .state(unpackJobState(unpacker))
                 .createTime(unpacker.unpackInstant())
