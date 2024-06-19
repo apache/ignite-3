@@ -64,8 +64,6 @@ namespace Apache.Ignite.Tests.Compute
 
         private const string CheckedExceptionJob = PlatformTestNodeRunner + "$CheckedExceptionJob";
 
-        private static readonly IList<DeploymentUnit> Units = Array.Empty<DeploymentUnit>();
-
         [Test]
         public async Task TestGetClusterNodes()
         {
@@ -87,8 +85,8 @@ namespace Apache.Ignite.Tests.Compute
         [Test]
         public async Task TestExecuteOnSpecificNode()
         {
-            var res1 = await Client.Compute.SubmitAsync<string>(await GetNodeAsync(0), Units, NodeNameJob, "-", 11);
-            var res2 = await Client.Compute.SubmitAsync<string>(await GetNodeAsync(1), Units, NodeNameJob, ":", 22);
+            var res1 = await Client.Compute.SubmitAsync<string>(await GetNodeAsync(0), new(NodeNameJob), "-", 11);
+            var res2 = await Client.Compute.SubmitAsync<string>(await GetNodeAsync(1), new(NodeNameJob), ":", 22);
 
             Assert.AreEqual(PlatformTestNodeRunner + "-_11", await res1.GetResultAsync());
             Assert.AreEqual(PlatformTestNodeRunner + "_2:_22", await res2.GetResultAsync());
@@ -97,7 +95,7 @@ namespace Apache.Ignite.Tests.Compute
         [Test]
         public async Task TestExecuteOnRandomNode()
         {
-            var jobExecution = await Client.Compute.SubmitAsync<string>(await Client.GetClusterNodesAsync(), Units, NodeNameJob);
+            var jobExecution = await Client.Compute.SubmitAsync<string>(await Client.GetClusterNodesAsync(), new(NodeNameJob));
             var res = await jobExecution.GetResultAsync();
 
             var expectedNodeNames = Enumerable.Range(1, 4)
@@ -110,7 +108,7 @@ namespace Apache.Ignite.Tests.Compute
         [Test]
         public async Task TestExecuteResultTypeMismatchThrowsInvalidCastException()
         {
-            var jobExecution = await Client.Compute.SubmitAsync<Guid>(await Client.GetClusterNodesAsync(), Units, NodeNameJob);
+            var jobExecution = await Client.Compute.SubmitAsync<Guid>(await Client.GetClusterNodesAsync(), new(NodeNameJob));
             Assert.ThrowsAsync<InvalidCastException>(async () => await jobExecution.GetResultAsync());
         }
 
@@ -293,7 +291,7 @@ namespace Apache.Ignite.Tests.Compute
             client.WaitForConnections(proxies.Count);
 
             var keyTuple = new IgniteTuple { [KeyCol] = key };
-            var resNodeName = await client.Compute.SubmitColocatedAsync<string>(TableName, keyTuple, Units, NodeNameJob);
+            var resNodeName = await client.Compute.SubmitColocatedAsync<string>(TableName, keyTuple, new(NodeNameJob));
             var requestTargetNodeName = GetRequestTargetNodeName(proxies, ClientOp.ComputeExecuteColocated);
 
             var keyPoco = new Poco { Key = key };
@@ -301,7 +299,7 @@ namespace Apache.Ignite.Tests.Compute
             var requestTargetNodeName2 = GetRequestTargetNodeName(proxies, ClientOp.ComputeExecuteColocated);
 
             var keyPocoStruct = new PocoStruct(key, null);
-            var resNodeName3 = await client.Compute.SubmitColocatedAsync<string, PocoStruct>(TableName, keyPocoStruct, Units, NodeNameJob);
+            var resNodeName3 = await client.Compute.SubmitColocatedAsync<string, PocoStruct>(TableName, keyPocoStruct, new(NodeNameJob));
             var requestTargetNodeName3 = GetRequestTargetNodeName(proxies, ClientOp.ComputeExecuteColocated);
 
             var nodeName = nodeIdx == 1 ? string.Empty : "_" + nodeIdx;
@@ -351,7 +349,7 @@ namespace Apache.Ignite.Tests.Compute
             try
             {
                 var keyTuple = new IgniteTuple { [KeyCol] = 1L };
-                var resNodeNameExec = await Client.Compute.SubmitColocatedAsync<string>(tableName, keyTuple, Units, NodeNameJob);
+                var resNodeNameExec = await Client.Compute.SubmitColocatedAsync<string>(tableName, keyTuple, new(NodeNameJob));
                 var resNodeName = await resNodeNameExec.GetResultAsync();
 
                 // Drop table and create a new one with a different ID, then execute a computation again.
@@ -368,7 +366,7 @@ namespace Apache.Ignite.Tests.Compute
                     table.SetFieldValue("_partitionAssignment", null);
                 }
 
-                var resNodeName2Exec = await Client.Compute.SubmitColocatedAsync<string>(tableName, keyTuple, Units, NodeNameJob);
+                var resNodeName2Exec = await Client.Compute.SubmitColocatedAsync<string>(tableName, keyTuple, new(NodeNameJob));
                 var resNodeName2 = await resNodeName2Exec.GetResultAsync();
 
                 Assert.AreEqual(resNodeName, resNodeName2);
@@ -390,8 +388,8 @@ namespace Apache.Ignite.Tests.Compute
             {
                 await Client.Sql.ExecuteAsync(null, $"CREATE TABLE {tableName} (KEY BIGINT PRIMARY KEY, VAL VARCHAR)");
 
-                var exec1 = await Client.Compute.SubmitColocatedAsync<string>(tableName, tupleKey, Units, NodeNameJob);
-                var exec2 = await Client.Compute.SubmitColocatedAsync<string, long>(tableName, key, Units, NodeNameJob);
+                var exec1 = await Client.Compute.SubmitColocatedAsync<string>(tableName, tupleKey, new(NodeNameJob));
+                var exec2 = await Client.Compute.SubmitColocatedAsync<string, long>(tableName, key, new(NodeNameJob));
 
                 var res1 = await exec1.GetResultAsync();
                 var res2 = await exec2.GetResultAsync();
@@ -462,10 +460,13 @@ namespace Apache.Ignite.Tests.Compute
         [Test]
         public void TestExecuteOnUnknownUnitWithLatestVersionThrows()
         {
-            var deploymentUnits = new DeploymentUnit[] { new("unit-latest") };
+            var job = new JobDescriptor(NodeNameJob)
+            {
+                DeploymentUnits = new DeploymentUnit[] { new("unit-latest") }
+            };
 
             var ex = Assert.ThrowsAsync<IgniteException>(
-                async () => await Client.Compute.SubmitAsync<string>(await GetNodeAsync(1), deploymentUnits, NodeNameJob));
+                async () => await Client.Compute.SubmitAsync<string>(await GetNodeAsync(1), job));
 
             StringAssert.Contains("Deployment unit unit-latest:latest doesn't exist", ex!.Message);
         }
