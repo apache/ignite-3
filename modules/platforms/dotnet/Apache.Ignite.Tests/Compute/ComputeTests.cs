@@ -535,6 +535,8 @@ namespace Apache.Ignite.Tests.Compute
 
             // Wait a bit and close the connection.
             await Task.Delay(10);
+
+            // ReSharper disable once DisposeOnUsingVariable (intentional)
             client.Dispose();
 
             var ex = Assert.ThrowsAsync<IgniteClientConnectionException>(async () => await jobTask);
@@ -569,7 +571,7 @@ namespace Apache.Ignite.Tests.Compute
         {
             var beforeStart = SystemClock.Instance.GetCurrentInstant();
 
-            var jobExecution = await Client.Compute.SubmitAsync<string>(await GetNodeAsync(1), Units, ErrorJob, "unused");
+            var jobExecution = await Client.Compute.SubmitAsync<string>(await GetNodeAsync(1), new(ErrorJob), "unused");
             Assert.CatchAsync(async () => await jobExecution.GetResultAsync());
 
             await AssertJobStatus(jobExecution, JobState.Failed, beforeStart);
@@ -608,6 +610,7 @@ namespace Apache.Ignite.Tests.Compute
                     Options = new(Priority: 10, MaxRetries: 11)
                 },
                 5000);
+
             var res = await jobExecution.ChangePriorityAsync(123);
 
             // Job exists, but is already executing.
@@ -625,16 +628,16 @@ namespace Apache.Ignite.Tests.Compute
             using var client = await server.ConnectClientAsync();
 
             var defaultRes = await client.Compute.SubmitAsync<string>(
-                await GetNodeAsync(1), units, FakeServer.GetDetailsJob, JobExecutionOptions.Default);
+                await GetNodeAsync(1), new(FakeServer.GetDetailsJob, units), JobExecutionOptions.Default);
             StringAssert.Contains("priority = 0, maxRetries = 0", await defaultRes.GetResultAsync());
 
-            var res = await client.Compute.SubmitAsync<string>(await GetNodeAsync(1), units, FakeServer.GetDetailsJob, options);
+            var res = await client.Compute.SubmitAsync<string>(await GetNodeAsync(1), new(FakeServer.GetDetailsJob, units), options);
             StringAssert.Contains("priority = 999, maxRetries = 66", await res.GetResultAsync());
 
             // Colocated.
             var keyTuple = new IgniteTuple { ["ID"] = 1 };
             var colocatedRes = await client.Compute.SubmitColocatedAsync<string>(
-                FakeServer.ExistingTableName, keyTuple, units, FakeServer.GetDetailsJob, options);
+                FakeServer.ExistingTableName, keyTuple, new(FakeServer.GetDetailsJob, units), options);
 
             StringAssert.Contains("priority = 999, maxRetries = 66", await colocatedRes.GetResultAsync());
         }
@@ -646,7 +649,7 @@ namespace Apache.Ignite.Tests.Compute
         [TestCase("1.123456789", 5)]
         public async Task TestBigDecimalPropagation(string number, int scale)
         {
-            var res = await Client.Compute.SubmitAsync<decimal>(await GetNodeAsync(1), Units, DecimalJob, number, scale);
+            var res = await Client.Compute.SubmitAsync<decimal>(await GetNodeAsync(1), new(DecimalJob), number, scale);
             var resVal = await res.GetResultAsync();
 
             var expected = decimal.Parse(number, NumberStyles.Float);
