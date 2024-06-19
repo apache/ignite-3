@@ -21,7 +21,6 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.replicator.ReplicatorConstants.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -53,9 +52,6 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.manager.ComponentContext;
-import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
-import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.network.AbstractMessagingService;
 import org.apache.ignite.internal.network.ChannelType;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
@@ -414,13 +410,6 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 schemaManager
         );
 
-        MetaStorageManager metaStorageManager = StandaloneMetaStorageManager.create(
-                new SimpleInMemoryKeyValueStorage(LOCAL_NODE.name()),
-                CLOCK
-        );
-
-        var indexMetaStorage = new IndexMetaStorage(catalogService, new TestLowWatermark(), metaStorageManager);
-
         partitionListener = new PartitionListener(
                 this.txManager,
                 new TestPartitionDataStorage(tableId, PART_ID, mvPartStorage),
@@ -431,11 +420,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 catalogService,
                 schemaManager,
                 CLOCK_SERVICE,
-                indexMetaStorage
+                mock(IndexMetaStorage.class)
         );
-
-        assertThat(startAsync(new ComponentContext(), metaStorageManager, indexMetaStorage), willCompleteSuccessfully());
-        assertThat(metaStorageManager.deployWatches(), willCompleteSuccessfully());
     }
 
     /**

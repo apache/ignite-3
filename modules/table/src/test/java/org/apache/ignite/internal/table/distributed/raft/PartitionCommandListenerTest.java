@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.table.distributed.raft;
 
 import static java.util.Collections.singletonMap;
+import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.BUILDING;
+import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.REGISTERED;
 import static org.apache.ignite.internal.util.ArrayUtils.asList;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
@@ -108,8 +110,11 @@ import org.apache.ignite.internal.table.distributed.command.TimedBinaryRowMessag
 import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
 import org.apache.ignite.internal.table.distributed.command.WriteIntentSwitchCommand;
+import org.apache.ignite.internal.table.distributed.index.IndexMeta;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
+import org.apache.ignite.internal.table.distributed.index.MetaIndexStatus;
+import org.apache.ignite.internal.table.distributed.index.MetaIndexStatusChange;
 import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
@@ -255,10 +260,16 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
 
         CatalogTableDescriptor tableDescriptor = mock(CatalogTableDescriptor.class);
 
-        lenient().when(tableDescriptor.tableVersion()).thenReturn(SCHEMA.version());
+        int tableVersion = SCHEMA.version();
+
+        lenient().when(tableDescriptor.tableVersion()).thenReturn(tableVersion);
         lenient().when(catalogService.table(anyInt(), anyInt())).thenReturn(tableDescriptor);
 
         indexMetaStorage = mock(IndexMetaStorage.class);
+
+        IndexMeta indexMeta = createIndexMeta(indexId, tableVersion);
+
+        lenient().when(indexMetaStorage.indexMeta(eq(indexId))).thenReturn(indexMeta);
 
         commandListener = new PartitionListener(
                 mock(TxManager.class),
@@ -1114,5 +1125,21 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                     .findAny()
                     .orElse(null);
         }
+    }
+
+    private static IndexMeta createIndexMeta(int indexId, int tableVersion) {
+        IndexMeta indexMeta = mock(IndexMeta.class);
+
+        MetaIndexStatusChange change0 = mock(MetaIndexStatusChange.class);
+        MetaIndexStatusChange change1 = mock(MetaIndexStatusChange.class);
+
+        Map<MetaIndexStatus, MetaIndexStatusChange> changeMap = Map.of(REGISTERED, change0, BUILDING, change1);
+
+        lenient().when(indexMeta.indexId()).thenReturn(indexId);
+        lenient().when(indexMeta.status()).thenReturn(BUILDING);
+        lenient().when(indexMeta.tableVersion()).thenReturn(tableVersion);
+        lenient().when(indexMeta.statusChanges()).thenReturn(changeMap);
+
+        return indexMeta;
     }
 }
