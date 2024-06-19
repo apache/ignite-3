@@ -121,8 +121,8 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     @Test
     void testExecuteOnSpecificNode() {
-        String res1 = client().compute().execute(Set.of(node(0)), JobDescriptor.builder(NodeNameJob.class).build());
-        String res2 = client().compute().execute(Set.of(node(1)), JobDescriptor.builder(NodeNameJob.class).build());
+        String res1 = client().compute().execute(JobTarget.node(node(0)), JobDescriptor.builder(NodeNameJob.class).build());
+        String res2 = client().compute().execute(JobTarget.node(node(1)), JobDescriptor.builder(NodeNameJob.class).build());
 
         assertEquals("itcct_n_3344", res1);
         assertEquals("itcct_n_3345", res2);
@@ -226,7 +226,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     @Test
     void testExecuteOnRandomNode() {
-        String res = client().compute().execute(new HashSet<>(sortedNodes()), JobDescriptor.builder(NodeNameJob.class).build());
+        String res = client().compute().execute(JobTarget.anyNode(sortedNodes()), JobDescriptor.builder(NodeNameJob.class).build());
 
         assertTrue(Set.of("itcct_n_3344", "itcct_n_3345").contains(res));
     }
@@ -395,7 +395,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         var key = Tuple.create().set(COLUMN_KEY, 1);
 
         IgniteException cause = getExceptionInJobExecutionAsync(
-                client().compute().submitColocated(TABLE_NAME, key, JobDescriptor.builder(ExceptionJob.class).build()));
+                client().compute().submit(JobTarget.colocated(TABLE_NAME, key), JobDescriptor.builder(ExceptionJob.class).build()));
 
         assertComputeExceptionWithClassAndMessage(cause);
     }
@@ -405,7 +405,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         var key = Tuple.create().set(COLUMN_KEY, 1);
 
         IgniteException cause = getExceptionInJobExecutionSync(
-                () -> client().compute().executeColocated(TABLE_NAME, key, JobDescriptor.builder(ExceptionJob.class).build())
+                () -> client().compute().execute(JobTarget.colocated(TABLE_NAME, key), JobDescriptor.builder(ExceptionJob.class).build())
         );
 
         assertComputeExceptionWithClassAndMessage(cause);
@@ -418,7 +418,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         IgniteCompute igniteCompute = client().compute();
         IgniteException cause = getExceptionInJobExecutionAsync(
-                igniteCompute.submitColocated(TABLE_NAME, key, JobDescriptor.builder(ExceptionJob.class).build())
+                igniteCompute.submit(JobTarget.colocated(TABLE_NAME, key), JobDescriptor.builder(ExceptionJob.class).build())
         );
 
         assertComputeExceptionWithStackTrace(cause);
@@ -430,7 +430,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         var key = Tuple.create().set(COLUMN_KEY, 2);
 
         IgniteException cause = getExceptionInJobExecutionSync(
-                () -> client().compute().executeColocated(TABLE_NAME, key, JobDescriptor.builder(ExceptionJob.class).build())
+                () -> client().compute().execute(JobTarget.colocated(TABLE_NAME, key), JobDescriptor.builder(ExceptionJob.class).build())
         );
 
         assertComputeExceptionWithStackTrace(cause);
@@ -443,7 +443,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         IgniteCompute igniteCompute = client().compute();
         IgniteException cause = getExceptionInJobExecutionAsync(
-                igniteCompute.submitColocated(TABLE_NAME, key, mapper, JobDescriptor.builder(ExceptionJob.class)
+                igniteCompute.submit(JobTarget.colocated(TABLE_NAME, key, mapper), JobDescriptor.builder(ExceptionJob.class)
                         .build())
         );
 
@@ -456,7 +456,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         Mapper<TestPojo> mapper = Mapper.of(TestPojo.class);
 
         IgniteException cause = getExceptionInJobExecutionSync(
-                () -> client().compute().executeColocated(TABLE_NAME, key, mapper, JobDescriptor.builder(ExceptionJob.class).build())
+                () -> client().compute().execute(JobTarget.colocated(TABLE_NAME, key, mapper), JobDescriptor.builder(ExceptionJob.class).build())
         );
 
         assertComputeExceptionWithClassAndMessage(cause);
@@ -470,7 +470,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         IgniteCompute igniteCompute = client().compute();
         IgniteException cause = getExceptionInJobExecutionAsync(
-                igniteCompute.submitColocated(TABLE_NAME, key, mapper, JobDescriptor.builder(ExceptionJob.class).build())
+                igniteCompute.submit(JobTarget.colocated(TABLE_NAME, key, mapper), JobDescriptor.builder(ExceptionJob.class).build())
         );
 
         assertComputeExceptionWithStackTrace(cause);
@@ -483,7 +483,8 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         Mapper<TestPojo> mapper = Mapper.of(TestPojo.class);
 
         IgniteException cause = getExceptionInJobExecutionSync(
-                () -> client().compute().executeColocated(TABLE_NAME, key, mapper, JobDescriptor.builder(ExceptionJob.class).build())
+                () -> client().compute().execute(
+                        JobTarget.colocated(TABLE_NAME, key, mapper), JobDescriptor.builder(ExceptionJob.class).build())
         );
 
         assertComputeExceptionWithStackTrace(cause);
