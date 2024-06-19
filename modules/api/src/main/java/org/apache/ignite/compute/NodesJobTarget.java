@@ -27,7 +27,7 @@ import org.apache.ignite.network.ClusterNode;
 public class NodesJobTarget implements JobTarget {
     private final Set<ClusterNode> nodes;
 
-    public NodesJobTarget(Set<ClusterNode> nodes) {
+    NodesJobTarget(Set<ClusterNode> nodes) {
         Objects.requireNonNull(nodes);
 
         if (nodes.isEmpty()) {

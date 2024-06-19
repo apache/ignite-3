@@ -32,7 +32,7 @@ public class ColocatedExecutionTarget implements JobTarget {
 
     private final @Nullable Mapper<?> keyMapper;
 
-    public ColocatedExecutionTarget(String tableName, Object key, @Nullable Mapper<?> keyMapper) {
+    ColocatedExecutionTarget(String tableName, Object key, @Nullable Mapper<?> keyMapper) {
         Objects.requireNonNull(tableName);
         Objects.requireNonNull(key);
 
