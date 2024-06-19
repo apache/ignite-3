@@ -17,18 +17,22 @@
 
 package org.apache.ignite.compute;
 
+import java.util.concurrent.CompletableFuture;
+import org.jetbrains.annotations.Nullable;
+
 /**
  * A Compute job that may be executed on a single Ignite node, on several nodes, or on the entire cluster.
  *
  * @param <R> Job result type.
  */
+@SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
 public interface ComputeJob<R> {
     /**
      * Executes the job on an Ignite node.
      *
      * @param context The execution context.
      * @param args Job arguments.
-     * @return Job result.
+     * @return Job future. Can be null if the job is synchronous and does not return any result.
      */
-    R execute(JobExecutionContext context, Object... args);
+    @Nullable CompletableFuture<R> executeAsync(JobExecutionContext context, Object... args);
 }

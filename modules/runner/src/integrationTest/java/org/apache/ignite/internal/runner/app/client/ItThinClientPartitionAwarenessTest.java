@@ -17,14 +17,17 @@
 
 package org.apache.ignite.internal.runner.app.client;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.compute.ComputeJob;
+import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.internal.runner.app.client.proxy.IgniteClientProxy;
 import org.apache.ignite.table.RecordView;
@@ -84,8 +87,8 @@ public class ItThinClientPartitionAwarenessTest extends ItAbstractThinClientTest
         for (int key = 0; key < 50; key++) {
             // Get actual primary node using compute.
             Tuple keyTuple = Tuple.create().set("key", key);
-            var primaryNodeName = proxyClient.compute()
-                    .executeColocated(TABLE_NAME, keyTuple, List.of(), NodeNameJob.class.getName());
+            var primaryNodeName = proxyClient.compute().executeColocated(
+                    TABLE_NAME, keyTuple, JobDescriptor.builder(NodeNameJob.class.getName()).build());
 
             // Perform request and check routing with proxy.
             resetRequestCount();
@@ -120,9 +123,10 @@ public class ItThinClientPartitionAwarenessTest extends ItAbstractThinClientTest
 
     private static class NodeNameJob implements ComputeJob<String> {
         @Override
-        public String execute(JobExecutionContext context, Object... args) {
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, Object... args) {
             //noinspection resource
-            return context.ignite().name() + Arrays.stream(args).map(Object::toString).collect(Collectors.joining("_"));
+            return completedFuture(
+                    context.ignite().name() + Arrays.stream(args).map(Object::toString).collect(Collectors.joining("_")));
         }
     }
 }

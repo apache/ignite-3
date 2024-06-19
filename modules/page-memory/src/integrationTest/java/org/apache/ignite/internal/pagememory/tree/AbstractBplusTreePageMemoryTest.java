@@ -2713,7 +2713,7 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
     }
 
     private FullPageId allocateMetaPage() throws Exception {
-        return new FullPageId(pageMem.allocatePage(GROUP_ID, 0, FLAG_AUX), GROUP_ID);
+        return new FullPageId(pageMem.allocatePage(reuseList, GROUP_ID, 0, FLAG_AUX), GROUP_ID);
     }
 
     /**

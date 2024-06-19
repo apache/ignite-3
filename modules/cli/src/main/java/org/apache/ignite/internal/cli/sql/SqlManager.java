@@ -35,13 +35,7 @@ public class SqlManager implements AutoCloseable {
      * Default constructor.
      */
     public SqlManager(String jdbcUrl) throws SQLException {
-        try {
-            Class.forName("org.apache.ignite.internal.jdbc.IgniteJdbcDriver");
-        } catch (ClassNotFoundException e) {
-            throw new SQLException("Jdbc driver not found.");
-        }
         connection = DriverManager.getConnection(jdbcUrl);
-
     }
 
     /**

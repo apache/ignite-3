@@ -346,6 +346,6 @@ public abstract class AbstractPageMemoryNoLoadSelfTest extends BaseIgniteAbstrac
      * @throws IgniteInternalCheckedException If failed.
      */
     public static FullPageId allocatePage(PageIdAllocator mem) throws IgniteInternalCheckedException {
-        return new FullPageId(mem.allocatePage(GRP_ID, PARTITION_ID, PageIdAllocator.FLAG_DATA), GRP_ID);
+        return new FullPageId(mem.allocatePageNoReuse(GRP_ID, PARTITION_ID, PageIdAllocator.FLAG_DATA), GRP_ID);
     }
 }

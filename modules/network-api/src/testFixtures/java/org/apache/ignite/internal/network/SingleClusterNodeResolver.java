@@ -15,33 +15,33 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.hlc;
+package org.apache.ignite.internal.network;
 
-import static org.mockito.Mockito.mockStatic;
-import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.when;
-
-import java.time.Clock;
-import java.time.Instant;
-import org.mockito.MockedStatic;
+import org.apache.ignite.network.ClusterNode;
 
 /**
- * Utils for a Hybrid Logical Clock testing.
+ * A class that returns a single {@link ClusterNode} for every request.
  */
-public class HybridClockTestUtils {
+public class SingleClusterNodeResolver implements ClusterNodeResolver {
+
+    private final ClusterNode clusterNode;
+
     /**
-     * Creates a mocked system clock.
+     * Constructor.
      *
-     * @param expected Expected value which returns by system clock.
-     * @return The mocked clock.
+     * @param clusterNode Default cluster node that will be returned as a result of all method calls.
      */
-    public static MockedStatic<Clock> mockToEpochMilli(long expected) {
-        Clock spyClock = spy(Clock.class);
-        MockedStatic<Clock> clockMock = mockStatic(Clock.class);
+    public SingleClusterNodeResolver(ClusterNode clusterNode) {
+        this.clusterNode = clusterNode;
+    }
 
-        clockMock.when(Clock::systemUTC).thenReturn(spyClock);
-        when(spyClock.instant()).thenReturn(Instant.ofEpochMilli(expected));
+    @Override
+    public ClusterNode getByConsistentId(String consistentId) {
+        return clusterNode;
+    }
 
-        return clockMock;
+    @Override
+    public ClusterNode getById(String id) {
+        return clusterNode;
     }
 }

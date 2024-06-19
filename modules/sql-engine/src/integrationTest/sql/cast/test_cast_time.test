@@ -1,0 +1,71 @@
+# name: test/sql/cast/test_cast_time.test
+# description: CAST TIME
+# feature: SQL F201(CAST function)
+# group: [cast]
+
+query T
+SELECT CAST('10:11:12' AS TIME);
+----
+10:11:12
+
+query T
+SELECT CAST('10:11:12'::TIME AS TIME);
+----
+10:11:12
+
+query T
+SELECT CAST('10:11:12'::VARCHAR AS TIME);
+----
+10:11:12
+
+query T
+SELECT CAST('10:11:12'::CHAR(10) AS TIME);
+----
+10:11:12
+
+query T
+SELECT CAST('2000-01-01 10:11:12'::TIMESTAMP AS TIME);
+----
+10:11:12
+
+statement error: Cast function cannot convert value of type DATE to type TIME(0)
+SELECT CAST('2000-01-01'::DATE AS TIME);
+
+statement error: Cast function cannot convert value of type BOOLEAN to type TIME(0)
+SELECT CAST(TRUE AS TIME);
+
+statement error: Cast function cannot convert value of type TINYINT to type TIME(0)
+SELECT CAST(1::TINYINT AS TIME);
+
+statement error: Cast function cannot convert value of type SMALLINT to type TIME(0)
+SELECT CAST(1::SMALLINT AS TIME);
+
+statement error: Cast function cannot convert value of type INTEGER to type TIME(0)
+SELECT CAST(1::INT AS TIME);
+
+statement error: Cast function cannot convert value of type BIGINT to type TIME(0)
+SELECT CAST(1::BIGINT AS TIME);
+
+statement error: Cast function cannot convert value of type REAL to type TIME(0)
+SELECT CAST(1.0::REAL AS TIME);
+
+statement error: Cast function cannot convert value of type FLOAT to type TIME(0)
+SELECT CAST(1.0::FLOAT AS TIME);
+
+statement error: Cast function cannot convert value of type DOUBLE to type TIME(0)
+SELECT CAST(1.0::DOUBLE AS TIME);
+
+statement error: Cast function cannot convert value of type  DECIMAL(5, 0) to type TIME(0)
+SELECT CAST(1::DECIMAL(5) AS TIME);
+
+statement error: Cast function cannot convert value of type DECIMAL(5, 2) to type TIME(0)
+SELECT CAST(1::DECIMAL(5, 2) AS TIME);
+
+statement error: Cast function cannot convert value of type UUID to type TIME(0)
+SELECT CAST('c4a0327c-44be-416d-ae90-75c05079789f'::UUID AS TIME);
+
+statement error: Cast function cannot convert value of type VARBINARY to type TIME(0)
+SELECT CAST(x'00'::VARBINARY AS TIME);
+
+statement error: Cast function cannot convert value of type BINARY(1) to type TIME(0)
+SELECT CAST(x'00'::BINARY AS TIME);

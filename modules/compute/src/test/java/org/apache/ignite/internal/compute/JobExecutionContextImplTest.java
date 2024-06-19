@@ -48,10 +48,10 @@ class JobExecutionContextImplTest extends BaseIgniteAbstractTest {
 
         JobExecutionContext context = new JobExecutionContextImpl(ignite, isInterrupted, ClassLoader.getSystemClassLoader());
 
-        assertThat(context.isInterrupted(), is(false));
+        assertThat(context.isCancelled(), is(false));
 
         isInterrupted.set(true);
 
-        assertThat(context.isInterrupted(), is(true));
+        assertThat(context.isCancelled(), is(true));
     }
 }

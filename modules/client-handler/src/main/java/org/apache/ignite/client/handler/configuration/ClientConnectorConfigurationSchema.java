@@ -61,5 +61,5 @@ public class ClientConnectorConfigurationSchema {
 
     /** Metrics. */
     @Value(hasDefault = true)
-    public final boolean metricsEnabled = false;
+    public final boolean metricsEnabled = true;
 }

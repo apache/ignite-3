@@ -20,6 +20,7 @@ package org.apache.ignite.internal.storage.pagememory;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -220,6 +221,18 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
         assertThat(tableStorage.destroy(), willSucceedFast());
 
         assertIndexDataDestructionCompletes(emptyIndexPagesBeforeDestroy);
+    }
+
+    @Test
+    public void testDestroyTablesNoLeakages() {
+        int limit = 100000;
+        for (int i = 1; i < limit; i++) {
+            MvTableStorage mvTableStorage = createMvTableStorage();
+
+            getOrCreateMvPartition(mvTableStorage, PARTITION_ID);
+
+            assertThat(mvTableStorage.destroy(), willCompleteSuccessfully());
+        }
     }
 
     private VolatilePageMemoryDataRegion dataRegion() {
