@@ -60,38 +60,58 @@ namespace Apache.Ignite.Internal.Compute
         }
 
         /// <inheritdoc/>
-        public Task<IJobExecution<T>> SubmitAsync<T>(
+        public async Task<IJobExecution<T>> SubmitAsync<T>(
             IEnumerable<IClusterNode> nodes,
             JobDescriptor jobDescriptor,
             params object?[]? args)
         {
-            return SubmitAsync<T>(
-                nodes,
-                jobDescriptor.DeploymentUnits ?? Array.Empty<DeploymentUnit>(),
+            IgniteArgumentCheck.NotNull(nodes);
+            IgniteArgumentCheck.NotNull(jobDescriptor.JobClassName);
+
+            var nodesCol = GetNodesCollection(nodes);
+            IgniteArgumentCheck.Ensure(nodesCol.Count > 0, nameof(nodes), "Nodes can't be empty.");
+
+            return await ExecuteOnNodes<T>(
+                nodesCol,
+                jobDescriptor.DeploymentUnits,
                 jobDescriptor.JobClassName,
-                jobDescriptor.Options ?? JobExecutionOptions.Default,
-                args);
+                jobDescriptor.Options,
+                args).ConfigureAwait(false);
         }
 
         /// <inheritdoc/>
-        public Task<IJobExecution<T>> SubmitColocatedAsync<T>(
+        public async Task<IJobExecution<T>> SubmitColocatedAsync<T>(
             string tableName,
             IIgniteTuple key,
             JobDescriptor jobDescriptor,
             params object?[]? args)
         {
-            throw new NotImplementedException();
+            return await ExecuteColocatedAsync<T, IIgniteTuple>(
+                    tableName,
+                    key,
+                    serializerHandlerFunc: static _ => TupleSerializerHandler.Instance,
+                    jobDescriptor.DeploymentUnits,
+                    jobDescriptor.JobClassName,
+                    jobDescriptor.Options,
+                    args)
+                .ConfigureAwait(false);
         }
 
         /// <inheritdoc/>
-        public Task<IJobExecution<T>> SubmitColocatedAsync<T, TKey>(
+        public async Task<IJobExecution<T>> SubmitColocatedAsync<T, TKey>(
             string tableName,
             TKey key,
             JobDescriptor jobDescriptor,
             params object?[]? args)
             where TKey : notnull
         {
-            throw new NotImplementedException();
+            return await SubmitColocatedAsync<T, TKey>(
+                tableName,
+                key,
+                jobDescriptor.DeploymentUnits ?? Array.Empty<DeploymentUnit>(),
+                jobDescriptor.JobClassName,
+                jobDescriptor.Options ?? JobExecutionOptions.Default,
+                args).ConfigureAwait(false);
         }
 
         /// <inheritdoc/>
@@ -100,44 +120,16 @@ namespace Apache.Ignite.Internal.Compute
             JobDescriptor jobDescriptor,
             params object?[]? args)
         {
-            throw new NotImplementedException();
+            return SubmitBroadcast<T>(
+                nodes,
+                jobDescriptor.DeploymentUnits ?? Array.Empty<DeploymentUnit>(),
+                jobDescriptor.JobClassName,
+                jobDescriptor.Options ?? JobExecutionOptions.Default,
+                args);
         }
 
         /// <inheritdoc/>
         public override string ToString() => IgniteToStringBuilder.Build(GetType());
-
-        private async Task<IJobExecution<T>> SubmitAsync<T>(
-            IEnumerable<IClusterNode> nodes,
-            IEnumerable<DeploymentUnit> units,
-            string jobClassName,
-            JobExecutionOptions options,
-            params object?[]? args)
-        {
-            IgniteArgumentCheck.NotNull(nodes);
-            IgniteArgumentCheck.NotNull(jobClassName);
-
-            var nodesCol = GetNodesCollection(nodes);
-            IgniteArgumentCheck.Ensure(nodesCol.Count > 0, nameof(nodes), "Nodes can't be empty.");
-
-            return await ExecuteOnNodes<T>(nodesCol, units, jobClassName, options, args).ConfigureAwait(false);
-        }
-
-        private async Task<IJobExecution<T>> SubmitColocatedAsync<T>(
-            string tableName,
-            IIgniteTuple key,
-            IEnumerable<DeploymentUnit> units,
-            string jobClassName,
-            JobExecutionOptions options,
-            params object?[]? args) =>
-            await ExecuteColocatedAsync<T, IIgniteTuple>(
-                    tableName,
-                    key,
-                    serializerHandlerFunc: static _ => TupleSerializerHandler.Instance,
-                    units,
-                    jobClassName,
-                    options,
-                    args)
-                .ConfigureAwait(false);
 
         private async Task<IJobExecution<T>> SubmitColocatedAsync<T, TKey>(
             string tableName,
@@ -186,8 +178,14 @@ namespace Apache.Ignite.Internal.Compute
         /// </summary>
         /// <param name="units">Units.</param>
         /// <param name="buf">Buffer.</param>
-        internal static void WriteUnits(IEnumerable<DeploymentUnit> units, PooledArrayBuffer buf)
+        internal static void WriteUnits(IEnumerable<DeploymentUnit>? units, PooledArrayBuffer buf)
         {
+            if (units == null)
+            {
+                buf.MessageWriter.Write(0);
+                return;
+            }
+
             WriteEnumerable(units, buf, writerFunc: unit =>
             {
                 IgniteArgumentCheck.NotNullOrEmpty(unit.Name);
@@ -344,12 +342,13 @@ namespace Apache.Ignite.Internal.Compute
 
         private async Task<IJobExecution<T>> ExecuteOnNodes<T>(
             ICollection<IClusterNode> nodes,
-            IEnumerable<DeploymentUnit> units,
+            IEnumerable<DeploymentUnit>? units,
             string jobClassName,
-            JobExecutionOptions options,
+            JobExecutionOptions? options,
             object?[]? args)
         {
             IClusterNode node = GetRandomNode(nodes);
+            options ??= JobExecutionOptions.Default;
 
             using var writer = ProtoCommon.GetMessageWriter();
             Write();
@@ -399,15 +398,18 @@ namespace Apache.Ignite.Internal.Compute
             string tableName,
             TKey key,
             Func<Table, IRecordSerializerHandler<TKey>> serializerHandlerFunc,
-            IEnumerable<DeploymentUnit> units,
+            IEnumerable<DeploymentUnit>? units,
             string jobClassName,
-            JobExecutionOptions options,
+            JobExecutionOptions? options,
             params object?[]? args)
             where TKey : notnull
         {
             IgniteArgumentCheck.NotNull(tableName);
             IgniteArgumentCheck.NotNull(key);
             IgniteArgumentCheck.NotNull(jobClassName);
+
+            options ??= JobExecutionOptions.Default;
+            units ??= Array.Empty<DeploymentUnit>();
 
             var units0 = units as ICollection<DeploymentUnit> ?? units.ToList(); // Avoid multiple enumeration.
             int? schemaVersion = null;
