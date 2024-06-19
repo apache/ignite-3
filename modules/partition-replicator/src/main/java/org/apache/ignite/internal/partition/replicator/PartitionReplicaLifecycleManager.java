@@ -42,7 +42,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.affinity.AffinityUtils;
-import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.affinity.Assignments;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
@@ -139,6 +138,7 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
     }
 
     private CompletableFuture<Void> onCreateZone(CreateZoneEventParameters createZoneEventParameters) {
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-22535 start replica must be moved from metastore thread
         return inBusyLockAsync(busyLock, () -> {
             CompletableFuture<List<Assignments>> assignmentsFuture = getOrCreateAssignments(
                     createZoneEventParameters.zoneDescriptor(),
@@ -170,12 +170,7 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
     }
 
     private CompletableFuture<Void> createZonePartitionReplicationNodes(int zoneId, int partId, Assignments assignments) {
-        Assignment localMemberAssignment = assignments.nodes().stream()
-                .filter(a -> a.consistentId().equals(localNode().name()))
-                .findAny()
-                .orElse(null);
-
-        if (localMemberAssignment == null) {
+        if (!shouldStartLocally(assignments)) {
             return nullCompletedFuture();
         }
 
@@ -197,6 +192,13 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
         } catch (NodeStoppingException e) {
             return failedFuture(e);
         }
+    }
+
+    private boolean shouldStartLocally(Assignments assignments) {
+        return assignments
+                .nodes()
+                .stream()
+                .anyMatch(a -> a.consistentId().equals(localNode().name()));
     }
 
     private ClusterNode localNode() {
