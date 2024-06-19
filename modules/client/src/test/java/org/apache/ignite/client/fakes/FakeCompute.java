@@ -59,7 +59,6 @@ import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
-import org.apache.ignite.table.mapper.Mapper;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -134,19 +133,7 @@ public class FakeCompute implements IgniteComputeInternal {
         if (target instanceof NodesJobTarget) {
             return submit(((NodesJobTarget) target).nodes(), descriptor, args);
         } else if (target instanceof ColocatedExecutionTarget) {
-            ColocatedExecutionTarget colocatedTarget = (ColocatedExecutionTarget) target;
-            var mapper = (Mapper<? super Object>) colocatedTarget.keyMapper();
-
-            if (mapper != null) {
-                return submitColocated(
-                        colocatedTarget.tableName(),
-                        colocatedTarget.key(),
-                        mapper,
-                        descriptor,
-                        args);
-            } else {
-                return submitColocated(colocatedTarget.tableName(), (Tuple) colocatedTarget.key(), descriptor, args);
-            }
+            return jobExecution(future != null ? future : completedFuture((R) nodeName));
         } else {
             throw new IllegalArgumentException("Unsupported job target: " + target);
         }
@@ -157,58 +144,8 @@ public class FakeCompute implements IgniteComputeInternal {
         return sync(this.executeAsync(target, descriptor, args));
     }
 
-    @Override
     public <R> JobExecution<R> submit(Set<ClusterNode> nodes, JobDescriptor descriptor, Object... args) {
         return executeAsyncWithFailover(nodes, descriptor.units(), descriptor.jobClassName(), descriptor.options(), args);
-    }
-
-    @Override
-    public <R> R execute(Set<ClusterNode> nodes, JobDescriptor descriptor, Object... args) {
-        return sync(this.executeAsync(nodes, descriptor, args));
-    }
-
-    @Override
-    public <R> JobExecution<R> submitColocated(
-            String tableName,
-            Tuple key,
-            JobDescriptor descriptor,
-            Object... args
-    ) {
-        return jobExecution(future != null ? future : completedFuture((R) nodeName));
-    }
-
-    @Override
-    public <K, R> JobExecution<R> submitColocated(
-            String tableName,
-            K key,
-            Mapper<K> keyMapper,
-            JobDescriptor descriptor,
-            Object... args
-    ) {
-        return jobExecution(future != null ? future : completedFuture((R) nodeName));
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public <R> R executeColocated(
-            String tableName,
-            Tuple key,
-            JobDescriptor descriptor,
-            Object... args
-    ) {
-        return sync(this.executeColocatedAsync(tableName, key, descriptor, args));
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public <K, R> R executeColocated(
-            String tableName,
-            K key,
-            Mapper<K> keyMapper,
-            JobDescriptor descriptor,
-            Object... args
-    ) {
-        return sync(executeColocatedAsync(tableName, key, keyMapper, descriptor, args));
     }
 
     @Override
