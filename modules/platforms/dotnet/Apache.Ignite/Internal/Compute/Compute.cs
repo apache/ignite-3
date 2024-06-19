@@ -105,13 +105,15 @@ namespace Apache.Ignite.Internal.Compute
             params object?[]? args)
             where TKey : notnull
         {
-            return await SubmitColocatedAsync<T, TKey>(
-                tableName,
-                key,
-                jobDescriptor.DeploymentUnits ?? Array.Empty<DeploymentUnit>(),
-                jobDescriptor.JobClassName,
-                jobDescriptor.Options ?? JobExecutionOptions.Default,
-                args).ConfigureAwait(false);
+            return await ExecuteColocatedAsync<T, TKey>(
+                    tableName,
+                    key,
+                    serializerHandlerFunc: table => table.GetRecordViewInternal<TKey>().RecordSerializer.Handler,
+                    jobDescriptor.DeploymentUnits,
+                    jobDescriptor.JobClassName,
+                    jobDescriptor.Options,
+                    args)
+                .ConfigureAwait(false);
         }
 
         /// <inheritdoc/>
@@ -120,58 +122,32 @@ namespace Apache.Ignite.Internal.Compute
             JobDescriptor jobDescriptor,
             params object?[]? args)
         {
-            return SubmitBroadcast<T>(
-                nodes,
-                jobDescriptor.DeploymentUnits ?? Array.Empty<DeploymentUnit>(),
-                jobDescriptor.JobClassName,
-                jobDescriptor.Options ?? JobExecutionOptions.Default,
-                args);
-        }
-
-        /// <inheritdoc/>
-        public override string ToString() => IgniteToStringBuilder.Build(GetType());
-
-        private async Task<IJobExecution<T>> SubmitColocatedAsync<T, TKey>(
-            string tableName,
-            TKey key,
-            IEnumerable<DeploymentUnit> units,
-            string jobClassName,
-            JobExecutionOptions options,
-            params object?[]? args)
-            where TKey : notnull =>
-            await ExecuteColocatedAsync<T, TKey>(
-                    tableName,
-                    key,
-                    serializerHandlerFunc: table => table.GetRecordViewInternal<TKey>().RecordSerializer.Handler,
-                    units,
-                    jobClassName,
-                    options,
-                    args)
-                .ConfigureAwait(false);
-
-        private IDictionary<IClusterNode, Task<IJobExecution<T>>> SubmitBroadcast<T>(
-            IEnumerable<IClusterNode> nodes,
-            IEnumerable<DeploymentUnit> units,
-            string jobClassName,
-            JobExecutionOptions options,
-            params object?[]? args)
-        {
             IgniteArgumentCheck.NotNull(nodes);
-            IgniteArgumentCheck.NotNull(jobClassName);
-            IgniteArgumentCheck.NotNull(units);
+            IgniteArgumentCheck.NotNull(jobDescriptor.JobClassName);
+
+            var options = jobDescriptor.Options ?? JobExecutionOptions.Default;
 
             var res = new Dictionary<IClusterNode, Task<IJobExecution<T>>>();
-            var units0 = units as ICollection<DeploymentUnit> ?? units.ToList(); // Avoid multiple enumeration.
+
+            var units0 = jobDescriptor.DeploymentUnits switch
+            {
+                null => Array.Empty<DeploymentUnit>(),
+                ICollection<DeploymentUnit> c => c,
+                var u => u.ToList()
+            };
 
             foreach (var node in nodes)
             {
-                Task<IJobExecution<T>> task = ExecuteOnNodes<T>(new[] { node }, units0, jobClassName, options, args);
+                Task<IJobExecution<T>> task = ExecuteOnNodes<T>(new[] { node }, units0, jobDescriptor.JobClassName, options, args);
 
                 res[node] = task;
             }
 
             return res;
         }
+
+        /// <inheritdoc/>
+        public override string ToString() => IgniteToStringBuilder.Build(GetType());
 
         /// <summary>
         /// Writes the deployment units.
