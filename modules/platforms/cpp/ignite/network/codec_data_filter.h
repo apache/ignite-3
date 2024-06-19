@@ -36,7 +36,7 @@ public:
      *
      * @param factory Codec factory.
      */
-    explicit codec_data_filter(std::shared_ptr<factory<codec>> factory);
+    explicit codec_data_filter(std::shared_ptr<detail::factory<codec>> factory);
 
     /**
      * Send data to specific established connection.
@@ -83,7 +83,7 @@ private:
     std::shared_ptr<codec> find_codec(uint64_t id);
 
     /** Codec factory. */
-    std::shared_ptr<factory<codec>> m_codec_factory;
+    std::shared_ptr<detail::factory<codec>> m_codec_factory;
 
     /** Codecs. */
     std::map<uint64_t, std::shared_ptr<codec>> m_codecs;

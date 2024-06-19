@@ -51,7 +51,7 @@ public class JobExecutionContextImpl implements JobExecutionContext {
     }
 
     @Override
-    public boolean isInterrupted() {
+    public boolean isCancelled() {
         return isInterrupted.get();
     }
 

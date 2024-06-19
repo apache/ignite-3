@@ -40,6 +40,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobDescriptor;
@@ -396,7 +397,7 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
     private static class BlockingJob implements ComputeJob<String> {
         /** {@inheritDoc} */
         @Override
-        public String execute(JobExecutionContext context, Object... args) {
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, Object... args) {
             synchronized (LOCK) {
                 try {
                     LOCK.wait();

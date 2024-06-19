@@ -504,7 +504,7 @@ public class PersistentPageMemory implements PageMemory {
 
     /** {@inheritDoc} */
     @Override
-    public long allocatePage(int grpId, int partId, byte flags) throws IgniteInternalCheckedException {
+    public long allocatePageNoReuse(int grpId, int partId, byte flags) throws IgniteInternalCheckedException {
         assert partId >= 0 && partId <= MAX_PARTITION_ID : partId;
 
         assert started;
