@@ -66,6 +66,7 @@ namespace Apache.Ignite.Internal.Compute
             params object?[]? args)
         {
             IgniteArgumentCheck.NotNull(nodes);
+            IgniteArgumentCheck.NotNull(jobDescriptor);
             IgniteArgumentCheck.NotNull(jobDescriptor.JobClassName);
 
             var nodesCol = GetNodesCollection(nodes);
@@ -86,6 +87,8 @@ namespace Apache.Ignite.Internal.Compute
             JobDescriptor jobDescriptor,
             params object?[]? args)
         {
+            IgniteArgumentCheck.NotNull(jobDescriptor);
+
             return await ExecuteColocatedAsync<T, IIgniteTuple>(
                     tableName,
                     key,
@@ -105,6 +108,8 @@ namespace Apache.Ignite.Internal.Compute
             params object?[]? args)
             where TKey : notnull
         {
+            IgniteArgumentCheck.NotNull(jobDescriptor);
+
             return await ExecuteColocatedAsync<T, TKey>(
                     tableName,
                     key,
@@ -123,6 +128,7 @@ namespace Apache.Ignite.Internal.Compute
             params object?[]? args)
         {
             IgniteArgumentCheck.NotNull(nodes);
+            IgniteArgumentCheck.NotNull(jobDescriptor);
             IgniteArgumentCheck.NotNull(jobDescriptor.JobClassName);
 
             var options = jobDescriptor.Options ?? JobExecutionOptions.Default;
