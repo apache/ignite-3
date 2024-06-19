@@ -22,11 +22,9 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
 import static org.apache.ignite.internal.configuration.FirstConfiguration.KEY;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.anEmptyMap;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.emptyString;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -278,7 +276,7 @@ public class ConfigurationChangerTest {
 
         CompletableFuture<Map<String, ? extends Serializable>> dataFuture = storage.readDataOnRecovery().thenApply(Data::values);
 
-        assertThat(dataFuture, willBe(anEmptyMap()));
+        assertThat(dataFuture, willCompleteSuccessfully());
 
         FirstView newRoot = (FirstView) changer.getRootNode(KEY);
         assertNotNull(newRoot.child());
@@ -506,8 +504,6 @@ public class ConfigurationChangerTest {
 
         changer.start();
 
-        assertThat(changer.onDefaultsPersisted(), willCompleteSuccessfully());
-
         assertEquals(1, storage.lastRevision().get(1, SECONDS));
 
         changer.change(source(DefaultsConfiguration.KEY, (DefaultsChange c) -> c.changeDefStr("test0"))).get(1, SECONDS);
@@ -558,8 +554,6 @@ public class ConfigurationChangerTest {
         ConfigurationChanger changer = createChanger(DefaultsConfiguration.KEY);
 
         changer.start();
-
-        assertThat(changer.onDefaultsPersisted(), willCompleteSuccessfully());
 
         assertEquals(1, storage.lastRevision().get(1, SECONDS));
 
