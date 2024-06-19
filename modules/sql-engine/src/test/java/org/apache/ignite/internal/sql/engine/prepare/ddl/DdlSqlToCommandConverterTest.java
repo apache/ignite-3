@@ -677,7 +677,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
     public void testCreateTableDoNotAllowIntervalTypes(SqlTypeName sqlTypeName) throws SqlParseException {
         String typeName = intervalSqlName(sqlTypeName);
         String error = format("Type {} cannot be used in a column definition [column=P].", sqlTypeName.getSpaceName());
-        
+
         {
             var node = parse(format("CREATE TABLE t (id INTEGER PRIMARY KEY, p INTERVAL {})", typeName));
             assertThat(node, instanceOf(SqlDdl.class));
@@ -702,11 +702,11 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
     public void testAlterTableNotAllowIntervalTypes(SqlTypeName sqlTypeName) throws SqlParseException {
         String typeName = intervalSqlName(sqlTypeName);
         String error = format("Type {} cannot be used in a column definition [column=P].", sqlTypeName.getSpaceName());
-        
+
         {
             var node = parse(format("ALTER TABLE t ADD COLUMN p INTERVAL {}", typeName));
             assertThat(node, instanceOf(SqlDdl.class));
-            
+
             assertThrowsSqlException(STMT_VALIDATION_ERR, error,
                     () -> converter.convert((SqlDdl) node, createContext()));
         }
@@ -723,7 +723,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
     private static Set<SqlTypeName> intervalTypeNames() {
         return INTERVAL_TYPES;
     }
-    
+
     private static String intervalSqlName(SqlTypeName intervalType) {
         String typeName;
         if (intervalType.getStartUnit() != intervalType.getEndUnit()) {
