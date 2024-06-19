@@ -26,6 +26,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableManager;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.raftConfigurationAppliedKey;
 import static org.apache.ignite.internal.replicator.configuration.ReplicationConfigurationSchema.DEFAULT_IDLE_SAFE_TIME_PROP_DURATION;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
@@ -64,7 +65,6 @@ import org.apache.ignite.internal.affinity.RendezvousAffinityFunction;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
-import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.metastorage.command.MultiInvokeCommand;
@@ -334,12 +334,14 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
      * Tests a scenario where all stable nodes are lost, yet we have data on one of pending nodes and perform reset partition operation. In
      * this case we should use that pending node as a source of data for recovery.
      *
-     * It goes like this:
-     *  - We have 6 nodes and a partition on nodes 1, 4 and 5.
-     *  - We stop nodes 4 and 5, leaving node 1 alone in stable assignments.
-     *  - New distribution is 0, 1 and 3. Rebalance is started via raft snapshots. It transfers the data to node 0, but not node 3.
-     *  - Node 1 is stopped. Data is only present on node 0.
-     *  - We execute "resetPartitions" and expect that data from node 0 will be available after that.
+     * <p>It goes like this:
+     * <ul>
+     *     <li>We have 6 nodes and a partition on nodes 1, 4 and 5.</li>
+     *     <li>We stop nodes 4 and 5, leaving node 1 alone in stable assignments.</li>
+     *     <li>New distribution is 0, 1 and 3. Rebalance is started via raft snapshots. It transfers the data to node 0, but not node 3.</li>
+     *     <li>Node 1 is stopped. Data is only present on node 0.</li>
+     *     <li>We execute "resetPartitions" and expect that data from node 0 will be available after that.</li>
+     * </ul>
      */
     @Test
     @ZoneParams(nodes = 6, replicas = 3, partitions = 1)
@@ -404,10 +406,10 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
                 SECONDS.toMillis(DEFAULT_IDLE_SAFE_TIME_PROP_DURATION) + node0.clockService().maxClockSkewMillis())
         );
 
-        //TODO https://issues.apache.org/jira/browse/IGNITE-21303
-        // We need wait quite a bit before data is available. Log shows term mismatches, meaning that right now in only works due to some
-        // miracle. For future improvements we must specify "stable" forced sub-assignments explicitly, instead of calculating them as an
-        // intersection.
+        // TODO https://issues.apache.org/jira/browse/IGNITE-21303
+        //  We need wait quite a bit before data is available. Log shows term mismatches, meaning that right now in only works due to some
+        //  miracle. For future improvements we must specify "stable" forced sub-assignments explicitly, instead of calculating them as an
+        //  intersection.
         Thread.sleep(10_000);
 
         // "forEach" makes "i" effectively final, which is convenient for internal lambda.
@@ -433,7 +435,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
                     UpdateStatement updateStatement = (UpdateStatement) andThen;
                     Collection<Operation> operations = updateStatement.update().operations();
 
-                    ByteArray raftConfigurationAppliedKey = RebalanceUtil.raftConfigurationAppliedKey(new TablePartitionId(tableId, partId));
+                    ByteArray raftConfigurationAppliedKey = raftConfigurationAppliedKey(new TablePartitionId(tableId, partId));
 
                     for (Operation operation : operations) {
                         ByteArray opKey = new ByteArray(operation.key());
