@@ -55,7 +55,6 @@ import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.JobExecutionOptions;
-import org.apache.ignite.compute.JobState;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
@@ -99,7 +98,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
     @Test
     void cancelsQueuedJobLocally() {
         IgniteImpl entryNode = node(0);
-        Set<ClusterNode> nodes = Set.of(entryNode.node());
+        var nodes = JobTarget.node(entryNode.node());
 
         CountDownLatch countDownLatch = new CountDownLatch(1);
         JobDescriptor job = JobDescriptor.builder(WaitLatchJob.class).units(units()).build();
