@@ -533,8 +533,8 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         var keyTuple = Tuple.create().set(COLUMN_KEY, key);
 
         IgniteCompute igniteCompute = client().compute();
-        JobExecution<String> tupleExecution = igniteCompute.submitColocated(
-                TABLE_NAME, keyTuple, JobDescriptor.builder(NodeNameJob.class).build());
+        JobExecution<String> tupleExecution = igniteCompute.submit(
+                JobTarget.colocated(TABLE_NAME, keyTuple), JobDescriptor.builder(NodeNameJob.class).build());
 
         String expectedNode = "itcct_n_" + port;
         assertThat(tupleExecution.resultAsync(), willBe(expectedNode));
@@ -549,8 +549,8 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         IgniteCompute igniteCompute = client().compute();
         Mapper<TestPojo> keyMapper = Mapper.of(TestPojo.class);
-        JobExecution<String> pojoExecution = igniteCompute.submitColocated(
-                TABLE_NAME, keyPojo, keyMapper, JobDescriptor.builder(NodeNameJob.class).build());
+        JobExecution<String> pojoExecution = igniteCompute.submit(
+                JobTarget.colocated(TABLE_NAME, keyPojo, keyMapper), JobDescriptor.builder(NodeNameJob.class).build());
 
         String expectedNode = "itcct_n_" + port;
         assertThat(pojoExecution.resultAsync(), willBe(expectedNode));
@@ -565,8 +565,8 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         int sleepMs = 1_000_000;
 
         IgniteCompute igniteCompute = client().compute();
-        JobExecution<String> tupleExecution = igniteCompute.submitColocated(
-                TABLE_NAME, keyTuple, JobDescriptor.builder(SleepJob.class).build(), sleepMs);
+        JobExecution<String> tupleExecution = igniteCompute.submit(
+                JobTarget.colocated(TABLE_NAME, keyTuple), JobDescriptor.builder(SleepJob.class).build(), sleepMs);
 
         await().until(tupleExecution::statusAsync, willBe(jobStatusWithState(EXECUTING)));
 
@@ -583,8 +583,8 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         IgniteCompute igniteCompute = client().compute();
         Mapper<TestPojo> keyMapper = Mapper.of(TestPojo.class);
-        JobExecution<String> pojoExecution = igniteCompute.submitColocated(
-                TABLE_NAME, keyPojo, keyMapper, JobDescriptor.builder(SleepJob.class).build(), sleepMs);
+        JobExecution<String> pojoExecution = igniteCompute.submit(
+                JobTarget.colocated(TABLE_NAME, keyPojo, keyMapper), JobDescriptor.builder(SleepJob.class).build(), sleepMs);
 
         await().until(pojoExecution::statusAsync, willBe(jobStatusWithState(EXECUTING)));
 
@@ -615,9 +615,8 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     void testExecuteColocatedOnUnknownUnitWithLatestVersionThrows() {
         CompletionException ex = assertThrows(
                 CompletionException.class,
-                () -> client().compute().executeColocatedAsync(
-                        TABLE_NAME,
-                        Tuple.create().set(COLUMN_KEY, 1),
+                () -> client().compute().executeAsync(
+                        JobTarget.colocated(TABLE_NAME, Tuple.create().set(COLUMN_KEY, 1)),
                         JobDescriptor.builder(NodeNameJob.class)
                                 .units(new DeploymentUnit("u", "latest"))
                                 .build()).join());
@@ -673,9 +672,10 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         Mapper<TestPojo> mapper = Mapper.of(TestPojo.class);
         TestPojo pojoKey = new TestPojo(1);
         Tuple tupleKey = Tuple.create().set("key", pojoKey.key);
+        JobDescriptor job = JobDescriptor.builder(NodeNameJob.class).build();
 
-        var tupleRes = client().compute().executeColocated(tableName, tupleKey, JobDescriptor.builder(NodeNameJob.class).build());
-        var pojoRes = client().compute().executeColocated(tableName, pojoKey, mapper, JobDescriptor.builder(NodeNameJob.class).build());
+        var tupleRes = client().compute().execute(JobTarget.colocated(tableName, tupleKey), job);
+        var pojoRes = client().compute().execute(JobTarget.colocated(tableName, pojoKey, mapper), job);
 
         assertEquals(tupleRes, pojoRes);
     }
