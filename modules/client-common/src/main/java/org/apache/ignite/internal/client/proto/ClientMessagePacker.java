@@ -597,7 +597,7 @@ public class ClientMessagePacker implements AutoCloseable {
      *
      * @param vals Object array.
      */
-    public void packObjectArrayAsBinaryTuple(@Nullable Object input) {
+    public void packObjectArrayAsBinaryTuple(Object @Nullable [] input) {
         assert !closed : "Packer is closed";
 
         if (input == null) {
@@ -606,11 +606,11 @@ public class ClientMessagePacker implements AutoCloseable {
             return;
         }
 
-//        packInt(vals.length);
+        packInt(input.length);
 
-//        if (vals.length == 0) {
-//            return;
-//        }
+        if (input.length == 0) {
+            return;
+        }
 
         // Builder with inline schema.
         // Every element in vals is represented by 3 tuple elements: type, scale, value.

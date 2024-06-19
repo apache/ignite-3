@@ -91,7 +91,7 @@ abstract class ItComputeErrorsBaseTest extends ClusterPerClassIntegrationTest {
         String workerNodeName = compute().execute(
                 nodes,
                 JobDescriptor.builder(InteractiveJobs.globalJob().name()).build(),
-                new Object[]{RETURN_WORKER_NAME.name()});
+                RETURN_WORKER_NAME.name());
 
         // Then existing node was a worker and executed the job.
         assertThat(workerNodeName, is(existingNode.name()));
@@ -105,7 +105,7 @@ abstract class ItComputeErrorsBaseTest extends ClusterPerClassIntegrationTest {
         // Then job fails.
         assertThrows(
                 NodeNotFoundException.class,
-                () -> compute().execute(nodes, JobDescriptor.builder(InteractiveJobs.globalJob().name()).build(), new Object[]{}),
+                () -> compute().execute(nodes, JobDescriptor.builder(InteractiveJobs.globalJob().name()).build(), null),
                 "None of the specified nodes are present in the cluster: [" + nonExistingNode.name() + "]"
         );
     }
@@ -121,7 +121,7 @@ abstract class ItComputeErrorsBaseTest extends ClusterPerClassIntegrationTest {
 
         // When broadcast a job
         Map<ClusterNode, JobExecution<Object>> executions = compute().submitBroadcast(
-                nodes, JobDescriptor.builder(InteractiveJobs.interactiveJobName()).build(), new Object[]{});
+                nodes, JobDescriptor.builder(InteractiveJobs.interactiveJobName()).build(), null);
 
         // Then one job is alive
         assertThat(executions.size(), is(2));

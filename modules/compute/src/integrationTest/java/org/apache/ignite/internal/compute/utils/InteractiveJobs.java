@@ -201,6 +201,9 @@ public final class InteractiveJobs {
          * @param args Job args.
          */
         private static void offerArgsAsSignals(String arg) {
+            if (arg == null) {
+                return;
+            }
             try {
                 GLOBAL_SIGNALS.offer(Signal.valueOf(arg));
             } catch (IllegalArgumentException ignored) {

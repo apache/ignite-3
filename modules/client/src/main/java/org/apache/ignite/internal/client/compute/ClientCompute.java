@@ -416,7 +416,7 @@ public class ClientCompute implements IgniteCompute {
         w.packString(jobClassName);
         w.packInt(options.priority());
         w.packInt(options.maxRetries());
-        w.packObjectArrayAsBinaryTuple(args);
+        w.packObjectAsBinaryTuple(args);
     }
 
     private static void packTask(ClientMessagePacker w,
@@ -425,7 +425,7 @@ public class ClientCompute implements IgniteCompute {
             Object[] args) {
         w.packDeploymentUnits(units);
         w.packString(taskClassName);
-        w.packObjectArrayAsBinaryTuple(args);
+        w.packObjectAsBinaryTuple(args);
     }
 
     /**

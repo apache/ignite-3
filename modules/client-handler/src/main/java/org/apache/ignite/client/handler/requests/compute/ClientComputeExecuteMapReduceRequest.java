@@ -53,7 +53,7 @@ public class ClientComputeExecuteMapReduceRequest {
             NotificationSender notificationSender) {
         List<DeploymentUnit> deploymentUnits = in.unpackDeploymentUnits();
         String taskClassName = in.unpackString();
-        Object[] args = unpackArgs(in);
+        Object args = unpackArgs(in);
 
         TaskExecution<Object> execution = compute.submitMapReduce(deploymentUnits, taskClassName, args);
         sendTaskResult(execution, notificationSender);

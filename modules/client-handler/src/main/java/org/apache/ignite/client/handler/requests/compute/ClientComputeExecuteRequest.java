@@ -60,7 +60,7 @@ public class ClientComputeExecuteRequest {
         List<DeploymentUnit> deploymentUnits = in.unpackDeploymentUnits();
         String jobClassName = in.unpackString();
         JobExecutionOptions options = JobExecutionOptions.builder().priority(in.unpackInt()).maxRetries(in.unpackInt()).build();
-        Object[] args = unpackArgs(in);
+        Object args = unpackArgs(in);
 
         JobExecution<Object> execution = compute.executeAsyncWithFailover(candidates, deploymentUnits, jobClassName, options, args);
         sendResultAndStatus(execution, notificationSender);
@@ -110,7 +110,7 @@ public class ClientComputeExecuteRequest {
      * @param in Unpacker.
      * @return Args array.
      */
-    static Object[] unpackArgs(ClientMessageUnpacker in) {
-        return in.unpackObjectArrayFromBinaryTuple();
+    static Object unpackArgs(ClientMessageUnpacker in) {
+        return in.unpackObjectFromBinaryTuple();
     }
 }

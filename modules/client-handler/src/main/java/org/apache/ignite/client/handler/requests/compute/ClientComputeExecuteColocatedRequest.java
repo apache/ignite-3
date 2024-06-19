@@ -59,7 +59,7 @@ public class ClientComputeExecuteColocatedRequest {
             List<DeploymentUnit> deploymentUnits = in.unpackDeploymentUnits();
             String jobClassName = in.unpackString();
             JobExecutionOptions options = JobExecutionOptions.builder().priority(in.unpackInt()).maxRetries(in.unpackInt()).build();
-            Object[] args = unpackArgs(in);
+            Object args = unpackArgs(in);
 
             out.packInt(table.schemaView().lastKnownSchemaVersion());
 
