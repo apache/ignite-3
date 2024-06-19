@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.runner.app;
 
+import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.MAX_TIME_PRECISION;
@@ -81,7 +82,6 @@ import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.table.RecordBinaryViewImpl;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.type.NativeTypes;
-import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.lang.ErrorGroups.Common;
@@ -286,8 +286,7 @@ public class PlatformTestNodeRunner {
 
         System.out.println("Initialization complete");
 
-        CompletableFuture<Ignite>[] futures = nodes.stream().map(EmbeddedNode::igniteAsync).toArray(CompletableFuture[]::new);
-        CompletableFutures.allOf(futures).join();
+        allOf(nodes.stream().map(EmbeddedNode::igniteAsync).toArray(CompletableFuture[]::new)).join();
 
         System.out.println("Ignite nodes started");
 

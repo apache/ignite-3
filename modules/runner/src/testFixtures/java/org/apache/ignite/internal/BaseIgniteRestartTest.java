@@ -372,25 +372,26 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
      * Starts an {@code amount} number of nodes (with sequential indices starting from 0).
      */
     protected List<IgniteImpl> startNodes(int amount) {
-        boolean initNeeded = CLUSTER_NODES_NAMES.isEmpty();
+        boolean initNeeded = EMBEDDED_NODES.isEmpty();
 
-        List<CompletableFuture<Ignite>> futures = IntStream.range(0, amount)
+        List<EmbeddedNode> nodes = IntStream.range(0, amount)
                 .mapToObj(i -> startNodeAsync(i, null))
                 .collect(toList());
 
         if (initNeeded) {
-            String nodeName = CLUSTER_NODES_NAMES.get(0);
+            EmbeddedNode node = nodes.get(0);
 
             InitParameters initParameters = InitParameters.builder()
-                    .destinationNodeName(nodeName)
-                    .metaStorageNodeNames(List.of(nodeName))
+                    .metaStorageNodes(node)
                     .clusterName("cluster")
                     .build();
-            TestIgnitionManager.init(initParameters);
+            TestIgnitionManager.init(node, initParameters);
         }
 
-        return futures.stream()
-                .map(future -> {
+        return nodes.stream()
+                .map(node -> {
+                    CompletableFuture<Ignite> future = node.igniteAsync();
+
                     assertThat(future, willCompleteSuccessfully());
 
                     return (IgniteImpl) future.join();

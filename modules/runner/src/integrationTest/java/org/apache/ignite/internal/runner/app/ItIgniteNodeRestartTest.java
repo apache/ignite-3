@@ -758,37 +758,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     }
 
     /**
-     * Starts an {@code amount} number of nodes (with sequential indices starting from 0).
-     */
-    private List<IgniteImpl> startNodes(int amount) {
-        boolean initNeeded = EMBEDDED_NODES.isEmpty();
-
-        List<EmbeddedNode> nodes = IntStream.range(0, amount)
-                .mapToObj(i -> startNodeAsync(i, null))
-                .collect(toList());
-
-        if (initNeeded) {
-            EmbeddedNode node = nodes.get(0);
-
-            InitParameters initParameters = InitParameters.builder()
-                    .metaStorageNodes(node)
-                    .clusterName("cluster")
-                    .build();
-            TestIgnitionManager.init(node, initParameters);
-        }
-
-        return nodes.stream()
-                .map(node -> {
-                    CompletableFuture<Ignite> future = node.igniteAsync();
-
-                    assertThat(future, willCompleteSuccessfully());
-
-                    return (IgniteImpl) future.join();
-                })
-                .collect(toList());
-    }
-
-    /**
      * Restarts empty node.
      */
     @Test
