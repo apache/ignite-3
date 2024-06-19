@@ -119,9 +119,7 @@ namespace Apache.Ignite.Tests.Compute
 
             IDictionary<IClusterNode, Task<IJobExecution<string>>> taskMap = Client.Compute.SubmitBroadcast<string>(
                 nodes,
-                Units,
-                NodeNameJob,
-                JobExecutionOptions.Default,
+                new(NodeNameJob),
                 "123");
             var res = await taskMap[nodes[0]];
 
@@ -138,10 +136,9 @@ namespace Apache.Ignite.Tests.Compute
 
             IDictionary<IClusterNode, Task<IJobExecution<string>>> taskMap = Client.Compute.SubmitBroadcast<string>(
                 nodes,
-                Units,
-                NodeNameJob,
-                JobExecutionOptions.Default,
+                new(NodeNameJob),
                 "123");
+
             var res1 = await taskMap[nodes[0]];
             var res2 = await taskMap[nodes[1]];
             var res3 = await taskMap[nodes[2]];
@@ -160,9 +157,7 @@ namespace Apache.Ignite.Tests.Compute
         {
             var res = await Client.Compute.SubmitAsync<string>(
                 await Client.GetClusterNodesAsync(),
-                Units,
-                ConcatJob,
-                JobExecutionOptions.Default,
+                new(ConcatJob),
                 1.1,
                 Guid.Empty,
                 "3",
@@ -174,7 +169,7 @@ namespace Apache.Ignite.Tests.Compute
         [Test]
         public async Task TestExecuteWithNullArgs()
         {
-            var res = await Client.Compute.SubmitAsync<string>(await Client.GetClusterNodesAsync(), Units, ConcatJob, args: null);
+            var res = await Client.Compute.SubmitAsync<string>(await Client.GetClusterNodesAsync(), new(ConcatJob), args: null);
 
             Assert.IsNull(await res.GetResultAsync());
         }
@@ -452,7 +447,7 @@ namespace Apache.Ignite.Tests.Compute
             // Colocated.
             var keyTuple = new IgniteTuple { ["ID"] = 1 };
             var res3 = await client.Compute.SubmitColocatedAsync<string>(
-                FakeServer.ExistingTableName, keyTuple, units, FakeServer.GetDetailsJob);
+                FakeServer.ExistingTableName, keyTuple, new(FakeServer.GetDetailsJob, units));
 
             StringAssert.Contains("Units = unit-latest|latest, unit1|1.0.0", await res3.GetResultAsync());
         }
