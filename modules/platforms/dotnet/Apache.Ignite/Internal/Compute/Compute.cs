@@ -60,7 +60,53 @@ namespace Apache.Ignite.Internal.Compute
         }
 
         /// <inheritdoc/>
-        public async Task<IJobExecution<T>> SubmitAsync<T>(
+        public Task<IJobExecution<T>> SubmitAsync<T>(
+            IEnumerable<IClusterNode> nodes,
+            JobDescriptor jobDescriptor,
+            params object?[]? args)
+        {
+            return SubmitAsync<T>(
+                nodes,
+                jobDescriptor.DeploymentUnits ?? Array.Empty<DeploymentUnit>(),
+                jobDescriptor.JobClassName,
+                jobDescriptor.Options ?? JobExecutionOptions.Default,
+                args);
+        }
+
+        /// <inheritdoc/>
+        public Task<IJobExecution<T>> SubmitColocatedAsync<T>(
+            string tableName,
+            IIgniteTuple key,
+            JobDescriptor jobDescriptor,
+            params object?[]? args)
+        {
+            throw new NotImplementedException();
+        }
+
+        /// <inheritdoc/>
+        public Task<IJobExecution<T>> SubmitColocatedAsync<T, TKey>(
+            string tableName,
+            TKey key,
+            JobDescriptor jobDescriptor,
+            params object?[]? args)
+            where TKey : notnull
+        {
+            throw new NotImplementedException();
+        }
+
+        /// <inheritdoc/>
+        public IDictionary<IClusterNode, Task<IJobExecution<T>>> SubmitBroadcast<T>(
+            IEnumerable<IClusterNode> nodes,
+            JobDescriptor jobDescriptor,
+            params object?[]? args)
+        {
+            throw new NotImplementedException();
+        }
+
+        /// <inheritdoc/>
+        public override string ToString() => IgniteToStringBuilder.Build(GetType());
+
+        private async Task<IJobExecution<T>> SubmitAsync<T>(
             IEnumerable<IClusterNode> nodes,
             IEnumerable<DeploymentUnit> units,
             string jobClassName,
@@ -76,8 +122,7 @@ namespace Apache.Ignite.Internal.Compute
             return await ExecuteOnNodes<T>(nodesCol, units, jobClassName, options, args).ConfigureAwait(false);
         }
 
-        /// <inheritdoc/>
-        public async Task<IJobExecution<T>> SubmitColocatedAsync<T>(
+        private async Task<IJobExecution<T>> SubmitColocatedAsync<T>(
             string tableName,
             IIgniteTuple key,
             IEnumerable<DeploymentUnit> units,
@@ -94,8 +139,7 @@ namespace Apache.Ignite.Internal.Compute
                     args)
                 .ConfigureAwait(false);
 
-        /// <inheritdoc/>
-        public async Task<IJobExecution<T>> SubmitColocatedAsync<T, TKey>(
+        private async Task<IJobExecution<T>> SubmitColocatedAsync<T, TKey>(
             string tableName,
             TKey key,
             IEnumerable<DeploymentUnit> units,
@@ -113,8 +157,7 @@ namespace Apache.Ignite.Internal.Compute
                     args)
                 .ConfigureAwait(false);
 
-        /// <inheritdoc/>
-        public IDictionary<IClusterNode, Task<IJobExecution<T>>> SubmitBroadcast<T>(
+        private IDictionary<IClusterNode, Task<IJobExecution<T>>> SubmitBroadcast<T>(
             IEnumerable<IClusterNode> nodes,
             IEnumerable<DeploymentUnit> units,
             string jobClassName,
@@ -137,9 +180,6 @@ namespace Apache.Ignite.Internal.Compute
 
             return res;
         }
-
-        /// <inheritdoc/>
-        public override string ToString() => IgniteToStringBuilder.Build(GetType());
 
         /// <summary>
         /// Writes the deployment units.
