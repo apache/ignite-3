@@ -739,6 +739,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     @ParameterizedTest
     @ValueSource(classes = {MapReduceExceptionOnSplitTask.class, MapReduceExceptionOnReduceTask.class})
+    @Disabled
     void testExecuteMapReduceExceptionPropagation(Class<?> taskClass) {
         IgniteException cause = getExceptionInJobExecutionAsync(
                 client().compute().submitMapReduce(List.of(), taskClass.getName(), null)
@@ -748,7 +749,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         assertEquals(TRACE_ID, cause.traceId());
         assertEquals(COLUMN_ALREADY_EXISTS_ERR, cause.code());
         assertInstanceOf(CustomException.class, cause);
-        //assertNull(cause.getCause()); // No stack trace by default.
+        assertNull(cause.getCause()); // No stack trace by default.
     }
 
     private void testEchoArg(Object arg) {

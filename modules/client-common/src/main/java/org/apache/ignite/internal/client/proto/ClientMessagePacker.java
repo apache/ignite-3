@@ -595,28 +595,28 @@ public class ClientMessagePacker implements AutoCloseable {
     /**
      * Packs an array of objects in BinaryTuple format.
      *
-     * @param input Object array.
+     * @param vals Object array.
      */
-    public void packObjectArrayAsBinaryTuple(Object @Nullable [] input) {
-        assert !closed : "Packer is closed";
-
-        if (input == null) {
+    public void packObjectArrayAsBinaryTuple(Object @Nullable [] vals) {
+        if (vals == null) {
             packNil();
 
             return;
         }
 
-        packInt(input.length);
+        packInt(vals.length);
 
-        if (input.length == 0) {
+        if (vals.length == 0) {
             return;
         }
 
         // Builder with inline schema.
         // Every element in vals is represented by 3 tuple elements: type, scale, value.
-        var builder = new BinaryTupleBuilder(3);
+        var builder = new BinaryTupleBuilder(vals.length * 3);
 
-        ClientBinaryTupleUtils.appendObject(builder, input);
+        for (Object arg : vals) {
+            ClientBinaryTupleUtils.appendObject(builder, arg);
+        }
 
         packBinaryTuple(builder);
     }

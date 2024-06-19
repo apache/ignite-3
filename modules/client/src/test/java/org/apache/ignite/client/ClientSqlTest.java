@@ -200,7 +200,7 @@ public class ClientSqlTest extends AbstractClientTableTest {
     public void testExecuteScriptWithPropertiesAndArguments() {
         IgniteSql sql = client.sql();
 
-        sql.executeScript("do bar baz",  "arg1");
+        sql.executeScript("do bar baz", "arg1", null, 2);
 
         ResultSet<SqlRow> resultSet = sql.execute(null, "SELECT LAST SCRIPT");
         SqlRow row = resultSet.next();

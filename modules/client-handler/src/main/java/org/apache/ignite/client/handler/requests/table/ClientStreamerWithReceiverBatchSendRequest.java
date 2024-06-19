@@ -67,7 +67,6 @@ public class ClientStreamerWithReceiverBatchSendRequest {
             boolean returnResults = in.unpackBoolean();
 
             // Payload = binary tuple of (receiverClassName, receiverArgs, items). We pass it to the job without deserialization.
-            int payloadElementCount = in.unpackInt();
             byte[] payload = in.readBinary();
 
             return table.partitionManager().primaryReplicaAsync(new HashPartition(partition)).thenCompose(primaryReplica -> {
