@@ -711,7 +711,7 @@ public class ItTxTestCluster {
                                         storageIndexTracker,
                                         completedFuture(listener)
                                 );
-                            } catch (NodeStoppingException e) {
+                            } catch (Throwable e) {
                                 fail("Unexpected node stopping", e);
                             }
                         }
