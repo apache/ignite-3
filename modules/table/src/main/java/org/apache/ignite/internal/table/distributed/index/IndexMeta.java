@@ -27,6 +27,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
+import org.jetbrains.annotations.Nullable;
 
 /** Immutable index meta, based on the {@link CatalogIndexDescriptor}. */
 public class IndexMeta implements Serializable {
@@ -184,6 +185,27 @@ public class IndexMeta implements Serializable {
     /** Returns a map of index statuses with change info (for example catalog version) in which they appeared. */
     public Map<MetaIndexStatus, MetaIndexStatusChange> statusChanges() {
         return statusChanges;
+    }
+
+    /**
+     * Returns the index status change, {@code null} if absent.
+     *
+     * @param status Index status of interest.
+     * @throws IllegalArgumentException If there is no index status change.
+     */
+    public MetaIndexStatusChange statusChange(MetaIndexStatus status) {
+        MetaIndexStatusChange change = statusChanges.get(status);
+
+        if (change == null) {
+            throw new IllegalArgumentException(String.format("No status change: [requestedStatus=%s, indexMeta=%s]", status, this));
+        }
+
+        return change;
+    }
+
+    /** Returns the index status change, {@code null} if absent. */
+    public @Nullable MetaIndexStatusChange statusChangeNullable(MetaIndexStatus status) {
+        return statusChanges.get(status);
     }
 
     /** Returns {@code true} if the index was dropped. */

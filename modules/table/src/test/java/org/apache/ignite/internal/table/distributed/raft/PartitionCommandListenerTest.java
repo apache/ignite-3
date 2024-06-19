@@ -1139,6 +1139,8 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
         lenient().when(indexMeta.status()).thenReturn(BUILDING);
         lenient().when(indexMeta.tableVersion()).thenReturn(tableVersion);
         lenient().when(indexMeta.statusChanges()).thenReturn(changeMap);
+        lenient().when(indexMeta.statusChange(eq(REGISTERED))).thenReturn(change0);
+        lenient().when(indexMeta.statusChange(eq(BUILDING))).thenReturn(change1);
 
         return indexMeta;
     }

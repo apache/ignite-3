@@ -833,7 +833,8 @@ public class ItTxTestCluster {
                 placementDriver,
                 clusterNodeResolver,
                 resourcesRegistry,
-                schemaRegistry
+                schemaRegistry,
+                mock(IndexMetaStorage.class)
         );
     }
 

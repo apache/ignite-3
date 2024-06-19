@@ -29,6 +29,7 @@ import org.apache.ignite.internal.table.distributed.TableMessageGroup;
  *
  * <p>It is possible to receive a {@link PrimaryReplicaMissException} in response to message processing if the leaseholder changes.</p>
  */
+// TODO: IGNITE-22520 нужно будет избавиться от полей лишних полей
 @Transferable(TableMessageGroup.BUILD_INDEX_REPLICA_REQUEST)
 public interface BuildIndexReplicaRequest extends PrimaryReplicaRequest {
     /** Returns index ID. */

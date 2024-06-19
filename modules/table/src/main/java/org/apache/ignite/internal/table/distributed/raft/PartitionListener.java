@@ -736,18 +736,13 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
     }
 
     private BuildIndexRowVersionChooser createBuildIndexRowVersionChooser(IndexMeta indexMeta) {
-        MetaIndexStatusChange indexCreationVersion = indexMeta.statusChanges().get(REGISTERED);
-
-        assert indexCreationVersion != null : indexMeta;
-
-        MetaIndexStatusChange indexStartBuildingVersion = indexMeta.statusChanges().get(BUILDING);
-
-        assert indexStartBuildingVersion != null : indexMeta;
+        MetaIndexStatusChange registeredChangeInfo = indexMeta.statusChange(REGISTERED);
+        MetaIndexStatusChange buildingChangeInfo = indexMeta.statusChange(BUILDING);
 
         return new BuildIndexRowVersionChooser(
                 storage,
-                indexCreationVersion.activationTimestamp(),
-                indexStartBuildingVersion.activationTimestamp()
+                registeredChangeInfo.activationTimestamp(),
+                buildingChangeInfo.activationTimestamp()
         );
     }
 

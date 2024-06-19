@@ -1124,7 +1124,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 executorInclinedPlacementDriver,
                 topologyService,
                 remotelyTriggeredResourceRegistry,
-                schemaManager.schemaRegistry(tableId)
+                schemaManager.schemaRegistry(tableId),
+                indexMetaStorage
         );
     }
 

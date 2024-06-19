@@ -407,7 +407,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 new TestPlacementDriver(LOCAL_NODE),
                 mock(ClusterNodeResolver.class),
                 resourcesRegistry,
-                schemaManager
+                schemaManager,
+                mock(IndexMetaStorage.class)
         );
 
         partitionListener = new PartitionListener(
