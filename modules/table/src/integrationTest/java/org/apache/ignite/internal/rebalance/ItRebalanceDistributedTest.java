@@ -903,8 +903,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                                 .allMatch(n -> {
                                     // TODO: will be replaced with replica usage in https://issues.apache.org/jira/browse/IGNITE-22218
                                     TableRaftService trs = n.tableManager
-                                        .cachedTable(getTableId(n, tableName))
-                                        .internalTable()
+                                            .cachedTable(getTableId(n, tableName))
+                                            .internalTable()
                                             .tableRaftService();
                                     RaftGroupService raftClient;
                                     try {
