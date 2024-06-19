@@ -126,19 +126,13 @@ namespace Apache.Ignite.Internal.Compute
             IgniteArgumentCheck.NotNull(jobDescriptor.JobClassName);
 
             var options = jobDescriptor.Options ?? JobExecutionOptions.Default;
+            var units = GetUnitsCollection(jobDescriptor.DeploymentUnits);
 
             var res = new Dictionary<IClusterNode, Task<IJobExecution<T>>>();
 
-            var units0 = jobDescriptor.DeploymentUnits switch
-            {
-                null => Array.Empty<DeploymentUnit>(),
-                ICollection<DeploymentUnit> c => c,
-                var u => u.ToList()
-            };
-
             foreach (var node in nodes)
             {
-                Task<IJobExecution<T>> task = ExecuteOnNodes<T>(new[] { node }, units0, jobDescriptor.JobClassName, options, args);
+                Task<IJobExecution<T>> task = ExecuteOnNodes<T>(new[] { node }, units, jobDescriptor.JobClassName, options, args);
 
                 res[node] = task;
             }
@@ -236,6 +230,14 @@ namespace Apache.Ignite.Internal.Compute
 
         private static ICollection<IClusterNode> GetNodesCollection(IEnumerable<IClusterNode> nodes) =>
             nodes as ICollection<IClusterNode> ?? nodes.ToList();
+
+        private static ICollection<DeploymentUnit> GetUnitsCollection(IEnumerable<DeploymentUnit>? units) =>
+            units switch
+            {
+                null => Array.Empty<DeploymentUnit>(),
+                ICollection<DeploymentUnit> c => c,
+                var u => u.ToList()
+            };
 
         private static void WriteEnumerable<T>(IEnumerable<T> items, PooledArrayBuffer buf, Action<T> writerFunc)
         {
@@ -385,9 +387,8 @@ namespace Apache.Ignite.Internal.Compute
             IgniteArgumentCheck.NotNull(jobClassName);
 
             options ??= JobExecutionOptions.Default;
-            units ??= Array.Empty<DeploymentUnit>();
+            var units0 = GetUnitsCollection(units);
 
-            var units0 = units as ICollection<DeploymentUnit> ?? units.ToList(); // Avoid multiple enumeration.
             int? schemaVersion = null;
 
             while (true)
