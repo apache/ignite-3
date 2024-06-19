@@ -183,7 +183,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void executesLocally() {
-        JobExecution<String> execution = computeComponent.executeLocally(List.of(), SimpleJob.class.getName(), new Object[]{"a", 42});
+        JobExecution<String> execution = computeComponent.executeLocally(List.of(), SimpleJob.class.getName(), "a");
 
         assertThat(execution.resultAsync(), willBe("jobResponse"));
         assertThat(execution.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
@@ -250,7 +250,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         respondWithJobCancelResponseWhenJobCancelRequestIsSent(jobId, false);
 
         JobExecution<String> execution = computeComponent.executeRemotely(
-                remoteNode, List.of(), SimpleJob.class.getName(), new Object[]{"a", 42}
+                remoteNode, List.of(), SimpleJob.class.getName(), "a"
         );
         assertThat(execution.resultAsync(), willBe("remoteResponse"));
 
@@ -260,7 +260,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         assertThat(execution.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
         assertThat(execution.cancelAsync(), willBe(false));
 
-        assertThatExecuteRequestWasSent(SimpleJob.class.getName(), "a", 42);
+        assertThatExecuteRequestWasSent(SimpleJob.class.getName(), "a");
         assertThatJobResultRequestWasSent(jobId);
         assertThatJobStatusRequestWasSent(jobId);
         assertThatJobCancelRequestWasSent(jobId);
@@ -371,7 +371,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         return false;
     }
 
-    private void assertThatExecuteRequestWasSent(String jobClassName, Object... args) {
+    private void assertThatExecuteRequestWasSent(String jobClassName, String args) {
         ExecuteRequest capturedRequest = invokeAndCaptureRequest(ExecuteRequest.class);
 
         assertThat(capturedRequest.jobClassName(), is(jobClassName));
@@ -417,7 +417,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
                 () -> executeRemotely(FailingJob.class.getName()).get()
         );
 
-        assertThatExecuteRequestWasSent(FailingJob.class.getName());
+        assertThatExecuteRequestWasSent(FailingJob.class.getName(), null);
 
         assertThat(ex.getCause(), is(instanceOf(JobException.class)));
         assertThat(ex.getCause().getMessage(), is("Oops"));
@@ -430,7 +430,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
                 .executeOptions(DEFAULT)
                 .deploymentUnits(List.of())
                 .jobClassName(SimpleJob.class.getName())
-                .input(new Object[]{"a", 42})
+                .input("a")
                 .build();
         ExecuteResponse executeResponse = sendRequestAndCaptureResponse(executeRequest, testNode, 123L);
 
@@ -625,7 +625,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
                 .when(jobContextManager).acquireClassLoader(units);
 
         assertThat(
-                executeLocally(units, "com.example.Maim"),
+                executeLocally(units, "com.example.Maim", null),
                 willThrow(ClassNotFoundException.class)
         );
     }
@@ -643,7 +643,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
                 .when(jobContextManager).acquireClassLoader(units);
 
         assertThat(
-                executeLocally(units, "com.example.Maim"),
+                executeLocally(units, "com.example.Maim", null),
                 willThrow(ClassNotFoundException.class)
         );
     }
@@ -672,33 +672,43 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         return responseCaptor.getValue();
     }
 
-    private CompletableFuture<String> executeLocally(String jobClassName, Object... args) {
+    private CompletableFuture<String> executeLocally(String jobClassName, String args) {
         return executeLocally(List.of(), jobClassName, args);
     }
 
-    private CompletableFuture<String> executeLocally(List<DeploymentUnit> units, String jobClassName, Object... args) {
-        return computeComponent.<Object[], String>executeLocally(units, jobClassName, args).resultAsync();
+    private CompletableFuture<String> executeLocally(String jobClassName) {
+        return executeLocally(jobClassName, null);
+    }
+
+    private CompletableFuture<String> executeLocally(List<DeploymentUnit> units, String jobClassName, String args) {
+        return computeComponent.<String, String>executeLocally(units, jobClassName, args).resultAsync();
     }
 
     private CompletableFuture<String> executeRemotely(
             String jobClassName,
-            Object... args
+            String args
     ) {
-        return computeComponent.<Object[], String>executeRemotely(remoteNode, List.of(), jobClassName, args).resultAsync();
+        return computeComponent.<String, String>executeRemotely(remoteNode, List.of(), jobClassName, args).resultAsync();
     }
 
-    private static class SimpleJob implements ComputeJob<Object[], String> {
+    private CompletableFuture<String> executeRemotely(
+            String jobClassName
+    ) {
+        return executeRemotely(jobClassName, null);
+    }
+
+    private static class SimpleJob implements ComputeJob<String, String> {
         /** {@inheritDoc} */
         @Override
-        public CompletableFuture<String> executeAsync(JobExecutionContext context, Object... args) {
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, String args) {
             return completedFuture("jobResponse");
         }
     }
 
-    private static class FailingJob implements ComputeJob<Object[], String> {
+    private static class FailingJob implements ComputeJob<String, String> {
         /** {@inheritDoc} */
         @Override
-        public CompletableFuture<String> executeAsync(JobExecutionContext context, Object... args) {
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, String args) {
             throw new JobException("Oops", new Exception());
         }
     }
@@ -709,10 +719,10 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         }
     }
 
-    private static class GetThreadNameJob implements ComputeJob<Object[], String> {
+    private static class GetThreadNameJob implements ComputeJob<String, String> {
         /** {@inheritDoc} */
         @Override
-        public CompletableFuture<String> executeAsync(JobExecutionContext context, Object... args) {
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, String args) {
             return completedFuture(Thread.currentThread().getName());
         }
     }

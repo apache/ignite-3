@@ -101,9 +101,7 @@ public class ClientStreamerWithReceiverBatchSendRequest {
     private static class ReceiverRunnerJob implements ComputeJob<byte[], List<Object>> {
         @Override
         public @Nullable CompletableFuture<List<Object>> executeAsync(JobExecutionContext context, byte[] payload) {
-            int payloadElementCount = payload.length;
-
-            var receiverInfo = StreamerReceiverSerializer.deserialize(payload, payloadElementCount);
+            var receiverInfo = StreamerReceiverSerializer.deserialize(payload);
 
             ClassLoader classLoader = ((JobExecutionContextImpl) context).classLoader();
             Class<DataStreamerReceiver<Object, Object>> receiverClass = ComputeUtils.receiverClass(classLoader, receiverInfo.className());

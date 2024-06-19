@@ -51,19 +51,17 @@ public class StreamerReceiverSerializer {
 
         ClientBinaryTupleUtils.appendCollectionToBinaryTuple(builder, items);
 
-        w.packInt(binaryTupleSize);
-        w.packBinaryTuple(builder);
+        w.packObjectAsBinaryTuple(builder.build().array());
     }
 
     /**
      * Deserializes streamer receiver info.
      *
      * @param bytes Bytes.
-     * @param elementCount Number of elements in the binary tuple.
      * @return Streamer receiver info.
      */
-    public static SteamerReceiverInfo deserialize(byte[] bytes, int elementCount) {
-        var reader = new BinaryTupleReader(elementCount, bytes);
+    public static SteamerReceiverInfo deserialize(byte[] bytes) {
+        var reader = new BinaryTupleReader(bytes.length, bytes);
 
         int readerIndex = 0;
         String receiverClassName = reader.stringValue(readerIndex++);
