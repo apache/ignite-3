@@ -90,7 +90,7 @@ abstract class ItComputeErrorsBaseTest extends ClusterPerClassIntegrationTest {
 
         // And execute a job
         String workerNodeName = compute().execute(
-                nodes,
+                JobTarget.anyNode(nodes),
                 JobDescriptor.builder(InteractiveJobs.globalJob().name()).build(),
                 RETURN_WORKER_NAME.name());
 
@@ -101,7 +101,7 @@ abstract class ItComputeErrorsBaseTest extends ClusterPerClassIntegrationTest {
     @Test
     void executeFailsWhenNoNodesAreInTheCluster() {
         // When set of nodes contain only non-existing nodes
-        Set<ClusterNode> nodes = Set.of(nonExistingNode);
+        JobTarget nodes = JobTarget.node(nonExistingNode);
 
         // Then job fails.
         assertThrows(

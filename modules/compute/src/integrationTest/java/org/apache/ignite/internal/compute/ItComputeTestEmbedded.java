@@ -40,7 +40,6 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -230,7 +229,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         IgniteException exception = new IgniteException(INTERNAL_ERR, "Test exception");
 
         IgniteException ex = assertThrows(IgniteException.class, () -> entryNode.compute().execute(
-                Set.of(entryNode.node()),
+                JobTarget.node(entryNode.node()),
                 JobDescriptor.builder(CustomFailingJob.class).units(units()).build(),
                 exception));
 
@@ -244,7 +243,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         IgniteCheckedException exception = new IgniteCheckedException(INTERNAL_ERR, "Test exception");
 
         IgniteCheckedException ex = assertThrows(IgniteCheckedException.class, () -> entryNode.compute().execute(
-                Set.of(entryNode.node()),
+                JobTarget.node(entryNode.node()),
                 JobDescriptor.builder(CustomFailingJob.class).units(units()).build(),
                 exception));
 
@@ -266,7 +265,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         IgniteImpl entryNode = node(0);
 
         IgniteException ex = assertThrows(IgniteException.class, () -> entryNode.compute().execute(
-                Set.of(entryNode.node()),
+                JobTarget.node(entryNode.node()),
                 JobDescriptor.builder(CustomFailingJob.class).units(units()).build(),
                 throwable));
 
@@ -284,7 +283,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         IgniteImpl targetNode = node(targetNodeIndex);
 
         assertDoesNotThrow(() -> entryNode.compute().execute(
-                Set.of(targetNode.node()),
+                JobTarget.node(targetNode.node()),
                 JobDescriptor.builder(PerformSyncKvGetPutJob.class).build()));
     }
 

@@ -291,9 +291,8 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
         // When start colocated job on node that is not primary replica.
         IgniteImpl entryNode = anyNodeExcept(primaryReplica);
         TestingJobExecution<Object> execution = new TestingJobExecution<>(
-                compute(entryNode).submitColocated(
-                        TABLE_NAME,
-                        Tuple.create(1).set("K", 1),
+                compute(entryNode).submit(
+                        JobTarget.colocated(TABLE_NAME, Tuple.create(1).set("K", 1)),
                         JobDescriptor.builder(InteractiveJobs.globalJob().name()).build()));
 
         // Then the job is alive.
