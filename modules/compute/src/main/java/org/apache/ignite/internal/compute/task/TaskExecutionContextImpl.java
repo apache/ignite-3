@@ -15,23 +15,38 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.compute.task;
+package org.apache.ignite.internal.compute.task;
 
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.compute.task.TaskExecutionContext;
 
-/** Context of the compute task execution. */
-public interface TaskExecutionContext {
-    /**
-     * Ignite API entry point.
-     *
-     * @return Ignite instance.
-     */
-    Ignite ignite();
+/**
+ * Implementation of {@link TaskExecutionContext}.
+ */
+public class TaskExecutionContextImpl implements TaskExecutionContext {
+    private final Ignite ignite;
+
+    private final AtomicBoolean isCancelled;
 
     /**
-     * Flag indicating whether the task was cancelled.
+     * Constructor.
      *
-     * @return {@code true} when the task was cancelled.
+     * @param ignite Ignite instance.
+     * @param isCancelled Cancelled flag.
      */
-    boolean isCancelled();
+    public TaskExecutionContextImpl(Ignite ignite, AtomicBoolean isCancelled) {
+        this.ignite = ignite;
+        this.isCancelled = isCancelled;
+    }
+
+    @Override
+    public Ignite ignite() {
+        return ignite;
+    }
+
+    @Override
+    public boolean isCancelled() {
+        return isCancelled.get();
+    }
 }

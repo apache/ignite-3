@@ -20,6 +20,10 @@ package org.apache.ignite.internal.compute;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.compute.JobState.CANCELED;
+import static org.apache.ignite.compute.JobState.COMPLETED;
+import static org.apache.ignite.compute.JobState.EXECUTING;
+import static org.apache.ignite.compute.JobState.QUEUED;
 import static org.apache.ignite.internal.IgniteExceptionTestUtils.assertPublicCheckedException;
 import static org.apache.ignite.internal.IgniteExceptionTestUtils.assertPublicException;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
@@ -85,11 +89,40 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         JobDescriptor job = JobDescriptor.builder(WaitLatchJob.class).units(units()).build();
         JobExecution<String> execution = entryNode.compute().submit(JobTarget.node(entryNode.node()), job, new CountDownLatch(1));
 
-        await().until(execution::statusAsync, willBe(jobStatusWithState(JobState.EXECUTING)));
+        await().until(execution::statusAsync, willBe(jobStatusWithState(EXECUTING)));
 
         assertThat(execution.cancelAsync(), willBe(true));
 
-        await().until(execution::statusAsync, willBe(jobStatusWithState(JobState.CANCELED)));
+        await().until(execution::statusAsync, willBe(jobStatusWithState(CANCELED)));
+    }
+
+    @Test
+    void cancelsQueuedJobLocally() {
+        IgniteImpl entryNode = node(0);
+        Set<ClusterNode> nodes = Set.of(entryNode.node());
+
+        CountDownLatch countDownLatch = new CountDownLatch(1);
+        JobDescriptor job = JobDescriptor.builder(WaitLatchJob.class).units(units()).build();
+
+        // Start 1 task in executor with 1 thread
+        JobExecution<String> execution1 = entryNode.compute().submit(nodes, job, countDownLatch);
+        await().until(execution1::statusAsync, willBe(jobStatusWithState(EXECUTING)));
+
+        // Start one more task
+        JobExecution<String> execution2 = entryNode.compute().submit(nodes, job, new CountDownLatch(1));
+        await().until(execution2::statusAsync, willBe(jobStatusWithState(QUEUED)));
+
+        // Task 2 is not complete, in queued state
+        assertThat(execution2.resultAsync().isDone(), is(false));
+
+        // Cancel queued task
+        assertThat(execution2.cancelAsync(), willBe(true));
+        assertThat(execution2.statusAsync(), willBe(jobStatusWithState(CANCELED)));
+
+        // Finish running task
+        countDownLatch.countDown();
+        await().until(execution1::statusAsync, willBe(jobStatusWithState(COMPLETED)));
+        assertThat(execution1.cancelAsync(), willBe(false));
     }
 
     @Test
@@ -99,11 +132,11 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         JobDescriptor job = JobDescriptor.builder(WaitLatchJob.class).units(units()).build();
         JobExecution<String> execution = entryNode.compute().submit(JobTarget.node(node(1).node()), job, new CountDownLatch(1));
 
-        await().until(execution::statusAsync, willBe(jobStatusWithState(JobState.EXECUTING)));
+        await().until(execution::statusAsync, willBe(jobStatusWithState(EXECUTING)));
 
         assertThat(execution.cancelAsync(), willBe(true));
 
-        await().until(execution::statusAsync, willBe(jobStatusWithState(JobState.CANCELED)));
+        await().until(execution::statusAsync, willBe(jobStatusWithState(CANCELED)));
     }
 
     @Test
@@ -112,7 +145,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
 
         JobDescriptor job = JobDescriptor.builder(WaitLatchJob.class).units(units()).build();
         JobExecution<String> execution = entryNode.compute().submit(JobTarget.node(entryNode.node()), job, new CountDownLatch(1));
-        await().until(execution::statusAsync, willBe(jobStatusWithState(JobState.EXECUTING)));
+        await().until(execution::statusAsync, willBe(jobStatusWithState(EXECUTING)));
 
         assertThat(execution.changePriorityAsync(2), willBe(false));
         assertThat(execution.cancelAsync(), willBe(true));
@@ -124,7 +157,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
 
         JobDescriptor job = JobDescriptor.builder(WaitLatchJob.class).units(units()).build();
         JobExecution<String> execution = entryNode.compute().submit(JobTarget.node(node(1).node()), job, new CountDownLatch(1));
-        await().until(execution::statusAsync, willBe(jobStatusWithState(JobState.EXECUTING)));
+        await().until(execution::statusAsync, willBe(jobStatusWithState(EXECUTING)));
 
         assertThat(execution.changePriorityAsync(2), willBe(false));
         assertThat(execution.cancelAsync(), willBe(true));
@@ -140,17 +173,17 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
 
         // Start 1 task in executor with 1 thread
         JobExecution<String> execution1 = entryNode.compute().submit(jobTarget, job, countDownLatch);
-        await().until(execution1::statusAsync, willBe(jobStatusWithState(JobState.EXECUTING)));
+        await().until(execution1::statusAsync, willBe(jobStatusWithState(EXECUTING)));
 
         // Start one more task
         JobExecution<String> execution2 = entryNode.compute().submit(jobTarget, job, new CountDownLatch(1));
-        await().until(execution2::statusAsync, willBe(jobStatusWithState(JobState.QUEUED)));
+        await().until(execution2::statusAsync, willBe(jobStatusWithState(QUEUED)));
 
         // Start third task
         JobExecution<String> execution3 = entryNode.compute().submit(jobTarget, job, countDownLatch);
-        await().until(execution3::statusAsync, willBe(jobStatusWithState(JobState.QUEUED)));
+        await().until(execution3::statusAsync, willBe(jobStatusWithState(QUEUED)));
 
-        // Task 1 and 2 are not competed, in queue state
+        // Task 2 and 3 are not completed, in queued state
         assertThat(execution2.resultAsync().isDone(), is(false));
         assertThat(execution3.resultAsync().isDone(), is(false));
 
@@ -181,11 +214,11 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
 
         // Start 1 task in executor with 1 thread
         JobExecution<String> execution1 = entryNode.compute().submit(jobTarget, job, new Object[]{countDownLatch});
-        await().until(execution1::statusAsync, willBe(jobStatusWithState(JobState.EXECUTING)));
+        await().until(execution1::statusAsync, willBe(jobStatusWithState(EXECUTING)));
 
         // Start one more task
         JobExecution<String> execution2 = entryNode.compute().submit(jobTarget, job, new Object[]{new CountDownLatch(1)});
-        await().until(execution2::statusAsync, willBe(jobStatusWithState(JobState.QUEUED)));
+        await().until(execution2::statusAsync, willBe(jobStatusWithState(QUEUED)));
 
         // Start third task it should be before task2 in the queue due to higher priority in options
         JobExecutionOptions options = JobExecutionOptions.builder().priority(1).maxRetries(2).build();
@@ -196,7 +229,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
                     .options(options)
                     .build(),
                 countDownLatch);
-        await().until(execution3::statusAsync, willBe(jobStatusWithState(JobState.QUEUED)));
+        await().until(execution3::statusAsync, willBe(jobStatusWithState(QUEUED)));
 
         // Task 1 and 2 are not competed, in queue state
         assertThat(execution2.resultAsync().isDone(), is(false));
@@ -289,9 +322,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
 
     @Test
     void executesNullReturningJobViaSyncBroadcast() {
-        int entryNodeIndex = 0;
-
-        IgniteImpl entryNode = node(entryNodeIndex);
+        IgniteImpl entryNode = node(0);
 
         Map<ClusterNode, Object> results = entryNode.compute()
                 .executeBroadcast(new HashSet<>(entryNode.clusterNodes()), JobDescriptor.builder(NullReturningJob.class).build());
@@ -302,9 +333,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
 
     @Test
     void executesNullReturningJobViaAsyncBroadcast() {
-        int entryNodeIndex = 0;
-
-        IgniteImpl entryNode = node(entryNodeIndex);
+        IgniteImpl entryNode = node(0);
 
         CompletableFuture<Map<ClusterNode, Object>> resultsFuture = entryNode.compute()
                 .executeBroadcastAsync(new HashSet<>(entryNode.clusterNodes()), JobDescriptor.builder(NullReturningJob.class).build());
@@ -317,9 +346,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
 
     @Test
     void executesNullReturningJobViaSubmitBroadcast() {
-        int entryNodeIndex = 0;
-
-        IgniteImpl entryNode = node(entryNodeIndex);
+        IgniteImpl entryNode = node(0);
 
         Map<ClusterNode, JobExecution<Object>> executionsMap = entryNode.compute().submitBroadcast(
                 new HashSet<>(entryNode.clusterNodes()),
