@@ -261,6 +261,10 @@ public class TestServer implements AutoCloseable {
                 );
 
         module.startAsync(componentContext).join();
+
+        if (shouldDropConnection == null) {
+            ((ClientHandlerModule) module).enable();
+        }
     }
 
     /**
