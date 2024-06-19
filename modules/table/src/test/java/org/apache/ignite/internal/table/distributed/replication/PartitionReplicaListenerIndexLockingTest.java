@@ -55,7 +55,6 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
-import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryRowMessage;
@@ -306,7 +305,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
     /** Verifies the mode in which the lock was acquired on the index key for a particular operation. */
     @ParameterizedTest
     @MethodSource("readWriteSingleTestArguments")
-    void testReadWriteSingle(ReadWriteTestArg arg) throws MarshallerException {
+    void testReadWriteSingle(ReadWriteTestArg arg) {
         BinaryRow testPk = kvMarshaller.marshal(1);
         BinaryRow testBinaryRow = kvMarshaller.marshal(1, 1);
 
@@ -386,7 +385,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
     /** Verifies the mode in which the lock was acquired on the index key for a particular operation. */
     @ParameterizedTest
     @MethodSource("readWriteMultiTestArguments")
-    void testReadWriteMulti(ReadWriteTestArg arg) throws MarshallerException {
+    void testReadWriteMulti(ReadWriteTestArg arg) {
         var pks = new ArrayList<BinaryRow>();
         var rows = new ArrayList<BinaryRow>();
 

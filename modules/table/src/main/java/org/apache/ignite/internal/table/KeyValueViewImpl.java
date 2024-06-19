@@ -37,7 +37,6 @@ import java.util.function.Function;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.marshaller.Marshaller;
-import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.internal.marshaller.MarshallerSchema;
 import org.apache.ignite.internal.marshaller.MarshallersProvider;
 import org.apache.ignite.internal.marshaller.TupleReader;
@@ -55,6 +54,7 @@ import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.lang.UnexpectedNullValueException;
 import org.apache.ignite.sql.IgniteSql;
@@ -561,6 +561,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
      * Returns marshaller.
      *
      * @param schemaVersion Schema version.
+     * @throws MarshallerException If failed to create a marshaller.
      */
     private KvMarshaller<K, V> marshaller(int schemaVersion) {
         KvMarshaller<K, V> marsh = this.marsh;
@@ -569,10 +570,14 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
             return marsh;
         }
 
-        SchemaRegistry registry = rowConverter.registry();
+        try {
+            SchemaRegistry registry = rowConverter.registry();
 
-        marsh = marshallerFactory.apply(registry.schema(schemaVersion));
-        this.marsh = marsh;
+            marsh = marshallerFactory.apply(registry.schema(schemaVersion));
+            this.marsh = marsh;
+        } catch (Exception ex) {
+            throw new MarshallerException(ex.getMessage(), ex);
+        }
 
         return marsh;
     }
@@ -583,15 +588,12 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
      * @param key Key object.
      * @param schemaVersion Schema version to use when marshalling.
      * @return Binary row.
+     * @throws MarshallerException If failed to marshal row.
      */
     private BinaryRowEx marshal(K key, int schemaVersion) {
         KvMarshaller<K, V> marsh = marshaller(schemaVersion);
 
-        try {
-            return marsh.marshal(key);
-        } catch (MarshallerException e) {
-            throw new org.apache.ignite.lang.MarshallerException(e);
-        }
+        return marsh.marshal(key);
     }
 
     /**
@@ -601,15 +603,12 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
      * @param val Value object.
      * @param schemaVersion Schema version to use when marshalling.
      * @return Binary row.
+     * @throws MarshallerException If failed to marshal row.
      */
     private BinaryRowEx marshal(K key, @Nullable V val, int schemaVersion) {
         KvMarshaller<K, V> marsh = marshaller(schemaVersion);
 
-        try {
-            return marsh.marshal(key, val);
-        } catch (MarshallerException e) {
-            throw new org.apache.ignite.lang.MarshallerException(e);
-        }
+        return marsh.marshal(key, val);
     }
 
     /**
@@ -618,6 +617,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
      * @param keys Key objects.
      * @param schemaVersion Schema version to use when marshalling.
      * @return Binary rows.
+     * @throws MarshallerException If failed to marshal rows.
      */
     private Collection<BinaryRowEx> marshal(Collection<K> keys, int schemaVersion) {
         if (keys.isEmpty()) {
@@ -628,12 +628,8 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
 
         List<BinaryRowEx> keyRows = new ArrayList<>(keys.size());
 
-        try {
-            for (K key : keys) {
-                keyRows.add(marsh.marshal(Objects.requireNonNull(key)));
-            }
-        } catch (MarshallerException e) {
-            throw new org.apache.ignite.lang.MarshallerException(e);
+        for (K key : keys) {
+            keyRows.add(marsh.marshal(Objects.requireNonNull(key)));
         }
 
         return keyRows;
@@ -645,6 +641,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
      * @param pairs Key-value map.
      * @param schemaVersion Schema version to use when marshalling.
      * @return Binary rows.
+     * @throws MarshallerException If failed to marshal rows.
      */
     private List<BinaryRowEx> marshalPairs(Collection<Entry<K, V>> pairs, int schemaVersion, @Nullable BitSet deleted) {
         if (pairs.isEmpty()) {
@@ -655,20 +652,16 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
 
         List<BinaryRowEx> rows = new ArrayList<>(pairs.size());
 
-        try {
-            for (Map.Entry<K, V> pair : pairs) {
-                boolean isDeleted = deleted != null && deleted.get(rows.size());
+        for (Map.Entry<K, V> pair : pairs) {
+            boolean isDeleted = deleted != null && deleted.get(rows.size());
 
-                K key = Objects.requireNonNull(pair.getKey());
+            K key = Objects.requireNonNull(pair.getKey());
 
-                Row row = isDeleted
-                        ? marsh.marshal(key)
-                        : marsh.marshal(key, pair.getValue());
+            Row row = isDeleted
+                    ? marsh.marshal(key)
+                    : marsh.marshal(key, pair.getValue());
 
-                rows.add(row);
-            }
-        } catch (MarshallerException e) {
-            throw new org.apache.ignite.lang.MarshallerException(e);
+            rows.add(row);
         }
 
         return rows;
@@ -680,6 +673,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
      * @param rows Binary rows.
      * @param schemaVersion Schema version to use when marshalling.
      * @return Keys.
+     * @throws MarshallerException If failed to unmarshal rows.
      */
     private Collection<K> unmarshalKeys(Collection<BinaryRow> rows, int schemaVersion) {
         if (rows.isEmpty()) {
@@ -690,17 +684,13 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
 
         List<K> keys = new ArrayList<>(rows.size());
 
-        try {
-            for (Row row : rowConverter.resolveKeys(rows, schemaVersion)) {
-                if (row != null) {
-                    keys.add(marsh.unmarshalKeyOnly(row));
-                }
+        for (Row row : rowConverter.resolveKeys(rows, schemaVersion)) {
+            if (row != null) {
+                keys.add(marsh.unmarshalKeyOnly(row));
             }
-
-            return keys;
-        } catch (MarshallerException e) {
-            throw new org.apache.ignite.lang.MarshallerException(e);
         }
+
+        return keys;
     }
 
     /**
@@ -709,6 +699,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
      * @param binaryRow Binary row.
      * @param schemaVersion Schema version to use when unmarshalling.
      * @return Value object or {@code null} if not exists.
+     * @throws MarshallerException If failed to unmarshal row.
      */
     private @Nullable V unmarshalNullableValue(@Nullable BinaryRow binaryRow, int schemaVersion) {
         if (binaryRow == null) {
@@ -719,11 +710,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
 
         KvMarshaller<K, V> marshaller = marshaller(row.schemaVersion());
 
-        try {
-            return marshaller.unmarshalValue(row);
-        } catch (MarshallerException e) {
-            throw new org.apache.ignite.lang.MarshallerException(e);
-        }
+        return marshaller.unmarshalValue(row);
     }
 
     /**
@@ -732,6 +719,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
      * @param rows Binary rows.
      * @param schemaVersion Schema version to use when unmarshalling.
      * @return Key-value pairs.
+     * @throws MarshallerException If failed to unmarshal rows.
      */
     private Map<K, V> unmarshalPairs(Collection<BinaryRow> rows, int schemaVersion) {
         if (rows.isEmpty()) {
@@ -742,17 +730,13 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
 
         Map<K, V> pairs = IgniteUtils.newHashMap(rows.size());
 
-        try {
-            for (Row row : rowConverter.resolveRows(rows, schemaVersion)) {
-                if (row != null) {
-                    pairs.put(marsh.unmarshalKey(row), marsh.unmarshalValue(row));
-                }
+        for (Row row : rowConverter.resolveRows(rows, schemaVersion)) {
+            if (row != null) {
+                pairs.put(marsh.unmarshalKey(row), marsh.unmarshalValue(row));
             }
-
-            return pairs;
-        } catch (MarshallerException e) {
-            throw new org.apache.ignite.lang.MarshallerException(e);
         }
+
+        return pairs;
     }
 
     /**
@@ -826,15 +810,9 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
         Marshaller keyMarsh = marshallers.getKeysMarshaller(marshallerSchema, keyMapper, false, true);
         Marshaller valMarsh = marshallers.getValuesMarshaller(marshallerSchema, valueMapper, false, true);
 
-        return (row) -> {
-            try {
-                return new IgniteBiTuple<>(
-                        (K) keyMarsh.readObject(new TupleReader(new SqlRowProjection(row, meta, columnNames(keyCols))), null),
-                        (V) valMarsh.readObject(new TupleReader(new SqlRowProjection(row, meta, columnNames(valCols))), null)
-                );
-            } catch (MarshallerException e) {
-                throw new org.apache.ignite.lang.MarshallerException(e);
-            }
-        };
+        return (row) -> new IgniteBiTuple<>(
+                (K) keyMarsh.readObject(new TupleReader(new SqlRowProjection(row, meta, columnNames(keyCols))), null),
+                (V) valMarsh.readObject(new TupleReader(new SqlRowProjection(row, meta, columnNames(valCols))), null)
+        );
     }
 }

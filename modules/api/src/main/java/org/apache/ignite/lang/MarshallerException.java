@@ -26,17 +26,16 @@ import org.jetbrains.annotations.Nullable;
  *  The failure can be due to a value not matching the a schema or to another reason.
  */
 public class MarshallerException extends IgniteException {
+    private static final long serialVersionUID = -3318739905013755311L;
+
     /**
      * Creates a new exception with the given error message.
      *
+     * @param msg Error message.
      * @param cause Non-null throwable cause.
      */
-    public MarshallerException(Throwable cause) {
-        super(Common.INTERNAL_ERR, cause);
-    }
-
     public MarshallerException(String msg, @Nullable Throwable cause) {
-        super(Common.INTERNAL_ERR, msg, cause);
+        super(Common.USER_OBJECT_SERIALIZATION_ERR, msg, cause);
     }
 
     /**

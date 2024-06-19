@@ -102,7 +102,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
 
             return buildRow(false, valuesWithStatistics);
         } catch (Exception ex) {
-            throw new MarshallerException("Failed to marshal tuple.", ex);
+            throw new MarshallerException(ex.getMessage(), ex);
         }
     }
 
@@ -133,7 +133,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
 
             return buildRow(keyOnly, valuesWithStatistics);
         } catch (Exception ex) {
-            throw new MarshallerException("Failed to marshal tuple.", ex);
+            throw new MarshallerException(ex.getMessage(), ex);
         }
     }
 
@@ -151,7 +151,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
 
             return buildRow(true, valuesWithStatistics);
         } catch (Exception ex) {
-            throw new MarshallerException("Failed to marshal tuple.", ex);
+            throw new MarshallerException(ex.getMessage(), ex);
         }
     }
 

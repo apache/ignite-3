@@ -24,7 +24,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.internal.marshaller.MarshallersProvider;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRowEx;
@@ -102,13 +101,10 @@ public class HashPartitionManagerImpl implements PartitionManager {
         Objects.requireNonNull(mapper);
 
         var marshaller = new KvMarshallerImpl<>(schemaReg.lastKnownSchema(), marshallers, mapper, mapper);
-        try {
-            BinaryRowEx keyRow = marshaller.marshal(key);
 
-            return completedFuture(new HashPartition(table.partition(keyRow)));
-        } catch (MarshallerException e) {
-            throw new org.apache.ignite.lang.MarshallerException(e);
-        }
+        BinaryRowEx keyRow = marshaller.marshal(key);
+
+        return completedFuture(new HashPartition(table.partition(keyRow)));
     }
 
     @Override

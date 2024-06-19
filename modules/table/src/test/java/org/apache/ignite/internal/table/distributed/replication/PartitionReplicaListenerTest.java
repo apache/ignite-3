@@ -106,7 +106,6 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
-import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
 import org.apache.ignite.internal.network.MessagingService;
@@ -1244,11 +1243,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     private static <K, V> Row marshalQuietly(K key, KvMarshaller<K, V> marshaller) {
-        try {
-            return marshaller.marshal(key);
-        } catch (MarshallerException e) {
-            throw new RuntimeException(e);
-        }
+        return marshaller.marshal(key);
     }
 
     @Test
@@ -1823,11 +1818,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     private BinaryRow marshalKeyOrKeyValue(RequestType requestType, TestKey key) {
-        try {
-            return RequestTypes.isKeyOnly(requestType) ? marshalQuietly(key, kvMarshaller) : kvMarshaller.marshal(key, someValue);
-        } catch (MarshallerException e) {
-            throw new AssertionError(e);
-        }
+        return RequestTypes.isKeyOnly(requestType) ? marshalQuietly(key, kvMarshaller) : kvMarshaller.marshal(key, someValue);
     }
 
     private void testFailsWhenReadingFromFutureIncompatibleSchema(RwListenerInvocation listenerInvocation) {
@@ -2772,19 +2763,11 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     private static BinaryRow binaryRow(TestKey key, TestValue value, KvMarshaller<TestKey, TestValue> marshaller) {
-        try {
-            return marshaller.marshal(key, value);
-        } catch (MarshallerException e) {
-            throw new AssertionError(e);
-        }
+        return marshaller.marshal(key, value);
     }
 
     private TestKey key(BinaryRow binaryRow) {
-        try {
-            return kvMarshaller.unmarshalKeyOnly(Row.wrapKeyOnlyBinaryRow(schemaDescriptor, binaryRow));
-        } catch (MarshallerException e) {
-            throw new AssertionError(e);
-        }
+        return kvMarshaller.unmarshalKeyOnly(Row.wrapKeyOnlyBinaryRow(schemaDescriptor, binaryRow));
     }
 
     private static BinaryRowMessage binaryRowMessage(BinaryRow binaryRow) {

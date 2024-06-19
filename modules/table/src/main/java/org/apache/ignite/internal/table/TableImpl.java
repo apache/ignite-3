@@ -24,7 +24,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
-import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.internal.marshaller.MarshallersProvider;
 import org.apache.ignite.internal.marshaller.ReflectionMarshallersProvider;
 import org.apache.ignite.internal.schema.BinaryRowEx;
@@ -205,13 +204,8 @@ public class TableImpl implements TableViewInternal {
         Objects.requireNonNull(key);
         Objects.requireNonNull(keyMapper);
 
-        BinaryRowEx keyRow;
         var marshaller = new KvMarshallerImpl<>(schemaReg.lastKnownSchema(), marshallers, keyMapper, keyMapper);
-        try {
-            keyRow = marshaller.marshal(key);
-        } catch (MarshallerException e) {
-            throw new org.apache.ignite.lang.MarshallerException(e);
-        }
+        BinaryRowEx keyRow = marshaller.marshal(key);
 
         return tbl.partition(keyRow);
     }
