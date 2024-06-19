@@ -365,7 +365,7 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
     }
 
     private static JobExecution<String> runBlockingJob(IgniteImpl entryNode, Set<ClusterNode> nodes) {
-        return entryNode.compute().submit(nodes, JobDescriptor.builder(BlockingJob.class).build());
+        return entryNode.compute().submit(nodes, JobDescriptor.builder(BlockingJob.class).build(), null);
     }
 
     private static void unblockJob() {
@@ -394,10 +394,10 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
         client.toBlocking().exchange(DELETE("/jobs/" + jobId));
     }
 
-    private static class BlockingJob implements ComputeJob<String> {
+    private static class BlockingJob implements ComputeJob<Void, String> {
         /** {@inheritDoc} */
         @Override
-        public CompletableFuture<String> executeAsync(JobExecutionContext context, Object... args) {
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, Void args) {
             synchronized (LOCK) {
                 try {
                     LOCK.wait();

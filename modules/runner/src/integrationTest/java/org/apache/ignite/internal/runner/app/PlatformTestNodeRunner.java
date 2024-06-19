@@ -50,6 +50,7 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -715,7 +716,7 @@ public class PlatformTestNodeRunner {
         // TODO: https://issues.apache.org/jira/browse/IGNITE-22508
         @Override
         public CompletableFuture<Integer> executeAsync(JobExecutionContext context, byte[] args) {
-            return 1;
+            return CompletableFuture.completedFuture(1);
 //            String tableName = (String) args[0];
 //            int i = (int) args[1];
 //            Tuple key = Tuple.create().set("id", 1 + i).set("id0", 2L + i).set("id1", "3" + i);

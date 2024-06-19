@@ -19,11 +19,29 @@ package org.apache.ignite.compute;
 
 import org.apache.ignite.table.Tuple;
 
+/**
+ * ttttt.
+ */
 public class BinaryTupleMarshallilng {
+    /**
+     * ttttt.
+     *
+     * @param <T> asdf.
+     *
+     * @return asdf.
+     */
     public static <T> Tuple marshal(T object) {
         return null;
     }
 
+    /**
+     * ttsss.
+     *
+     * @param raw asdf.
+     * @param <T> asdf.
+     *
+     * @return asdf.
+     */
     public static <T> T unmarshal(Tuple raw) {
         return null;
     }

@@ -17,8 +17,30 @@
 
 package org.apache.ignite.compute;
 
+
+/**
+ * Tttt.
+ *
+ * @param <T> asfd.
+ * @param <R> asd.
+ */
 public interface Marshaller<T, R> {
+    /**
+     * tttttt.
+     *
+     * @param object asdf.
+     *
+     * @return asdf
+     */
     R marshal(T object);
+
+    /**
+     * ttttttt.
+     *
+     * @param raw asdf.
+     *
+     * @return asdf.
+     */
     T unmarshal(R raw);
 }
 

@@ -169,6 +169,7 @@ public final class InteractiveTasks {
                 }
             }
         }
+
         @Override
         public CompletableFuture<List<MapReduceJob>> splitAsync(TaskExecutionContext context, Object... args) {
             RUNNING_GLOBAL_SPLIT_CNT.incrementAndGet();

@@ -239,10 +239,10 @@ public class ClientCompute implements IgniteCompute {
         return sync(executeMapReduceAsync(units, taskClassName, args));
     }
 
-    private CompletableFuture<SubmitTaskResult> doExecuteMapReduceAsync(
+    private <T> CompletableFuture<SubmitTaskResult> doExecuteMapReduceAsync(
             List<DeploymentUnit> units,
             String taskClassName,
-            Object... args) {
+            T args) {
         return ch.serviceAsync(
                 ClientOp.COMPUTE_EXECUTE_MAPREDUCE,
                 w -> packTask(w.out(), units, taskClassName, args),
@@ -422,7 +422,7 @@ public class ClientCompute implements IgniteCompute {
     private static void packTask(ClientMessagePacker w,
             List<DeploymentUnit> units,
             String taskClassName,
-            Object[] args) {
+            Object args) {
         w.packDeploymentUnits(units);
         w.packString(taskClassName);
         w.packObjectAsBinaryTuple(args);

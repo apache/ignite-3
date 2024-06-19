@@ -335,8 +335,9 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
     void executesNullReturningJobViaAsyncBroadcast() {
         IgniteImpl entryNode = node(0);
 
-        CompletableFuture<Map<ClusterNode, Object>> resultsFuture = entryNode.compute()
-                .executeBroadcastAsync(new HashSet<>(entryNode.clusterNodes()), JobDescriptor.builder(NullReturningJob.class).build(), null);
+        CompletableFuture<Map<ClusterNode, Object>> resultsFuture = entryNode.compute().executeBroadcastAsync(
+                new HashSet<>(entryNode.clusterNodes()), JobDescriptor.builder(NullReturningJob.class).build(), null
+        );
         assertThat(resultsFuture, willCompleteSuccessfully());
         Map<ClusterNode, Object> results = resultsFuture.join();
 

@@ -88,7 +88,7 @@ public class ItThinClientPartitionAwarenessTest extends ItAbstractThinClientTest
             // Get actual primary node using compute.
             Tuple keyTuple = Tuple.create().set("key", key);
             var primaryNodeName = proxyClient.compute().executeColocated(
-                    TABLE_NAME, keyTuple, JobDescriptor.builder(NodeNameJob.class.getName()).build());
+                    TABLE_NAME, keyTuple, JobDescriptor.builder(NodeNameJob.class.getName()).build(), null);
 
             // Perform request and check routing with proxy.
             resetRequestCount();
@@ -121,7 +121,7 @@ public class ItThinClientPartitionAwarenessTest extends ItAbstractThinClientTest
         return null;
     }
 
-    private static class NodeNameJob implements ComputeJob<String> {
+    private static class NodeNameJob implements ComputeJob<Object[], String> {
         @Override
         public CompletableFuture<String> executeAsync(JobExecutionContext context, Object... args) {
             //noinspection resource

@@ -87,7 +87,7 @@ public class TaskExecutionInternal<T, R> implements JobExecution<R> {
      * @param taskClass Map reduce task class.
      * @param context Task execution context.
      * @param isCancelled Flag which is passed to the execution context so that the task can check it for cancellation request.
-     * @param input Task argument.
+     * @param args Task argument.
      */
     public TaskExecutionInternal(
             PriorityQueueExecutor executorService,

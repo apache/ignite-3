@@ -21,6 +21,7 @@ import java.util.concurrent.CompletableFuture;
 import org.jetbrains.annotations.Nullable;
 
 /**
+ * ttttt.
  */
 @SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
 public interface ComputeJob<T, R> {
@@ -31,14 +32,23 @@ public interface ComputeJob<T, R> {
      * @param args Job arguments.
      * @return Job future. Can be null if the job is synchronous and does not return any result.
      */
-    @Nullable CompletableFuture<R> executeAsync(JobExecutionContext context, T input);
+    @Nullable CompletableFuture<R> executeAsync(JobExecutionContext context, T args);
 
-
+    /**
+     * ttttt.
+     *
+     * @return asdf.
+     */
     default Marshaller<T, ?> inputMarshaller() {
         return new TupleMarshaller<>() {
         };
     }
 
+    /**
+     * ttttt.
+     *
+     * @return asdf.
+     */
     default Marshaller<R, ?> resultMarhaller() {
         return new TupleMarshaller<>() {
         };

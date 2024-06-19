@@ -103,7 +103,7 @@ public interface ComputeComponent extends IgniteComponent {
             String jobClassName,
             T input
     ) {
-        return executeRemotely(ExecutionOptions.DEFAULT, remoteNode, units, jobClassName,input );
+        return executeRemotely(ExecutionOptions.DEFAULT, remoteNode, units, jobClassName, input);
     }
 
     /**

@@ -121,8 +121,9 @@ public class FakeCompute implements IgniteComputeInternal {
 
     /** {@inheritDoc} */
     @Override
-        public <T, R> CompletableFuture<JobExecution<R>> submitColocatedInternal(TableViewInternal table, Tuple key, List<DeploymentUnit> units,
-            String jobClassName, JobExecutionOptions options, T args) {
+        public <T, R> CompletableFuture<JobExecution<R>> submitColocatedInternal(
+                TableViewInternal table, Tuple key, List<DeploymentUnit> units, String jobClassName,
+            JobExecutionOptions options, T args) {
         return completedFuture(jobExecution(future != null ? future : completedFuture((R) nodeName)));
     }
 

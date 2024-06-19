@@ -249,7 +249,9 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         respondWithJobStatusResponseWhenJobStatusRequestIsSent(jobId, COMPLETED);
         respondWithJobCancelResponseWhenJobCancelRequestIsSent(jobId, false);
 
-        JobExecution<String> execution = computeComponent.executeRemotely(remoteNode, List.of(), SimpleJob.class.getName(), new Object[]{"a", 42});
+        JobExecution<String> execution = computeComponent.executeRemotely(
+                remoteNode, List.of(), SimpleJob.class.getName(), new Object[]{"a", 42}
+        );
         assertThat(execution.resultAsync(), willBe("remoteResponse"));
 
         // Verify that second invocation of resultAsync will not result in the network communication (i.e. the result is cached locally)
