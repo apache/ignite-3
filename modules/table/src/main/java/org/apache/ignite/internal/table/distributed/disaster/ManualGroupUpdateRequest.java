@@ -162,12 +162,11 @@ class ManualGroupUpdateRequest implements DisasterRecoveryRequest {
      *
      * @param tableDescriptor Table descriptor.
      * @param zoneDescriptor Zone descriptor.
-     * @param partitionIds Partitions IDs to force assignments for. If empty, reassigns all zone's partitions.
      * @param dataNodes Current DZ data nodes.
      * @param aliveNodesConsistentIds Set of alive nodes according to logical topology.
      * @param revision Meta-storage revision to be associated with reassignment.
      * @param metaStorageManager Meta-storage manager.
-     * @param localStatesMap
+     * @param localStatesMap Local partition states retrieved by {@link DisasterRecoveryManager#localPartitionStates(Set, Set, Set)}.
      * @return A future that will be completed when reassignments data is written into a meta-storage, if that's required.
      */
     private CompletableFuture<?>[] forceAssignmentsUpdate(
@@ -228,12 +227,6 @@ class ManualGroupUpdateRequest implements DisasterRecoveryRequest {
             Set<Assignment> currentAssignments,
             LocalPartitionStateMessageByNode localPartitionStateMessageByNode
     ) {
-        //        Set<Integer> tablesInZone = findTablesByZoneId(zoneId, catalogVersion, catalogService).stream()
-//                .map(CatalogObjectDescriptor::id)
-//                .collect(toSet());
-//
-//        byte[] countersValue = toBytes(tablesInZone);
-
         // TODO https://issues.apache.org/jira/browse/IGNITE-21303
         //  This is a naive approach that doesn't exclude nodes in error state, if they exist.
         Set<Assignment> partAssignments = new HashSet<>();
@@ -247,11 +240,6 @@ class ManualGroupUpdateRequest implements DisasterRecoveryRequest {
         }
 
         Set<Assignment> aliveStableNodes = CollectionUtils.intersect(currentAssignments, partAssignments);
-//        for (Assignment currentAssignment : currentAssignments) {
-//            if (aliveNodesConsistentIds.contains(currentAssignment.consistentId())) {
-//                partAssignments.add(currentAssignment);
-//            }
-//        }
 
         if (aliveStableNodes.size() >= (replicas / 2 + 1)) {
             return CompletableFuture.completedFuture(ASSIGNMENT_NOT_UPDATED.ordinal());
@@ -266,10 +254,6 @@ class ManualGroupUpdateRequest implements DisasterRecoveryRequest {
 
             partAssignments.add(calcAssignment);
         }
-
-//        if (currentAssignments.equals(calcAssignments)) {
-//            return CompletableFuture.completedFuture(ASSIGNMENT_NOT_UPDATED.ordinal());
-//        }
 
         byte[] partAssignmentsBytes = Assignments.forced(partAssignments).toBytes();
         byte[] revisionBytes = ByteUtils.longToBytesKeepingOrder(revision);
@@ -286,7 +270,6 @@ class ManualGroupUpdateRequest implements DisasterRecoveryRequest {
                         ops(
                                 put(partAssignmentsPendingKey, partAssignmentsBytes),
                                 put(partChangeTriggerKey, revisionBytes),
-//                                put(tablesCounterKey(zoneId, partId.partitionId()), ByteUtils.toBytes(Set.of(partId.tableId()))),
                                 remove(partAssignmentsPlannedKey)
                         ).yield(PENDING_KEY_UPDATED.ordinal()),
                         ops().yield(ASSIGNMENT_NOT_UPDATED.ordinal())
