@@ -20,6 +20,7 @@ package org.apache.ignite.internal.partition.replicator;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_CREATE;
@@ -29,6 +30,7 @@ import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUt
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.getBoolean;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
@@ -40,12 +42,18 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignments;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.CreateZoneEventParameters;
+import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
@@ -68,6 +76,7 @@ import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterNode;
 
 /**
@@ -101,6 +110,11 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     /**
+     * Separate executor for IO operations like partition storage initialization or partition raft group meta data persisting.
+     */
+    private final ExecutorService ioExecutor;
+
+    /**
      * The constructor.
      *
      * @param catalogMgr Catalog manager.
@@ -114,13 +128,15 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
             ReplicaManager replicaMgr,
             DistributionZoneManager distributionZoneMgr,
             MetaStorageManager metaStorageMgr,
-            TopologyService topologyService
+            TopologyService topologyService,
+            ExecutorService ioExecutor
     ) {
         this.catalogMgr = catalogMgr;
         this.replicaMgr = replicaMgr;
         this.distributionZoneMgr = distributionZoneMgr;
         this.metaStorageMgr = metaStorageMgr;
         this.topologyService = topologyService;
+        this.ioExecutor = ioExecutor;
     }
 
     @Override
@@ -207,13 +223,9 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
 
     @Override
     public void beforeNodeStop() {
-        for (ReplicationGroupId replicationGroupId : replicationGroupIds) {
-            try {
-                replicaMgr.stopReplica(replicationGroupId);
-            } catch (NodeStoppingException e) {
-                throw new RuntimeException(e);
-            }
-        }
+        busyLock.block();
+
+        cleanUpZoneResources(replicationGroupIds);
     }
 
     /**
@@ -353,5 +365,61 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
         }
 
         return nullCompletedFuture();
+    }
+
+    /**
+     * Stops all resources associated with a given partition, like replicas and partition trackers.
+     *
+     * @param zonePartitionId Partition ID.
+     * @return Future that will be completed after all resources have been closed.
+     */
+    private CompletableFuture<?> stopPartition(ReplicationGroupId zonePartitionId) {
+        CompletableFuture<Boolean> stopReplicaFuture;
+
+        try {
+            stopReplicaFuture = replicaMgr.stopReplica(zonePartitionId);
+        } catch (NodeStoppingException e) {
+            // No-op.
+            stopReplicaFuture = falseCompletedFuture();
+        }
+
+        return stopReplicaFuture;
+    }
+
+    /**
+     * Stops resources that are related to provided zones.
+     *
+     * @param zones Zones to stop.
+     */
+    private void cleanUpZoneResources(Set<ReplicationGroupId> zones) {
+        var futures = new ArrayList<CompletableFuture<Void>>(zones.size());
+
+        futures.add(runAsync(() -> {
+            Stream.Builder<ManuallyCloseable> stopping = Stream.builder();
+
+            stopping.add(() -> {
+                var stopReplicaFutures = new CompletableFuture<?>[zones.size()];
+
+                int i = 0;
+
+                for (ReplicationGroupId zone : zones) {
+                    stopReplicaFutures[i++] = stopPartition(zone);
+                }
+
+                allOf(stopReplicaFutures).get(10, TimeUnit.SECONDS);
+            });
+
+            try {
+                IgniteUtils.closeAllManually(stopping.build());
+            } catch (Throwable t) {
+                LOG.error("Unable to stop zone");
+            }
+        }, ioExecutor));
+
+        try {
+            allOf(futures.toArray(CompletableFuture[]::new)).get(30, TimeUnit.SECONDS);
+        } catch (InterruptedException | ExecutionException | TimeoutException e) {
+            LOG.error("Unable to clean zone resources", e);
+        }
     }
 }
