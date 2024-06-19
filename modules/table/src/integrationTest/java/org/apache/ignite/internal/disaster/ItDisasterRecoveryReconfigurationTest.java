@@ -338,7 +338,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
      * <ul>
      *     <li>We have 6 nodes and a partition on nodes 1, 4 and 5.</li>
      *     <li>We stop nodes 4 and 5, leaving node 1 alone in stable assignments.</li>
-     *     <li>New distribution is 0, 1 and 3. Rebalance is started via raft snapshots. It transfers the data to node 0, but not node 3.</li>
+     *     <li>New distribution is 0, 1 and 3. Rebalance is started via raft snapshots. It transfers data to node 0, but not node 3.</li>
      *     <li>Node 1 is stopped. Data is only present on node 0.</li>
      *     <li>We execute "resetPartitions" and expect that data from node 0 will be available after that.</li>
      * </ul>
