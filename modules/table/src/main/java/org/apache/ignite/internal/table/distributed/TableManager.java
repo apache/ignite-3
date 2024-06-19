@@ -149,7 +149,6 @@ import org.apache.ignite.internal.raft.ExecutorInclinedRaftCommandRunner;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
-import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -923,19 +922,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             mvGc.addStorage(replicaGrpId, partitionUpdateHandlers.gcUpdateHandler);
         }
 
-        // TODO: will be removed in https://issues.apache.org/jira/browse/IGNITE-22315
-        Supplier<RaftGroupService> getCachedRaftClient = () -> {
-            try {
-                // Return existing service if it's already started.
-                return internalTbl
-                        .tableRaftService()
-                        .partitionRaftGroupService(replicaGrpId.partitionId());
-            } catch (IgniteInternalException e) {
-                // We use "IgniteInternalException" in accordance with the javadoc of "partitionRaftGroupService" method.
-                return null;
-            }
-        };
-
         // TODO: will be removed in https://issues.apache.org/jira/browse/IGNITE-22218
         Consumer<RaftGroupService> updateTableRaftService = (raftClient) -> ((InternalTableImpl) internalTbl)
                 .tableRaftService()
@@ -997,7 +983,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         MvTableStorage mvTableStorage = internalTable.storage();
 
                         try {
-                            var ret = replicaMgr.startReplica(
+                            return replicaMgr.startReplica(
                                     raftGroupEventsListener,
                                     raftGroupListener,
                                     mvTableStorage.isVolatile(),
@@ -1007,7 +993,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                     storageIndexTracker,
                                     replicaGrpId,
                                     newConfiguration);
-                            return ret;
                         } catch (NodeStoppingException e) {
                             throw new AssertionError("Loza was stopped before Table manager", e);
                         }
@@ -1015,27 +1000,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     forcedAssignments
             );
         } else {
-            // TODO: will be removed after https://issues.apache.org/jira/browse/IGNITE-22315
+            // TODO: must be removed
             // (4) in case if node not in the assignments
             startGroupFut = falseCompletedFuture();
         }
 
         startGroupFut
-                // TODO: the stage will be removed after https://issues.apache.org/jira/browse/IGNITE-22315
-                .thenComposeAsync(isReplicaStarted -> inBusyLock(busyLock, () -> {
-                    if (isReplicaStarted) {
-                        return nullCompletedFuture();
-                    }
-
-                    CompletableFuture<TopologyAwareRaftGroupService> newRaftClientFut;
-                    try {
-                        newRaftClientFut = replicaMgr.startRaftClient(
-                                replicaGrpId, newConfiguration, getCachedRaftClient);
-                    } catch (NodeStoppingException e) {
-                        throw new CompletionException(e);
-                    }
-                    return newRaftClientFut.thenAccept(updateTableRaftService);
-                }), ioExecutor)
                 .whenComplete((res, ex) -> {
                     if (ex != null) {
                         LOG.warn("Unable to update raft groups on the node [tableId={}, partitionId={}]", ex, tableId, partId);
@@ -1904,6 +1874,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         }
 
         return localServicesStartFuture.thenRunAsync(() -> {
+            if (!replicaMgr.isReplicaStarted(replicaGrpId)) {
+                return;
+            }
+
             // For forced assignments, we exclude dead stable nodes, and all alive stable nodes are already in pending assignments.
             // Union is not required in such a case.
             Set<Assignment> cfg = pendingAssignmentsAreForced
@@ -1974,6 +1948,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             Set<Assignment> pendingAssignments,
             long revision
     ) {
+        if (!replicaMgr.isReplicaStarted(replicaGrpId)) {
+            return nullCompletedFuture();
+        }
+
         int partId = replicaGrpId.partitionId();
 
         RaftGroupService partGrpSvc = table.internalTable().tableRaftService().partitionRaftGroupService(partId);
@@ -2250,6 +2228,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             Set<Assignment> stableAssignments,
             long revision
     ) {
+        if (!replicaMgr.isReplicaStarted(tablePartitionId)) {
+            return nullCompletedFuture();
+        }
+
         // Update raft client peers and learners according to the actual assignments.
         return tablesById(revision).thenAccept(t -> {
             t.get(tablePartitionId.tableId()).internalTable()

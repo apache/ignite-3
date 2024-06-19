@@ -279,9 +279,6 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         when(replicaMgr.getLogSyncer()).thenReturn(mock(LogSyncer.class));
         when(replicaMgr.startReplica(any(), any(), any(), any(), any(), any()))
                 .thenReturn(nullCompletedFuture());
-        // TODO: will be removed after https://issues.apache.org/jira/browse/IGNITE-22315
-        when(replicaMgr.startRaftClient(any(), any(), any()))
-                .thenReturn(completedFuture(mock(TopologyAwareRaftGroupService.class)));
         when(replicaMgr.stopReplica(any())).thenReturn(trueCompletedFuture());
         when(replicaMgr.weakStartReplica(any(), any(), any())).thenReturn(trueCompletedFuture());
         when(replicaMgr.weakStopReplica(any(), any(), any())).thenReturn(nullCompletedFuture());

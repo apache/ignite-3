@@ -673,30 +673,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     }
 
     /**
-     * Temporary public method for RAFT-client starting.
-     * TODO: will be removed after https://issues.apache.org/jira/browse/IGNITE-22315
-     *
-     * @param replicaGrpId Replication Group ID.
-     * @param newConfiguration Peers and learners nodes for a raft group.
-     * @param raftClientCache Temporal supplier that returns RAFT-client from TableRaftService if it's already exists and was put into the
-     *      service's map.
-     * @return Future that returns started RAFT-client.
-     * @throws NodeStoppingException In case if node was stopping.
-     */
-    @Deprecated
-    public CompletableFuture<TopologyAwareRaftGroupService> startRaftClient(
-            ReplicationGroupId replicaGrpId,
-            PeersAndLearners newConfiguration,
-            Supplier<RaftGroupService> raftClientCache)
-            throws NodeStoppingException {
-        RaftGroupService cachedRaftClient = raftClientCache.get();
-        return cachedRaftClient != null
-                ? CompletableFuture.completedFuture((TopologyAwareRaftGroupService) cachedRaftClient)
-                // TODO IGNITE-19614 This procedure takes 10 seconds if there's no majority online.
-                : raftManager.startRaftGroupService(replicaGrpId, newConfiguration, raftGroupServiceFactory, raftCommandsMarshaller);
-    }
-
-    /**
      * Returns future with a replica if it was created or null if there no any replicas starting with given identifier.
      *
      * @param replicationGroupId Table-Partition identifier.
