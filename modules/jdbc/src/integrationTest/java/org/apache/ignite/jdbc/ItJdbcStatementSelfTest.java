@@ -35,6 +35,8 @@ import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Statement;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
+import org.apache.ignite.internal.jdbc.JdbcStatement;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
@@ -836,5 +838,50 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
         stmt.getResultSet();
 
         assertTrue(waitForCondition(() -> openCursors() == 0, 5_000));
+    }
+
+    @Test
+    public void testTimeout() throws Exception {
+        JdbcStatement igniteStmt = stmt.unwrap(JdbcStatement.class);
+
+        // No timeout
+
+        {
+            igniteStmt.timeout(0);
+
+            try (ResultSet rs = igniteStmt.executeQuery("SELECT * FROM TABLE(SYSTEM_RANGE(1, 100))")) {
+                while (rs.next()) {
+                    rs.getLong(1);
+                }
+            }
+        }
+
+        // Rise timeout
+
+        {
+            int timeoutMillis = ThreadLocalRandom.current().nextInt(10, 200);
+            igniteStmt.timeout(timeoutMillis);
+
+            assertThrowsSqlException(SQLException.class,
+                    "Query timeout", () -> {
+                        try (ResultSet rs = igniteStmt.executeQuery("SELECT * FROM TABLE(SYSTEM_RANGE(1, 100000000))")) {
+                            while (rs.next()) {
+                                rs.getLong(1);
+                            }
+                        }
+                    });
+        }
+
+        {
+            // Disable timeout
+
+            igniteStmt.timeout(0);
+
+            try (ResultSet rs = igniteStmt.executeQuery("SELECT * FROM TABLE(SYSTEM_RANGE(1, 100))")) {
+                while (rs.next()) {
+                    rs.getLong(1);
+                }
+            }
+        }
     }
 }

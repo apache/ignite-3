@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.util.cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.RemovalCause;
 import com.github.benmanes.caffeine.cache.stats.CacheStats;
+import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -147,6 +148,16 @@ public class CaffeineCacheFactory implements CacheFactory {
         @Override
         public void removeIfValue(Predicate<? super V> valueFilter) {
             cache.asMap().values().removeIf(valueFilter);
+        }
+
+        @Override
+        public void invalidate(K key) {
+            cache.invalidate(key);
+        }
+
+        @Override
+        public Set<K> keySet() {
+            return cache.asMap().keySet();
         }
     }
 }

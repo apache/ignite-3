@@ -94,6 +94,8 @@ public class ExecutionContext<RowT> implements DataContext {
 
     private SharedState sharedState = new SharedState();
 
+    private final @Nullable CompletableFuture<Void> timeoutFut;
+
     /**
      * Constructor.
      *
@@ -117,7 +119,8 @@ public class ExecutionContext<RowT> implements DataContext {
             RowHandler<RowT> handler,
             Map<String, Object> params,
             TxAttributes txAttributes,
-            ZoneId timeZoneId
+            ZoneId timeZoneId,
+            @Nullable CompletableFuture<Void> timeoutFut
     ) {
         this.executor = executor;
         this.qryId = qryId;
@@ -128,6 +131,7 @@ public class ExecutionContext<RowT> implements DataContext {
         this.originatingNodeName = originatingNodeName;
         this.txAttributes = txAttributes;
         this.timeZoneId = timeZoneId;
+        this.timeoutFut = timeoutFut;
 
         expressionFactory = new ExpressionFactoryImpl<>(
                 this,
@@ -380,6 +384,10 @@ public class ExecutionContext<RowT> implements DataContext {
 
     public boolean isCancelled() {
         return cancelFlag.get();
+    }
+
+    public @Nullable CompletableFuture<Void> timeoutFuture() {
+        return timeoutFut;
     }
 
     /** Creates {@link PartitionProvider} for the given source table. */

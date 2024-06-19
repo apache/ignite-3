@@ -151,7 +151,7 @@ public final class PlanningContext implements Context {
     private final long plannerTimeout;
 
     /** Flag indicated if planning has been canceled due to timeout. */
-    private boolean timeouted = false;
+    private final AtomicBoolean timeouted = new AtomicBoolean();
 
     private final Int2ObjectMap<Object> parameters;
 
@@ -293,12 +293,12 @@ public final class PlanningContext implements Context {
 
     /** Set a flag indicating that the planning was canceled due to a timeout. */
     public void abortByTimeout() {
-        timeouted = true;
+        timeouted.set(true);
     }
 
     /** Returns a flag indicates if planning has been canceled due to timeout. */
     public boolean timeouted() {
-        return timeouted;
+        return timeouted.get();
     }
 
     /**

@@ -38,6 +38,9 @@ import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.Arrays;
+import java.util.concurrent.ThreadLocalRandom;
+import org.apache.ignite.internal.jdbc.JdbcPreparedStatement;
+import org.apache.ignite.internal.jdbc.JdbcStatement;
 import org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
 import org.junit.jupiter.api.AfterAll;
@@ -356,7 +359,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
         int[] updCnts = stmt.executeBatch();
 
         assertEquals(4, updCnts.length, "Invalid update counts size");
-        assertArrayEquals(new int[] {1, 2, 1, 3}, updCnts, "Invalid update count");
+        assertArrayEquals(new int[]{1, 2, 1, 3}, updCnts, "Invalid update count");
     }
 
     @Test
@@ -375,7 +378,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
             int[] updCnts = e.getUpdateCounts();
 
             assertEquals(2, updCnts.length, "Invalid update counts size");
-            assertArrayEquals(new int[] {1, 2}, updCnts, "Invalid update count");
+            assertArrayEquals(new int[]{1, 2}, updCnts, "Invalid update count");
         }
     }
 
@@ -673,6 +676,99 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
         assertEquals(0, updates.length, "Returned update counts array should have no elements for empty batch.");
 
         assertEquals(0L, personsCount(), "Test table should be empty after empty batch is performed.");
+    }
+
+    @Test
+    public void testPreparedBatchTimeout() throws SQLException {
+        JdbcPreparedStatement igniteStmt = pstmt.unwrap(JdbcPreparedStatement.class);
+
+        {
+            // Disable timeout
+            igniteStmt.timeout(0);
+
+            for (int persIdx = 100; persIdx < 103; ++persIdx) {
+                fillParamsWithPerson(pstmt, persIdx);
+
+                igniteStmt.addBatch();
+            }
+
+            int[] updated = igniteStmt.executeBatch();
+            assertEquals(3, updated.length);
+        }
+
+        // Each statement in a batch is executed separately, and timeout is applied to each statement.
+        {
+            int timeoutMillis = ThreadLocalRandom.current().nextInt(1, 5);
+            igniteStmt.timeout(timeoutMillis);
+
+            for (int persIdx = 200; persIdx < 300; ++persIdx) {
+                fillParamsWithPerson(pstmt, persIdx);
+
+                igniteStmt.addBatch();
+            }
+
+            assertThrowsSqlException(SQLException.class,
+                    "Query timeout", igniteStmt::executeBatch);
+        }
+
+        {
+            // Disable timeout
+            igniteStmt.timeout(0);
+
+            for (int persIdx = 300; persIdx < 303; ++persIdx) {
+                fillParamsWithPerson(pstmt, persIdx);
+
+                igniteStmt.addBatch();
+            }
+
+            int[] updated = igniteStmt.executeBatch();
+            assertEquals(3, updated.length);
+        }
+    }
+
+    @Test
+    public void testBatchTimeout() throws SQLException {
+        JdbcStatement igniteStmt = stmt.unwrap(JdbcStatement.class);
+
+        {
+            // Disable timeout
+            igniteStmt.timeout(0);
+
+            for (int persIdx = 0; persIdx < 3; persIdx++) {
+                String stmt = "insert into Person (id, firstName, lastName, age) values " + generateValues(persIdx, 1);
+                igniteStmt.addBatch(stmt);
+            }
+
+            int[] updated = igniteStmt.executeBatch();
+            assertEquals(3, updated.length);
+        }
+
+        // Each statement in a batch is executed separately, so a timeout is applied to each statement.
+        {
+            int timeoutMs = ThreadLocalRandom.current().nextInt(1, 20);
+            igniteStmt.timeout(timeoutMs);
+
+            for (int persIdx = 200; persIdx < 300; ++persIdx) {
+                String stmt = "insert into Person (id, firstName, lastName, age) values " + generateValues(persIdx, 1);
+                igniteStmt.addBatch(stmt);
+            }
+
+            assertThrowsSqlException(SQLException.class,
+                    "Query timeout", igniteStmt::executeBatch);
+        }
+
+        {
+            // Disable timeout
+            igniteStmt.timeout(0);
+
+            for (int persIdx = 10; persIdx < 13; persIdx++) {
+                String stmt = "insert into Person (id, firstName, lastName, age) values " + generateValues(persIdx, 1);
+                igniteStmt.addBatch(stmt);
+            }
+
+            int[] updated = igniteStmt.executeBatch();
+            assertEquals(3, updated.length);
+        }
     }
 
     /**

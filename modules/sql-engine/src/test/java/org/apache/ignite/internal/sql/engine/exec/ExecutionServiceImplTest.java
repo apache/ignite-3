@@ -41,10 +41,14 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
+import java.time.Duration;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -96,6 +100,7 @@ import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunctionRegistry
 import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTarget;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTargetFactory;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTargetProvider;
+import org.apache.ignite.internal.sql.engine.exec.mapping.MappedFragment;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingServiceImpl;
 import org.apache.ignite.internal.sql.engine.exec.rel.AbstractNode;
 import org.apache.ignite.internal.sql.engine.exec.rel.Inbox;
@@ -113,10 +118,12 @@ import org.apache.ignite.internal.sql.engine.message.MessageService;
 import org.apache.ignite.internal.sql.engine.message.QueryStartRequest;
 import org.apache.ignite.internal.sql.engine.message.QueryStartResponseImpl;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesFactory;
+import org.apache.ignite.internal.sql.engine.prepare.KeyValueGetPlan;
+import org.apache.ignite.internal.sql.engine.prepare.KeyValueModifyPlan;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
-import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPrunerImpl;
+import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruner;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSystemView;
@@ -128,6 +135,7 @@ import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.util.EmptyCacheFactory;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
@@ -140,6 +148,7 @@ import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
 /**
  * Test class to verify {@link ExecutionServiceImplTest}.
@@ -153,7 +162,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
     public static final int PLANNING_THREAD_COUNT = 2;
 
-    /** Timeout in ms for stopping execution service.*/
+    /** Timeout in ms for stopping execution service. */
     private static final long SHUTDOWN_TIMEOUT = 5_000;
 
     private static final int CATALOG_VERSION = 1;
@@ -168,9 +177,10 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
     private final IgniteTable table = TestBuilders.table()
             .name("TEST_TBL")
-            .addColumn("ID", NativeTypes.INT32)
+            .addKeyColumn("ID", NativeTypes.INT32)
             .addColumn("VAL", NativeTypes.INT32)
-            .distribution(IgniteDistributions.random())
+            .distribution(IgniteDistributions.affinity(0, 1, 2))
+            .hashIndex().name("TEST_TBL_PK").addColumn("ID").primaryKey(true).end()
             .size(1_000_000)
             .build();
 
@@ -364,8 +374,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     }
 
     /**
-     * A query initialization is failed on the initiator during the mapping phase.
-     * Need to verify that the exception is handled properly.
+     * A query initialization is failed on the initiator during the mapping phase. Need to verify that the exception is handled properly.
      */
     @Test
     public void testQueryMappingFailure() {
@@ -659,8 +668,8 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     }
 
     /**
-     * Tests the ability to run multiple statements using {@link QueryPrefetchCallback}. Each subsequent
-     * statement begins execution after the prefetching for the previous statement is completed.
+     * Tests the ability to run multiple statements using {@link QueryPrefetchCallback}. Each subsequent statement begins execution after
+     * the prefetching for the previous statement is completed.
      *
      * @throws Exception If failed.
      */
@@ -755,9 +764,55 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         assertThat(cursor.closeAsync(), willCompleteSuccessfully());
     }
 
+    @Test
+    public void testExecuteCancelled() {
+        ExecutionService execService = executionServices.get(0);
+
+        QueryCancel cancel = new QueryCancel();
+        SqlOperationContext ctx = operationContext(null)
+                // The value is ignored and we call timeout() explicitly.
+                .operationDeadline(Instant.now())
+                .cancel(cancel)
+                .build();
+
+        QueryPlan plan = prepare("SELECT * FROM test_tbl", ctx);
+
+        // Cancel the query
+        cancel.cancel();
+
+        // Should immediately trigger query cancel exception.
+        IgniteTestUtils.assertThrows(QueryCancelledException.class,
+                () -> execService.executePlan(plan, ctx),
+                "The query was cancelled while executing"
+        );
+    }
+
+    @Test
+    public void testExecuteTimedOut() {
+        ExecutionService execService = executionServices.get(0);
+
+        QueryCancel cancel = new QueryCancel();
+        SqlOperationContext ctx = operationContext(null)
+                // The value is ignored and we call timeout() explicitly.
+                .operationDeadline(Instant.now())
+                .cancel(cancel)
+                .build();
+
+        QueryPlan plan = prepare("SELECT * FROM test_tbl", ctx);
+
+        // Cancel the query with a timeout
+        cancel.timeout();
+
+        // Should immediately trigger query cancel exception.
+        IgniteTestUtils.assertThrows(QueryCancelledException.class,
+                () -> execService.executePlan(plan, ctx),
+                "Query timeout"
+        );
+    }
+
     /**
-     * Test checks the format of the debugging information dump obtained during query execution.
-     * To obtain verifiable results, all response messages are blocked while debugging information is obtained.
+     * Test checks the format of the debugging information dump obtained during query execution. To obtain verifiable results, all response
+     * messages are blocked while debugging information is obtained.
      */
     @Test
     public void testDebugInfoFormat() throws InterruptedException {
@@ -836,6 +891,195 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         assertThat(debugInfo3, equalTo(expectedOnNonCoordinator));
     }
 
+
+    @Test
+    public void testTimeoutStandardPlan() {
+        nodeNames.stream().map(testCluster::node).forEach(TestNode::pauseScan);
+
+        int deadlineMillis = 500;
+
+        testCluster.node(nodeNames.get(2)).interceptor((nodeName, msg, original) -> {
+            if (msg instanceof QueryStartRequest) {
+                CompletableFuture<Void> f = new CompletableFuture<>();
+                f.thenRun(() -> original.onMessage(nodeName, msg));
+                f.completeOnTimeout(null, deadlineMillis * 2, TimeUnit.MILLISECONDS);
+            } else {
+                original.onMessage(nodeName, msg);
+            }
+
+            return nullCompletedFuture();
+        });
+
+        ExecutionService execService = executionServices.get(0);
+
+        // Use a separate context, so planning won't timeout.
+        SqlOperationContext planCtx = operationContext(null).build();
+        QueryPlan plan = prepare("SELECT * FROM test_tbl", planCtx);
+
+        int attempts = 10;
+
+        for (int k = 0; k < attempts; k++) {
+            CompletableFuture<Void> timeoutFut = new CompletableFuture<Void>()
+                    .completeOnTimeout(null, deadlineMillis, TimeUnit.MILLISECONDS);
+
+            SqlOperationContext execCtx = operationContext(null)
+                    // Set for consistency with timeoutFut.
+                    .operationDeadline(Instant.now().plusMillis(deadlineMillis))
+                    .timeoutFuture(timeoutFut)
+                    .build();
+
+            AsyncCursor<InternalSqlRow> cursor;
+            try {
+                cursor = execService.executePlan(plan, execCtx);
+            } catch (QueryCancelledException e) {
+                // This might happen when initialization took longer than a time out,
+                // Retry to get a proper error.
+                continue;
+            }
+
+            CompletableFuture<?> batchFut = cursor.requestNextAsync(1);
+
+            timeoutFut.join();
+
+            IgniteTestUtils.assertThrowsWithCause(
+                    batchFut::join,
+                    SqlException.class,
+                    "Query timeout"
+            );
+
+            return;
+        }
+
+        fail("Failed to get query timeout error");
+    }
+
+    @Test
+    public void testTimeoutEarly() {
+        ExecutionService execService = executionServices.get(0);
+
+        // Use a separate context, so planning won't timeout.
+        SqlOperationContext planCtx = operationContext(null).build();
+        QueryPlan plan = prepare("SELECT * FROM test_tbl", planCtx);
+
+        CompletableFuture<Void> timeoutFut = new CompletableFuture<>();
+
+        QueryCancel queryCancel = new QueryCancel();
+
+        SqlOperationContext execCtx = operationContext(null)
+                .cancel(queryCancel)
+                .operationDeadline(Instant.now().plusMillis(-1000))
+                .timeoutFuture(timeoutFut)
+                .build();
+
+        // Cancel the query with a timeout
+        queryCancel.timeout();
+
+        // Should fail immediately, because Query::add triggers QueryCancelledException.
+        assertThrows(QueryCancelledException.class, () -> execService.executePlan(plan, execCtx));
+    }
+
+    @Test
+    public void testTimeoutKvGet() {
+        int deadlineMillis = 500;
+
+        // Use a separate context, so planning won't timeout.
+        SqlOperationContext planCtx = operationContext(null).build();
+        QueryPlan plan = prepare("SELECT * FROM test_tbl WHERE id = 1", planCtx);
+
+        assertInstanceOf(KeyValueGetPlan.class, plan);
+
+        ExecutionServiceImpl<?> execService = executionServices.get(0);
+        NoOpExecutableTableRegistry tableRegistry = (NoOpExecutableTableRegistry) execService.tableRegistry();
+
+        Duration delay = Duration.of(deadlineMillis * 2, ChronoUnit.MILLIS);
+        tableRegistry.setGetTableDelay(delay);
+
+        int attempts = 10;
+
+        for (int k = 0; k < attempts; k++) {
+            CompletableFuture<Void> timeoutFut = new CompletableFuture<Void>()
+                    .completeOnTimeout(null, deadlineMillis, TimeUnit.MILLISECONDS);
+
+            SqlOperationContext execCtx = operationContext(null)
+                    // Set for consistency with timeoutFut.
+                    .operationDeadline(Instant.now().plusMillis(deadlineMillis))
+                    .timeoutFuture(timeoutFut)
+                    .build();
+
+            AsyncCursor<InternalSqlRow> cursor;
+            try {
+                cursor = execService.executePlan(plan, execCtx);
+            } catch (QueryCancelledException e) {
+                continue;
+            }
+
+            CompletableFuture<?> batchFut = cursor.requestNextAsync(1);
+
+            timeoutFut.join();
+
+            IgniteTestUtils.assertThrowsWithCause(
+                    batchFut::join,
+                    SqlException.class,
+                    "Query timeout"
+            );
+
+            return;
+        }
+
+        fail("Failed to get query timeout error");
+    }
+
+    @Test
+    public void testTimeoutKvModify() {
+        // Use a separate context, so planning won't timeout.
+        SqlOperationContext planCtx = operationContext(null).build();
+        QueryPlan plan = prepare("INSERT INTO test_tbl VALUES(1, 2)", planCtx);
+
+        assertInstanceOf(KeyValueModifyPlan.class, plan);
+
+        int deadlineMillis = 500;
+
+        ExecutionServiceImpl<?> execService = executionServices.get(0);
+        NoOpExecutableTableRegistry tableRegistry = (NoOpExecutableTableRegistry) execService.tableRegistry();
+
+        Duration delay = Duration.of(deadlineMillis * 2, ChronoUnit.MILLIS);
+        tableRegistry.setGetTableDelay(delay);
+
+        int attempts = 10;
+
+        for (int k = 0; k < attempts; k++) {
+            CompletableFuture<Void> timeoutFut = new CompletableFuture<Void>()
+                    .completeOnTimeout(null, deadlineMillis, TimeUnit.MILLISECONDS);
+
+            SqlOperationContext execCtx = operationContext(null)
+                    // Set for consistency with timeoutFut.
+                    .operationDeadline(Instant.now().plusMillis(deadlineMillis))
+                    .timeoutFuture(timeoutFut)
+                    .build();
+
+            AsyncCursor<InternalSqlRow> cursor;
+            try {
+                cursor = execService.executePlan(plan, execCtx);
+            } catch (QueryCancelledException e) {
+                continue;
+            }
+
+            CompletableFuture<?> batchFut = cursor.requestNextAsync(1);
+
+            timeoutFut.join();
+
+            IgniteTestUtils.assertThrowsWithCause(
+                    batchFut::join,
+                    SqlException.class,
+                    "Query timeout"
+            );
+
+            return;
+        }
+
+        fail("Failed to get query timeout error");
+    }
+
     /** Creates an execution service instance for the node with given consistent id. */
     public ExecutionServiceImpl<Object[]> create(String nodeName) {
         if (!nodeNames.contains(nodeName)) {
@@ -889,7 +1133,12 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
             }
         };
 
-        var partitionPruner = new PartitionPrunerImpl();
+        var partitionPruner = new PartitionPruner() {
+            @Override
+            public List<MappedFragment> apply(List<MappedFragment> mappedFragments, Object[] dynamicParameters) {
+                return mappedFragments;
+            }
+        };
         var mappingService = new MappingServiceImpl(nodeName, targetProvider, EmptyCacheFactory.INSTANCE, 0, partitionPruner, taskExecutor);
         var tableFunctionRegistry = new TableFunctionRegistryImpl();
 
@@ -926,6 +1175,10 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     }
 
     private SqlOperationContext createContext(@Nullable PrefetchCallback prefetchCallback) {
+        return operationContext(prefetchCallback).build();
+    }
+
+    private SqlOperationContext.Builder operationContext(@Nullable PrefetchCallback prefetchCallback) {
         return SqlOperationContext.builder()
                 .queryId(UUID.randomUUID())
                 .cancel(new QueryCancel())
@@ -933,8 +1186,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 .operationTime(new HybridClockImpl().now())
                 .defaultSchemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
                 .timeZoneId(SqlQueryProcessor.DEFAULT_TIME_ZONE_ID)
-                .txContext(ExplicitTxContext.fromTx(new NoOpTransaction(nodeNames.get(0))))
-                .build();
+                .txContext(ExplicitTxContext.fromTx(new NoOpTransaction(nodeNames.get(0))));
     }
 
     private QueryPlan prepare(String query, SqlOperationContext ctx) {

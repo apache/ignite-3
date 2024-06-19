@@ -597,6 +597,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
                 .set(QueryProperty.ALLOWED_QUERY_TYPES, queryType)
                 .set(QueryProperty.TIME_ZONE_ID, statement.timeZoneId())
                 .set(QueryProperty.DEFAULT_SCHEMA, statement.defaultSchema())
+                .set(QueryProperty.QUERY_TIMEOUT, statement.queryTimeout(TimeUnit.MILLISECONDS))
                 .build();
     }
 

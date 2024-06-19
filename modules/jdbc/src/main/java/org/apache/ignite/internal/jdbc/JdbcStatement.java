@@ -70,7 +70,7 @@ public class JdbcStatement implements Statement {
     private volatile boolean closed;
 
     /** Query timeout. */
-    private int timeout;
+    protected int timeout;
 
     /** Rows limit. */
     private int maxRows;
@@ -137,7 +137,7 @@ public class JdbcStatement implements Statement {
         }
 
         JdbcQueryExecuteRequest req = new JdbcQueryExecuteRequest(stmtType, schema, pageSize, maxRows, sql, args,
-                conn.getAutoCommit(), multiStatement);
+                conn.getAutoCommit(), multiStatement, timeout);
 
         JdbcQueryExecuteResponse res;
         try {
@@ -568,7 +568,7 @@ public class JdbcStatement implements Statement {
             return INT_EMPTY_ARRAY;
         }
 
-        JdbcBatchExecuteRequest req = new JdbcBatchExecuteRequest(conn.getSchema(), batch, conn.getAutoCommit());
+        JdbcBatchExecuteRequest req = new JdbcBatchExecuteRequest(conn.getSchema(), batch, conn.getAutoCommit(), timeout);
 
         try {
             JdbcBatchExecuteResult res = conn.handler().batchAsync(conn.connectionId(), req).get();

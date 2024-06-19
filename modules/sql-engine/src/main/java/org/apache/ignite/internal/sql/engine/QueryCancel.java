@@ -17,10 +17,14 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.util.Cancellable;
 
@@ -32,19 +36,53 @@ public class QueryCancel {
 
     private boolean canceled;
 
+    private boolean timeout;
+
     /**
-     * Adds a cancel action.
+     * Adds a cancel action. If operation has already been canceled, throws a {@link QueryCancelledException}.
      *
-     * @param clo Add cancel action.
+     * <p>NOTE: If the operation is cancelled, this method will immediately invoke the given action
+     * and then throw a {@link QueryCancelledException}.
+     *
+     * @param clo Cancel action.
      */
     public synchronized void add(Cancellable clo) throws QueryCancelledException {
         assert clo != null;
 
         if (canceled) {
-            throw new QueryCancelledException();
+            // Immediately invoke a cancel action, if already cancelled. 
+            // Otherwise the caller is required to catch QueryCancelledException and call an action manually.
+            try {
+                clo.cancel(timeout);
+            } catch (Exception ignore) {
+                // Do nothing
+            }
+
+            String message = timeout ? QueryCancelledException.TIMEOUT_MSG : QueryCancelledException.CANCEL_MSG;
+            throw new QueryCancelledException(message);
         }
 
         cancelActions.add(clo);
+    }
+
+    /**
+     * Schedules a timeout action (a call to {@link #timeout()}) after {@code timeoutMillis} milliseconds.
+     *
+     * @param scheduler Scheduler to trigger an action.
+     * @param timeoutMillis Timeout in milliseconds.
+     * @return Future that will be completed when the timeout is reached.
+     */
+    public CompletableFuture<Void> addTimeout(ScheduledExecutorService scheduler, long timeoutMillis) {
+        CompletableFuture<Void> fut = new CompletableFuture<>();
+        fut.thenAccept((r) -> timeout());
+
+        ScheduledFuture<?> f = scheduler.schedule(() -> {
+            fut.complete(null);
+        }, timeoutMillis, MILLISECONDS);
+
+        add((timeout) -> f.cancel(false));
+
+        return fut;
     }
 
     /**
@@ -55,6 +93,23 @@ public class QueryCancel {
             return;
         }
 
+        doCancel(false);
+    }
+
+    /**
+     * Marks this state as canceled due to timeout and executes cancel actions.
+     */
+    public synchronized void timeout() {
+        if (canceled) {
+            return;
+        }
+
+        this.timeout = true;
+
+        doCancel(true);
+    }
+
+    private void doCancel(boolean timeout) {
         canceled = true;
 
         IgniteInternalException ex = null;
@@ -64,7 +119,7 @@ public class QueryCancel {
             try {
                 Cancellable act = cancelActions.get(i);
 
-                act.cancel();
+                act.cancel(timeout);
             } catch (Exception e) {
                 if (ex == null) {
                     ex = new IgniteInternalException(INTERNAL_ERR, e);
@@ -77,18 +132,5 @@ public class QueryCancel {
         if (ex != null) {
             throw ex;
         }
-    }
-
-    /**
-     * Stops query execution if a user requested cancel.
-     */
-    public synchronized void checkCancelled() throws QueryCancelledException {
-        if (canceled) {
-            throw new QueryCancelledException();
-        }
-    }
-
-    public synchronized boolean isCanceled() {
-        return canceled;
     }
 }

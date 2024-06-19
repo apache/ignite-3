@@ -19,8 +19,10 @@ package org.apache.ignite.internal.sql.engine;
 
 import static java.util.Objects.requireNonNull;
 
+import java.time.Instant;
 import java.time.ZoneId;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor.PrefetchCallback;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
@@ -39,10 +41,12 @@ public final class SqlOperationContext {
     private final Object[] parameters;
     private final HybridTimestamp operationTime;
     private final QueryTransactionContext txContext;
+    private final Instant operationDeadline;
 
     private final @Nullable QueryCancel cancel;
     private final @Nullable String defaultSchemaName;
     private final @Nullable PrefetchCallback prefetchCallback;
+    private final CompletableFuture<Void> timeoutFuture;
 
     /**
      * Private constructor, used by a builder.
@@ -52,10 +56,12 @@ public final class SqlOperationContext {
             ZoneId timeZoneId,
             Object[] parameters,
             HybridTimestamp operationTime,
-            QueryTransactionContext txContext,
+            @Nullable QueryTransactionContext txContext,
             @Nullable QueryCancel cancel,
             @Nullable String defaultSchemaName,
-            @Nullable PrefetchCallback prefetchCallback
+            @Nullable PrefetchCallback prefetchCallback,
+            @Nullable Instant deadline,
+            @Nullable CompletableFuture<Void> timeoutFuture
     ) {
         this.queryId = queryId;
         this.timeZoneId = timeZoneId;
@@ -65,6 +71,8 @@ public final class SqlOperationContext {
         this.cancel = cancel;
         this.defaultSchemaName = defaultSchemaName;
         this.prefetchCallback = prefetchCallback;
+        this.operationDeadline = deadline;
+        this.timeoutFuture = timeoutFuture;
     }
 
     public static Builder builder() {
@@ -85,7 +93,7 @@ public final class SqlOperationContext {
      * Returns callback to notify about readiness of the first page of the results.
      *
      * <p>May be null on remote side, but never null on node initiator.
-     */ 
+     */
     public @Nullable PrefetchCallback prefetchCallback() {
         return prefetchCallback;
     }
@@ -133,6 +141,24 @@ public final class SqlOperationContext {
     }
 
     /**
+     * Returns the deadline of the operation.
+     *
+     * <p>Can be null if a query has no timeout or a node is not a query initiator.
+     */
+    public @Nullable Instant operationDeadline() {
+        return operationDeadline;
+    }
+
+    /**
+     * Returns the timeout future.
+     *
+     * <p>Can be null if a query has no timeout or a node is not a query initiator.
+     */
+    public @Nullable CompletableFuture<Void> timeoutFuture() {
+        return timeoutFuture;
+    }
+
+    /**
      * Query context builder.
      */
     @SuppressWarnings("PublicInnerClass")
@@ -141,11 +167,13 @@ public final class SqlOperationContext {
         private ZoneId timeZoneId;
         private Object[] parameters = ArrayUtils.OBJECT_EMPTY_ARRAY;
         private HybridTimestamp operationTime;
-        private QueryTransactionContext txContext;
+        private @Nullable QueryTransactionContext txContext;
+        private @Nullable Instant operationDeadline;
 
         private @Nullable QueryCancel cancel;
         private @Nullable String defaultSchemaName;
         private @Nullable PrefetchCallback prefetchCallback;
+        private @Nullable CompletableFuture<Void> timeoutFut;
 
         public Builder cancel(@Nullable QueryCancel cancel) {
             this.cancel = requireNonNull(cancel);
@@ -187,6 +215,16 @@ public final class SqlOperationContext {
             return this;
         }
 
+        public Builder operationDeadline(@Nullable Instant operationDeadline) {
+            this.operationDeadline = operationDeadline;
+            return this;
+        }
+
+        public Builder timeoutFuture(@Nullable CompletableFuture<Void> timeoutFut) {
+            this.timeoutFut = timeoutFut;
+            return this;
+        }
+
         /** Creates new context. */
         public SqlOperationContext build() {
             return new SqlOperationContext(
@@ -197,7 +235,9 @@ public final class SqlOperationContext {
                     txContext,
                     cancel,
                     defaultSchemaName,
-                    prefetchCallback
+                    prefetchCallback,
+                    operationDeadline,
+                    timeoutFut
             );
         }
     }

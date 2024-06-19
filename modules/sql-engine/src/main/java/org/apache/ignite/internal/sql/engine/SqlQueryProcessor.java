@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.lang.SqlExceptionMapperUtil.mapToPublicSqlException;
@@ -33,6 +34,8 @@ import static org.apache.ignite.lang.ErrorGroups.Sql.EXECUTION_CANCELLED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -46,6 +49,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.LongSupplier;
 import java.util.stream.Collectors;
@@ -138,7 +143,7 @@ import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
- *  Main implementation of {@link QueryProcessor}.
+ * Main implementation of {@link QueryProcessor}.
  */
 public class SqlQueryProcessor implements QueryProcessor {
     /** Default time-zone ID. */
@@ -230,6 +235,8 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private final TransactionInflights transactionInflights;
 
+    private final ScheduledExecutorService commonScheduler;
+
     /** Constructor. */
     public SqlQueryProcessor(
             ClusterService clusterSrvc,
@@ -249,7 +256,8 @@ public class SqlQueryProcessor implements QueryProcessor {
             SqlDistributedConfiguration clusterCfg,
             SqlLocalConfiguration nodeCfg,
             TransactionInflights transactionInflights,
-            TxManager txManager
+            TxManager txManager,
+            ScheduledExecutorService commonScheduler
     ) {
         this.clusterSrvc = clusterSrvc;
         this.logicalTopologyService = logicalTopologyService;
@@ -269,6 +277,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         this.nodeCfg = nodeCfg;
         this.transactionInflights = transactionInflights;
         this.txManager = txManager;
+        this.commonScheduler = commonScheduler;
 
         sqlSchemaManager = new SqlSchemaManagerImpl(
                 catalogManager,
@@ -398,6 +407,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     }
 
     // need to be refactored after TODO: https://issues.apache.org/jira/browse/IGNITE-20925
+
     /** Get primary replicas. */
     private CompletableFuture<List<NodeWithConsistencyToken>> primaryReplicas(IgniteTable table) {
         int partitions = table.partitions();
@@ -530,8 +540,12 @@ public class SqlQueryProcessor implements QueryProcessor {
     ) {
         SqlProperties properties0 = SqlPropertiesHelper.chain(properties, DEFAULT_PROPERTIES);
         String schemaName = properties0.get(QueryProperty.DEFAULT_SCHEMA);
+        Long queryTimeout = properties0.getOrDefault(QueryProperty.QUERY_TIMEOUT, 0L);
 
         QueryCancel queryCancel = new QueryCancel();
+        if (queryTimeout != 0) {
+            queryCancel.addTimeout(commonScheduler, queryTimeout);
+        }
 
         ParsedResult parsedResult = queryToParsedResultCache.get(sql);
 
@@ -558,8 +572,20 @@ public class SqlQueryProcessor implements QueryProcessor {
     ) {
         String schemaName = properties.get(QueryProperty.DEFAULT_SCHEMA);
         ZoneId timeZoneId = properties.get(QueryProperty.TIME_ZONE_ID);
+        Long queryTimeout = properties.getOrDefault(QueryProperty.QUERY_TIMEOUT, 0L);
 
         QueryCancel queryCancel = new QueryCancel();
+
+        CompletableFuture<Void> timeoutFut;
+        Instant deadline;
+
+        if (queryTimeout != 0) {
+            deadline = Instant.now().plusMillis(queryTimeout);
+            timeoutFut = queryCancel.addTimeout(commonScheduler, queryTimeout);
+        } else {
+            deadline = null;
+            timeoutFut = null;
+        }
 
         ParsedResult parsedResult = queryToParsedResultCache.get(sql);
 
@@ -582,6 +608,8 @@ public class SqlQueryProcessor implements QueryProcessor {
                     .defaultSchemaName(schemaName)
                     .operationTime(operationTime)
                     .txContext(txContext)
+                    .operationDeadline(deadline)
+                    .timeoutFuture(timeoutFut)
                     .build();
 
             return executeParsedStatement(operationContext, result, null);
@@ -596,6 +624,14 @@ public class SqlQueryProcessor implements QueryProcessor {
     ) {
         String schemaName = properties.get(QueryProperty.DEFAULT_SCHEMA);
         ZoneId timeZoneId = properties.get(QueryProperty.TIME_ZONE_ID);
+        Long queryTimeout = properties.getOrDefault(QueryProperty.QUERY_TIMEOUT, 0L);
+
+        Long queryTimeoutMillis;
+        if (queryTimeout != 0) {
+            queryTimeoutMillis = queryTimeout;
+        } else {
+            queryTimeoutMillis = null;
+        }
 
         CompletableFuture<?> start = new CompletableFuture<>();
 
@@ -603,7 +639,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                 .thenApply(ignored -> parserService.parseScript(sql))
                 .thenCompose(parsedResults -> {
                     MultiStatementHandler handler = new MultiStatementHandler(
-                            schemaName, txCtx, parsedResults, params, timeZoneId);
+                            schemaName, txCtx, parsedResults, params, timeZoneId, queryTimeoutMillis);
 
                     return handler.processNext();
                 });
@@ -833,15 +869,15 @@ public class SqlQueryProcessor implements QueryProcessor {
         private final String schemaName;
         private final Queue<ScriptStatement> statements;
         private final ScriptTransactionContext scriptTxContext;
+        private final @Nullable Instant deadline;
 
         /**
          * Collection is used to track SELECT statements to postpone following DML operation.
          *
          * <p>We have no isolation within the same transaction. This implies, that any changes to the data
-         * will be seen during next read. Considering lazy execution of read operations, DML started after
-         * SELECT operation may, in fact, outrun actual read. To address this problem, let's collect all
-         * SELECT cursor in this collection and postpone following DML until at least first page is ready
-         * for every collected so far cursor.
+         * will be seen during next read. Considering lazy execution of read operations, DML started after SELECT operation may, in fact,
+         * outrun actual read. To address this problem, let's collect all SELECT cursor in this collection and postpone following DML until
+         * at least first page is ready for every collected so far cursor.
          */
         private final Queue<CompletableFuture<Void>> inFlightSelects = new ConcurrentLinkedQueue<>();
 
@@ -850,12 +886,14 @@ public class SqlQueryProcessor implements QueryProcessor {
                 QueryTransactionContext txContext,
                 List<ParsedResult> parsedResults,
                 Object[] params,
-                ZoneId timeZoneId
+                ZoneId timeZoneId,
+                @Nullable Long queryTimeoutMillis
         ) {
             this.timeZoneId = timeZoneId;
             this.schemaName = schemaName;
             this.statements = prepareStatementsQueue(parsedResults, params);
             this.scriptTxContext = new ScriptTransactionContext(txContext, transactionInflights);
+            this.deadline = queryTimeoutMillis != null ? Instant.now().plusMillis(queryTimeoutMillis) : null;
         }
 
         /**
@@ -924,20 +962,43 @@ public class SqlQueryProcessor implements QueryProcessor {
                                     new IteratorToDataCursorAdapter<>(Collections.emptyIterator()),
                                     nextCurFut
                             ));
+
+                    if (deadline != null) {
+                        long statementTimeoutMillis = Duration.between(Instant.now(), deadline).toMillis();
+
+                        ScheduledFuture<?> f = commonScheduler.schedule(() -> {
+                            SqlException err = new SqlException(EXECUTION_CANCELLED_ERR, QueryCancelledException.TIMEOUT_MSG);
+                            fut.completeExceptionally(err);
+                        }, statementTimeoutMillis, MILLISECONDS);
+
+                        fut.whenComplete((r, t) -> f.cancel(true));
+                    }
                 } else {
                     scriptTxContext.registerCursorFuture(parsedResult.queryType(), cursorFuture);
 
                     HybridTimestamp operationTime = deriveOperationTime(scriptTxContext);
 
+                    QueryCancel queryCancel = new QueryCancel();
+                    CompletableFuture<Void> timeoutFut;
+
+                    if (deadline != null) {
+                        long statementTimeoutMillis = Duration.between(Instant.now(), deadline).toMillis();
+                        timeoutFut = queryCancel.addTimeout(commonScheduler, statementTimeoutMillis);
+                    } else {
+                        timeoutFut = null;
+                    }
+
                     SqlOperationContext operationContext = SqlOperationContext.builder()
                             .queryId(UUID.randomUUID())
-                            .cancel(new QueryCancel())
+                            .cancel(queryCancel)
                             .prefetchCallback(new PrefetchCallback())
                             .parameters(params)
                             .timeZoneId(timeZoneId)
                             .defaultSchemaName(schemaName)
                             .txContext(scriptTxContext)
                             .operationTime(operationTime)
+                            .operationDeadline(deadline)
+                            .timeoutFuture(timeoutFut)
                             .build();
 
                     fut = executeParsedStatement(operationContext, parsedResult, nextCurFut);
@@ -1096,4 +1157,5 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         return clockService.now();
     }
+
 }

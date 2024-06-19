@@ -20,6 +20,8 @@ package org.apache.ignite.jdbc;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.jdbc.util.JdbcTestUtils.assertThrowsSqlException;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -33,6 +35,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import org.apache.ignite.internal.jdbc.JdbcStatement;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
@@ -400,7 +403,6 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
         assertTrue(rs.next());
         assertEquals(0, rs.getInt(1));
 
-
         stmt.execute("INSERT INTO TEST_TX VALUES (5, 19, 'Nick');");
         conn.commit();
 
@@ -614,11 +616,11 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
 
         String complexQuery =
                 "INSERT INTO TEST_TX VALUES (5, ?, 'Leo'); "
-                    + "START TRANSACTION ; "
-                    + "UPDATE TEST_TX SET name = ? WHERE name = 'Nick' ;"
-                    + "INSERT INTO TEST_TX VALUES (6, ?, ?); "
-                    + "DELETE FROM TEST_TX WHERE age < ?; "
-                    + "COMMIT;";
+                        + "START TRANSACTION ; "
+                        + "UPDATE TEST_TX SET name = ? WHERE name = 'Nick' ;"
+                        + "INSERT INTO TEST_TX VALUES (6, ?, ?); "
+                        + "DELETE FROM TEST_TX WHERE age < ?; "
+                        + "COMMIT;";
 
         try (PreparedStatement p = conn.prepareStatement(complexQuery)) {
             p.setInt(1, leoAge);
@@ -644,6 +646,48 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
 
                 assertFalse(pers.next());
             }
+        }
+    }
+
+    @Test
+    public void testTimeout() throws SQLException {
+        JdbcStatement igniteStmt = (JdbcStatement) stmt;
+        igniteStmt.timeout(500);
+
+        int attempts = 10;
+
+        for (int i = 0; i < attempts; i++) {
+            stmt.execute("SELECT 1; SELECT * FROM TABLE(SYSTEM_RANGE(1, 1000000000)); SELECT * FROM TABLE(SYSTEM_RANGE(1, 10));");
+
+            // The first statement should succeed, if it times out, retry.
+            try {
+                try (ResultSet rs = stmt.getResultSet()) {
+                    while (rs.next()) {
+                        assertNotNull(rs.getObject(1));
+                    }
+                }
+            } catch (SQLException e) {
+                // Ignore timeout for the first statement, if takes too long.
+                assertThat("Unexpected error", e.getMessage(), containsString("Query timeout"));
+                continue;
+            }
+
+            assertTrue(stmt.getMoreResults(), "Expected more results");
+
+            // The second statement should always fail.
+            assertThrowsSqlException(SQLException.class,
+                    "Query timeout", () -> {
+                        try (ResultSet rs = stmt.getResultSet()) {
+                            while (rs.next()) {
+                                assertNotNull(rs.getObject(1));
+                            }
+                        }
+                    });
+
+            // Script timed out. We should also get a timeout.
+            assertThrowsSqlException(SQLException.class, "Query timeout", () -> stmt.getMoreResults());
+
+            return;
         }
     }
 

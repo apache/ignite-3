@@ -865,7 +865,8 @@ public class IgniteImpl implements Ignite {
                 clusterConfigRegistry.getConfiguration(SqlDistributedConfiguration.KEY),
                 nodeConfigRegistry.getConfiguration(SqlLocalConfiguration.KEY),
                 transactionInflights,
-                txManager
+                txManager,
+                threadPoolsManager.commonScheduler()
         );
 
         sql = new IgniteSqlImpl(qryEngine, observableTimestampTracker);
