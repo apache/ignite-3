@@ -26,8 +26,11 @@ package org.apache.ignite.example.storage;
  *     <li>Download the Ignite 3 ZIP packaging with DB and CLI parts.</li>
  *     <li>
  *         Prepare the environment variables:<br>
- *         {@code export IGNITE_HOME=/path/to/ignite3-db-VERSION; export IGNITE_CLI_HOME=/path/to/ignite3-cli-VERSION;
- *         export IGNITE_SRC_HOME=/path/to/ignite/sources}
+ *         <code>
+ *             export IGNITE_HOME=/path/to/ignite3-db-VERSION<br>
+ *             export IGNITE_CLI_HOME=/path/to/ignite3-cli-VERSION<br>
+ *             export IGNITE_SRC_HOME=/path/to/ignite/sources
+ *         </code>
  *     </li>
  *     <li>
  *         Override the default configuration file:<br>
