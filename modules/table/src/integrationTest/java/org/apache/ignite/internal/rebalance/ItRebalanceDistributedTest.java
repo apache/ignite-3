@@ -1289,7 +1289,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                             replicaManager,
                             distributionZoneManager,
                             metaStorageManager,
-                            clusterService.topologyService()
+                            clusterService.topologyService(),
+                            threadPoolsManager.tableIoExecutor()
                     )
             ) {
                 @Override

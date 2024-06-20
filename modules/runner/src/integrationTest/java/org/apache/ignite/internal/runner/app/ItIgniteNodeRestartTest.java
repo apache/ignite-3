@@ -643,7 +643,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                         replicaMgr,
                         distributionZoneManager,
                         metaStorageMgr,
-                        clusterSvc.topologyService()
+                        clusterSvc.topologyService(),
+                        threadPoolsManager.tableIoExecutor()
                 )
         );
 

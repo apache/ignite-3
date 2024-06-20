@@ -675,7 +675,8 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     replicaManager,
                     distributionZoneManager,
                     metaStorageManager,
-                    clusterService.topologyService()
+                    clusterService.topologyService(),
+                    threadPoolsManager.tableIoExecutor()
             );
 
             StorageUpdateConfiguration storageUpdateConfiguration = clusterConfigRegistry.getConfiguration(StorageUpdateConfiguration.KEY);
@@ -692,7 +693,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     clusterService.topologyService(),
                     clusterService.serializationRegistry(),
                     replicaManager,
-                    lockManager,
+                    mock(LockManager.class),
                     replicaSvc,
                     txManager,
                     dataStorageMgr,
