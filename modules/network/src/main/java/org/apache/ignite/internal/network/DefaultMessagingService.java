@@ -619,11 +619,8 @@ public class DefaultMessagingService extends AbstractMessagingService {
      *     node's consistent ID.
      */
     @TestOnly
-    public void dropMessages(BiPredicate<String, NetworkMessage> predicate) {
-        BiPredicate<String, NetworkMessage> dropMessagesPredicate = this.dropMessagesPredicate;
-
-        // Allow for multiple filters at once, convenient for complex tests.
-        this.dropMessagesPredicate = dropMessagesPredicate == null ? predicate : dropMessagesPredicate.or(predicate);
+    public void dropMessages(BiPredicate<@Nullable String, NetworkMessage> predicate) {
+        dropMessagesPredicate = predicate;
     }
 
     /**

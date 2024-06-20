@@ -623,5 +623,8 @@ public class ErrorGroups {
 
         /** Error while returning partition states. */
         public static final int PARTITION_STATE_ERR = RECOVERY_ERR_GROUP.registerErrorCode((short) 3);
+
+        /** Error while returning partition states. */
+        public static final int CLUSTER_NOT_IDLE_ERR = RECOVERY_ERR_GROUP.registerErrorCode((short) 4);
     }
 }

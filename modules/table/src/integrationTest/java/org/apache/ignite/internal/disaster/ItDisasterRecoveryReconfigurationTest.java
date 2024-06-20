@@ -56,6 +56,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
+import java.util.function.BiPredicate;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
@@ -373,7 +374,16 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         assertRealAssignments(node0, partId, 0, 1, 3);
 
-        cluster.runningNodes().forEach(node -> node.dropMessages((nodeName, msg) -> stableKeySwitchMessage(msg, partId, assignment013)));
+        cluster.runningNodes().forEach(node -> {
+            BiPredicate<String, NetworkMessage> newPredicate = (nodeName, msg) -> stableKeySwitchMessage(msg, partId, assignment013);
+            BiPredicate<String, NetworkMessage> oldPredicate = node.dropMessagesPredicate();
+
+            if (oldPredicate == null) {
+                node.dropMessages(newPredicate);
+            } else {
+                node.dropMessages(oldPredicate.or(newPredicate));
+            }
+        });
 
         CompletableFuture<Void> resetFuture = node0.disasterRecoveryManager().resetPartitions(zoneName, QUALIFIED_TABLE_NAME, emptySet());
         assertThat(resetFuture, willCompleteSuccessfully());
@@ -407,7 +417,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         );
 
         // TODO https://issues.apache.org/jira/browse/IGNITE-21303
-        //  We need wait quite a bit before data is available. Log shows term mismatches, meaning that right now in only works due to some
+        //  We need wait quite a bit before data is available. Log shows term mismatches, meaning that right now it only works due to some
         //  miracle. For future improvements we must specify "stable" forced sub-assignments explicitly, instead of calculating them as an
         //  intersection.
         Thread.sleep(10_000);

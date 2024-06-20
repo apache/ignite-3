@@ -35,8 +35,8 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
 import static org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryRequestType.SINGLE_NODE;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.lang.ErrorGroups.DisasterRecovery.CLUSTER_NOT_IDLE_ERR;
 
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Map;
@@ -60,11 +60,11 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.table.distributed.disaster.exceptions.DisasterRecoveryException;
 import org.apache.ignite.internal.table.distributed.disaster.messages.LocalPartitionStateMessage;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.CollectionUtils;
-import org.apache.ignite.lang.IgniteException;
 
 class ManualGroupUpdateRequest implements DisasterRecoveryRequest {
     /** Serial version UID. */
@@ -72,6 +72,9 @@ class ManualGroupUpdateRequest implements DisasterRecoveryRequest {
 
     private final UUID operationId;
 
+    /**
+     * Catalog version at the moment of operation creation. Must match catalog version at the moment of operation execution.
+     */
     private final int catalogVersion;
 
     private final int zoneId;
@@ -122,7 +125,9 @@ class ManualGroupUpdateRequest implements DisasterRecoveryRequest {
         int catalogVersion = disasterRecoveryManager.catalogManager.activeCatalogVersion(msSafeTime.longValue());
 
         if (this.catalogVersion != catalogVersion) {
-            return CompletableFuture.failedFuture(new IgniteException("Foo"));
+            return CompletableFuture.failedFuture(
+                    new DisasterRecoveryException(CLUSTER_NOT_IDLE_ERR, "Cluster is not idle, concurrent DDL update detected.")
+            );
         }
 
         Catalog catalog = disasterRecoveryManager.catalogManager.catalog(catalogVersion);
@@ -187,16 +192,16 @@ class ManualGroupUpdateRequest implements DisasterRecoveryRequest {
 
         Set<String> aliveDataNodes = CollectionUtils.intersect(dataNodes, aliveNodesConsistentIds);
 
-        int[] ids = partitionIds.isEmpty()
+        int[] partitionIdsArray = partitionIds.isEmpty()
                 ? IntStream.range(0, zoneDescriptor.partitions()).toArray()
                 : partitionIds.stream().mapToInt(Integer::intValue).toArray();
 
-        CompletableFuture<?>[] futures = new CompletableFuture[ids.length];
+        CompletableFuture<?>[] futures = new CompletableFuture[partitionIdsArray.length];
 
-        for (int i = 0; i < ids.length; i++) {
-            TablePartitionId replicaGrpId = new TablePartitionId(tableDescriptor.id(), ids[i]);
+        for (int partitionId = 0; partitionId < partitionIdsArray.length; partitionId++) {
+            TablePartitionId replicaGrpId = new TablePartitionId(tableDescriptor.id(), partitionIdsArray[partitionId]);
 
-            futures[i] = tableAssignmentsFut.thenCompose(tableAssignments ->
+            futures[partitionId] = tableAssignmentsFut.thenCompose(tableAssignments ->
                     tableAssignments.isEmpty() ? nullCompletedFuture() : manualPartitionUpdate(
                             replicaGrpId,
                             aliveDataNodes,
@@ -262,7 +267,6 @@ class ManualGroupUpdateRequest implements DisasterRecoveryRequest {
         ByteArray partAssignmentsPendingKey = pendingPartAssignmentsKey(partId);
         ByteArray partAssignmentsPlannedKey = plannedPartAssignmentsKey(partId);
 
-        System.out.println("<$> revision bytes = " + Arrays.toString(revisionBytes));
         Iif iif = iif(
                 notExists(partChangeTriggerKey).or(value(partChangeTriggerKey).lt(revisionBytes)),
                 iif(
