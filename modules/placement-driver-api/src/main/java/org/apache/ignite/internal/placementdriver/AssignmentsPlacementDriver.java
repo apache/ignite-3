@@ -22,6 +22,12 @@ import org.apache.ignite.internal.affinity.TokenizedAssignments;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 
+/**
+ * Service that provides an ability to await and retrieve assignments for replication groups.
+ * It's not guaranteed that retrieved assignments are ready to process requests, meaning that corresponding replicas
+ * may not be started yet, or may be stopped at the next tick. On the stable replication group, assignments however
+ * may be interpreted as replica hosts to process the requests.
+ */
 public interface AssignmentsPlacementDriver {
 
     /**
