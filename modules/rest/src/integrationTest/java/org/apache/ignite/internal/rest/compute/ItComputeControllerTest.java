@@ -46,6 +46,7 @@ import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionContext;
+import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.rest.api.Problem;
@@ -365,7 +366,7 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
     }
 
     private static JobExecution<String> runBlockingJob(IgniteImpl entryNode, Set<ClusterNode> nodes) {
-        return entryNode.compute().submit(nodes, JobDescriptor.builder(BlockingJob.class).build());
+        return entryNode.compute().submit(JobTarget.anyNode(nodes), JobDescriptor.builder(BlockingJob.class).build());
     }
 
     private static void unblockJob() {

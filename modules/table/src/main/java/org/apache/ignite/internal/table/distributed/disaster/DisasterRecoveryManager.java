@@ -27,13 +27,13 @@ import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.TABLE_CREATE;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.TABLE_DROP;
 import static org.apache.ignite.internal.event.EventListener.fromConsumer;
+import static org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum.CATCHING_UP;
+import static org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum.HEALTHY;
 import static org.apache.ignite.internal.table.distributed.disaster.DisasterRecoverySystemViews.createGlobalPartitionStatesSystemView;
 import static org.apache.ignite.internal.table.distributed.disaster.DisasterRecoverySystemViews.createLocalPartitionStatesSystemView;
 import static org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionStateEnum.AVAILABLE;
 import static org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionStateEnum.DEGRADED;
 import static org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionStateEnum.READ_ONLY;
-import static org.apache.ignite.internal.table.distributed.disaster.LocalPartitionStateEnum.CATCHING_UP;
-import static org.apache.ignite.internal.table.distributed.disaster.LocalPartitionStateEnum.HEALTHY;
 import static org.apache.ignite.internal.util.CompletableFutures.copyStateTo;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.DisasterRecovery.PARTITION_STATE_ERR;
@@ -74,20 +74,21 @@ import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.TopologyService;
+import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
+import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
+import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum;
+import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateMessage;
+import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStatesRequest;
+import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStatesResponse;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.systemview.api.SystemView;
 import org.apache.ignite.internal.systemview.api.SystemViewProvider;
 import org.apache.ignite.internal.table.distributed.TableManager;
-import org.apache.ignite.internal.table.distributed.TableMessageGroup;
-import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.DisasterRecoveryException;
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.IllegalPartitionIdException;
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.NodesNotFoundException;
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.ZonesNotFoundException;
-import org.apache.ignite.internal.table.distributed.disaster.messages.LocalPartitionStateMessage;
-import org.apache.ignite.internal.table.distributed.disaster.messages.LocalPartitionStatesRequest;
-import org.apache.ignite.internal.table.distributed.disaster.messages.LocalPartitionStatesResponse;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.lang.TableNotFoundException;
@@ -107,7 +108,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
     /** Single key for writing disaster recovery requests into meta-storage. */
     static final ByteArray RECOVERY_TRIGGER_KEY = new ByteArray("disaster.recovery.trigger");
 
-    private static final TableMessagesFactory MSG_FACTORY = new TableMessagesFactory();
+    private static final PartitionReplicationMessagesFactory MSG_FACTORY = new PartitionReplicationMessagesFactory();
 
     /** Disaster recovery operations timeout in seconds. */
     private static final int TIMEOUT_SECONDS = 30;
@@ -198,7 +199,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
-        messagingService.addMessageHandler(TableMessageGroup.class, this::handleMessage);
+        messagingService.addMessageHandler(PartitionReplicationMessageGroup.class, this::handleMessage);
 
         metaStorageManager.registerExactWatch(RECOVERY_TRIGGER_KEY, watchListener);
 

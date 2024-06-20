@@ -59,6 +59,7 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -314,6 +315,9 @@ public class RebalanceUtil {
     public static final String PENDING_ASSIGNMENTS_PREFIX = "assignments.pending.";
 
     /** Key prefix for stable assignments. */
+    public static final String ZONE_STABLE_ASSIGNMENTS_PREFIX = "zone.assignments.stable.";
+
+    /** Key prefix for stable assignments. */
     public static final String STABLE_ASSIGNMENTS_PREFIX = "assignments.stable.";
 
     /** Key prefix for switch reduce assignments. */
@@ -381,6 +385,17 @@ public class RebalanceUtil {
      */
     public static ByteArray stablePartAssignmentsKey(TablePartitionId partId) {
         return new ByteArray(STABLE_ASSIGNMENTS_PREFIX + partId);
+    }
+
+    /**
+     * Key that is needed for the rebalance algorithm.
+     *
+     * @param partId Unique identifier of a partition.
+     * @return Key for a partition.
+     * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalance documentation</a>
+     */
+    public static ByteArray stablePartAssignmentsKey(ZonePartitionId partId) {
+        return new ByteArray(ZONE_STABLE_ASSIGNMENTS_PREFIX + partId);
     }
 
     /**
@@ -573,6 +588,27 @@ public class RebalanceUtil {
     }
 
     /**
+     * Returns partition assignments from meta storage locally.
+     *
+     * @param metaStorageManager Meta storage manager.
+     * @param zoneId Zone id.
+     * @param partitionNumber Partition number.
+     * @param revision Revision.
+     * @return Returns partition assignments from meta storage locally or {@code null} if assignments is absent.
+     */
+    @Nullable
+    public static Set<Assignment> zonePartitionAssignmentsGetLocally(
+            MetaStorageManager metaStorageManager,
+            int zoneId,
+            int partitionNumber,
+            long revision
+    ) {
+        Entry entry = metaStorageManager.getLocally(stablePartAssignmentsKey(new ZonePartitionId(zoneId, partitionNumber)), revision);
+
+        return (entry == null || entry.empty() || entry.tombstone()) ? null : Assignments.fromBytes(entry.value()).nodes();
+    }
+
+    /**
      * Returns table assignments for table partitions from meta storage.
      *
      * @param metaStorageManager Meta storage manager.
@@ -641,6 +677,32 @@ public class RebalanceUtil {
         return IntStream.range(0, numberOfPartitions)
                 .mapToObj(p -> {
                     Entry e = metaStorageManager.getLocally(stablePartAssignmentsKey(new TablePartitionId(tableId, p)), revision);
+
+                    assert e != null && !e.empty() && !e.tombstone() : e;
+
+                    return Assignments.fromBytes(e.value());
+                })
+                .collect(toList());
+    }
+
+    /**
+     * Returns zone assignments for all zone partitions from meta storage locally. Assignments must be present.
+     *
+     * @param metaStorageManager Meta storage manager.
+     * @param zoneId Zone id.
+     * @param numberOfPartitions Number of partitions.
+     * @param revision Revision.
+     * @return Future with zone assignments as a value.
+     */
+    public static List<Assignments> zoneAssignmentsGetLocally(
+            MetaStorageManager metaStorageManager,
+            int zoneId,
+            int numberOfPartitions,
+            long revision
+    ) {
+        return IntStream.range(0, numberOfPartitions)
+                .mapToObj(p -> {
+                    Entry e = metaStorageManager.getLocally(stablePartAssignmentsKey(new ZonePartitionId(zoneId, p)), revision);
 
                     assert e != null && !e.empty() && !e.tombstone() : e;
 

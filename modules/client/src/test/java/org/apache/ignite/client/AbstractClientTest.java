@@ -22,16 +22,15 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.util.Arrays;
-import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.client.fakes.FakeSchemaRegistry;
+import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.internal.client.ClientClusterNode;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterAll;
@@ -186,9 +185,9 @@ public abstract class AbstractClientTest extends BaseIgniteAbstractTest {
      * @param names Names.
      * @return Nodes.
      */
-    public static Set<ClusterNode> getClusterNodes(String... names) {
-        return Arrays.stream(names)
+    public static JobTarget getClusterNodes(String... names) {
+        return JobTarget.anyNode(Arrays.stream(names)
                 .map(s -> new ClientClusterNode("id", s, new NetworkAddress("127.0.0.1", 8080)))
-                .collect(Collectors.toSet());
+                .collect(Collectors.toSet()));
     }
 }

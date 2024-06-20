@@ -39,6 +39,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.compute.AnyNodeJobTarget;
+import org.apache.ignite.compute.ColocatedJobTarget;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.IgniteCompute;
@@ -47,6 +49,7 @@ import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.compute.JobState;
 import org.apache.ignite.compute.JobStatus;
+import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.internal.compute.ComputeUtils;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
@@ -56,7 +59,6 @@ import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
-import org.apache.ignite.table.mapper.Mapper;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -127,57 +129,20 @@ public class FakeCompute implements IgniteComputeInternal {
     }
 
     @Override
-    public <R> JobExecution<R> submit(Set<ClusterNode> nodes, JobDescriptor descriptor, Object... args) {
-        return executeAsyncWithFailover(nodes, descriptor.units(), descriptor.jobClassName(), descriptor.options(), args);
+    public <R> JobExecution<R> submit(JobTarget target, JobDescriptor descriptor, Object... args) {
+        if (target instanceof AnyNodeJobTarget) {
+            Set<ClusterNode> nodes = ((AnyNodeJobTarget) target).nodes();
+            return executeAsyncWithFailover(nodes, descriptor.units(), descriptor.jobClassName(), descriptor.options(), args);
+        } else if (target instanceof ColocatedJobTarget) {
+            return jobExecution(future != null ? future : completedFuture((R) nodeName));
+        } else {
+            throw new IllegalArgumentException("Unsupported job target: " + target);
+        }
     }
 
     @Override
-    public <R> R execute(Set<ClusterNode> nodes, JobDescriptor descriptor, Object... args) {
-        return sync(this.executeAsync(nodes, descriptor, args));
-    }
-
-    @Override
-    public <R> JobExecution<R> submitColocated(
-            String tableName,
-            Tuple key,
-            JobDescriptor descriptor,
-            Object... args
-    ) {
-        return jobExecution(future != null ? future : completedFuture((R) nodeName));
-    }
-
-    @Override
-    public <K, R> JobExecution<R> submitColocated(
-            String tableName,
-            K key,
-            Mapper<K> keyMapper,
-            JobDescriptor descriptor,
-            Object... args
-    ) {
-        return jobExecution(future != null ? future : completedFuture((R) nodeName));
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public <R> R executeColocated(
-            String tableName,
-            Tuple key,
-            JobDescriptor descriptor,
-            Object... args
-    ) {
-        return sync(this.executeColocatedAsync(tableName, key, descriptor, args));
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public <K, R> R executeColocated(
-            String tableName,
-            K key,
-            Mapper<K> keyMapper,
-            JobDescriptor descriptor,
-            Object... args
-    ) {
-        return sync(executeColocatedAsync(tableName, key, keyMapper, descriptor, args));
+    public <R> R execute(JobTarget target, JobDescriptor descriptor, Object... args) {
+        return sync(executeAsync(target, descriptor, args));
     }
 
     @Override

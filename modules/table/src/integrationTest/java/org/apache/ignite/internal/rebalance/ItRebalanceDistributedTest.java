@@ -151,8 +151,8 @@ import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfigurationSchema;
-import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
 import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileConfigurationSchema;
+import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
@@ -187,7 +187,6 @@ import org.apache.ignite.internal.table.TableRaftService;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.TableManager;
-import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncServiceImpl;
@@ -210,6 +209,7 @@ import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateTableStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
+import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
 import org.apache.ignite.network.ClusterNode;
@@ -831,7 +831,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             verify(getNode(i).raftManager, timeout(AWAIT_TIMEOUT_MILLIS).times(1))
                     .startRaftGroupNode(any(), any(), any(), any(), any(), notNull(TopologyAwareRaftGroupServiceFactory.class));
             verify(getNode(i).replicaManager, timeout(AWAIT_TIMEOUT_MILLIS).times(1))
-                    .startReplica(any(), any(), any());
+                    .startReplica(any(), any(PendingComparableValuesTracker.class), any());
         }
     }
 
@@ -1024,8 +1024,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     ),
                     List.of(
                             PersistentPageMemoryProfileConfigurationSchema.class,
-                            VolatilePageMemoryProfileConfigurationSchema.class,
-                            UnsafeMemoryAllocatorConfigurationSchema.class
+                            VolatilePageMemoryProfileConfigurationSchema.class
                     )
             );
 
@@ -1214,7 +1213,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     clusterService,
                     cmgManager,
                     clockService,
-                    Set.of(TableMessageGroup.class, TxMessageGroup.class),
+                    Set.of(PartitionReplicationMessageGroup.class, TxMessageGroup.class),
                     placementDriver,
                     threadPoolsManager.partitionOperationsExecutor(),
                     partitionIdleSafeTimePropagationPeriodMsSupplier,

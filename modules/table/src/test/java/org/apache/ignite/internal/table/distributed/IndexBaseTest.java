@@ -26,6 +26,9 @@ import java.util.UUID;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
+import org.apache.ignite.internal.partition.replicator.network.TimedBinaryRow;
+import org.apache.ignite.internal.partition.replicator.network.replication.BinaryRowMessage;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
@@ -46,8 +49,6 @@ import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
 import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
 import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
-import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
-import org.apache.ignite.internal.table.distributed.replicator.TimedBinaryRow;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.Cursor;
@@ -62,7 +63,7 @@ import org.junit.jupiter.api.BeforeEach;
 public abstract class IndexBaseTest extends BaseMvStoragesTest {
     protected static final int PARTITION_ID = 0;
 
-    private static final TableMessagesFactory MSG_FACTORY = new TableMessagesFactory();
+    private static final PartitionReplicationMessagesFactory MSG_FACTORY = new PartitionReplicationMessagesFactory();
 
     private static final BinaryTupleSchema TUPLE_SCHEMA = BinaryTupleSchema.createRowSchema(SCHEMA_DESCRIPTOR);
 

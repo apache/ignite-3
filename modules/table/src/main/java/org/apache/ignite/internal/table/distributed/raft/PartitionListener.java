@@ -47,6 +47,12 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.SafeTimeReorderException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommand;
+import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommand;
+import org.apache.ignite.internal.partition.replicator.network.command.TablePartitionIdMessage;
+import org.apache.ignite.internal.partition.replicator.network.command.UpdateAllCommand;
+import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommand;
+import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommand;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.internal.raft.WriteCommand;
@@ -67,12 +73,6 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.MvPartitionStorage.Locker;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
-import org.apache.ignite.internal.table.distributed.command.BuildIndexCommand;
-import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
-import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMessage;
-import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
-import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
-import org.apache.ignite.internal.table.distributed.command.WriteIntentSwitchCommand;
 import org.apache.ignite.internal.tx.TransactionResult;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
@@ -274,7 +274,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         }
 
         if (cmd.leaseStartTime() != null) {
-            long leaseStartTime = requireNonNull(cmd.leaseStartTime(), "Inconsistent lease information in command [cmd=" + cmd + "].");
+            long leaseStartTime = cmd.leaseStartTime();
 
             long storageLeaseStartTime = storage.leaseStartTime();
 
@@ -327,7 +327,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         }
 
         if (cmd.leaseStartTime() != null) {
-            long leaseStartTime = requireNonNull(cmd.leaseStartTime(), "Inconsistent lease information in command [cmd=" + cmd + "].");
+            long leaseStartTime = cmd.leaseStartTime();
 
             long storageLeaseStartTime = storage.leaseStartTime();
 

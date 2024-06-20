@@ -24,9 +24,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.table.distributed.TableMessageGroup;
-import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
-import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMetaResponse;
+import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
+import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
+import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMetaResponse;
 import org.apache.ignite.internal.testframework.log4j2.LogInspector;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.logging.log4j.core.LogEvent;
@@ -97,7 +97,7 @@ class ItCriticalWorkerMonitoringTest extends ClusterPerTestIntegrationTest {
         CountDownLatch unblockLatch = new CountDownLatch(1);
 
         firstNode.clusterService().messagingService().addMessageHandler(
-                TableMessageGroup.class,
+                PartitionReplicationMessageGroup.class,
                 (message, sender, correlationId) -> {
                     if (message instanceof SnapshotMetaResponse) {
                         try {
@@ -119,7 +119,7 @@ class ItCriticalWorkerMonitoringTest extends ClusterPerTestIntegrationTest {
     }
 
     private static SnapshotMetaResponse snapshotMetaResponse() {
-        return new TableMessagesFactory().snapshotMetaResponse()
+        return new PartitionReplicationMessagesFactory().snapshotMetaResponse()
                 .meta(new RaftMessagesFactory().snapshotMeta().build())
                 .build();
     }

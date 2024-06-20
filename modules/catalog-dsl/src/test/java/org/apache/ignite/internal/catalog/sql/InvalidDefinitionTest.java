@@ -150,6 +150,32 @@ class InvalidDefinitionTest {
     }
 
     @Test
+    void indexColumnsEmptyListMustFail() {
+        assertThrows(IllegalArgumentException.class,
+                () -> tableBuilder().index("idx", DEFAULT),
+                "Index columns list must not be empty.");
+    }
+
+    @Test
+    void indexColumnWhitespaceMustFail() {
+        assertThrows(IllegalArgumentException.class,
+                () -> tableBuilder().index(""),
+                "Index column must not be blank.");
+
+        assertThrows(IllegalArgumentException.class,
+                () -> tableBuilder().index(" "),
+                "Index column must not be blank.");
+
+        assertThrows(IllegalArgumentException.class,
+                () -> tableBuilder().index("   "),
+                "Index column must not be blank.");
+
+        assertThrows(IllegalArgumentException.class,
+                () -> tableBuilder().index("col1", "   "),
+                "Index column must not be blank.");
+    }
+
+    @Test
     void columnDefinition() {
         assertNullOrBlank(name -> ColumnDefinition.column(name, INTEGER), "column", "Column name");
         assertNullOrBlank(name -> ColumnDefinition.column(name, "definition"), "column", "Column name");
