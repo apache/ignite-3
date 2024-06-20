@@ -58,6 +58,9 @@ public interface JobTarget {
     /**
      * Creates a job target for any node from the provided collection.
      *
+     * <p>This target determines that a job can be executed on any node in a given collection, but only one of them.
+     * Which node is chosen is implementation defined.
+     *
      * @param nodes Collection of nodes.
      * @return Job target.
      */
