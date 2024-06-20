@@ -46,6 +46,16 @@ public interface ExecutionTarget {
     ExecutionTarget colocateWith(ExecutionTarget other) throws ColocationMappingException;
 
     /**
+     * Removes options from current target which are not colocated with other target.
+     * 
+     * <p>If target has several options, remove those are not presented in given target to improve colocation.
+     *
+     * @param other Target with which we need to colocate current target.
+     * @return Returns new target in case current has been adjusted, return {@code this} instance otherwise.
+     */
+    ExecutionTarget trimTo(ExecutionTarget other);
+
+    /**
      * Finalises target by choosing exactly one node for targets with multiple options.
      *
      * <p>Some targets may have several options, so we have to pick one in order to get

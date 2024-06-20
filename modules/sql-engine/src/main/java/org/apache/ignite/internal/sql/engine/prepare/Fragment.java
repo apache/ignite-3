@@ -31,6 +31,7 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Fragment of distributed query.
@@ -121,6 +122,15 @@ public class Fragment {
 
     public boolean rootFragment() {
         return !(root instanceof IgniteSender);
+    }
+
+    /** Returns id of target fragment for non-root fragments, return {@code null} otherwise. */
+    public @Nullable Long targetFragmentId() {
+        if (root instanceof IgniteSender) {
+            return ((IgniteSender) root).targetFragmentId();
+        }
+
+        return null;
     }
 
     public boolean single() {
