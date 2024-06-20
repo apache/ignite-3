@@ -19,6 +19,7 @@ package org.apache.ignite.internal.placementdriver;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.ignite.internal.affinity.Assignment.forPeer;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.noop;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_LEASES_KEY;
@@ -39,15 +40,21 @@ import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import org.apache.ignite.internal.affinity.Assignment;
+import org.apache.ignite.internal.affinity.Assignments;
+import org.apache.ignite.internal.affinity.TokenizedAssignments;
+import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -72,6 +79,7 @@ import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
 /** Tests to verify {@link LeaseTracker} implemented by {@link PlacementDriver}. */
@@ -123,6 +131,19 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
             GROUP_1
     );
 
+    private static final String NODE_A_CONSITIENT_ID = "A";
+
+    private static final String NODE_B_CONSITIENT_ID = "B";
+
+    private static final String NODE_C_CONSITIENT_ID = "C";
+
+    private static final Set<Assignment> ASSIGNMENTS_A = Set.of(forPeer(NODE_A_CONSITIENT_ID));
+
+    private static final Set<Assignment> ASSIGNMENTS_AB = Set.of(forPeer(NODE_A_CONSITIENT_ID), forPeer(NODE_B_CONSITIENT_ID));
+
+    private static final Set<Assignment> ASSIGNMENTS_ABC =
+            Set.of(forPeer(NODE_A_CONSITIENT_ID), forPeer(NODE_B_CONSITIENT_ID), forPeer(NODE_C_CONSITIENT_ID));
+
     private static final int AWAIT_PERIOD_FOR_LOCAL_NODE_TO_BE_NOTIFIED_ABOUT_LEASE_UPDATES = 1_000;
 
     private static final int AWAIT_PRIMARY_REPLICA_TIMEOUT = 10;
@@ -133,7 +154,9 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
 
     private final ClockService clockService = new TestClockService(new HybridClockImpl());
 
-    private LeaseTracker placementDriver;
+    private LeaseTracker leasePlacementDriver;
+
+    private AssignmentsTracker assignmentsPlacementDriver;
 
     @Nullable
     private ClusterNode leaseholder;
@@ -144,7 +167,9 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
 
         revisionTracker = new PendingComparableValuesTracker<>(-1L);
 
-        placementDriver = createPlacementDriver();
+        leasePlacementDriver = createPlacementDriver();
+
+        assignmentsPlacementDriver = createAssignmentsPlacementDriver();
 
         metastore.registerRevisionUpdateListener(rev -> {
             revisionTracker.update(rev, null);
@@ -158,7 +183,9 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
 
         assertThat(recoveryFinishedFuture, willCompleteSuccessfully());
 
-        placementDriver.startTrack(recoveryFinishedFuture.join());
+        leasePlacementDriver.startTrack(recoveryFinishedFuture.join());
+
+        assignmentsPlacementDriver.startTrack();
 
         assertThat("Watches were not deployed", metastore.deployWatches(), willCompleteSuccessfully());
 
@@ -168,7 +195,8 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
     @AfterEach
     void tearDown() throws Exception {
         closeAll(
-                placementDriver == null ? null : placementDriver::stopTrack,
+                assignmentsPlacementDriver == null ? null : assignmentsPlacementDriver::stopTrack,
+                leasePlacementDriver == null ? null : leasePlacementDriver::stopTrack,
                 metastore == null ? null : () -> assertThat(metastore.stopAsync(new ComponentContext()), willCompleteSuccessfully())
         );
     }
@@ -187,7 +215,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
     @Test
     public void testAwaitPrimaryReplicaInInterval() throws Exception {
         // Await primary replica for time 10.
-        CompletableFuture<ReplicaMeta> primaryReplicaFuture = placementDriver.awaitPrimaryReplica(GROUP_1, AWAIT_TIME_10_000,
+        CompletableFuture<ReplicaMeta> primaryReplicaFuture = leasePlacementDriver.awaitPrimaryReplica(GROUP_1, AWAIT_TIME_10_000,
                 AWAIT_PRIMARY_REPLICA_TIMEOUT, SECONDS);
         assertFalse(primaryReplicaFuture.isDone());
 
@@ -195,7 +223,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
         publishLease(LEASE_FROM_1_TO_5_000);
 
         // Await local node to be notified about new primary replica.
-        assertTrue(waitForCondition(() -> placementDriver.getLease(GROUP_1).equals(LEASE_FROM_1_TO_5_000), 1_000));
+        assertTrue(waitForCondition(() -> leasePlacementDriver.getLease(GROUP_1).equals(LEASE_FROM_1_TO_5_000), 1_000));
 
         // Assert that primary await future isn't completed yet because corresponding await time 10 is greater than lease expiration time 5.
         assertFalse(primaryReplicaFuture.isDone());
@@ -225,7 +253,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
     @Test
     public void testAwaitPrimaryReplicaBeforeInterval() throws Exception {
         // Await primary replica for time 10.
-        CompletableFuture<ReplicaMeta> primaryReplicaFuture = placementDriver.awaitPrimaryReplica(GROUP_1, AWAIT_TIME_10_000,
+        CompletableFuture<ReplicaMeta> primaryReplicaFuture = leasePlacementDriver.awaitPrimaryReplica(GROUP_1, AWAIT_TIME_10_000,
                 AWAIT_PRIMARY_REPLICA_TIMEOUT, SECONDS);
         assertFalse(primaryReplicaFuture.isDone());
 
@@ -233,7 +261,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
         publishLease(LEASE_FROM_1_TO_5_000);
 
         // Await local node to be notified about new primary replica.
-        assertTrue(waitForCondition(() -> placementDriver.getLease(GROUP_1).equals(LEASE_FROM_1_TO_5_000), 1_000));
+        assertTrue(waitForCondition(() -> leasePlacementDriver.getLease(GROUP_1).equals(LEASE_FROM_1_TO_5_000), 1_000));
 
         // Assert that primary await future isn't completed yet because corresponding await time 10 is greater than lease expiration time 5.
         assertFalse(primaryReplicaFuture.isDone());
@@ -263,11 +291,11 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
         publishLease(LEASE_FROM_1_TO_15_000);
 
         // Await local node to be notified about new primary replica.
-        assertTrue(waitForCondition(() -> placementDriver.getLease(GROUP_1).equals(LEASE_FROM_1_TO_15_000),
+        assertTrue(waitForCondition(() -> leasePlacementDriver.getLease(GROUP_1).equals(LEASE_FROM_1_TO_15_000),
                 AWAIT_PERIOD_FOR_LOCAL_NODE_TO_BE_NOTIFIED_ABOUT_LEASE_UPDATES));
 
         // Await primary replica for time 10.
-        CompletableFuture<ReplicaMeta> primaryReplicaFuture = placementDriver.awaitPrimaryReplica(GROUP_1, AWAIT_TIME_10_000,
+        CompletableFuture<ReplicaMeta> primaryReplicaFuture = leasePlacementDriver.awaitPrimaryReplica(GROUP_1, AWAIT_TIME_10_000,
                 AWAIT_PRIMARY_REPLICA_TIMEOUT, SECONDS);
 
         // Assert that primary waiter is completed.
@@ -321,7 +349,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
         leaseholder = null;
 
         CompletableFuture<ReplicaMeta> primaryReplicaFuture =
-                placementDriver.awaitPrimaryReplica(GROUP_1, AWAIT_TIME_1_000, awaitPrimaryReplicaTimeoutMilliseconds, MILLISECONDS);
+                leasePlacementDriver.awaitPrimaryReplica(GROUP_1, AWAIT_TIME_1_000, awaitPrimaryReplicaTimeoutMilliseconds, MILLISECONDS);
 
         assertFalse(primaryReplicaFuture.isDone());
 
@@ -420,9 +448,9 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
     @Test
     public void testTwoWaitersSameTime() throws Exception {
         // Await primary replica for time 10 twice.
-        CompletableFuture<ReplicaMeta> primaryReplicaFuture1 = placementDriver.awaitPrimaryReplica(GROUP_1, AWAIT_TIME_10_000,
+        CompletableFuture<ReplicaMeta> primaryReplicaFuture1 = leasePlacementDriver.awaitPrimaryReplica(GROUP_1, AWAIT_TIME_10_000,
                 AWAIT_PRIMARY_REPLICA_TIMEOUT, SECONDS);
-        CompletableFuture<ReplicaMeta> primaryReplicaFuture2 = placementDriver.awaitPrimaryReplica(GROUP_1, AWAIT_TIME_10_000,
+        CompletableFuture<ReplicaMeta> primaryReplicaFuture2 = leasePlacementDriver.awaitPrimaryReplica(GROUP_1, AWAIT_TIME_10_000,
                 AWAIT_PRIMARY_REPLICA_TIMEOUT, SECONDS);
 
         assertFalse(primaryReplicaFuture1.isDone());
@@ -456,9 +484,9 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
     @Test
     public void testTwoWaitersSameTimeFirstTimedOutSecondSucceed() throws Exception {
         // Await primary replica for time 10 twice.
-        CompletableFuture<ReplicaMeta> primaryReplicaFuture1 = placementDriver.awaitPrimaryReplica(GROUP_1, AWAIT_TIME_10_000,
+        CompletableFuture<ReplicaMeta> primaryReplicaFuture1 = leasePlacementDriver.awaitPrimaryReplica(GROUP_1, AWAIT_TIME_10_000,
                 AWAIT_PRIMARY_REPLICA_TIMEOUT, SECONDS);
-        CompletableFuture<ReplicaMeta> primaryReplicaFuture2 = placementDriver.awaitPrimaryReplica(GROUP_1, AWAIT_TIME_10_000,
+        CompletableFuture<ReplicaMeta> primaryReplicaFuture2 = leasePlacementDriver.awaitPrimaryReplica(GROUP_1, AWAIT_TIME_10_000,
                 AWAIT_PRIMARY_REPLICA_TIMEOUT, SECONDS);
 
         assertFalse(primaryReplicaFuture1.isDone());
@@ -496,7 +524,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
     @Test
     public void testGetPrimaryReplica() throws Exception {
         // Await primary replica for time 10.
-        CompletableFuture<ReplicaMeta> primaryReplicaFuture = placementDriver.awaitPrimaryReplica(GROUP_1, AWAIT_TIME_10_000,
+        CompletableFuture<ReplicaMeta> primaryReplicaFuture = leasePlacementDriver.awaitPrimaryReplica(GROUP_1, AWAIT_TIME_10_000,
                 AWAIT_PRIMARY_REPLICA_TIMEOUT, SECONDS);
         assertFalse(primaryReplicaFuture.isDone());
 
@@ -507,17 +535,17 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
         assertThat(primaryReplicaFuture, willSucceedFast());
 
         // Assert that retrieved primary replica for same awaiting timestamp as within await ones will be completed immediately.
-        CompletableFuture<ReplicaMeta> retrievedPrimaryReplicaSameTime = placementDriver.getPrimaryReplica(GROUP_1, AWAIT_TIME_10_000);
+        CompletableFuture<ReplicaMeta> retrievedPrimaryReplicaSameTime = leasePlacementDriver.getPrimaryReplica(GROUP_1, AWAIT_TIME_10_000);
         assertTrue(retrievedPrimaryReplicaSameTime.isDone());
 
         // Assert that retrieved primary replica for awaiting timestamp lt lease expiration time will be completed immediately.
         CompletableFuture<ReplicaMeta> retrievedPrimaryReplicaTimeLtLeaseExpiration =
-                placementDriver.getPrimaryReplica(GROUP_1, new HybridTimestamp(14_000, 0));
+                leasePlacementDriver.getPrimaryReplica(GROUP_1, new HybridTimestamp(14_000, 0));
         assertTrue(retrievedPrimaryReplicaTimeLtLeaseExpiration.isDone());
 
         // Assert that retrieved primary replica for awaiting timestamp gt lease expiration time will be completed soon with null.
         CompletableFuture<ReplicaMeta> retrievedPrimaryReplicaTimeGtLeaseExpiration =
-                placementDriver.getPrimaryReplica(GROUP_1, new HybridTimestamp(16_000, 0));
+                leasePlacementDriver.getPrimaryReplica(GROUP_1, new HybridTimestamp(16_000, 0));
 
         assertThat(retrievedPrimaryReplicaTimeGtLeaseExpiration, willSucceedFast());
         assertNull(retrievedPrimaryReplicaTimeGtLeaseExpiration.get());
@@ -544,7 +572,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
     @Test
     public void testGetPrimaryReplicaWithLessThanClockSkewDiff() {
         // Await primary replica for time 10.
-        CompletableFuture<ReplicaMeta> primaryReplicaFuture = placementDriver.awaitPrimaryReplica(GROUP_1, AWAIT_TIME_10_000,
+        CompletableFuture<ReplicaMeta> primaryReplicaFuture = leasePlacementDriver.awaitPrimaryReplica(GROUP_1, AWAIT_TIME_10_000,
                 AWAIT_PRIMARY_REPLICA_TIMEOUT, SECONDS);
         assertFalse(primaryReplicaFuture.isDone());
 
@@ -556,7 +584,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
 
         // Assert that retrieved primary replica for timestamp less than primaryReplica.expirationTimestamp - CLOCK_SKEW will return null.
         assertThat(
-                placementDriver.getPrimaryReplica(
+                leasePlacementDriver.getPrimaryReplica(
                         GROUP_1,
                         LEASE_FROM_1_TO_15_000.getExpirationTime()
                                 .subtractPhysicalTime(clockService.maxClockSkewMillis())
@@ -638,6 +666,158 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
         assertThat(eventParametersFuture, willTimeoutFast());
     }
 
+    /**
+     * Ensure that AssignmentsPlacementDriver#getAssignments will await cluster time and return stable assignments.
+     *
+     * <ol>
+     *     <li>Request assignments for the timestamp < cluster time (MS safe time).</li>
+     *     <li>Ensure that assignments future is not completed.</li>
+     *     <li>Publish stable, pending and planned assignments in order to verify that pending and planed won't be retrieved by
+     *     getAssignments.</li>
+     *     <li>Ensure that assignments future was completed with published stable assignments./li>
+     * </ol>
+     */
+    // Races are possible, so let's give it a better change to fail.
+    @RepeatedTest(100)
+    public void testGetAssignmentsAwaitsClusterTimeAndReturnAssignments() throws Exception {
+        // Request assignments for the timestamp < cluster time (MS safe time).
+        CompletableFuture<TokenizedAssignments> assignmentsFuture = assignmentsPlacementDriver.getAssignments(GROUP_1, clockService.now());
+
+        // Ensure that assignments future is not completed.
+        assertFalse(assignmentsFuture.isDone());
+
+        // Publish stable, pending and planned assignments in order to verify that pending and planed won't be retrieved by getAssignments.
+        publishStableAssignments(ASSIGNMENTS_ABC);
+        publishPendingAssignments(ASSIGNMENTS_AB);
+        publishPlannedAssignments(ASSIGNMENTS_AB);
+
+        // Ensure that assignments future was completed with published stable assignments.
+        assertThat(assignmentsFuture, willCompleteSuccessfully());
+        assertEquals(ASSIGNMENTS_ABC, assignmentsFuture.get().nodes());
+    }
+
+    /**
+     * Ensure that AssignmentsPlacementDriver#getAssignments will immediately return stable assignments if clusterTimeToAwait has already
+     * passed.
+     *
+     * <ol>
+     *     <li>Publish stable, pending and planned assignments in order to verify that pending and planed won't be retrieved by
+     *     getAssignments.</li>
+     *     <li>Request assignments for already passed cluster time (MS safe time).</li>
+     *     <li>Ensure that assignments future is completed with published stable assignments.</li>
+     * </ol>
+     */
+    // Races are possible, so let's give it a better change to fail.
+    @RepeatedTest(100)
+    public void testGetAssignmentsImmediatelyReturnAssignmentsIfClusterTimeAlreadyPassed() throws Exception {
+        HybridTimestamp requestTimestamp = clockService.now();
+
+        // Publish stable, pending and planned assignments in order to verify that pending and planed won't be retrieved by getAssignments.
+        publishStableAssignments(ASSIGNMENTS_ABC);
+        publishPendingAssignments(ASSIGNMENTS_AB);
+        publishPlannedAssignments(ASSIGNMENTS_AB);
+
+        assertThat(metastore.clusterTime().waitFor(requestTimestamp), willCompleteSuccessfully());
+
+        // Request assignments for already passed cluster time (MS safe time).
+        CompletableFuture<TokenizedAssignments> assignmentsFuture = assignmentsPlacementDriver.getAssignments(GROUP_1, requestTimestamp);
+
+        // Ensure that assignments future is completed with published stable assignments.
+        assertTrue(assignmentsFuture.isDone());
+        assertEquals(ASSIGNMENTS_ABC, assignmentsFuture.get().nodes());
+    }
+
+    /**
+     * Ensure that AssignmentsPlacementDriver#getAssignments will return the future with null value if there are no stable assignments
+     * at the specified clusterAwaitTimestamp.
+     *
+     * <ol>
+     *     <li>Request assignments for the timestamp < cluster time (MS safe time).</li>
+     *     <li>Ensure that assignments future is not completed.</li>
+     *     <li>Publish **pending** assignments in order to increase cluster time to the value greater then requested within
+     *     getAssignments. Pay attention that not stable but pending assignments were published. It's used in order to move cluster time.
+     *     </li>
+     *     <li>Ensure that assignments future was completed with null value.</li>
+     * </ol>
+     */
+    // Races are possible, so let's give it a better change to fail.
+    @RepeatedTest(100)
+    public void testGetAssignmentsMayReturnFutureWithNullValue() throws Exception {
+        // Request assignments for the timestamp < cluster time (MS safe time).
+        CompletableFuture<TokenizedAssignments> assignmentsFuture = assignmentsPlacementDriver.getAssignments(GROUP_1, clockService.now());
+
+        // Ensure that assignments future is not completed.
+        assertFalse(assignmentsFuture.isDone());
+
+        // Publish **pending** assignments in order to increase cluster time to the value greater then requested within getAssignments.
+        // Pay attention that not stable but pending assignments were published. It's used in order to move cluster time.
+        publishPendingAssignments(ASSIGNMENTS_ABC);
+
+        // Ensure that assignments future was completed with null value.
+        assertThat(assignmentsFuture, willCompleteSuccessfully());
+        assertNull(assignmentsFuture.get());
+    }
+
+    /**
+     * Ensure that newest assignments are retrieved by AssignmentsPlacementDriver#getAssignments
+     *
+     * <ol>
+     *     <li>Publish stable assignments.</li>
+     *     <li>Request assignments for not requestTimestamp >= ms.safeTime.</li>
+     *     <li>Ensure that assignments future is not completed.</li>
+     *     <li>Publish new stable assignments that besides publishing the assignments will move ms.safeTime.</li>
+     *     <li>Ensure that assignments retrieval future will complete successfully with newest assignments and not initially published.</li>
+     *     <li>Retrieve assignments one more time for the same request timestamp.</li>
+     *     <li>Ensure that assignments retrieval future will complete successfully with same assignments and token.</li>
+     *     <li>Publish yet another new stable assignments.</li>
+     *     <li>Ensure that assignments retrieval future will complete successfully with newest assignments and not previously retrieved.
+     *     </li>
+     *     <li>Ensure that assignments token was updated.</li>
+     * </ol>
+     */
+    // Races are possible, so let's give it a better change to fail.
+    @RepeatedTest(100)
+    public void testGetAssignmentsReturnsNewestAssignmentsAssociatedWithSafeTimeGreaterThanRequested() throws Exception {
+        // Publish stable assignments.
+        publishStableAssignments(ASSIGNMENTS_A);
+
+        // requestTimestamp >= clusterTime
+        HybridTimestamp requestTimestamp = HybridTimestamp.hybridTimestamp(metastore.clusterTime().nowLong() + 1);
+
+        // Request assignments for not requestTimestamp >= ms.safeTime.
+        CompletableFuture<TokenizedAssignments> assignmentsFuture = assignmentsPlacementDriver.getAssignments(GROUP_1, requestTimestamp);
+
+        // Ensure that assignments future is not completed.
+        assertFalse(assignmentsFuture.isDone());
+
+        // Publish new stable assignments that besides publishing the assignments will move ms.safeTime.
+        publishStableAssignments(ASSIGNMENTS_AB);
+
+        // Ensure that assignments retrieval future will complete successfully with newest assignments and not initially published.
+        assertThat(assignmentsFuture, willCompleteSuccessfully());
+        assertEquals(ASSIGNMENTS_AB, assignmentsFuture.get().nodes());
+        long assignmentsTokenAB = assignmentsFuture.get().token();
+
+        // Retrieve assignments one more time for the same request timestamp.
+        CompletableFuture<TokenizedAssignments> assignmentsFuture2 = assignmentsPlacementDriver.getAssignments(GROUP_1, requestTimestamp);
+
+        // Ensure that assignments retrieval future will complete successfully with same assignments and token.
+        assertEquals(ASSIGNMENTS_AB, assignmentsFuture.get().nodes());
+        assertEquals(assignmentsTokenAB, assignmentsFuture2.get().token());
+
+        // Publish yet another new stable assignments.
+        publishStableAssignments(ASSIGNMENTS_ABC);
+
+        // Request assignments for the same requestTimestamp
+        CompletableFuture<TokenizedAssignments> assignmentsFuture3 = assignmentsPlacementDriver.getAssignments(GROUP_1, requestTimestamp);
+
+        // Ensure that assignments retrieval future will complete successfully with newest assignments and not previously retrieved.
+        assertThat(assignmentsFuture3, willCompleteSuccessfully());
+        assertEquals(ASSIGNMENTS_ABC, assignmentsFuture3.get().nodes());
+        // Ensure that assignments token was updated.
+        assertNotEquals(assignmentsTokenAB, assignmentsFuture3.get().token());
+    }
+
     private long publishLease(Lease lease) {
         return publishLeases(lease);
     }
@@ -658,6 +838,33 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
         return expRev;
     }
 
+    private void publishAssignments(ByteArray assignmentsKey, Set<Assignment> assignments) {
+        long timestampBeforeUpdate = metastore.clusterTime().nowLong();
+
+        metastore.invoke(
+                Conditions.notExists(FAKE_KEY),
+                put(assignmentsKey, Assignments.toBytes(assignments)),
+                noop()
+        );
+
+        assertThat(
+                metastore.clusterTime().waitFor(HybridTimestamp.hybridTimestamp(timestampBeforeUpdate + 1)),
+                willCompleteSuccessfully()
+        );
+    }
+
+    private void publishStableAssignments(Set<Assignment> assignments) {
+        publishAssignments(RebalanceUtil.stablePartAssignmentsKey(GROUP_1), assignments);
+    }
+
+    private void publishPendingAssignments(Set<Assignment> assignments) {
+        publishAssignments(RebalanceUtil.pendingPartAssignmentsKey(GROUP_1), assignments);
+    }
+
+    private void publishPlannedAssignments(Set<Assignment> assignments) {
+        publishAssignments(RebalanceUtil.plannedPartAssignmentsKey(GROUP_1), assignments);
+    }
+
     private CompletableFuture<PrimaryReplicaEventParameters> listenAnyReplicaBecomePrimaryEvent() {
         return listenReplicaBecomePrimaryEvent(null);
     }
@@ -669,7 +876,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
     private CompletableFuture<PrimaryReplicaEventParameters> listenReplicaBecomePrimaryEvent(@Nullable ReplicationGroupId groupId) {
         var eventParametersFuture = new CompletableFuture<PrimaryReplicaEventParameters>();
 
-        placementDriver.listen(PRIMARY_REPLICA_ELECTED, parameters -> {
+        leasePlacementDriver.listen(PRIMARY_REPLICA_ELECTED, parameters -> {
             if (groupId == null || groupId.equals(parameters.groupId())) {
                 eventParametersFuture.complete(parameters);
             }
@@ -700,5 +907,9 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
                 return leaseholder;
             }
         }, clockService);
+    }
+
+    private AssignmentsTracker createAssignmentsPlacementDriver() {
+        return new AssignmentsTracker(metastore);
     }
 }

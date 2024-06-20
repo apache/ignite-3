@@ -136,11 +136,10 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
             ReplicationGroupId replicationGroupId,
             HybridTimestamp clusterTimeToAwait)
     {
-        return inBusyLockAsync(busyLock, () -> msManager
+        return msManager
                 .clusterTime()
                 .waitFor(clusterTimeToAwait)
-//                    .waitFor(timestamp.addPhysicalTime(clockService.maxClockSkewMillis()))
-                .thenApply(ignored -> inBusyLock(busyLock, () -> assignments().get(replicationGroupId))));
+                .thenApply(ignored -> inBusyLock(busyLock, () -> assignments().get(replicationGroupId)));
     }
 
     /**
@@ -157,7 +156,7 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
      */
     private class AssignmentsListener implements WatchListener {
         @Override
-        public CompletableFuture<Void> onUpdate(WatchEvent event) {
+        public CompletableFuture<Void> onUpdate(WatchEvent event) {;
             assert !event.entryEvents().stream().anyMatch(e -> e.newEntry().empty()) : "New assignments are empty";
 
             if (LOG.isDebugEnabled()) {
