@@ -125,6 +125,7 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
  * @see CatalogIndexDescriptor#status()
  * @see CatalogIndexStatus
  */
+// TODO: IGNITE-22520 проверить код тут
 class IndexAvailabilityController implements ManuallyCloseable {
     private static final IgniteLogger LOG = Loggers.forClass(IndexAvailabilityController.class);
 

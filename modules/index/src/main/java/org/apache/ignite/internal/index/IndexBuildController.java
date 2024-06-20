@@ -77,6 +77,7 @@ import org.jetbrains.annotations.Nullable;
  * {@link PrimaryReplicaEvent#PRIMARY_REPLICA_ELECTED}, which will fire due to a change in the {@link ReplicaMeta#getLeaseholderId()} on
  * node restart but after {@link ReplicaMeta#getExpirationTime()}.</p>
  */
+// TODO: IGNITE-22520 проверить код тут
 class IndexBuildController implements ManuallyCloseable {
     private final IndexBuilder indexBuilder;
 
@@ -317,8 +318,7 @@ class IndexBuildController implements ManuallyCloseable {
                 indexStorage,
                 mvPartition,
                 localNode(),
-                enlistmentConsistencyToken,
-                indexDescriptor.txWaitCatalogVersion()
+                enlistmentConsistencyToken
         );
     }
 
@@ -342,8 +342,7 @@ class IndexBuildController implements ManuallyCloseable {
                 indexStorage,
                 mvPartition,
                 localNode(),
-                enlistmentConsistencyToken,
-                indexDescriptor.txWaitCatalogVersion()
+                enlistmentConsistencyToken
         );
     }
 

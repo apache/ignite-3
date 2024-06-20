@@ -98,7 +98,6 @@ class IndexBuilder implements ManuallyCloseable {
      * @param node Node to which requests to build the index will be sent.
      * @param enlistmentConsistencyToken Enlistment consistency token is used to check that the lease is still actual while the message goes
      *      to the replica.
-     * @param creationCatalogVersion Catalog version in which the index was created.
      */
     public void scheduleBuildIndex(
             int tableId,
@@ -107,8 +106,7 @@ class IndexBuilder implements ManuallyCloseable {
             IndexStorage indexStorage,
             MvPartitionStorage partitionStorage,
             ClusterNode node,
-            long enlistmentConsistencyToken,
-            int creationCatalogVersion
+            long enlistmentConsistencyToken
     ) {
         inBusyLockSafe(busyLock, () -> {
             if (indexStorage.getNextRowIdToBuild() == null) {
@@ -132,7 +130,6 @@ class IndexBuilder implements ManuallyCloseable {
                     node,
                     listeners,
                     enlistmentConsistencyToken,
-                    creationCatalogVersion,
                     false
             );
 
@@ -162,7 +159,6 @@ class IndexBuilder implements ManuallyCloseable {
      * @param node Node to which requests to build the index will be sent.
      * @param enlistmentConsistencyToken Enlistment consistency token is used to check that the lease is still actual while the
      *         message goes to the replica.
-     * @param creationCatalogVersion Catalog version in which the index was created.
      */
     public void scheduleBuildIndexAfterDisasterRecovery(
             int tableId,
@@ -171,8 +167,7 @@ class IndexBuilder implements ManuallyCloseable {
             IndexStorage indexStorage,
             MvPartitionStorage partitionStorage,
             ClusterNode node,
-            long enlistmentConsistencyToken,
-            int creationCatalogVersion
+            long enlistmentConsistencyToken
     ) {
         inBusyLockSafe(busyLock, () -> {
             if (indexStorage.getNextRowIdToBuild() == null) {
@@ -192,7 +187,6 @@ class IndexBuilder implements ManuallyCloseable {
                     node,
                     listeners,
                     enlistmentConsistencyToken,
-                    creationCatalogVersion,
                     true
             );
 

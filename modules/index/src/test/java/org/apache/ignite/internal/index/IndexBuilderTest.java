@@ -64,8 +64,6 @@ public class IndexBuilderTest extends BaseIgniteAbstractTest {
 
     private static final long ANY_ENLISTMENT_CONSISTENCY_TOKEN = 100500;
 
-    private static final int ANY_INDEX_CREATION_CATALOG_VERSION = 1;
-
     private final ReplicaService replicaService = mock(ReplicaService.class, invocation -> nullCompletedFuture());
 
     private final ExecutorService executorService = newSingleThreadExecutor();
@@ -173,8 +171,7 @@ public class IndexBuilderTest extends BaseIgniteAbstractTest {
                 indexStorage(nextRowIdsToBuild),
                 mock(MvPartitionStorage.class),
                 mock(ClusterNode.class),
-                ANY_ENLISTMENT_CONSISTENCY_TOKEN,
-                ANY_INDEX_CREATION_CATALOG_VERSION
+                ANY_ENLISTMENT_CONSISTENCY_TOKEN
         );
     }
 
@@ -186,8 +183,7 @@ public class IndexBuilderTest extends BaseIgniteAbstractTest {
                 indexStorage(nextRowIdsToBuild),
                 mock(MvPartitionStorage.class),
                 mock(ClusterNode.class),
-                ANY_ENLISTMENT_CONSISTENCY_TOKEN,
-                ANY_INDEX_CREATION_CATALOG_VERSION
+                ANY_ENLISTMENT_CONSISTENCY_TOKEN
         );
     }
 

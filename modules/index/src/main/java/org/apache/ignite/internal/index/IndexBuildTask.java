@@ -71,8 +71,6 @@ class IndexBuildTask {
 
     private final long enlistmentConsistencyToken;
 
-    private final int creationCatalogVersion;
-
     private final boolean afterDisasterRecovery;
 
     private final IgniteSpinBusyLock taskBusyLock = new IgniteSpinBusyLock();
@@ -92,7 +90,6 @@ class IndexBuildTask {
             ClusterNode node,
             List<IndexBuildCompletionListener> listeners,
             long enlistmentConsistencyToken,
-            int creationCatalogVersion,
             boolean afterDisasterRecovery
     ) {
         this.taskId = taskId;
@@ -106,7 +103,6 @@ class IndexBuildTask {
         // We do not intentionally make a copy of the list, we want to see changes in the passed list.
         this.listeners = listeners;
         this.enlistmentConsistencyToken = enlistmentConsistencyToken;
-        this.creationCatalogVersion = creationCatalogVersion;
         this.afterDisasterRecovery = afterDisasterRecovery;
     }
 
@@ -224,7 +220,6 @@ class IndexBuildTask {
                 .rowIds(rowIds.stream().map(RowId::uuid).collect(toList()))
                 .finish(finish)
                 .enlistmentConsistencyToken(enlistmentConsistencyToken)
-                .creationCatalogVersion(creationCatalogVersion)
                 .build();
     }
 
