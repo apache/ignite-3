@@ -19,7 +19,6 @@ package org.apache.ignite.client.handler.requests.sql;
 
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTx;
 
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
@@ -27,7 +26,6 @@ import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.sql.api.IgniteSqlImpl;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
-import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.util.ArrayUtils;
@@ -75,7 +73,7 @@ public class ClientSqlExecuteBatchRequest {
                         tx,
                         statement,
                         arguments,
-                        props.toSqlProps(Set.of(SqlQueryType.DML)),
+                        props.toSqlProps(),
                         () -> true,
                         () -> {},
                         cursor -> 0,

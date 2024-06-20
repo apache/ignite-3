@@ -733,7 +733,7 @@ public class ClientMessageUnpacker implements AutoCloseable {
     /**
      * Reads array of longs.
      *
-     * @return Long array.
+     * @return Array of longs.
      */
     public long[] unpackLongArray() {
         assert refCnt > 0 : "Unpacker is closed";

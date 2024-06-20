@@ -626,28 +626,33 @@ public class ClientMessagePacker implements AutoCloseable {
     /**
      * Packs list of lists as array of objects in BinaryTuple format.
      *
-     * @param list List containing lists of objects.
+     * <p>Note: lists must be the same size.
+     *
+     * @param lists List containing lists of objects.
      */
-    public void packObjectArrayAsBinaryTupleArray(List<List<Object>> list) {
+    public void packObjectArrayAsBinaryTupleArray(List<List<Object>> lists) {
         assert !closed : "Packer is closed";
 
-        if (list == null || list.isEmpty()) {
+        if (lists == null || lists.isEmpty()) {
             packNil();
 
             return;
         }
 
-        packInt(list.get(0).size());
-        packInt(list.size());
+        int rowLen = lists.get(0).size();;
+
+        packInt(rowLen);
+        packInt(lists.size());
         packBoolean(false); // unused now, but we will need it in case of arguments load by pages.
 
-        for (List<Object> vals : list) {
+        for (List<Object> values : lists) {
+            assert values.size() == rowLen : "lists must be the same size";
             // Builder with inline schema.
             // Every element in vals is represented by 3 tuple elements: type, scale, value.
-            var builder = new BinaryTupleBuilder(vals.size() * 3);
+            var builder = new BinaryTupleBuilder(rowLen * 3);
 
-            for (Object arg : vals) {
-                ClientBinaryTupleUtils.appendObject(builder, arg);
+            for (Object value : values) {
+                ClientBinaryTupleUtils.appendObject(builder, value);
             }
 
             packBinaryTuple(builder);
