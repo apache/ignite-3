@@ -62,6 +62,21 @@ abstract class BaseTypeCoercionTest extends AbstractPlannerTest {
         );
     }
 
+    static IgniteSchema createSchemaWithTwoSingleColumnTable(NativeType c1, NativeType c2) {
+        return createSchema(
+                TestBuilders.table()
+                        .name("T1")
+                        .distribution(IgniteDistributions.single())
+                        .addColumn("C1", c1)
+                        .build(),
+                TestBuilders.table()
+                        .name("T2")
+                        .distribution(IgniteDistributions.single())
+                        .addColumn("C2", c2)
+                        .build()
+        );
+    }
+
     static Matcher<IgniteRel> operandMatcher(Matcher<RexNode> first, Matcher<RexNode> second) {
         return new BaseMatcher<>() {
             @Override
@@ -156,13 +171,13 @@ abstract class BaseTypeCoercionTest extends AbstractPlannerTest {
      */
     static class TestCaseBuilder {
         private final TypePair pair;
-        private Matcher<RexNode> firstOpMatcher;
+        private Matcher<?> firstOpMatcher;
 
         private TestCaseBuilder(TypePair pair) {
             this.pair = pair;
         }
 
-        TestCaseBuilder firstOpMatches(Matcher<RexNode> operandMatcher) {
+        TestCaseBuilder firstOpMatches(Matcher<?> operandMatcher) {
             firstOpMatcher = operandMatcher;
 
             return this;
@@ -174,7 +189,7 @@ abstract class BaseTypeCoercionTest extends AbstractPlannerTest {
             return this;
         }
 
-        Arguments secondOpMatches(Matcher<RexNode> operandMatcher) {
+        Arguments secondOpMatches(Matcher<?> operandMatcher) {
             return Arguments.of(pair, firstOpMatcher, operandMatcher);
         }
 
