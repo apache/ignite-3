@@ -142,7 +142,7 @@ public class FakeCompute implements IgniteComputeInternal {
 
     @Override
     public <R> R execute(JobTarget target, JobDescriptor descriptor, Object... args) {
-        return sync(this.executeAsync(target, descriptor, args));
+        return sync(executeAsync(target, descriptor, args));
     }
 
     @Override
