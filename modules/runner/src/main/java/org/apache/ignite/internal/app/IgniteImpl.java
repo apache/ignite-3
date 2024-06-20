@@ -1173,6 +1173,9 @@ public class IgniteImpl implements Ignite {
                             // Enable watermark events.
                             lowWatermark.scheduleUpdates();
 
+                            // Enable client requests handling on start complete.
+                            clientHandlerModule.enable();
+
                             // Enable REST component on start complete.
                             restComponent.enable();
                             // Transfer the node to the STARTED state.

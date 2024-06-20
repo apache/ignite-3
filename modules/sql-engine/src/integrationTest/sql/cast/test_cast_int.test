@@ -1,0 +1,146 @@
+# name: test/sql/cast/test_cast_int.test
+# description: CAST INT
+# feature: SQL F201(CAST function)
+# group: [cast]
+
+statement ok
+SELECT CAST('100' AS INT);
+
+statement error
+SELECT CAST('100.1' AS INT);
+
+query T
+SELECT CAST(1e1 AS INT);
+----
+10
+
+statement error: For input string: "1e2"
+SELECT CAST('1e2' AS INT);
+
+# overflow
+statement error
+SELECT CAST(1e20 AS INT);
+
+# overflow
+statement error
+SELECT CAST(-1e20 AS INT);
+
+query T
+SELECT CAST(100::TINYINT AS INT);
+----
+100
+
+query T
+SELECT CAST(100::SMALLINT AS INT);
+----
+100
+
+query T
+SELECT CAST(100::BIGINT AS INT);
+----
+100
+
+query T
+SELECT CAST(100::DECIMAL AS INT);
+----
+100
+
+query T
+SELECT CAST(100::DECIMAL(3) AS INT);
+----
+100
+
+query T
+SELECT CAST(100.1::DECIMAL(4, 1) AS INT);
+----
+100
+
+query T
+SELECT CAST(100.1::REAL AS INT);
+----
+100
+
+query T
+SELECT CAST(100.1::FLOAT AS INT);
+----
+100
+
+query T
+SELECT CAST(100.1::DOUBLE AS INT);
+----
+100
+
+statement error: Character x is neither a decimal digit number, decimal point, nor "e" notation exponential mark.
+SELECT CAST('100x' AS INT);
+
+statement error: Cast function cannot convert value of type BINARY(1) to type INT
+SELECT CAST(x'00' AS INT);
+
+statement error: Cast function cannot convert value of type DATE to type INT
+SELECT CAST('2000-01-01'::DATE AS INT);
+
+statement error: Cast function cannot convert value of type TIME(0) to type INT
+SELECT CAST('00:00:00'::TIME AS INT);
+
+statement error: Cast function cannot convert value of type TIMESTAMP(6) to type INT
+SELECT CAST('2000-01-01 00:00:00'::TIMESTAMP AS INT);
+
+statement error: Cast function cannot convert value of type UUID to type INT
+SELECT CAST('c4a0327c-44be-416d-ae90-75c05079789f'::UUID AS INT);
+
+statement error: Cast function cannot convert value of type BINARY(1) to type INT
+SELECT CAST(x'00'::BINARY AS INT);
+
+statement error: Cast function cannot convert value of type VARBINARY to type INT
+SELECT CAST(x'00'::VARBINARY AS INT);
+
+query T
+SELECT CAST(INTERVAL 11 YEAR AS INT);
+----
+11
+
+query T
+SELECT CAST(INTERVAL 11 MONTH AS INT);
+----
+11
+
+query T
+SELECT CAST(INTERVAL 11 DAYS AS INT);
+----
+11
+
+query T
+SELECT CAST(INTERVAL 11 HOURS AS INT);
+----
+11
+
+query T
+SELECT CAST(INTERVAL 11 MINUTES AS INT);
+----
+11
+
+query T
+SELECT CAST(INTERVAL 11 SECONDS AS INT);
+----
+11
+
+statement error: Cast function cannot convert value of type INTERVAL DAY TO HOUR to type INT
+SELECT CAST(INTERVAL '0 01' DAYS TO HOURS AS INT);
+
+statement error: Cast function cannot convert value of type INTERVAL DAY TO MINUTE to type INT
+SELECT CAST(INTERVAL '0 01:02' DAYS TO MINUTES AS INT);
+
+statement error: Cast function cannot convert value of type INTERVAL DAY TO SECOND to type INT
+SELECT CAST(INTERVAL '0 01:02:03' DAYS TO SECONDS AS INT);
+
+statement error: Cast function cannot convert value of type INTERVAL HOUR TO MINUTE to type INT
+SELECT CAST(INTERVAL '00:01' HOURS TO MINUTES AS INT);
+
+statement error: Cast function cannot convert value of type INTERVAL HOUR TO SECOND to type INT
+SELECT CAST(INTERVAL '00:01:02' HOURS TO SECONDS AS INT);
+
+statement error: Cast function cannot convert value of type INTERVAL MINUTE TO SECOND to type INT
+SELECT CAST(INTERVAL '00:01' MINUTES TO SECONDS AS INT);
+
+statement error: Cast function cannot convert value of type INTERVAL YEAR TO MONTH to type INT
+SELECT CAST(INTERVAL '1-1' YEARS TO MONTHS AS INT);

@@ -19,8 +19,8 @@ package org.apache.ignite.client;
 
 import java.util.Collection;
 import java.util.List;
-import java.util.Set;
 import org.apache.ignite.compute.JobDescriptor;
+import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.async.AsyncResultSet;
@@ -130,7 +130,7 @@ public enum ClientOperationType {
     TUPLE_CONTAINS_KEY,
 
     /**
-     * Compute Execute ({@link org.apache.ignite.compute.IgniteCompute#submit(Set, JobDescriptor, Object...)}).
+     * Compute Execute ({@link org.apache.ignite.compute.IgniteCompute#submit(JobTarget, JobDescriptor, Object...)}).
      */
     COMPUTE_EXECUTE,
 

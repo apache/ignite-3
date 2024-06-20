@@ -272,7 +272,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         }
 
         if (cmd.leaseStartTime() != null) {
-            long leaseStartTime = requireNonNull(cmd.leaseStartTime(), "Inconsistent lease information in command [cmd=" + cmd + "].");
+            long leaseStartTime = cmd.leaseStartTime();
 
             long storageLeaseStartTime = storage.leaseStartTime();
 
@@ -325,7 +325,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         }
 
         if (cmd.leaseStartTime() != null) {
-            long leaseStartTime = requireNonNull(cmd.leaseStartTime(), "Inconsistent lease information in command [cmd=" + cmd + "].");
+            long leaseStartTime = cmd.leaseStartTime();
 
             long storageLeaseStartTime = storage.leaseStartTime();
 

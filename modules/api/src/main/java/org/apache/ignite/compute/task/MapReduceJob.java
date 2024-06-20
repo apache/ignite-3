@@ -22,13 +22,14 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 import org.apache.ignite.compute.JobDescriptor;
+import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.network.ClusterNode;
 
 /**
  * A description of the job to be submitted as a result of the split step of the {@link MapReduceTask}. Reflects the parameters of the
- * {@link org.apache.ignite.compute.IgniteCompute#submit(Set, JobDescriptor, Object...)} method.
+ * {@link org.apache.ignite.compute.IgniteCompute#submit(JobTarget, JobDescriptor, Object...)} method.
  */
-public class ComputeJobRunner {
+public class MapReduceJob {
     private final Set<ClusterNode> nodes;
 
     private final JobDescriptor jobDescriptor;
@@ -36,7 +37,7 @@ public class ComputeJobRunner {
 
     private final Object[] args;
 
-    private ComputeJobRunner(
+    private MapReduceJob(
             Set<ClusterNode> nodes,
             JobDescriptor jobDescriptor,
             Object[] args
@@ -150,12 +151,12 @@ public class ComputeJobRunner {
          *
          * @return Description object.
          */
-        public ComputeJobRunner build() {
+        public MapReduceJob build() {
             if (nodes.isEmpty()) {
                 throw new IllegalArgumentException();
             }
 
-            return new ComputeJobRunner(nodes, jobDescriptor, args);
+            return new MapReduceJob(nodes, jobDescriptor, args);
         }
     }
 }
