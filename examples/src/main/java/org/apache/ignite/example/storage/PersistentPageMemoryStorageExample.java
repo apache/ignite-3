@@ -23,7 +23,7 @@ package org.apache.ignite.example.storage;
  * <p>To run the example, please do the following:
  * <ol>
  *     <li>Open the Ignite 3 project in your IDE of choice.</li>
- *     <li>Download the Ignite 3 ZIP packaging with DB and CLI parts.</li>
+ *     <li>Download the Ignite 3 ZIP packaging with DB and CLI parts. Or build them from the Ignite 3 sources (see DEVNOTES.md).</li>
  *     <li>
  *         Prepare the environment variables:<br>
  *         <code>
