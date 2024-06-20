@@ -84,7 +84,6 @@ import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileView;
-import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorView;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.mem.DirectMemoryProvider;
 import org.apache.ignite.internal.pagememory.mem.DirectMemoryRegion;
@@ -248,10 +247,6 @@ public class PersistentPageMemory implements PageMemory {
         this.pageStoreManager = pageStoreManager;
         this.changeTracker = changeTracker;
         this.checkpointTimeoutLock = checkpointTimeoutLock;
-
-        if (!(storageProfileView.memoryAllocator() instanceof UnsafeMemoryAllocatorView)) {
-            throw new IgniteInternalException("Unexpected memory allocator: " + storageProfileView.memoryAllocator());
-        }
 
         directMemoryProvider = new UnsafeMemoryProvider(null);
 

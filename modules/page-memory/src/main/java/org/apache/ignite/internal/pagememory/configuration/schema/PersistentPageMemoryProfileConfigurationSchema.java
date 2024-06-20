@@ -20,7 +20,6 @@ package org.apache.ignite.internal.pagememory.configuration.schema;
 import static org.apache.ignite.internal.util.Constants.MiB;
 import static org.apache.ignite.internal.util.IgniteUtils.getTotalMemoryAvailable;
 
-import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.OneOf;
@@ -55,7 +54,4 @@ public class PersistentPageMemoryProfileConfigurationSchema extends StorageProfi
     @OneOf({RANDOM_LRU_REPLACEMENT_MODE, SEGMENTED_LRU_REPLACEMENT_MODE, CLOCK_REPLACEMENT_MODE})
     @Value(hasDefault = true)
     public String replacementMode = CLOCK_REPLACEMENT_MODE;
-
-    @ConfigValue
-    public MemoryAllocatorConfigurationSchema memoryAllocator;
 }
