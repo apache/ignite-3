@@ -146,7 +146,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
 
     @Override
     public <R> R execute(JobTarget target, JobDescriptor descriptor, Object... args) {
-        return sync(this.<R>submit(target, descriptor, args).resultAsync());
+        return sync(executeAsync(target, descriptor, args));
     }
 
     @Override
