@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.exec.mapping.smallcluster;
+package org.apache.ignite.internal.sql.engine.exec.mapping.largecluster;
 
 import static org.apache.ignite.internal.util.IgniteUtils.isPow2;
 
@@ -23,7 +23,9 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.List;
+import org.apache.calcite.util.BitSets;
 import org.apache.ignite.internal.sql.engine.exec.NodeWithConsistencyToken;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationMappingException;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTarget;
@@ -35,26 +37,19 @@ import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTarget;
  * colocation method.
  */
 abstract class AbstractTarget implements ExecutionTarget {
-    final long nodes;
+    final BitSet nodes;
 
-    AbstractTarget(long nodes) {
+    AbstractTarget(BitSet nodes) {
         this.nodes = nodes;
     }
 
     List<String> nodes(List<String> nodeNames) {
-        if (isPow2(nodes)) {
-            int idx = Long.numberOfTrailingZeros(nodes);
-
-            return List.of(nodeNames.get(idx));
-        }
-
-        int count = Long.bitCount(nodes);
+        int count = nodes.cardinality();
         List<String> result = new ArrayList<>(count);
 
-        for (int bit = 1, idx = 0; bit <= nodes; bit <<= 1, idx++) {
-            if ((nodes & bit) != 0) {
-                result.add(nodeNames.get(idx));
-            }
+        int next = 0;
+        while ((next = nodes.nextSetBit(next + 1)) != -1) {
+            result.add(nodeNames.get(next));
         }
 
         return result;
@@ -70,11 +65,11 @@ abstract class AbstractTarget implements ExecutionTarget {
         Int2ObjectMap<NodeWithConsistencyToken> result = new Int2ObjectOpenHashMap<>(partitionedTarget.partitionsNodes.length);
 
         for (int partNo = 0; partNo < partitionedTarget.partitionsNodes.length; partNo++) {
-            long partitionNodes = partitionedTarget.partitionsNodes[partNo];
+            BitSet partitionNodes = partitionedTarget.partitionsNodes[partNo];
 
-            assert isPow2(partitionNodes);
+            assert partitionNodes.cardinality() == 1;
 
-            int idx = Long.numberOfTrailingZeros(partitionNodes);
+            int idx = partitionNodes.nextSetBit(0);
 
             result.put(partNo, new NodeWithConsistencyToken(
                     nodeNames.get(idx),
@@ -96,7 +91,7 @@ abstract class AbstractTarget implements ExecutionTarget {
     abstract ExecutionTarget colocate(SomeOfTarget other) throws ColocationMappingException;
 
     static ExecutionTarget colocate(AllOfTarget allOf, AllOfTarget otherAllOf) throws ColocationMappingException {
-        if (otherAllOf.nodes == 0 || allOf.nodes != otherAllOf.nodes) {
+        if (!allOf.nodes.equals(otherAllOf.nodes) || otherAllOf.nodes.cardinality() == 0) {
             throw new ColocationMappingException("Targets are not colocated");
         }
 
@@ -104,13 +99,19 @@ abstract class AbstractTarget implements ExecutionTarget {
     }
 
     static ExecutionTarget colocate(AllOfTarget allOf, OneOfTarget oneOf) throws ColocationMappingException {
-        if ((allOf.nodes & oneOf.nodes) == 0) {
+        int target = allOf.nodes.nextSetBit(0);
+
+        if (target == -1 || allOf.nodes.nextSetBit(target + 1) != -1) {
             throw new ColocationMappingException("Targets are not colocated");
         }
 
-        if (!isPow2(allOf.nodes)) {
+        if (!oneOf.nodes.get(target)) {
             throw new ColocationMappingException("Targets are not colocated");
         }
+
+        // When colocated, AllOfTarget must contains a single node that matches one of OneOfTarget nodes.
+        assert allOf.nodes.cardinality() == 1;
+        assert allOf.nodes.intersects(oneOf.nodes);
 
         return allOf;
     }
@@ -120,9 +121,7 @@ abstract class AbstractTarget implements ExecutionTarget {
     }
 
     static ExecutionTarget colocate(AllOfTarget allOf, SomeOfTarget someOf) throws ColocationMappingException {
-        long newNodes = allOf.nodes & someOf.nodes;
-
-        if (newNodes == 0 || allOf.nodes != newNodes) {
+        if (!BitSets.contains(someOf.nodes, allOf.nodes) || allOf.nodes.cardinality() == 0) {
             throw new ColocationMappingException("Targets are not colocated");
         }
 
@@ -130,33 +129,41 @@ abstract class AbstractTarget implements ExecutionTarget {
     }
 
     static ExecutionTarget colocate(OneOfTarget oneOf, OneOfTarget anotherOneOf) throws ColocationMappingException {
-        long newNodes = oneOf.nodes & anotherOneOf.nodes;
-
-        if (newNodes == 0) {
+        if (!oneOf.nodes.intersects(anotherOneOf.nodes)) {
             throw new ColocationMappingException("Targets are not colocated");
         }
+
+        BitSet newNodes = BitSet.valueOf(oneOf.nodes.toLongArray());
+        newNodes.and(anotherOneOf.nodes);
 
         return new OneOfTarget(newNodes);
     }
 
     static ExecutionTarget colocate(OneOfTarget oneOf, PartitionedTarget partitioned) throws ColocationMappingException {
-        if ((oneOf.nodes & partitioned.nodes) == 0) {
+        int target = partitioned.nodes.nextSetBit(0);
+
+        if (target == -1 || partitioned.nodes.nextSetBit(target + 1) != -1) {
             throw new ColocationMappingException("Targets are not colocated");
         }
 
-        if (!isPow2((partitioned.nodes))) {
+        if (!oneOf.nodes.get(target)) {
             throw new ColocationMappingException("Targets are not colocated");
         }
+
+        // When colocated, PartitionedTarget must contains a single node that matches one of OneOfTarget nodes.
+        assert partitioned.nodes.cardinality() == 1;
+        assert partitioned.nodes.intersects(oneOf.nodes);
 
         return partitioned;
     }
 
     static ExecutionTarget colocate(OneOfTarget oneOf, SomeOfTarget someOf) throws ColocationMappingException {
-        long newNodes = oneOf.nodes & someOf.nodes;
-
-        if (newNodes == 0) {
+        if (!oneOf.nodes.intersects(someOf.nodes)) {
             throw new ColocationMappingException("Targets are not colocated");
         }
+
+        BitSet newNodes = BitSet.valueOf(oneOf.nodes.toLongArray());
+        newNodes.and(someOf.nodes);
 
         return new OneOfTarget(newNodes);
     }
@@ -167,11 +174,9 @@ abstract class AbstractTarget implements ExecutionTarget {
         }
 
         boolean finalised = true;
-        long[] newPartitionsNodes = new long[partitioned.partitionsNodes.length];
+        BitSet[] newPartitionsNodes = new BitSet[partitioned.partitionsNodes.length];
         for (int partNo = 0; partNo < partitioned.partitionsNodes.length; partNo++) {
-            long newNodes = partitioned.partitionsNodes[partNo] & otherPartitioned.partitionsNodes[partNo];
-
-            if (newNodes == 0) {
+            if (!partitioned.partitionsNodes[partNo].intersects(otherPartitioned.partitionsNodes[partNo])) {
                 throw new ColocationMappingException("Targets are not colocated");
             }
 
@@ -179,8 +184,11 @@ abstract class AbstractTarget implements ExecutionTarget {
                 throw new ColocationMappingException("Partitioned targets have different terms");
             }
 
+            BitSet newNodes = BitSet.valueOf(partitioned.partitionsNodes[partNo].toLongArray());
+            newNodes.and(otherPartitioned.nodes);
+
             newPartitionsNodes[partNo] = newNodes;
-            finalised = finalised && isPow2(newNodes);
+            finalised = finalised && newNodes.cardinality() == 1;
         }
 
         return new PartitionedTarget(finalised, newPartitionsNodes, partitioned.enlistmentConsistencyTokens);
@@ -188,32 +196,36 @@ abstract class AbstractTarget implements ExecutionTarget {
 
     static ExecutionTarget colocate(PartitionedTarget partitioned, SomeOfTarget someOf) throws ColocationMappingException {
         boolean finalised = true;
-        long[] newPartitionsNodes = new long[partitioned.partitionsNodes.length];
+        BitSet[] newPartitionsNodes = new BitSet[partitioned.partitionsNodes.length];
         for (int partNo = 0; partNo < partitioned.partitionsNodes.length; partNo++) {
-            long newNodes = partitioned.partitionsNodes[partNo] & someOf.nodes;
-
-            if (newNodes == 0) {
+            if (!partitioned.partitionsNodes[partNo].intersects(someOf.nodes)) {
                 throw new ColocationMappingException("Targets are not colocated");
             }
 
+            BitSet newNodes = BitSet.valueOf(partitioned.partitionsNodes[partNo].toLongArray());
+            newNodes.and(someOf.nodes);
+
             newPartitionsNodes[partNo] = newNodes;
-            finalised = finalised && isPow2(newNodes);
+            finalised = finalised && newNodes.cardinality() == 1;
         }
 
         return new PartitionedTarget(finalised, newPartitionsNodes, partitioned.enlistmentConsistencyTokens);
     }
 
     static ExecutionTarget colocate(SomeOfTarget someOf, SomeOfTarget otherSomeOf) throws ColocationMappingException {
-        long newNodes = someOf.nodes & otherSomeOf.nodes;
-
-        if (newNodes == 0) {
+        if (!someOf.nodes.intersects(otherSomeOf.nodes)) {
             throw new ColocationMappingException("Targets are not colocated");
         }
+
+        BitSet newNodes = BitSet.valueOf(someOf.nodes.toLongArray());
+        newNodes.and(otherSomeOf.nodes);
 
         return new SomeOfTarget(newNodes);
     }
 
-    static long pickOne(long nodes) {
-        return Long.lowestOneBit(nodes);
+    static BitSet pickOne(BitSet nodes) {
+        int node = nodes.nextSetBit(0);
+
+        return node == -1 ? BitSets.of() : BitSets.of(node);
     }
 }
