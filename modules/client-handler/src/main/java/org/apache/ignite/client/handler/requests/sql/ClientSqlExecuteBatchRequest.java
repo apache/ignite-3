@@ -19,6 +19,7 @@ package org.apache.ignite.client.handler.requests.sql;
 
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTx;
 
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
@@ -26,6 +27,7 @@ import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.sql.api.IgniteSqlImpl;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
+import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.util.ArrayUtils;
@@ -73,7 +75,7 @@ public class ClientSqlExecuteBatchRequest {
                         tx,
                         statement,
                         arguments,
-                        props.toSqlProps(),
+                        props.toSqlProps(Set.of(SqlQueryType.DML)),
                         () -> true,
                         () -> {},
                         cursor -> 0,
@@ -87,7 +89,7 @@ public class ClientSqlExecuteBatchRequest {
                         if (cause instanceof SqlBatchException) {
                             var exBatch = ((SqlBatchException) cause);
 
-                            writeBatchResult(out, exBatch.updateCounters(), exBatch.errorCode(), exBatch.getMessage());
+                            writeBatchResult(out, exBatch.updateCounters(), exBatch.code(), exBatch.getMessage());
                             return null;
                         }
 
@@ -102,7 +104,7 @@ public class ClientSqlExecuteBatchRequest {
     private static void writeBatchResult(
             ClientMessagePacker out,
             long[] affectedRows,
-            Short errorCode,
+            int errorCode,
             String errorMessage) {
         out.packNil(); // resourceId
 
@@ -110,7 +112,7 @@ public class ClientSqlExecuteBatchRequest {
         out.packBoolean(false); // has more pages
         out.packBoolean(false); // was applied
         out.packLongArray(affectedRows); // affected rows
-        out.packShort(errorCode); // error code
+        out.packInt(errorCode); // error code
         out.packString(errorMessage); // error message
     }
 

@@ -24,6 +24,7 @@ import java.time.ZoneId;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeUnit;
@@ -33,6 +34,7 @@ import org.apache.ignite.internal.client.PayloadReader;
 import org.apache.ignite.internal.client.PayloadWriter;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.proto.ClientBinaryTupleUtils;
+import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.tx.ClientLazyTransaction;
 import org.apache.ignite.internal.marshaller.MarshallersProvider;
@@ -43,6 +45,7 @@ import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
+import org.apache.ignite.sql.SqlBatchException;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
@@ -147,18 +150,17 @@ public class ClientSql implements IgniteSql {
     /** {@inheritDoc} */
     @Override
     public long[] executeBatch(@Nullable Transaction transaction, String dmlQuery, BatchedArguments batch) {
-        try {
-            return executeBatchAsync(transaction, dmlQuery, batch).join();
-        } catch (CompletionException e) {
-            throw ExceptionUtils.sneakyThrow(ExceptionUtils.copyExceptionWithCause(e));
-        }
+        return executeBatch(transaction, new StatementImpl(dmlQuery), batch);
     }
 
     /** {@inheritDoc} */
     @Override
     public long[] executeBatch(@Nullable Transaction transaction, Statement dmlStatement, BatchedArguments batch) {
-        // TODO IGNITE-17059.
-        throw new UnsupportedOperationException("Not implemented yet.");
+        try {
+            return executeBatchAsync(transaction, dmlStatement, batch).join();
+        } catch (CompletionException e) {
+            throw ExceptionUtils.sneakyThrow(ExceptionUtils.copyExceptionWithCause(e));
+        }
     }
 
     /** {@inheritDoc} */
@@ -264,15 +266,60 @@ public class ClientSql implements IgniteSql {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<long[]> executeBatchAsync(@Nullable Transaction transaction, String query, BatchedArguments batch) {
-        // TODO IGNITE-17059.
-        throw new UnsupportedOperationException("Not implemented yet.");
+        return executeBatchAsync(transaction, new StatementImpl(query), batch);
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<long[]> executeBatchAsync(@Nullable Transaction transaction, Statement statement, BatchedArguments batch) {
-        // TODO IGNITE-17059.
-        throw new UnsupportedOperationException("Not implemented yet.");
+        PayloadWriter payloadWriter = w -> {
+            writeTx(transaction, w);
+
+            w.out().packString(statement.defaultSchema());
+            w.out().packInt(statement.pageSize());
+            w.out().packLong(statement.queryTimeout(TimeUnit.MILLISECONDS));
+            w.out().packNil(); // sessionTimeout
+            w.out().packString(statement.timeZoneId().getId());
+
+            packProperties(w, null);
+
+            w.out().packString(statement.query());
+            w.out().packObjectArrayAsBinaryTupleArray(batch);
+            w.out().packLong(ch.observableTimestamp());
+        };
+
+        return ch.serviceAsync(ClientOp.SQL_EXEC_BATCH, payloadWriter, r -> {
+            ClientMessageUnpacker unpacker = r.in();
+
+            unpacker.unpackNil(); // resourceId
+            unpacker.unpackBoolean(); // has row set
+            unpacker.unpackBoolean(); // has more pages
+            unpacker.unpackBoolean(); // was applied
+            long[] updateCounters = unpacker.unpackLongArray();
+
+            if (!unpacker.tryUnpackNil()) {
+                int errCode = unpacker.unpackInt();
+                String message = unpacker.tryUnpackNil() ? null : unpacker.unpackString();
+
+                return new BatchResult(updateCounters, errCode, message);
+            } else {
+                return new BatchResult(updateCounters, null, null);
+            }
+        }).thenApply((res) -> {
+            if (res.errCode != null) {
+                throw new SqlBatchException(UUID.randomUUID(), res.errCode, res.updCounters, res.message);
+            }
+
+            return res.updCounters;
+        }).exceptionally(e -> {
+            Throwable ex = unwrapCause(e);
+            if (ex instanceof TransactionException) {
+                var te = (TransactionException) ex;
+                throw new SqlException(te.traceId(), te.code(), te.getMessage(), te);
+            }
+
+            throw ExceptionUtils.sneakyThrow(ex);
+        });
     }
 
     /** {@inheritDoc} */
@@ -317,5 +364,17 @@ public class ClientSql implements IgniteSql {
         }
 
         w.out().packBinaryTuple(builder);
+    }
+
+    private static class BatchResult {
+        final long[] updCounters;
+        final Integer errCode;
+        final String message;
+
+        BatchResult(long[] updCounters,  @Nullable Integer errCode, @Nullable String message) {
+            this.updCounters = updCounters;
+            this.errCode = errCode;
+            this.message = message;
+        }
     }
 }

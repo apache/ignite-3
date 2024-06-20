@@ -58,8 +58,8 @@ public class ItSqlExamplesTest extends AbstractExamplesTest {
      *
      * @throws Exception If failed.
      */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17059")
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22262")
     public void testSqlApiExample() throws Exception {
         assertConsoleOutputContains(SqlApiExample::main, EMPTY_ARGS,
                 "\nAdded cities: 3",

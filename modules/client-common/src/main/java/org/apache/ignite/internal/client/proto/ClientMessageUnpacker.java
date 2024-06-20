@@ -731,6 +731,29 @@ public class ClientMessageUnpacker implements AutoCloseable {
     }
 
     /**
+     * Reads array of longs.
+     *
+     * @return Long array.
+     */
+    public long[] unpackLongArray() {
+        assert refCnt > 0 : "Unpacker is closed";
+
+        int size = unpackInt();
+
+        if (size == 0) {
+            return ArrayUtils.LONG_EMPTY_ARRAY;
+        }
+
+        long[] res = new long[size];
+
+        for (int i = 0; i < size; i++) {
+            res[i] = unpackInt();
+        }
+
+        return res;
+    }
+
+    /**
      * Unpacks batch of arguments from binary tuples.
      *
      * @return BatchedArguments object with the unpacked arguments.

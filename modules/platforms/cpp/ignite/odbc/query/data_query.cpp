@@ -344,7 +344,7 @@ sql_result data_query::make_request_execute() {
             m_executed = true;
 
             // Check error if this is a batch query
-            if (auto error_code = reader->read_int16_nullable(); error_code) {
+            if (auto error_code = reader->read_int32_nullable(); error_code) {
                 auto error_message = reader->read_string();
                 throw odbc_error(error_code_to_sql_state(error::code(error_code.value())), error_message);
             } else {
