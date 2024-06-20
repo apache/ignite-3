@@ -26,6 +26,8 @@ import org.apache.ignite.table.mapper.Mapper;
 
 /**
  * Job execution target.
+ *
+ * <p>Determines the rules for selecting nodes to execute a job.
  */
 public interface JobTarget {
     /**
