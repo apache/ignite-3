@@ -19,6 +19,8 @@ package org.apache.ignite.internal.table.distributed.disaster;
 
 import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.allOf;
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.UpdateStatus.ASSIGNMENT_NOT_UPDATED;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.UpdateStatus.OUTDATED_UPDATE_RECEIVED;
@@ -34,6 +36,9 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
 import static org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryRequestType.SINGLE_NODE;
+import static org.apache.ignite.internal.table.distributed.disaster.LocalPartitionStateEnum.CATCHING_UP;
+import static org.apache.ignite.internal.table.distributed.disaster.LocalPartitionStateEnum.HEALTHY;
+import static org.apache.ignite.internal.util.ByteUtils.longToBytesKeepingOrder;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.DisasterRecovery.CLUSTER_NOT_IDLE_ERR;
 
@@ -63,7 +68,6 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.DisasterRecoveryException;
 import org.apache.ignite.internal.table.distributed.disaster.messages.LocalPartitionStateMessage;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.CollectionUtils;
 
 class ManualGroupUpdateRequest implements DisasterRecoveryRequest {
@@ -125,7 +129,7 @@ class ManualGroupUpdateRequest implements DisasterRecoveryRequest {
         int catalogVersion = disasterRecoveryManager.catalogManager.activeCatalogVersion(msSafeTime.longValue());
 
         if (this.catalogVersion != catalogVersion) {
-            return CompletableFuture.failedFuture(
+            return failedFuture(
                     new DisasterRecoveryException(CLUSTER_NOT_IDLE_ERR, "Cluster is not idle, concurrent DDL update detected.")
             );
         }
@@ -234,34 +238,18 @@ class ManualGroupUpdateRequest implements DisasterRecoveryRequest {
     ) {
         // TODO https://issues.apache.org/jira/browse/IGNITE-21303
         //  This is a naive approach that doesn't exclude nodes in error state, if they exist.
-        Set<Assignment> partAssignments = new HashSet<>();
-        if (localPartitionStateMessageByNode != null) {
-            for (Entry<String, LocalPartitionStateMessage> entry : localPartitionStateMessageByNode.entrySet()) {
-                if (aliveNodesConsistentIds.contains(entry.getKey()) && (entry.getValue().state() == LocalPartitionStateEnum.HEALTHY
-                        || entry.getValue().state() == LocalPartitionStateEnum.CATCHING_UP)) {
-                    partAssignments.add(Assignment.forPeer(entry.getKey()));
-                }
-            }
-        }
+        Set<Assignment> partAssignments = getAliveNodesWithData(aliveNodesConsistentIds, localPartitionStateMessageByNode);
 
         Set<Assignment> aliveStableNodes = CollectionUtils.intersect(currentAssignments, partAssignments);
 
         if (aliveStableNodes.size() >= (replicas / 2 + 1)) {
-            return CompletableFuture.completedFuture(ASSIGNMENT_NOT_UPDATED.ordinal());
+            return completedFuture(ASSIGNMENT_NOT_UPDATED.ordinal());
         }
 
-        Set<Assignment> calcAssignments = AffinityUtils.calculateAssignmentForPartition(aliveDataNodes, partId.partitionId(), replicas);
-
-        for (Assignment calcAssignment : calcAssignments) {
-            if (partAssignments.size() == replicas) {
-                break;
-            }
-
-            partAssignments.add(calcAssignment);
-        }
+        enrichAssignments(partId, aliveDataNodes, replicas, partAssignments);
 
         byte[] partAssignmentsBytes = Assignments.forced(partAssignments).toBytes();
-        byte[] revisionBytes = ByteUtils.longToBytesKeepingOrder(revision);
+        byte[] revisionBytes = longToBytesKeepingOrder(revision);
 
         ByteArray partChangeTriggerKey = pendingChangeTriggerKey(partId);
         ByteArray partAssignmentsPendingKey = pendingPartAssignmentsKey(partId);
@@ -282,6 +270,47 @@ class ManualGroupUpdateRequest implements DisasterRecoveryRequest {
         );
 
         return metaStorageMgr.invoke(iif).thenApply(StatementResult::getAsInt);
+    }
+
+    /**
+     * Returns a set of nodes that are both alive and either {@link LocalPartitionStateEnum#HEALTHY} or
+     * {@link LocalPartitionStateEnum#CATCHING_UP}.
+     */
+    private static Set<Assignment> getAliveNodesWithData(
+            Set<String> aliveNodesConsistentIds,
+            LocalPartitionStateMessageByNode localPartitionStateMessageByNode
+    ) {
+        Set<Assignment> partAssignments = new HashSet<>();
+        if (localPartitionStateMessageByNode != null) {
+            for (Entry<String, LocalPartitionStateMessage> entry : localPartitionStateMessageByNode.entrySet()) {
+                if (aliveNodesConsistentIds.contains(entry.getKey())
+                        && (entry.getValue().state() == HEALTHY || entry.getValue().state() == CATCHING_UP)
+                ) {
+                    partAssignments.add(Assignment.forPeer(entry.getKey()));
+                }
+            }
+        }
+        return partAssignments;
+    }
+
+    /**
+     * Adds more nodes into {@code partAssignments} until it matches the number of replicas or we run out of nodes.
+     */
+    private static void enrichAssignments(
+            TablePartitionId partId,
+            Collection<String> aliveDataNodes,
+            int replicas,
+            Set<Assignment> partAssignments
+    ) {
+        Set<Assignment> calcAssignments = AffinityUtils.calculateAssignmentForPartition(aliveDataNodes, partId.partitionId(), replicas);
+
+        for (Assignment calcAssignment : calcAssignments) {
+            if (partAssignments.size() == replicas) {
+                break;
+            }
+
+            partAssignments.add(calcAssignment);
+        }
     }
 
     @Override

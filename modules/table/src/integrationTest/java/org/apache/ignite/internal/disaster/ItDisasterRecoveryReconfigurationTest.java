@@ -463,11 +463,12 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
     private void waitForPartitionState(IgniteImpl node0, GlobalPartitionStateEnum expectedState) throws InterruptedException {
         assertTrue(waitForCondition(() -> {
-            Map<TablePartitionId, GlobalPartitionState> map = node0.disasterRecoveryManager()
-                    .globalPartitionStates(Set.of(zoneName), emptySet()).join();
+            CompletableFuture<Map<TablePartitionId, GlobalPartitionState>> statesFuture = node0.disasterRecoveryManager()
+                    .globalPartitionStates(Set.of(zoneName), emptySet());
 
-            System.out.println(map);
-            System.out.println(node0.disasterRecoveryManager().localPartitionStates(emptySet(), emptySet(), emptySet()).join());
+            assertThat(statesFuture, willCompleteSuccessfully());
+
+            Map<TablePartitionId, GlobalPartitionState> map = statesFuture.join();
 
             GlobalPartitionState state = map.values().iterator().next();
 
