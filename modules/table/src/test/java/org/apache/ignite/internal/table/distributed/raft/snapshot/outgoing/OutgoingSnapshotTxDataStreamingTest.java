@@ -38,13 +38,13 @@ import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
+import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotTxDataRequest;
+import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotTxDataResponse;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionAccess;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionKey;
-import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotTxDataRequest;
-import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotTxDataResponse;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
@@ -66,7 +66,7 @@ class OutgoingSnapshotTxDataStreamingTest extends BaseIgniteAbstractTest {
 
     private OutgoingSnapshot snapshot;
 
-    private final TableMessagesFactory messagesFactory = new TableMessagesFactory();
+    private final PartitionReplicationMessagesFactory messagesFactory = new PartitionReplicationMessagesFactory();
 
     private final UUID txId1 = new UUID(0, 1);
     private final UUID txId2 = new UUID(0, 2);
