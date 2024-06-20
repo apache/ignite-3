@@ -851,16 +851,16 @@ public class SetOperatorCoercionTest extends BaseTypeCoercionTest {
                 return true;
             }
 
-            private Object getOperand(RelNode left) {
+            private Object getOperand(RelNode relNode) {
                 Object result = null;
-                if (left instanceof IgniteProject) {
-                    result = ((IgniteProject) left).getProjects().get(0);
+                if (relNode instanceof IgniteProject) {
+                    result = ((IgniteProject) relNode).getProjects().get(0);
                     assertThat(result, instanceOf(RexCall.class));
-                }
-                if (left instanceof IgniteTableScan) {
-                    result = left.getRowType().getFieldList().get(0);
+                } else if (relNode instanceof IgniteTableScan) {
+                    result = relNode.getRowType().getFieldList().get(0);
                     assertThat(result, instanceOf(RelDataTypeField.class));
                 }
+
                 return result;
             }
 
