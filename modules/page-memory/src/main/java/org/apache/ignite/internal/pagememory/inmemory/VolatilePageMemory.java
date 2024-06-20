@@ -32,7 +32,6 @@ import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.PageMemory;
-import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorView;
 import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileView;
 import org.apache.ignite.internal.pagememory.io.PageIo;
@@ -185,10 +184,6 @@ public class VolatilePageMemory implements PageMemory {
         this.ioRegistry = ioRegistry;
         this.trackAcquiredPages = false;
         this.storageProfileView = (VolatilePageMemoryProfileView) storageProfileConfiguration.value();
-
-        if (!(storageProfileView.memoryAllocator() instanceof UnsafeMemoryAllocatorView)) {
-            throw new IgniteInternalException("Unexpected memory allocator: " + storageProfileView.memoryAllocator());
-        }
 
         directMemoryProvider = new UnsafeMemoryProvider(null);
 

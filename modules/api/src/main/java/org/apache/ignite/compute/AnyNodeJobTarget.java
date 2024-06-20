@@ -15,16 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory.configuration.schema;
+package org.apache.ignite.compute;
 
-import static org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema.UNSAFE_MEMORY_ALLOCATOR_TYPE;
-
-import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
+import java.util.Objects;
+import java.util.Set;
+import org.apache.ignite.network.ClusterNode;
 
 /**
- * Memory allocator that allocates data in offheap using {@link sun.misc.Unsafe}.
+ * Any node execution target. Indicates any node from the provided set.
  */
-@PolymorphicConfigInstance(UNSAFE_MEMORY_ALLOCATOR_TYPE)
-public class UnsafeMemoryAllocatorConfigurationSchema extends MemoryAllocatorConfigurationSchema {
-    public static final String UNSAFE_MEMORY_ALLOCATOR_TYPE = "unsafe";
+public class AnyNodeJobTarget implements JobTarget {
+    private final Set<ClusterNode> nodes;
+
+    AnyNodeJobTarget(Set<ClusterNode> nodes) {
+        Objects.requireNonNull(nodes);
+
+        if (nodes.isEmpty()) {
+            throw new IllegalArgumentException("Nodes collection must not be empty.");
+        }
+
+        this.nodes = nodes;
+    }
+
+    public Set<ClusterNode> nodes() {
+        return nodes;
+    }
 }
