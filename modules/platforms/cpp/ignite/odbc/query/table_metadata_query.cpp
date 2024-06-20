@@ -192,7 +192,7 @@ sql_result table_metadata_query::make_request_get_tables_meta() {
             });
 
         protocol::reader reader{response.get_bytes_view()};
-        
+
         auto status = reader.read_int32();
         auto err_msg = reader.read_string_nullable();
         if (err_msg)

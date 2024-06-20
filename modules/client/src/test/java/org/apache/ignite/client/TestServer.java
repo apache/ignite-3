@@ -97,8 +97,6 @@ public class TestServer implements AutoCloseable {
 
     private final FakePlacementDriver placementDriver = new FakePlacementDriver(FakeInternalTable.PARTITIONS);
 
-    private final CmgMessagesFactory msgFactory = new CmgMessagesFactory();
-
     /**
      * Constructor.
      *
@@ -221,7 +219,7 @@ public class TestServer implements AutoCloseable {
             assertThat(authenticationManager.startAsync(componentContext), willCompleteSuccessfully());
         }
 
-        ClusterTag tag = msgFactory.clusterTag()
+        ClusterTag tag = new CmgMessagesFactory().clusterTag()
                 .clusterName("Test Server")
                 .clusterId(clusterId)
                 .build();

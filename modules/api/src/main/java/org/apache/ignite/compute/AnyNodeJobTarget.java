@@ -15,44 +15,29 @@
  * limitations under the License.
  */
 
-#pragma once
+package org.apache.ignite.compute;
 
-#include <ignite/common/ignite_error.h>
-
-#include <future>
-#include <memory>
-#include <utility>
-
-namespace ignite {
+import java.util.Objects;
+import java.util.Set;
+import org.apache.ignite.network.ClusterNode;
 
 /**
- * Make future error.
- *
- * @tparam T Value type.
- * @param err Error.
- * @return Failed future with the specified error.
+ * Any node execution target. Indicates any node from the provided set.
  */
-template<typename T>
-std::future<T> make_future_error(ignite_error err) {
-    std::promise<T> promise;
-    promise.set_exception(std::make_exception_ptr(std::move(err)));
+public class AnyNodeJobTarget implements JobTarget {
+    private final Set<ClusterNode> nodes;
 
-    return promise.get_future();
+    AnyNodeJobTarget(Set<ClusterNode> nodes) {
+        Objects.requireNonNull(nodes);
+
+        if (nodes.isEmpty()) {
+            throw new IllegalArgumentException("Nodes collection must not be empty.");
+        }
+
+        this.nodes = nodes;
+    }
+
+    public Set<ClusterNode> nodes() {
+        return nodes;
+    }
 }
-
-/**
- * Make future value.
- *
- * @tparam T Value type.
- * @param value Value.
- * @return Failed future with the specified error.
- */
-template<typename T>
-std::future<T> make_future_value(T value) {
-    std::promise<T> promise;
-    promise.set_value(std::move(value));
-
-    return promise.get_future();
-}
-
-} // namespace ignite

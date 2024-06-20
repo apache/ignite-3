@@ -1,0 +1,139 @@
+# name: test/sql/cast/test_cast_float.test
+# description: CAST FLOAT
+# feature: SQL F201(CAST function)
+# group: [cast]
+
+statement ok
+SELECT CAST('100.0' AS FLOAT);
+
+query T
+SELECT CAST('100' AS FLOAT);
+----
+100.0
+
+# https://issues.apache.org/jira/browse/IGNITE-22519
+# overflow
+skipif ignite3
+statement error
+SELECT CAST(1e39 AS FLOAT);
+
+# https://issues.apache.org/jira/browse/IGNITE-22519
+# overflow
+skipif ignite3
+statement error
+SELECT CAST(-1e39 AS FLOAT);
+
+query T
+SELECT CAST(1e1 AS REAL);
+----
+10
+
+query I
+SELECT CAST('1e1' AS FLOAT);
+----
+10.0
+
+query I
+SELECT CAST('   1e1' AS FLOAT);
+----
+10.0
+
+query T
+SELECT CAST(100::TINYINT AS FLOAT);
+----
+100
+
+query T
+SELECT CAST(100::SMALLINT AS FLOAT);
+----
+100
+
+query T
+SELECT CAST(100::INT AS FLOAT);
+----
+100
+
+query T
+SELECT CAST(100::BIGINT AS FLOAT);
+----
+100
+
+query T
+SELECT CAST(100::DECIMAL AS FLOAT);
+----
+100
+
+query T
+SELECT CAST(100::DECIMAL(3) AS FLOAT);
+----
+100
+
+query T
+SELECT CAST(100.1::DECIMAL(4, 1) AS FLOAT);
+----
+100.1
+
+query T
+SELECT CAST(100.1::REAL AS FLOAT);
+----
+100.1
+
+statement error: For input string: "100x"
+SELECT CAST('100x' AS FLOAT);
+
+statement error: Cast function cannot convert value of type BINARY(1) to type FLOAT
+SELECT CAST(x'00' AS FLOAT);
+
+statement error: Cast function cannot convert value of type DATE to type FLOAT
+SELECT CAST('2000-01-01'::DATE AS FLOAT);
+
+statement error: Cast function cannot convert value of type TIME(0) to type FLOAT
+SELECT CAST('00:00:00'::TIME AS FLOAT);
+
+statement error: Cast function cannot convert value of type TIMESTAMP(6) to type FLOAT
+SELECT CAST('2000-01-01 00:00:00'::TIMESTAMP AS FLOAT);
+
+statement error: Cast function cannot convert value of type UUID to type FLOAT
+SELECT CAST('c4a0327c-44be-416d-ae90-75c05079789f'::UUID AS FLOAT);
+
+statement error: Cast function cannot convert value of type BINARY(1) to type FLOAT
+SELECT CAST(x'00'::BINARY AS FLOAT);
+
+statement error: Cast function cannot convert value of type VARBINARY to type FLOAT
+SELECT CAST(x'00'::VARBINARY AS FLOAT);
+
+statement error: Cast function cannot convert value
+SELECT CAST(INTERVAL 11 YEAR AS FLOAT);
+
+statement error: Cast function cannot convert value
+SELECT CAST(INTERVAL 11 MONTH AS FLOAT);
+
+statement error: Cast function cannot convert value
+SELECT CAST(INTERVAL 11 DAYS AS FLOAT);
+
+statement error: Cast function cannot convert value
+SELECT CAST(INTERVAL 11 HOURS AS FLOAT);
+
+statement error: Cast function cannot convert value
+SELECT CAST(INTERVAL 11 MINUTES AS FLOAT);
+
+statement error: Cast function cannot convert value
+SELECT CAST(INTERVAL 11 SECONDS AS FLOAT);
+
+statement error: Cast function cannot convert value of type INTERVAL DAY TO HOUR to type FLOAT
+SELECT CAST(INTERVAL '0 01' DAYS TO HOURS AS FLOAT);
+
+statement error: Cast function cannot convert value of type INTERVAL DAY TO MINUTE to type FLOAT
+SELECT CAST(INTERVAL '0 01:02' DAYS TO MINUTES AS FLOAT);
+
+statement error: Cast function cannot convert value of type INTERVAL DAY TO SECOND to type FLOAT
+SELECT CAST(INTERVAL '0 01:02:03' DAYS TO SECONDS AS FLOAT);
+
+statement error: Cast function cannot convert value of type INTERVAL HOUR TO MINUTE to type FLOAT
+SELECT CAST(INTERVAL '00:01' HOURS TO MINUTES AS FLOAT);
+
+statement error: Cast function cannot convert value of type INTERVAL HOUR TO SECOND to type FLOAT
+SELECT CAST(INTERVAL '00:01:02' HOURS TO SECONDS AS FLOAT);
+
+statement error: Cast function cannot convert value of type INTERVAL YEAR TO MONTH to type FLOAT
+SELECT CAST(INTERVAL '1-0' YEARS TO MONTHS AS FLOAT);

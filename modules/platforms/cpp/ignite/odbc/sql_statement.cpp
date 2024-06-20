@@ -883,10 +883,10 @@ SQLUSMALLINT *sql_statement::get_row_statuses_ptr() {
 }
 
 void sql_statement::select_param(void **param_ptr) {
-    IGNITE_ODBC_API_CALL(internal_select_aram(param_ptr));
+    IGNITE_ODBC_API_CALL(internal_select_param(param_ptr));
 }
 
-sql_result sql_statement::internal_select_aram(void **param_ptr) {
+sql_result sql_statement::internal_select_param(void **param_ptr) {
     if (!param_ptr) {
         add_status_record(sql_state::SHY000_GENERAL_ERROR, "Invalid parameter: ValuePtrPtr is null.");
 

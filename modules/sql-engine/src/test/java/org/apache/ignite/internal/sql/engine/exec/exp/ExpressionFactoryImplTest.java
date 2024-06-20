@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec.exp;
 
+import static java.util.Collections.singletonList;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -24,15 +25,19 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.Comparator;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Random;
 import java.util.UUID;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
@@ -71,12 +76,17 @@ import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.RexUtils;
+import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
+import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mockito;
 
@@ -112,7 +122,7 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
         RelDataTypeField field = new RelDataTypeFieldImpl(
                 "ID", 0, typeFactory.createSqlType(SqlTypeName.INTEGER)
         );
-        RelRecordType type = new RelRecordType(Collections.singletonList(field));
+        RelRecordType type = new RelRecordType(singletonList(field));
 
         // Imagine we have 2 columns: (id: INTEGER, val: VARCHAR)
         RexDynamicParam firstNode = new RexDynamicParam(typeFactory.createSqlType(SqlTypeName.INTEGER), 0);
@@ -693,19 +703,51 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
         assertEquals(List.of(), actual);
     }
 
-    @Test
-    public void testRowSource() {
-        RexBuilder rexBuilder = Commons.rexBuilder();
-        IgniteTypeFactory tf = Commons.typeFactory();
+    /**
+     * Checks the execution of the {@link ExpressionFactory#rowSource(List)} method.
+     * <ul>
+     * <li>If the input list contains only constant expressions (literals), then row assembly must be performed without compiling the
+     * expressions.</li>
+     * <li>If the input list contains not only literals, then row assembly must be performed with compiling the expressions.</li>
+     * </ul>
+     *
+     * @param columnType Column type.
+     * @param literalsOnly Flag indicating that the list of input expressions should contain only literals.
+     */
+    @ParameterizedTest(name = "type={0}, literals={1}")
+    @MethodSource("rowSourceTestArgs")
+    public void testRowSource(ColumnType columnType, boolean literalsOnly) {
+        long seed = System.nanoTime();
 
-        RelDataType intType = tf.createSqlType(SqlTypeName.INTEGER);
-        RelDataType bigIntType = tf.createSqlType(SqlTypeName.BIGINT);
+        log.info("Seed: " + seed);
 
-        RexNode val10 = rexBuilder.makeExactLiteral(new BigDecimal("1"), intType);
-        RexNode val11 = rexBuilder.makeExactLiteral(new BigDecimal("2"), bigIntType);
+        Random rnd = new Random(seed);
 
-        Object[] actual = expFactory.rowSource(List.of(val10, val11)).get();
-        assertEquals(List.of(1, 2L), Arrays.asList(actual));
+        Object val1 = SqlTestUtils.generateValueByType(rnd.nextInt(), columnType);
+        RexNode expr1 = SqlTestUtils.generateLiteralOrValueExpr(columnType, val1);
+        assertTrue(expr1 instanceof RexLiteral);
+
+        Object val2 = literalsOnly ? 1 : UUID.randomUUID();
+        RexNode expr2 = SqlTestUtils.generateLiteralOrValueExpr(literalsOnly ? ColumnType.INT32 : ColumnType.UUID, val2);
+        assertEquals(literalsOnly, expr2 instanceof RexLiteral);
+
+        ExpressionFactoryImpl<Object[]> expFactorySpy = Mockito.spy(expFactory);
+
+        Object[] actual = expFactorySpy.rowSource(List.of(expr1, expr2)).get();
+
+        Object expected;
+
+        if (columnType == ColumnType.FLOAT) {
+            expected = ((BigDecimal) ((RexLiteral) expr1).getValue4()).floatValue();
+        } else if (columnType == ColumnType.DOUBLE) {
+            expected = ((BigDecimal) ((RexLiteral) expr1).getValue4()).doubleValue();
+        } else {
+            expected = val1 == null ? null : TypeUtils.toInternal(val1, val1.getClass());
+        }
+
+        assertEquals(Arrays.asList(expected, val2), Arrays.asList(actual));
+
+        verify(expFactorySpy, times(literalsOnly ? 0 : 1)).scalar(any(), any());
     }
 
     @Test
@@ -717,6 +759,33 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
         Object actual = expFactory.execute(rexBuilder.makeLiteral("42", varcharType)).get();
 
         assertEquals("42", actual);
+    }
+
+    private static List<Arguments> rowSourceTestArgs() {
+        EnumSet<ColumnType> ignoredTypes = EnumSet.of(
+                // Not supported.
+                ColumnType.NUMBER,
+                // UUID literal doesn't exists.
+                ColumnType.UUID,
+                // TODO https://issues.apache.org/jira/browse/IGNITE-18431
+                ColumnType.BITMASK,
+                // TODO https://issues.apache.org/jira/browse/IGNITE-15200
+                ColumnType.DURATION,
+                ColumnType.PERIOD
+        );
+
+        List<Arguments> arguments = new ArrayList<>();
+
+        for (ColumnType columnType : ColumnType.values()) {
+            if (ignoredTypes.contains(columnType)) {
+                continue;
+            }
+
+            arguments.add(Arguments.of(columnType, true));
+            arguments.add(Arguments.of(columnType, false));
+        }
+
+        return arguments;
     }
 
     static final class TestRange {

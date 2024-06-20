@@ -39,7 +39,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -51,6 +50,7 @@ import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
+import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.client.table.ClientTable;
@@ -58,7 +58,6 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.TableNotFoundException;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.junit.jupiter.api.AfterEach;
@@ -153,8 +152,8 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
         try (var client = getClient(server2)) {
             JobDescriptor job = JobDescriptor.builder("job").build();
 
-            String res1 = client.compute().executeColocated(TABLE_NAME, Tuple.create().set("key", "k"), job);
-            String res2 = client.compute().executeColocated(TABLE_NAME, 1L, Mapper.of(Long.class), job);
+            String res1 = client.compute().execute(JobTarget.colocated(TABLE_NAME, Tuple.create().set("key", "k")), job);
+            String res2 = client.compute().execute(JobTarget.colocated(TABLE_NAME, 1L, Mapper.of(Long.class)), job);
 
             assertEquals("s2", res1);
             assertEquals("s2", res2);
@@ -168,8 +167,8 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
         try (var client = getClient(server2)) {
             JobDescriptor job = JobDescriptor.builder("job").build();
 
-            JobExecution<String> execution1 = client.compute().submitColocated(TABLE_NAME, Tuple.create().set("key", "k"), job);
-            JobExecution<String> execution2 = client.compute().submitColocated(TABLE_NAME, 1L, Mapper.of(Long.class), job);
+            JobExecution<String> execution1 = client.compute().submit(JobTarget.colocated(TABLE_NAME, Tuple.create().set("key", "k")), job);
+            JobExecution<String> execution2 = client.compute().submit(JobTarget.colocated(TABLE_NAME, 1L, Mapper.of(Long.class)), job);
 
             assertThat(execution1.resultAsync(), willBe("s2"));
             assertThat(execution2.resultAsync(), willBe("s2"));
@@ -187,7 +186,8 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
             Tuple key = Tuple.create().set("key", "k");
 
             var ex = assertThrows(CompletionException.class,
-                    () -> client.compute().executeColocatedAsync("bad-tbl", key, JobDescriptor.builder("job").build()).join());
+                    () -> client.compute().executeAsync(
+                            JobTarget.colocated("bad-tbl", key), JobDescriptor.builder("job").build()).join());
 
             var tblNotFoundEx = (TableNotFoundException) ex.getCause();
             assertThat(tblNotFoundEx.getMessage(), containsString("The table does not exist [name=\"PUBLIC\".\"bad-tbl\"]"));
@@ -206,7 +206,7 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
         try (var client = getClient(server3)) {
             Tuple key = Tuple.create().set("key", "k");
 
-            String res1 = client.compute().executeColocated(tableName, key, JobDescriptor.builder("job").build());
+            String res1 = client.compute().execute(JobTarget.colocated(tableName, key), JobDescriptor.builder("job").build());
 
             // Drop table and create a new one with a different ID.
             ((FakeIgniteTables) ignite.tables()).dropTable(tableName);
@@ -219,7 +219,9 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
                 IgniteTestUtils.setFieldValue(table, "partitionAssignment", null);
             }
 
-            String res2 = client.compute().executeColocated(tableName, 1L, Mapper.of(Long.class), JobDescriptor.builder("job").build());
+            String res2 = client.compute().execute(
+                    JobTarget.colocated(tableName, 1L, Mapper.of(Long.class)),
+                    JobDescriptor.builder("job").build());
 
             assertEquals("s3", res1);
             assertEquals("s3", res2);
@@ -296,8 +298,8 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
             FakeCompute.future = CompletableFuture.failedFuture(new RuntimeException("job failed"));
 
             IgniteCompute igniteCompute = client.compute();
-            Set<ClusterNode> nodes = getClusterNodes("s1");
-            JobExecution<String> execution = igniteCompute.submit(nodes, JobDescriptor.builder("job").build());
+            var jobTarget = getClusterNodes("s1");
+            JobExecution<String> execution = igniteCompute.submit(jobTarget, JobDescriptor.builder("job").build());
 
             assertThat(execution.resultAsync(), willThrowFast(IgniteException.class));
             assertThat(execution.statusAsync(), willBe(jobStatusWithState(FAILED)));

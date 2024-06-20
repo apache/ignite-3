@@ -39,6 +39,8 @@ import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import org.apache.ignite.compute.AnyNodeJobTarget;
+import org.apache.ignite.compute.ColocatedJobTarget;
 import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.IgniteCompute;
@@ -46,6 +48,7 @@ import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.compute.JobStatus;
+import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.compute.NodeNotFoundException;
 import org.apache.ignite.compute.task.MapReduceJob;
 import org.apache.ignite.compute.task.TaskExecution;
@@ -95,15 +98,55 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
     }
 
     @Override
-    public <R> JobExecution<R> submit(Set<ClusterNode> nodes, JobDescriptor descriptor, Object... args) {
-        Objects.requireNonNull(nodes);
+    public <R> JobExecution<R> submit(JobTarget target, JobDescriptor descriptor, Object... args) {
+        Objects.requireNonNull(target);
         Objects.requireNonNull(descriptor);
 
-        if (nodes.isEmpty()) {
-            throw new IllegalArgumentException("nodes must not be empty.");
+        if (target instanceof AnyNodeJobTarget) {
+            Set<ClusterNode> nodes = ((AnyNodeJobTarget) target).nodes();
+
+            return executeAsyncWithFailover(nodes, descriptor.units(), descriptor.jobClassName(), descriptor.options(), args);
         }
 
-        return executeAsyncWithFailover(nodes, descriptor.units(), descriptor.jobClassName(), descriptor.options(), args);
+        if (target instanceof ColocatedJobTarget) {
+            ColocatedJobTarget colocatedTarget = (ColocatedJobTarget) target;
+            var mapper = (Mapper<? super Object>) colocatedTarget.keyMapper();
+            String tableName = colocatedTarget.tableName();
+            Object key = colocatedTarget.key();
+
+            CompletableFuture<JobExecution<R>> jobFut;
+            if (mapper != null) {
+                jobFut = requiredTable(tableName)
+                        .thenCompose(table -> primaryReplicaForPartitionByMappedKey(table, key, mapper)
+                                .thenApply(primaryNode -> executeOnOneNodeWithFailover(
+                                        primaryNode,
+                                        new NextColocatedWorkerSelector<>(placementDriver, topologyService, clock, table, key, mapper),
+                                        descriptor.units(),
+                                        descriptor.jobClassName(),
+                                        descriptor.options(),
+                                        args
+                                )));
+
+            } else {
+                jobFut = requiredTable(tableName)
+                        .thenCompose(table -> submitColocatedInternal(
+                                table,
+                                (Tuple) key,
+                                descriptor.units(),
+                                descriptor.jobClassName(),
+                                descriptor.options(),
+                                args));
+            }
+
+            return new JobExecutionFutureWrapper<>(jobFut);
+        }
+
+        throw new IllegalArgumentException("Unsupported job target: " + target);
+    }
+
+    @Override
+    public <R> R execute(JobTarget target, JobDescriptor descriptor, Object... args) {
+        return sync(executeAsync(target, descriptor, args));
     }
 
     @Override
@@ -140,12 +183,6 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
                         args
                 ));
     }
-
-    @Override
-    public <R> R execute(Set<ClusterNode> nodes, JobDescriptor descriptor, Object... args) {
-        return sync(this.executeAsync(nodes, descriptor, args));
-    }
-
 
     private static ClusterNode randomNode(Set<ClusterNode> nodes) {
         int nodesToSkip = ThreadLocalRandom.current().nextInt(nodes.size());
@@ -193,69 +230,6 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
 
     private boolean isLocal(ClusterNode targetNode) {
         return targetNode.equals(topologyService.localMember());
-    }
-
-    @Override
-    public <R> JobExecution<R> submitColocated(
-            String tableName,
-            Tuple tuple,
-            JobDescriptor descriptor,
-            Object... args
-    ) {
-        Objects.requireNonNull(tableName);
-        Objects.requireNonNull(tuple);
-        Objects.requireNonNull(descriptor);
-
-        return new JobExecutionFutureWrapper<>(
-                requiredTable(tableName)
-                        .thenCompose(table -> submitColocatedInternal(
-                                table, tuple, descriptor.units(), descriptor.jobClassName(), descriptor.options(), args))
-        );
-    }
-
-    @Override
-    public <K, R> JobExecution<R> submitColocated(
-            String tableName,
-            K key,
-            Mapper<K> keyMapper,
-            JobDescriptor descriptor,
-            Object... args
-    ) {
-        Objects.requireNonNull(tableName);
-        Objects.requireNonNull(key);
-        Objects.requireNonNull(keyMapper);
-        Objects.requireNonNull(descriptor);
-
-        return new JobExecutionFutureWrapper<>(
-                requiredTable(tableName)
-                        .thenCompose(table -> primaryReplicaForPartitionByMappedKey(table, key, keyMapper)
-                                .thenApply(primaryNode -> executeOnOneNodeWithFailover(
-                                        primaryNode,
-                                        new NextColocatedWorkerSelector<>(placementDriver, topologyService, clock, table, key, keyMapper),
-                                        descriptor.units(), descriptor.jobClassName(), descriptor.options(), args
-                                )))
-        );
-    }
-
-    @Override
-    public <R> R executeColocated(
-            String tableName,
-            Tuple key,
-            JobDescriptor descriptor,
-            Object... args
-    ) {
-        return sync(this.executeColocatedAsync(tableName, key, descriptor, args));
-    }
-
-    @Override
-    public <K, R> R executeColocated(
-            String tableName,
-            K key,
-            Mapper<K> keyMapper,
-            JobDescriptor descriptor,
-            Object... args
-    ) {
-        return sync(executeColocatedAsync(tableName, key, keyMapper, descriptor, args));
     }
 
     @Override
@@ -347,7 +321,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
     }
 
     private JobExecution<Object> submitJob(MapReduceJob runner) {
-        return submit(runner.nodes(), runner.jobDescriptor(), runner.args());
+        return submit(JobTarget.anyNode(runner.nodes()), runner.jobDescriptor(), runner.args());
     }
 
     @Override
