@@ -159,21 +159,8 @@ public class JobDescriptor<T, R> {
                     jobClassName,
                     units == null ? List.of() : units,
                     options == null ? JobExecutionOptions.DEFAULT : options,
-                    new DefaultMarshaller<T>(),
-                    new DefaultMarshaller<R>());
-        }
-    }
-
-    private static class DefaultMarshaller<T> implements Marshaller<T, byte[]> {
-
-        @Override
-        public byte[] marshal(T object) {
-            return new byte[0];
-        }
-
-        @Override
-        public T unmarshal(byte[] raw) {
-            return null;
+                    new ByteArrayMarshaller<>() {},
+                    new ByteArrayMarshaller<>() {});
         }
     }
 }

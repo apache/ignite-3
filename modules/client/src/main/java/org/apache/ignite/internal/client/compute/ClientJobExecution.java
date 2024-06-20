@@ -25,6 +25,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobState;
 import org.apache.ignite.compute.JobStatus;
+import org.apache.ignite.compute.Marshaller;
 import org.apache.ignite.internal.client.PayloadInputChannel;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
@@ -46,20 +47,24 @@ class ClientJobExecution<R> implements JobExecution<R> {
 
     private final CompletableFuture<R> resultAsync;
 
+    private final Marshaller<R, byte[]> marshaler;
+
     // Local status cache
     private final CompletableFuture<@Nullable JobStatus> statusFuture = new CompletableFuture<>();
 
-    ClientJobExecution(ReliableChannel ch, CompletableFuture<SubmitResult> reqFuture) {
+    ClientJobExecution(ReliableChannel ch, CompletableFuture<SubmitResult> reqFuture, Marshaller<R, byte[]> marshaler) {
         this.ch = ch;
 
-        jobIdFuture = reqFuture.thenApply(SubmitResult::jobId);
+        this.jobIdFuture = reqFuture.thenApply(SubmitResult::jobId);
+
+        this.marshaler = marshaler;
 
         resultAsync = reqFuture
                 .thenCompose(SubmitResult::notificationFuture)
                 .thenApply(r -> {
                     // Notifications require explicit input close.
                     try (r) {
-                        R result = (R) r.in().unpackObjectFromBinaryTuple();
+                        R result = marshaler.unmarshal((byte[]) r.in().unpackObjectFromBinaryTuple());
                         statusFuture.complete(unpackJobStatus(r));
                         return result;
                     }

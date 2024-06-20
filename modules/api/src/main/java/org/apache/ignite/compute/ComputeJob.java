@@ -39,8 +39,8 @@ public interface ComputeJob<T, R> {
      *
      * @return asdf.
      */
-    default Marshaller<T, ?> inputMarshaller() {
-        return new TupleMarshaller<>() {
+    default Marshaller<T, byte[]> inputMarshaller() {
+        return new ByteArrayMarshaller<>() {
         };
     }
 
@@ -49,8 +49,8 @@ public interface ComputeJob<T, R> {
      *
      * @return asdf.
      */
-    default Marshaller<R, ?> resultMarhaller() {
-        return new TupleMarshaller<>() {
+    default Marshaller<R, byte[]> resultMarhaller() {
+        return new ByteArrayMarshaller<>() {
         };
     }
 }

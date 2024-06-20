@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.NotificationSender;
+import org.apache.ignite.compute.ByteArrayMarshaller;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionOptions;
@@ -99,7 +100,8 @@ public class ClientComputeExecuteRequest {
         return execution.resultAsync().whenComplete((val, err) ->
                 execution.statusAsync().whenComplete((status, errStatus) ->
                         notificationSender.sendNotification(w -> {
-                            w.packObjectAsBinaryTuple(val, null);
+                            w.packObjectAsBinaryTuple(val, new ByteArrayMarshaller<>() {
+                            });
                             packJobStatus(w, status);
                         }, err)));
     }

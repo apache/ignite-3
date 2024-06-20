@@ -17,6 +17,12 @@
 
 package org.apache.ignite.compute;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+
 /**
  * ttttt.
  */
@@ -25,11 +31,19 @@ public class ByteArrayMarshallilng {
      * ttttt.
      *
      * @param <T> asdf.
-     *
      * @return asdf.
      */
     public static <T> byte[] marshal(T object) {
-        return null;
+        try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                ObjectOutputStream out = new ObjectOutputStream(baos)
+        ) {
+            out.writeObject(object);
+            out.flush();
+
+            return baos.toByteArray();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     /**
@@ -37,10 +51,14 @@ public class ByteArrayMarshallilng {
      *
      * @param raw asdf.
      * @param <T> asdf.
-     *
      * @return asdf.
      */
     public static <T> T unmarshal(byte[] raw) {
-        return null;
+        try (ByteArrayInputStream bais = new ByteArrayInputStream(raw);
+                ObjectInputStream ois = new ObjectInputStream(bais)) {
+            return (T) ois.readObject();
+        } catch (IOException | ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        }
     }
 }

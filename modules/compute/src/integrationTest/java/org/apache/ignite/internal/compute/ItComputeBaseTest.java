@@ -461,7 +461,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
         IgniteImpl entryNode = node(0);
         String address = "127.0.0.1:" + entryNode.clientAddress().port();
         try (IgniteClient client = IgniteClient.builder().addresses(address).build()) {
-            var argumentPojo = new Pojo();
+            var argumentPojo = new Pojo("Hey");
 
             Pojo resultPojo = client.compute().execute(
                     Set.of(node(1).node()),

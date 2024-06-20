@@ -24,6 +24,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
+import org.apache.ignite.compute.Marshaller;
 import org.apache.ignite.compute.task.MapReduceTask;
 import org.apache.ignite.compute.task.TaskExecutionContext;
 import org.apache.ignite.internal.compute.ComputeUtils;
@@ -77,16 +78,17 @@ public class ComputeExecutorImpl implements ComputeExecutor {
             ExecutionOptions options,
             Class<? extends ComputeJob<T, R>> jobClass,
             JobClassLoader classLoader,
-            T input
+            byte[] input
     ) {
         assert executorService != null;
 
         AtomicBoolean isInterrupted = new AtomicBoolean();
         JobExecutionContext context = new JobExecutionContextImpl(ignite, isInterrupted, classLoader);
-        ComputeJob<T, R> jobInstance = ComputeUtils.instantiateJob(jobClass); // todo
+        ComputeJob<T, R> jobInstance = ComputeUtils.instantiateJob(jobClass);
+        Marshaller<T, byte[]> marshaller = jobInstance.inputMarshaller();
 
         QueueExecution<R> execution = executorService.submit(
-                () -> jobInstance.executeAsync(context, input),
+                () -> jobInstance.executeAsync(context, marshaller.unmarshal(input)),
                 options.priority(),
                 options.maxRetries()
         );

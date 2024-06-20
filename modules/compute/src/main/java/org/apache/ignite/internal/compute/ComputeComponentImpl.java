@@ -116,11 +116,11 @@ public class ComputeComponentImpl implements ComputeComponent {
 
     /** {@inheritDoc} */
     @Override
-    public <T, R> JobExecution<R> executeLocally(
+     public <R> JobExecution<R> executeLocally(
             ExecutionOptions options,
             List<DeploymentUnit> units,
             String jobClassName,
-            T input
+            byte[] input
     ) {
         if (!busyLock.enterBusy()) {
             return new DelegatingJobExecution<>(
@@ -149,11 +149,11 @@ public class ComputeComponentImpl implements ComputeComponent {
     }
 
     @Override
-    public <T, R> TaskExecution<R> executeTask(
+    public <R> TaskExecution<R> executeTask(
             JobSubmitter jobSubmitter,
             List<DeploymentUnit> units,
             String taskClassName,
-            T input
+            Object input
     ) {
         if (!busyLock.enterBusy()) {
             return new DelegatingTaskExecution<>(
@@ -165,7 +165,7 @@ public class ComputeComponentImpl implements ComputeComponent {
             CompletableFuture<TaskExecutionInternal<?, R>> taskFuture =
                     mapClassLoaderExceptions(jobContextManager.acquireClassLoader(units), taskClassName)
                             .thenApply(context -> {
-                                TaskExecutionInternal<T, R> execution = execTask(context, jobSubmitter, taskClassName, input);
+                                TaskExecutionInternal<?, R> execution = execTask(context, jobSubmitter, taskClassName, input);
                                 execution.resultAsync().whenComplete((r, e) -> context.close());
                                 inFlightFutures.registerFuture(execution.resultAsync());
                                 return execution;
@@ -183,12 +183,12 @@ public class ComputeComponentImpl implements ComputeComponent {
 
     /** {@inheritDoc} */
     @Override
-    public <T, R> JobExecution<R> executeRemotely(
+    public <R> JobExecution<R> executeRemotely(
             ExecutionOptions options,
             ClusterNode remoteNode,
             List<DeploymentUnit> units,
             String jobClassName,
-            T input
+            byte[] input
     ) {
         if (!busyLock.enterBusy()) {
             return new DelegatingJobExecution<>(
@@ -212,15 +212,15 @@ public class ComputeComponentImpl implements ComputeComponent {
     }
 
     @Override
-    public <T, R> JobExecution<R> executeRemotelyWithFailover(
+    public <R> JobExecution<R> executeRemotelyWithFailover(
             ClusterNode remoteNode,
             NextWorkerSelector nextWorkerSelector,
             List<DeploymentUnit> units,
             String jobClassName,
             ExecutionOptions options,
-            T input
+            byte[] input
     ) {
-        JobExecution<R> result = new ComputeJobFailover<T, R>(
+        JobExecution<R> result = new ComputeJobFailover<R>(
                 this, logicalTopologyService, topologyService,
                 remoteNode, nextWorkerSelector, failoverExecutor, units,
                 jobClassName, options, input
@@ -294,7 +294,7 @@ public class ComputeComponentImpl implements ComputeComponent {
     }
 
 
-    private <T, R> JobExecutionInternal<R> execJob(JobContext context, ExecutionOptions options, String jobClassName, T args) {
+    private <T, R> JobExecutionInternal<R> execJob(JobContext context, ExecutionOptions options, String jobClassName, byte[] args) {
         try {
             return executor.executeJob(options, jobClass(context.classLoader(), jobClassName), context.classLoader(), args);
         } catch (Throwable e) {

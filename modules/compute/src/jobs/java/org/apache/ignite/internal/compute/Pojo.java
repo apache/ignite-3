@@ -18,6 +18,42 @@
 package org.apache.ignite.internal.compute;
 
 import java.io.Serializable;
+import java.util.Objects;
 
 public class Pojo implements Serializable {
+    private String name;
+
+    public Pojo(String name) {
+        this.name = name;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    @Override
+    public String toString() {
+        return "Pojo [name=" + name + "]";
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        Pojo pojo = (Pojo) o;
+        return Objects.equals(name, pojo.name);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(name);
+    }
 }

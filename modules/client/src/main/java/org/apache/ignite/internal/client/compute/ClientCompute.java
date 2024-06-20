@@ -101,7 +101,8 @@ public class ClientCompute implements IgniteCompute {
         return new ClientJobExecution<>(
                 ch,
                 executeOnNodesAsync(nodes, descriptor.units(), descriptor.jobClassName(), descriptor.options(),
-                        args, descriptor.argumentMarshaler())
+                        args, descriptor.argumentMarshaler()),
+                descriptor.resultMarshaller()
         );
     }
 
@@ -124,7 +125,9 @@ public class ClientCompute implements IgniteCompute {
 
         return new ClientJobExecution<>(
                 ch,
-                doExecuteColocatedAsync(tableName, key, descriptor.units(), descriptor.jobClassName(), descriptor.options(), args, descriptor.argumentMarshaler()));
+                doExecuteColocatedAsync(tableName, key, descriptor.units(), descriptor.jobClassName(), descriptor.options(), args, descriptor.argumentMarshaler()),
+                descriptor.resultMarshaller()
+        );
     }
 
     /** {@inheritDoc} */
@@ -141,8 +144,11 @@ public class ClientCompute implements IgniteCompute {
         Objects.requireNonNull(keyMapper);
         Objects.requireNonNull(descriptor);
 
-        return new ClientJobExecution<>(ch, doExecuteColocatedAsync(
-                tableName, key, keyMapper, descriptor.units(), descriptor.jobClassName(), descriptor.options(), args, descriptor.argumentMarshaler()));
+        return new ClientJobExecution<>(
+                ch,
+                doExecuteColocatedAsync(tableName, key, keyMapper, descriptor.units(), descriptor.jobClassName(), descriptor.options(), args, descriptor.argumentMarshaler()),
+                descriptor.resultMarshaller()
+        );
     }
 
     private CompletableFuture<SubmitResult> doExecuteColocatedAsync(
@@ -222,10 +228,11 @@ public class ClientCompute implements IgniteCompute {
         Map<ClusterNode, JobExecution<R>> map = new HashMap<>(nodes.size());
 
         for (ClusterNode node : nodes) {
-            JobExecution<R> execution = new ClientJobExecution<>(ch, executeOnNodesAsync(
-                    Set.of(node), descriptor.units(), descriptor.jobClassName(), descriptor.options(),
-                    args, descriptor.argumentMarshaler()
-            ));
+            JobExecution<R> execution = new ClientJobExecution<>(
+                    ch,
+                    executeOnNodesAsync(Set.of(node), descriptor.units(), descriptor.jobClassName(), descriptor.options(),
+                    args, descriptor.argumentMarshaler()),
+                    descriptor.resultMarshaller());
             if (map.put(node, execution) != null) {
                 throw new IllegalStateException("Node can't be specified more than once: " + node);
             }

@@ -44,11 +44,11 @@ public interface ComputeComponent extends IgniteComponent {
      * @param <R> Job result type.
      * @return Job execution object.
      */
-    <T, R> JobExecution<R> executeLocally(
+    <R> JobExecution<R> executeLocally(
             ExecutionOptions options,
             List<DeploymentUnit> units,
             String jobClassName,
-            T input
+            byte[] input
     );
 
     /**
@@ -60,10 +60,10 @@ public interface ComputeComponent extends IgniteComponent {
      * @param <R> Job result type.
      * @return Job execution object.
      */
-    default <T, R> JobExecution<R> executeLocally(
+    default <R> JobExecution<R> executeLocally(
             List<DeploymentUnit> units,
             String jobClassName,
-            T input
+            byte[] input
     ) {
         return executeLocally(ExecutionOptions.DEFAULT, units, jobClassName, input);
     }
@@ -79,12 +79,12 @@ public interface ComputeComponent extends IgniteComponent {
      * @param <R> Job result type.
      * @return Job execution object.
      */
-    <T, R> JobExecution<R> executeRemotely(
+    <R> JobExecution<R> executeRemotely(
             ExecutionOptions options,
             ClusterNode remoteNode,
             List<DeploymentUnit> units,
             String jobClassName,
-            T input
+            byte[] input
     );
 
     /**
@@ -101,7 +101,7 @@ public interface ComputeComponent extends IgniteComponent {
             ClusterNode remoteNode,
             List<DeploymentUnit> units,
             String jobClassName,
-            T input
+            byte[] input
     ) {
         return executeRemotely(ExecutionOptions.DEFAULT, remoteNode, units, jobClassName, input);
     }
@@ -119,13 +119,13 @@ public interface ComputeComponent extends IgniteComponent {
      * @param <R> Job result type.
      * @return Job execution object.
      */
-    <T, R> JobExecution<R> executeRemotelyWithFailover(
+    <R> JobExecution<R> executeRemotelyWithFailover(
             ClusterNode remoteNode,
             NextWorkerSelector nextWorkerSelector,
             List<DeploymentUnit> units,
             String jobClassName,
             ExecutionOptions options,
-            T input
+            byte[] input
     );
 
     /**
@@ -138,11 +138,11 @@ public interface ComputeComponent extends IgniteComponent {
      * @param <R> Task result type.
      * @return Task execution object.
      */
-    <T, R> TaskExecution<R> executeTask(
+    <R> TaskExecution<R> executeTask(
             JobSubmitter jobSubmitter,
             List<DeploymentUnit> units,
             String taskClassName,
-            T input
+            Object input
     );
 
     /**

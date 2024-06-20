@@ -42,9 +42,9 @@ import org.apache.ignite.network.ClusterNode;
  * then you should create an instance of this class with workerNode = node1, failoverCandidates = [node2, node3] as arguments and call
  * {@link #failSafeExecute()}.
  *
- * @param <T> the type of the result of the job.
+ * @param <R> the type of the result of the job.
  */
-class ComputeJobFailover<T, R> {
+class ComputeJobFailover<R> {
     private static final IgniteLogger LOG = Loggers.forClass(ComputeJobFailover.class);
 
     /**
@@ -82,7 +82,7 @@ class ComputeJobFailover<T, R> {
     /**
      * Context of the called job. Captures deployment units, jobClassName and arguments.
      */
-    private final RemoteExecutionContext<T, R> jobContext;
+    private final RemoteExecutionContext<?, R> jobContext;
 
     /**
      * Creates a per-job instance.
@@ -108,7 +108,7 @@ class ComputeJobFailover<T, R> {
             List<DeploymentUnit> units,
             String jobClassName,
             ExecutionOptions executionOptions,
-            T args
+            byte[] args
     ) {
         this.computeComponent = computeComponent;
         this.runningWorkerNode = new AtomicReference<>(workerNode);

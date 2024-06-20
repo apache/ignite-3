@@ -21,6 +21,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.compute.ByteArrayMarshaller;
+import org.apache.ignite.compute.Marshaller;
 
 /**
  * A map reduce task interface. Implement this interface and pass a name of the implemented class to the
@@ -49,4 +51,25 @@ public interface MapReduceTask<T, R> {
      * @return Final task result future.
      */
     CompletableFuture<R> reduceAsync(TaskExecutionContext taskContext, Map<UUID, ?> results);
+
+
+    /**
+     * ttttt.
+     *
+     * @return asdf.
+     */
+    default Marshaller<T, byte[]> inputMarshaller() {
+        return new ByteArrayMarshaller<>() {
+        };
+    }
+
+    /**
+     * ttttt.
+     *
+     * @return asdf.
+     */
+    default Marshaller<R, byte[]> resultMarhaller() {
+        return new ByteArrayMarshaller<>() {
+        };
+    }
 }
