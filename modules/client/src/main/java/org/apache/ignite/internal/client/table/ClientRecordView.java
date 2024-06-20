@@ -30,6 +30,7 @@ import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
 import org.apache.ignite.client.RetryLimitPolicy;
+import org.apache.ignite.compute.ByteArrayMarshaller;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.TuplePart;
@@ -430,7 +431,7 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
             @Nullable Flow.Subscriber<R1> resultSubscriber,
             List<DeploymentUnit> deploymentUnits,
             String receiverClassName,
-            Object... receiverArgs) {
+            Object receiverArgs) {
         Objects.requireNonNull(publisher);
         Objects.requireNonNull(keyFunc);
         Objects.requireNonNull(payloadFunc);
@@ -448,7 +449,9 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
                 resultSubscriber,
                 deploymentUnits,
                 receiverClassName,
-                receiverArgs);
+                receiverArgs,
+                new ByteArrayMarshaller<>() {} // todo
+        );
     }
 
     /** {@inheritDoc} */

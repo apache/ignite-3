@@ -584,7 +584,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
             @Nullable Flow.Subscriber<R> resultSubscriber,
             List<DeploymentUnit> deploymentUnits,
             String receiverClassName,
-            Object... receiverArgs) {
+            Object receiverArgs) {
         // TODO: IGNITE-22285 Embedded Data Streamer with Receiver.
         throw new UnsupportedOperationException("Not implemented yet");
     }

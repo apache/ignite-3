@@ -60,7 +60,7 @@ public class ClientComputeExecuteRequest {
         List<DeploymentUnit> deploymentUnits = in.unpackDeploymentUnits();
         String jobClassName = in.unpackString();
         JobExecutionOptions options = JobExecutionOptions.builder().priority(in.unpackInt()).maxRetries(in.unpackInt()).build();
-        Object args = unpackArgs(in);
+        byte[] args = unpackPayload(in);
 
         JobExecution<Object> execution = compute.executeAsyncWithFailover(candidates, deploymentUnits, jobClassName, options, args);
         sendResultAndStatus(execution, notificationSender);
@@ -99,7 +99,7 @@ public class ClientComputeExecuteRequest {
         return execution.resultAsync().whenComplete((val, err) ->
                 execution.statusAsync().whenComplete((status, errStatus) ->
                         notificationSender.sendNotification(w -> {
-                            w.packObjectAsBinaryTuple(val);
+                            w.packObjectAsBinaryTuple(val, null);
                             packJobStatus(w, status);
                         }, err)));
     }
@@ -110,7 +110,7 @@ public class ClientComputeExecuteRequest {
      * @param in Unpacker.
      * @return Args array.
      */
-    static Object unpackArgs(ClientMessageUnpacker in) {
-        return in.unpackObjectFromBinaryTuple();
+    static byte[] unpackPayload(ClientMessageUnpacker in) {
+        return (byte[]) in.unpackObjectFromBinaryTuple(); //todo
     }
 }

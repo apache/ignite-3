@@ -67,7 +67,7 @@ abstract class PublicApiThreadingViewBase<T> implements DataStreamerTarget<T>, C
             @Nullable Flow.Subscriber<R> resultSubscriber,
             List<DeploymentUnit> deploymentUnits,
             String receiverClassName,
-            Object... receiverArgs) {
+            Object receiverArgs) {
         return executeAsyncOp(() -> streamerTarget.streamData(
                 publisher,
                 options,

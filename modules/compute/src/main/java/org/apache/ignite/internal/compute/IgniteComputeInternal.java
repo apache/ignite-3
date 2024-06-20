@@ -49,12 +49,12 @@ public interface IgniteComputeInternal extends IgniteCompute {
      * @param args Arguments of the job.
      * @return CompletableFuture Job result.
      */
-    <T, R> JobExecution<R> executeAsyncWithFailover(
+    <R> JobExecution<R> executeAsyncWithFailover(
             Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            T args
+            byte[] args
     );
 
     /**
@@ -70,13 +70,13 @@ public interface IgniteComputeInternal extends IgniteCompute {
      * @param <R> Job result type.
      * @return Job execution object.
      */
-    <T, R> CompletableFuture<JobExecution<R>> submitColocatedInternal(
+     <R> CompletableFuture<JobExecution<R>> submitColocatedInternal(
             TableViewInternal table,
             Tuple key,
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            T args);
+            byte[] args);
 
     /**
      * Wraps the given future into a job execution object.

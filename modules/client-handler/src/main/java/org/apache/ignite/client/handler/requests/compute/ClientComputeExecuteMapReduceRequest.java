@@ -17,7 +17,7 @@
 
 package org.apache.ignite.client.handler.requests.compute;
 
-import static org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteRequest.unpackArgs;
+import static org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteRequest.unpackPayload;
 import static org.apache.ignite.client.handler.requests.compute.ClientComputeGetStatusRequest.packJobStatus;
 import static org.apache.ignite.internal.util.IgniteUtils.firstNotNull;
 
@@ -53,7 +53,7 @@ public class ClientComputeExecuteMapReduceRequest {
             NotificationSender notificationSender) {
         List<DeploymentUnit> deploymentUnits = in.unpackDeploymentUnits();
         String taskClassName = in.unpackString();
-        Object args = unpackArgs(in);
+        Object args = unpackPayload(in);
 
         TaskExecution<Object> execution = compute.submitMapReduce(deploymentUnits, taskClassName, args);
         sendTaskResult(execution, notificationSender);
@@ -83,7 +83,7 @@ public class ClientComputeExecuteMapReduceRequest {
                 execution.statusAsync().whenComplete((status, errStatus) ->
                         execution.statusesAsync().whenComplete((statuses, errStatuses) ->
                                 notificationSender.sendNotification(w -> {
-                                    w.packObjectAsBinaryTuple(val);
+                                    w.packObjectAsBinaryTuple(val, null);
                                     packJobStatus(w, status);
                                     packJobStatuses(w, statuses);
                                 }, firstNotNull(err, errStatus, errStatuses)))

@@ -83,14 +83,15 @@ public class ComputeExecutorImpl implements ComputeExecutor {
 
         AtomicBoolean isInterrupted = new AtomicBoolean();
         JobExecutionContext context = new JobExecutionContextImpl(ignite, isInterrupted, classLoader);
+        ComputeJob<T, R> jobInstance = ComputeUtils.instantiateJob(jobClass); // todo
 
         QueueExecution<R> execution = executorService.submit(
-                () -> ComputeUtils.instantiateJob(jobClass).executeAsync(context, input),
+                () -> jobInstance.executeAsync(context, input),
                 options.priority(),
                 options.maxRetries()
         );
 
-        return new JobExecutionInternal<>(execution, isInterrupted);
+        return new JobExecutionInternal<>(execution, isInterrupted, jobInstance);
     }
 
     @Override

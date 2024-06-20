@@ -19,6 +19,7 @@ package org.apache.ignite.internal.compute.executor;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.internal.compute.queue.QueueExecution;
 import org.jetbrains.annotations.Nullable;
@@ -33,15 +34,18 @@ public class JobExecutionInternal<R> {
 
     private final AtomicBoolean isInterrupted;
 
+    private final ComputeJob<?, R> jobInstance;
+
     /**
      * Constructor.
      *
      * @param execution Internal execution state.
      * @param isInterrupted Flag which is passed to the execution context so that the job can check it for cancellation request.
      */
-    JobExecutionInternal(QueueExecution<R> execution, AtomicBoolean isInterrupted) {
+    JobExecutionInternal(QueueExecution<R> execution, AtomicBoolean isInterrupted, ComputeJob<?, R> jobInstance) {
         this.execution = execution;
         this.isInterrupted = isInterrupted;
+        this.jobInstance = jobInstance;
     }
 
     public CompletableFuture<R> resultAsync() {

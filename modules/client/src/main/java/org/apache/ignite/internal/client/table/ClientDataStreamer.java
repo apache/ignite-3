@@ -24,6 +24,7 @@ import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
 import org.apache.ignite.client.RetryLimitPolicy;
 import org.apache.ignite.compute.DeploymentUnit;
+import org.apache.ignite.compute.Marshaller;
 import org.apache.ignite.internal.client.ClientUtils;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
@@ -73,7 +74,9 @@ class ClientDataStreamer {
             @Nullable Flow.Subscriber<R> resultSubscriber,
             List<DeploymentUnit> deploymentUnits,
             String receiverClassName,
-            Object... receiverArgs) {
+            Object receiverArgs,
+            @Nullable Marshaller<Object, byte[]> marshaller
+    ) {
         StreamerBatchSender<V, Integer, R> batchSender = (partitionId, items, deleted) ->
                 tbl.getPartitionAssignment().thenCompose(
                         partitionAssignment -> tbl.channel().serviceAsync(
@@ -87,7 +90,7 @@ class ClientDataStreamer {
                                     w.packDeploymentUnits(deploymentUnits);
                                     w.packBoolean(resultSubscriber != null); // receiveResults
 
-                                    StreamerReceiverSerializer.serialize(w, receiverClassName, receiverArgs, items);
+                                    StreamerReceiverSerializer.serialize(w, receiverClassName, receiverArgs, items, marshaller);
                                 },
                                 in -> resultSubscriber != null
                                         ? StreamerReceiverSerializer.deserializeResults(in.in())

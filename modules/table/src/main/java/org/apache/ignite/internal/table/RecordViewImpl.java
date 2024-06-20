@@ -600,7 +600,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
             @Nullable Flow.Subscriber<R1> resultSubscriber,
             List<DeploymentUnit> deploymentUnits,
             String receiverClassName,
-            Object... receiverArgs) {
+            Object receiverArgs) {
         // TODO: IGNITE-22285 Embedded Data Streamer with Receiver
         throw new UnsupportedOperationException("Not implemented yet");
     }

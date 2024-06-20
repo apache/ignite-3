@@ -29,6 +29,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.aMapWithSize;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.in;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
@@ -44,6 +45,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobDescriptor;
@@ -454,12 +456,36 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
         assertThat(result, is(sumOfNodeNamesLengths));
     }
 
+    @Test
+    void pojoJobArgumentSerialization() {
+        IgniteImpl entryNode = node(0);
+        String address = "127.0.0.1:" + entryNode.clientAddress().port();
+        try (IgniteClient client = IgniteClient.builder().addresses(address).build()) {
+            var argumentPojo = new Pojo();
+
+            Pojo resultPojo = client.compute().execute(
+                    Set.of(node(1).node()),
+                    JobDescriptor.builder(pojoJobClassName()).build(),
+                    argumentPojo
+            );
+
+            assertThat(resultPojo, equalTo(argumentPojo));
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+
+    }
+
     static IgniteImpl node(int i) {
         return CLUSTER.node(i);
     }
 
     static String concatJobClassName() {
         return ConcatJob.class.getName();
+    }
+
+    static String pojoJobClassName() {
+        return PojoJob.class.getName();
     }
 
     private static String getNodeNameJobClassName() {

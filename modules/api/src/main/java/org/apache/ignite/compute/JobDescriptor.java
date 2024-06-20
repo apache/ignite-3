@@ -23,17 +23,26 @@ import java.util.Objects;
 /**
  * Compute job descriptor.
  */
-public class JobDescriptor {
+public class JobDescriptor<T, R> {
     private final String jobClassName;
 
     private final List<DeploymentUnit> units;
 
     private final JobExecutionOptions options;
 
-    private JobDescriptor(String jobClassName, List<DeploymentUnit> units, JobExecutionOptions options) {
+    private final Marshaller<T, byte[]> resultMarshaller;
+
+    private final Marshaller<T, byte[]> argumentMarshaler;
+
+    private JobDescriptor(
+            String jobClassName,
+            List<DeploymentUnit> units, JobExecutionOptions options, Marshaller<T, byte[]> resultMarshaller,
+            Marshaller<T, byte[]> argumentMarshaller) {
         this.jobClassName = jobClassName;
         this.units = units;
         this.options = options;
+        this.resultMarshaller = resultMarshaller;
+        this.argumentMarshaler = argumentMarshaller;
     }
 
     /**
@@ -83,6 +92,14 @@ public class JobDescriptor {
         Objects.requireNonNull(jobClass);
 
         return new Builder(jobClass.getName());
+    }
+
+    public Marshaller<T, byte[]> resultMarshaller() {
+        return resultMarshaller;
+    }
+
+    public Marshaller<T, byte[]> argumentMarshaler() {
+        return argumentMarshaler;
     }
 
     /**
@@ -137,11 +154,26 @@ public class JobDescriptor {
          *
          * @return Job descriptor.
          */
-        public JobDescriptor build() {
+        public <T, R> JobDescriptor build() {
             return new JobDescriptor(
                     jobClassName,
                     units == null ? List.of() : units,
-                    options == null ? JobExecutionOptions.DEFAULT : options);
+                    options == null ? JobExecutionOptions.DEFAULT : options,
+                    new DefaultMarshaller<T>(),
+                    new DefaultMarshaller<R>());
+        }
+    }
+
+    private static class DefaultMarshaller<T> implements Marshaller<T, byte[]> {
+
+        @Override
+        public byte[] marshal(T object) {
+            return new byte[0];
+        }
+
+        @Override
+        public T unmarshal(byte[] raw) {
+            return null;
         }
     }
 }

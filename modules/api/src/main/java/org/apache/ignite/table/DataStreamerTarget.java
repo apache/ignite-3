@@ -67,5 +67,5 @@ public interface DataStreamerTarget<T> {
             @Nullable Flow.Subscriber<R> resultSubscriber,
             List<DeploymentUnit> deploymentUnits,
             String receiverClassName,
-            Object... receiverArgs);
+            Object receiverArgs);
 }

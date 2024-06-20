@@ -532,7 +532,7 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
             @Nullable Flow.Subscriber<R> resultSubscriber,
             List<DeploymentUnit> deploymentUnits,
             String receiverClassName,
-            Object... receiverArgs) {
+            Object receiverArgs) {
         // TODO: IGNITE-22285 Embedded Data Streamer with Receiver.
         throw new UnsupportedOperationException("Not implemented yet");
     }

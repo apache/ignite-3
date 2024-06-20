@@ -46,6 +46,7 @@ import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.compute.JobStatus;
+import org.apache.ignite.compute.Marshaller;
 import org.apache.ignite.compute.NodeNotFoundException;
 import org.apache.ignite.compute.task.MapReduceJob;
 import org.apache.ignite.compute.task.TaskExecution;
@@ -103,16 +104,19 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
             throw new IllegalArgumentException("nodes must not be empty.");
         }
 
-        return executeAsyncWithFailover(nodes, descriptor.units(), descriptor.jobClassName(), descriptor.options(), args);
+        Marshaller<T, byte[]> argumentMarshaler = descriptor.argumentMarshaler();
+        return executeAsyncWithFailover(nodes, descriptor.units(), descriptor.jobClassName(), descriptor.options(),
+                argumentMarshaler.marshal(args)
+        );
     }
 
     @Override
-    public <T, R> JobExecution<R> executeAsyncWithFailover(
+    public <R> JobExecution<R> executeAsyncWithFailover(
             Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            T args
+            byte[] payload
     ) {
         Set<ClusterNode> candidates = new HashSet<>();
         for (ClusterNode node : nodes) {
@@ -137,7 +141,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
                         units,
                         jobClassName,
                         options,
-                        args
+                        payload
                 ));
     }
 
@@ -158,19 +162,19 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
         return iterator.next();
     }
 
-    private <T, R> JobExecution<R> executeOnOneNodeWithFailover(
+    private <R> JobExecution<R> executeOnOneNodeWithFailover(
             ClusterNode targetNode,
             NextWorkerSelector nextWorkerSelector,
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions jobExecutionOptions,
-            T args
+            byte[] payload
     ) {
         ExecutionOptions options = ExecutionOptions.from(jobExecutionOptions);
         if (isLocal(targetNode)) {
-            return computeComponent.executeLocally(options, units, jobClassName, args);
+            return computeComponent.executeLocally(options, units, jobClassName, payload);
         } else {
-            return computeComponent.executeRemotelyWithFailover(targetNode, nextWorkerSelector, units, jobClassName, options, args);
+            return computeComponent.executeRemotelyWithFailover(targetNode, nextWorkerSelector, units, jobClassName, options, payload);
         }
     }
 
@@ -206,10 +210,12 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
         Objects.requireNonNull(tuple);
         Objects.requireNonNull(descriptor);
 
+        Marshaller<T, byte[]> argumentMarshaler = descriptor.argumentMarshaler();
         return new JobExecutionFutureWrapper<>(
                 requiredTable(tableName)
                         .thenCompose(table -> submitColocatedInternal(
-                                table, tuple, descriptor.units(), descriptor.jobClassName(), descriptor.options(), args))
+                                table, tuple, descriptor.units(), descriptor.jobClassName(), descriptor.options(),
+                                argumentMarshaler.marshal(args)))
         );
     }
 
@@ -226,13 +232,14 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
         Objects.requireNonNull(keyMapper);
         Objects.requireNonNull(descriptor);
 
+        Marshaller<T, byte[]> argumentMarshaler = descriptor.argumentMarshaler();
         return new JobExecutionFutureWrapper<>(
                 requiredTable(tableName)
                         .thenCompose(table -> primaryReplicaForPartitionByMappedKey(table, key, keyMapper)
                                 .thenApply(primaryNode -> executeOnOneNodeWithFailover(
                                         primaryNode,
                                         new NextColocatedWorkerSelector<>(placementDriver, topologyService, clock, table, key, keyMapper),
-                                        descriptor.units(), descriptor.jobClassName(), descriptor.options(), args
+                                        descriptor.units(), descriptor.jobClassName(), descriptor.options(), argumentMarshaler.marshal(args)
                                 )))
         );
     }
@@ -259,13 +266,13 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
     }
 
     @Override
-    public <T, R> CompletableFuture<JobExecution<R>> submitColocatedInternal(
+    public <R> CompletableFuture<JobExecution<R>> submitColocatedInternal(
             TableViewInternal table,
             Tuple key,
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            T args) {
+            byte[] args) {
         return primaryReplicaForPartitionByTupleKey(table, key)
                 .thenApply(primaryNode -> executeOnOneNodeWithFailover(
                         primaryNode,
@@ -320,6 +327,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
         Objects.requireNonNull(nodes);
         Objects.requireNonNull(descriptor);
 
+        Marshaller<T, byte[]> argumentMarshaler = descriptor.argumentMarshaler();
         return nodes.stream()
                 .collect(toUnmodifiableMap(identity(),
                         // No failover nodes for broadcast. We use failover here in order to complete futures with exceptions
@@ -329,7 +337,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
                                 return new FailedExecution<>(new NodeNotFoundException(Set.of(node.name())));
                             }
                             return new JobExecutionWrapper<>(executeOnOneNodeWithFailover(node, CompletableFutures::nullCompletedFuture,
-                                    descriptor.units(), descriptor.jobClassName(), descriptor.options(), args));
+                                    descriptor.units(), descriptor.jobClassName(), descriptor.options(), argumentMarshaler.marshal(args)));
                         }));
     }
 

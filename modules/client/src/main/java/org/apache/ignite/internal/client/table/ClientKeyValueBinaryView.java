@@ -33,6 +33,7 @@ import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
 import org.apache.ignite.client.RetryLimitPolicy;
+import org.apache.ignite.compute.ByteArrayMarshaller;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.sql.ClientSql;
@@ -497,7 +498,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
             @Nullable Flow.Subscriber<R> resultSubscriber,
             List<DeploymentUnit> deploymentUnits,
             String receiverClassName,
-            Object... receiverArgs) {
+            Object receiverArgs) {
         Objects.requireNonNull(publisher);
         Objects.requireNonNull(keyFunc);
         Objects.requireNonNull(payloadFunc);
@@ -515,7 +516,9 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
                 resultSubscriber,
                 deploymentUnits,
                 receiverClassName,
-                receiverArgs);
+                receiverArgs,
+                new ByteArrayMarshaller<>() {} // todo
+        );
     }
 
     /** {@inheritDoc} */
