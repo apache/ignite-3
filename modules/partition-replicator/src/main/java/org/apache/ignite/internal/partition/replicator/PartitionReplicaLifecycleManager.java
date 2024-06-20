@@ -20,6 +20,7 @@ package org.apache.ignite.internal.partition.replicator;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_CREATE;
@@ -46,11 +47,13 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignments;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.CreateZoneEventParameters;
+import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
@@ -73,6 +76,7 @@ import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterNode;
 
 /**
@@ -389,18 +393,32 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
      * @param partitionIds Partitions to stop.
      */
     private void cleanUpPartitionsResources(Set<ReplicationGroupId> partitionIds) {
-        try {
-            var stopReplicaFutures = new CompletableFuture<?>[partitionIds.size()];
+        CompletableFuture<Void> future = runAsync(() -> {
+            Stream.Builder<ManuallyCloseable> stopping = Stream.builder();
 
-            int i = 0;
+            stopping.add(() -> {
+                var stopReplicaFutures = new CompletableFuture<?>[partitionIds.size()];
 
-            for (ReplicationGroupId zone : partitionIds) {
-                stopReplicaFutures[i++] = stopPartition(zone);
+                int i = 0;
+
+                for (ReplicationGroupId partitionId : partitionIds) {
+                    stopReplicaFutures[i++] = stopPartition(partitionId);
+                }
+
+                allOf(stopReplicaFutures).get(10, TimeUnit.SECONDS);
+            });
+
+            try {
+                IgniteUtils.closeAllManually(stopping.build());
+            } catch (Throwable t) {
+                LOG.error("Unable to stop partition");
             }
+        }, ioExecutor);
 
-            allOf(stopReplicaFutures).get(10, TimeUnit.SECONDS);
+        try {
+            future.get(30, TimeUnit.SECONDS);
         } catch (InterruptedException | ExecutionException | TimeoutException e) {
-            LOG.error("Unable to clean partitions resources", e);
+            LOG.error("Unable to clean zones resources", e);
         }
     }
 }
