@@ -22,10 +22,10 @@ package org.apache.ignite.example.storage;
  *
  * <p>To run the example, please do the following:
  * <ol>
- *     <li>Open the Ignite 3 project in your IDE of choice.</li>
+ *     <li>Open the Ignite project in your IDE of choice.</li>
  *     <li>
- *         Download the Ignite 3 ZIP packaging with DB and CLI parts.
- *         Or build them from the Ignite 3 sources (see {@code DEVNOTES.md}).
+ *         Download the Ignite ZIP packaging with DB and CLI parts.
+ *         Or build them from Ignite sources (see {@code DEVNOTES.md}).
  *         Unpack.
  *     </li>
  *     <li>
@@ -45,7 +45,7 @@ package org.apache.ignite.example.storage;
  *         {@code ${IGNITE_HOME}/bin/ignite3db start}
  *     </li>
  *     <li>
- *         Initialize the cluster using Ignite 3 CLI from the CLI part:<br>
+ *         Initialize the cluster using Ignite CLI from the CLI part:<br>
  *         {@code $IGNITE_CLI_HOME/bin/ignite3 cluster init --name myCluster1 --metastorage-group defaultNode
  *         --cluster-management-group defaultNode}
  *     </li>
