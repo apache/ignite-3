@@ -98,7 +98,7 @@ class BlobStorageTest extends BaseIgniteAbstractTest {
     void allocatesOnlyRequiredNumberOfPages() throws Exception {
         blobStorage.addBlob(new byte[(int) (PAGE_SIZE * 1.5)]);
 
-        verify(pageMemory, times(2)).allocatePage(anyInt(), anyInt(), anyByte());
+        verify(pageMemory, times(2)).allocatePageNoReuse(anyInt(), anyInt(), anyByte());
     }
 
     @Test
@@ -107,7 +107,7 @@ class BlobStorageTest extends BaseIgniteAbstractTest {
 
         blobStorage.updateBlob(pageId, new byte[(int) (PAGE_SIZE * 2.5)]);
 
-        verify(pageMemory, times(3)).allocatePage(anyInt(), anyInt(), anyByte());
+        verify(pageMemory, times(3)).allocatePageNoReuse(anyInt(), anyInt(), anyByte());
     }
 
     @Test
@@ -116,7 +116,7 @@ class BlobStorageTest extends BaseIgniteAbstractTest {
 
         blobStorage.updateBlob(pageId, new byte[(int) (PAGE_SIZE * 0.5)]);
 
-        verify(pageMemory, times(2)).allocatePage(anyInt(), anyInt(), anyByte());
+        verify(pageMemory, times(2)).allocatePageNoReuse(anyInt(), anyInt(), anyByte());
     }
 
     @Test
@@ -162,7 +162,7 @@ class BlobStorageTest extends BaseIgniteAbstractTest {
 
         blobStorage.updateBlob(pageId, new byte[0]);
 
-        verify(pageMemory, times(3)).allocatePage(anyInt(), anyInt(), anyByte());
+        verify(pageMemory, times(3)).allocatePageNoReuse(anyInt(), anyInt(), anyByte());
 
         verify(reuseList).addForRecycle(reuseBagCaptor.capture());
 

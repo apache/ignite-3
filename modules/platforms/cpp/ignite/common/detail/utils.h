@@ -15,16 +15,44 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory.configuration.schema;
+#pragma once
 
-import static org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema.UNSAFE_MEMORY_ALLOCATOR_TYPE;
+#include <ignite/common/ignite_error.h>
 
-import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
+#include <future>
+#include <memory>
+#include <utility>
+
+namespace ignite::detail {
 
 /**
- * Memory allocator that allocates data in offheap using {@link sun.misc.Unsafe}.
+ * Make future error.
+ *
+ * @tparam T Value type.
+ * @param err Error.
+ * @return Failed future with the specified error.
  */
-@PolymorphicConfigInstance(UNSAFE_MEMORY_ALLOCATOR_TYPE)
-public class UnsafeMemoryAllocatorConfigurationSchema extends MemoryAllocatorConfigurationSchema {
-    public static final String UNSAFE_MEMORY_ALLOCATOR_TYPE = "unsafe";
+template<typename T>
+std::future<T> make_future_error(ignite_error err) {
+    std::promise<T> promise;
+    promise.set_exception(std::make_exception_ptr(std::move(err)));
+
+    return promise.get_future();
 }
+
+/**
+ * Make future value.
+ *
+ * @tparam T Value type.
+ * @param value Value.
+ * @return Failed future with the specified error.
+ */
+template<typename T>
+std::future<T> make_future_value(T value) {
+    std::promise<T> promise;
+    promise.set_value(std::move(value));
+
+    return promise.get_future();
+}
+
+} // namespace ignite::detail

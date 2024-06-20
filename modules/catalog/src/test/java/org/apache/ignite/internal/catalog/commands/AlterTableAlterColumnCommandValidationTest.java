@@ -19,7 +19,10 @@ package org.apache.ignite.internal.catalog.commands;
 
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.initializeColumnWithDefaults;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
+import static org.apache.ignite.sql.ColumnType.DURATION;
+import static org.apache.ignite.sql.ColumnType.PERIOD;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -306,8 +309,10 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
         );
     }
 
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-15200
+    //  Include DURATION and PERIOD types after these types are supported.
     @ParameterizedTest
-    @EnumSource(mode = Mode.EXCLUDE, value = ColumnType.class, names = {"DECIMAL", "NULL"})
+    @EnumSource(mode = Mode.EXCLUDE, value = ColumnType.class, names = {"DECIMAL", "NULL", "DURATION", "PERIOD"})
     void precisionCannotBeChangedIfTypeIsNotDecimal(ColumnType type) {
         String tableName = "TEST";
         String columnName = "VAL";
@@ -421,8 +426,10 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
         );
     }
 
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-15200
+    //  Include DURATION and PERIOD types after these types are supported.
     @ParameterizedTest
-    @EnumSource(mode = Mode.EXCLUDE, value = ColumnType.class, names = {"STRING", "BYTE_ARRAY", "NULL"})
+    @EnumSource(mode = Mode.EXCLUDE, value = ColumnType.class, names = {"STRING", "BYTE_ARRAY", "NULL", "DURATION", "PERIOD"})
     void lengthCannotBeChangedForNonVariableTypes(ColumnType type) {
         String tableName = "TEST";
         String columnName = "VAL";
@@ -671,10 +678,63 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
         );
     }
 
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-15200
+    //  Remove this after interval type support is added.
+    @ParameterizedTest
+    @EnumSource(value = ColumnType.class, names = {"PERIOD", "DURATION"}, mode = Mode.INCLUDE)
+    void rejectIntervalTypes(ColumnType columnType) {
+        String error = format("Column of type '{}' cannot be persisted [col=P]", columnType);
+
+        {
+            ColumnParams val = ColumnParams.builder()
+                    .name("P")
+                    .type(columnType)
+                    .precision(2)
+                    .nullable(false)
+                    .build();
+
+            AlterTableAddColumnCommandBuilder builder = AlterTableAddColumnCommand.builder()
+                    .tableName("T")
+                    .schemaName(SCHEMA_NAME)
+                    .columns(List.of(val));
+
+            assertThrows(
+                    CatalogValidationException.class,
+                    builder::build,
+                    error
+            );
+        }
+
+        {
+            ColumnParams val = ColumnParams.builder()
+                    .name("P")
+                    .type(columnType)
+                    .precision(2)
+                    .nullable(true)
+                    .build();
+
+            AlterTableAddColumnCommandBuilder builder = AlterTableAddColumnCommand.builder()
+                    .tableName("T")
+                    .schemaName(SCHEMA_NAME)
+                    .columns(List.of(val));
+
+            assertThrows(
+                    CatalogValidationException.class,
+                    builder::build,
+                    error
+            );
+        }
+    }
+
     private static Stream<Arguments> invalidTypeConversionPairs() {
         List<Arguments> arguments = new ArrayList<>();
         for (ColumnType from : ColumnType.values()) {
             for (ColumnType to : ColumnType.values()) {
+                // TODO: https://issues.apache.org/jira/browse/IGNITE-15200
+                //  Remove this after interval type support is added.
+                if (from == DURATION || to == DURATION || from == PERIOD || to == PERIOD) {
+                    continue;
+                }
                 if (from != to && !CatalogUtils.isSupportedColumnTypeChange(from, to) && from != ColumnType.NULL) {
                     arguments.add(Arguments.of(from, to));
                 }

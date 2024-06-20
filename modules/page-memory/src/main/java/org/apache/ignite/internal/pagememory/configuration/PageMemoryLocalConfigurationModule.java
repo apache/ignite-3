@@ -23,7 +23,6 @@ import java.util.List;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfigurationSchema;
-import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
 import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileConfigurationSchema;
 
 /**
@@ -31,18 +30,16 @@ import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMe
  */
 @AutoService(ConfigurationModule.class)
 public class PageMemoryLocalConfigurationModule implements ConfigurationModule {
-    /** {@inheritDoc} */
     @Override
     public ConfigurationType type() {
         return ConfigurationType.LOCAL;
     }
 
-    /** {@inheritDoc} */
     @Override
     public Collection<Class<?>> polymorphicSchemaExtensions() {
         return List.of(
                 PersistentPageMemoryProfileConfigurationSchema.class,
-                VolatilePageMemoryProfileConfigurationSchema.class,
-                UnsafeMemoryAllocatorConfigurationSchema.class);
+                VolatilePageMemoryProfileConfigurationSchema.class
+        );
     }
 }

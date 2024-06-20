@@ -1,6 +1,7 @@
-# name: test/sql/cast/test_string_cast.test
+# name: test/sql/cast/test_cast_string.test
 # description: Test string casts
 # group: [cast]
+# feature: SQL F201(CAST function)
 
 statement ok
 PRAGMA enable_verification
@@ -53,3 +54,14 @@ SELECT 2::DOUBLE::VARCHAR, 0.5::DOUBLE::VARCHAR, (-128.5)::DOUBLE::VARCHAR
 2
 0.5
 -128.5
+
+statement error: Cast function cannot convert value of type VARCHAR to type BINARY(1)
+SELECT CAST('abc'::VARCHAR AS BINARY)
+
+statement error: Cast function cannot convert value of type VARCHAR to type VARBINARY
+SELECT CAST('abc'::VARCHAR AS VARBINARY)
+
+query T
+SELECT CAST('c4a0327c-44be-416d-ae90-75c05079789f'::VARCHAR AS UUID)
+----
+c4a0327c-44be-416d-ae90-75c05079789f

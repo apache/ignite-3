@@ -86,9 +86,9 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
     }
 
     private IndexMetaTree createIndexMetaTree(int partitionId) {
-        long metaPageId = dataRegion.pageMemory().allocatePage(getTableId(), partitionId, FLAG_AUX);
-
         try {
+            long metaPageId = dataRegion.pageMemory().allocatePage(dataRegion.reuseList(), getTableId(), partitionId, FLAG_AUX);
+
             return new IndexMetaTree(
                     getTableId(),
                     Integer.toString(getTableId()),
@@ -106,9 +106,9 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
     }
 
     private GcQueue createGarbageCollectionTree(int partitionId) {
-        long metaPageId = dataRegion.pageMemory().allocatePage(getTableId(), partitionId, FLAG_AUX);
-
         try {
+            long metaPageId = dataRegion.pageMemory().allocatePage(dataRegion().reuseList(), getTableId(), partitionId, FLAG_AUX);
+
             return new GcQueue(
                     getTableId(),
                     Integer.toString(getTableId()),
@@ -143,7 +143,7 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
      */
     private VersionChainTree createVersionChainTree(int partId) throws StorageException {
         try {
-            long metaPageId = dataRegion.pageMemory().allocatePage(getTableId(), partId, FLAG_AUX);
+            long metaPageId = dataRegion.pageMemory().allocatePage(dataRegion().reuseList(), getTableId(), partId, FLAG_AUX);
 
             return new VersionChainTree(
                     getTableId(),

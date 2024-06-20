@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include <ignite/common/factory.h>
+#include <ignite/common/detail/factory.h>
 #include <ignite/common/ignite_error.h>
 #include <ignite/network/data_buffer.h>
 

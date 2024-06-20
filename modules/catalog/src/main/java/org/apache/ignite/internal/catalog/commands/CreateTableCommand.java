@@ -178,6 +178,8 @@ public class CreateTableCommand extends AbstractTableCommand {
 
         for (ColumnParams column : columns) {
             boolean partOfPk = primaryKey.columns().contains(column.name());
+
+            CatalogUtils.ensureTypeCanBeStored(column.name(), column.type());
             if (partOfPk) {
                 CatalogUtils.ensureSupportedDefault(column.name(), column.type(), column.defaultValueDefinition());
             } else {

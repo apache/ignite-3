@@ -151,7 +151,6 @@ import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfigurationSchema;
-import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
 import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileConfigurationSchema;
 import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
@@ -1026,8 +1025,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     ),
                     List.of(
                             PersistentPageMemoryProfileConfigurationSchema.class,
-                            VolatilePageMemoryProfileConfigurationSchema.class,
-                            UnsafeMemoryAllocatorConfigurationSchema.class
+                            VolatilePageMemoryProfileConfigurationSchema.class
                     )
             );
 

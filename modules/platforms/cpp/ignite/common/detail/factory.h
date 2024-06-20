@@ -19,7 +19,7 @@
 
 #include <memory>
 
-namespace ignite {
+namespace ignite::detail {
 
 /**
  * Factory class.
@@ -64,4 +64,4 @@ public:
     [[nodiscard]] std::unique_ptr<TB> build() override { return std::make_unique<TC>(); }
 };
 
-} // namespace ignite
+} // namespace ignite::detail

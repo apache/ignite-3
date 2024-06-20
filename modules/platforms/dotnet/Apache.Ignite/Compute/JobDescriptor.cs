@@ -15,18 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory.configuration.schema;
+namespace Apache.Ignite.Compute;
 
-import static org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema.UNSAFE_MEMORY_ALLOCATOR_TYPE;
+using System.Collections.Generic;
 
-import org.apache.ignite.configuration.annotation.PolymorphicConfig;
-import org.apache.ignite.configuration.annotation.PolymorphicId;
-
-/**
- * Configuration schema for memory allocation strategies.
- */
-@PolymorphicConfig
-public class MemoryAllocatorConfigurationSchema {
-    @PolymorphicId(hasDefault = true)
-    public String type = UNSAFE_MEMORY_ALLOCATOR_TYPE;
-}
+/// <summary>
+/// Compute job descriptor.
+/// </summary>
+/// <param name="JobClassName">Java class name of the job to execute.</param>
+/// <param name="DeploymentUnits">Deployment units.</param>
+/// <param name="Options">Options.</param>
+public sealed record JobDescriptor(
+    string JobClassName,
+    IEnumerable<DeploymentUnit>? DeploymentUnits = null,
+    JobExecutionOptions? Options = null);
