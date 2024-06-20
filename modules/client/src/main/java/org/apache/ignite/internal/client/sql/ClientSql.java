@@ -246,15 +246,7 @@ public class ClientSql implements IgniteSql {
                 //noinspection resource
                 return ClientLazyTransaction.ensureStarted(transaction, ch, null)
                         .thenCompose(tx -> tx.channel().serviceAsync(ClientOp.SQL_EXEC, payloadWriter, payloadReader))
-                        .exceptionally(e -> {
-                            Throwable ex = unwrapCause(e);
-                            if (ex instanceof TransactionException) {
-                                var te = (TransactionException) ex;
-                                throw new SqlException(te.traceId(), te.code(), te.getMessage(), te);
-                            }
-
-                            throw ExceptionUtils.sneakyThrow(ex);
-                        });
+                        .exceptionally(ClientSql::handleException);
             } catch (TransactionException e) {
                 return CompletableFuture.failedFuture(new SqlException(e.traceId(), e.code(), e.getMessage(), e));
             }
@@ -288,7 +280,7 @@ public class ClientSql implements IgniteSql {
             w.out().packLong(ch.observableTimestamp());
         };
 
-        return ch.serviceAsync(ClientOp.SQL_EXEC_BATCH, payloadWriter, r -> {
+        PayloadReader<BatchResultInternal> payloadReader = r -> {
             ClientMessageUnpacker unpacker = r.in();
 
             unpacker.unpackNil(); // resourceId
@@ -301,25 +293,21 @@ public class ClientSql implements IgniteSql {
                 int errCode = unpacker.unpackInt();
                 String message = unpacker.tryUnpackNil() ? null : unpacker.unpackString();
 
-                return new BatchResult(updateCounters, errCode, message);
-            } else {
-                return new BatchResult(updateCounters, null, null);
-            }
-        }).thenApply((res) -> {
-            if (res.errCode != null) {
-                throw new SqlBatchException(UUID.randomUUID(), res.errCode, res.updCounters, res.message);
+                return new BatchResultInternal(updateCounters, errCode, message);
             }
 
-            return res.updCounters;
-        }).exceptionally(e -> {
-            Throwable ex = unwrapCause(e);
-            if (ex instanceof TransactionException) {
-                var te = (TransactionException) ex;
-                throw new SqlException(te.traceId(), te.code(), te.getMessage(), te);
-            }
+            return new BatchResultInternal(updateCounters, null, null);
+        };
 
-            throw ExceptionUtils.sneakyThrow(ex);
-        });
+        return ch.serviceAsync(ClientOp.SQL_EXEC_BATCH, payloadWriter, payloadReader)
+                .thenApply((batchRes) -> {
+                    if (batchRes.errCode != null) {
+                        throw new SqlBatchException(UUID.randomUUID(), batchRes.errCode, batchRes.updCounters, batchRes.message);
+                    }
+
+                    return batchRes.updCounters;
+                })
+                .exceptionally(ClientSql::handleException);
     }
 
     /** {@inheritDoc} */
@@ -366,12 +354,22 @@ public class ClientSql implements IgniteSql {
         w.out().packBinaryTuple(builder);
     }
 
-    private static class BatchResult {
+    private static <T> T handleException(Throwable e) {
+        Throwable ex = unwrapCause(e);
+        if (ex instanceof TransactionException) {
+            var te = (TransactionException) ex;
+            throw new SqlException(te.traceId(), te.code(), te.getMessage(), te);
+        }
+
+        throw ExceptionUtils.sneakyThrow(ex);
+    }
+
+    private static class BatchResultInternal {
         final long[] updCounters;
         final Integer errCode;
         final String message;
 
-        BatchResult(long[] updCounters,  @Nullable Integer errCode, @Nullable String message) {
+        BatchResultInternal(long[] updCounters,  @Nullable Integer errCode, @Nullable String message) {
             this.updCounters = updCounters;
             this.errCode = errCode;
             this.message = message;

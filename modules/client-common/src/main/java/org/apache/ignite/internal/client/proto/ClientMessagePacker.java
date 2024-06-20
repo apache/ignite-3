@@ -639,7 +639,7 @@ public class ClientMessagePacker implements AutoCloseable {
             return;
         }
 
-        int rowLen = lists.get(0).size();;
+        int rowLen = lists.get(0).size();
 
         packInt(rowLen);
         packInt(lists.size());
