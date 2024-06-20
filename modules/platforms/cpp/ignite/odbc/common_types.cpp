@@ -302,6 +302,7 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::NODES_NOT_FOUND:
         case error::code::ILLEGAL_PARTITION_ID:
         case error::code::PARTITION_STATE:
+        case error::code::CLUSTER_NOT_IDLE:
             return sql_state::SHY000_GENERAL_ERROR;
     }
 
