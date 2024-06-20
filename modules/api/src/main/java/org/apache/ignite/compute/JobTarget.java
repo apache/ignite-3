@@ -33,6 +33,8 @@ public interface JobTarget {
     /**
      * Creates a job target for a specific node.
      *
+     * <p>This target determines that a job should be executed on a given node.
+     *
      * @param node Node.
      * @return Job target.
      */
