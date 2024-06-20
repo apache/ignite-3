@@ -260,11 +260,12 @@ public class ClientHandlerModule implements IgniteComponent {
 
     /** Enables request handling. */
     public void enable() {
-        Channel channel0 = channel;
+        Channel ch = channel;
+        if (ch == null) {
+            throw new IgniteInternalException(INTERNAL_ERR, "ClientHandlerModule has not been started");
+        }
 
-        assert channel0 != null;
-
-        channel0.config().setAutoRead(true);
+        ch.config().setAutoRead(true);
     }
 
     /**
