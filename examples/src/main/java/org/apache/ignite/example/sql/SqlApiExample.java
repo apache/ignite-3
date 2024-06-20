@@ -30,6 +30,41 @@ import org.apache.ignite.table.mapper.Mapper;
 
 /**
  * Examples of using SQL API.
+ * <p>To run the example, please do the following:
+ * <ol>
+ *     <li>Open the Ignite 3 project in your IDE of choice.</li>
+ *     <li>
+ *         Download the Ignite 3 ZIP packaging with DB and CLI parts.
+ *         Or build them from the Ignite 3 sources (see {@code DEVNOTES.md}).
+ *         Unpack.
+ *     </li>
+ *     <li>
+ *         Prepare the environment variables:<br>
+ *         <code>
+ *             export IGNITE_HOME=/path/to/ignite3-db-VERSION<br>
+ *             export IGNITE_CLI_HOME=/path/to/ignite3-cli-VERSION<br>
+ *             export IGNITE_SRC_HOME=/path/to/ignite/sources
+ *         </code>
+ *     </li>
+ *     <li>
+ *         Override the default configuration file:<br>
+ *         {@code echo "CONFIG_FILE=$IGNITE_SRC_HOME/examples/config/ignite-config.conf" >> $IGNITE_HOME/etc/vars.env}
+ *     </li>
+ *     <li>
+ *         Start an Ignite node using the startup script from the DB part:<br>
+ *         {@code ${IGNITE_HOME}/bin/ignite3db start}
+ *     </li>
+ *     <li>
+ *         Initialize the cluster using Ignite 3 CLI from the CLI part:<br>
+ *         {@code $IGNITE_CLI_HOME/bin/ignite3 cluster init --name myCluster1 --metastorage-group defaultNode
+ *         --cluster-management-group defaultNode}
+ *     </li>
+ *     <li>Run the example from the IDE.</li>
+ *     <li>
+ *         Stop the Ignite node using the startup script:<br>
+ *         {@code ${IGNITE_HOME}/bin/ignite3db stop}
+ *     </li>
+ * </ol>
  */
 public class SqlApiExample {
     /**
