@@ -95,10 +95,10 @@ public class ClientCompute implements IgniteCompute {
         Objects.requireNonNull(descriptor);
 
         if (target instanceof NodesJobTarget) {
-            return new ClientJobExecution<>(
-                    ch,
-                    executeOnNodesAsync(
-                            ((NodesJobTarget) target).nodes(),
+            NodesJobTarget nodesJobTarget = (NodesJobTarget) target;
+
+            return new ClientJobExecution<>(ch, executeOnNodesAsync(
+                            nodesJobTarget.nodes(),
                             descriptor.units(),
                             descriptor.jobClassName(),
                             descriptor.options(),
@@ -119,9 +119,7 @@ public class ClientCompute implements IgniteCompute {
                         descriptor.options(),
                         args));
             } else {
-                return new ClientJobExecution<>(
-                        ch,
-                        doExecuteColocatedAsync(
+                return new ClientJobExecution<>(ch, doExecuteColocatedAsync(
                                 colocatedTarget.tableName(),
                                 (Tuple) colocatedTarget.key(),
                                 descriptor.units(),
@@ -412,6 +410,7 @@ public class ClientCompute implements IgniteCompute {
      * @return Result of the job submission.
      */
     private static SubmitResult unpackSubmitResult(PayloadInputChannel ch) {
+        //noinspection DataFlowIssue (reviewed)
         return new SubmitResult(ch.in().unpackUuid(), ch.notificationFuture());
     }
 
@@ -432,6 +431,7 @@ public class ClientCompute implements IgniteCompute {
             jobIds.add(ch.in().unpackUuid());
         }
 
+        //noinspection DataFlowIssue (reviewed)
         return new SubmitTaskResult(jobId, jobIds, ch.notificationFuture());
     }
 
