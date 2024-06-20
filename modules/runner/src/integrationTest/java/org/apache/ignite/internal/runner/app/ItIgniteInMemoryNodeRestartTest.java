@@ -58,6 +58,7 @@ import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
@@ -159,7 +160,7 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
     /**
      * Restarts an in-memory node that is not a leader of the table's partition.
      */
-    @Test
+    @RepeatedTest(50)
     public void inMemoryNodeRestartNotLeader(TestInfo testInfo) throws Exception {
         // Start three nodes, the first one is going to be CMG and MetaStorage leader.
         IgniteImpl ignite = startNode(testInfo, 0);
@@ -220,7 +221,9 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
 
         List<String> partitionAssignments = assignments.get(0);
 
-        return partitionAssignments.contains(restartingNodeConsistentId);
+        return !assignments.isEmpty()
+                && partitionAssignments != null
+                && partitionAssignments.contains(restartingNodeConsistentId);
     }
 
     private static boolean isRaftNodeStarted(TableViewInternal table, Loza loza) {
