@@ -23,7 +23,7 @@ import org.apache.ignite.table.mapper.Mapper;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Colocated job execution target.
+ * Colocated job execution target. Indicates a node that hosts the data for the specified key in the provided table.
  */
 public class ColocatedJobTarget implements JobTarget {
     private final String tableName;
