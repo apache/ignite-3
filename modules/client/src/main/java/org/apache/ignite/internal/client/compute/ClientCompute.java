@@ -97,7 +97,7 @@ public class ClientCompute implements IgniteCompute {
         if (target instanceof AnyNodeJobTarget) {
             AnyNodeJobTarget anyNodeJobTarget = (AnyNodeJobTarget) target;
 
-            return new ClientJobExecution<>(ch, executeOnNodesAsync(
+            return new ClientJobExecution<>(ch, executeOnRandomNodeAsync(
                             anyNodeJobTarget.nodes(),
                             descriptor.units(),
                             descriptor.jobClassName(),
@@ -189,7 +189,7 @@ public class ClientCompute implements IgniteCompute {
         Map<ClusterNode, JobExecution<R>> map = new HashMap<>(nodes.size());
 
         for (ClusterNode node : nodes) {
-            JobExecution<R> execution = new ClientJobExecution<>(ch, executeOnNodesAsync(
+            JobExecution<R> execution = new ClientJobExecution<>(ch, executeOnRandomNodeAsync(
                     Set.of(node), descriptor.units(), descriptor.jobClassName(), descriptor.options(), args
             ));
             if (map.put(node, execution) != null) {
@@ -227,7 +227,7 @@ public class ClientCompute implements IgniteCompute {
         );
     }
 
-    private CompletableFuture<SubmitResult> executeOnNodesAsync(
+    private CompletableFuture<SubmitResult> executeOnRandomNodeAsync(
             Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,
