@@ -97,8 +97,8 @@ public class ClientCompute implements IgniteCompute {
         if (target instanceof NodesJobTarget) {
             return new ClientJobExecution<>(
                     ch,
-                    executeOnNodesAsync((
-                                    (NodesJobTarget) target).nodes(),
+                    executeOnNodesAsync(
+                            ((NodesJobTarget) target).nodes(),
                             descriptor.units(),
                             descriptor.jobClassName(),
                             descriptor.options(),
