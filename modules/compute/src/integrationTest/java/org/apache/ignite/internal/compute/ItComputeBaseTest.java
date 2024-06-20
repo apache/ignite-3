@@ -121,7 +121,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
         Ignite entryNode = node(0);
 
         ExecutionException ex = assertThrows(ExecutionException.class, () -> entryNode.compute().executeAsync(
-                        JobTarget.anyNode(node(1).node(), node(2).node()), JobDescriptor.builder(jobClassName).units(units()).build())
+                JobTarget.anyNode(node(1).node(), node(2).node()), JobDescriptor.builder(jobClassName).units(units()).build())
                 .get(1, TimeUnit.SECONDS));
 
         assertTraceableException(ex, ComputeException.class, errorCode, msg);
