@@ -20,29 +20,32 @@ package org.apache.ignite.example.storage;
 /**
  * This example demonstrates a usage of the PageMemory storage engine configured with a persistent data region.
  *
- * <p>To run the example, do the following:
+ * <p>To run the example, please do the following:
  * <ol>
  *     <li>Import the examples project into your IDE.</li>
+ *     <li>Download the Ignite 3 ZIP packaging with DB and CLI parts.</li>
  *     <li>
- *         Download and prepare artifacts for running an Ignite node using the CLI tool (if not done yet):<br>
- *         {@code ignite bootstrap}
+ *         Prepare the environment variables:<br>
+ *         {@code export IGNITE_HOME=/path/to/ignite3-db-VERSION; export IGNITE_CLI_HOME=/path/to/ignite3-cli-VERSION;
+ *         export IGNITE_SRC_HOME=/path/to/ignite/sources}
  *     </li>
  *     <li>
- *         Start an Ignite node using the CLI tool:<br>
- *         {@code ignite node start --config=$IGNITE_HOME/examples/config/ignite-config.conf my-first-node}
+ *         Override the default configuration file:<br>
+ *         {@code echo "CONFIG_FILE=$IGNITE_SRC_HOME/examples/config/ignite-config.conf" >> $IGNITE_HOME/etc/vars.env}
  *     </li>
  *     <li>
- *         Cluster initialization using the CLI tool (if not done yet):<br>
- *         {@code ignite cluster init --name=ignite-cluster --node-endpoint=localhost:10300 --meta-storage-node=my-first-node}
+ *         Start an Ignite node using the startup script from the DB part:<br>
+ *         {@code ${IGNITE_HOME}/bin/ignite3db start}
  *     </li>
  *     <li>
- *         Add configuration for a persistent data region of the PageMemory storage engine using the CLI tool (if not done yet):<br>
- *         {@code ignite cluster config update "aipersist.regions.persistent"}
+ *         Initialize the cluster using Ignite 3 CLI from the CLI part:<br>
+ *         {@code $IGNITE_CLI_HOME/bin/ignite3 cluster init --name myCluster1 --metastorage-group defaultNode
+ *         --cluster-management-group defaultNode}
  *     </li>
  *     <li>Run the example in the IDE.</li>
  *     <li>
- *         Stop the Ignite node using the CLI tool:<br>
- *         {@code ignite node stop my-first-node}
+ *         Stop the Ignite node using the startup script:<br>
+ *         {@code ${IGNITE_HOME}/bin/ignite3db stop}
  *     </li>
  * </ol>
  */
