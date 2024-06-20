@@ -39,7 +39,7 @@ import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
-import org.apache.ignite.compute.ColocatedExecutionTarget;
+import org.apache.ignite.compute.ColocatedJobTarget;
 import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.IgniteCompute;
@@ -49,7 +49,7 @@ import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.compute.NodeNotFoundException;
-import org.apache.ignite.compute.NodesJobTarget;
+import org.apache.ignite.compute.AnyNodeJobTarget;
 import org.apache.ignite.compute.task.MapReduceJob;
 import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -102,14 +102,14 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
         Objects.requireNonNull(target);
         Objects.requireNonNull(descriptor);
 
-        if (target instanceof NodesJobTarget) {
-            Set<ClusterNode> nodes = ((NodesJobTarget) target).nodes();
+        if (target instanceof AnyNodeJobTarget) {
+            Set<ClusterNode> nodes = ((AnyNodeJobTarget) target).nodes();
 
             return executeAsyncWithFailover(nodes, descriptor.units(), descriptor.jobClassName(), descriptor.options(), args);
         }
 
-        if (target instanceof ColocatedExecutionTarget) {
-            ColocatedExecutionTarget colocatedTarget = (ColocatedExecutionTarget) target;
+        if (target instanceof ColocatedJobTarget) {
+            ColocatedJobTarget colocatedTarget = (ColocatedJobTarget) target;
             var mapper = (Mapper<? super Object>) colocatedTarget.keyMapper();
             String tableName = colocatedTarget.tableName();
             Object key = colocatedTarget.key();

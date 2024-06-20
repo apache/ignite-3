@@ -25,14 +25,14 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Colocated job execution target.
  */
-public class ColocatedExecutionTarget implements JobTarget {
+public class ColocatedJobTarget implements JobTarget {
     private final String tableName;
 
     private final Object key;
 
     private final @Nullable Mapper<?> keyMapper;
 
-    ColocatedExecutionTarget(String tableName, Object key, @Nullable Mapper<?> keyMapper) {
+    ColocatedJobTarget(String tableName, Object key, @Nullable Mapper<?> keyMapper) {
         Objects.requireNonNull(tableName);
         Objects.requireNonNull(key);
 

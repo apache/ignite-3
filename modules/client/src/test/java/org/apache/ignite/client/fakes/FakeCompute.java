@@ -39,7 +39,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.compute.ColocatedExecutionTarget;
+import org.apache.ignite.compute.ColocatedJobTarget;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.IgniteCompute;
@@ -49,7 +49,7 @@ import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.compute.JobState;
 import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.compute.JobTarget;
-import org.apache.ignite.compute.NodesJobTarget;
+import org.apache.ignite.compute.AnyNodeJobTarget;
 import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.internal.compute.ComputeUtils;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
@@ -130,10 +130,10 @@ public class FakeCompute implements IgniteComputeInternal {
 
     @Override
     public <R> JobExecution<R> submit(JobTarget target, JobDescriptor descriptor, Object... args) {
-        if (target instanceof NodesJobTarget) {
-            Set<ClusterNode> nodes = ((NodesJobTarget) target).nodes();
+        if (target instanceof AnyNodeJobTarget) {
+            Set<ClusterNode> nodes = ((AnyNodeJobTarget) target).nodes();
             return executeAsyncWithFailover(nodes, descriptor.units(), descriptor.jobClassName(), descriptor.options(), args);
-        } else if (target instanceof ColocatedExecutionTarget) {
+        } else if (target instanceof ColocatedJobTarget) {
             return jobExecution(future != null ? future : completedFuture((R) nodeName));
         } else {
             throw new IllegalArgumentException("Unsupported job target: " + target);

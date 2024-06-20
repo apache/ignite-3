@@ -35,14 +35,14 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import org.apache.ignite.compute.ColocatedExecutionTarget;
+import org.apache.ignite.compute.ColocatedJobTarget;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.compute.JobTarget;
-import org.apache.ignite.compute.NodesJobTarget;
+import org.apache.ignite.compute.AnyNodeJobTarget;
 import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.internal.client.ClientUtils;
 import org.apache.ignite.internal.client.PayloadInputChannel;
@@ -94,19 +94,19 @@ public class ClientCompute implements IgniteCompute {
         Objects.requireNonNull(target);
         Objects.requireNonNull(descriptor);
 
-        if (target instanceof NodesJobTarget) {
-            NodesJobTarget nodesJobTarget = (NodesJobTarget) target;
+        if (target instanceof AnyNodeJobTarget) {
+            AnyNodeJobTarget anyNodeJobTarget = (AnyNodeJobTarget) target;
 
             return new ClientJobExecution<>(ch, executeOnNodesAsync(
-                            nodesJobTarget.nodes(),
+                            anyNodeJobTarget.nodes(),
                             descriptor.units(),
                             descriptor.jobClassName(),
                             descriptor.options(),
                             args));
         }
 
-        if (target instanceof ColocatedExecutionTarget) {
-            ColocatedExecutionTarget colocatedTarget = (ColocatedExecutionTarget) target;
+        if (target instanceof ColocatedJobTarget) {
+            ColocatedJobTarget colocatedTarget = (ColocatedJobTarget) target;
             var mapper = (Mapper<? super Object>) colocatedTarget.keyMapper();
 
             if (mapper != null) {

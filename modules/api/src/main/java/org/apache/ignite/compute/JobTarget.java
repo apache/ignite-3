@@ -35,7 +35,7 @@ public interface JobTarget {
      * @return Job target.
      */
     static JobTarget node(ClusterNode node) {
-        return new NodesJobTarget(Set.of(node));
+        return new AnyNodeJobTarget(Set.of(node));
     }
 
     /**
@@ -45,7 +45,7 @@ public interface JobTarget {
      * @return Job target.
      */
     static JobTarget anyNode(ClusterNode... nodes) {
-        return new NodesJobTarget(Set.of(nodes));
+        return new AnyNodeJobTarget(Set.of(nodes));
     }
 
     /**
@@ -55,7 +55,7 @@ public interface JobTarget {
      * @return Job target.
      */
     static JobTarget anyNode(Collection<ClusterNode> nodes) {
-        return new NodesJobTarget(new HashSet<>(nodes));
+        return new AnyNodeJobTarget(new HashSet<>(nodes));
     }
 
     /**
@@ -65,7 +65,7 @@ public interface JobTarget {
      * @return Job target.
      */
     static JobTarget anyNode(Set<ClusterNode> nodes) {
-        return new NodesJobTarget(nodes);
+        return new AnyNodeJobTarget(nodes);
     }
 
     /**
@@ -76,7 +76,7 @@ public interface JobTarget {
      * @return Job target.
      */
     static JobTarget colocated(String tableName, Tuple key) {
-        return new ColocatedExecutionTarget(tableName, key, null);
+        return new ColocatedJobTarget(tableName, key, null);
     }
 
     /**
@@ -87,6 +87,6 @@ public interface JobTarget {
      * @return Job target.
      */
     static <K> JobTarget colocated(String tableName, K key, Mapper<K> keyMapper) {
-        return new ColocatedExecutionTarget(tableName, key, keyMapper);
+        return new ColocatedJobTarget(tableName, key, keyMapper);
     }
 }

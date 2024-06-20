@@ -24,10 +24,10 @@ import org.apache.ignite.network.ClusterNode;
 /**
  * Nodes-based job execution target.
  */
-public class NodesJobTarget implements JobTarget {
+public class AnyNodeJobTarget implements JobTarget {
     private final Set<ClusterNode> nodes;
 
-    NodesJobTarget(Set<ClusterNode> nodes) {
+    AnyNodeJobTarget(Set<ClusterNode> nodes) {
         Objects.requireNonNull(nodes);
 
         if (nodes.isEmpty()) {
