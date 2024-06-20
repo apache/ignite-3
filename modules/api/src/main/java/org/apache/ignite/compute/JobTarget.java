@@ -97,6 +97,8 @@ public interface JobTarget {
     /**
      * Creates a colocated job target for a specific table and key with mapper.
      *
+     * <p>This target determines that a job should be executed on the same node that hosts the data for a given key of provided table.
+     *
      * @param tableName Table name.
      * @param key Key.
      * @return Job target.
