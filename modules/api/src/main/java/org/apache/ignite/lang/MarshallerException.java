@@ -36,6 +36,8 @@ public class MarshallerException extends IgniteException {
      */
     public MarshallerException(String msg, @Nullable Throwable cause) {
         super(Common.USER_OBJECT_SERIALIZATION_ERR, msg, cause);
+
+        assert !(cause instanceof MarshallerException) : "FIXME";
     }
 
     /**
