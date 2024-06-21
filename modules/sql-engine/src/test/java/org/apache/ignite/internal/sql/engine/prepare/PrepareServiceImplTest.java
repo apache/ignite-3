@@ -305,8 +305,8 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
         assertEquals(Sql.PLANNING_TIMEOUT_ERR, sqlErr.code(), "Unexpected error: " + sqlErr);
 
         // Cache invalidate does not immediately remove the entry, so we need to wait some time to ensure it is removed.
-        boolean empty = IgniteTestUtils.waitForCondition(() -> cache.keySet().isEmpty(), 1000);
-        assertTrue(empty, "Cache is not empty: " + cache.keySet());
+        boolean empty = IgniteTestUtils.waitForCondition(() -> cache.size() == 0, 1000);
+        assertTrue(empty, "Cache is not empty: " + cache.size());
     }
 
     private static class OptimizationDelay implements PrepareCallback {

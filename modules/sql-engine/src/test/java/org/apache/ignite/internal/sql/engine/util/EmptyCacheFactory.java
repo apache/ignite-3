@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
-import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -84,12 +83,12 @@ public class EmptyCacheFactory implements CacheFactory {
 
         @Override
         public void invalidate(K key) {
-
+            // NO-OP.
         }
 
         @Override
-        public Set<K> keySet() {
-            return Set.of();
+        public int size() {
+            return 0;
         }
     }
 }

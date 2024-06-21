@@ -88,9 +88,9 @@ public interface Cache<K, V> {
     void invalidate(K key);
 
     /**
-     * Returns a set of keys contained in the cache.
+     * Returns the number for entries this cache.
      *
-     * @return Set of cache keys.
+     * @return The number for entries this cache.
      */
-    Set<K> keySet();
+    int size();
 }
