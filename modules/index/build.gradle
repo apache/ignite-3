@@ -73,6 +73,7 @@ dependencies {
     integrationTestImplementation project(':ignite-storage-page-memory')
     integrationTestImplementation project(':ignite-storage-rocksdb')
     integrationTestImplementation project(':ignite-page-memory')
+    integrationTestImplementation project(':ignite-partition-replicator')
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-runner'))
     integrationTestImplementation testFixtures(project(':ignite-sql-engine'))
