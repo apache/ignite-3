@@ -159,6 +159,7 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
     /**
      * Restarts an in-memory node that is not a leader of the table's partition.
      */
+    @Test
     public void inMemoryNodeRestartNotLeader(TestInfo testInfo) throws Exception {
         // Start three nodes, the first one is going to be CMG and MetaStorage leader.
         IgniteImpl ignite = startNode(testInfo, 0);
@@ -199,15 +200,9 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
         InternalTableImpl internalTable = (InternalTableImpl) restartingTable.internalTable();
 
         // Check that it restarts.
-        waitForCondition(
+        assertTrue(waitForCondition(
                 () -> isRaftNodeStarted(table, loza) && solePartitionAssignmentsContain(restartingNodeConsistentId, internalTable),
-                TimeUnit.SECONDS.toMillis(10)
-        );
-
-        assertTrue(isRaftNodeStarted(table, loza), "Raft node of the partition is not started on " + restartingNodeConsistentId);
-        assertTrue(
-                solePartitionAssignmentsContain(restartingNodeConsistentId, internalTable),
-                "Assignments do not contain node " + restartingNodeConsistentId
+                TimeUnit.SECONDS.toMillis(10))
         );
 
         // Check the data rebalanced correctly.
