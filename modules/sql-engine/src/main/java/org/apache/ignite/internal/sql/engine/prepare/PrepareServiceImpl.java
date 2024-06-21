@@ -269,7 +269,7 @@ public class PrepareServiceImpl implements PrepareService {
                 }
         );
 
-        // Remove the callback, when planning has completed, because there is no need to trigger it at later stages.
+        // Remove the callback when planning completes, because there is no need to trigger it at later stages.
         f.thenRun(() -> queryCancel.remove(callback));
 
         return f;
