@@ -21,7 +21,7 @@ import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.convertT
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.compute.JobStatus;
+import org.apache.ignite.compute.JobState;
 import org.apache.ignite.compute.task.TaskExecution;
 import org.jetbrains.annotations.Nullable;
 
@@ -39,7 +39,7 @@ class TaskExecutionWrapper<R> extends JobExecutionWrapper<R> implements TaskExec
     }
 
     @Override
-    public CompletableFuture<List<@Nullable JobStatus>> statusesAsync() {
-        return convertToPublicFuture(delegate.statusesAsync());
+    public CompletableFuture<List<@Nullable JobState>> statesAsync() {
+        return convertToPublicFuture(delegate.statesAsync());
     }
 }

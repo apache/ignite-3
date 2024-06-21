@@ -23,10 +23,10 @@ import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
- * Remote job status request.
+ * Remote job state request.
  */
-@Transferable(ComputeMessageTypes.JOB_STATUS_REQUEST)
-public interface JobStatusRequest extends NetworkMessage {
+@Transferable(ComputeMessageTypes.JOB_STATE_REQUEST)
+public interface JobStateRequest extends NetworkMessage {
     /**
      * Returns job id.
      *

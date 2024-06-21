@@ -17,7 +17,8 @@
 
 package org.apache.ignite.internal.compute.message;
 
-import org.apache.ignite.compute.JobStatus;
+import java.util.Collection;
+import org.apache.ignite.compute.JobState;
 import org.apache.ignite.internal.compute.ComputeMessageTypes;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Marshallable;
@@ -25,24 +26,14 @@ import org.apache.ignite.internal.network.annotations.Transferable;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Remote job status response.
+ * Remote job states response.
  */
-@Transferable(ComputeMessageTypes.JOB_STATUS_RESPONSE)
-public interface JobStatusResponse extends NetworkMessage {
-    /**
-     * Returns job status ({@code null} if the request has failed or the job with requested id doesn't exist).
-     *
-     * @return job status ({@code null} if the request has failed or the job with requested id doesn't exist)
-     */
+@Transferable(ComputeMessageTypes.JOB_STATES_RESPONSE)
+public interface JobStatesResponse extends NetworkMessage {
     @Nullable
     @Marshallable
-    JobStatus status();
+    Collection<JobState> states();
 
-    /**
-     * Returns a {@link Throwable} that was thrown during job status request ({@code null} if the request was successful).
-     *
-     * @return {@link Throwable} that was thrown during job status request ({@code null} if the request was successful)
-     */
     @Nullable
     @Marshallable
     Throwable throwable();

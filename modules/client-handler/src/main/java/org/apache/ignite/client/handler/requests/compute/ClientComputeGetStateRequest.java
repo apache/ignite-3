@@ -19,16 +19,16 @@ package org.apache.ignite.client.handler.requests.compute;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.compute.JobStatus;
+import org.apache.ignite.compute.JobState;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Compute execute request.
+ * Compute get state request.
  */
-public class ClientComputeGetStatusRequest {
+public class ClientComputeGetStateRequest {
     /**
      * Processes the request.
      *
@@ -43,24 +43,24 @@ public class ClientComputeGetStatusRequest {
             IgniteComputeInternal compute
     ) {
         UUID jobId = in.unpackUuid();
-        return compute.statusAsync(jobId).thenAccept(jobStatus -> packJobStatus(out, jobStatus));
+        return compute.stateAsync(jobId).thenAccept(state -> packJobState(out, state));
     }
 
     /**
-     * Writes a {@link JobStatus}.
+     * Writes a {@link JobState}.
      *
      * @param out Packer.
-     * @param jobStatus Job status.
+     * @param state Job state.
      */
-    static void packJobStatus(ClientMessagePacker out, @Nullable JobStatus jobStatus) {
-        if (jobStatus == null) {
+    static void packJobState(ClientMessagePacker out, @Nullable JobState state) {
+        if (state == null) {
             out.packNil();
         } else {
-            out.packUuid(jobStatus.id());
-            out.packInt(jobStatus.state().ordinal());
-            out.packInstant(jobStatus.createTime());
-            out.packInstant(jobStatus.startTime());
-            out.packInstant(jobStatus.finishTime());
+            out.packUuid(state.id());
+            out.packInt(state.status().ordinal());
+            out.packInstant(state.createTime());
+            out.packInstant(state.startTime());
+            out.packInstant(state.finishTime());
         }
     }
 }

@@ -23,18 +23,18 @@ import io.micronaut.http.HttpResponse;
 import io.micronaut.http.server.exceptions.ExceptionHandler;
 import jakarta.inject.Singleton;
 import org.apache.ignite.internal.rest.api.Problem;
-import org.apache.ignite.internal.rest.compute.exception.ComputeJobStateException;
+import org.apache.ignite.internal.rest.compute.exception.ComputeJobStatusException;
 import org.apache.ignite.internal.rest.constants.HttpCode;
 import org.apache.ignite.internal.rest.problem.HttpProblemResponse;
 
 /**
- * REST exception handler for {@link ComputeJobStateException}.
+ * REST exception handler for {@link ComputeJobStatusException}.
  */
 @Singleton
-@Requires(classes = {ComputeJobStateException.class, ExceptionHandler.class})
-public class ComputeJobStateExceptionHandler implements ExceptionHandler<ComputeJobStateException, HttpResponse<? extends Problem>> {
+@Requires(classes = {ComputeJobStatusException.class, ExceptionHandler.class})
+public class ComputeJobStatusExceptionHandler implements ExceptionHandler<ComputeJobStatusException, HttpResponse<? extends Problem>> {
     @Override
-    public HttpResponse<? extends Problem> handle(HttpRequest request, ComputeJobStateException exception) {
+    public HttpResponse<? extends Problem> handle(HttpRequest request, ComputeJobStatusException exception) {
         return HttpProblemResponse.from(
                 Problem.fromHttpCode(HttpCode.CONFLICT)
                         .detail(exception.getMessage()).build()

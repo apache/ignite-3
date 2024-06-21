@@ -34,7 +34,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
-import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.marshaller.Marshaller;
 import org.apache.ignite.internal.marshaller.MarshallerException;
@@ -63,6 +62,7 @@ import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.KeyValueView;
+import org.apache.ignite.table.ReceiverDescriptor;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
@@ -805,12 +805,11 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
     @Override
     public <E, V1, R> CompletableFuture<Void> streamData(
             Publisher<E> publisher,
-            @Nullable DataStreamerOptions options,
             Function<E, Entry<K, V>> keyFunc,
             Function<E, V1> payloadFunc,
+            ReceiverDescriptor receiver,
             @Nullable Flow.Subscriber<R> resultSubscriber,
-            List<DeploymentUnit> deploymentUnits,
-            String receiverClassName,
+            @Nullable DataStreamerOptions options,
             Object... receiverArgs) {
         // TODO: IGNITE-22285 Embedded Data Streamer with Receiver.
         throw new UnsupportedOperationException("Not implemented yet");

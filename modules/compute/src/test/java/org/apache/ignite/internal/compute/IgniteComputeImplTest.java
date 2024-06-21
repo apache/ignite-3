@@ -42,7 +42,7 @@ import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionOptions;
-import org.apache.ignite.compute.JobStatus;
+import org.apache.ignite.compute.JobState;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -248,7 +248,7 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
             }
 
             @Override
-            public CompletableFuture<@Nullable JobStatus> statusAsync() {
+            public CompletableFuture<@Nullable JobState> stateAsync() {
                 return nullCompletedFuture();
             }
 

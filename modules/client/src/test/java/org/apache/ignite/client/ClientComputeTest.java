@@ -19,11 +19,11 @@ package org.apache.ignite.client;
 
 import static org.apache.ignite.client.AbstractClientTest.getClient;
 import static org.apache.ignite.client.AbstractClientTest.getClusterNodes;
-import static org.apache.ignite.compute.JobState.COMPLETED;
-import static org.apache.ignite.compute.JobState.FAILED;
+import static org.apache.ignite.compute.JobStatus.COMPLETED;
+import static org.apache.ignite.compute.JobStatus.FAILED;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
-import static org.apache.ignite.internal.testframework.matchers.JobStatusMatcher.jobStatusWithState;
+import static org.apache.ignite.internal.testframework.matchers.JobStateMatcher.jobStateWithStatus;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.lang.ErrorGroups.Table.TABLE_NOT_FOUND_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -101,9 +101,9 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
             assertThat(execution2.resultAsync(), willBe("s2"));
             assertThat(execution3.resultAsync(), willBe("s3"));
 
-            assertThat(execution1.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
-            assertThat(execution2.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
-            assertThat(execution3.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
+            assertThat(execution1.stateAsync(), willBe(jobStateWithStatus(COMPLETED)));
+            assertThat(execution2.stateAsync(), willBe(jobStateWithStatus(COMPLETED)));
+            assertThat(execution3.stateAsync(), willBe(jobStateWithStatus(COMPLETED)));
         }
     }
 
@@ -122,9 +122,9 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
             assertThat(execution2.resultAsync(), willBe("s3"));
             assertThat(execution3.resultAsync(), willBe("s3"));
 
-            assertThat(execution1.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
-            assertThat(execution2.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
-            assertThat(execution3.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
+            assertThat(execution1.stateAsync(), willBe(jobStateWithStatus(COMPLETED)));
+            assertThat(execution2.stateAsync(), willBe(jobStateWithStatus(COMPLETED)));
+            assertThat(execution3.stateAsync(), willBe(jobStateWithStatus(COMPLETED)));
         }
     }
 
@@ -173,8 +173,8 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
             assertThat(execution1.resultAsync(), willBe("s2"));
             assertThat(execution2.resultAsync(), willBe("s2"));
 
-            assertThat(execution1.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
-            assertThat(execution2.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
+            assertThat(execution1.stateAsync(), willBe(jobStateWithStatus(COMPLETED)));
+            assertThat(execution2.stateAsync(), willBe(jobStateWithStatus(COMPLETED)));
         }
     }
 
@@ -248,8 +248,8 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
 
             assertThat(task.resultAsync(), willBe("s1"));
 
-            assertThat(task.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
-            assertThat(task.statusesAsync(), willBe(everyItem(jobStatusWithState(COMPLETED))));
+            assertThat(task.stateAsync(), willBe(jobStateWithStatus(COMPLETED)));
+            assertThat(task.statesAsync(), willBe(everyItem(jobStateWithStatus(COMPLETED))));
 
             assertThat("compute task and sub tasks ids must be different",
                     task.idsAsync(), willBe(not(hasItem(task.idAsync().get()))));
@@ -266,8 +266,8 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
             TaskExecution<Object> execution = client.compute().submitMapReduce(List.of(), "job");
 
             assertThat(execution.resultAsync(), willThrowFast(IgniteException.class));
-            assertThat(execution.statusAsync(), willBe(jobStatusWithState(FAILED)));
-            assertThat(execution.statusesAsync(), willBe(everyItem(jobStatusWithState(FAILED))));
+            assertThat(execution.stateAsync(), willBe(jobStateWithStatus(FAILED)));
+            assertThat(execution.statesAsync(), willBe(everyItem(jobStateWithStatus(FAILED))));
         }
     }
 
@@ -302,7 +302,7 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
             JobExecution<String> execution = igniteCompute.submit(jobTarget, JobDescriptor.builder("job").build());
 
             assertThat(execution.resultAsync(), willThrowFast(IgniteException.class));
-            assertThat(execution.statusAsync(), willBe(jobStatusWithState(FAILED)));
+            assertThat(execution.stateAsync(), willBe(jobStateWithStatus(FAILED)));
         }
     }
 

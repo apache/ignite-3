@@ -204,7 +204,7 @@ class ItComputeApiThreadingTest extends ClusterPerClassIntegrationTest {
 
     private enum JobExecutionAsyncOperation {
         RESULT_ASYNC(execution -> execution.resultAsync()),
-        STATUS_ASYNC(execution -> execution.statusAsync()),
+        STATE_ASYNC(execution -> execution.stateAsync()),
         ID_ASYNC(execution -> execution.idAsync()),
         CANCEL_ASYNC(execution -> execution.cancelAsync()),
         CHANGE_PRIORITY_ASYNC(execution -> execution.changePriorityAsync(1));
