@@ -85,7 +85,7 @@ include(':ignite-failure-handler')
 include(":ignite-catalog-dsl")
 include(":ignite-eventlog")
 include(":ignite-low-watermark")
-include(":ignite-replica-lifecycle")
+include(":ignite-partition-replicator")
 
 project(":ignite-examples").projectDir = file('examples')
 project(":ignite-dev-utilities").projectDir = file('dev-utilities')
@@ -156,7 +156,7 @@ project(":ignite-failure-handler").projectDir = file('modules/failure-handler')
 project(":ignite-catalog-dsl").projectDir = file('modules/catalog-dsl')
 project(":ignite-eventlog").projectDir = file('modules/eventlog')
 project(":ignite-low-watermark").projectDir = file('modules/low-watermark')
-project(":ignite-replica-lifecycle").projectDir = file('modules/replica-lifecycle')
+project(":ignite-partition-replicator").projectDir = file('modules/partition-replicator')
 
 ext.isCiServer = System.getenv().containsKey("IGNITE_CI")
 
