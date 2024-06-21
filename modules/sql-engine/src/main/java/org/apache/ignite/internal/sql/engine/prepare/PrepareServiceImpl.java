@@ -252,13 +252,15 @@ public class PrepareServiceImpl implements PrepareService {
 
         // Add an action to trigger planner timeout, when operation times out.
         // Or trigger timeout immediately if operation has already timed out. 
-        QueryCancel queryCancel = operationContext.cancel();
+        QueryCancel cancelHandler = operationContext.cancel();
+        assert cancelHandler != null;
+
         Cancellable callback = (timeout) -> {
             if (timeout) {
                 planningContext.abortByTimeout();
             }
         };
-        queryCancel.add(callback);
+        cancelHandler.add(callback);
 
         result = prepareAsync0(parsedResult, planningContext);
 
@@ -270,7 +272,7 @@ public class PrepareServiceImpl implements PrepareService {
         );
 
         // Remove the callback when planning completes, because there is no need to trigger it at later stages.
-        f.thenRun(() -> queryCancel.remove(callback));
+        f.thenRun(() -> cancelHandler.remove(callback));
 
         return f;
     }
