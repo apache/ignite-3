@@ -330,7 +330,6 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
      * @param grpId Group ID.
      * @param partId Partition ID.
      * @param pageMem Page memory.
-     * @param reuseList Reuse list or {@code null} if this free list will be a reuse list for itself.
      * @param lockLsnr Page lock listener.
      * @param metaPageId Metadata page ID.
      * @param initNew {@code True} if new metadata should be initialized.
@@ -342,7 +341,6 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
             int partId,
             String name,
             PageMemory pageMem,
-            @Nullable ReuseList reuseList,
             PageLockListener lockLsnr,
             long metaPageId,
             boolean initNew,
@@ -363,7 +361,7 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
         this.pageListCacheLimit = pageListCacheLimit;
         this.statHolder = statHolder;
 
-        this.reuseList = reuseList == null ? this : reuseList;
+        this.reuseList = this;
 
         rmvRow = new RemoveRowHandler(grpId == 0);
 

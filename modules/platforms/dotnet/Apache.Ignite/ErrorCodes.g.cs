@@ -590,6 +590,9 @@ namespace Apache.Ignite
 
             /// <summary> PartitionState error. </summary>
             public const int PartitionState = (GroupCode << 16) | (3 & 0xFFFF);
+
+            /// <summary> ClusterNotIdle error. </summary>
+            public const int ClusterNotIdle = (GroupCode << 16) | (4 & 0xFFFF);
         }
     }
 }

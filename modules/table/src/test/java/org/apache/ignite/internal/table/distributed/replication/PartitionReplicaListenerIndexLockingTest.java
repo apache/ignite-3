@@ -88,6 +88,7 @@ import org.apache.ignite.internal.table.distributed.IndexLocker;
 import org.apache.ignite.internal.table.distributed.SortedIndexLocker;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
+import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
@@ -261,7 +262,8 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 new TestPlacementDriver(localNode),
                 mock(ClusterNodeResolver.class),
                 new RemotelyTriggeredResourceRegistry(),
-                schemaManager
+                schemaManager,
+                mock(IndexMetaStorage.class)
         );
 
         kvMarshaller = new ReflectionMarshallerFactory().create(schemaDescriptor, Integer.class, Integer.class);

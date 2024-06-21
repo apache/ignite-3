@@ -25,7 +25,8 @@ import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.table.distributed.TableUtils.findStartBuildingIndexCatalogVersion;
+import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.BUILDING;
+import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.REGISTERED;
 import static org.apache.ignite.internal.table.distributed.replicator.RemoteResourceIds.cursorId;
 import static org.apache.ignite.internal.table.distributed.replicator.ReplicatorUtils.beginRwTxTs;
 import static org.apache.ignite.internal.table.distributed.replicator.ReplicatorUtils.latestIndexDescriptorInBuildingStatus;
@@ -74,7 +75,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
-import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -159,6 +159,9 @@ import org.apache.ignite.internal.table.distributed.SortedIndexLocker;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.table.distributed.TableUtils;
+import org.apache.ignite.internal.table.distributed.index.IndexMeta;
+import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
+import org.apache.ignite.internal.table.distributed.index.MetaIndexStatusChange;
 import org.apache.ignite.internal.table.distributed.raft.UnexpectedTransactionStateException;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.schema.ValidationSchemasSource;
@@ -327,6 +330,8 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     private final SchemaRegistry schemaRegistry;
 
+    private final IndexMetaStorage indexMetaStorage;
+
     /**
      * The constructor.
      *
@@ -349,6 +354,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param placementDriver Placement driver.
      * @param clusterNodeResolver Node resolver.
      * @param remotelyTriggeredResourceRegistry Resource registry.
+     * @param indexMetaStorage Index meta storage.
      */
     public PartitionReplicaListener(
             MvPartitionStorage mvDataStorage,
@@ -373,7 +379,8 @@ public class PartitionReplicaListener implements ReplicaListener {
             PlacementDriver placementDriver,
             ClusterNodeResolver clusterNodeResolver,
             RemotelyTriggeredResourceRegistry remotelyTriggeredResourceRegistry,
-            SchemaRegistry schemaRegistry
+            SchemaRegistry schemaRegistry,
+            IndexMetaStorage indexMetaStorage
     ) {
         this.mvDataStorage = mvDataStorage;
         this.raftClient = raftClient;
@@ -395,6 +402,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         this.clusterNodeResolver = clusterNodeResolver;
         this.remotelyTriggeredResourceRegistry = remotelyTriggeredResourceRegistry;
         this.schemaRegistry = schemaRegistry;
+        this.indexMetaStorage = indexMetaStorage;
 
         this.replicationGroupId = new TablePartitionId(tableId, partId);
 
@@ -3966,14 +3974,13 @@ public class PartitionReplicaListener implements ReplicaListener {
         }
     }
 
-    private BuildIndexCommand toBuildIndexCommand(BuildIndexReplicaRequest request) {
+    private static BuildIndexCommand toBuildIndexCommand(BuildIndexReplicaRequest request, MetaIndexStatusChange buildingChangeInfo) {
         return MSG_FACTORY.buildIndexCommand()
                 .indexId(request.indexId())
                 .rowIds(request.rowIds())
                 .finish(request.finish())
-                .creationCatalogVersion(request.creationCatalogVersion())
                 // We are sure that there will be no error here since the primary replica is sent the request to itself.
-                .requiredCatalogVersion(indexStartBuildingCatalogVersion(request))
+                .requiredCatalogVersion(buildingChangeInfo.catalogVersion())
                 .build();
     }
 
@@ -4047,12 +4054,14 @@ public class PartitionReplicaListener implements ReplicaListener {
         try {
             int indexId = ((StartBuildingIndexEventParameters) parameters).indexId();
 
-            CatalogIndexDescriptor indexDescriptor = catalogService.index(indexId, parameters.catalogVersion());
+            IndexMeta indexMeta = indexMetaStorage.indexMeta(indexId);
 
-            assert indexDescriptor != null : "indexId=" + indexId + ", catalogVersion=" + parameters.catalogVersion();
+            assert indexMeta != null : "indexId=" + indexId + ", catalogVersion=" + parameters.catalogVersion();
 
-            if (indexDescriptor.tableId() == tableId()) {
-                txRwOperationTracker.updateMinAllowedCatalogVersionForStartOperation(indexDescriptor.txWaitCatalogVersion());
+            MetaIndexStatusChange registeredStatusChange = indexMeta.statusChange(REGISTERED);
+
+            if (indexMeta.tableId() == tableId()) {
+                txRwOperationTracker.updateMinAllowedCatalogVersionForStartOperation(registeredStatusChange.catalogVersion());
             }
 
             return falseCompletedFuture();
@@ -4064,27 +4073,23 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     private CompletableFuture<?> processBuildIndexReplicaRequest(BuildIndexReplicaRequest request) {
-        return txRwOperationTracker.awaitCompleteTxRwOperations(request.creationCatalogVersion())
-                .thenCompose(unused -> safeTime.waitFor(indexStartBuildingActivationTs(request)))
-                .thenCompose(unused -> raftClient.run(toBuildIndexCommand(request)));
+        IndexMeta indexMeta = indexMetaStorage.indexMeta(request.indexId());
+
+        if (indexMeta == null || indexMeta.isDropped()) {
+            // Index has been dropped.
+            return nullCompletedFuture();
+        }
+
+        MetaIndexStatusChange registeredChangeInfo = indexMeta.statusChange(REGISTERED);
+        MetaIndexStatusChange buildingChangeInfo = indexMeta.statusChange(BUILDING);
+
+        return txRwOperationTracker.awaitCompleteTxRwOperations(registeredChangeInfo.catalogVersion())
+                .thenCompose(unused -> safeTime.waitFor(hybridTimestamp(buildingChangeInfo.activationTimestamp())))
+                .thenCompose(unused -> raftClient.run(toBuildIndexCommand(request, buildingChangeInfo)));
     }
 
     private List<Integer> indexIdsAtRwTxBeginTs(UUID txId) {
         return TableUtils.indexIdsAtRwTxBeginTs(catalogService, txId, tableId());
-    }
-
-    private int indexStartBuildingCatalogVersion(BuildIndexReplicaRequest request) {
-        return findStartBuildingIndexCatalogVersion(catalogService, request.indexId(), request.creationCatalogVersion());
-    }
-
-    private HybridTimestamp indexStartBuildingActivationTs(BuildIndexReplicaRequest request) {
-        int catalogVersion = indexStartBuildingCatalogVersion(request);
-
-        Catalog catalog = catalogService.catalog(catalogVersion);
-
-        assert catalog != null : "indexId=" + request.indexId() + ", catalogVersion=" + catalogVersion;
-
-        return hybridTimestamp(catalog.time());
     }
 
     private int tableVersionByTs(HybridTimestamp ts) {

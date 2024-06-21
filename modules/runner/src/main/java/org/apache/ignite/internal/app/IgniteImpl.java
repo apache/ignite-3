@@ -203,6 +203,7 @@ import org.apache.ignite.internal.systemview.api.SystemViewManager;
 import org.apache.ignite.internal.table.distributed.PublicApiThreadingIgniteTables;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager;
+import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.schema.CheckCatalogVersionOnActionRequest;
 import org.apache.ignite.internal.table.distributed.schema.CheckCatalogVersionOnAppendEntries;
@@ -410,6 +411,8 @@ public class IgniteImpl implements Ignite {
 
     /** Default log storage factory for raft. */
     private final LogStorageFactory logStorageFactory;
+
+    private IndexMetaStorage indexMetaStorage;
 
     /**
      * The Constructor.
@@ -709,6 +712,17 @@ public class IgniteImpl implements Ignite {
 
         this.catalogManager = catalogManager;
 
+        lowWatermark = new LowWatermarkImpl(
+                name,
+                gcConfig.lowWatermark(),
+                clockService,
+                vaultMgr,
+                failureProcessor,
+                clusterSvc.messagingService()
+        );
+
+        this.indexMetaStorage = new IndexMetaStorage(catalogManager, lowWatermark, metaStorageMgr);
+
         raftMgr.appendEntriesRequestInterceptor(new CheckCatalogVersionOnAppendEntries(catalogManager));
         raftMgr.actionRequestInterceptor(new CheckCatalogVersionOnActionRequest(catalogManager));
 
@@ -743,15 +757,6 @@ public class IgniteImpl implements Ignite {
         );
 
         resourcesRegistry = new RemotelyTriggeredResourceRegistry();
-
-        lowWatermark = new LowWatermarkImpl(
-                name,
-                gcConfig.lowWatermark(),
-                clockService,
-                vaultMgr,
-                failureProcessor,
-                clusterSvc.messagingService()
-        );
 
         var transactionInflights = new TransactionInflights(placementDriverMgr.placementDriver(), clockService);
 
@@ -817,6 +822,7 @@ public class IgniteImpl implements Ignite {
                 resourcesRegistry,
                 lowWatermark,
                 transactionInflights,
+                indexMetaStorage,
                 partitionReplicaLifecycleManager
         );
 
@@ -1078,7 +1084,8 @@ public class IgniteImpl implements Ignite {
 
             // Start the components that are required to join the cluster.
             lifecycleManager.startComponents(
-                    componentContext, threadPoolsManager,
+                    componentContext,
+                    threadPoolsManager,
                     clockWaiter,
                     failureProcessor,
                     criticalWorkerRegistry,
@@ -1120,7 +1127,9 @@ public class IgniteImpl implements Ignite {
                         // Start all other components after the join request has completed and the node has been validated.
                         try {
                             lifecycleManager.startComponents(
-                                    componentContext, catalogManager,
+                                    componentContext,
+                                    catalogManager,
+                                    indexMetaStorage,
                                     clusterCfgMgr,
                                     authenticationManager,
                                     placementDriverMgr,
@@ -1565,7 +1574,7 @@ public class IgniteImpl implements Ignite {
 
     // TODO: IGNITE-18493 - remove/move this
     @TestOnly
-    public void dropMessages(BiPredicate<String, NetworkMessage> predicate) {
+    public void dropMessages(BiPredicate<@Nullable String, NetworkMessage> predicate) {
         ((DefaultMessagingService) clusterSvc.messagingService()).dropMessages(predicate);
     }
 

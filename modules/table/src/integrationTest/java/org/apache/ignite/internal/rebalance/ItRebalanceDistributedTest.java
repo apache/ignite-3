@@ -188,6 +188,7 @@ import org.apache.ignite.internal.table.TableRaftService;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.TableManager;
+import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncServiceImpl;
@@ -1001,6 +1002,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         final TestPlacementDriver placementDriver;
 
+        private final IndexMetaStorage indexMetaStorage;
+
         /**
          * Constructor that simply creates a subset of components of this node.
          */
@@ -1235,6 +1238,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     partitionIdleSafeTimePropagationPeriodMsSupplier
             );
 
+            indexMetaStorage = new IndexMetaStorage(catalogManager, lowWatermark, metaStorageManager);
+
             schemaManager = new SchemaManager(registry, catalogManager);
 
             schemaSyncService = new SchemaSyncServiceImpl(metaStorageManager.clusterTime(), delayDurationMsSupplier);
@@ -1284,6 +1289,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     resourcesRegistry,
                     lowWatermark,
                     transactionInflights,
+                    indexMetaStorage,
                     new PartitionReplicaLifecycleManager(
                             catalogManager,
                             replicaManager,
@@ -1372,6 +1378,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                         clusterCfgMgr,
                         clockWaiter,
                         catalogManager,
+                        indexMetaStorage,
                         distributionZoneManager,
                         replicaManager,
                         txManager,

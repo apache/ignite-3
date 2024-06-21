@@ -21,8 +21,6 @@ import static java.util.Collections.singletonList;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
-import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.BUILDING;
-import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.REGISTERED;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_BUILDING;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
@@ -91,10 +89,8 @@ import org.apache.ignite.distributed.TestPartitionDataStorage;
 import org.apache.ignite.distributed.replicator.action.RequestTypes;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTuplePrefixBuilder;
-import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
-import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -172,7 +168,11 @@ import org.apache.ignite.internal.table.distributed.IndexLocker;
 import org.apache.ignite.internal.table.distributed.SortedIndexLocker;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
+import org.apache.ignite.internal.table.distributed.index.IndexMeta;
+import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
+import org.apache.ignite.internal.table.distributed.index.MetaIndexStatus;
+import org.apache.ignite.internal.table.distributed.index.MetaIndexStatusChange;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.replicator.IncompatibleSchemaException;
 import org.apache.ignite.internal.table.distributed.replicator.InternalSchemaVersionMismatchException;
@@ -428,6 +428,9 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     private final TestValue someValue = new TestValue(1, "v1");
 
+    @Mock
+    private IndexMetaStorage indexMetaStorage;
+
     @BeforeEach
     public void beforeTest() {
         doAnswer(invocation -> {
@@ -622,7 +625,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 placementDriver,
                 new SingleClusterNodeResolver(localNode),
                 new RemotelyTriggeredResourceRegistry(),
-                new DummySchemaManagerImpl(schemaDescriptor, schemaDescriptorVersion2)
+                new DummySchemaManagerImpl(schemaDescriptor, schemaDescriptorVersion2),
+                indexMetaStorage
         );
 
         kvMarshaller = marshallerFor(schemaDescriptor);
@@ -695,7 +699,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     public void testTxStateReplicaRequestCommitState() throws Exception {
         UUID txId = newTxId();
 
-        txStateStorage.putForRebalance(txId, new TxMeta(COMMITTED,  singletonList(grpId), clock.now()));
+        txStateStorage.putForRebalance(txId, new TxMeta(COMMITTED, singletonList(grpId), clock.now()));
 
         HybridTimestamp readTimestamp = clock.now();
 
@@ -2480,7 +2484,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     @Test
     void commitRequestFailsIfCommitPartitionTableWasDropped() {
-        testCommitRequestIfTableWasDropped(grpId,  Map.of(grpId, localNode.name()), grpId.tableId());
+        testCommitRequestIfTableWasDropped(grpId, Map.of(grpId, localNode.name()), grpId.tableId());
     }
 
     @Test
@@ -2928,7 +2932,21 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     @ParameterizedTest(name = "readOnly = {0}")
     @ValueSource(booleans = {true, false})
     void testStaleTxOperationAfterIndexStartBuilding(boolean readOnly) {
-        fireHashIndexStartBuildingEventForStaleTxOperation(hashIndexStorage.id(), 1, 2);
+        int indexId = hashIndexStorage.id();
+        int indexCreationCatalogVersion = 1;
+        int startBuildingIndexCatalogVersion = 2;
+        long indexCreationActivationTs = clock.now().addPhysicalTime(-100).longValue();
+        long startBuildingIndexActivationTs = clock.nowLong();
+
+        setIndexMetaInBuildingStatus(
+                indexId,
+                indexCreationCatalogVersion,
+                indexCreationActivationTs,
+                startBuildingIndexCatalogVersion,
+                startBuildingIndexActivationTs
+        );
+
+        fireHashIndexStartBuildingEventForStaleTxOperation(indexId, startBuildingIndexCatalogVersion);
 
         UUID txId = newTxId();
         long beginTs = beginTimestamp(txId).longValue();
@@ -2948,18 +2966,26 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     void testBuildIndexReplicaRequestWithoutRwTxOperations() {
         int indexId = hashIndexStorage.id();
         int indexCreationCatalogVersion = 1;
+        int startBuildingIndexCatalogVersion = 2;
+        long indexCreationActivationTs = clock.now().addPhysicalTime(-100).longValue();
+        long startBuildingIndexActivationTs = clock.nowLong();
 
-        CompletableFuture<?> invokeBuildIndexReplicaRequestFuture = invokeBuildIndexReplicaRequestAsync(
+        setIndexMetaInBuildingStatus(
                 indexId,
-                indexCreationCatalogVersion
+                indexCreationCatalogVersion,
+                indexCreationActivationTs,
+                startBuildingIndexCatalogVersion,
+                startBuildingIndexActivationTs
         );
+
+        CompletableFuture<?> invokeBuildIndexReplicaRequestFuture = invokeBuildIndexReplicaRequestAsync(indexId);
 
         assertFalse(invokeBuildIndexReplicaRequestFuture.isDone());
 
-        fireHashIndexStartBuildingEventForStaleTxOperation(indexId, indexCreationCatalogVersion, indexCreationCatalogVersion + 1);
+        fireHashIndexStartBuildingEventForStaleTxOperation(indexId, startBuildingIndexCatalogVersion);
 
         assertThat(invokeBuildIndexReplicaRequestFuture, willCompleteSuccessfully());
-        assertThat(invokeBuildIndexReplicaRequestAsync(indexId, indexCreationCatalogVersion), willCompleteSuccessfully());
+        assertThat(invokeBuildIndexReplicaRequestAsync(indexId), willCompleteSuccessfully());
     }
 
     @ParameterizedTest(name = "failCmd = {0}")
@@ -2991,14 +3017,21 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         int indexId = hashIndexStorage.id();
         int indexCreationCatalogVersion = 1;
-        int indexStartBuildingCatalogVersion = 2;
+        int startBuildingIndexCatalogVersion = 2;
+        long indexCreationActivationTs = clock.now().addPhysicalTime(-100).longValue();
+        long startBuildingIndexActivationTs = clock.nowLong();
 
-        CompletableFuture<?> invokeBuildIndexReplicaRequestFuture = invokeBuildIndexReplicaRequestAsync(
+        setIndexMetaInBuildingStatus(
                 indexId,
-                indexCreationCatalogVersion
+                indexCreationCatalogVersion,
+                indexCreationActivationTs,
+                startBuildingIndexCatalogVersion,
+                startBuildingIndexActivationTs
         );
 
-        fireHashIndexStartBuildingEventForStaleTxOperation(indexId, indexCreationCatalogVersion, indexStartBuildingCatalogVersion);
+        CompletableFuture<?> invokeBuildIndexReplicaRequestFuture = invokeBuildIndexReplicaRequestAsync(indexId);
+
+        fireHashIndexStartBuildingEventForStaleTxOperation(indexId, startBuildingIndexCatalogVersion);
 
         assertFalse(upsertFuture.isDone());
         assertFalse(invokeBuildIndexReplicaRequestFuture.isDone());
@@ -3015,57 +3048,18 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         assertThat(invokeBuildIndexReplicaRequestFuture, willCompleteSuccessfully());
 
-        HybridTimestamp startBuildingIndexActivationTs = hybridTimestamp(catalogService.catalog(indexStartBuildingCatalogVersion).time());
+        HybridTimestamp startBuildingIndexActivationTs0 = hybridTimestamp(startBuildingIndexActivationTs);
 
-        verify(safeTimeClock).waitFor(eq(startBuildingIndexActivationTs));
+        verify(safeTimeClock).waitFor(eq(startBuildingIndexActivationTs0));
 
         assertThat(buildIndexCommandFuture, willCompleteSuccessfully());
 
         BuildIndexCommand buildIndexCommand = buildIndexCommandFuture.join();
         assertThat(buildIndexCommand.indexId(), equalTo(indexId));
-        assertThat(buildIndexCommand.creationCatalogVersion(), equalTo(indexCreationCatalogVersion));
-        assertThat(buildIndexCommand.requiredCatalogVersion(), equalTo(indexStartBuildingCatalogVersion));
+        assertThat(buildIndexCommand.requiredCatalogVersion(), equalTo(startBuildingIndexCatalogVersion));
     }
 
-    private void fireHashIndexStartBuildingEventForStaleTxOperation(
-            int indexId,
-            int creationIndexCatalogVersion,
-            int startBuildingIndexCatalogVersion
-    ) {
-        var registeredIndexDescriptor = mock(CatalogHashIndexDescriptor.class);
-        var buildingIndexDescriptor = mock(CatalogHashIndexDescriptor.class);
-
-        when(registeredIndexDescriptor.id()).thenReturn(indexId);
-        when(buildingIndexDescriptor.id()).thenReturn(indexId);
-
-        when(buildingIndexDescriptor.tableId()).thenReturn(TABLE_ID);
-        when(registeredIndexDescriptor.tableId()).thenReturn(TABLE_ID);
-
-        when(registeredIndexDescriptor.status()).thenReturn(REGISTERED);
-        when(buildingIndexDescriptor.status()).thenReturn(BUILDING);
-
-        when(buildingIndexDescriptor.txWaitCatalogVersion()).thenReturn(creationIndexCatalogVersion);
-
-        when(catalogService.index(eq(indexId), eq(creationIndexCatalogVersion))).thenReturn(registeredIndexDescriptor);
-        when(catalogService.index(eq(indexId), eq(startBuildingIndexCatalogVersion))).thenReturn(buildingIndexDescriptor);
-
-        when(catalogService.latestCatalogVersion()).thenReturn(startBuildingIndexCatalogVersion);
-
-        var registeredIndexCatalog = mock(Catalog.class);
-        var buildingIndexCatalog = mock(Catalog.class);
-
-        when(registeredIndexCatalog.version()).thenReturn(creationIndexCatalogVersion);
-        when(buildingIndexCatalog.version()).thenReturn(startBuildingIndexCatalogVersion);
-
-        long registeredIndexActivationTs = clock.now().addPhysicalTime(-100).longValue();
-        long buildingIndexActivationTs = clock.nowLong();
-
-        when(registeredIndexCatalog.time()).thenReturn(registeredIndexActivationTs);
-        when(buildingIndexCatalog.time()).thenReturn(buildingIndexActivationTs);
-
-        when(catalogService.catalog(eq(creationIndexCatalogVersion))).thenReturn(registeredIndexCatalog);
-        when(catalogService.catalog(eq(startBuildingIndexCatalogVersion))).thenReturn(buildingIndexCatalog);
-
+    private void fireHashIndexStartBuildingEventForStaleTxOperation(int indexId, int startBuildingIndexCatalogVersion) {
         assertThat(
                 catalogServiceEventProducer.fireEvent(
                         INDEX_BUILDING,
@@ -3075,12 +3069,11 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         );
     }
 
-    private CompletableFuture<?> invokeBuildIndexReplicaRequestAsync(int indexId, int indexCreationCatalogVersion) {
+    private CompletableFuture<?> invokeBuildIndexReplicaRequestAsync(int indexId) {
         BuildIndexReplicaRequest request = TABLE_MESSAGES_FACTORY.buildIndexReplicaRequest()
                 .groupId(grpId)
                 .indexId(indexId)
                 .enlistmentConsistencyToken(ANY_ENLISTMENT_CONSISTENCY_TOKEN)
-                .creationCatalogVersion(indexCreationCatalogVersion)
                 .rowIds(List.of())
                 .build();
 
@@ -3089,5 +3082,38 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     private void completeBuiltIndexes(IndexStorage... indexStorages) {
         TestStorageUtils.completeBuiltIndexes(testMvPartitionStorage, indexStorages);
+    }
+
+    private void setIndexMetaInBuildingStatus(
+            int indexId,
+            int registeredCatalogVersion,
+            long registeredActivationTs,
+            int buildingCatalogVersion,
+            long buildingActivationTs
+    ) {
+        IndexMeta indexMeta = mock(IndexMeta.class);
+
+        MetaIndexStatusChange change0 = mock(MetaIndexStatusChange.class);
+        MetaIndexStatusChange change1 = mock(MetaIndexStatusChange.class);
+
+        when(change0.catalogVersion()).thenReturn(registeredCatalogVersion);
+        when(change0.activationTimestamp()).thenReturn(registeredActivationTs);
+
+        when(change1.catalogVersion()).thenReturn(buildingCatalogVersion);
+        when(change1.activationTimestamp()).thenReturn(buildingActivationTs);
+
+        Map<MetaIndexStatus, MetaIndexStatusChange> statusChangeMap = Map.of(
+                MetaIndexStatus.REGISTERED, change0,
+                MetaIndexStatus.BUILDING, change1
+        );
+
+        when(indexMeta.indexId()).thenReturn(indexId);
+        when(indexMeta.status()).thenReturn(MetaIndexStatus.BUILDING);
+        when(indexMeta.tableId()).thenReturn(TABLE_ID);
+        when(indexMeta.statusChanges()).thenReturn(statusChangeMap);
+        when(indexMeta.statusChange(eq(MetaIndexStatus.REGISTERED))).thenReturn(change0);
+        when(indexMeta.statusChange(eq(MetaIndexStatus.BUILDING))).thenReturn(change1);
+
+        when(indexMetaStorage.indexMeta(eq(indexId))).thenReturn(indexMeta);
     }
 }

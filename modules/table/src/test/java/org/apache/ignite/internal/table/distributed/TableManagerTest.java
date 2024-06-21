@@ -123,6 +123,7 @@ import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryDataStorageModule;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.TableViewInternal;
+import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -818,6 +819,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                 new RemotelyTriggeredResourceRegistry(),
                 lowWatermark,
                 mock(TransactionInflights.class),
+                mock(IndexMetaStorage.class),
                 mock(PartitionReplicaLifecycleManager.class)
         ) {
 

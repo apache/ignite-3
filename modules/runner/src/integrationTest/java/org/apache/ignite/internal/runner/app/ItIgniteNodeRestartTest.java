@@ -172,6 +172,7 @@ import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.TableManager;
+import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncServiceImpl;
 import org.apache.ignite.internal.table.distributed.schema.ThreadLocalPartitionCommandsMarshaller;
@@ -580,6 +581,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 partitionIdleSafeTimePropagationPeriodMsSupplier
         );
 
+        var indexMetaStorage = new IndexMetaStorage(catalogManager, lowWatermark, metaStorageMgr);
+
         SchemaManager schemaManager = new SchemaManager(registry, catalogManager);
 
         var dataNodesMock = dataNodesMockByNode.get(idx);
@@ -638,6 +641,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 resourcesRegistry,
                 lowWatermark,
                 transactionInflights,
+                indexMetaStorage,
                 new PartitionReplicaLifecycleManager(
                         catalogManager,
                         replicaMgr,
@@ -712,6 +716,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 dataStorageManager,
                 clockWaiter,
                 catalogManager,
+                indexMetaStorage,
                 schemaManager,
                 distributionZoneManager,
                 tableManager,
