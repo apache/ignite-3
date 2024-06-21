@@ -68,6 +68,7 @@ import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.DataStreamerReceiver;
 import org.apache.ignite.table.DataStreamerReceiverContext;
 import org.apache.ignite.table.KeyValueView;
+import org.apache.ignite.table.ReceiverDescriptor;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
@@ -401,12 +402,11 @@ public class DataStreamerTest extends AbstractClientTableTest {
             var options = DataStreamerOptions.builder().pageSize(batchSize).build();
             streamerFut = view.streamData(
                     publisher,
-                    options,
                     t -> t,
                     t -> t.longValue("id"),
+                    ReceiverDescriptor.builder(TestReceiver.class).build(),
                     resultSubscriber,
-                    new ArrayList<>(),
-                    TestReceiver.class.getName(),
+                    options,
                     "arg",
                     "returnResults");
 
