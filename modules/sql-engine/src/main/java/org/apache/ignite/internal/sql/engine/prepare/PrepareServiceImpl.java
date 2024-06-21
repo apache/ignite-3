@@ -121,8 +121,7 @@ public class PrepareServiceImpl implements PrepareService {
 
     private volatile ThreadPoolExecutor planningPool;
 
-    private PrepareCallback callback = new PrepareCallback() {
-    };
+    private PrepareCallback callback = new PrepareCallback() { };
 
     /**
      * Factory method.
@@ -620,7 +619,7 @@ public class PrepareServiceImpl implements PrepareService {
         } catch (Exception e) {
             currentCallback.afterOptimization(ctx, validatedNode, null, e);
 
-            // Remove cache entry if planning timed out.
+            // Remove this cache entry if planning timed out.
             // Otherwise the cache will keep a plan that can not be used anymore,
             // and we should allow another planning attempt with increased timeout.
             if (ctx.timeouted()) {
@@ -723,18 +722,6 @@ public class PrepareServiceImpl implements PrepareService {
             this.parsedResult = parsedResult;
             this.value = value;
             this.parameterMetadata = parameterMetadata;
-        }
-    }
-
-    /**
-     * Callback to be notified on preparation steps.
-     */
-    public interface PrepareCallback {
-
-        default void beforeOptimization(PlanningContext ctx, SqlNode node) {
-        }
-
-        default void afterOptimization(PlanningContext ctx, SqlNode node, @Nullable IgniteRel optimizedRel, @Nullable Throwable err) {
         }
     }
 }
