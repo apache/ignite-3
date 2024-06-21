@@ -58,10 +58,6 @@ public class ZonePartitionReplicaImpl implements Replica {
 
             return nullCompletedFuture();
         } else {
-            assert (replicaGrpId instanceof TablePartitionId) || (replicaGrpId instanceof ZonePartitionId) :
-                    "Requests with replication group type "
-                            + request.groupId().getClass() + " is not supported";
-
             int partitionId;
 
             ReplicationGroupId replicationGroupId = request.groupId();
@@ -71,6 +67,9 @@ public class ZonePartitionReplicaImpl implements Replica {
                 partitionId = ((TablePartitionId) replicationGroupId).partitionId();
             } else if (replicationGroupId instanceof ZonePartitionId) {
                 partitionId = ((ZonePartitionId) replicationGroupId).partitionId();
+            } else {
+                throw new IllegalArgumentException("Requests with replication group type "
+                        + request.groupId().getClass() + " is not supported");
             }
 
             return replicas.get(new TablePartitionId(((TableAware) request).tableId(), partitionId))
