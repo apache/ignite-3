@@ -19,30 +19,28 @@ package org.apache.ignite.table;
 
 import java.util.List;
 import java.util.Objects;
-import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.DeploymentUnit;
-import org.apache.ignite.compute.JobDescriptor;
 
+/**
+ * Data streamer receiver descriptor.
+ */
 public class DataStreamerReceiverDescriptor {
-    private final String jobClassName;
+    private final String receiverClassName;
 
     private final List<DeploymentUnit> units;
 
-    private final DataStreamerOptions options;
-
-    private DataStreamerReceiverDescriptor(String jobClassName, List<DeploymentUnit> units, DataStreamerOptions options) {
-        this.jobClassName = jobClassName;
+    private DataStreamerReceiverDescriptor(String receiverClassName, List<DeploymentUnit> units) {
+        this.receiverClassName = receiverClassName;
         this.units = units;
-        this.options = options;
     }
 
     /**
-     * Job class name.
+     * Streamer receiver class name.
      *
-     * @return Job class name.
+     * @return Streamer receiver class name.
      */
-    public String jobClassName() {
-        return jobClassName;
+    public String receiverClassName() {
+        return receiverClassName;
     }
 
     /**
@@ -55,48 +53,38 @@ public class DataStreamerReceiverDescriptor {
     }
 
     /**
-     * Job execution options.
+     * Create a new builder.
      *
-     * @return Job execution options.
+     * @return Receiver descriptor builder.
      */
-    public DataStreamerOptions options() {
-        return options;
+    public static Builder builder(String receiverClassName) {
+        Objects.requireNonNull(receiverClassName);
+
+        return new Builder(receiverClassName);
     }
 
     /**
      * Create a new builder.
      *
-     * @return Job descriptor builder.
+     * @return Receiver descriptor builder.
      */
-    public static JobDescriptor.Builder builder(String jobClassName) {
-        Objects.requireNonNull(jobClassName);
+    public static Builder builder(Class<? extends DataStreamerReceiver<?, ?>> receiverClass) {
+        Objects.requireNonNull(receiverClass);
 
-        return new JobDescriptor.Builder(jobClassName);
-    }
-
-    /**
-     * Create a new builder.
-     *
-     * @return Job descriptor builder.
-     */
-    public static JobDescriptor.Builder builder(Class<? extends ComputeJob<?>> jobClass) {
-        Objects.requireNonNull(jobClass);
-
-        return new JobDescriptor.Builder(jobClass.getName());
+        return new Builder(receiverClass.getName());
     }
 
     /**
      * Builder.
      */
     public static class Builder {
-        private final String jobClassName;
+        private final String receiverClassName;
         private List<DeploymentUnit> units;
-        private DataStreamerOptions options;
 
-        private Builder(String jobClassName) {
-            Objects.requireNonNull(jobClassName);
+        private Builder(String receiverClassName) {
+            Objects.requireNonNull(receiverClassName);
 
-            this.jobClassName = jobClassName;
+            this.receiverClassName = receiverClassName;
         }
 
         /**
@@ -122,26 +110,14 @@ public class DataStreamerReceiverDescriptor {
         }
 
         /**
-         * Sets the job execution options.
+         * Builds the receiver descriptor.
          *
-         * @param options Job execution options.
-         * @return This builder.
-         */
-        public Builder options(DataStreamerOptions options) {
-            this.options = options;
-            return this;
-        }
-
-        /**
-         * Builds the job descriptor.
-         *
-         * @return Job descriptor.
+         * @return Receiver descriptor.
          */
         public DataStreamerReceiverDescriptor build() {
             return new DataStreamerReceiverDescriptor(
-                    jobClassName,
-                    units == null ? List.of() : units,
-                    options == null ? DataStreamerOptions.DEFAULT : options);
+                    receiverClassName,
+                    units == null ? List.of() : units);
         }
     }
 }
