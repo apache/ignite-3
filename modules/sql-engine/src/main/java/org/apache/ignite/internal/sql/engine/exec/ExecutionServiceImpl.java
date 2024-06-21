@@ -284,6 +284,11 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         return tableRegistry;
     }
 
+    @TestOnly
+    public DdlCommandHandler ddlCommandHandler() {
+        return ddlCmdHnd;
+    }
+
     private AsyncDataCursor<InternalSqlRow> executeQuery(
             SqlOperationContext operationContext,
             MultiStepPlan plan

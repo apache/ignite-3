@@ -42,6 +42,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
@@ -70,6 +71,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.failure.FailureProcessor;
@@ -118,11 +120,13 @@ import org.apache.ignite.internal.sql.engine.message.MessageService;
 import org.apache.ignite.internal.sql.engine.message.QueryStartRequest;
 import org.apache.ignite.internal.sql.engine.message.QueryStartResponseImpl;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesFactory;
+import org.apache.ignite.internal.sql.engine.prepare.DdlPlan;
 import org.apache.ignite.internal.sql.engine.prepare.KeyValueGetPlan;
 import org.apache.ignite.internal.sql.engine.prepare.KeyValueModifyPlan;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
+import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter;
 import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruner;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
@@ -206,7 +210,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 "test",
                 0,
                 CaffeineCacheFactory.INSTANCE,
-                null,
+                new DdlSqlToCommandConverter(),
                 PLANNING_TIMEOUT,
                 PLANNING_THREAD_COUNT,
                 new MetricManagerImpl(),
@@ -1048,6 +1052,62 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         int attempts = 10;
 
         for (int k = 0; k < attempts; k++) {
+            CompletableFuture<Void> timeoutFut = new CompletableFuture<Void>()
+                    .completeOnTimeout(null, deadlineMillis, TimeUnit.MILLISECONDS);
+
+            SqlOperationContext execCtx = operationContext(null)
+                    // Set for consistency with timeoutFut.
+                    .operationDeadline(Instant.now().plusMillis(deadlineMillis))
+                    .timeoutFuture(timeoutFut)
+                    .build();
+
+            AsyncCursor<InternalSqlRow> cursor;
+            try {
+                cursor = execService.executePlan(plan, execCtx);
+            } catch (QueryCancelledException e) {
+                continue;
+            }
+
+            CompletableFuture<?> batchFut = cursor.requestNextAsync(1);
+
+            timeoutFut.join();
+
+            IgniteTestUtils.assertThrowsWithCause(
+                    batchFut::join,
+                    SqlException.class,
+                    "Query timeout"
+            );
+
+            return;
+        }
+
+        fail("Failed to get query timeout error");
+    }
+
+    @Test
+    public void testTimeoutDdl() {
+        // Use a separate context, so planning won't timeout.
+        SqlOperationContext planCtx = operationContext(null).build();
+        QueryPlan plan = prepare("CREATE TABLE x (id INTEGER PRIMARY KEY, val INTEGER)", planCtx);
+
+        assertInstanceOf(DdlPlan.class, plan);
+
+        int deadlineMillis = 500;
+
+        ExecutionServiceImpl<?> execService = executionServices.get(0);
+
+        NoOpExecutableTableRegistry tableRegistry = (NoOpExecutableTableRegistry) execService.tableRegistry();
+
+        Duration delay = Duration.of(deadlineMillis * 2, ChronoUnit.MILLIS);
+        tableRegistry.setGetTableDelay(delay);
+
+        DdlCommandHandler ddlCommandHandler = execService.ddlCommandHandler();
+        when(ddlCommandHandler.handle(any(CatalogCommand.class))).thenReturn(new CompletableFuture<>());
+
+        int attempts = 10;
+
+        for (int k = 0; k < attempts; k++) {
+
             CompletableFuture<Void> timeoutFut = new CompletableFuture<Void>()
                     .completeOnTimeout(null, deadlineMillis, TimeUnit.MILLISECONDS);
 
