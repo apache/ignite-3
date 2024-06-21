@@ -27,6 +27,11 @@ import org.jetbrains.annotations.Nullable;
 public interface PrepareCallback {
 
     /**
+     * Default callback that does nothing.
+     */
+    PrepareCallback NO_OP = new PrepareCallback() { };
+
+    /**
      * Called for a valid SQL tree prior to optimization.
      *
      * @param ctx Planning context.

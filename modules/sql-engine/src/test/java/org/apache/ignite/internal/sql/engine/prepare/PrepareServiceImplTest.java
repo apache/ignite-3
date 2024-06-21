@@ -32,6 +32,7 @@ import static org.mockito.Mockito.mock;
 
 import java.time.Instant;
 import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -306,6 +307,21 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
         // Cache invalidate does not immediately remove the entry, so we need to wait some time to ensure it is removed.
         boolean empty = IgniteTestUtils.waitForCondition(() -> cache.size() == 0, 1000);
         assertTrue(empty, "Cache is not empty: " + cache.size());
+
+        // Another operation for the same statement should be affected by the previous timeout.
+
+        delayCallback.semaphore.release();
+
+        {
+            QueryCancel queryCancel1 = new QueryCancel();
+            SqlOperationContext context2 = operationContext()
+                    // Run with some other timeout.
+                    .operationDeadline(Instant.now().plus(1, ChronoUnit.HOURS))
+                    .cancel(queryCancel1)
+                    .build();
+
+            service.prepareAsync(parsedResult, context2).join();
+        }
     }
 
     private static class OptimizationDelay implements PrepareCallback {

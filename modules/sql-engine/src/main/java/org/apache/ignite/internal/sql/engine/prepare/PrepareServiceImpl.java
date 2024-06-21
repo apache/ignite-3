@@ -121,7 +121,7 @@ public class PrepareServiceImpl implements PrepareService {
 
     private volatile ThreadPoolExecutor planningPool;
 
-    private PrepareCallback callback = new PrepareCallback() { };
+    private PrepareCallback callback = PrepareCallback.NO_OP;
 
     /**
      * Factory method.
@@ -283,7 +283,7 @@ public class PrepareServiceImpl implements PrepareService {
      * @param callback Callback.
      */
     public void setCallback(PrepareCallback callback) {
-        this.callback = Objects.requireNonNull(callback);
+        this.callback = Objects.requireNonNull(callback, "callback");
     }
 
     private CompletableFuture<QueryPlan> prepareAsync0(ParsedResult parsedResult, PlanningContext planningContext) {
