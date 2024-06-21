@@ -28,6 +28,7 @@ public class LocalPartitionState {
     @IgniteToStringInclude
     public final String tableName;
 
+    @IgniteToStringInclude
     public final String zoneName;
 
     @IgniteToStringInclude

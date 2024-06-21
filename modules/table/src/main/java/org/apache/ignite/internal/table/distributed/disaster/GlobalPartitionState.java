@@ -27,6 +27,7 @@ public class GlobalPartitionState {
     @IgniteToStringInclude
     public final String tableName;
 
+    @IgniteToStringInclude
     public final String zoneName;
 
     @IgniteToStringInclude
