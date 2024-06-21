@@ -19,7 +19,6 @@ package org.apache.ignite.internal.affinity;
 
 import static java.util.Collections.unmodifiableSet;
 
-import java.util.HashSet;
 import java.util.Set;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
