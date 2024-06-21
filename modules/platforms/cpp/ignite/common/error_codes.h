@@ -210,7 +210,8 @@ enum class code : underlying_t {
     // DisasterRecovery group. Group code: 20
     ILLEGAL_PARTITION_ID = 0x140001,
     NODES_NOT_FOUND = 0x140002,
-    PARTITION_STATE = 0x140003
+    PARTITION_STATE = 0x140003,
+    CLUSTER_NOT_IDLE = 0x140004
 };
 
 } // namespace error

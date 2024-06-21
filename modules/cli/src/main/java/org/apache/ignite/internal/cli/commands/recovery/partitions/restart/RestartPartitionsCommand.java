@@ -15,30 +15,30 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.recovery.reset;
+package org.apache.ignite.internal.cli.commands.recovery.partitions.restart;
 
 import jakarta.inject.Inject;
 import java.util.concurrent.Callable;
-import org.apache.ignite.internal.cli.call.recovery.reset.ResetPartitionsCall;
-import org.apache.ignite.internal.cli.call.recovery.reset.ResetPartitionsCallInput;
+import org.apache.ignite.internal.cli.call.recovery.restart.RestartPartitionsCall;
+import org.apache.ignite.internal.cli.call.recovery.restart.RestartPartitionsCallInput;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 
-/** Command to reset partitions. */
-@Command(name = "reset-partitions", description = "Resets partitions.")
-public class ResetPartitionsCommand extends BaseCommand implements Callable<Integer> {
+/** Command to restart partitions. */
+@Command(name = "restart", description = "Restarts partitions.")
+public class RestartPartitionsCommand extends BaseCommand implements Callable<Integer> {
     @Mixin
-    private ResetPartitionsMixin options;
+    private RestartPartitionsMixin options;
 
     @Inject
-    private ResetPartitionsCall call;
+    private RestartPartitionsCall call;
 
     @Override
     public Integer call() {
         return CallExecutionPipeline.builder(call)
-                .inputProvider(() -> ResetPartitionsCallInput.of(options))
+                .inputProvider(() -> RestartPartitionsCallInput.of(options))
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
                 .verbose(verbose)

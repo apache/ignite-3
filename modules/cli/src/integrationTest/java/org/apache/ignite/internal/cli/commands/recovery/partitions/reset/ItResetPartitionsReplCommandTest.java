@@ -15,18 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.recovery;
+package org.apache.ignite.internal.cli.commands.recovery.partitions.reset;
 
-import org.apache.ignite.internal.cli.commands.recovery.partitions.PartitionStatesCommand;
-import org.apache.ignite.internal.util.ArrayUtils;
-
-/** Test class for {@link PartitionStatesCommand}. */
-public class ItPartitionStatesCommandTest extends ItPartitionStatesTest {
-
+/** Test class for {@link ResetPartitionsReplCommand}. */
+public class ItResetPartitionsReplCommandTest extends ItResetPartitionsTest {
     @Override
-    protected void execute(String... args) {
-        String[] fullArgs = ArrayUtils.concat(new String[] {"recovery", "partition-states"}, args);
-
-        super.execute(fullArgs);
+    protected Class<?> getCommandClass() {
+        return ResetPartitionsReplCommand.class;
     }
 }

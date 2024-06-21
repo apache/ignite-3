@@ -38,9 +38,6 @@ public interface BuildIndexCommand extends WriteCommand, CatalogVersionAware {
     /** Returns {@code true} if this batch is the last one. */
     boolean finish();
 
-    /** Returns the catalog version in which the index was created. */
-    int creationCatalogVersion();
-
     /** Returns the catalog version that is required to build the index, this is the version getting {@link CatalogIndexStatus#BUILDING}. */
     @Override
     @Transient

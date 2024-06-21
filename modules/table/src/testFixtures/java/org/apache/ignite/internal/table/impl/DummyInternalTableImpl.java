@@ -90,6 +90,7 @@ import org.apache.ignite.internal.table.distributed.IndexLocker;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableIndexStoragesSupplier;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
+import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
@@ -406,7 +407,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 new TestPlacementDriver(LOCAL_NODE),
                 mock(ClusterNodeResolver.class),
                 resourcesRegistry,
-                schemaManager
+                schemaManager,
+                mock(IndexMetaStorage.class)
         );
 
         partitionListener = new PartitionListener(
@@ -418,7 +420,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 new PendingComparableValuesTracker<>(0L),
                 catalogService,
                 schemaManager,
-                CLOCK_SERVICE
+                CLOCK_SERVICE,
+                mock(IndexMetaStorage.class)
         );
     }
 

@@ -15,34 +15,32 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.recovery.partitions;
+package org.apache.ignite.internal.cli.commands.recovery.partitions.reset;
 
 import jakarta.inject.Inject;
 import java.util.concurrent.Callable;
-import org.apache.ignite.internal.cli.call.recovery.PartitionStatesCall;
-import org.apache.ignite.internal.cli.call.recovery.PartitionStatesCallInput;
+import org.apache.ignite.internal.cli.call.recovery.reset.ResetPartitionsCall;
+import org.apache.ignite.internal.cli.call.recovery.reset.ResetPartitionsCallInput;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
-import org.apache.ignite.internal.cli.decorators.TableDecorator;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 
-/** Command to get partition states. */
-@Command(name = "partition-states", description = "Returns partition states.")
-public class PartitionStatesCommand extends BaseCommand implements Callable<Integer> {
+/** Command to reset partitions. */
+@Command(name = "reset", description = "Resets partitions.")
+public class ResetPartitionsCommand extends BaseCommand implements Callable<Integer> {
     @Mixin
-    private PartitionStatesMixin options;
+    private ResetPartitionsMixin options;
 
     @Inject
-    private PartitionStatesCall call;
+    private ResetPartitionsCall call;
 
     @Override
     public Integer call() {
         return CallExecutionPipeline.builder(call)
-                .inputProvider(() -> PartitionStatesCallInput.of(options))
+                .inputProvider(() -> ResetPartitionsCallInput.of(options))
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
-                .decorator(new TableDecorator(options.plain()))
                 .verbose(verbose)
                 .build()
                 .runPipeline();
