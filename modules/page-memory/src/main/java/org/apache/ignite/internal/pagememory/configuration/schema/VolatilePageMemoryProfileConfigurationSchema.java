@@ -20,7 +20,6 @@ package org.apache.ignite.internal.pagememory.configuration.schema;
 import static org.apache.ignite.internal.util.Constants.MiB;
 import static org.apache.ignite.internal.util.IgniteUtils.getTotalMemoryAvailable;
 
-import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.storage.configurations.StorageProfileConfigurationSchema;
@@ -51,8 +50,4 @@ public class VolatilePageMemoryProfileConfigurationSchema extends StorageProfile
     /** Maximum amount of empty pages to keep in memory. */
     @Value(hasDefault = true)
     public int emptyPagesPoolSize = 100;
-
-    /** Memory allocator. */
-    @ConfigValue
-    public MemoryAllocatorConfigurationSchema memoryAllocator;
 }

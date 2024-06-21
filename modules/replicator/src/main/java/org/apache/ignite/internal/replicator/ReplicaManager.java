@@ -196,11 +196,74 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     private final ExecutorService executor;
 
     private final ReplicaStateManager replicaStateManager;
+
     private final ExecutorService replicasCreationExecutor;
 
     private String localNodeId;
 
     private volatile String localNodeConsistentId;
+
+    /* Temporary converter to support the zone based partitions in tests. **/
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 remove this code
+    private Function<ReplicationGroupId, ReplicationGroupId> groupIdConverter = Function.identity();
+
+    /**
+     * Constructor for a replica service.
+     *
+     * @param nodeName Node name.
+     * @param clusterNetSvc Cluster network service.
+     * @param cmgMgr Cluster group manager.
+     * @param clockService Clock service.
+     * @param messageGroupsToHandle Message handlers.
+     * @param placementDriver A placement driver.
+     * @param requestsExecutor Executor that will be used to execute requests by replicas.
+     * @param idleSafeTimePropagationPeriodMsSupplier Used to get idle safe time propagation period in ms.
+     * @param failureProcessor Failure processor.
+     * @param raftCommandsMarshaller Command marshaller for raft groups creation.
+     * @param raftGroupServiceFactory A factory for raft-clients creation.
+     * @param raftManager The manager made up of songs and words to spite all my troubles is not so bad at all.
+     * @param volatileLogStorageFactoryCreator Creator for {@link org.apache.ignite.internal.raft.storage.LogStorageFactory} for
+     *      volatile tables.
+     * @param groupIdConverter Temporary converter to support the zone based partitions in tests.
+     */
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 remove this method
+    @TestOnly
+    public ReplicaManager(
+            String nodeName,
+            ClusterService clusterNetSvc,
+            ClusterManagementGroupManager cmgMgr,
+            ClockService clockService,
+            Set<Class<?>> messageGroupsToHandle,
+            PlacementDriver placementDriver,
+            Executor requestsExecutor,
+            LongSupplier idleSafeTimePropagationPeriodMsSupplier,
+            FailureProcessor failureProcessor,
+            Marshaller raftCommandsMarshaller,
+            TopologyAwareRaftGroupServiceFactory raftGroupServiceFactory,
+            RaftManager raftManager,
+            LogStorageFactoryCreator volatileLogStorageFactoryCreator,
+            Executor replicaStartStopExecutor,
+            Function<ReplicationGroupId, ReplicationGroupId> groupIdConverter
+    ) {
+        this(
+                nodeName,
+                clusterNetSvc,
+                cmgMgr,
+                clockService,
+                messageGroupsToHandle,
+                placementDriver,
+                requestsExecutor,
+                idleSafeTimePropagationPeriodMsSupplier,
+                failureProcessor,
+                raftCommandsMarshaller,
+                raftGroupServiceFactory,
+                raftManager,
+                volatileLogStorageFactoryCreator,
+                replicaStartStopExecutor
+        );
+
+        this.groupIdConverter = groupIdConverter;
+    }
 
     /**
      * Constructor for a replica service.
@@ -326,12 +389,14 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             return;
         }
 
+        ReplicationGroupId groupId = groupIdConverter.apply(request.groupId());
+
         String senderConsistentId = sender.name();
 
         try {
             // Notify the sender that the Replica is created and ready to process requests.
             if (request instanceof AwaitReplicaRequest) {
-                replicas.compute(request.groupId(), (replicationGroupId, replicaFut) -> {
+                replicas.compute(groupId, (replicationGroupId, replicaFut) -> {
                     if (replicaFut == null) {
                         replicaFut = new CompletableFuture<>();
                     }
@@ -359,12 +424,12 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 return;
             }
 
-            CompletableFuture<Replica> replicaFut = replicas.get(request.groupId());
+            CompletableFuture<Replica> replicaFut = replicas.get(groupId);
 
             HybridTimestamp requestTimestamp = extractTimestamp(request);
 
             if (replicaFut == null || !replicaFut.isDone()) {
-                sendReplicaUnavailableErrorResponse(senderConsistentId, correlationId, request.groupId(), requestTimestamp);
+                sendReplicaUnavailableErrorResponse(senderConsistentId, correlationId, groupId, requestTimestamp);
 
                 return;
             }
@@ -400,7 +465,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 clusterNetSvc.messagingService().respond(senderConsistentId, msg, correlationId);
 
                 if (request instanceof PrimaryReplicaRequest && isConnectivityRelatedException(ex)) {
-                    stopLeaseProlongation(request.groupId(), null);
+                    stopLeaseProlongation(groupId, null);
                 }
 
                 if (ex == null && res.replicationFuture() != null) {
@@ -591,6 +656,73 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     }
 
     /**
+     * Starts a replica. If a replica with the same partition id already exists, the method throws an exception.
+     *
+     * @param replicaGrpId Replication group id.
+     * @param listener Replica listener.
+     * @param snapshotStorageFactory Snapshot storage factory for raft group option's parameterization.
+     * @param newConfiguration A configuration for new raft group.
+     * @param raftGroupListener Raft group listener for raft group starting.
+     * @param raftGroupEventsListener Raft group events listener for raft group starting.
+     * @throws NodeStoppingException If node is stopping.
+     * @throws ReplicaIsAlreadyStartedException Is thrown when a replica with the same replication group id has already been
+     *         started.
+     */
+    public CompletableFuture<Replica> startReplica(
+            ReplicationGroupId replicaGrpId,
+            ReplicaListener listener,
+            SnapshotStorageFactory snapshotStorageFactory,
+            PeersAndLearners newConfiguration,
+            RaftGroupListener raftGroupListener,
+            RaftGroupEventsListener raftGroupEventsListener
+    ) throws NodeStoppingException {
+        RaftGroupOptions groupOptions = groupOptionsForPartition(
+                false,
+                snapshotStorageFactory);
+
+        RaftNodeId raftNodeId = new RaftNodeId(replicaGrpId, new Peer(localNodeConsistentId));
+
+        ((Loza) raftManager).startRaftGroupNodeWithoutService(
+                raftNodeId,
+                newConfiguration,
+                raftGroupListener,
+                raftGroupEventsListener,
+                groupOptions
+        );
+
+        LOG.info("Replica is about to start [replicationGroupId={}].", replicaGrpId);
+
+        Replica newReplica = new ZonePartitionReplicaImpl(
+                replicaGrpId,
+                listener
+        );
+
+        CompletableFuture<Replica> replicaFuture = replicas.compute(replicaGrpId, (k, existingReplicaFuture) -> {
+            if (existingReplicaFuture == null || existingReplicaFuture.isDone()) {
+                assert existingReplicaFuture == null || isCompletedSuccessfully(existingReplicaFuture);
+                LOG.info("Replica is started [replicationGroupId={}].", replicaGrpId);
+
+                return completedFuture(newReplica);
+            } else {
+                existingReplicaFuture.complete(newReplica);
+                LOG.info("Replica is started, existing replica waiter was completed [replicationGroupId={}].", replicaGrpId);
+
+                return existingReplicaFuture;
+            }
+        });
+
+        var eventParams = new LocalReplicaEventParameters(replicaGrpId);
+
+        return fireEvent(AFTER_REPLICA_STARTED, eventParams)
+                .exceptionally(e -> {
+                    LOG.error("Error when notifying about AFTER_REPLICA_STARTED event.", e);
+
+                    return null;
+                })
+                .thenCompose(v -> replicaFuture);
+    }
+
+    /**
      * Starts a raft-client and pass it to a replica creation if the replica should be started too. If a replica with the same partition id
      * already exists, the method throws an exception.
      * TODO: must be deleted or be private after https://issues.apache.org/jira/browse/IGNITE-22373
@@ -647,7 +779,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         ClusterNode localNode = clusterNetSvc.topologyService().localMember();
 
         CompletableFuture<Replica> replicaFuture = newReplicaListenerFut.thenCompose(listener -> {
-            Replica newReplica = new Replica(
+            Replica newReplica = new ReplicaImpl(
                     replicaGrpId,
                     listener,
                     storageIndexTracker,
@@ -1059,6 +1191,11 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     @TestOnly
     public boolean isReplicaTouched(ReplicationGroupId replicaGrpId) {
         return replicas.containsKey(replicaGrpId);
+    }
+
+    @TestOnly
+    public CompletableFuture<Replica> getReplica(ReplicationGroupId replicationGroupId) {
+        return replicas.get(replicationGroupId);
     }
 
     /**

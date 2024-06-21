@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.table.distributed.raft;
 
 import static java.util.Collections.singletonMap;
+import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.BUILDING;
+import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.REGISTERED;
 import static org.apache.ignite.internal.util.ArrayUtils.asList;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
@@ -71,6 +73,15 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
+import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommand;
+import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommand;
+import org.apache.ignite.internal.partition.replicator.network.command.TablePartitionIdMessage;
+import org.apache.ignite.internal.partition.replicator.network.command.TimedBinaryRowMessage;
+import org.apache.ignite.internal.partition.replicator.network.command.UpdateAllCommand;
+import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommand;
+import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommand;
+import org.apache.ignite.internal.partition.replicator.network.replication.BinaryRowMessage;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
@@ -99,17 +110,12 @@ import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor.StorageHashIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
-import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
-import org.apache.ignite.internal.table.distributed.command.BuildIndexCommand;
-import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
-import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMessage;
-import org.apache.ignite.internal.table.distributed.command.TimedBinaryRowMessage;
-import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
-import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
-import org.apache.ignite.internal.table.distributed.command.WriteIntentSwitchCommand;
+import org.apache.ignite.internal.table.distributed.index.IndexMeta;
+import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
-import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
+import org.apache.ignite.internal.table.distributed.index.MetaIndexStatus;
+import org.apache.ignite.internal.table.distributed.index.MetaIndexStatusChange;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -184,7 +190,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
     @WorkDirectory
     private Path workDir;
 
-    private final TableMessagesFactory msgFactory = new TableMessagesFactory();
+    private final PartitionReplicationMessagesFactory msgFactory = new PartitionReplicationMessagesFactory();
 
     private final HybridClock hybridClock = new HybridClockImpl();
 
@@ -207,9 +213,9 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
 
     private CatalogService catalogService;
 
-    private CatalogIndexDescriptor indexDescriptor;
-
     private final ClockService clockService = new TestClockService(new HybridClockImpl());
+
+    private IndexMetaStorage indexMetaStorage;
 
     /**
      * Initializes a table listener before tests.
@@ -241,6 +247,8 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
 
         Catalog catalog = mock(Catalog.class);
 
+        CatalogIndexDescriptor indexDescriptor = mock(CatalogIndexDescriptor.class);
+
         lenient().when(catalog.index(indexId)).thenReturn(indexDescriptor);
         lenient().when(catalogService.catalog(anyInt())).thenReturn(catalog);
 
@@ -252,8 +260,16 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
 
         CatalogTableDescriptor tableDescriptor = mock(CatalogTableDescriptor.class);
 
-        lenient().when(tableDescriptor.tableVersion()).thenReturn(SCHEMA.version());
+        int tableVersion = SCHEMA.version();
+
+        lenient().when(tableDescriptor.tableVersion()).thenReturn(tableVersion);
         lenient().when(catalogService.table(anyInt(), anyInt())).thenReturn(tableDescriptor);
+
+        indexMetaStorage = mock(IndexMetaStorage.class);
+
+        IndexMeta indexMeta = createIndexMeta(indexId, tableVersion);
+
+        lenient().when(indexMetaStorage.indexMeta(eq(indexId))).thenReturn(indexMeta);
 
         commandListener = new PartitionListener(
                 mock(TxManager.class),
@@ -264,7 +280,8 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 new PendingComparableValuesTracker<>(0L),
                 catalogService,
                 SCHEMA_REGISTRY,
-                clockService
+                clockService,
+                indexMetaStorage
         );
     }
 
@@ -451,7 +468,8 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 new PendingComparableValuesTracker<>(0L),
                 catalogService,
                 SCHEMA_REGISTRY,
-                clockService
+                clockService,
+                indexMetaStorage
         );
 
         txStateStorage.lastApplied(3L, 1L);
@@ -1107,5 +1125,23 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                     .findAny()
                     .orElse(null);
         }
+    }
+
+    private static IndexMeta createIndexMeta(int indexId, int tableVersion) {
+        IndexMeta indexMeta = mock(IndexMeta.class);
+
+        MetaIndexStatusChange change0 = mock(MetaIndexStatusChange.class);
+        MetaIndexStatusChange change1 = mock(MetaIndexStatusChange.class);
+
+        Map<MetaIndexStatus, MetaIndexStatusChange> changeMap = Map.of(REGISTERED, change0, BUILDING, change1);
+
+        lenient().when(indexMeta.indexId()).thenReturn(indexId);
+        lenient().when(indexMeta.status()).thenReturn(BUILDING);
+        lenient().when(indexMeta.tableVersion()).thenReturn(tableVersion);
+        lenient().when(indexMeta.statusChanges()).thenReturn(changeMap);
+        lenient().when(indexMeta.statusChange(eq(REGISTERED))).thenReturn(change0);
+        lenient().when(indexMeta.statusChange(eq(BUILDING))).thenReturn(change1);
+
+        return indexMeta;
     }
 }

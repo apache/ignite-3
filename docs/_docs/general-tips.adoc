@@ -62,9 +62,6 @@ You can get information about the data region by using the `cluster config show 
     "useAsyncFileIoFactory" : true
   },
   "defaultRegion" : {
-    "memoryAllocator" : {
-      "type" : "unsafe"
-    },
     "replacementMode" : "CLOCK",
     "size" : 268435456
   },

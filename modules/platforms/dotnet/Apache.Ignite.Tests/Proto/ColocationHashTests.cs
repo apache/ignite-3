@@ -25,7 +25,6 @@ using System.Linq;
 using System.Numerics;
 using System.Reflection;
 using System.Threading.Tasks;
-using Compute;
 using Ignite.Compute;
 using Ignite.Sql;
 using Ignite.Table;
@@ -197,8 +196,7 @@ public class ColocationHashTests : IgniteTestsBase
 
             var serverColocationHashExec = await Client.Compute.SubmitAsync<int>(
                 clusterNodes,
-                Array.Empty<DeploymentUnit>(),
-                TableRowColocationHashJob,
+                new(TableRowColocationHashJob),
                 tableName,
                 i);
 
@@ -340,8 +338,7 @@ public class ColocationHashTests : IgniteTestsBase
 
         IJobExecution<int> jobExecution = await Client.Compute.SubmitAsync<int>(
             nodes,
-            Array.Empty<DeploymentUnit>(),
-            ColocationHashJob,
+            new(ColocationHashJob),
             count,
             bytes,
             timePrecision,

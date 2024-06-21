@@ -106,6 +106,7 @@ import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryDataStorageModule;
 import org.apache.ignite.internal.table.TableTestUtils;
+import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -120,6 +121,7 @@ import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.sql.IgniteSql;
@@ -277,7 +279,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         when(distributionZoneManager.dataNodes(anyLong(), anyInt(), anyInt())).thenReturn(emptySetCompletedFuture());
 
         when(replicaMgr.getLogSyncer()).thenReturn(mock(LogSyncer.class));
-        when(replicaMgr.startReplica(any(), any(), any(), any(), any(), any()))
+        when(replicaMgr.startReplica(any(), any(), any(), any(), any(PendingComparableValuesTracker.class), any()))
                 .thenReturn(nullCompletedFuture());
         when(replicaMgr.stopReplica(any())).thenReturn(trueCompletedFuture());
         when(replicaMgr.weakStartReplica(any(), any(), any())).thenReturn(trueCompletedFuture());
@@ -340,7 +342,8 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 () -> mock(IgniteSql.class),
                 new RemotelyTriggeredResourceRegistry(),
                 lowWatermark,
-                new TransactionInflights(placementDriver, clockService)
+                new TransactionInflights(placementDriver, clockService),
+                mock(IndexMetaStorage.class)
         ) {
 
             @Override

@@ -19,8 +19,8 @@ package org.apache.ignite.internal.table.distributed.schema;
 
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
+import org.apache.ignite.internal.partition.replicator.network.command.CatalogVersionAware;
 import org.apache.ignite.internal.raft.util.OptimizedMarshaller;
-import org.apache.ignite.internal.table.distributed.command.CatalogVersionAware;
 import org.apache.ignite.internal.util.VarIntUtils;
 
 /**

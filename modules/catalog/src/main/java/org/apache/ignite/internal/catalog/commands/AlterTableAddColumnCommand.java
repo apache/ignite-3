@@ -105,6 +105,7 @@ public class AlterTableAddColumnCommand extends AbstractTableCommand {
                 throw new CatalogValidationException(format("Column with name '{}' specified more than once", column.name()));
             }
 
+            CatalogUtils.ensureTypeCanBeStored(column.name(), column.type());
             CatalogUtils.ensureNonFunctionalDefault(column.name(), column.defaultValueDefinition());
         }
     }

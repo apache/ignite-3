@@ -32,6 +32,8 @@ import java.util.function.Function;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
+import org.apache.ignite.internal.partition.replicator.network.replication.BuildIndexReplicaRequest;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
@@ -39,8 +41,6 @@ import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutExcepti
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.index.IndexStorage;
-import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
-import org.apache.ignite.internal.table.distributed.replication.request.BuildIndexReplicaRequest;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
@@ -49,7 +49,8 @@ import org.apache.ignite.network.ClusterNode;
 class IndexBuildTask {
     private static final IgniteLogger LOG = Loggers.forClass(IndexBuildTask.class);
 
-    private static final TableMessagesFactory TABLE_MESSAGES_FACTORY = new TableMessagesFactory();
+    private static final PartitionReplicationMessagesFactory PARTITION_REPLICATION_MESSAGES_FACTORY =
+            new PartitionReplicationMessagesFactory();
 
     private final IndexBuildTaskId taskId;
 
@@ -71,8 +72,6 @@ class IndexBuildTask {
 
     private final long enlistmentConsistencyToken;
 
-    private final int creationCatalogVersion;
-
     private final boolean afterDisasterRecovery;
 
     private final IgniteSpinBusyLock taskBusyLock = new IgniteSpinBusyLock();
@@ -92,7 +91,6 @@ class IndexBuildTask {
             ClusterNode node,
             List<IndexBuildCompletionListener> listeners,
             long enlistmentConsistencyToken,
-            int creationCatalogVersion,
             boolean afterDisasterRecovery
     ) {
         this.taskId = taskId;
@@ -106,7 +104,6 @@ class IndexBuildTask {
         // We do not intentionally make a copy of the list, we want to see changes in the passed list.
         this.listeners = listeners;
         this.enlistmentConsistencyToken = enlistmentConsistencyToken;
-        this.creationCatalogVersion = creationCatalogVersion;
         this.afterDisasterRecovery = afterDisasterRecovery;
     }
 
@@ -218,13 +215,12 @@ class IndexBuildTask {
     private BuildIndexReplicaRequest createBuildIndexReplicaRequest(List<RowId> rowIds) {
         boolean finish = rowIds.size() < batchSize;
 
-        return TABLE_MESSAGES_FACTORY.buildIndexReplicaRequest()
+        return PARTITION_REPLICATION_MESSAGES_FACTORY.buildIndexReplicaRequest()
                 .groupId(new TablePartitionId(taskId.getTableId(), taskId.getPartitionId()))
                 .indexId(taskId.getIndexId())
                 .rowIds(rowIds.stream().map(RowId::uuid).collect(toList()))
                 .finish(finish)
                 .enlistmentConsistencyToken(enlistmentConsistencyToken)
-                .creationCatalogVersion(creationCatalogVersion)
                 .build();
     }
 
