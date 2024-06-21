@@ -239,18 +239,18 @@ public class IgnitionImpl implements Ignition {
 
         String padding = " ".repeat(22);
 
-        String version = "Apache Ignite ver. ";
+        String version;
 
         try (InputStream versionStream = IgnitionImpl.class.getClassLoader().getResourceAsStream("ignite.version.full")) {
             if (versionStream != null) {
-                version += new String(versionStream.readAllBytes(), StandardCharsets.UTF_8);
+                version = new String(versionStream.readAllBytes(), StandardCharsets.UTF_8);
             } else {
-                version += IgniteProductVersion.CURRENT_VERSION;
+                version = IgniteProductVersion.CURRENT_VERSION.toString();
             }
         } catch (IOException e) {
-            version += IgniteProductVersion.CURRENT_VERSION;
+            version = IgniteProductVersion.CURRENT_VERSION.toString();
         }
 
-        LOG.info("{}" + lineSeparator() + "{}{}" + lineSeparator(), banner, padding, version);
+        LOG.info("{}" + lineSeparator() + "{}{}" + lineSeparator(), banner, padding, "Apache Ignite ver. " + version);
     }
 }
