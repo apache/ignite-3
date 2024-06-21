@@ -925,8 +925,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 .tableRaftService()
                 .updateInternalTableRaftGroupService(partId, raftClient);
 
-        CompletableFuture<Boolean> startGroupFut;
-
         if (localMemberAssignment == null) {
             // (0) in case if node not in the assignments
             return nullCompletedFuture();
