@@ -103,7 +103,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvider {
     /** Logger. */
-    private static final IgniteLogger LOG = Loggers.forClass(DisasterRecoveryManager.class);
+    static final IgniteLogger LOG = Loggers.forClass(DisasterRecoveryManager.class);
 
     /** Single key for writing disaster recovery requests into meta-storage. */
     static final ByteArray RECOVERY_TRIGGER_KEY = new ByteArray("disaster.recovery.trigger");
@@ -184,7 +184,10 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         watchListener = new WatchListener() {
             @Override
             public CompletableFuture<Void> onUpdate(WatchEvent event) {
-                return handleTriggerKeyUpdate(event);
+                handleTriggerKeyUpdate(event);
+
+                // There is no need to block a watch thread any longer.
+                return nullCompletedFuture();
             }
 
             @Override
@@ -249,7 +252,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
             checkPartitionsRange(partitionIds, Set.of(zone));
 
-            return processNewRequest(new ManualGroupUpdateRequest(UUID.randomUUID(), zone.id(), tableId, partitionIds));
+            return processNewRequest(new ManualGroupUpdateRequest(UUID.randomUUID(), catalog.version(), zone.id(), tableId, partitionIds));
         } catch (Throwable t) {
             return failedFuture(t);
         }
@@ -335,7 +338,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         }
     }
 
-    private CompletableFuture<Map<TablePartitionId, LocalPartitionStateMessageByNode>> localPartitionStatesInternal(
+    CompletableFuture<Map<TablePartitionId, LocalPartitionStateMessageByNode>> localPartitionStatesInternal(
             Set<String> zoneNames,
             Set<String> nodeNames,
             Set<Integer> partitionIds,
@@ -483,7 +486,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
      * Handler for {@link #RECOVERY_TRIGGER_KEY} update event. Deserializes the request and delegates the execution to
      * {@link DisasterRecoveryRequest#handle(DisasterRecoveryManager, long)}.
      */
-    private CompletableFuture<Void> handleTriggerKeyUpdate(WatchEvent watchEvent) {
+    private void handleTriggerKeyUpdate(WatchEvent watchEvent) {
         Entry newEntry = watchEvent.entryEvent().newEntry();
 
         byte[] requestBytes = newEntry.value();
@@ -495,7 +498,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         } catch (Exception e) {
             LOG.warn("Unable to deserialize disaster recovery request.", e);
 
-            return nullCompletedFuture();
+            return;
         }
 
         CompletableFuture<Void> operationFuture = ongoingOperationsById.remove(request.operationId());
@@ -504,27 +507,29 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             case SINGLE_NODE:
                 if (operationFuture == null) {
                     // We're not the initiator, or timeout has passed. Just ignore it.
-                    return nullCompletedFuture();
+                    return;
                 }
 
-                return request.handle(this, watchEvent.revision()).whenComplete(copyStateTo(operationFuture));
+                request.handle(this, watchEvent.revision()).whenComplete(copyStateTo(operationFuture));
+
+                break;
             case MULTI_NODE:
                 CompletableFuture<Void> handleFuture = request.handle(this, watchEvent.revision());
 
                 if (operationFuture == null) {
                     // We're not the initiator, or timeout has passed.
-                    return handleFuture;
+                    return;
                 }
 
-                return handleFuture.whenComplete(copyStateTo(operationFuture));
+                handleFuture.whenComplete(copyStateTo(operationFuture));
+
+                break;
             default:
                 var error = new AssertionError("Unexpected request type: " + request.getClass());
 
                 if (operationFuture != null) {
                     operationFuture.completeExceptionally(error);
                 }
-
-                return failedFuture(error);
         }
     }
 

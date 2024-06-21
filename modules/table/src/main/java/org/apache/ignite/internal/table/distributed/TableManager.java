@@ -1857,7 +1857,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         // This condition can only pass if all stable nodes are dead, and we start new raft group from scratch.
         // In this case new initial configuration must match new forced assignments.
-        // TODO https://issues.apache.org/jira/browse/IGNITE-21661 Something might not work, extensive testing is required.
         if (nonStableNodeAssignments.nodes().isEmpty()) {
             nonStableNodeAssignments = Assignments.forced(pendingAssignmentsNodes);
         }
