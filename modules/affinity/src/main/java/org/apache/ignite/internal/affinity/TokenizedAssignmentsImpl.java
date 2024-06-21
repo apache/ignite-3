@@ -32,7 +32,6 @@ public class TokenizedAssignmentsImpl implements TokenizedAssignments {
     @IgniteToStringInclude
     private final Set<Assignment> nodes;
 
-    @IgniteToStringInclude
     private final long token;
 
     /**

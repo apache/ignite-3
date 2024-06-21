@@ -97,6 +97,8 @@ public class PlacementDriverManager implements IgniteComponent {
 
     private final AssignmentsTracker assignmentsTracker;
 
+    private final PlacementDriver placementDriver;
+
     /**
      * Constructor.
      *
@@ -143,6 +145,8 @@ public class PlacementDriverManager implements IgniteComponent {
                 clockService,
                 assignmentsTracker
         );
+
+        this.placementDriver = createPlacementDriver();
     }
 
     @Override
@@ -252,6 +256,20 @@ public class PlacementDriverManager implements IgniteComponent {
 
     /** Returns placement driver service. */
     public PlacementDriver placementDriver() {
+        return placementDriver;
+    }
+
+    private void recoverInternalComponentsBusy() {
+        CompletableFuture<Long> recoveryFinishedFuture = metastore.recoveryFinishedFuture();
+
+        assert recoveryFinishedFuture.isDone();
+
+        long recoveryRevision = recoveryFinishedFuture.join();
+
+        leaseTracker.startTrack(recoveryRevision);
+    }
+
+    private PlacementDriver createPlacementDriver() {
         return new PlacementDriver() {
             @Override
             public CompletableFuture<TokenizedAssignments> getAssignments(
@@ -295,15 +313,5 @@ public class PlacementDriverManager implements IgniteComponent {
                 leaseTracker.removeListener(evt, listener);
             }
         };
-    }
-
-    private void recoverInternalComponentsBusy() {
-        CompletableFuture<Long> recoveryFinishedFuture = metastore.recoveryFinishedFuture();
-
-        assert recoveryFinishedFuture.isDone();
-
-        long recoveryRevision = recoveryFinishedFuture.join();
-
-        leaseTracker.startTrack(recoveryRevision);
     }
 }
