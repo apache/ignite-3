@@ -17,11 +17,9 @@
 
 package org.apache.ignite.table;
 
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow;
 import java.util.function.Function;
-import org.apache.ignite.compute.DeploymentUnit;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -45,14 +43,12 @@ public interface DataStreamerTarget<T> {
      * Streams data with receiver. The receiver is responsible for processing the data and updating zero or more tables.
      *
      * @param publisher Producer.
-     * @param options Options (can be null).
      * @param keyFunc Key function. The key is only used locally for colocation.
      * @param payloadFunc Payload function. The payload is sent to the receiver.
      * @param resultSubscriber Optional subscriber for the receiver results.
      *     NOTE: The result subscriber follows the pace of publisher and ignores backpressure
      *     from {@link Flow.Subscription#request(long)} calls.
-     * @param deploymentUnits Target deployment units. Can be empty.
-     * @param receiverClassName Receiver class name.
+     * @param options Options (can be null).
      * @param receiverArgs Receiver arguments.
      * @return Future that will be completed when the stream is finished.
      * @param <E> Producer item type.
@@ -61,11 +57,10 @@ public interface DataStreamerTarget<T> {
      */
     <E, V, R> CompletableFuture<Void> streamData(
             Flow.Publisher<E> publisher,
-            @Nullable DataStreamerOptions options,
             Function<E, T> keyFunc,
             Function<E, V> payloadFunc,
+            ReceiverDescriptor receiver,
             @Nullable Flow.Subscriber<R> resultSubscriber,
-            List<DeploymentUnit> deploymentUnits,
-            String receiverClassName,
+            @Nullable DataStreamerOptions options,
             Object receiverArgs);
 }

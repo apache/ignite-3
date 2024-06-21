@@ -30,6 +30,7 @@ import java.util.UUID;
 import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
+import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.compute.utils.InteractiveJobs;
@@ -246,7 +247,7 @@ class ItExecutionsCleanerTest extends ClusterPerClassIntegrationTest {
     private static TestingJobExecution<Object> submit(Set<ClusterNode> nodes) {
         IgniteCompute igniteCompute = CLUSTER.node(0).compute();
         return new TestingJobExecution<>(igniteCompute.submit(
-                nodes, JobDescriptor.builder(InteractiveJobs.globalJob().name()).build(), null
+                JobTarget.anyNode(nodes), JobDescriptor.builder(InteractiveJobs.globalJob().name()).build(), null
         ));
     }
 }

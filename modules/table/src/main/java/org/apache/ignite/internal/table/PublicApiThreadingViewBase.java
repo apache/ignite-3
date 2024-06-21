@@ -17,20 +17,19 @@
 
 package org.apache.ignite.internal.table;
 
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.lang.AsyncCursor;
 import org.apache.ignite.lang.Cursor;
 import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.DataStreamerTarget;
+import org.apache.ignite.table.ReceiverDescriptor;
 import org.apache.ignite.table.criteria.Criteria;
 import org.apache.ignite.table.criteria.CriteriaQueryOptions;
 import org.apache.ignite.table.criteria.CriteriaQuerySource;
@@ -61,21 +60,19 @@ abstract class PublicApiThreadingViewBase<T> implements DataStreamerTarget<T>, C
     @Override
     public <E, V, R> CompletableFuture<Void> streamData(
             Publisher<E> publisher,
-            @Nullable DataStreamerOptions options,
             Function<E, T> keyFunc,
             Function<E, V> payloadFunc,
+            ReceiverDescriptor receiver,
             @Nullable Flow.Subscriber<R> resultSubscriber,
-            List<DeploymentUnit> deploymentUnits,
-            String receiverClassName,
+            @Nullable DataStreamerOptions options,
             Object receiverArgs) {
         return executeAsyncOp(() -> streamerTarget.streamData(
                 publisher,
-                options,
                 keyFunc,
                 payloadFunc,
+                receiver,
                 resultSubscriber,
-                deploymentUnits,
-                receiverClassName,
+                options,
                 receiverArgs));
     }
 

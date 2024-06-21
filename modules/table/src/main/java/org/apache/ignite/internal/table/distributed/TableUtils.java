@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.table.distributed;
 
 import static java.util.stream.Collectors.toCollection;
-import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.BUILDING;
 import static org.apache.ignite.internal.util.CollectionUtils.view;
 
 import java.util.ArrayList;
@@ -28,7 +27,6 @@ import java.util.Set;
 import java.util.UUID;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -60,32 +58,6 @@ public class TableUtils {
         assert !indexes.isEmpty() : String.format("txId=%s, tableId=%s, catalogVersion=%s", txId, tableId, catalogVersion);
 
         return view(indexes, CatalogObjectDescriptor::id);
-    }
-
-    /**
-     * Returns the catalog version in which the index got status {@link CatalogIndexStatus#BUILDING}.
-     *
-     * @param catalogService Catalog service.
-     * @param indexId Index ID of interest.
-     * @param fromCatalogVersionIncluded Catalog version with which the search will begin (inclusive).
-     */
-    public static int findStartBuildingIndexCatalogVersion(CatalogService catalogService, int indexId, int fromCatalogVersionIncluded) {
-        int latestCatalogVersion = catalogService.latestCatalogVersion();
-
-        for (int catalogVersion = fromCatalogVersionIncluded; catalogVersion <= latestCatalogVersion; catalogVersion++) {
-            CatalogIndexDescriptor index = catalogService.index(indexId, catalogVersion);
-
-            assert index != null : "indexId=" + indexId + ", catalogVersion=" + catalogVersion;
-
-            if (index.status() == BUILDING) {
-                return catalogVersion;
-            }
-        }
-
-        throw new AssertionError(String.format(
-                "Could not find index in status %s: [indexId=%s, fromCatalogVersionIncluded=%s, latestCatalogVersion=%s]",
-                BUILDING, indexId, fromCatalogVersionIncluded, latestCatalogVersion
-        ));
     }
 
     /**

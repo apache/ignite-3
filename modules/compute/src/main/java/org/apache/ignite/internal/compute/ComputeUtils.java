@@ -33,7 +33,7 @@ import java.util.stream.Collectors;
 import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.DeploymentUnit;
-import org.apache.ignite.compute.JobStatus;
+import org.apache.ignite.compute.JobState;
 import org.apache.ignite.compute.task.MapReduceTask;
 import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.compute.message.DeploymentUnitMsg;
@@ -41,8 +41,8 @@ import org.apache.ignite.internal.compute.message.ExecuteResponse;
 import org.apache.ignite.internal.compute.message.JobCancelResponse;
 import org.apache.ignite.internal.compute.message.JobChangePriorityResponse;
 import org.apache.ignite.internal.compute.message.JobResultResponse;
-import org.apache.ignite.internal.compute.message.JobStatusResponse;
-import org.apache.ignite.internal.compute.message.JobStatusesResponse;
+import org.apache.ignite.internal.compute.message.JobStateResponse;
+import org.apache.ignite.internal.compute.message.JobStatesResponse;
 import org.apache.ignite.lang.IgniteCheckedException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.DataStreamerReceiver;
@@ -232,33 +232,33 @@ public class ComputeUtils {
     }
 
     /**
-     * Extract compute job statuses from statuses response.
+     * Extract compute job states from states response.
      *
-     * @param jobStatusesResponse Job statuses result message response.
+     * @param jobStatesResponse Job states result message response.
      * @return Completable future with result.
      */
-    public static CompletableFuture<Collection<JobStatus>> statusesFromJobStatusesResponse(JobStatusesResponse jobStatusesResponse) {
-        Throwable throwable = jobStatusesResponse.throwable();
+    public static CompletableFuture<Collection<JobState>> statesFromJobStatesResponse(JobStatesResponse jobStatesResponse) {
+        Throwable throwable = jobStatesResponse.throwable();
         if (throwable != null) {
             return failedFuture(throwable);
         }
 
-        return completedFuture(jobStatusesResponse.statuses());
+        return completedFuture(jobStatesResponse.states());
     }
 
     /**
-     * Extract compute job status from status response.
+     * Extract compute job state from state response.
      *
-     * @param jobStatusResponse Job status result message response.
+     * @param jobStateResponse Job state result message response.
      * @return Completable future with result.
      */
-    public static CompletableFuture<@Nullable JobStatus> statusFromJobStatusResponse(JobStatusResponse jobStatusResponse) {
-        Throwable throwable = jobStatusResponse.throwable();
+    public static CompletableFuture<@Nullable JobState> stateFromJobStateResponse(JobStateResponse jobStateResponse) {
+        Throwable throwable = jobStateResponse.throwable();
         if (throwable != null) {
             return failedFuture(throwable);
         }
 
-        return completedFuture(jobStatusResponse.status());
+        return completedFuture(jobStateResponse.state());
     }
 
     /**

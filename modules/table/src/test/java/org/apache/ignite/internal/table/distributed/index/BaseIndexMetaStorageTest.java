@@ -19,14 +19,19 @@ package org.apache.ignite.internal.table.distributed.index;
 
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
+import static org.apache.ignite.internal.sql.SqlCommon.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.table.TableTestUtils.TABLE_NAME;
+import static org.apache.ignite.internal.table.TableTestUtils.addColumnToTable;
 import static org.apache.ignite.internal.table.TableTestUtils.createSimpleTable;
 import static org.apache.ignite.internal.table.TableTestUtils.getIndexIdStrict;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableIdStrict;
+import static org.apache.ignite.internal.table.TableTestUtils.getTableStrict;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
+import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.greaterThan;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -169,6 +174,7 @@ abstract class BaseIndexMetaStorageTest extends BaseIgniteAbstractTest {
             @Nullable IndexMeta indexMeta,
             int expIndexId,
             int expTableId,
+            int expTableVersion,
             String expIndexName,
             MetaIndexStatus expStatus,
             Map<MetaIndexStatus, MetaIndexStatusChange> expStatuses,
@@ -178,6 +184,7 @@ abstract class BaseIndexMetaStorageTest extends BaseIgniteAbstractTest {
 
         assertEquals(expIndexId, indexMeta.indexId());
         assertEquals(expTableId, indexMeta.tableId(), "indexId=" + expIndexId);
+        assertEquals(expTableVersion, indexMeta.tableVersion(), "indexId=" + expIndexId);
         assertEquals(expIndexName, indexMeta.indexName(), "indexId=" + expIndexId);
         assertEquals(expStatus, indexMeta.status(), "indexId=" + expIndexId);
         assertEquals(expStatuses, indexMeta.statusChanges(), "indexId=" + expIndexId);
@@ -194,5 +201,21 @@ abstract class BaseIndexMetaStorageTest extends BaseIgniteAbstractTest {
 
     int latestCatalogVersion() {
         return catalogManager.latestCatalogVersion();
+    }
+
+    int latestTableVersionFromCatalog(int tableId) {
+        return getTableStrict(catalogManager, tableId, clock.nowLong()).tableVersion();
+    }
+
+    void updateTableVersion(String tableName) {
+        int tableId = tableId(tableName);
+
+        int tableVersionBeforeUpdate = latestTableVersionFromCatalog(tableId);
+
+        addColumnToTable(catalogManager, DEFAULT_SCHEMA_NAME, tableName, tableName + "_NEW_COLUMN", INT32);
+
+        int tableVersionAfterUpdate = latestTableVersionFromCatalog(tableId);
+
+        assertThat(tableVersionAfterUpdate, greaterThan(tableVersionBeforeUpdate));
     }
 }

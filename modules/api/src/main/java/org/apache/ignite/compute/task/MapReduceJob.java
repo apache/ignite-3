@@ -22,11 +22,12 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 import org.apache.ignite.compute.JobDescriptor;
+import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.network.ClusterNode;
 
 /**
  * A description of the job to be submitted as a result of the split step of the {@link MapReduceTask}. Reflects the parameters of the
- * {@link org.apache.ignite.compute.IgniteCompute#submit(Set, JobDescriptor, Object...)} method.
+ * {@link org.apache.ignite.compute.IgniteCompute#submit(JobTarget, JobDescriptor, Object...)} method.
  */
 public class MapReduceJob {
     private final Set<ClusterNode> nodes;

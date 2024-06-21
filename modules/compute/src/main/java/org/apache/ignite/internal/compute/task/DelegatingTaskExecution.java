@@ -19,7 +19,7 @@ package org.apache.ignite.internal.compute.task;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.compute.JobStatus;
+import org.apache.ignite.compute.JobState;
 import org.apache.ignite.compute.task.TaskExecution;
 import org.jetbrains.annotations.Nullable;
 
@@ -41,8 +41,8 @@ public class DelegatingTaskExecution<R> implements TaskExecution<R> {
     }
 
     @Override
-    public CompletableFuture<List<@Nullable JobStatus>> statusesAsync() {
-        return delegate.thenCompose(TaskExecutionInternal::statusesAsync);
+    public CompletableFuture<List<@Nullable JobState>> statesAsync() {
+        return delegate.thenCompose(TaskExecutionInternal::statesAsync);
     }
 
     @Override
@@ -51,8 +51,8 @@ public class DelegatingTaskExecution<R> implements TaskExecution<R> {
     }
 
     @Override
-    public CompletableFuture<@Nullable JobStatus> statusAsync() {
-        return delegate.thenCompose(TaskExecutionInternal::statusAsync);
+    public CompletableFuture<@Nullable JobState> stateAsync() {
+        return delegate.thenCompose(TaskExecutionInternal::stateAsync);
     }
 
     @Override

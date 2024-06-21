@@ -77,6 +77,7 @@ import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.replicator.Replica;
+import org.apache.ignite.internal.replicator.ReplicaImpl;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
@@ -588,7 +589,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
             throw new RuntimeException(e);
         }
 
-        PartitionReplicaListener listener = IgniteTestUtils.getFieldValue(replica, Replica.class, "listener");
+        PartitionReplicaListener listener = IgniteTestUtils.getFieldValue(replica, ReplicaImpl.class, "listener");
         TestMvPartitionStorage storage = IgniteTestUtils.getFieldValue(listener, PartitionReplicaListener.class, "mvDataStorage");
         Map<RowId, ?> map = IgniteTestUtils.getFieldValue(storage, TestMvPartitionStorage.class, "map");
 

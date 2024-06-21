@@ -60,40 +60,40 @@ public class NumericComparisonTypeCoercionTest extends BaseTypeCoercionTest {
                         .secondOpMatches(ofTypeWithoutCast(NativeTypes.INT64)),
 
                 forTypePair(NumericPair.TINYINT_NUMBER_1)
-                        .firstOpMatches(castTo(NativeTypes.numberOf(3)))
-                        .secondOpMatches(castTo(NativeTypes.numberOf(3))),
+                        .firstOpMatches(castTo(Types.NUMBER_3))
+                        .secondOpMatches(castTo(Types.NUMBER_3)),
 
                 forTypePair(NumericPair.TINYINT_NUMBER_2)
-                        .firstOpMatches(castTo(NativeTypes.numberOf(3)))
-                        .secondOpMatches(castTo(NativeTypes.numberOf(3))),
+                        .firstOpMatches(castTo(Types.NUMBER_3))
+                        .secondOpMatches(castTo(Types.NUMBER_3)),
 
                 forTypePair(NumericPair.TINYINT_NUMBER_5)
                         .firstOpMatches(castTo(Types.NUMBER_5))
                         .secondOpMatches(ofTypeWithoutCast(Types.NUMBER_5)),
 
                 forTypePair(NumericPair.TINYINT_DECIMAL_1_0)
-                        .firstOpMatches(castTo(NativeTypes.decimalOf(3, 0)))
-                        .secondOpMatches(castTo(NativeTypes.decimalOf(3, 0))),
+                        .firstOpMatches(castTo(Types.DECIMAL_3_0))
+                        .secondOpMatches(castTo(Types.DECIMAL_3_0)),
 
                 forTypePair(NumericPair.TINYINT_DECIMAL_2_1)
-                        .firstOpMatches(castTo(NativeTypes.decimalOf(4, 1)))
-                        .secondOpMatches(castTo(NativeTypes.decimalOf(4, 1))),
+                        .firstOpMatches(castTo(Types.DECIMAL_4_1))
+                        .secondOpMatches(castTo(Types.DECIMAL_4_1)),
 
                 forTypePair(NumericPair.TINYINT_DECIMAL_4_3)
-                        .firstOpMatches(castTo(NativeTypes.decimalOf(6, 3)))
-                        .secondOpMatches(castTo(NativeTypes.decimalOf(6, 3))),
+                        .firstOpMatches(castTo(Types.DECIMAL_6_3))
+                        .secondOpMatches(castTo(Types.DECIMAL_6_3)),
 
                 forTypePair(NumericPair.TINYINT_DECIMAL_2_0)
-                        .firstOpMatches(castTo(NativeTypes.decimalOf(3, 0)))
-                        .secondOpMatches(castTo(NativeTypes.decimalOf(3, 0))),
+                        .firstOpMatches(castTo(Types.DECIMAL_3_0))
+                        .secondOpMatches(castTo(Types.DECIMAL_3_0)),
 
                 forTypePair(NumericPair.TINYINT_DECIMAL_3_1)
-                        .firstOpMatches(castTo(NativeTypes.decimalOf(4, 1)))
-                        .secondOpMatches(castTo(NativeTypes.decimalOf(4, 1))),
+                        .firstOpMatches(castTo(Types.DECIMAL_4_1))
+                        .secondOpMatches(castTo(Types.DECIMAL_4_1)),
 
                 forTypePair(NumericPair.TINYINT_DECIMAL_5_3)
-                        .firstOpMatches(castTo(NativeTypes.decimalOf(6, 3)))
-                        .secondOpMatches(castTo(NativeTypes.decimalOf(6, 3))),
+                        .firstOpMatches(castTo(Types.DECIMAL_6_3))
+                        .secondOpMatches(castTo(Types.DECIMAL_6_3)),
 
                 forTypePair(NumericPair.TINYINT_DECIMAL_5_0)
                         .firstOpMatches(castTo(Types.DECIMAL_5_0))
@@ -194,52 +194,52 @@ public class NumericComparisonTypeCoercionTest extends BaseTypeCoercionTest {
                         .secondOpMatches(ofTypeWithoutCast(NativeTypes.INT64)),
 
                 forTypePair(NumericPair.INT_NUMBER_1)
-                        .firstOpMatches(castTo(NativeTypes.numberOf(10)))
-                        .secondOpMatches(castTo(NativeTypes.numberOf(10))),
+                        .firstOpMatches(castTo(Types.NUMBER_10))
+                        .secondOpMatches(castTo(Types.NUMBER_10)),
 
                 forTypePair(NumericPair.INT_NUMBER_2)
-                        .firstOpMatches(castTo(NativeTypes.numberOf(10)))
-                        .secondOpMatches(castTo(NativeTypes.numberOf(10))),
+                        .firstOpMatches(castTo(Types.NUMBER_10))
+                        .secondOpMatches(castTo(Types.NUMBER_10)),
 
                 forTypePair(NumericPair.INT_NUMBER_5)
-                        .firstOpMatches(castTo(NativeTypes.numberOf(10)))
-                        .secondOpMatches(castTo(NativeTypes.numberOf(10))),
+                        .firstOpMatches(castTo(Types.NUMBER_10))
+                        .secondOpMatches(castTo(Types.NUMBER_10)),
 
                 forTypePair(NumericPair.INT_DECIMAL_1_0)
-                        .firstOpMatches(castTo(NativeTypes.decimalOf(10, 0)))
-                        .secondOpMatches(castTo(NativeTypes.decimalOf(10, 0))),
+                        .firstOpMatches(castTo(Types.DECIMAL_10_0))
+                        .secondOpMatches(castTo(Types.DECIMAL_10_0)),
 
                 forTypePair(NumericPair.INT_DECIMAL_2_1)
-                        .firstOpMatches(castTo(NativeTypes.decimalOf(11, 1)))
-                        .secondOpMatches(castTo(NativeTypes.decimalOf(11, 1))),
+                        .firstOpMatches(castTo(Types.DECIMAL_11_1))
+                        .secondOpMatches(castTo(Types.DECIMAL_11_1)),
 
                 forTypePair(NumericPair.INT_DECIMAL_4_3)
-                        .firstOpMatches(castTo(NativeTypes.decimalOf(13, 3)))
-                        .secondOpMatches(castTo(NativeTypes.decimalOf(13, 3))),
+                        .firstOpMatches(castTo(Types.DECIMAL_13_3))
+                        .secondOpMatches(castTo(Types.DECIMAL_13_3)),
 
                 forTypePair(NumericPair.INT_DECIMAL_2_0)
-                        .firstOpMatches(castTo(NativeTypes.decimalOf(10, 0)))
-                        .secondOpMatches(castTo(NativeTypes.decimalOf(10, 0))),
+                        .firstOpMatches(castTo(Types.DECIMAL_10_0))
+                        .secondOpMatches(castTo(Types.DECIMAL_10_0)),
 
                 forTypePair(NumericPair.INT_DECIMAL_3_1)
-                        .firstOpMatches(castTo(NativeTypes.decimalOf(11, 1)))
-                        .secondOpMatches(castTo(NativeTypes.decimalOf(11, 1))),
+                        .firstOpMatches(castTo(Types.DECIMAL_11_1))
+                        .secondOpMatches(castTo(Types.DECIMAL_11_1)),
 
                 forTypePair(NumericPair.INT_DECIMAL_5_3)
-                        .firstOpMatches(castTo(NativeTypes.decimalOf(13, 3)))
-                        .secondOpMatches(castTo(NativeTypes.decimalOf(13, 3))),
+                        .firstOpMatches(castTo(Types.DECIMAL_13_3))
+                        .secondOpMatches(castTo(Types.DECIMAL_13_3)),
 
                 forTypePair(NumericPair.INT_DECIMAL_5_0)
-                        .firstOpMatches(castTo(NativeTypes.decimalOf(10, 0)))
-                        .secondOpMatches(castTo(NativeTypes.decimalOf(10, 0))),
+                        .firstOpMatches(castTo(Types.DECIMAL_10_0))
+                        .secondOpMatches(castTo(Types.DECIMAL_10_0)),
 
                 forTypePair(NumericPair.INT_DECIMAL_6_1)
-                        .firstOpMatches(castTo(NativeTypes.decimalOf(11, 1)))
-                        .secondOpMatches(castTo(NativeTypes.decimalOf(11, 1))),
+                        .firstOpMatches(castTo(Types.DECIMAL_11_1))
+                        .secondOpMatches(castTo(Types.DECIMAL_11_1)),
 
                 forTypePair(NumericPair.INT_DECIMAL_8_3)
-                        .firstOpMatches(castTo(NativeTypes.decimalOf(13, 3)))
-                        .secondOpMatches(castTo(NativeTypes.decimalOf(13, 3))),
+                        .firstOpMatches(castTo(Types.DECIMAL_13_3))
+                        .secondOpMatches(castTo(Types.DECIMAL_13_3)),
 
                 forTypePair(NumericPair.INT_REAL)
                         .firstOpMatches(castTo(NativeTypes.FLOAT))
@@ -255,52 +255,52 @@ public class NumericComparisonTypeCoercionTest extends BaseTypeCoercionTest {
                         .secondOpMatches(ofTypeWithoutCast(NativeTypes.INT64)),
 
                 forTypePair(NumericPair.BIGINT_NUMBER_1)
-                        .firstOpMatches(castTo(NativeTypes.numberOf(19)))
-                        .secondOpMatches(castTo(NativeTypes.numberOf(19))),
+                        .firstOpMatches(castTo(Types.NUMBER_19))
+                        .secondOpMatches(castTo(Types.NUMBER_19)),
 
                 forTypePair(NumericPair.BIGINT_NUMBER_2)
-                        .firstOpMatches(castTo(NativeTypes.numberOf(19)))
-                        .secondOpMatches(castTo(NativeTypes.numberOf(19))),
+                        .firstOpMatches(castTo(Types.NUMBER_19))
+                        .secondOpMatches(castTo(Types.NUMBER_19)),
 
                 forTypePair(NumericPair.BIGINT_NUMBER_5)
-                        .firstOpMatches(castTo(NativeTypes.numberOf(19)))
-                        .secondOpMatches(castTo(NativeTypes.numberOf(19))),
+                        .firstOpMatches(castTo(Types.NUMBER_19))
+                        .secondOpMatches(castTo(Types.NUMBER_19)),
 
                 forTypePair(NumericPair.BIGINT_DECIMAL_1_0)
-                        .firstOpMatches(castTo(NativeTypes.decimalOf(19, 0)))
-                        .secondOpMatches(castTo(NativeTypes.decimalOf(19, 0))),
+                        .firstOpMatches(castTo(Types.DECIMAL_19_0))
+                        .secondOpMatches(castTo(Types.DECIMAL_19_0)),
 
                 forTypePair(NumericPair.BIGINT_DECIMAL_2_1)
-                        .firstOpMatches(castTo(NativeTypes.decimalOf(20, 1)))
-                        .secondOpMatches(castTo(NativeTypes.decimalOf(20, 1))),
+                        .firstOpMatches(castTo(Types.DECIMAL_20_1))
+                        .secondOpMatches(castTo(Types.DECIMAL_20_1)),
 
                 forTypePair(NumericPair.BIGINT_DECIMAL_4_3)
-                        .firstOpMatches(castTo(NativeTypes.decimalOf(22, 3)))
-                        .secondOpMatches(castTo(NativeTypes.decimalOf(22, 3))),
+                        .firstOpMatches(castTo(Types.DECIMAL_22_3))
+                        .secondOpMatches(castTo(Types.DECIMAL_22_3)),
 
                 forTypePair(NumericPair.BIGINT_DECIMAL_2_0)
-                        .firstOpMatches(castTo(NativeTypes.decimalOf(19, 0)))
-                        .secondOpMatches(castTo(NativeTypes.decimalOf(19, 0))),
+                        .firstOpMatches(castTo(Types.DECIMAL_19_0))
+                        .secondOpMatches(castTo(Types.DECIMAL_19_0)),
 
                 forTypePair(NumericPair.BIGINT_DECIMAL_3_1)
-                        .firstOpMatches(castTo(NativeTypes.decimalOf(20, 1)))
-                        .secondOpMatches(castTo(NativeTypes.decimalOf(20, 1))),
+                        .firstOpMatches(castTo(Types.DECIMAL_20_1))
+                        .secondOpMatches(castTo(Types.DECIMAL_20_1)),
 
                 forTypePair(NumericPair.BIGINT_DECIMAL_5_3)
-                        .firstOpMatches(castTo(NativeTypes.decimalOf(22, 3)))
-                        .secondOpMatches(castTo(NativeTypes.decimalOf(22, 3))),
+                        .firstOpMatches(castTo(Types.DECIMAL_22_3))
+                        .secondOpMatches(castTo(Types.DECIMAL_22_3)),
 
                 forTypePair(NumericPair.BIGINT_DECIMAL_5_0)
-                        .firstOpMatches(castTo(NativeTypes.decimalOf(19, 0)))
-                        .secondOpMatches(castTo(NativeTypes.decimalOf(19, 0))),
+                        .firstOpMatches(castTo(Types.DECIMAL_19_0))
+                        .secondOpMatches(castTo(Types.DECIMAL_19_0)),
 
                 forTypePair(NumericPair.BIGINT_DECIMAL_6_1)
-                        .firstOpMatches(castTo(NativeTypes.decimalOf(20, 1)))
-                        .secondOpMatches(castTo(NativeTypes.decimalOf(20, 1))),
+                        .firstOpMatches(castTo(Types.DECIMAL_20_1))
+                        .secondOpMatches(castTo(Types.DECIMAL_20_1)),
 
                 forTypePair(NumericPair.BIGINT_DECIMAL_8_3)
-                        .firstOpMatches(castTo(NativeTypes.decimalOf(22, 3)))
-                        .secondOpMatches(castTo(NativeTypes.decimalOf(22, 3))),
+                        .firstOpMatches(castTo(Types.DECIMAL_22_3))
+                        .secondOpMatches(castTo(Types.DECIMAL_22_3)),
 
                 forTypePair(NumericPair.BIGINT_REAL)
                         .firstOpMatches(castTo(NativeTypes.FLOAT))

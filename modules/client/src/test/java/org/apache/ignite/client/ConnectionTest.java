@@ -18,16 +18,22 @@
 package org.apache.ignite.client;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutIn;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.endsWith;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 import org.apache.ignite.client.IgniteClient.Builder;
 import org.apache.ignite.client.fakes.FakeIgnite;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -118,6 +124,69 @@ public class ConnectionTest extends AbstractClientTest {
                 // Second request fails according to responseDelay function.
                 assertThrowsWithCause(() -> client.tables().tables(), TimeoutException.class);
             }
+        }
+    }
+
+    /** Verifies that the client handler doesn't handle requests until it is explicitly enabled. */
+    @Test
+    @SuppressWarnings("ThrowableNotThrown")
+    public void testDisabledRequestHandling() throws Exception {
+        String nodeName = "server-2";
+        FakeIgnite ignite = new FakeIgnite(nodeName);
+
+        try (TestServer testServer =
+                new TestServer(0, ignite, null, null, nodeName, UUID.randomUUID(), null, null, null, false)) {
+
+            Builder clientBuilder = IgniteClient.builder()
+                    .addresses("127.0.0.1:" + testServer.port())
+                    .retryPolicy(new RetryLimitPolicy().retryLimit(1))
+                    .connectTimeout(500);
+
+            assertThrowsWithCause(
+                    clientBuilder::build,
+                    IgniteClientConnectionException.class,
+                    "Handshake timeout"
+            );
+
+            testServer.enableClientRequestHandling();
+
+            try (IgniteClient client = clientBuilder.build()) {
+                client.tables().tables();
+            }
+        }
+    }
+
+    /** The test verifies that if request processing is enabled during connection establishment, the request is processed without errors. */
+    @Test
+    public void testEnableRequestHandlingDuringConnectionEstablishment() throws Exception {
+        String nodeName = "server-2";
+        FakeIgnite ignite = new FakeIgnite(nodeName);
+
+        try (TestServer testServer =
+                new TestServer(0, ignite, null, null, nodeName, UUID.randomUUID(), null, null, null, false)) {
+
+            Builder clientBuilder = IgniteClient.builder()
+                    .addresses("127.0.0.1:" + testServer.port())
+                    .retryPolicy(new RetryLimitPolicy().retryLimit(1))
+                    .connectTimeout(30_000);
+
+            CountDownLatch syncLatch = new CountDownLatch(1);
+
+            CompletableFuture<Void> fut = IgniteTestUtils.runAsync(() -> {
+                syncLatch.countDown();
+
+                try (IgniteClient client = clientBuilder.build()) {
+                    client.tables().tables();
+                }
+            });
+
+            syncLatch.await();
+
+            assertThat(fut, willTimeoutIn(500, TimeUnit.MILLISECONDS));
+
+            testServer.enableClientRequestHandling();
+
+            assertThat(fut, willCompleteSuccessfully());
         }
     }
 

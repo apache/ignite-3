@@ -39,6 +39,7 @@ import java.util.stream.Collectors;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
+import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.compute.utils.InteractiveJobs;
@@ -290,9 +291,8 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
         // When start colocated job on node that is not primary replica.
         IgniteImpl entryNode = anyNodeExcept(primaryReplica);
         TestingJobExecution<Object> execution = new TestingJobExecution<>(
-                compute(entryNode).submitColocated(
-                        TABLE_NAME,
-                        Tuple.create(1).set("K", 1),
+                compute(entryNode).submit(
+                        JobTarget.colocated(TABLE_NAME, Tuple.create(1).set("K", 1)),
                         JobDescriptor.builder(InteractiveJobs.globalJob().name()).build(),
                         null));
 
@@ -364,7 +364,7 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
     private TestingJobExecution<String> executeGlobalInteractiveJob(IgniteImpl entryNode, Set<String> nodes) {
         return new TestingJobExecution<>(
                 compute(entryNode).submit(
-                        clusterNodesByNames(nodes),
+                        JobTarget.anyNode(clusterNodesByNames(nodes)),
                         JobDescriptor.builder(InteractiveJobs.globalJob().name()).build(), null)
         );
     }
@@ -379,7 +379,7 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
         executeSql("INSERT INTO test(k, v) VALUES (1, 101)");
     }
 
-    private List<String> allNodeNames() {
+    private static List<String> allNodeNames() {
         return new ArrayList<>(NODES_NAMES_TO_INDEXES.keySet());
     }
 }

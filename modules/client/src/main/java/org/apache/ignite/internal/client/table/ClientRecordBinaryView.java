@@ -30,13 +30,12 @@ import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
 import org.apache.ignite.client.RetryLimitPolicy;
-import org.apache.ignite.compute.ByteArrayMarshaller;
-import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
+import org.apache.ignite.table.ReceiverDescriptor;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
@@ -422,18 +421,16 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
     @Override
     public <E, V, R> CompletableFuture<Void> streamData(
             Publisher<E> publisher,
-            @Nullable DataStreamerOptions options,
             Function<E, Tuple> keyFunc,
             Function<E, V> payloadFunc,
+            ReceiverDescriptor receiver,
             @Nullable Flow.Subscriber<R> resultSubscriber,
-            List<DeploymentUnit> deploymentUnits,
-            String receiverClassName,
+            @Nullable DataStreamerOptions options,
             Object receiverArgs) {
         Objects.requireNonNull(publisher);
         Objects.requireNonNull(keyFunc);
         Objects.requireNonNull(payloadFunc);
-        Objects.requireNonNull(deploymentUnits);
-        Objects.requireNonNull(receiverClassName);
+        Objects.requireNonNull(receiver);
 
         return ClientDataStreamer.streamData(
                 publisher,
@@ -444,8 +441,8 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
                 new TupleStreamerPartitionAwarenessProvider(tbl),
                 tbl,
                 resultSubscriber,
-                deploymentUnits,
-                receiverClassName,
+                receiver.units(),
+                receiver.receiverClassName(),
                 receiverArgs,
                 new ByteArrayMarshaller<>() {} // TODO
         );

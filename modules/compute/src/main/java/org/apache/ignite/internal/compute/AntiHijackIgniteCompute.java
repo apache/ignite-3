@@ -28,12 +28,11 @@ import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
+import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.internal.compute.task.AntiHijackTaskExecution;
 import org.apache.ignite.internal.wrapper.Wrapper;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.table.Tuple;
-import org.apache.ignite.table.mapper.Mapper;
 
 /**
  * Wrapper around {@link IgniteCompute} that adds protection against thread hijacking by users.
@@ -51,55 +50,13 @@ public class AntiHijackIgniteCompute implements IgniteCompute, Wrapper {
     }
 
     @Override
-    public <T, R> JobExecution<R> submit(Set<ClusterNode> nodes, JobDescriptor descriptor, T args) {
-        return preventThreadHijack(compute.submit(nodes, descriptor, args));
+    public <R> JobExecution<R> submit(JobTarget target, JobDescriptor descriptor, Object... args) {
+        return preventThreadHijack(compute.submit(target, descriptor, args));
     }
 
     @Override
-    public <T, R> R execute(Set<ClusterNode> nodes, JobDescriptor descriptor, T args) {
-        return compute.execute(nodes, descriptor, args);
-    }
-
-    @Override
-    public <T, R> JobExecution<R> submitColocated(
-            String tableName,
-            Tuple key,
-            JobDescriptor descriptor,
-            T args
-    ) {
-        return preventThreadHijack(compute.submitColocated(tableName, key, descriptor, args));
-    }
-
-    @Override
-    public <K, T, R> JobExecution<R> submitColocated(
-            String tableName,
-            K key,
-            Mapper<K> keyMapper,
-            JobDescriptor descriptor,
-            T args
-    ) {
-        return preventThreadHijack(compute.submitColocated(tableName, key, keyMapper, descriptor, args));
-    }
-
-    @Override
-    public <T, R> R executeColocated(
-            String tableName,
-            Tuple key,
-            JobDescriptor descriptor,
-            T args
-    ) {
-        return compute.executeColocated(tableName, key, descriptor, args);
-    }
-
-    @Override
-    public <K, T, R> R executeColocated(
-            String tableName,
-            K key,
-            Mapper<K> keyMapper,
-            JobDescriptor descriptor,
-            T args
-    ) {
-        return compute.executeColocated(tableName, key, keyMapper, descriptor, args);
+    public <R> R execute(JobTarget target, JobDescriptor descriptor, Object... args) {
+        return compute.execute(target, descriptor, args);
     }
 
     @Override

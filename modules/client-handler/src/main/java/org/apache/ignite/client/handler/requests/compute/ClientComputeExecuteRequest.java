@@ -17,7 +17,7 @@
 
 package org.apache.ignite.client.handler.requests.compute;
 
-import static org.apache.ignite.client.handler.requests.compute.ClientComputeGetStatusRequest.packJobStatus;
+import static org.apache.ignite.client.handler.requests.compute.ClientComputeGetStateRequest.packJobState;
 
 import java.util.HashSet;
 import java.util.List;
@@ -64,7 +64,7 @@ public class ClientComputeExecuteRequest {
         byte[] args = unpackPayload(in);
 
         JobExecution<Object> execution = compute.executeAsyncWithFailover(candidates, deploymentUnits, jobClassName, options, args);
-        sendResultAndStatus(execution, notificationSender);
+        sendResultAndState(execution, notificationSender);
 
         //noinspection DataFlowIssue
         return execution.idAsync().thenAccept(out::packUuid);
@@ -96,13 +96,13 @@ public class ClientComputeExecuteRequest {
         return nodes;
     }
 
-    static CompletableFuture<Object> sendResultAndStatus(JobExecution<Object> execution, NotificationSender notificationSender) {
+    static CompletableFuture<Object> sendResultAndState(JobExecution<Object> execution, NotificationSender notificationSender) {
         return execution.resultAsync().whenComplete((val, err) ->
-                execution.statusAsync().whenComplete((status, errStatus) ->
+                execution.stateAsync().whenComplete((state, errState) ->
                         notificationSender.sendNotification(w -> {
                             w.packObjectAsBinaryTuple(val, new ByteArrayMarshaller<>() {
                             });
-                            packJobStatus(w, status);
+                            packJobState(w, state);
                         }, err)));
     }
 
