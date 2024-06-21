@@ -48,7 +48,7 @@ public interface ComputeComponent extends IgniteComponent {
             ExecutionOptions options,
             List<DeploymentUnit> units,
             String jobClassName,
-            byte[] input
+            Object input
     );
 
     /**
@@ -63,7 +63,7 @@ public interface ComputeComponent extends IgniteComponent {
     default <R> JobExecution<R> executeLocally(
             List<DeploymentUnit> units,
             String jobClassName,
-            byte[] input
+            Object input
     ) {
         return executeLocally(ExecutionOptions.DEFAULT, units, jobClassName, input);
     }
@@ -84,7 +84,7 @@ public interface ComputeComponent extends IgniteComponent {
             ClusterNode remoteNode,
             List<DeploymentUnit> units,
             String jobClassName,
-            byte[] input
+            Object input
     );
 
     /**
@@ -101,7 +101,7 @@ public interface ComputeComponent extends IgniteComponent {
             ClusterNode remoteNode,
             List<DeploymentUnit> units,
             String jobClassName,
-            byte[] input
+            Object input
     ) {
         return executeRemotely(ExecutionOptions.DEFAULT, remoteNode, units, jobClassName, input);
     }
@@ -125,7 +125,7 @@ public interface ComputeComponent extends IgniteComponent {
             List<DeploymentUnit> units,
             String jobClassName,
             ExecutionOptions options,
-            byte[] input
+            Object input
     );
 
     /**

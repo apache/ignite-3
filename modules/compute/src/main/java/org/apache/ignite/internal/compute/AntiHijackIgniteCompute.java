@@ -50,12 +50,12 @@ public class AntiHijackIgniteCompute implements IgniteCompute, Wrapper {
     }
 
     @Override
-    public <R> JobExecution<R> submit(JobTarget target, JobDescriptor descriptor, Object... args) {
+    public <T, R> JobExecution<R> submit(JobTarget target, JobDescriptor descriptor, T args) {
         return preventThreadHijack(compute.submit(target, descriptor, args));
     }
 
     @Override
-    public <R> R execute(JobTarget target, JobDescriptor descriptor, Object... args) {
+    public <T, R> R execute(JobTarget target, JobDescriptor descriptor, T args) {
         return compute.execute(target, descriptor, args);
     }
 

@@ -34,6 +34,10 @@ public class ByteArrayMarshallilng {
      * @return asdf.
      */
     public static <T> byte[] marshal(T object) {
+        if (object == null) {
+            return null;
+        }
+
         try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
                 ObjectOutputStream out = new ObjectOutputStream(baos)
         ) {
@@ -54,6 +58,10 @@ public class ByteArrayMarshallilng {
      * @return asdf.
      */
     public static <T> T unmarshal(byte[] raw) {
+        if (raw == null) {
+            return null;
+        }
+
         try (ByteArrayInputStream bais = new ByteArrayInputStream(raw);
                 ObjectInputStream ois = new ObjectInputStream(bais)) {
             return (T) ois.readObject();

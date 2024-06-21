@@ -17,6 +17,11 @@
 
 package org.apache.ignite.compute;
 
+/**
+ * ATTTT.
+ *
+ * @param <T> asdf.
+ */
 public interface ByteArrayMarshaller<T> extends Marshaller<T, byte[]> {
     @Override
     default byte[] marshal(T object) {

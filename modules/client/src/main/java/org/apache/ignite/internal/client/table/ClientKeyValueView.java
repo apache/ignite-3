@@ -40,6 +40,7 @@ import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
 import org.apache.ignite.client.RetryLimitPolicy;
+import org.apache.ignite.compute.ByteArrayMarshaller;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.PayloadInputChannel;

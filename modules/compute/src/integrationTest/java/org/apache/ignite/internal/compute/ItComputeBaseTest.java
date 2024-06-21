@@ -458,7 +458,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
             var argumentPojo = new Pojo("Hey");
 
             Pojo resultPojo = client.compute().execute(
-                    Set.of(node(1).node()),
+                    JobTarget.node(node(1).node()),
                     JobDescriptor.builder(pojoJobClassName()).build(),
                     argumentPojo
             );

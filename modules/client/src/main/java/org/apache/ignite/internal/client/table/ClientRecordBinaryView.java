@@ -30,6 +30,7 @@ import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
 import org.apache.ignite.client.RetryLimitPolicy;
+import org.apache.ignite.compute.ByteArrayMarshaller;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;

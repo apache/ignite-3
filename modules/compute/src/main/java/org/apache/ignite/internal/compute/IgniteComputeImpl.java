@@ -103,10 +103,11 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
         Objects.requireNonNull(target);
         Objects.requireNonNull(descriptor);
 
+        Marshaller<T, byte[]> argumentMarshaler = descriptor.argumentMarshaler();
+
         if (target instanceof AnyNodeJobTarget) {
             Set<ClusterNode> nodes = ((AnyNodeJobTarget) target).nodes();
 
-            Marshaller<T, byte[]> argumentMarshaler = descriptor.argumentMarshaler();
         return executeAsyncWithFailover(nodes, descriptor.units(), descriptor.jobClassName(), descriptor.options(),
                 argumentMarshaler.marshal(args)
         );
@@ -128,7 +129,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
                                         descriptor.units(),
                                         descriptor.jobClassName(),
                                         descriptor.options(),
-                                        args
+                                        argumentMarshaler.marshal(args)
                                 )));
 
             } else {
@@ -139,7 +140,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
                                 descriptor.units(),
                                 descriptor.jobClassName(),
                                 descriptor.options(),
-                                args));
+                                argumentMarshaler.marshal(args)));
             }
 
             return new JobExecutionFutureWrapper<>(jobFut);
@@ -149,7 +150,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
     }
 
     @Override
-    public <R> R execute(JobTarget target, JobDescriptor descriptor, Object... args) {
+    public <T, R> R execute(JobTarget target, JobDescriptor descriptor, T args) {
         return sync(executeAsync(target, descriptor, args));
     }
 
@@ -159,7 +160,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            byte[] payload
+            Object args
     ) {
         Set<ClusterNode> candidates = new HashSet<>();
         for (ClusterNode node : nodes) {
@@ -184,7 +185,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
                         units,
                         jobClassName,
                         options,
-                        payload
+                        args
                 ));
     }
 
@@ -199,13 +200,13 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
         return iterator.next();
     }
 
-    private <R> JobExecution<R> executeOnOneNodeWithFailover(
+    private <T, R> JobExecution<R> executeOnOneNodeWithFailover(
             ClusterNode targetNode,
             NextWorkerSelector nextWorkerSelector,
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions jobExecutionOptions,
-            byte[] payload
+            T payload
     ) {
         ExecutionOptions options = ExecutionOptions.from(jobExecutionOptions);
         if (isLocal(targetNode)) {

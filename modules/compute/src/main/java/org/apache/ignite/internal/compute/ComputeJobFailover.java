@@ -108,7 +108,7 @@ class ComputeJobFailover<R> {
             List<DeploymentUnit> units,
             String jobClassName,
             ExecutionOptions executionOptions,
-            byte[] args
+            Object args
     ) {
         this.computeComponent = computeComponent;
         this.runningWorkerNode = new AtomicReference<>(workerNode);

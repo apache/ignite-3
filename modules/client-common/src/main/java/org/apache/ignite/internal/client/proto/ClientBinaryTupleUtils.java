@@ -195,7 +195,7 @@ public class ClientBinaryTupleUtils {
      * @param builder Builder.
      * @param obj Object.
      */
-    public static void appendObject(BinaryTupleBuilder builder, Object obj, @Nullable Marshaller<Object, byte[]> marshaler) {
+    public static <T> void appendObject(BinaryTupleBuilder builder, T obj, @Nullable Marshaller<T, byte[]> marshaler) {
         if (obj == null) {
             builder.appendNull(); // Type.
             builder.appendNull(); // Scale.

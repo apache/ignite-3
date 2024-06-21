@@ -120,7 +120,7 @@ public class ComputeComponentImpl implements ComputeComponent {
             ExecutionOptions options,
             List<DeploymentUnit> units,
             String jobClassName,
-            byte[] input
+            Object input
     ) {
         if (!busyLock.enterBusy()) {
             return new DelegatingJobExecution<>(
@@ -188,7 +188,7 @@ public class ComputeComponentImpl implements ComputeComponent {
             ClusterNode remoteNode,
             List<DeploymentUnit> units,
             String jobClassName,
-            byte[] input
+            Object input
     ) {
         if (!busyLock.enterBusy()) {
             return new DelegatingJobExecution<>(
@@ -218,7 +218,7 @@ public class ComputeComponentImpl implements ComputeComponent {
             List<DeploymentUnit> units,
             String jobClassName,
             ExecutionOptions options,
-            byte[] input
+            Object input
     ) {
         JobExecution<R> result = new ComputeJobFailover<R>(
                 this, logicalTopologyService, topologyService,
@@ -294,7 +294,7 @@ public class ComputeComponentImpl implements ComputeComponent {
     }
 
 
-    private <T, R> JobExecutionInternal<R> execJob(JobContext context, ExecutionOptions options, String jobClassName, byte[] args) {
+    private <T, R> JobExecutionInternal<R> execJob(JobContext context, ExecutionOptions options, String jobClassName, Object args) {
         try {
             return executor.executeJob(options, jobClass(context.classLoader(), jobClassName), context.classLoader(), args);
         } catch (Throwable e) {

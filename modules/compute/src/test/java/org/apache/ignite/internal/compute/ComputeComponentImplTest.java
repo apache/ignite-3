@@ -681,7 +681,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
     }
 
     private CompletableFuture<String> executeLocally(List<DeploymentUnit> units, String jobClassName, String args) {
-        return computeComponent.<String, String>executeLocally(units, jobClassName, args).resultAsync();
+        return computeComponent.<String>executeLocally(units, jobClassName, args).resultAsync();
     }
 
     private CompletableFuture<String> executeRemotely(

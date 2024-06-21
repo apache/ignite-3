@@ -32,12 +32,12 @@ public interface ComputeExecutor {
             ExecutionOptions options,
             Class<? extends ComputeJob<T, R>> jobClass,
             JobClassLoader classLoader,
-            byte[] input);
+            Object input);
 
     <T, R> TaskExecutionInternal<T, R> executeTask(
             JobSubmitter jobSubmitter,
             Class<? extends MapReduceTask<T, R>> taskClass,
-            T input
+            Object input
     );
 
     void start();

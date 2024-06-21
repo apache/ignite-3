@@ -30,6 +30,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.task.MapReduceTask;
 import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.network.ClusterNode;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Provides the ability to execute Compute jobs.
@@ -81,7 +82,7 @@ public interface IgniteCompute {
      * @return Job result.
      * @throws ComputeException If there is any problem executing the job.
      */
-    <R> R execute(
+    <T, R> R execute(
             JobTarget target,
             JobDescriptor descriptor,
             @Nullable T args
