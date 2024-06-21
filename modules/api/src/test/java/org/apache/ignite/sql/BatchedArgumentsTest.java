@@ -22,6 +22,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.not;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -85,6 +86,31 @@ public class BatchedArgumentsTest {
             BatchedArguments batch = BatchedArguments.of(1);
             assertThrows(IllegalArgumentException.class, "Argument lists must be the same size.", () -> batch.add(List.of(1, 2)));
         }
+    }
+
+    @Test
+    public void argumentsListsAreImmutable() {
+        List<List<Object>> argLists = new ArrayList<>(2);
+        argLists.add(List.of(1));
+        argLists.add(List.of(2));
+
+        BatchedArguments batch = BatchedArguments.of(argLists);
+        assertThat(batch.size(), is(argLists.size()));
+
+        argLists.add(List.of(3));
+        assertThat(batch.size(), is(argLists.size() - 1));
+
+        Assertions.assertThrows(UnsupportedOperationException.class, () -> batch.get(0).add("2"));
+        Assertions.assertThrows(UnsupportedOperationException.class, () -> batch.get(0).remove(0));
+
+        List<Object> modifiableList = new ArrayList<>(List.of("John"));
+        batch.add(modifiableList);
+
+        assertThat(batch.get(2), equalTo(modifiableList));
+        modifiableList.add("Mary");
+
+        assertThat(batch.get(2), not(equalTo(modifiableList)));
+        Assertions.assertThrows(UnsupportedOperationException.class, () -> batch.get(2).add("Mary"));
     }
 
     private static <T extends Throwable> void assertThrows(Class<T> expectedType, String expMsg, Executable executable) {

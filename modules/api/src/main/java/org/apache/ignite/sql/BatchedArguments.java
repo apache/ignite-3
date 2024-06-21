@@ -74,7 +74,7 @@ public final class BatchedArguments implements Iterable<List<Object>> {
     public BatchedArguments add(Object... args) {
         Objects.requireNonNull(args, "args");
 
-        return add(List.of(args));
+        return addArguments(List.of(args));
     }
 
     /**
@@ -86,17 +86,7 @@ public final class BatchedArguments implements Iterable<List<Object>> {
     public BatchedArguments add(List<Object> argsList) {
         Objects.requireNonNull(argsList, "argsList");
 
-        if (argsList.isEmpty()) {
-            throwEmptyArgumentsException();
-        }
-
-        if (!batchedArgs.isEmpty()) {
-            ensureRowLength(batchedArgs.get(0).size(), argsList.size());
-        }
-
-        batchedArgs.add(argsList);
-
-        return this;
+        return addArguments(List.copyOf(argsList));
     }
 
     /**
@@ -143,6 +133,8 @@ public final class BatchedArguments implements Iterable<List<Object>> {
             int pos = 0;
             int requiredLength = 0;
 
+            List<List<Object>> resultList = new ArrayList<>(batchedArgs.size());
+
             for (List<Object> arguments : batchedArgs) {
                 Objects.requireNonNull(arguments, "Arguments list cannot be null.");
 
@@ -156,11 +148,29 @@ public final class BatchedArguments implements Iterable<List<Object>> {
                     ensureRowLength(requiredLength, arguments.size());
                 }
 
+                resultList.add(List.copyOf(arguments));
+
                 ++pos;
             }
+
+            this.batchedArgs = resultList;
+        } else {
+            this.batchedArgs = batchedArgs;
+        }
+    }
+
+    private BatchedArguments addArguments(List<Object> immutableList) {
+        if (immutableList.isEmpty()) {
+            throwEmptyArgumentsException();
         }
 
-        this.batchedArgs = batchedArgs;
+        if (!batchedArgs.isEmpty()) {
+            ensureRowLength(batchedArgs.get(0).size(), immutableList.size());
+        }
+
+        batchedArgs.add(immutableList);
+
+        return this;
     }
 
     private static void throwEmptyArgumentsException() {
