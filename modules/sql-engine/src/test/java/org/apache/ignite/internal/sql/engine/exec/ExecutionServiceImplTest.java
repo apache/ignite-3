@@ -1127,9 +1127,10 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
             timeoutFut.join();
 
+            // DDL handler does convert exceptions to SqlException, so we get QueryCancelledException here.
             IgniteTestUtils.assertThrowsWithCause(
                     batchFut::join,
-                    SqlException.class,
+                    QueryCancelledException.class,
                     "Query timeout"
             );
 

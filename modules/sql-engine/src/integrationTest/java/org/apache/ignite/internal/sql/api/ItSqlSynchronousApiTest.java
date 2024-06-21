@@ -222,7 +222,7 @@ public class ItSqlSynchronousApiTest extends ItSqlApiBaseTest {
     @Test
     public void testDdlTimeout() {
         IgniteSql igniteSql = igniteSql();
-        int timeoutMillis = 5;
+        int timeoutMillis = 1;
 
         Statement stmt = igniteSql.statementBuilder()
                 .query("CREATE TABLE test (ID INT PRIMARY KEY, VAL0 INT)")
