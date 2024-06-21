@@ -39,9 +39,11 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.sql.ColumnType.DECIMAL;
+import static org.apache.ignite.sql.ColumnType.DURATION;
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.apache.ignite.sql.ColumnType.INT64;
 import static org.apache.ignite.sql.ColumnType.NULL;
+import static org.apache.ignite.sql.ColumnType.PERIOD;
 import static org.apache.ignite.sql.ColumnType.STRING;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
@@ -800,7 +802,7 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
      * Changing precision is not supported for all types other than DECIMAL.
      */
     @ParameterizedTest
-    @EnumSource(value = ColumnType.class, names = {"NULL", "DECIMAL"}, mode = Mode.EXCLUDE)
+    @EnumSource(value = ColumnType.class, names = {"NULL", "DECIMAL", "PERIOD", "DURATION"}, mode = Mode.EXCLUDE)
     public void testAlterColumnTypeAnyPrecisionChangeIsRejected(ColumnType type) {
         ColumnParams pkCol = columnParams("ID", INT32);
         ColumnParams colWithPrecision;
@@ -1008,10 +1010,12 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
      * All other transitions are forbidden because they lead to incompatible schemas.
      */
     @ParameterizedTest(name = "set data type {0}")
-    @EnumSource(value = ColumnType.class, names = "NULL", mode = Mode.EXCLUDE)
+    @EnumSource(value = ColumnType.class, names = {"NULL", "PERIOD", "DURATION"}, mode = Mode.EXCLUDE)
     public void testAlterColumnType(ColumnType target) {
         EnumSet<ColumnType> types = EnumSet.allOf(ColumnType.class);
         types.remove(NULL);
+        types.remove(PERIOD);
+        types.remove(DURATION);
 
         List<ColumnParams> testColumns = types.stream()
                 .map(t -> initializeColumnWithDefaults(t, columnParamsBuilder("COL_" + t, t)))

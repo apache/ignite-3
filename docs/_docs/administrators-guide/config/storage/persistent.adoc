@@ -45,7 +45,6 @@ The following table describes some properties of persistent data storage:
 |size|`256 * 1024 * 1024`| Sets the space allocated to the data region, in bytes.
 |replacementMode|`CLOCK`| Sets the page replacement algorithm.
 |pageSize|16384| The size of pages in the storage, in bytes.
-|memoryAllocator.type|unsafe|Memory allocator configuration. Uses `sun.misc.Unsafe` to improve performance. Currently, no other options are available.
 |===
 
 The table below describes checkpoint configuration:

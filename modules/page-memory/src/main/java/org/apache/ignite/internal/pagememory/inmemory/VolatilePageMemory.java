@@ -32,7 +32,6 @@ import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.PageMemory;
-import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorView;
 import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileView;
 import org.apache.ignite.internal.pagememory.io.PageIo;
@@ -186,10 +185,6 @@ public class VolatilePageMemory implements PageMemory {
         this.trackAcquiredPages = false;
         this.storageProfileView = (VolatilePageMemoryProfileView) storageProfileConfiguration.value();
 
-        if (!(storageProfileView.memoryAllocator() instanceof UnsafeMemoryAllocatorView)) {
-            throw new IgniteInternalException("Unexpected memory allocator: " + storageProfileView.memoryAllocator());
-        }
-
         directMemoryProvider = new UnsafeMemoryProvider(null);
 
         sysPageSize = pageSize + PAGE_OVERHEAD;
@@ -268,13 +263,11 @@ public class VolatilePageMemory implements PageMemory {
         }
     }
 
-    /** {@inheritDoc} */
     @Override public ByteBuffer pageBuffer(long pageAddr) {
         return wrapPointer(pageAddr, pageSize());
     }
 
-    /** {@inheritDoc} */
-    @Override public long allocatePage(int grpId, int partId, byte flags) {
+    @Override public long allocatePageNoReuse(int grpId, int partId, byte flags) {
         assert started;
 
         long relPtr = borrowFreePage();
@@ -335,7 +328,6 @@ public class VolatilePageMemory implements PageMemory {
         return pageId;
     }
 
-    /** {@inheritDoc} */
     @Override public boolean freePage(int grpId, long pageId) {
         assert started;
 
@@ -344,22 +336,18 @@ public class VolatilePageMemory implements PageMemory {
         return true;
     }
 
-    /** {@inheritDoc} */
     @Override public int pageSize() {
         return sysPageSize - PAGE_OVERHEAD;
     }
 
-    /** {@inheritDoc} */
     @Override public int systemPageSize() {
         return sysPageSize;
     }
 
-    /** {@inheritDoc} */
     @Override public int realPageSize(int grpId) {
         return pageSize();
     }
 
-    /** {@inheritDoc} */
     @Override public long loadedPages() {
         return allocatedPages.get();
     }
@@ -444,12 +432,10 @@ public class VolatilePageMemory implements PageMemory {
 
     // *** PageSupport methods ***
 
-    /** {@inheritDoc} */
     @Override public long acquirePage(int cacheId, long pageId) {
         return acquirePage(cacheId, pageId, IoStatisticsHolderNoOp.INSTANCE);
     }
 
-    /** {@inheritDoc} */
     @Override public long acquirePage(int cacheId, long pageId, IoStatisticsHolder statHolder) {
         assert started;
 
@@ -464,7 +450,6 @@ public class VolatilePageMemory implements PageMemory {
         return absPtr;
     }
 
-    /** {@inheritDoc} */
     @Override public void releasePage(int cacheId, long pageId, long page) {
         assert started;
 
@@ -475,7 +460,6 @@ public class VolatilePageMemory implements PageMemory {
         }
     }
 
-    /** {@inheritDoc} */
     @Override public long readLock(int cacheId, long pageId, long page) {
         assert started;
 
@@ -486,7 +470,6 @@ public class VolatilePageMemory implements PageMemory {
         return 0L;
     }
 
-    /** {@inheritDoc} */
     @Override public long readLockForce(int cacheId, long pageId, long page) {
         assert started;
 
@@ -497,14 +480,12 @@ public class VolatilePageMemory implements PageMemory {
         return 0L;
     }
 
-    /** {@inheritDoc} */
     @Override public void readUnlock(int cacheId, long pageId, long page) {
         assert started;
 
         rwLock.readUnlock(page + LOCK_OFFSET);
     }
 
-    /** {@inheritDoc} */
     @Override public long writeLock(int cacheId, long pageId, long page) {
         assert started;
 
@@ -515,7 +496,6 @@ public class VolatilePageMemory implements PageMemory {
         return 0L;
     }
 
-    /** {@inheritDoc} */
     @Override public long tryWriteLock(int cacheId, long pageId, long page) {
         assert started;
 
@@ -526,7 +506,6 @@ public class VolatilePageMemory implements PageMemory {
         return 0L;
     }
 
-    /** {@inheritDoc} */
     @Override
     public void writeUnlock(
             int cacheId,
@@ -541,13 +520,11 @@ public class VolatilePageMemory implements PageMemory {
         rwLock.writeUnlock(page + LOCK_OFFSET, PageIdUtils.tag(actualId));
     }
 
-    /** {@inheritDoc} */
     @Override public boolean isDirty(int cacheId, long pageId, long page) {
         // always false for page no store.
         return false;
     }
 
-    /** {@inheritDoc} */
     @Override
     public PageIoRegistry ioRegistry() {
         return ioRegistry;

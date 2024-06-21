@@ -1,0 +1,205 @@
+# name: test/sql/cast/test_cast_interval_day.test
+# description: CAST DAY/SECOND
+# feature: SQL F201(CAST function)
+# group: [cast]
+
+query T
+SELECT CAST(INTERVAL 1 DAYS AS INTERVAL DAYS);
+----
+PT24H
+
+query T
+SELECT CAST('1' AS INTERVAL DAYS);
+----
+PT24H
+
+query T
+SELECT CAST('1'::VARCHAR AS INTERVAL DAYS);
+----
+PT24H
+
+statement error: Cast function cannot convert value of type DATE to type INTERVAL DAY
+SELECT CAST('2000-01-01'::DATE AS INTERVAL DAYS);
+
+statement error: Cast function cannot convert value of type TIME(0) to type INTERVAL DAY
+SELECT CAST('10:11:12'::TIME AS INTERVAL DAYS);
+
+statement error: Cast function cannot convert value of type TIMESTAMP(6) to type INTERVAL DAY
+SELECT CAST('2000-01-01 10:11:12'::TIMESTAMP AS INTERVAL DAYS);
+
+statement error: Cast function cannot convert value of type DATE to type INTERVAL DAY
+SELECT CAST('2000-01-01'::DATE AS INTERVAL DAYS);
+
+statement error: Cast function cannot convert value of type BOOLEAN to type INTERVAL DAY
+SELECT CAST(TRUE AS INTERVAL DAYS);
+
+# https://issues.apache.org/jira/browse/IGNITE-22471
+# Similar CAST expressions produce completely different results
+skipif ignite3
+query T
+SELECT CAST(1::TINYINT AS INTERVAL DAYS);
+----
+PT24H
+
+# https://issues.apache.org/jira/browse/IGNITE-22471
+# Similar CAST expressions produce completely different results
+skipif ignite3
+query T
+SELECT CAST(1::SMALLINT AS INTERVAL DAYS);
+----
+PT24H
+
+query T
+SELECT CAST(1 AS INTERVAL DAYS);
+----
+PT24H
+
+# https://issues.apache.org/jira/browse/IGNITE-22471
+# Similar CAST expressions produce completely different results
+skipif ignite3
+query T
+SELECT CAST(1::INT AS INTERVAL DAYS);
+----
+PT24H
+
+# https://issues.apache.org/jira/browse/IGNITE-22471
+# Similar CAST expressions produce completely different results
+skipif ignite3
+query T
+SELECT CAST(1::BIGINT AS INTERVAL DAYS);
+----
+PT24H
+
+statement error: Cast function cannot convert value of type REAL to type INTERVAL DAY
+SELECT CAST(1.0::REAL AS INTERVAL DAYS);
+
+statement error: Cast function cannot convert value of type FLOAT to type INTERVAL DAY
+SELECT CAST(1.0::FLOAT AS INTERVAL DAYS);
+
+statement error: Cast function cannot convert value of type DOUBLE to type INTERVAL DAY
+SELECT CAST(1.0::DOUBLE AS INTERVAL DAYS);
+
+# https://issues.apache.org/jira/browse/IGNITE-22471
+# Similar CAST expressions produce completely different results
+skipif ignite3
+query T
+SELECT CAST(1::DECIMAL(5) AS INTERVAL DAYS);
+----
+PT24H
+
+# https://issues.apache.org/jira/browse/IGNITE-22471
+# Similar CAST expressions produce completely different results
+skipif ignite3
+query T
+SELECT CAST(1.25::DECIMAL(5, 2) AS INTERVAL DAYS);
+----
+PT30H
+
+statement error: Cast function cannot convert value of type UUID to type INTERVAL DAY
+SELECT CAST('c4a0327c-44be-416d-ae90-75c05079789f'::UUID AS INTERVAL DAYS);
+
+statement error: Cast function cannot convert value of type VARBINARY to type INTERVAL DAY
+SELECT CAST(x'00'::VARBINARY AS INTERVAL DAYS);
+
+statement error: Cast function cannot convert value of type BINARY(1) to type INTERVAL DAY
+SELECT CAST(x'00'::BINARY AS INTERVAL DAYS);
+
+query T
+SELECT CAST(1 AS INTERVAL SECOND);
+----
+PT1S
+
+query T
+SELECT CAST(1 AS INTERVAL MINUTE);
+----
+PT1M
+
+query T
+SELECT CAST(1 AS INTERVAL HOUR);
+----
+PT1H
+
+# https://issues.apache.org/jira/browse/IGNITE-22471
+# Similar CAST expressions produce completely different results
+skipif ignite3
+query T
+SELECT CAST(1::INT AS INTERVAL SECOND);
+----
+PT1S
+
+# https://issues.apache.org/jira/browse/IGNITE-22471
+# Similar CAST expressions produce completely different results
+skipif ignite3
+query T
+SELECT CAST(1::INT AS INTERVAL MINUTE);
+----
+PT1M
+
+# https://issues.apache.org/jira/browse/IGNITE-22471
+# Similar CAST expressions produce completely different results
+skipif ignite3
+query T
+SELECT CAST(1::INT AS INTERVAL HOUR);
+----
+PT1H
+
+# DAY
+
+query T
+SELECT CAST('1 02' AS INTERVAL DAY TO HOUR);
+----
+PT26H
+
+query T
+SELECT CAST('0 0' AS INTERVAL DAY TO HOUR);
+----
+PT0S
+
+query T
+SELECT CAST('1 02:04' AS INTERVAL DAY TO MINUTE);
+----
+PT26H4M
+
+query T
+SELECT CAST('1 02:04:05' AS INTERVAL DAY TO SECOND);
+----
+PT26H4M5S
+
+# HOUR
+
+query T
+SELECT CAST('01:02' AS INTERVAL HOUR TO MINUTE);
+----
+PT1H2M
+
+query T
+SELECT CAST('1:2' AS INTERVAL HOUR TO MINUTE);
+----
+PT1H2M
+
+query T
+SELECT CAST('0:0' AS INTERVAL HOUR TO MINUTE);
+----
+PT0S
+
+query T
+SELECT CAST('01:02:03' AS INTERVAL HOUR TO SECOND);
+----
+PT1H2M3S
+
+# MINUTE
+
+query T
+SELECT CAST('01:02' AS INTERVAL MINUTE TO SECOND);
+----
+PT1M2S
+
+query T
+SELECT CAST('1:2' AS INTERVAL MINUTE TO SECOND);
+----
+PT1M2S
+
+query T
+SELECT CAST('0:0' AS INTERVAL MINUTE TO SECOND);
+----
+PT0S

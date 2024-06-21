@@ -215,7 +215,7 @@ public:
      * Store this number as a byte array.
      *
      * @param data Destination byte array. Its size must be at least as large as the value returned by @ref
-     * bytes_size();
+     * byte_size();
      */
     void store_bytes(std::byte *data) const;
 

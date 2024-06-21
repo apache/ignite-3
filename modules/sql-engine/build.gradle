@@ -49,6 +49,7 @@ dependencies {
     implementation project(':ignite-system-view')
     implementation project(':ignite-failure-handler')
     implementation project(':ignite-placement-driver-api')
+    implementation project(':ignite-partition-replicator')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
     implementation libs.caffeine

@@ -54,6 +54,21 @@ public:
         , m_magnitude(mag, len, sign, big_endian) {}
 
     /**
+     * Constructs a big decimal from the byte array.
+     *
+     * @param data Bytes of the decimal. Scale in little byte order, magnitude as a @ref big_integer.
+     * @param size The number of bytes.
+     */
+    big_decimal(const std::byte *data, std::size_t size);
+
+    /**
+     * Double constructor.
+     *
+     * @param val Double value.
+     */
+    explicit big_decimal(double val) { assign_double(val); }
+
+    /**
      * Integer constructor.
      *
      * @param val Integer value.
@@ -110,6 +125,32 @@ public:
     explicit big_decimal(const std::string &val)
         : m_magnitude(0) {
         assign_string(val);
+    }
+
+    /**
+     * Get number of bytes required to store this decimal as byte array.
+     *
+     * @return Number of bytes required to store this decimal as byte array.
+     */
+    [[nodiscard]] std::size_t byte_size() const noexcept;
+
+    /**
+     * Store this decimal as a byte array.
+     *
+     * @param data Destination byte array. Its size must be at least as large as the value returned by @ref
+     * byte_size();
+     */
+    void store_bytes(std::byte *data) const;
+
+    /**
+     * Convert value to bytes.
+     *
+     * @return Vector of bytes.
+     */
+    [[nodiscard]] std::vector<std::byte> to_bytes() const {
+        std::vector<std::byte> bytes(byte_size());
+        store_bytes(bytes.data());
+        return bytes;
     }
 
     /**

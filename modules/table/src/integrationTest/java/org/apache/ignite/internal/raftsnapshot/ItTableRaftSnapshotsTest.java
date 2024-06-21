@@ -60,6 +60,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
+import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMetaResponse;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -68,7 +69,6 @@ import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorage
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryStorageEngine;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.incoming.IncomingSnapshotCopier;
-import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMetaResponse;
 import org.apache.ignite.internal.table.distributed.schema.PartitionCommandsMarshallerImpl;
 import org.apache.ignite.internal.test.WatchListenerInhibitor;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
