@@ -626,11 +626,11 @@ public class SqlQueryProcessor implements QueryProcessor {
         ZoneId timeZoneId = properties.get(QueryProperty.TIME_ZONE_ID);
         Long queryTimeout = properties.getOrDefault(QueryProperty.QUERY_TIMEOUT, 0L);
 
-        Long queryTimeoutMillis;
+        Instant deadline;
         if (queryTimeout != 0) {
-            queryTimeoutMillis = queryTimeout;
+            deadline = Instant.now().plusMillis(queryTimeout);
         } else {
-            queryTimeoutMillis = null;
+            deadline = null;
         }
 
         CompletableFuture<?> start = new CompletableFuture<>();
@@ -639,7 +639,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                 .thenApply(ignored -> parserService.parseScript(sql))
                 .thenCompose(parsedResults -> {
                     MultiStatementHandler handler = new MultiStatementHandler(
-                            schemaName, txCtx, parsedResults, params, timeZoneId, queryTimeoutMillis);
+                            schemaName, txCtx, parsedResults, params, timeZoneId, deadline);
 
                     return handler.processNext();
                 });
@@ -887,13 +887,13 @@ public class SqlQueryProcessor implements QueryProcessor {
                 List<ParsedResult> parsedResults,
                 Object[] params,
                 ZoneId timeZoneId,
-                @Nullable Long queryTimeoutMillis
+                @Nullable Instant deadline
         ) {
             this.timeZoneId = timeZoneId;
             this.schemaName = schemaName;
             this.statements = prepareStatementsQueue(parsedResults, params);
             this.scriptTxContext = new ScriptTransactionContext(txContext, transactionInflights);
-            this.deadline = queryTimeoutMillis != null ? Instant.now().plusMillis(queryTimeoutMillis) : null;
+            this.deadline = deadline;
         }
 
         /**
