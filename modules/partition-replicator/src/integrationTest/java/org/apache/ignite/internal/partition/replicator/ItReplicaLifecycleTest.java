@@ -282,7 +282,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testEmptyReplicaListener() throws NodeStoppingException {
+    public void testZoneReplicaListener() throws NodeStoppingException {
         Assignment replicaAssignment = (Assignment) AffinityUtils.calculateAssignmentForPartition(
                 nodes.stream().map(n -> n.name).collect(Collectors.toList()), 0, 1).toArray()[0];
 
@@ -698,7 +698,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     clusterService.topologyService(),
                     clusterService.serializationRegistry(),
                     replicaManager,
-                    mock(LockManager.class),
+                    lockManager,
                     replicaSvc,
                     txManager,
                     dataStorageMgr,
