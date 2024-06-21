@@ -15,16 +15,28 @@
  * limitations under the License.
  */
 
-tasks.register('createExtraFilesIndex') {
-    def versionFileName = "version"
-    doLast {
-        onlyIf {
-            project.hasProperty("")
-        }
-        def versionProp = project.property("")
-        file("$buildDir/$versionFileName") << versionProp
+def createVersionFile = tasks.register('createVersionFile') {
+    onlyIf {
+        project.hasProperty("lastCommitHash")
     }
+
+    def versionFileName = "ignite.version.full"
+    def versionFile = file("$buildDir/$versionFileName")
+
+    if (versionFile.exists()) {
+        versionFile.delete()
+    }
+
+    doLast {
+        def versionProp = project.property("lastCommitHash")
+
+        versionFile << project.version + "-sha1:" + versionProp
+    }
+
+    outputs.file versionFile
 }
 
 // make  processResources depends on createExtraFilesIndex task
-processResources.dependsOn createExtraFilesIndex
+processResources {
+    from createVersionFile
+}

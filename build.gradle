@@ -114,10 +114,6 @@ allprojects {
     }
 }
 
-task printVersion {
-    println project.version
-}
-
 subprojects {
     apply plugin: 'base'
 
