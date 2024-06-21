@@ -283,26 +283,27 @@ public class ClientSql implements IgniteSql {
         PayloadReader<BatchResultInternal> payloadReader = r -> {
             ClientMessageUnpacker unpacker = r.in();
 
-            unpacker.unpackNil(); // resourceId
-            unpacker.unpackBoolean(); // has row set
-            unpacker.unpackBoolean(); // has more pages
-            unpacker.unpackBoolean(); // was applied
+            unpacker.skipValues(4); // skipping values that are not currently in use.
+
             long[] updateCounters = unpacker.unpackLongArray();
 
-            if (!unpacker.tryUnpackNil()) {
-                int errCode = unpacker.unpackInt();
-                String message = unpacker.tryUnpackNil() ? null : unpacker.unpackString();
+            if (unpacker.tryUnpackNil()) {
+                unpacker.skipValues(2);
 
-                return new BatchResultInternal(updateCounters, errCode, message);
+                return new BatchResultInternal(updateCounters);
             }
 
-            return new BatchResultInternal(updateCounters, null, null);
+            int errCode = unpacker.unpackInt();
+            String message = unpacker.tryUnpackNil() ? null : unpacker.unpackString();
+            UUID traceId = unpacker.unpackUuid();
+
+            return new BatchResultInternal(new SqlBatchException(traceId, errCode, updateCounters, message));
         };
 
         return ch.serviceAsync(ClientOp.SQL_EXEC_BATCH, payloadWriter, payloadReader)
                 .thenApply((batchRes) -> {
-                    if (batchRes.errCode != null) {
-                        throw new SqlBatchException(UUID.randomUUID(), batchRes.errCode, batchRes.updCounters, batchRes.message);
+                    if (batchRes.exception != null) {
+                        throw batchRes.exception;
                     }
 
                     return batchRes.updCounters;
@@ -366,13 +367,16 @@ public class ClientSql implements IgniteSql {
 
     private static class BatchResultInternal {
         final long[] updCounters;
-        final Integer errCode;
-        final String message;
+        final SqlBatchException exception;
 
-        BatchResultInternal(long[] updCounters,  @Nullable Integer errCode, @Nullable String message) {
+        BatchResultInternal(long[] updCounters) {
             this.updCounters = updCounters;
-            this.errCode = errCode;
-            this.message = message;
+            this.exception = null;
+        }
+
+        BatchResultInternal(SqlBatchException exception) {
+            this.updCounters = null;
+            this.exception = exception;
         }
     }
 }

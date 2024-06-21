@@ -350,6 +350,8 @@ sql_result data_query::make_request_execute() {
             } else {
                 reader->skip(); // error message
             }
+
+            reader->skip(); // trace id
         }
     });
 

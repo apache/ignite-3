@@ -19,6 +19,7 @@ package org.apache.ignite.client.handler.requests.sql;
 
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTx;
 
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
@@ -87,7 +88,7 @@ public class ClientSqlExecuteBatchRequest {
                         if (cause instanceof SqlBatchException) {
                             var exBatch = ((SqlBatchException) cause);
 
-                            writeBatchResult(out, exBatch.updateCounters(), exBatch.code(), exBatch.getMessage());
+                            writeBatchResult(out, exBatch.updateCounters(), exBatch.code(), exBatch.getMessage(), exBatch.traceId());
                             return null;
                         }
 
@@ -103,7 +104,8 @@ public class ClientSqlExecuteBatchRequest {
             ClientMessagePacker out,
             long[] affectedRows,
             int errorCode,
-            String errorMessage) {
+            String errorMessage,
+            UUID traceId) {
         out.packNil(); // resourceId
 
         out.packBoolean(false); // has row set
@@ -112,6 +114,7 @@ public class ClientSqlExecuteBatchRequest {
         out.packLongArray(affectedRows); // affected rows
         out.packInt(errorCode); // error code
         out.packString(errorMessage); // error message
+        out.packUuid(traceId);
     }
 
     private static void writeBatchResult(
@@ -125,5 +128,6 @@ public class ClientSqlExecuteBatchRequest {
         out.packLongArray(affectedRows); // affected rows
         out.packNil(); // error code
         out.packNil(); // error message
+        out.packNil(); // trace id
     }
 }
