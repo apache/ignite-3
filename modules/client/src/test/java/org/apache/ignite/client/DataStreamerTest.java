@@ -249,12 +249,11 @@ public class DataStreamerTest extends AbstractClientTableTest {
             streamFut = withReceiver
                     ? view.streamData(
                         publisher,
-                        options,
                         DataStreamerItem::get,
                         t -> t.get().longValue("id"),
+                        ReceiverDescriptor.builder(TestUpsertReceiver.class).build(),
                         null,
-                        List.of(),
-                        TestUpsertReceiver.class.getName())
+                        options)
                     : view.streamData(publisher, options);
 
             for (long i = 0; i < 1000; i++) {
