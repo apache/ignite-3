@@ -30,6 +30,7 @@ import java.util.UUID;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleParser;
+import org.apache.ignite.sql.BatchedArguments;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -624,29 +625,26 @@ public class ClientMessagePacker implements AutoCloseable {
     }
 
     /**
-     * Packs list of lists as array of objects in BinaryTuple format.
+     * Packs batched arguments into binary tuples.
      *
-     * <p>Note: lists must be the same size.
-     *
-     * @param lists List containing lists of objects.
+     * @param batchedArguments Batched arguments.
      */
-    public void packObjectArrayAsBinaryTupleArray(List<List<Object>> lists) {
+    public void packBatchedArgumentsAsBinaryTupleArray(BatchedArguments batchedArguments) {
         assert !closed : "Packer is closed";
 
-        if (lists == null || lists.isEmpty()) {
+        if (batchedArguments == null || batchedArguments.isEmpty()) {
             packNil();
 
             return;
         }
 
-        int rowLen = lists.get(0).size();
+        int rowLen = batchedArguments.get(0).size();
 
         packInt(rowLen);
-        packInt(lists.size());
+        packInt(batchedArguments.size());
         packBoolean(false); // unused now, but we will need it in case of arguments load by pages.
 
-        for (List<Object> values : lists) {
-            assert values.size() == rowLen : "lists must be the same size";
+        for (List<Object> values : batchedArguments) {
             // Builder with inline schema.
             // Every element in vals is represented by 3 tuple elements: type, scale, value.
             var builder = new BinaryTupleBuilder(rowLen * 3);

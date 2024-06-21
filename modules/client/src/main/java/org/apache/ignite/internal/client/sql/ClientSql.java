@@ -276,7 +276,7 @@ public class ClientSql implements IgniteSql {
             packProperties(w, null);
 
             w.out().packString(statement.query());
-            w.out().packObjectArrayAsBinaryTupleArray(batch);
+            w.out().packBatchedArgumentsAsBinaryTupleArray(batch);
             w.out().packLong(ch.observableTimestamp());
         };
 
