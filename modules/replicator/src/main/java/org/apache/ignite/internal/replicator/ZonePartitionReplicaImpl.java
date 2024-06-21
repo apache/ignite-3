@@ -55,19 +55,22 @@ public class ZonePartitionReplicaImpl implements Replica {
     public CompletableFuture<ReplicaResult> processRequest(ReplicaRequest request, String senderId) {
         if (!(request instanceof TableAware)) {
             LOG.info("Non table request is not supported by the zone partition yet " + request);
+
             return nullCompletedFuture();
         } else {
+            assert (replicaGrpId instanceof TablePartitionId) || (replicaGrpId instanceof ZonePartitionId) :
+                    "Requests with replication group type "
+                            + request.groupId().getClass() + " is not supported";
+
             int partitionId;
 
             ReplicationGroupId replicationGroupId = request.groupId();
 
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 Refine this code when the zone based replication will done.
             if (replicationGroupId instanceof  TablePartitionId) {
                 partitionId = ((TablePartitionId) replicationGroupId).partitionId();
             } else if (replicationGroupId instanceof ZonePartitionId) {
                 partitionId = ((ZonePartitionId) replicationGroupId).partitionId();
-            } else {
-                throw new IllegalArgumentException("Requests with replication group type "
-                        + request.groupId().getClass() + " is not supported");
             }
 
             return replicas.get(new TablePartitionId(((TableAware) request).tableId(), partitionId))
