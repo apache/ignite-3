@@ -15,33 +15,33 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.recovery.restart;
+package org.apache.ignite.internal.cli.commands.recovery.partitions.reset;
 
 import jakarta.inject.Inject;
-import org.apache.ignite.internal.cli.call.recovery.restart.RestartPartitionsCall;
-import org.apache.ignite.internal.cli.call.recovery.restart.RestartPartitionsCallInput;
+import org.apache.ignite.internal.cli.call.recovery.reset.ResetPartitionsCall;
+import org.apache.ignite.internal.cli.call.recovery.reset.ResetPartitionsCallInput;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
 import org.apache.ignite.internal.cli.core.flow.builder.Flows;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 
-/** Command to restart partitions. */
-@Command(name = "restart-partitions", description = "Restarts partitions.")
-public class RestartPartitionsReplCommand extends BaseCommand implements Runnable {
+/** Command to reset partitions. */
+@Command(name = "reset", description = "Resets partitions.")
+public class ResetPartitionsReplCommand extends BaseCommand implements Runnable {
     @Mixin
-    private RestartPartitionsMixin options;
+    private ResetPartitionsMixin options;
 
     @Inject
     private ConnectToClusterQuestion question;
 
     @Inject
-    private RestartPartitionsCall call;
+    private ResetPartitionsCall call;
 
     @Override
     public void run() {
         question.askQuestionIfNotConnected(options.clusterUrl())
-                .map(url -> RestartPartitionsCallInput.of(options, url))
+                .map(url -> ResetPartitionsCallInput.of(options, url))
                 .then(Flows.fromCall(call))
                 .verbose(verbose)
                 .print()

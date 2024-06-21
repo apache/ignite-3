@@ -15,13 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.recovery.restart;
+package org.apache.ignite.internal.cli.commands.recovery.partitions.states;
 
-/** Test class for {@link RestartPartitionsReplCommand}. */
-public class ItRestartPartitionsReplCommandTest extends ItRestartPartitionsTest {
-
+/** Test class for {@link PartitionStatesReplCommand}. */
+public class ItPartitionStatesReplCommandTest extends ItPartitionStatesTest {
     @Override
     protected Class<?> getCommandClass() {
-        return RestartPartitionsReplCommand.class;
+        return PartitionStatesReplCommand.class;
     }
 }
