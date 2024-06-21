@@ -881,7 +881,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             Assignments assignments,
             @Nullable Assignments nonStableNodeAssignments,
             int zoneId,
-            boolean isRecovery
+            boolean isRecovery  
     ) {
         int tableId = table.tableId();
 

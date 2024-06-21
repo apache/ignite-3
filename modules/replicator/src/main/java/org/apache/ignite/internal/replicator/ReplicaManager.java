@@ -1193,11 +1193,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         return replicas.containsKey(replicaGrpId);
     }
 
-    @TestOnly
-    public CompletableFuture<Replica> getReplica(ReplicationGroupId replicationGroupId) {
-        return replicas.get(replicationGroupId);
-    }
-
     /**
      * Returns started replication groups.
      *
