@@ -20,7 +20,10 @@ package org.apache.ignite.internal.sql.engine;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
@@ -28,6 +31,7 @@ import java.sql.Date;
 import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.calcite.rel.type.RelDataType;
@@ -438,6 +442,42 @@ public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
         log.info("CREATE TABLE from column names: {}", ddl);
 
         return ddl.toString();
+    }
+
+    @Test
+    public void testPrepareTimeout() {
+        StringBuilder stmt = new StringBuilder();
+
+        // Generates
+        // SELECT random-numbers
+        // UNION
+        // SELECT random-numbers
+        // ..
+        for (int i = 0; i < 5; i++) {
+            if (i > 0) {
+                stmt.append(System.lineSeparator());
+                stmt.append("UNION");
+                stmt.append(System.lineSeparator());
+            }
+
+            stmt.append("SELECT ");
+            for (int j = 0; j < 100; j++) {
+                stmt.append(ThreadLocalRandom.current().nextInt(0, 100));
+                stmt.append(", ");
+            }
+            stmt.setLength(stmt.length() - 2);
+        }
+
+        QueryCancelledException err = assertThrows(QueryCancelledException.class, () -> {
+            SqlProperties properties = SqlPropertiesHelper.newBuilder()
+                    .set(QueryProperty.QUERY_TIMEOUT, 1L)
+                    .build();
+
+            QueryProcessor qryProc = queryProcessor();
+            await(qryProc.prepareSingleAsync(properties, null, stmt.toString())).parameterTypes();
+        });
+
+        assertThat(err.getMessage(), containsString("Query timeout"));
     }
 
     @Override

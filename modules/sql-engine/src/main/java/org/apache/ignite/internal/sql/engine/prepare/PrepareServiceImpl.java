@@ -73,6 +73,7 @@ import org.apache.ignite.internal.sql.metrics.SqlPlanCacheMetricSource;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.type.NativeTypeSpec;
+import org.apache.ignite.internal.util.Cancellable;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.SchemaNotFoundException;
@@ -253,20 +254,26 @@ public class PrepareServiceImpl implements PrepareService {
         // Add an action to trigger planner timeout, when operation times out.
         // Or trigger timeout immediately if operation has already timed out. 
         QueryCancel queryCancel = operationContext.cancel();
-        queryCancel.add((timeout) -> {
+        Cancellable callback = (timeout) -> {
             if (timeout) {
                 planningContext.abortByTimeout();
             }
-        });
+        };
+        queryCancel.add(callback);
 
         result = prepareAsync0(parsedResult, planningContext);
 
-        return result.exceptionally(ex -> {
+        CompletableFuture<QueryPlan> f = result.exceptionally(ex -> {
                     Throwable th = ExceptionUtils.unwrapCause(ex);
 
                     throw new CompletionException(SqlExceptionMapperUtil.mapToPublicSqlException(th));
                 }
         );
+
+        // Remove the callback, when planning has completed, because there is no need to trigger it at later stages.
+        f.thenRun(() -> queryCancel.remove(callback));
+
+        return f;
     }
 
     /**

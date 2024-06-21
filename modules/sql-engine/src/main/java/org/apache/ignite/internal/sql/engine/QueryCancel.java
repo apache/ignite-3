@@ -66,6 +66,17 @@ public class QueryCancel {
     }
 
     /**
+     * Removes the given callback.
+     *
+     * @param clo Callback.
+     */
+    public synchronized void remove(Cancellable clo) {
+        assert clo != null;
+
+        cancelActions.remove(clo);
+    }
+
+    /**
      * Schedules a timeout action (a call to {@link #timeout()}) after {@code timeoutMillis} milliseconds.
      *
      * @param scheduler Scheduler to trigger an action.
