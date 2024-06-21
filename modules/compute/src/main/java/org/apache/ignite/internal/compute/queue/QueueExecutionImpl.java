@@ -26,9 +26,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import org.apache.ignite.compute.ComputeException;
-import org.apache.ignite.compute.JobStatus;
+import org.apache.ignite.compute.JobState;
 import org.apache.ignite.internal.compute.state.ComputeStateMachine;
-import org.apache.ignite.internal.compute.state.IllegalJobStateTransition;
+import org.apache.ignite.internal.compute.state.IllegalJobStatusTransition;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.jetbrains.annotations.Nullable;
@@ -84,8 +84,8 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
     }
 
     @Override
-    public @Nullable JobStatus status() {
-        return stateMachine.currentStatus(jobId);
+    public @Nullable JobState state() {
+        return stateMachine.currentState(jobId);
     }
 
     @Override
@@ -98,7 +98,7 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
                 cancel(queueEntry);
                 return true;
             }
-        } catch (IllegalJobStateTransition e) {
+        } catch (IllegalJobStatusTransition e) {
             LOG.info("Cannot cancel the job", e);
         }
         return false;

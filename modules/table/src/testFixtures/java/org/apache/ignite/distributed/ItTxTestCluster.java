@@ -125,6 +125,7 @@ import org.apache.ignite.internal.table.distributed.HashIndexLocker;
 import org.apache.ignite.internal.table.distributed.IndexLocker;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
+import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
@@ -669,7 +670,8 @@ public class ItTxTestCluster {
                         storageIndexTracker,
                         catalogService,
                         schemaManager,
-                        clockServices.get(assignment)
+                        clockServices.get(assignment),
+                        mock(IndexMetaStorage.class)
                 );
 
                 CompletableFuture<Void> partitionReadyFuture = raftServers.get(assignment).startRaftGroupNode(
@@ -831,7 +833,8 @@ public class ItTxTestCluster {
                 placementDriver,
                 clusterNodeResolver,
                 resourcesRegistry,
-                schemaRegistry
+                schemaRegistry,
+                mock(IndexMetaStorage.class)
         );
     }
 

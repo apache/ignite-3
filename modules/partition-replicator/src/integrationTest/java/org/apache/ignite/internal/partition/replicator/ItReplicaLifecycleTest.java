@@ -137,6 +137,7 @@ import org.apache.ignite.internal.storage.pagememory.configuration.schema.Persis
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineExtensionConfigurationSchema;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.distributed.TableManager;
+import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncServiceImpl;
@@ -537,6 +538,8 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
 
         private final LogStorageFactory logStorageFactory;
 
+        private final IndexMetaStorage indexMetaStorage;
+
         /**
          * Constructor that simply creates a subset of components of this node.
          */
@@ -759,6 +762,8 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     partitionIdleSafeTimePropagationPeriodMsSupplier
             );
 
+            indexMetaStorage = new IndexMetaStorage(catalogManager, lowWatermark, metaStorageManager);
+
             schemaManager = new SchemaManager(registry, catalogManager);
 
             schemaSyncService = new SchemaSyncServiceImpl(metaStorageManager.clusterTime(), delayDurationMsSupplier);
@@ -819,7 +824,8 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     () -> mock(IgniteSql.class),
                     resourcesRegistry,
                     lowWatermark,
-                    transactionInflights
+                    transactionInflights,
+                    indexMetaStorage
             );
 
             indexManager = new IndexManager(
@@ -867,6 +873,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                         clusterCfgMgr,
                         clockWaiter,
                         catalogManager,
+                        indexMetaStorage,
                         distributionZoneManager,
                         replicaManager,
                         txManager,

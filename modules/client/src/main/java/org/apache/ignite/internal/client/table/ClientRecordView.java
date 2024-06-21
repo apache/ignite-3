@@ -30,7 +30,6 @@ import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
 import org.apache.ignite.client.RetryLimitPolicy;
-import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.TuplePart;
 import org.apache.ignite.internal.client.sql.ClientSql;
@@ -43,6 +42,7 @@ import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
+import org.apache.ignite.table.ReceiverDescriptor;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
@@ -424,18 +424,16 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
     @Override
     public <E, V, R1> CompletableFuture<Void> streamData(
             Publisher<E> publisher,
-            @Nullable DataStreamerOptions options,
             Function<E, R> keyFunc,
             Function<E, V> payloadFunc,
+            ReceiverDescriptor receiver,
             @Nullable Flow.Subscriber<R1> resultSubscriber,
-            List<DeploymentUnit> deploymentUnits,
-            String receiverClassName,
+            @Nullable DataStreamerOptions options,
             Object... receiverArgs) {
         Objects.requireNonNull(publisher);
         Objects.requireNonNull(keyFunc);
         Objects.requireNonNull(payloadFunc);
-        Objects.requireNonNull(deploymentUnits);
-        Objects.requireNonNull(receiverClassName);
+        Objects.requireNonNull(receiver);
 
         return ClientDataStreamer.streamData(
                 publisher,
@@ -446,8 +444,8 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
                 new PojoStreamerPartitionAwarenessProvider<>(tbl, ser.mapper()),
                 tbl,
                 resultSubscriber,
-                deploymentUnits,
-                receiverClassName,
+                receiver.units(),
+                receiver.receiverClassName(),
                 receiverArgs);
     }
 

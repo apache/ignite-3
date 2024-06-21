@@ -17,37 +17,49 @@
 
 package org.apache.ignite.compute;
 
+import java.io.Serializable;
+import java.time.Instant;
+import java.util.UUID;
+import org.jetbrains.annotations.Nullable;
+
 /**
- * Compute job's state enum.
+ * Job state.
  */
-public enum JobState {
+public interface JobState extends Serializable {
     /**
-     * The job is submitted and waiting for an execution start.
+     * Returns job ID.
+     *
+     * @return Job ID.
      */
-    QUEUED,
+    UUID id();
 
     /**
-     * The job is being executed.
+     * Returns job status.
+     *
+     * @return Job status.
      */
-    EXECUTING,
+    JobStatus status();
 
     /**
-     * The job was unexpectedly terminated during execution.
+     * Returns job create time.
+     *
+     * @return Job create time.
      */
-    FAILED,
+    Instant createTime();
 
     /**
-     * The job was executed successfully and the execution result was returned.
+     * Returns job start time. {@code null} if the job has not started yet.
+     *
+     * @return Job start time. {@code null} if the job has not started yet.
      */
-    COMPLETED,
+    @Nullable
+    Instant startTime();
 
     /**
-     * The job has received the cancel command, but is still running.
+     * Returns job finish time. {@code null} if the job has not finished yet.
+     *
+     * @return Job finish time. {@code null} if the job has not finished yet.
      */
-    CANCELING,
-
-    /**
-     * The job was successfully cancelled.
-     */
-    CANCELED;
+    @Nullable
+    Instant finishTime();
 }

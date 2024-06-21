@@ -153,6 +153,26 @@ public class Assignments implements Serializable {
         return S.toString(this);
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        Assignments that = (Assignments) o;
+        return force == that.force && nodes.equals(that.nodes);
+    }
+
+    @Override
+    public int hashCode() {
+        int result = nodes.hashCode();
+        result = 31 * result + Boolean.hashCode(force);
+        return result;
+    }
+
     /**
      * Creates a string representation of the given assignments list for logging usage purpose mostly.
      *

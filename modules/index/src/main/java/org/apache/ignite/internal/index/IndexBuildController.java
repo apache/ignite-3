@@ -317,8 +317,7 @@ class IndexBuildController implements ManuallyCloseable {
                 indexStorage,
                 mvPartition,
                 localNode(),
-                enlistmentConsistencyToken,
-                indexDescriptor.txWaitCatalogVersion()
+                enlistmentConsistencyToken
         );
     }
 
@@ -342,8 +341,7 @@ class IndexBuildController implements ManuallyCloseable {
                 indexStorage,
                 mvPartition,
                 localNode(),
-                enlistmentConsistencyToken,
-                indexDescriptor.txWaitCatalogVersion()
+                enlistmentConsistencyToken
         );
     }
 

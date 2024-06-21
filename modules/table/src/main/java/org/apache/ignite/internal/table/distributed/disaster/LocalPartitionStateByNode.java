@@ -21,12 +21,14 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 
 /** Container for LocalPartitionState to node name map. */
 public class LocalPartitionStateByNode {
+    @IgniteToStringInclude
     private final Map<String, LocalPartitionState> map;
 
-    public LocalPartitionStateByNode(Map<String, LocalPartitionState> map) {
+    LocalPartitionStateByNode(Map<String, LocalPartitionState> map) {
         this.map = Map.copyOf(map);
     }
 
@@ -43,5 +45,10 @@ public class LocalPartitionStateByNode {
     /** Returns set of node names. */
     public Set<String> keySet() {
         return map.keySet();
+    }
+
+    @Override
+    public String toString() {
+        return map.toString();
     }
 }
