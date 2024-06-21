@@ -368,12 +368,11 @@ public class DataStreamerTest extends AbstractClientTableTest {
             var options = DataStreamerOptions.builder().pageSize(batchSize).build();
             streamerFut = view.streamData(
                     publisher,
-                    options,
                     t -> t,
                     t -> t.longValue("id"),
+                    ReceiverDescriptor.builder(TestReceiver.class).build(),
                     null,
-                    new ArrayList<>(),
-                    TestReceiver.class.getName(),
+                    options,
                     "arg");
 
             for (long i = 0; i < count; i++) {
@@ -440,12 +439,11 @@ public class DataStreamerTest extends AbstractClientTableTest {
         try (var publisher = new SubmissionPublisher<PersonPojo>()) {
             streamerFut = view.streamData(
                     publisher,
-                    null,
                     t -> t,
                     t -> t.id,
+                    ReceiverDescriptor.builder(TestReceiver.class).build(),
                     resultSubscriber,
-                    new ArrayList<>(),
-                    TestReceiver.class.getName(),
+                    null,
                     "arg",
                     withSubscriber ? "returnResults" : "noResults");
 
@@ -483,12 +481,11 @@ public class DataStreamerTest extends AbstractClientTableTest {
         try (var publisher = new SubmissionPublisher<Entry<Tuple, Tuple>>()) {
             streamerFut = view.streamData(
                     publisher,
-                    null,
                     t -> t,
                     t -> t.getKey().longValue(0),
+                    ReceiverDescriptor.builder(TestReceiver.class).build(),
                     resultSubscriber,
-                    new ArrayList<>(),
-                    TestReceiver.class.getName(),
+                    null,
                     "arg",
                     withSubscriber ? "returnResults" : "noResults");
 
@@ -526,12 +523,11 @@ public class DataStreamerTest extends AbstractClientTableTest {
         try (var publisher = new SubmissionPublisher<Entry<Long, PersonValPojo>>()) {
             streamerFut = view.streamData(
                     publisher,
-                    null,
                     t -> t,
                     Entry::getKey,
+                    ReceiverDescriptor.builder(TestReceiver.class).build(),
                     resultSubscriber,
-                    new ArrayList<>(),
-                    TestReceiver.class.getName(),
+                    null,
                     "arg",
                     withSubscriber ? "returnResults" : "noResults");
 
@@ -565,12 +561,11 @@ public class DataStreamerTest extends AbstractClientTableTest {
         try (var publisher = new SubmissionPublisher<Long>()) {
             streamerFut = view.streamData(
                     publisher,
-                    null,
                     id -> tuple(0L),
                     id -> id == 1L ? 1 : "2",
+                    ReceiverDescriptor.builder(TestReceiver.class).build(),
                     null,
-                    new ArrayList<>(),
-                    TestReceiver.class.getName(),
+                    null,
                     "arg");
 
             publisher.submit(1L);
@@ -593,12 +588,11 @@ public class DataStreamerTest extends AbstractClientTableTest {
             var options = DataStreamerOptions.builder().pageSize(100).build();
             streamerFut = defaultTable().recordView().streamData(
                     publisher,
-                    options,
                     t -> tuple(), // Same key for all items to execute receiver with one batch.
                     t -> t.longValue("id"),
+                    ReceiverDescriptor.builder(TestReceiver.class).build(),
                     resultSubscriber,
-                    new ArrayList<>(),
-                    TestReceiver.class.getName(),
+                    options,
                     "arg",
                     resultCount < 0 ? null : "returnResults",
                     resultCount);
