@@ -1,0 +1,147 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.ignite.table;
+
+import java.util.List;
+import java.util.Objects;
+import org.apache.ignite.compute.ComputeJob;
+import org.apache.ignite.compute.DeploymentUnit;
+import org.apache.ignite.compute.JobDescriptor;
+
+public class DataStreamerReceiverDescriptor {
+    private final String jobClassName;
+
+    private final List<DeploymentUnit> units;
+
+    private final DataStreamerOptions options;
+
+    private DataStreamerReceiverDescriptor(String jobClassName, List<DeploymentUnit> units, DataStreamerOptions options) {
+        this.jobClassName = jobClassName;
+        this.units = units;
+        this.options = options;
+    }
+
+    /**
+     * Job class name.
+     *
+     * @return Job class name.
+     */
+    public String jobClassName() {
+        return jobClassName;
+    }
+
+    /**
+     * Deployment units.
+     *
+     * @return Deployment units.
+     */
+    public List<DeploymentUnit> units() {
+        return units;
+    }
+
+    /**
+     * Job execution options.
+     *
+     * @return Job execution options.
+     */
+    public DataStreamerOptions options() {
+        return options;
+    }
+
+    /**
+     * Create a new builder.
+     *
+     * @return Job descriptor builder.
+     */
+    public static JobDescriptor.Builder builder(String jobClassName) {
+        Objects.requireNonNull(jobClassName);
+
+        return new JobDescriptor.Builder(jobClassName);
+    }
+
+    /**
+     * Create a new builder.
+     *
+     * @return Job descriptor builder.
+     */
+    public static JobDescriptor.Builder builder(Class<? extends ComputeJob<?>> jobClass) {
+        Objects.requireNonNull(jobClass);
+
+        return new JobDescriptor.Builder(jobClass.getName());
+    }
+
+    /**
+     * Builder.
+     */
+    public static class Builder {
+        private final String jobClassName;
+        private List<DeploymentUnit> units;
+        private DataStreamerOptions options;
+
+        private Builder(String jobClassName) {
+            Objects.requireNonNull(jobClassName);
+
+            this.jobClassName = jobClassName;
+        }
+
+        /**
+         * Sets the deployment units.
+         *
+         * @param units Deployment units.
+         * @return This builder.
+         */
+        public Builder units(List<DeploymentUnit> units) {
+            this.units = units;
+            return this;
+        }
+
+        /**
+         * Sets the deployment units.
+         *
+         * @param units Deployment units.
+         * @return This builder.
+         */
+        public Builder units(DeploymentUnit... units) {
+            this.units = List.of(units);
+            return this;
+        }
+
+        /**
+         * Sets the job execution options.
+         *
+         * @param options Job execution options.
+         * @return This builder.
+         */
+        public Builder options(DataStreamerOptions options) {
+            this.options = options;
+            return this;
+        }
+
+        /**
+         * Builds the job descriptor.
+         *
+         * @return Job descriptor.
+         */
+        public DataStreamerReceiverDescriptor build() {
+            return new DataStreamerReceiverDescriptor(
+                    jobClassName,
+                    units == null ? List.of() : units,
+                    options == null ? DataStreamerOptions.DEFAULT : options);
+        }
+    }
+}
