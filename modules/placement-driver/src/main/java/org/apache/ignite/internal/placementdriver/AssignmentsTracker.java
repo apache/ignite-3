@@ -156,7 +156,7 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
      */
     private class AssignmentsListener implements WatchListener {
         @Override
-        public CompletableFuture<Void> onUpdate(WatchEvent event) {;
+        public CompletableFuture<Void> onUpdate(WatchEvent event) {
             assert !event.entryEvents().stream().anyMatch(e -> e.newEntry().empty()) : "New assignments are empty";
 
             if (LOG.isDebugEnabled()) {

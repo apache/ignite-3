@@ -759,7 +759,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
     }
 
     /**
-     * Ensure that newest assignments are retrieved by AssignmentsPlacementDriver#getAssignments
+     * Ensure that newest assignments are retrieved by AssignmentsPlacementDriver#getAssignments.
      *
      * <ol>
      *     <li>Publish stable assignments.</li>
@@ -796,14 +796,14 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
         // Ensure that assignments retrieval future will complete successfully with newest assignments and not initially published.
         assertThat(assignmentsFuture, willCompleteSuccessfully());
         assertEquals(ASSIGNMENTS_AB, assignmentsFuture.get().nodes());
-        long assignmentsTokenAB = assignmentsFuture.get().token();
+        long assignmentsTokenAb = assignmentsFuture.get().token();
 
         // Retrieve assignments one more time for the same request timestamp.
         CompletableFuture<TokenizedAssignments> assignmentsFuture2 = assignmentsPlacementDriver.getAssignments(GROUP_1, requestTimestamp);
 
         // Ensure that assignments retrieval future will complete successfully with same assignments and token.
         assertEquals(ASSIGNMENTS_AB, assignmentsFuture.get().nodes());
-        assertEquals(assignmentsTokenAB, assignmentsFuture2.get().token());
+        assertEquals(assignmentsTokenAb, assignmentsFuture2.get().token());
 
         // Publish yet another new stable assignments.
         publishStableAssignments(ASSIGNMENTS_ABC);
@@ -815,7 +815,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
         assertThat(assignmentsFuture3, willCompleteSuccessfully());
         assertEquals(ASSIGNMENTS_ABC, assignmentsFuture3.get().nodes());
         // Ensure that assignments token was updated.
-        assertNotEquals(assignmentsTokenAB, assignmentsFuture3.get().token());
+        assertNotEquals(assignmentsTokenAb, assignmentsFuture3.get().token());
     }
 
     private long publishLease(Lease lease) {
