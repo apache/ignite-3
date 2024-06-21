@@ -619,12 +619,11 @@ public class DataStreamerTest extends AbstractClientTableTest {
             var options = DataStreamerOptions.builder().pageSize(100).build();
             streamerFut = defaultTable().recordView().streamData(
                     publisher,
-                    options,
                     t -> t,
                     t -> t.longValue("id"),
+                    ReceiverDescriptor.builder(TestReceiver.class).build(),
                     resultSubscriber,
-                    new ArrayList<>(),
-                    TestReceiver.class.getName(),
+                    options,
                     "arg",
                     "returnResults");
 
@@ -647,12 +646,11 @@ public class DataStreamerTest extends AbstractClientTableTest {
             var options = DataStreamerOptions.builder().pageSize(100).build();
             streamerFut = defaultTable().recordView().streamData(
                     publisher,
-                    options,
                     t -> t,
                     t -> t.longValue("id"),
+                    ReceiverDescriptor.builder(TestReceiver.class).build(),
                     null,
-                    new ArrayList<>(),
-                    TestReceiver.class.getName(),
+                    options,
                     "arg",
                     "returnResults");
 
@@ -694,12 +692,11 @@ public class DataStreamerTest extends AbstractClientTableTest {
         try (var publisher = new SubmissionPublisher<Tuple>()) {
             streamerFut = defaultTable().recordView().streamData(
                     publisher,
-                    null,
                     t -> t,
                     t -> 0L,
+                    ReceiverDescriptor.builder(EchoArgsReceiver.class).build(),
                     resultSubscriber,
-                    new ArrayList<>(),
-                    EchoArgsReceiver.class.getName(),
+                    null,
                     arg);
 
             publisher.submit(tuple());
