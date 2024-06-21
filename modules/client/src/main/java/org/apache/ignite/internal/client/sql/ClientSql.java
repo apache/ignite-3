@@ -283,11 +283,17 @@ public class ClientSql implements IgniteSql {
         PayloadReader<BatchResultInternal> payloadReader = r -> {
             ClientMessageUnpacker unpacker = r.in();
 
-            unpacker.skipValues(4); // skipping values that are not currently in use.
+            // skipping currently unused values:
+            // 1. resourceId
+            // 2. row set flag
+            // 3. more pages flag
+            // 4. was applied flag
+            unpacker.skipValues(4);
 
             long[] updateCounters = unpacker.unpackLongArray();
 
             if (unpacker.tryUnpackNil()) {
+                // No error - skipping message string and trace id.
                 unpacker.skipValues(2);
 
                 return new BatchResultInternal(updateCounters);
