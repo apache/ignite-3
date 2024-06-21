@@ -191,6 +191,10 @@ public class TableManagerTest extends IgniteAbstractTest {
     @Mock
     private ReplicaManager replicaMgr;
 
+    /** Partition replica lifecycle manager. */
+    @Mock
+    private PartitionReplicaLifecycleManager partitionReplicaLifecycleManager;
+
     /** TX manager. */
     @Mock
     private TxManager tm;
@@ -295,6 +299,8 @@ public class TableManagerTest extends IgniteAbstractTest {
             Supplier<CompletableFuture<Void>> stopOperation = inv.getArgument(2);
             return stopOperation.get();
         });
+
+        when(partitionReplicaLifecycleManager.addTableReplica(any(), any(), any())).thenReturn(nullCompletedFuture());
 
         tblManagerFut = new CompletableFuture<>();
 
@@ -820,7 +826,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                 lowWatermark,
                 mock(TransactionInflights.class),
                 mock(IndexMetaStorage.class),
-                mock(PartitionReplicaLifecycleManager.class)
+                partitionReplicaLifecycleManager
         ) {
 
             @Override
