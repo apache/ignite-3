@@ -17,13 +17,13 @@
 
 package org.apache.ignite.internal.compute.utils;
 
-import static org.apache.ignite.compute.JobState.CANCELED;
-import static org.apache.ignite.compute.JobState.COMPLETED;
-import static org.apache.ignite.compute.JobState.EXECUTING;
-import static org.apache.ignite.compute.JobState.QUEUED;
+import static org.apache.ignite.compute.JobStatus.CANCELED;
+import static org.apache.ignite.compute.JobStatus.COMPLETED;
+import static org.apache.ignite.compute.JobStatus.EXECUTING;
+import static org.apache.ignite.compute.JobStatus.QUEUED;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
-import static org.apache.ignite.internal.testframework.matchers.JobStatusMatcher.jobStatusWithState;
+import static org.apache.ignite.internal.testframework.matchers.JobStateMatcher.jobStateWithStatus;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -35,7 +35,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.apache.ignite.compute.JobExecution;
-import org.apache.ignite.compute.JobStatus;
+import org.apache.ignite.compute.JobState;
 import org.apache.ignite.lang.IgniteException;
 
 /**
@@ -55,8 +55,8 @@ public class TestingJobExecution<R> implements JobExecution<R> {
         this.jobExecution = jobExecution;
     }
 
-    private JobStatus statusSync() throws InterruptedException, ExecutionException, TimeoutException {
-        return jobExecution.statusAsync().get(10, TimeUnit.SECONDS);
+    private JobState stateSync() throws InterruptedException, ExecutionException, TimeoutException {
+        return jobExecution.stateAsync().get(10, TimeUnit.SECONDS);
     }
 
     public UUID idSync() throws InterruptedException, ExecutionException, TimeoutException {
@@ -68,15 +68,15 @@ public class TestingJobExecution<R> implements JobExecution<R> {
     }
 
     public long createTimeMillis() throws ExecutionException, InterruptedException, TimeoutException {
-        return statusSync().createTime().toEpochMilli();
+        return stateSync().createTime().toEpochMilli();
     }
 
     public long startTimeMillis() throws ExecutionException, InterruptedException, TimeoutException {
-        return statusSync().startTime().toEpochMilli();
+        return stateSync().startTime().toEpochMilli();
     }
 
     public long finishTimeMillis() throws ExecutionException, InterruptedException, TimeoutException {
-        return statusSync().finishTime().toEpochMilli();
+        return stateSync().finishTime().toEpochMilli();
     }
 
     public void cancelSync() throws ExecutionException, InterruptedException, TimeoutException {
@@ -89,8 +89,8 @@ public class TestingJobExecution<R> implements JobExecution<R> {
     }
 
     @Override
-    public CompletableFuture<JobStatus> statusAsync() {
-        return jobExecution.statusAsync();
+    public CompletableFuture<JobState> stateAsync() {
+        return jobExecution.stateAsync();
     }
 
     @Override
@@ -107,7 +107,7 @@ public class TestingJobExecution<R> implements JobExecution<R> {
      * Checks that the job execution object has EXECUTING state.
      */
     public void assertQueued() {
-        await().until(jobExecution::statusAsync, willBe(jobStatusWithState(QUEUED)));
+        await().until(jobExecution::stateAsync, willBe(jobStateWithStatus(QUEUED)));
 
         assertThat(resultAsync().isDone(), equalTo(false));
 
@@ -118,7 +118,7 @@ public class TestingJobExecution<R> implements JobExecution<R> {
      * Checks that the job execution object has EXECUTING state.
      */
     public void assertExecuting() {
-        await().until(jobExecution::statusAsync, willBe(jobStatusWithState(EXECUTING)));
+        await().until(jobExecution::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
 
         assertThat(resultAsync().isDone(), equalTo(false));
 
@@ -129,7 +129,7 @@ public class TestingJobExecution<R> implements JobExecution<R> {
      * Checks that the job execution object is cancelled.
      */
     public void assertCancelled() {
-        await().until(jobExecution::statusAsync, willBe(jobStatusWithState(CANCELED)));
+        await().until(jobExecution::stateAsync, willBe(jobStateWithStatus(CANCELED)));
 
         assertThat(resultAsync(), willThrow(IgniteException.class));
     }
@@ -138,7 +138,7 @@ public class TestingJobExecution<R> implements JobExecution<R> {
      * Checks that the job execution object is completed successfully.
      */
     public void assertCompleted() {
-        await().until(jobExecution::statusAsync, willBe(jobStatusWithState(COMPLETED)));
+        await().until(jobExecution::stateAsync, willBe(jobStateWithStatus(COMPLETED)));
 
         assertThat(resultAsync(), willBe("Done"));
     }
@@ -151,7 +151,7 @@ public class TestingJobExecution<R> implements JobExecution<R> {
             assertThat(jobExecution.resultAsync(), willThrow(IgniteException.class));
         });
         await().untilAsserted(() -> {
-            assertThat(jobExecution.statusAsync(), willThrow(IgniteException.class));
+            assertThat(jobExecution.stateAsync(), willThrow(IgniteException.class));
         });
     }
 }

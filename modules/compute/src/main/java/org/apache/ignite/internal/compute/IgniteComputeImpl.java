@@ -47,7 +47,7 @@ import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionOptions;
-import org.apache.ignite.compute.JobStatus;
+import org.apache.ignite.compute.JobState;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.compute.NodeNotFoundException;
 import org.apache.ignite.compute.task.MapReduceJob;
@@ -325,13 +325,13 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
     }
 
     @Override
-    public CompletableFuture<Collection<JobStatus>> statusesAsync() {
-        return computeComponent.statusesAsync();
+    public CompletableFuture<Collection<JobState>> statesAsync() {
+        return computeComponent.statesAsync();
     }
 
     @Override
-    public CompletableFuture<@Nullable JobStatus> statusAsync(UUID jobId) {
-        return computeComponent.statusAsync(jobId);
+    public CompletableFuture<@Nullable JobState> stateAsync(UUID jobId) {
+        return computeComponent.stateAsync(jobId);
     }
 
     @Override
