@@ -15,20 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.recovery;
+package org.apache.ignite.internal.cli.commands.recovery.partitions.restart;
 
+import static java.util.stream.Collectors.joining;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.CLUSTER_URL_OPTION;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_NODE_NAMES_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_PARTITION_IDS_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_TABLE_NAME_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_ZONE_NAME_OPTION;
 
+import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.cli.CliIntegrationTest;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-/** Base test class for Cluster Recovery reset partitions commands. */
-public abstract class ItResetPartitionsTest extends CliIntegrationTest {
+/** Base test class for Cluster Recovery restart partitions commands. */
+public abstract class ItRestartPartitionsTest extends CliIntegrationTest {
     private static final String ZONE = "first_ZONE";
 
     private static final String TABLE_NAME = "first_ZONE_table";
@@ -44,75 +47,113 @@ public abstract class ItResetPartitionsTest extends CliIntegrationTest {
     }
 
     @Test
-    public void testResetAllPartitions() {
+    public void testRestartAllPartitions() {
         execute(CLUSTER_URL_OPTION, NODE_URL,
                 RECOVERY_TABLE_NAME_OPTION, QUALIFIED_TABLE_NAME,
-                RECOVERY_ZONE_NAME_OPTION, ZONE);
+                RECOVERY_ZONE_NAME_OPTION, ZONE
+        );
 
         assertErrOutputIsEmpty();
-        assertOutputContains("Successfully reset partitions.");
+        assertOutputContains("Successfully restarted partitions.");
     }
 
     @Test
-    public void testResetSpecifiedPartitions() {
+    public void testRestartSpecifiedPartitions() {
         execute(CLUSTER_URL_OPTION, NODE_URL,
                 RECOVERY_TABLE_NAME_OPTION, QUALIFIED_TABLE_NAME,
                 RECOVERY_ZONE_NAME_OPTION, ZONE,
-                RECOVERY_PARTITION_IDS_OPTION, "1,2");
+                RECOVERY_PARTITION_IDS_OPTION, "1,2"
+        );
 
         assertErrOutputIsEmpty();
-        assertOutputContains("Successfully reset partitions.");
+        assertOutputContains("Successfully restarted partitions.");
     }
 
     @Test
-    public void testResetPartitionZoneNotFound() {
+    public void testRestartPartitionsByNodes() {
+        String nodeNames = CLUSTER.runningNodes()
+                .limit(initialNodes() - 1)
+                .map(IgniteImpl::name)
+                .collect(joining(","));
+
+        execute(CLUSTER_URL_OPTION, NODE_URL,
+                RECOVERY_TABLE_NAME_OPTION, QUALIFIED_TABLE_NAME,
+                RECOVERY_ZONE_NAME_OPTION, ZONE,
+                RECOVERY_PARTITION_IDS_OPTION, "1,2",
+                RECOVERY_NODE_NAMES_OPTION, nodeNames
+        );
+
+        assertErrOutputIsEmpty();
+        assertOutputContains("Successfully restarted partitions.");
+    }
+
+    @Test
+    public void testRestartPartitionZoneNotFound() {
         String unknownZone = "unknown_zone";
 
         execute(CLUSTER_URL_OPTION, NODE_URL,
                 RECOVERY_TABLE_NAME_OPTION, QUALIFIED_TABLE_NAME,
                 RECOVERY_ZONE_NAME_OPTION, unknownZone,
-                RECOVERY_PARTITION_IDS_OPTION, "1,2");
+                RECOVERY_PARTITION_IDS_OPTION, "1,2"
+        );
 
-        assertErrOutputContains("Distribution zone was not found [zoneName=" + unknownZone + "]");
         assertOutputIsEmpty();
+        assertErrOutputContains("Distribution zone was not found [zoneName=" + unknownZone + "]");
     }
 
     @Test
-    public void testResetPartitionTableNotFound() {
+    public void testRestartPartitionTableNotFound() {
         String unknownTable = "PUBLIC.unknown_table";
 
         execute(CLUSTER_URL_OPTION, NODE_URL,
                 RECOVERY_TABLE_NAME_OPTION, unknownTable,
-                RECOVERY_ZONE_NAME_OPTION, ZONE);
+                RECOVERY_ZONE_NAME_OPTION, ZONE
+        );
 
+        assertOutputIsEmpty();
         assertErrOutputContains("The table does not exist [name=" + unknownTable + "]");
-        assertOutputIsEmpty();
     }
 
     @Test
-    public void testResetPartitionsIllegalPartitionNegative() {
+    public void testRestartPartitionNodeNotFound() {
+        String unknownNode = "unknownNode";
+
+        execute(CLUSTER_URL_OPTION, NODE_URL,
+                RECOVERY_TABLE_NAME_OPTION, QUALIFIED_TABLE_NAME,
+                RECOVERY_NODE_NAMES_OPTION, unknownNode,
+                RECOVERY_ZONE_NAME_OPTION, ZONE
+        );
+
+        assertOutputIsEmpty();
+        assertErrOutputContains("Some nodes are missing: [" + unknownNode + "]");
+    }
+
+    @Test
+    public void testRestartPartitionsIllegalPartitionNegative() {
         execute(CLUSTER_URL_OPTION, NODE_URL,
                 RECOVERY_TABLE_NAME_OPTION, QUALIFIED_TABLE_NAME,
                 RECOVERY_ZONE_NAME_OPTION, ZONE,
-                RECOVERY_PARTITION_IDS_OPTION, "0,5,-10");
+                RECOVERY_PARTITION_IDS_OPTION, "0,5,-10"
+        );
 
+        assertOutputIsEmpty();
         assertErrOutputContains("Partition ID can't be negative, found: -10");
-        assertOutputIsEmpty();
     }
 
     @Test
-    public void testResetPartitionsPartitionsOutOfRange() {
+    public void testRestartPartitionsPartitionsOutOfRange() {
         execute(CLUSTER_URL_OPTION, NODE_URL,
                 RECOVERY_TABLE_NAME_OPTION, QUALIFIED_TABLE_NAME,
                 RECOVERY_ZONE_NAME_OPTION, ZONE,
-                RECOVERY_PARTITION_IDS_OPTION, String.valueOf(DEFAULT_PARTITION_COUNT));
+                RECOVERY_PARTITION_IDS_OPTION, String.valueOf(DEFAULT_PARTITION_COUNT)
+        );
 
+        assertOutputIsEmpty();
         assertErrOutputContains(String.format(
                 "Partition IDs should be in range [0, %d] for zone %s, found: %d",
                 DEFAULT_PARTITION_COUNT - 1,
                 ZONE,
                 DEFAULT_PARTITION_COUNT
         ));
-        assertOutputIsEmpty();
     }
 }

@@ -15,38 +15,36 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.recovery.partitions;
+package org.apache.ignite.internal.cli.commands.recovery.partitions.restart;
 
 import jakarta.inject.Inject;
-import org.apache.ignite.internal.cli.call.recovery.PartitionStatesCall;
-import org.apache.ignite.internal.cli.call.recovery.PartitionStatesCallInput;
+import org.apache.ignite.internal.cli.call.recovery.restart.RestartPartitionsCall;
+import org.apache.ignite.internal.cli.call.recovery.restart.RestartPartitionsCallInput;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
 import org.apache.ignite.internal.cli.core.flow.builder.Flows;
-import org.apache.ignite.internal.cli.decorators.TableDecorator;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 
-/** Command to get partition states. */
-@Command(name = "partition-states", description = "Returns partition states.")
-public class PartitionStatesReplCommand extends BaseCommand implements Runnable {
+/** Command to restart partitions. */
+@Command(name = "restart", description = "Restarts partitions.")
+public class RestartPartitionsReplCommand extends BaseCommand implements Runnable {
     @Mixin
-    private PartitionStatesMixin options;
+    private RestartPartitionsMixin options;
 
     @Inject
     private ConnectToClusterQuestion question;
 
     @Inject
-    private PartitionStatesCall call;
+    private RestartPartitionsCall call;
 
     @Override
     public void run() {
         question.askQuestionIfNotConnected(options.clusterUrl())
-                .map(url -> PartitionStatesCallInput.of(options, url))
+                .map(url -> RestartPartitionsCallInput.of(options, url))
                 .then(Flows.fromCall(call))
-                .print(new TableDecorator(options.plain()))
                 .verbose(verbose)
+                .print()
                 .start();
     }
-
 }
