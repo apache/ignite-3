@@ -17,11 +17,9 @@
 
 package org.apache.ignite.table;
 
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow;
 import java.util.function.Function;
-import org.apache.ignite.compute.DeploymentUnit;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -61,7 +59,7 @@ public interface DataStreamerTarget<T> {
             Flow.Publisher<E> publisher,
             Function<E, T> keyFunc,
             Function<E, V> payloadFunc,
-            DataStreamerReceiverDescriptor receiver,
+            ReceiverDescriptor receiver,
             @Nullable Flow.Subscriber<R> resultSubscriber,
             @Nullable DataStreamerOptions options,
             Object... receiverArgs);

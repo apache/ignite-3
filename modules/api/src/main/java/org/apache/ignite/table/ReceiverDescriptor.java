@@ -24,12 +24,12 @@ import org.apache.ignite.compute.DeploymentUnit;
 /**
  * Data streamer receiver descriptor.
  */
-public class DataStreamerReceiverDescriptor {
+public class ReceiverDescriptor {
     private final String receiverClassName;
 
     private final List<DeploymentUnit> units;
 
-    private DataStreamerReceiverDescriptor(String receiverClassName, List<DeploymentUnit> units) {
+    private ReceiverDescriptor(String receiverClassName, List<DeploymentUnit> units) {
         this.receiverClassName = receiverClassName;
         this.units = units;
     }
@@ -114,8 +114,8 @@ public class DataStreamerReceiverDescriptor {
          *
          * @return Receiver descriptor.
          */
-        public DataStreamerReceiverDescriptor build() {
-            return new DataStreamerReceiverDescriptor(
+        public ReceiverDescriptor build() {
+            return new ReceiverDescriptor(
                     receiverClassName,
                     units == null ? List.of() : units);
         }
