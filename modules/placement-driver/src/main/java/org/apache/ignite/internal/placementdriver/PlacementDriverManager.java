@@ -27,8 +27,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
-import org.apache.ignite.internal.affinity.Assignment;
-import org.apache.ignite.internal.affinity.Assignments;
 import org.apache.ignite.internal.affinity.TokenizedAssignments;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.event.EventListener;
@@ -256,7 +254,10 @@ public class PlacementDriverManager implements IgniteComponent {
     public PlacementDriver placementDriver() {
         return new PlacementDriver() {
             @Override
-            public CompletableFuture<TokenizedAssignments> getAssignments(ReplicationGroupId replicationGroupId, HybridTimestamp timestamp) {
+            public CompletableFuture<TokenizedAssignments> getAssignments(
+                    ReplicationGroupId replicationGroupId,
+                    HybridTimestamp timestamp
+            ) {
                 return assignmentsTracker.getAssignments(replicationGroupId, timestamp);
             }
 

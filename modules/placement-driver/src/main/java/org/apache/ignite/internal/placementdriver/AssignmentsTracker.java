@@ -17,11 +17,9 @@
 
 package org.apache.ignite.internal.placementdriver;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
-import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.internal.util.StringUtils.incrementLastChar;
 
 import java.nio.charset.StandardCharsets;
@@ -43,7 +41,6 @@ import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
-import org.apache.ignite.internal.placementdriver.leases.Lease;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.util.Cursor;
@@ -134,8 +131,8 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
     @Override
     public CompletableFuture<TokenizedAssignments> getAssignments(
             ReplicationGroupId replicationGroupId,
-            HybridTimestamp clusterTimeToAwait)
-    {
+            HybridTimestamp clusterTimeToAwait
+    ) {
         return msManager
                 .clusterTime()
                 .waitFor(clusterTimeToAwait)
