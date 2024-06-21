@@ -30,6 +30,9 @@ public class ReceiverDescriptor {
     private final List<DeploymentUnit> units;
 
     private ReceiverDescriptor(String receiverClassName, List<DeploymentUnit> units) {
+        Objects.requireNonNull(receiverClassName);
+        Objects.requireNonNull(units);
+
         this.receiverClassName = receiverClassName;
         this.units = units;
     }
