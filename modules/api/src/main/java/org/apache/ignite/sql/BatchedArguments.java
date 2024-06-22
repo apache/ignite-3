@@ -36,7 +36,7 @@ public final class BatchedArguments implements Iterable<List<Object>> {
      * @return Batch query arguments.
      */
     public static BatchedArguments create() {
-        return new BatchedArguments(new ArrayList<>());
+        return new BatchedArguments();
     }
 
     /**
@@ -128,35 +128,36 @@ public final class BatchedArguments implements Iterable<List<Object>> {
     }
 
     /** Constructor. */
+    private BatchedArguments() {
+        this.batchedArgs = new ArrayList<>();
+    }
+
+    /** Constructor. */
     private BatchedArguments(List<List<Object>> batchedArgs) {
-        if (!batchedArgs.isEmpty()) {
-            int pos = 0;
-            int requiredLength = 0;
+        List<List<Object>> resultList = new ArrayList<>(batchedArgs.size());
 
-            List<List<Object>> resultList = new ArrayList<>(batchedArgs.size());
+        int pos = 0;
+        int requiredLength = 0;
 
-            for (List<Object> arguments : batchedArgs) {
-                Objects.requireNonNull(arguments, "Arguments list cannot be null.");
+        for (List<Object> arguments : batchedArgs) {
+            Objects.requireNonNull(arguments, "Arguments list cannot be null.");
 
-                if (arguments.isEmpty()) {
-                    throwEmptyArgumentsException();
-                }
-
-                if (pos == 0) {
-                    requiredLength = arguments.size();
-                } else {
-                    ensureRowLength(requiredLength, arguments.size());
-                }
-
-                resultList.add(List.copyOf(arguments));
-
-                ++pos;
+            if (arguments.isEmpty()) {
+                throwEmptyArgumentsException();
             }
 
-            this.batchedArgs = resultList;
-        } else {
-            this.batchedArgs = batchedArgs;
+            if (pos == 0) {
+                requiredLength = arguments.size();
+            } else {
+                ensureRowLength(requiredLength, arguments.size());
+            }
+
+            resultList.add(List.copyOf(arguments));
+
+            ++pos;
         }
+
+        this.batchedArgs = resultList;
     }
 
     private BatchedArguments addArguments(List<Object> immutableList) {

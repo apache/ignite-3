@@ -100,6 +100,9 @@ public class BatchedArgumentsTest {
         argLists.add(List.of(3));
         assertThat(batch.size(), is(argLists.size() - 1));
 
+        argLists.clear();
+        assertThat(batch.size(), is(2));
+
         Assertions.assertThrows(UnsupportedOperationException.class, () -> batch.get(0).add("2"));
         Assertions.assertThrows(UnsupportedOperationException.class, () -> batch.get(0).remove(0));
 
