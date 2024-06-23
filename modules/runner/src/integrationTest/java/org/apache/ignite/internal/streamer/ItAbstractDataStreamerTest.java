@@ -381,8 +381,8 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
                     ReceiverDescriptor.builder(TestReceiver.class).build(),
                     resultSubscriber,
                     DataStreamerOptions.builder().retryLimit(0).build(),
-                    "arg1",
-                    123);
+                    "arg1"
+            );
 
             // Same ID goes to the same partition.
             publisher.submit(tuple(1, "val1"));
@@ -414,8 +414,8 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
                     t -> t,
                     t -> t.intValue(0),
                     ReceiverDescriptor.builder(NodeNameReceiver.class).build(),
-                    null,
-                    null);
+                    null, null, null
+            );
 
             for (int i = 0; i < count; i++) {
                 publisher.submit(tupleKey(i));

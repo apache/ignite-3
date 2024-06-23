@@ -692,8 +692,8 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         Tuple tupleKey = Tuple.create().set("key", pojoKey.key);
         JobDescriptor job = JobDescriptor.builder(NodeNameJob.class).build();
 
-        var tupleRes = client().compute().execute(JobTarget.colocated(tableName, tupleKey), job);
-        var pojoRes = client().compute().execute(JobTarget.colocated(tableName, pojoKey, mapper), job);
+        var tupleRes = client().compute().execute(JobTarget.colocated(tableName, tupleKey), job, null);
+        var pojoRes = client().compute().execute(JobTarget.colocated(tableName, pojoKey, mapper), job, null);
 
         assertEquals(tupleRes, pojoRes);
     }
@@ -701,14 +701,11 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     @ParameterizedTest
     @CsvSource({"1E3,-3", "1.12E5,-5", "1.12E5,0", "1.123456789,10", "1.123456789,5"})
     void testBigDecimalPropagation(String number, int scale) {
+        BigDecimal given = new BigDecimal(number).setScale(scale, RoundingMode.HALF_UP);
+
         BigDecimal res = client().compute().execute(
                 JobTarget.node(node(0)),
                 JobDescriptor.builder(DecimalJob.class).build(),
-                number,
-                scale);
-
-        BigDecimal res = client().compute().execute(
-                Set.of(node(0)), JobDescriptor.builder(DecimalJob.class).build(),
                 given
         );
 
