@@ -15,22 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.compute.message;
+package org.apache.ignite.internal.affinity;
 
-import java.util.UUID;
-import org.apache.ignite.internal.compute.ComputeMessageTypes;
-import org.apache.ignite.internal.network.NetworkMessage;
-import org.apache.ignite.internal.network.annotations.Transferable;
+import java.io.Serializable;
+import java.util.Set;
 
 /**
- * Remote job status request.
+ * Set of nodes along with associated token that is guaranteed to be changed if the set was changed.
  */
-@Transferable(ComputeMessageTypes.JOB_STATUS_REQUEST)
-public interface JobStatusRequest extends NetworkMessage {
-    /**
-     * Returns job id.
-     *
-     * @return Job id.
-     */
-    UUID jobId();
+public interface TokenizedAssignments extends Serializable {
+    /** Returns a set of nodes, represented by this assignments instance. */
+    Set<Assignment> nodes();
+
+    /** Returns a token associated with given assignments that is guaranteed to be changed if assignments were changed. */
+    long token();
 }

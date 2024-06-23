@@ -15,39 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.rest.api.compute;
+package org.apache.ignite.internal.compute.message;
+
+import org.apache.ignite.internal.compute.ComputeMessageTypes;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
- * Rest representation of {@link org.apache.ignite.compute.JobStatus}.
+ * Remote job states request.
  */
-public enum JobStatus {
-    /**
-     * The job is submitted and waiting for an execution start.
-     */
-    QUEUED,
-
-    /**
-     * The job is being executed.
-     */
-    EXECUTING,
-
-    /**
-     * The job was unexpectedly terminated during execution.
-     */
-    FAILED,
-
-    /**
-     * The job was executed successfully and the execution result was returned.
-     */
-    COMPLETED,
-
-    /**
-     * The job has received the cancel command, but it is still running.
-     */
-    CANCELING,
-
-    /**
-     * The job was successfully cancelled.
-     */
-    CANCELED;
+@Transferable(ComputeMessageTypes.JOB_STATES_REQUEST)
+public interface JobStatesRequest extends NetworkMessage {
 }

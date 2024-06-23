@@ -17,7 +17,7 @@
 
 package org.apache.ignite.client.handler.requests.compute;
 
-import static org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteRequest.sendResultAndStatus;
+import static org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteRequest.sendResultAndState;
 import static org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteRequest.unpackArgs;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTuple;
@@ -73,7 +73,7 @@ public class ClientComputeExecuteColocatedRequest {
 
             var jobExecution = compute.wrapJobExecutionFuture(jobExecutionFut);
 
-            sendResultAndStatus(jobExecution, notificationSender);
+            sendResultAndState(jobExecution, notificationSender);
 
             //noinspection DataFlowIssue
             return jobExecution.idAsync().thenAccept(out::packUuid);

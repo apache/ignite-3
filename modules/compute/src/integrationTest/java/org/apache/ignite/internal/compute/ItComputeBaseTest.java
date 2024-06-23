@@ -18,11 +18,11 @@
 package org.apache.ignite.internal.compute;
 
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.compute.JobState.COMPLETED;
-import static org.apache.ignite.compute.JobState.FAILED;
+import static org.apache.ignite.compute.JobStatus.COMPLETED;
+import static org.apache.ignite.compute.JobStatus.FAILED;
 import static org.apache.ignite.internal.IgniteExceptionTestUtils.assertTraceableException;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
-import static org.apache.ignite.internal.testframework.matchers.JobStatusMatcher.jobStatusWithState;
+import static org.apache.ignite.internal.testframework.matchers.JobStateMatcher.jobStateWithStatus;
 import static org.apache.ignite.lang.ErrorGroups.Compute.CLASS_INITIALIZATION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Compute.COMPUTE_JOB_FAILED_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -149,7 +149,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
                 "a", 42);
 
         assertThat(execution.resultAsync(), willBe("a42"));
-        assertThat(execution.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
+        assertThat(execution.stateAsync(), willBe(jobStateWithStatus(COMPLETED)));
         assertThat(execution.cancelAsync(), willBe(false));
     }
 
@@ -175,7 +175,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
                 new Object[]{"a", 42});
 
         assertThat(execution.resultAsync(), willBe("a42"));
-        assertThat(execution.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
+        assertThat(execution.stateAsync(), willBe(jobStateWithStatus(COMPLETED)));
         assertThat(execution.cancelAsync(), willBe(false));
     }
 
@@ -225,7 +225,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
 
         assertComputeException(ex, "JobException", "Oops");
 
-        assertThat(execution.statusAsync(), willBe(jobStatusWithState(FAILED)));
+        assertThat(execution.stateAsync(), willBe(jobStateWithStatus(FAILED)));
         assertThat(execution.cancelAsync(), willBe(false));
     }
 
@@ -252,7 +252,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
 
         assertComputeException(ex, "JobException", "Oops");
 
-        assertThat(execution.statusAsync(), willBe(jobStatusWithState(FAILED)));
+        assertThat(execution.stateAsync(), willBe(jobStateWithStatus(FAILED)));
         assertThat(execution.cancelAsync(), willBe(false));
     }
 
@@ -270,7 +270,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
             ClusterNode node = node(i).node();
             JobExecution<String> execution = results.get(node);
             assertThat(execution.resultAsync(), willBe("a42"));
-            assertThat(execution.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
+            assertThat(execution.stateAsync(), willBe(jobStateWithStatus(COMPLETED)));
             assertThat(execution.cancelAsync(), willBe(false));
         }
     }
@@ -288,7 +288,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
             ClusterNode node = node(i).node();
             JobExecution<String> execution = results.get(node);
             assertThat(execution.resultAsync(), willBe(node.name()));
-            assertThat(execution.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
+            assertThat(execution.stateAsync(), willBe(jobStateWithStatus(COMPLETED)));
             assertThat(execution.cancelAsync(), willBe(false));
         }
     }
@@ -311,7 +311,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
             assertThat(result, is(instanceOf(CompletionException.class)));
             assertComputeException(result, "JobException", "Oops");
 
-            assertThat(execution.statusAsync(), willBe(jobStatusWithState(FAILED)));
+            assertThat(execution.stateAsync(), willBe(jobStateWithStatus(FAILED)));
             assertThat(execution.cancelAsync(), willBe(false));
         }
     }
@@ -340,7 +340,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
                 JobDescriptor.builder(getNodeNameJobClassName()).units(units()).build());
 
         assertThat(execution.resultAsync(), willBe(in(allNodeNames())));
-        assertThat(execution.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
+        assertThat(execution.stateAsync(), willBe(jobStateWithStatus(COMPLETED)));
         assertThat(execution.cancelAsync(), willBe(false));
     }
 
@@ -407,7 +407,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
                 JobDescriptor.builder(getNodeNameJobClassName()).units(units()).build());
 
         assertThat(execution.resultAsync(), willBe(in(allNodeNames())));
-        assertThat(execution.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
+        assertThat(execution.stateAsync(), willBe(jobStateWithStatus(COMPLETED)));
         assertThat(execution.cancelAsync(), willBe(false));
     }
 
@@ -420,11 +420,11 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
         int sumOfNodeNamesLengths = CLUSTER.runningNodes().map(IgniteImpl::name).map(String::length).reduce(Integer::sum).orElseThrow();
         assertThat(taskExecution.resultAsync(), willBe(sumOfNodeNamesLengths));
 
-        // Statuses list contains statuses for 3 running nodes
-        assertThat(taskExecution.statusesAsync(), willBe(contains(
-                jobStatusWithState(COMPLETED),
-                jobStatusWithState(COMPLETED),
-                jobStatusWithState(COMPLETED)
+        // States list contains states for 3 running nodes
+        assertThat(taskExecution.statesAsync(), willBe(contains(
+                jobStateWithStatus(COMPLETED),
+                jobStateWithStatus(COMPLETED),
+                jobStateWithStatus(COMPLETED)
         )));
     }
 

@@ -35,21 +35,21 @@ public interface JobExecution<R> {
     CompletableFuture<R> resultAsync();
 
     /**
-     * Returns the current status of the job. The job status may be deleted and thus return {@code null} if the time for retaining job
-     * status has been exceeded.
+     * Returns the current state of the job. The job state may be deleted and thus return {@code null} if the time for retaining job state
+     * has been exceeded.
      *
-     * @return The current status of the job, or {@code null} if the job status no longer exists due to exceeding the retention time limit.
+     * @return The current state of the job, or {@code null} if the job state no longer exists due to exceeding the retention time limit.
      */
-    CompletableFuture<@Nullable JobStatus> statusAsync();
+    CompletableFuture<@Nullable JobState> stateAsync();
 
     /**
-     * Returns the id of the job. The job status may be deleted and thus return {@code null} if the time for retaining job status has been
+     * Returns the id of the job. The job state may be deleted and thus return {@code null} if the time for retaining job state has been
      * exceeded.
      *
-     * @return The id of the job, or {@code null} if the job status no longer exists due to exceeding the retention time limit.
+     * @return The id of the job, or {@code null} if the job state no longer exists due to exceeding the retention time limit.
      */
     default CompletableFuture<@Nullable UUID> idAsync() {
-        return statusAsync().thenApply(status -> status != null ? status.id() : null);
+        return stateAsync().thenApply(state -> state != null ? state.id() : null);
     }
 
     /**
