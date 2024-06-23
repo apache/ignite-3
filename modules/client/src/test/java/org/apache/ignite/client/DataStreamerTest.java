@@ -253,7 +253,8 @@ public class DataStreamerTest extends AbstractClientTableTest {
                         t -> t.get().longValue("id"),
                         ReceiverDescriptor.builder(TestUpsertReceiver.class).build(),
                         null,
-                        options)
+                        options,
+                    null)
                     : view.streamData(publisher, options);
 
             for (long i = 0; i < 1000; i++) {
@@ -405,8 +406,8 @@ public class DataStreamerTest extends AbstractClientTableTest {
                     ReceiverDescriptor.builder(TestReceiver.class).build(),
                     resultSubscriber,
                     options,
-                    "arg",
-                    "returnResults");
+                    "arg:returnResults"
+            );
 
             for (long i = 0; i < count; i++) {
                 publisher.submit(tuple(i));
@@ -444,8 +445,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
                     ReceiverDescriptor.builder(TestReceiver.class).build(),
                     resultSubscriber,
                     null,
-                    "arg",
-                    withSubscriber ? "returnResults" : "noResults");
+                    "arg" + ":" +  (withSubscriber ? "returnResults" : "noResults"));
 
             for (long i = 0; i < count; i++) {
                 publisher.submit(new PersonPojo(i));
@@ -486,8 +486,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
                     ReceiverDescriptor.builder(TestReceiver.class).build(),
                     resultSubscriber,
                     null,
-                    "arg",
-                    withSubscriber ? "returnResults" : "noResults");
+                    "arg" + ":" + (withSubscriber ? "returnResults" : "noResults"));
 
             for (long i = 0; i < count; i++) {
                 publisher.submit(Map.entry(tupleKey(i), tupleVal("foo")));
@@ -528,8 +527,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
                     ReceiverDescriptor.builder(TestReceiver.class).build(),
                     resultSubscriber,
                     null,
-                    "arg",
-                    withSubscriber ? "returnResults" : "noResults");
+                    "arg" + ":" + (withSubscriber ? "returnResults" : "noResults"));
 
             for (long i = 0; i < count; i++) {
                 publisher.submit(Map.entry(i, new PersonValPojo("foo")));
@@ -593,9 +591,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
                     ReceiverDescriptor.builder(TestReceiver.class).build(),
                     resultSubscriber,
                     options,
-                    "arg",
-                    resultCount < 0 ? null : "returnResults",
-                    resultCount);
+                    "arg" + ":" + (resultCount < 0 ? null : "returnResults" ) + ":" + resultCount);
 
             for (long i = 0; i < 3; i++) {
                 publisher.submit(tuple(i));
@@ -624,8 +620,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
                     ReceiverDescriptor.builder(TestReceiver.class).build(),
                     resultSubscriber,
                     options,
-                    "arg",
-                    "returnResults");
+                    "arg:returnResults");
 
             for (long i = 0; i < 3; i++) {
                 publisher.submit(tuple(i));
@@ -651,8 +646,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
                     ReceiverDescriptor.builder(TestReceiver.class).build(),
                     null,
                     options,
-                    "arg",
-                    "returnResults");
+                    "arg:returnResults");
 
             for (long i = 0; i < 3; i++) {
                 publisher.submit(tuple(i));

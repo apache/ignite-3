@@ -212,7 +212,8 @@ public class ClientCompute implements IgniteCompute {
         for (ClusterNode node : nodes) {
             JobExecution<R> execution = new ClientJobExecution<>(
                     ch,
-                    executeOnAnyNodeAsync(Set.of(node), descriptor.units(), descriptor.jobClassName(), descriptor.options(), descriptor.argumentMarshaler(), args),
+                    executeOnAnyNodeAsync(Set.of(node), descriptor.units(), descriptor.jobClassName(), descriptor.options(),
+                            descriptor.argumentMarshaler(), args),
                     descriptor.resultMarshaller());
             if (map.put(node, execution) != null) {
                 throw new IllegalStateException("Node can't be specified more than once: " + node);
@@ -335,7 +336,7 @@ public class ClientCompute implements IgniteCompute {
             String jobClassName,
             JobExecutionOptions options,
             @Nullable Marshaller<T, byte[]> marshaller,
-            T args ) {
+            T args) {
         return t.doSchemaOutOpAsync(
                 ClientOp.COMPUTE_EXECUTE_COLOCATED,
                 (schema, outputChannel) -> {

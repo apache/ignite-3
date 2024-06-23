@@ -39,10 +39,10 @@ public class StreamerReceiverSerializer {
      * @param receiverArgs Receiver arguments.
      * @param items Items.
      */
-    public static void serialize(ClientMessagePacker w, String receiverClassName, Object receiverArgs, Collection<?> items, @Nullable
-            Marshaller<Object, byte[]> marshaller) {
+    public static void serialize(ClientMessagePacker w, String receiverClassName, Object receiverArgs, Collection<?> items,
+            @Nullable Marshaller<Object, byte[]> marshaller) {
         // className + args size + args + items size + item type + items.
-        int binaryTupleSize = 1 + 1 + 3 + 1 + 1 + items.size();
+        int binaryTupleSize = 1 + 1 + 1 + 1 + 1 + items.size();
         var builder = new BinaryTupleBuilder(binaryTupleSize);
         builder.appendString(receiverClassName);
 
