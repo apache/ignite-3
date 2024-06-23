@@ -322,10 +322,7 @@ class IndexBuildController implements ManuallyCloseable {
 
         MvPartitionStorage mvPartition = mvPartitionStorage(mvTableStorage, tablePartitionId);
 
-        // TODO: IGNITE-22202 Deal with this situation
-        if (mvPartition == null) {
-            return;
-        }
+        assert mvPartition != null : "Partition storage is missing, replicaId=" + replicaId;
 
         IndexStorage indexStorage = indexStorage(mvTableStorage, tablePartitionId, indexDescriptor);
 
@@ -352,10 +349,7 @@ class IndexBuildController implements ManuallyCloseable {
         TablePartitionId tablePartitionId = new TablePartitionId(replicaId.tableId(), replicaId.partitionId());
         MvPartitionStorage mvPartition = mvPartitionStorage(mvTableStorage, tablePartitionId);
 
-        // TODO: IGNITE-22202 Deal with this situation
-        if (mvPartition == null) {
-            return;
-        }
+        assert mvPartition != null : "Partition storage is missing, replicaId=" + replicaId;
 
         IndexStorage indexStorage = indexStorage(mvTableStorage, tablePartitionId, indexDescriptor);
 
@@ -387,8 +381,7 @@ class IndexBuildController implements ManuallyCloseable {
     private static @Nullable MvPartitionStorage mvPartitionStorage(MvTableStorage mvTableStorage, TablePartitionId replicaId) {
         MvPartitionStorage mvPartition = mvTableStorage.getMvPartition(replicaId.partitionId());
 
-        // TODO: IGNITE-22202 Deal with this situation
-        // assert mvPartition != null : replicaId;
+        assert mvPartition != null : "Partition storage is missing, replicaId=" + replicaId;
 
         return mvPartition;
     }

@@ -17,42 +17,32 @@
 
 package org.apache.ignite.compute.task;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
-import org.apache.ignite.compute.DeploymentUnit;
-import org.apache.ignite.compute.JobExecutionOptions;
+import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.network.ClusterNode;
 
 /**
  * A description of the job to be submitted as a result of the split step of the {@link MapReduceTask}. Reflects the parameters of the
- * {@link org.apache.ignite.compute.IgniteCompute#submit(Set, List, String, JobExecutionOptions, Object...) IgniteCompute#submit} method.
+ * {@link org.apache.ignite.compute.IgniteCompute#submit(Set, JobDescriptor, Object...)} method.
  */
-public class ComputeJobRunner {
+public class MapReduceJob {
     private final Set<ClusterNode> nodes;
 
-    private final List<DeploymentUnit> units;
+    private final JobDescriptor jobDescriptor;
 
-    private final String jobClassName;
-
-    private final JobExecutionOptions options;
 
     private final Object[] args;
 
-    private ComputeJobRunner(
+    private MapReduceJob(
             Set<ClusterNode> nodes,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
+            JobDescriptor jobDescriptor,
             Object[] args
     ) {
         this.nodes = Collections.unmodifiableSet(nodes);
-        this.units = units;
-        this.jobClassName = jobClassName;
-        this.options = options;
+        this.jobDescriptor = jobDescriptor;
         this.args = args;
     }
 
@@ -66,30 +56,12 @@ public class ComputeJobRunner {
     }
 
     /**
-     * Deployment units. Can be empty.
+     * Job descriptor.
      *
-     * @return Deployment units.
+     * @return Job descriptor.
      */
-    public List<DeploymentUnit> units() {
-        return units;
-    }
-
-    /**
-     * Name of the job class to execute.
-     *
-     * @return Name of the job class to execute.
-     */
-    public String jobClassName() {
-        return jobClassName;
-    }
-
-    /**
-     * Job execution options (priority, max retries).
-     *
-     * @return Job execution options.
-     */
-    public JobExecutionOptions options() {
-        return options;
+    public JobDescriptor jobDescriptor() {
+        return jobDescriptor;
     }
 
     /**
@@ -107,7 +79,7 @@ public class ComputeJobRunner {
      * @return New builder.
      */
     public ComputeJobRunnerBuilder toBuilder() {
-        return builder().nodes(nodes).units(units).jobClassName(jobClassName).options(options).args(args);
+        return builder().nodes(nodes).jobDescriptor(jobDescriptor).args(args);
     }
 
     /**
@@ -125,11 +97,7 @@ public class ComputeJobRunner {
     public static class ComputeJobRunnerBuilder {
         private final Set<ClusterNode> nodes = new HashSet<>();
 
-        private final List<DeploymentUnit> units = new ArrayList<>();
-
-        private String jobClassName;
-
-        private JobExecutionOptions options = JobExecutionOptions.DEFAULT;
+        private JobDescriptor jobDescriptor;
 
         private Object[] args;
 
@@ -156,35 +124,13 @@ public class ComputeJobRunner {
         }
 
         /**
-         * Adds deployment units.
+         * Sets job descriptor.
          *
-         * @param units A collection of deployment units.
+         * @param jobDescriptor A job descriptor.
          * @return Builder instance.
          */
-        public ComputeJobRunnerBuilder units(Collection<DeploymentUnit> units) {
-            this.units.addAll(units);
-            return this;
-        }
-
-        /**
-         * Sets the name of the job class to execute.
-         *
-         * @param jobClassName A job class name.
-         * @return Builder instance.
-         */
-        public ComputeJobRunnerBuilder jobClassName(String jobClassName) {
-            this.jobClassName = jobClassName;
-            return this;
-        }
-
-        /**
-         * Sets job execution options (priority, max retries).
-         *
-         * @param options Job execution options.
-         * @return Builder instance.
-         */
-        public ComputeJobRunnerBuilder options(JobExecutionOptions options) {
-            this.options = options;
+        public ComputeJobRunnerBuilder jobDescriptor(JobDescriptor jobDescriptor) {
+            this.jobDescriptor = jobDescriptor;
             return this;
         }
 
@@ -204,12 +150,12 @@ public class ComputeJobRunner {
          *
          * @return Description object.
          */
-        public ComputeJobRunner build() {
+        public MapReduceJob build() {
             if (nodes.isEmpty()) {
                 throw new IllegalArgumentException();
             }
 
-            return new ComputeJobRunner(nodes, units, jobClassName, options, args);
+            return new MapReduceJob(nodes, jobDescriptor, args);
         }
     }
 }

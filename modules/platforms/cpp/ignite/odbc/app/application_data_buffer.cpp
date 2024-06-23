@@ -1493,7 +1493,7 @@ void application_data_buffer::get_decimal(big_decimal &val) const {
             big_decimal dec(reinterpret_cast<const int8_t *>(numeric->val), SQL_MAX_NUMERIC_LEN, numeric->scale,
                 numeric->sign ? 1 : -1, false);
 
-            val.swap(dec);
+            swap(val, dec);
 
             break;
         }
@@ -1546,23 +1546,27 @@ SQLLEN application_data_buffer::get_data_at_exec_size() const {
         }
 
         case odbc_native_type::AI_SIGNED_SHORT:
+            return static_cast<SQLLEN>(sizeof(SQLSMALLINT));
         case odbc_native_type::AI_UNSIGNED_SHORT:
-            return static_cast<SQLLEN>(sizeof(short));
+            return static_cast<SQLLEN>(sizeof(SQLUSMALLINT));
 
         case odbc_native_type::AI_SIGNED_LONG:
+            return static_cast<SQLLEN>(sizeof(SQLINTEGER));
         case odbc_native_type::AI_UNSIGNED_LONG:
-            return static_cast<SQLLEN>(sizeof(long));
+            return static_cast<SQLLEN>(sizeof(SQLUINTEGER));
 
         case odbc_native_type::AI_FLOAT:
-            return static_cast<SQLLEN>(sizeof(float));
+            return static_cast<SQLLEN>(sizeof(SQLFLOAT));
 
         case odbc_native_type::AI_DOUBLE:
-            return static_cast<SQLLEN>(sizeof(double));
+            return static_cast<SQLLEN>(sizeof(SQLDOUBLE));
 
         case odbc_native_type::AI_BIT:
+            return static_cast<SQLLEN>(sizeof(SQLCHAR));
         case odbc_native_type::AI_SIGNED_TINYINT:
+            return static_cast<SQLLEN>(sizeof(SQLSCHAR));
         case odbc_native_type::AI_UNSIGNED_TINYINT:
-            return static_cast<SQLLEN>(sizeof(char));
+            return static_cast<SQLLEN>(sizeof(SQLCHAR));
 
         case odbc_native_type::AI_SIGNED_BIGINT:
         case odbc_native_type::AI_UNSIGNED_BIGINT:

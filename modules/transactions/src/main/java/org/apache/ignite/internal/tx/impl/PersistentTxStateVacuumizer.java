@@ -142,7 +142,7 @@ public class PersistentTxStateVacuumizer {
             futures.add(future);
         });
 
-        return allOf(futures.toArray(new CompletableFuture[0]))
+        return allOf(futures)
                 .handle((unused, unusedEx) -> new PersistentTxStateVacuumResult(successful, vacuumizedPersistentTxnStatesCount.get()));
     }
 

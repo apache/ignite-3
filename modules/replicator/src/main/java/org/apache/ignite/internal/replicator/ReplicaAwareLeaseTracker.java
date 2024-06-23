@@ -28,6 +28,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.network.ClusterNodeResolver;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
@@ -35,12 +36,11 @@ import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParam
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.WaitReplicaStateMessage;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.ClusterNodeResolver;
 
 /**
  * Implementation of {@link PlacementDriver} that is aware if {@link ReplicaService}.
  * It delegates calls to the original {@link PlacementDriver} and after that sends {@link WaitReplicaStateMessage}
- * which calls {@link org.apache.ignite.internal.replicator.Replica#waitForActualState(long)}.
+ * which calls {@link org.apache.ignite.internal.replicator.Replica#waitForActualState(HybridTimestamp, long)}.
  */
 // TODO https://issues.apache.org/jira/browse/IGNITE-20362
 @Deprecated

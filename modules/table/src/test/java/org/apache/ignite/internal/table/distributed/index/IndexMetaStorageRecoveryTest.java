@@ -89,20 +89,22 @@ public class IndexMetaStorageRecoveryTest extends BaseIndexMetaStorageTest {
 
         int indexId = indexId(INDEX_NAME);
         int tableId = tableId(TABLE_NAME);
-        int catalogVersion = catalogManager.latestCatalogVersion();
+        int catalogVersion = latestCatalogVersion();
 
         IndexMeta indexMeta = indexMetaStorage.indexMeta(indexId);
-        IndexMeta fromVault = fromVault(indexId);
+        IndexMeta fromMetastore = fromMetastore(indexId);
 
-        checkFields(indexMeta, indexId, tableId, INDEX_NAME, REGISTERED, Map.of(REGISTERED, toChangeInfo(catalogVersion)));
-        checkFields(fromVault, indexId, tableId, INDEX_NAME, REGISTERED, Map.of(REGISTERED, toChangeInfo(catalogVersion)));
+        Map<MetaIndexStatus, MetaIndexStatusChange> expectedStatuses = Map.of(REGISTERED, toChangeInfo(catalogVersion));
+
+        checkFields(indexMeta, indexId, tableId, INDEX_NAME, REGISTERED, expectedStatuses, catalogVersion);
+        checkFields(fromMetastore, indexId, tableId, INDEX_NAME, REGISTERED, expectedStatuses, catalogVersion);
     }
 
     @Test
     void testMissingRenameTable() throws Exception {
         int indexId = indexId(PK_INDEX_NAME);
         int tableId = tableId(TABLE_NAME);
-        int catalogVersion = catalogManager.latestCatalogVersion();
+        int catalogVersion = latestCatalogVersion();
 
         executeCatalogUpdateWithDropEvents(() -> renameSimpleTable(catalogManager, TABLE_NAME, NEW_TABLE_NAME));
 
@@ -111,10 +113,14 @@ public class IndexMetaStorageRecoveryTest extends BaseIndexMetaStorageTest {
         restartComponents();
 
         IndexMeta indexMeta = indexMetaStorage.indexMeta(indexId);
-        IndexMeta fromVault = fromVault(indexId);
+        IndexMeta fromMetastore = fromMetastore(indexId);
 
-        checkFields(indexMeta, indexId, tableId, NEW_PK_INDEX_NAME, AVAILABLE, Map.of(AVAILABLE, toChangeInfo(catalogVersion)));
-        checkFields(fromVault, indexId, tableId, NEW_PK_INDEX_NAME, AVAILABLE, Map.of(AVAILABLE, toChangeInfo(catalogVersion)));
+        Map<MetaIndexStatus, MetaIndexStatusChange> expectedStatuses = Map.of(AVAILABLE, toChangeInfo(catalogVersion));
+
+        int latestCatalogVersion = latestCatalogVersion();
+
+        checkFields(indexMeta, indexId, tableId, NEW_PK_INDEX_NAME, AVAILABLE, expectedStatuses, latestCatalogVersion);
+        checkFields(fromMetastore, indexId, tableId, NEW_PK_INDEX_NAME, AVAILABLE, expectedStatuses, latestCatalogVersion);
     }
 
     @Test
@@ -131,15 +137,17 @@ public class IndexMetaStorageRecoveryTest extends BaseIndexMetaStorageTest {
         restartComponents();
 
         IndexMeta indexMeta = indexMetaStorage.indexMeta(indexId);
-        IndexMeta fromVault = fromVault(indexId);
+        IndexMeta fromMetastore = fromMetastore(indexId);
+
+        int latestCatalogVersion = latestCatalogVersion();
 
         Map<MetaIndexStatus, MetaIndexStatusChange> expectedStatuses = Map.of(
                 REGISTERED, toChangeInfo(registeredIndexCatalogVersion),
-                BUILDING, toChangeInfo(catalogManager.latestCatalogVersion())
+                BUILDING, toChangeInfo(latestCatalogVersion)
         );
 
-        checkFields(indexMeta, indexId, tableId, INDEX_NAME, BUILDING, expectedStatuses);
-        checkFields(fromVault, indexId, tableId, INDEX_NAME, BUILDING, expectedStatuses);
+        checkFields(indexMeta, indexId, tableId, INDEX_NAME, BUILDING, expectedStatuses, latestCatalogVersion);
+        checkFields(fromMetastore, indexId, tableId, INDEX_NAME, BUILDING, expectedStatuses, latestCatalogVersion);
     }
 
     @Test
@@ -158,16 +166,18 @@ public class IndexMetaStorageRecoveryTest extends BaseIndexMetaStorageTest {
         restartComponents();
 
         IndexMeta indexMeta = indexMetaStorage.indexMeta(indexId);
-        IndexMeta fromVault = fromVault(indexId);
+        IndexMeta fromMetastore = fromMetastore(indexId);
+
+        int latestCatalogVersion = latestCatalogVersion();
 
         Map<MetaIndexStatus, MetaIndexStatusChange> expectedStatuses = Map.of(
                 REGISTERED, toChangeInfo(registeredIndexCatalogVersion),
                 BUILDING, toChangeInfo(buildingIndexCatalogVersion),
-                AVAILABLE, toChangeInfo(catalogManager.latestCatalogVersion())
+                AVAILABLE, toChangeInfo(latestCatalogVersion)
         );
 
-        checkFields(indexMeta, indexId, tableId, INDEX_NAME, AVAILABLE, expectedStatuses);
-        checkFields(fromVault, indexId, tableId, INDEX_NAME, AVAILABLE, expectedStatuses);
+        checkFields(indexMeta, indexId, tableId, INDEX_NAME, AVAILABLE, expectedStatuses, latestCatalogVersion);
+        checkFields(fromMetastore, indexId, tableId, INDEX_NAME, AVAILABLE, expectedStatuses, latestCatalogVersion);
     }
 
     @Test
@@ -187,17 +197,19 @@ public class IndexMetaStorageRecoveryTest extends BaseIndexMetaStorageTest {
         restartComponents();
 
         IndexMeta indexMeta = indexMetaStorage.indexMeta(indexId);
-        IndexMeta fromVault = fromVault(indexId);
+        IndexMeta fromMetastore = fromMetastore(indexId);
+
+        int latestCatalogVersion = latestCatalogVersion();
 
         Map<MetaIndexStatus, MetaIndexStatusChange> expectedStatuses = Map.of(
                 REGISTERED, toChangeInfo(registeredIndexCatalogVersion),
                 BUILDING, toChangeInfo(buildingIndexCatalogVersion),
                 AVAILABLE, toChangeInfo(availableIndexCatalogVersion),
-                STOPPING, toChangeInfo(catalogManager.latestCatalogVersion())
+                STOPPING, toChangeInfo(latestCatalogVersion)
         );
 
-        checkFields(indexMeta, indexId, tableId, INDEX_NAME, STOPPING, expectedStatuses);
-        checkFields(fromVault, indexId, tableId, INDEX_NAME, STOPPING, expectedStatuses);
+        checkFields(indexMeta, indexId, tableId, INDEX_NAME, STOPPING, expectedStatuses, latestCatalogVersion);
+        checkFields(fromMetastore, indexId, tableId, INDEX_NAME, STOPPING, expectedStatuses, latestCatalogVersion);
     }
 
     @Test
@@ -218,25 +230,27 @@ public class IndexMetaStorageRecoveryTest extends BaseIndexMetaStorageTest {
         restartComponents();
 
         IndexMeta indexMeta = indexMetaStorage.indexMeta(indexId);
-        IndexMeta fromVault = fromVault(indexId);
+        IndexMeta fromMetastore = fromMetastore(indexId);
+
+        int latestCatalogVersion = latestCatalogVersion();
 
         Map<MetaIndexStatus, MetaIndexStatusChange> expectedStatuses = Map.of(
                 REGISTERED, toChangeInfo(registeredIndexCatalogVersion),
                 BUILDING, toChangeInfo(buildingIndexCatalogVersion),
                 AVAILABLE, toChangeInfo(availableIndexCatalogVersion),
                 STOPPING, toChangeInfo(stoppingIndexCatalogVersion),
-                READ_ONLY, toChangeInfo(catalogManager.latestCatalogVersion())
+                READ_ONLY, toChangeInfo(latestCatalogVersion)
         );
 
-        checkFields(indexMeta, indexId, tableId, INDEX_NAME, READ_ONLY, expectedStatuses);
-        checkFields(fromVault, indexId, tableId, INDEX_NAME, READ_ONLY, expectedStatuses);
+        checkFields(indexMeta, indexId, tableId, INDEX_NAME, READ_ONLY, expectedStatuses, latestCatalogVersion);
+        checkFields(fromMetastore, indexId, tableId, INDEX_NAME, READ_ONLY, expectedStatuses, latestCatalogVersion);
     }
 
     @Test
     void testMissingDropTable() throws Exception {
         int indexId = indexId(PK_INDEX_NAME);
         int tableId = tableId(TABLE_NAME);
-        int availableIndexCatalogVersion = catalogManager.latestCatalogVersion();
+        int availableIndexCatalogVersion = latestCatalogVersion();
 
         executeCatalogUpdateWithDropEvents(() -> dropSimpleTable(catalogManager, TABLE_NAME));
 
@@ -245,15 +259,17 @@ public class IndexMetaStorageRecoveryTest extends BaseIndexMetaStorageTest {
         restartComponents();
 
         IndexMeta indexMeta = indexMetaStorage.indexMeta(indexId);
-        IndexMeta fromVault = fromVault(indexId);
+        IndexMeta fromMetastore = fromMetastore(indexId);
+
+        int latestCatalogVersion = latestCatalogVersion();
 
         Map<MetaIndexStatus, MetaIndexStatusChange> expectedStatuses = Map.of(
                 AVAILABLE, toChangeInfo(availableIndexCatalogVersion),
-                READ_ONLY, toChangeInfo(catalogManager.latestCatalogVersion())
+                READ_ONLY, toChangeInfo(latestCatalogVersion)
         );
 
-        checkFields(indexMeta, indexId, tableId, PK_INDEX_NAME, READ_ONLY, expectedStatuses);
-        checkFields(fromVault, indexId, tableId, PK_INDEX_NAME, READ_ONLY, expectedStatuses);
+        checkFields(indexMeta, indexId, tableId, PK_INDEX_NAME, READ_ONLY, expectedStatuses, latestCatalogVersion);
+        checkFields(fromMetastore, indexId, tableId, PK_INDEX_NAME, READ_ONLY, expectedStatuses, latestCatalogVersion);
     }
 
     @Test
@@ -270,15 +286,17 @@ public class IndexMetaStorageRecoveryTest extends BaseIndexMetaStorageTest {
         restartComponents();
 
         IndexMeta indexMeta = indexMetaStorage.indexMeta(indexId);
-        IndexMeta fromVault = fromVault(indexId);
+        IndexMeta fromMetastore = fromMetastore(indexId);
+
+        int latestCatalogVersion = latestCatalogVersion();
 
         Map<MetaIndexStatus, MetaIndexStatusChange> expectedStatuses = Map.of(
                 REGISTERED, toChangeInfo(registeredIndexCatalogVersion),
-                REMOVED, toChangeInfo(catalogManager.latestCatalogVersion())
+                REMOVED, toChangeInfo(latestCatalogVersion)
         );
 
-        checkFields(indexMeta, indexId, tableId, INDEX_NAME, REMOVED, expectedStatuses);
-        checkFields(fromVault, indexId, tableId, INDEX_NAME, REMOVED, expectedStatuses);
+        checkFields(indexMeta, indexId, tableId, INDEX_NAME, REMOVED, expectedStatuses, latestCatalogVersion);
+        checkFields(fromMetastore, indexId, tableId, INDEX_NAME, REMOVED, expectedStatuses, latestCatalogVersion);
     }
 
     @Test
@@ -297,16 +315,18 @@ public class IndexMetaStorageRecoveryTest extends BaseIndexMetaStorageTest {
         restartComponents();
 
         IndexMeta indexMeta = indexMetaStorage.indexMeta(indexId);
-        IndexMeta fromVault = fromVault(indexId);
+        IndexMeta fromMetastore = fromMetastore(indexId);
+
+        int latestCatalogVersion = latestCatalogVersion();
 
         Map<MetaIndexStatus, MetaIndexStatusChange> expectedStatuses = Map.of(
                 REGISTERED, toChangeInfo(registeredIndexCatalogVersion),
                 BUILDING, toChangeInfo(buildingIndexCatalogVersion),
-                REMOVED, toChangeInfo(catalogManager.latestCatalogVersion())
+                REMOVED, toChangeInfo(latestCatalogVersion)
         );
 
-        checkFields(indexMeta, indexId, tableId, INDEX_NAME, REMOVED, expectedStatuses);
-        checkFields(fromVault, indexId, tableId, INDEX_NAME, REMOVED, expectedStatuses);
+        checkFields(indexMeta, indexId, tableId, INDEX_NAME, REMOVED, expectedStatuses, latestCatalogVersion);
+        checkFields(fromMetastore, indexId, tableId, INDEX_NAME, REMOVED, expectedStatuses, latestCatalogVersion);
     }
 
     @Test
@@ -322,7 +342,7 @@ public class IndexMetaStorageRecoveryTest extends BaseIndexMetaStorageTest {
         restartComponents();
 
         assertNull(indexMetaStorage.indexMeta(indexId));
-        assertNull(fromVault(indexId));
+        assertNull(fromMetastore(indexId));
     }
 
     @Test
@@ -340,7 +360,7 @@ public class IndexMetaStorageRecoveryTest extends BaseIndexMetaStorageTest {
         restartComponents();
 
         assertNull(indexMetaStorage.indexMeta(indexId));
-        assertNull(fromVault(indexId));
+        assertNull(fromMetastore(indexId));
     }
 
     @Test
@@ -359,7 +379,7 @@ public class IndexMetaStorageRecoveryTest extends BaseIndexMetaStorageTest {
         restartComponents();
 
         assertNotNull(indexMetaStorage.indexMeta(indexId));
-        assertNotNull(fromVault(indexId));
+        assertNotNull(fromMetastore(indexId));
     }
 
     @Test
@@ -379,7 +399,7 @@ public class IndexMetaStorageRecoveryTest extends BaseIndexMetaStorageTest {
         restartComponents();
 
         assertNull(indexMetaStorage.indexMeta(indexId));
-        assertNull(fromVault(indexId));
+        assertNull(fromMetastore(indexId));
     }
 
     @Test
@@ -393,7 +413,38 @@ public class IndexMetaStorageRecoveryTest extends BaseIndexMetaStorageTest {
         restartComponents();
 
         assertNull(indexMetaStorage.indexMeta(indexId));
-        assertNull(fromVault(indexId));
+        assertNull(fromMetastore(indexId));
+    }
+
+    @Test
+    void testMissingMultipleIndexUpdates() throws Exception {
+        assertThat(indexMetaStorage.stopAsync(new ComponentContext()), willCompleteSuccessfully());
+
+        int registeredIndexCatalogVersion = executeCatalogUpdate(() -> createSimpleHashIndex(catalogManager, TABLE_NAME, INDEX_NAME));
+
+        int indexId = indexId(INDEX_NAME);
+        int tableId = tableId(TABLE_NAME);
+
+        int buildingIndexCatalogVersion = executeCatalogUpdate(() -> startBuildingIndex(catalogManager, indexId));
+        int availableIndexCatalogVersion = executeCatalogUpdate(() -> makeIndexAvailable(catalogManager, indexId));
+        int stoppingIndexCatalogVersion = executeCatalogUpdate(() -> dropSimpleIndex(catalogManager, INDEX_NAME));
+        int removingIndexCatalogVersion = executeCatalogUpdate(() -> removeIndex(catalogManager, indexId));
+
+        restartComponents();
+
+        IndexMeta indexMeta = indexMetaStorage.indexMeta(indexId);
+        IndexMeta fromMetastore = fromMetastore(indexId);
+
+        Map<MetaIndexStatus, MetaIndexStatusChange> expectedStatuses = Map.of(
+                REGISTERED, toChangeInfo(registeredIndexCatalogVersion),
+                BUILDING, toChangeInfo(buildingIndexCatalogVersion),
+                AVAILABLE, toChangeInfo(availableIndexCatalogVersion),
+                STOPPING, toChangeInfo(stoppingIndexCatalogVersion),
+                READ_ONLY, toChangeInfo(removingIndexCatalogVersion)
+        );
+
+        checkFields(indexMeta, indexId, tableId, INDEX_NAME, READ_ONLY, expectedStatuses, removingIndexCatalogVersion);
+        checkFields(fromMetastore, indexId, tableId, INDEX_NAME, READ_ONLY, expectedStatuses, removingIndexCatalogVersion);
     }
 
     private void executeCatalogUpdateWithDropEvents(RunnableX task) {

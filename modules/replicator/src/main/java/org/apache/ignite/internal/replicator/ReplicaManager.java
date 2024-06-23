@@ -20,20 +20,26 @@ package org.apache.ignite.internal.replicator;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.raft.PeersAndLearners.fromAssignments;
 import static org.apache.ignite.internal.replicator.LocalReplicaEvent.AFTER_REPLICA_STARTED;
 import static org.apache.ignite.internal.replicator.LocalReplicaEvent.BEFORE_REPLICA_STOPPED;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.thread.ThreadOperation.TX_STATE_STORAGE_ACCESS;
 import static org.apache.ignite.internal.util.CompletableFutures.allOf;
+import static org.apache.ignite.internal.util.CompletableFutures.allOfToList;
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.isCompletedSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -50,6 +56,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.affinity.Assignments;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.event.AbstractEventProducer;
@@ -69,6 +76,8 @@ import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessageHandler;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
+import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
+import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessage;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageResponse;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessageGroup;
@@ -191,9 +200,11 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     /** Set of message groups to handler as replica requests. */
     private final Set<Class<?>> messageGroupsToHandle;
 
-    private String localNodeId;
+    private final ReplicaStateManager replicaStateManager;
 
-    private String localNodeConsistentId;
+    private volatile String localNodeId;
+
+    private volatile String localNodeConsistentId;
 
     /**
      * Constructor for a replica service.
@@ -226,7 +237,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             Marshaller raftCommandsMarshaller,
             TopologyAwareRaftGroupServiceFactory raftGroupServiceFactory,
             RaftManager raftManager,
-            LogStorageFactoryCreator volatileLogStorageFactoryCreator
+            LogStorageFactoryCreator volatileLogStorageFactoryCreator,
+            Executor replicaStartStopExecutor
     ) {
         this.clusterNetSvc = clusterNetSvc;
         this.cmgMgr = cmgMgr;
@@ -242,6 +254,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         this.raftCommandsMarshaller = raftCommandsMarshaller;
         this.raftGroupServiceFactory = raftGroupServiceFactory;
         this.raftManager = raftManager;
+        this.replicaStateManager = new ReplicaStateManager(replicaStartStopExecutor, clockService, placementDriver, this);
 
         scheduledIdleSafeTimeSyncExecutor = Executors.newScheduledThreadPool(
                 1,
@@ -469,7 +482,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 futures[i++] = replicaFut.thenCompose(replica -> replica.processPlacementDriverMessage(msg));
             }
 
-            allOf(futures).whenComplete((responses, ex) -> {
+            allOfToList(futures).whenComplete((responses, ex) -> {
                 if (ex == null) {
                     boolean accepted = responses.stream().allMatch(LeaseGrantedMessageResponse::accepted);
 
@@ -682,7 +695,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     localNode,
                     requestsExecutor,
                     placementDriver,
-                    clockService
+                    clockService,
+                    replicaStateManager::reserveReplica
             );
 
             return replicas.compute(zoneTablePartId, (k, existingReplicaFuture) -> {
@@ -933,6 +947,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         localNodeConsistentId = clusterNetSvc.topologyService().localMember().name();
 
+        replicaStateManager.start(localNodeId);
+
         return nullCompletedFuture();
     }
 
@@ -976,7 +992,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                                         }
                                     }
 
-                                    return allOf(requestToReplicas.toArray(CompletableFuture[]::new));
+                                    return allOf(requestToReplicas);
                                 }, requestsExecutor)
                                 .get(10, SECONDS);
                     } catch (Exception ex) {
@@ -1160,6 +1176,45 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     }
 
     /**
+     * Can possibly start replica if it's not running or is stopping. Nothing happens if the replica is already running
+     * ({@link ReplicaState#ASSIGNED} or {@link ReplicaState#PRIMARY_ONLY}) and {@code forcedAssignments} is {@code null}.
+     * If the replica is {@link ReplicaState#ASSIGNED} and {@code forcedAssignments} is not {@code null} then peers will be
+     * reset to the given assignments. See {@link ReplicaState} for exact replica state transitions.
+     *
+     * @param groupId Group id.
+     * @param startOperation Replica start operation. Will be called if this method decides to start the replica.
+     * @param forcedAssignments Assignments to reset forcibly, if needed. Assignments reset is only available when replica is started.
+     * @return Completable future, the result means whether the replica was started.
+     */
+    public CompletableFuture<Boolean> weakStartReplica(
+            ReplicationGroupId groupId,
+            Supplier<CompletableFuture<Boolean>> startOperation,
+            @Nullable Assignments forcedAssignments
+    ) {
+        return replicaStateManager.weakStartReplica(groupId, startOperation, forcedAssignments);
+    }
+
+    /**
+     * Can possibly stop replica if it is running or starting, and is not a primary replica. Relies on the given reason. If
+     * the reason is {@link WeakReplicaStopReason#EXCLUDED_FROM_ASSIGNMENTS} then the replica can be not stopped if it is still
+     * a primary. If the reason is {@link WeakReplicaStopReason#PRIMARY_EXPIRED} then the replica is stopped only if its state
+     * is {@link ReplicaState#PRIMARY_ONLY}, because this assumes that it was excluded from assignments before.
+     * See {@link ReplicaState} for exact replica state transitions.
+     *
+     * @param groupId Group id.
+     * @param reason Reason to stop replica.
+     * @param stopOperation Replica stop operation.
+     * @return Completable future, the result means whether the replica was stopped.
+     */
+    public CompletableFuture<Void> weakStopReplica(
+            ReplicationGroupId groupId,
+            WeakReplicaStopReason reason,
+            Supplier<CompletableFuture<Void>> stopOperation
+    ) {
+        return replicaStateManager.weakStopReplica(groupId, reason, stopOperation);
+    }
+
+    /**
      * Check if replica was touched by an any actor. Touched here means either replica creation or replica waiter registration.
      *
      * @param replicaGrpId Replication group id.
@@ -1181,5 +1236,420 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 .filter(entry -> isCompletedSuccessfully(entry.getValue()))
                 .map(Entry::getKey)
                 .collect(toSet());
+    }
+
+    @TestOnly
+    public boolean isReplicaPrimaryOnly(ReplicationGroupId groupId) {
+        return replicaStateManager.isReplicaPrimaryOnly(groupId);
+    }
+
+    private static class ReplicaStateManager {
+        private static final IgniteLogger LOG = Loggers.forClass(ReplicaStateManager.class);
+
+        final Map<ZonePartitionId, ReplicaStateContext> replicaContexts = new ConcurrentHashMap<>();
+
+        final Executor replicaStartStopPool;
+
+        final ClockService clockService;
+
+        final PlacementDriver placementDriver;
+
+        final ReplicaManager replicaManager;
+
+        volatile String localNodeId;
+
+        ReplicaStateManager(
+                Executor replicaStartStopPool,
+                ClockService clockService,
+                PlacementDriver placementDriver,
+                ReplicaManager replicaManager
+        ) {
+            this.replicaStartStopPool = replicaStartStopPool;
+            this.clockService = clockService;
+            this.placementDriver = placementDriver;
+            this.replicaManager = replicaManager;
+        }
+
+        void start(String localNodeId) {
+            this.localNodeId = localNodeId;
+            placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, this::onPrimaryElected);
+            placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, this::onPrimaryExpired);
+        }
+
+        private CompletableFuture<Boolean> onPrimaryElected(PrimaryReplicaEventParameters parameters) {
+            ReplicationGroupId groupId = parameters.groupId();
+            ReplicaStateContext context = getContext(groupId);
+
+            synchronized (context) {
+                if (localNodeId.equals(parameters.leaseholderId())) {
+                    assert context.replicaState != ReplicaState.STOPPED : "Unexpected primary replica state STOPPED [groupId="
+                            + groupId + "].";
+
+                    context.assertReservation(groupId);
+                } else if (context.reservedForPrimary) {
+                    context.assertReservation(groupId);
+
+                    // Unreserve if another replica was elected as primary, only if its lease start time is greater,
+                    // otherwise it means that event is too late relatively to lease negotiation start and should be ignored.
+                    if (parameters.startTime().compareTo(context.leaseStartTime) > 0) {
+                        context.unreserve();
+
+                        if (context.replicaState == ReplicaState.PRIMARY_ONLY) {
+                            stopReplica(groupId, context, context.deferredStopOperation, WeakReplicaStopReason.PRIMARY_EXPIRED);
+                        }
+                    }
+                }
+            }
+
+            return falseCompletedFuture();
+        }
+
+        private CompletableFuture<Boolean> onPrimaryExpired(PrimaryReplicaEventParameters parameters) {
+            if (localNodeId.equals(parameters.leaseholderId())) {
+                ReplicaStateContext context = replicaContexts.get((ZonePartitionId) parameters.groupId());
+
+                if (context != null) {
+                    synchronized (context) {
+                        context.assertReservation(parameters.groupId());
+                        // Unreserve if primary replica expired, only if its lease start time is greater,
+                        // otherwise it means that event is too late relatively to lease negotiation start and should be ignored.
+                        if (parameters.startTime().equals(context.leaseStartTime)) {
+                            context.unreserve();
+                        }
+                    }
+                }
+            }
+
+            return falseCompletedFuture();
+        }
+
+        ReplicaStateContext getContext(ReplicationGroupId groupId) {
+            assert groupId instanceof ZonePartitionId;
+
+            var zonePartId = (ZonePartitionId) groupId;
+
+            assert zonePartId.tableId() != 0;
+
+            return replicaContexts.computeIfAbsent(zonePartId,
+                    // Treat the absence in the map as STOPPED.
+                    k -> new ReplicaStateContext(ReplicaState.STOPPED, nullCompletedFuture()));
+        }
+
+        /**
+         * Can possibly start replica if it's not running or is stopping.
+         *
+         * @param groupId Group id.
+         * @param startOperation Replica start operation.
+         * @param forcedAssignments Assignments to reset forcibly, if needed. Assignments reset is only available when replica is started.
+         * @return Completable future, the result means whether the replica was started.
+         */
+        CompletableFuture<Boolean> weakStartReplica(
+                ReplicationGroupId groupId,
+                Supplier<CompletableFuture<Boolean>> startOperation,
+                @Nullable Assignments forcedAssignments
+        ) {
+            assert groupId instanceof ZonePartitionId;
+            ZonePartitionId zoneTablePartId = (ZonePartitionId) groupId;
+            assert zoneTablePartId.tableId() != 0;
+
+            ReplicaStateContext context = getContext(zoneTablePartId);
+
+            synchronized (context) {
+                ReplicaState state = context.replicaState;
+
+                LOG.debug("Weak replica start [grp={}, state={}, future={}].", groupId, state, context.previousOperationFuture);
+
+                if (state == ReplicaState.STOPPED || state == ReplicaState.STOPPING) {
+                    return startReplica(groupId, context, startOperation);
+                } else if (state == ReplicaState.ASSIGNED) {
+                    if (forcedAssignments != null) {
+                        assert forcedAssignments.force() :
+                                format("Unexpected assignments to force [assignments={}, groupId={}].", forcedAssignments, groupId);
+
+                        replicaManager.resetPeers(groupId, fromAssignments(forcedAssignments.nodes()));
+                    }
+
+                    // Telling the caller that the replica is started.
+                    return trueCompletedFuture();
+                } else if (state == ReplicaState.PRIMARY_ONLY) {
+                    context.replicaState = ReplicaState.ASSIGNED;
+
+                    return trueCompletedFuture();
+                } // else no-op.
+
+                throw new AssertionError("Replica start cannot begin while the replica is being started [groupId=" + groupId + "].");
+            }
+        }
+
+        private CompletableFuture<Boolean> startReplica(
+                ReplicationGroupId groupId,
+                ReplicaStateContext context,
+                Supplier<CompletableFuture<Boolean>> startOperation
+        ) {
+            context.replicaState = ReplicaState.STARTING;
+            context.previousOperationFuture = context.previousOperationFuture
+                    .handleAsync((v, e) -> startOperation.get(), replicaStartStopPool)
+                    .thenCompose(startOperationFuture -> startOperationFuture.thenApply(partitionStarted -> {
+                        synchronized (context) {
+                            if (partitionStarted) {
+                                context.replicaState = ReplicaState.ASSIGNED;
+                            } else {
+                                context.replicaState = ReplicaState.STOPPED;
+                                replicaContexts.remove(groupId);
+                            }
+                        }
+
+                        LOG.debug("Weak replica start complete [state={}, partitionStarted={}].", context.replicaState, partitionStarted);
+
+                        return partitionStarted;
+                    }));
+
+            return context.previousOperationFuture;
+        }
+
+        /**
+         * Can possibly stop replica if it is running or starting, and is not a primary replica. Relies on the given reason. If
+         * the reason is {@link WeakReplicaStopReason#EXCLUDED_FROM_ASSIGNMENTS} then the replica can be not stopped if it is still
+         * a primary. If the reason is {@link WeakReplicaStopReason#PRIMARY_EXPIRED} then the replica is stopped only if its state
+         * is {@link ReplicaState#PRIMARY_ONLY}, because this assumes that it was excluded from assignments before.
+         *
+         * @param groupId Group id.
+         * @param reason Reason to stop replica.
+         * @param stopOperation Replica stop operation.
+         * @return Completable future, the result means whether the replica was stopped.
+         */
+        CompletableFuture<Void> weakStopReplica(
+                ReplicationGroupId groupId,
+                WeakReplicaStopReason reason,
+                Supplier<CompletableFuture<Void>> stopOperation
+        ) {
+            assert groupId instanceof ZonePartitionId;
+            ZonePartitionId zoneTablePartId = (ZonePartitionId) groupId;
+            assert zoneTablePartId.tableId() != 0;
+
+            ReplicaStateContext context = getContext(groupId);
+
+            synchronized (context) {
+                ReplicaState state = context.replicaState;
+
+                LOG.debug("Weak replica stop [grpId={}, state={}, reason={}, reservedForPrimary={}, future={}].", groupId, state,
+                        reason, context.reservedForPrimary, context.previousOperationFuture);
+
+                if (reason == WeakReplicaStopReason.EXCLUDED_FROM_ASSIGNMENTS) {
+                    if (state == ReplicaState.ASSIGNED) {
+                        if (context.reservedForPrimary) {
+                            context.replicaState = ReplicaState.PRIMARY_ONLY;
+                            context.deferredStopOperation = stopOperation;
+                        } else {
+                            return stopReplica(groupId, context, stopOperation, reason);
+                        }
+                    } else if (state == ReplicaState.STARTING) {
+                        return stopReplica(groupId, context, stopOperation, reason);
+                    } else if (state == ReplicaState.STOPPED) {
+                        // We need to stop replica and destroy storages anyway, because they can be already created.
+                        // See TODO-s for IGNITE-19713
+                        return stopReplica(groupId, context, stopOperation, reason);
+                    } // else: no-op.
+                } else if (reason == WeakReplicaStopReason.RESTART) {
+                    // Explicit restart: always stop.
+                    return stopReplica(groupId, context, stopOperation, reason);
+                } else {
+                    assert reason == WeakReplicaStopReason.PRIMARY_EXPIRED : "Unknown replica stop reason: " + reason;
+
+                    if (state == ReplicaState.PRIMARY_ONLY) {
+                        return stopReplica(groupId, context, stopOperation, reason);
+                    } // else: no-op.
+                }
+
+                LOG.debug("Weak replica stop complete [grpId={}, state={}].", groupId, context.replicaState);
+
+                return nullCompletedFuture();
+            }
+        }
+
+        private CompletableFuture<Void> stopReplica(
+                ReplicationGroupId groupId,
+                ReplicaStateContext context,
+                Supplier<CompletableFuture<Void>> stopOperation,
+                WeakReplicaStopReason reason
+        ) {
+            context.replicaState = ReplicaState.STOPPING;
+            context.previousOperationFuture = context.previousOperationFuture
+                    .handleAsync((v, e) -> stopOperation.get(), replicaStartStopPool)
+                    .thenCompose(stopOperationFuture -> stopOperationFuture.thenApply(v -> {
+                        synchronized (context) {
+                            context.replicaState = ReplicaState.STOPPED;
+
+                            if (reason != WeakReplicaStopReason.RESTART) {
+                                // No need to remove the context while restarting, it can lead to the loss of reservation context.
+                                replicaContexts.remove(groupId);
+                            }
+                        }
+
+                        LOG.debug("Weak replica stop complete [grpId={}, state={}].", groupId, context.replicaState);
+
+                        return true;
+                    }));
+
+            return context.previousOperationFuture.thenApply(v -> null);
+        }
+
+        /**
+         * Reserve replica as primary.
+         *
+         * @param groupId Group id.
+         * @return Whether the replica was successfully reserved.
+         */
+        boolean reserveReplica(ReplicationGroupId groupId, HybridTimestamp leaseStartTime) {
+            ReplicaStateContext context = getContext(groupId);
+
+            synchronized (context) {
+                ReplicaState state = context.replicaState;
+
+                if (state == ReplicaState.STOPPING || state == ReplicaState.STOPPED) {
+                    if (state == ReplicaState.STOPPED) {
+                        replicaContexts.remove(groupId);
+                    }
+
+                    if (context.reservedForPrimary) {
+                        throw new AssertionError("Unexpected replica reservation with " + state + " state [groupId=" + groupId + "].");
+                    }
+                } else {
+                    context.reserve(leaseStartTime);
+                }
+
+                return context.reservedForPrimary;
+            }
+        }
+
+        @TestOnly
+        boolean isReplicaPrimaryOnly(ReplicationGroupId groupId) {
+            ReplicaStateContext context = getContext(groupId);
+
+            synchronized (context) {
+                return context.replicaState == ReplicaState.PRIMARY_ONLY;
+            }
+        }
+    }
+
+    private static class ReplicaStateContext {
+        /** Replica state. */
+        ReplicaState replicaState;
+
+        /**
+         * Future of the previous operation, to linearize the starts and stops of replica. The result of the future is whether
+         * the operation was actually performed (for example, partition start operation can not start replica or raft node locally).
+         */
+        CompletableFuture<Boolean> previousOperationFuture;
+
+        /**
+         * Whether the replica is reserved to serve as a primary even if it is not included into assignments. If it is {@code} true,
+         * then {@link #weakStopReplica(ReplicationGroupId, WeakReplicaStopReason, Supplier)} transfers {@link ReplicaState#ASSIGNED}
+         * to {@link ReplicaState#PRIMARY_ONLY} instead of {@link ReplicaState#STOPPING}.
+         * Replica is reserved when it is primary and when it is in progress of lease negotiation. The negotiation moves this flag to
+         * {@code true}. Primary replica expiration or the election of different node as a leaseholder moves this flag to {@code false}.
+         */
+        boolean reservedForPrimary;
+
+        /**
+         * Lease start time of the lease this replica is reserved for, not {@code null} if {@link #reservedForPrimary} is {@code true}.
+         */
+        @Nullable
+        HybridTimestamp leaseStartTime;
+
+        /**
+         * Deferred stop operation for replica that was reserved for becoming primary, but hasn't become primary and was excluded from
+         * assignments.
+         */
+        Supplier<CompletableFuture<Void>> deferredStopOperation;
+
+        ReplicaStateContext(ReplicaState replicaState, CompletableFuture<Boolean> previousOperationFuture) {
+            this.replicaState = replicaState;
+            this.previousOperationFuture = previousOperationFuture;
+        }
+
+        void reserve(HybridTimestamp leaseStartTime) {
+            reservedForPrimary = true;
+            this.leaseStartTime = leaseStartTime;
+        }
+
+        void unreserve() {
+            reservedForPrimary = false;
+            leaseStartTime = null;
+        }
+
+        void assertReservation(ReplicationGroupId groupId) {
+            assert reservedForPrimary : "Replica is elected as primary but not reserved [groupId=" + groupId + "].";
+            assert leaseStartTime != null : "Replica is reserved but lease start time is null [groupId=" + groupId + "].";
+        }
+    }
+
+    /**
+     * Replica lifecycle states.
+     * <br>
+     * Transitions:
+     * <br>
+     * On {@link #weakStartReplica(ReplicationGroupId, Supplier, Assignments)} (this assumes that the replica is included into assignments):
+     * <ul>
+     *     <li>if {@link #ASSIGNED}: next state is {@link #ASSIGNED};</li>
+     *     <li>if {@link #PRIMARY_ONLY}: next state is {@link #ASSIGNED};</li>
+     *     <li>if {@link #STOPPED} or {@link #STOPPING}: next state is {@link #STARTING}, replica is started after stop operation
+     *         completes;</li>
+     *     <li>if {@link #STARTING}: produces {@link AssertionError}.</li>
+     * </ul>
+     * On {@link #weakStopReplica(ReplicationGroupId, WeakReplicaStopReason, Supplier)} the next state also depends on given
+     * {@link WeakReplicaStopReason}:
+     * <ul>
+     *     <li>if {@link WeakReplicaStopReason#EXCLUDED_FROM_ASSIGNMENTS}:</li>
+     *     <ul>
+     *         <li>if {@link #ASSIGNED}: when {@link ReplicaStateContext#reservedForPrimary} is {@code true} then the next state
+     *             is {@link #PRIMARY_ONLY}, otherwise the replica is stopped, the next state is {@link #STOPPING};</li>
+     *         <li>if {@link #PRIMARY_ONLY} or {@link #STOPPING}: no-op.</li>
+     *         <li>if {@link #STARTING}: replica is stopped, the next state is {@link #STOPPING};</li>
+     *         <li>if {@link #STOPPED}: replica is stopped, see TODO-s for IGNITE-19713.</li>
+     *     </ul>
+     *     <li>if {@link WeakReplicaStopReason#PRIMARY_EXPIRED}:</li>
+     *     <ul>
+     *         <li>if {@link #PRIMARY_ONLY} replica is stopped, the next state is {@link #STOPPING}. Otherwise no-op.</li>
+ *         </ul>
+ *         <li>if {@link WeakReplicaStopReason#RESTART}: this is explicit manual replica restart for disaster recovery purposes,
+     *         replica is stopped, the next state is {@link #STOPPING}.</li>
+     * </ul>
+     */
+    private enum ReplicaState {
+        /** Replica is starting. */
+        STARTING,
+
+        /**
+         * Local node, where the replica is located, is included into the union of stable and pending assignments. The replica can
+         * be either primary or non-primary. Assumes that the replica is started.
+         */
+        ASSIGNED,
+
+        /**
+         * Local node is excluded from the union of stable and pending assignments but the replica is a primary replica and hence
+         * can't be stopped. Assumes that the replica is started.
+         */
+        PRIMARY_ONLY,
+
+        /** Replica is stopping. */
+        STOPPING,
+
+        /** Replica is stopped. */
+        STOPPED
+    }
+
+    /**
+     * Reasons to stop a replica.
+     */
+    public enum WeakReplicaStopReason {
+        /** If the local node is excluded from the union of stable and pending assignments. */
+        EXCLUDED_FROM_ASSIGNMENTS,
+
+        /** If the primary replica expired (A replica can stay alive when the node is not in assignments, if it's a primary replica). */
+        PRIMARY_EXPIRED,
+
+        /** Explicit manual replica restart for disaster recovery purposes. */
+        RESTART
     }
 }

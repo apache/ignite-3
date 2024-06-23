@@ -20,6 +20,7 @@ package org.apache.ignite.compute.task;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * A map reduce task interface. Implement this interface and pass a name of the implemented class to the
@@ -34,17 +35,18 @@ public interface MapReduceTask<R> {
      *
      * @param taskContext Task execution context.
      * @param args Map reduce task arguments.
-     * @return A list of compute job execution parameters.
+     * @return A future with the list of compute job execution parameters.
      */
-    List<ComputeJobRunner> split(TaskExecutionContext taskContext, Object... args);
+    CompletableFuture<List<MapReduceJob>> splitAsync(TaskExecutionContext taskContext, Object... args);
 
     /**
      * This is a finishing step in the task execution. This method will be called with the map from identifiers of compute jobs submitted as
-     * a result of the {@link #split(TaskExecutionContext, Object...)} method call to the results of the execution of the corresponding
+     * a result of the {@link #splitAsync(TaskExecutionContext, Object...)} method call to the results of the execution of the corresponding
      * job. The return value of this method will be returned as a result of this task.
      *
+     * @param taskContext Task execution context.
      * @param results Map from compute job ids to their results.
-     * @return Final task result.
+     * @return Final task result future.
      */
-    R reduce(Map<UUID, ?> results);
+    CompletableFuture<R> reduceAsync(TaskExecutionContext taskContext, Map<UUID, ?> results);
 }

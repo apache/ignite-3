@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.client.compute.ClientJobExecution.cance
 import static org.apache.ignite.internal.client.compute.ClientJobExecution.changePriority;
 import static org.apache.ignite.internal.client.compute.ClientJobExecution.getJobStatus;
 import static org.apache.ignite.internal.client.compute.ClientJobExecution.unpackJobStatus;
+import static org.apache.ignite.internal.util.CompletableFutures.allOfToList;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 
 import java.util.ArrayList;
@@ -30,10 +31,9 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import org.apache.ignite.compute.JobStatus;
-import org.apache.ignite.compute.TaskExecution;
+import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.internal.client.PayloadInputChannel;
 import org.apache.ignite.internal.client.ReliableChannel;
-import org.apache.ignite.internal.util.CompletableFutures;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -116,7 +116,7 @@ class ClientTaskExecution<R> implements TaskExecution<R> {
                     .map(jobId -> getJobStatus(ch, jobId))
                     .toArray(CompletableFuture[]::new);
 
-            return CompletableFutures.allOf(futures)
+            return allOfToList(futures)
                     .thenApply(Function.identity());
         });
     }

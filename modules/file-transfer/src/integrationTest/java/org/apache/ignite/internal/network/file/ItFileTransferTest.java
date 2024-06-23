@@ -55,7 +55,6 @@ import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.condition.DisabledOnOs;
@@ -67,7 +66,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(ConfigurationExtension.class)
 @ExtendWith(WorkDirectoryExtension.class)
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-22438")
 public class ItFileTransferTest extends BaseIgniteAbstractTest {
     private static final String DOWNLOADS_DIR = "downloads";
 

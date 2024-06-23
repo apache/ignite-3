@@ -78,6 +78,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -695,6 +696,11 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     .get(AWAIT_TIMEOUT_MILLIS, MILLISECONDS);
         }
 
+        waitForCondition(
+                () -> nodes.stream().allMatch(n -> getPartitionClusterNodes(n, 0).equals(newAssignment)),
+                (long) AWAIT_TIMEOUT_MILLIS * nodes.size()
+        );
+
         // Wait for rebalance to complete.
         assertTrue(waitForCondition(
                 () -> nodes.stream().allMatch(n -> getPartitionClusterNodes(n, 0).equals(newAssignment)),
@@ -994,6 +1000,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         private final LogStorageFactory logStorageFactory;
 
+        final TestPlacementDriver placementDriver;
+
         /**
          * Constructor that simply creates a subset of components of this node.
          */
@@ -1110,7 +1118,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     completedFuture(() -> DEFAULT_MAX_CLOCK_SKEW_MS)
             );
 
-            var placementDriver = new TestPlacementDriver(() -> PRIMARY_FILTER.apply(clusterService.topologyService().allMembers()));
+            placementDriver = new TestPlacementDriver(() -> PRIMARY_FILTER.apply(clusterService.topologyService().allMembers()));
 
             threadPoolsManager = new ThreadPoolsManager(name);
 
@@ -1216,7 +1224,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     new ThreadLocalPartitionCommandsMarshaller(clusterService.serializationRegistry()),
                     topologyAwareRaftGroupServiceFactory,
                     raftManager,
-                    view -> new LocalLogStorageFactory()
+                    view -> new LocalLogStorageFactory(),
+                    ForkJoinPool.commonPool()
             ));
 
             LongSupplier delayDurationMsSupplier = () -> 10L;

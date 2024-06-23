@@ -15,44 +15,30 @@
  * limitations under the License.
  */
 
-#pragma once
+package org.apache.ignite.internal.network;
 
-#include <ignite/common/ignite_error.h>
-
-#include <future>
-#include <memory>
-#include <utility>
-
-namespace ignite {
+import org.apache.ignite.network.ClusterNode;
 
 /**
- * Make future error.
- *
- * @tparam T Value type.
- * @param err Error.
- * @return Failed future with the specified error.
+ * Interface for handling the topology change events.
  */
-template<typename T>
-std::future<T> make_future_error(ignite_error err) {
-    std::promise<T> promise;
-    promise.set_exception(std::make_exception_ptr(std::move(err)));
+public interface TopologyEventHandler {
+    /**
+     * Called when a new cluster member has been detected.
+     *
+     * @param member New cluster member.
+     */
+    default void onAppeared(ClusterNode member) {
+        // no-op
+    }
 
-    return promise.get_future();
+    /**
+     * Indicates that a member has left a cluster. Called only when a member leaves permanently (i.e., it is not possible to
+     * re-establish a connection to it).
+     *
+     * @param member Member that has left the cluster.
+     */
+    default void onDisappeared(ClusterNode member) {
+        // no-op
+    }
 }
-
-/**
- * Make future value.
- *
- * @tparam T Value type.
- * @param value Value.
- * @return Failed future with the specified error.
- */
-template<typename T>
-std::future<T> make_future_value(T value) {
-    std::promise<T> promise;
-    promise.set_value(std::move(value));
-
-    return promise.get_future();
-}
-
-} // namespace ignite

@@ -46,13 +46,17 @@ set(PUBLIC_HEADERS
 set(SOURCES
     big_decimal.cpp
     big_integer.cpp
+    detail/mpi.cpp
 )
 
 add_library(${TARGET} STATIC ${SOURCES})
 
+target_link_libraries(${TARGET} PUBLIC MbedTLS::mbedtls)
+
 target_include_directories(${TARGET} INTERFACE
     $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}>
-    $<INSTALL_INTERFACE:${IGNITE_INCLUDEDIR}>)
+    $<INSTALL_INTERFACE:${IGNITE_INCLUDEDIR}>
+    PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 if (${INSTALL_IGNITE_FILES})
     ignite_install_headers(FILES ${PUBLIC_HEADERS} DESTINATION ${IGNITE_INCLUDEDIR}/common)

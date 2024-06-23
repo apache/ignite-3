@@ -97,7 +97,7 @@ public class CompletableFutures {
      * @return Future that completes with a list of results from the source futures.
      */
     @SafeVarargs
-    public static <T> CompletableFuture<List<T>> allOf(CompletableFuture<T>... cfs) {
+    public static <T> CompletableFuture<List<T>> allOfToList(CompletableFuture<T>... cfs) {
         return CompletableFuture.allOf(cfs)
                 .thenApply(v -> {
                     var result = new ArrayList<T>(cfs.length);
@@ -108,6 +108,16 @@ public class CompletableFutures {
 
                     return result;
                 });
+    }
+
+    /**
+     * Returns a future that is completed when all provided futures complete (the behavior is identical to
+     * {@link CompletableFuture#allOf}).
+     *
+     * @param futures List of futures.
+     */
+    public static CompletableFuture<Void> allOf(Collection<CompletableFuture<?>> futures) {
+        return futures.isEmpty() ? nullCompletedFuture() : CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new));
     }
 
     /**

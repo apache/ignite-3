@@ -286,6 +286,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         SqlClientMetricSource sqlClientMetricSource = new SqlClientMetricSource(openedCursors::size);
         metricManager.registerSource(sqlClientMetricSource);
+        metricManager.enable(sqlClientMetricSource);
 
         var prepareSvc = registerService(PrepareServiceImpl.create(
                 nodeName,

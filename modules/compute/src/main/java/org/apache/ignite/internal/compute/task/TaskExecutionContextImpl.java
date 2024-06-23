@@ -15,31 +15,38 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.network;
+package org.apache.ignite.internal.compute.task;
+
+import java.util.concurrent.atomic.AtomicBoolean;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.compute.task.TaskExecutionContext;
 
 /**
- * A class that returns a single {@link ClusterNode} for every request.
+ * Implementation of {@link TaskExecutionContext}.
  */
-public class SingleClusterNodeResolver implements ClusterNodeResolver {
+public class TaskExecutionContextImpl implements TaskExecutionContext {
+    private final Ignite ignite;
 
-    private final ClusterNode clusterNode;
+    private final AtomicBoolean isCancelled;
 
     /**
      * Constructor.
      *
-     * @param clusterNode Default cluster node that will be returned as a result of all method calls.
+     * @param ignite Ignite instance.
+     * @param isCancelled Cancelled flag.
      */
-    public SingleClusterNodeResolver(ClusterNode clusterNode) {
-        this.clusterNode = clusterNode;
+    public TaskExecutionContextImpl(Ignite ignite, AtomicBoolean isCancelled) {
+        this.ignite = ignite;
+        this.isCancelled = isCancelled;
     }
 
     @Override
-    public ClusterNode getByConsistentId(String consistentId) {
-        return clusterNode;
+    public Ignite ignite() {
+        return ignite;
     }
 
     @Override
-    public ClusterNode getById(String id) {
-        return clusterNode;
+    public boolean isCancelled() {
+        return isCancelled.get();
     }
 }

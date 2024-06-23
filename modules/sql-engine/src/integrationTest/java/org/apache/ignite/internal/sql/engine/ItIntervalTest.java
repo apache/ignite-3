@@ -82,7 +82,10 @@ public class ItIntervalTest extends BaseSqlIntegrationTest {
         assertEquals(Duration.ofSeconds(3723), eval("INTERVAL '1:2:3' HOUR TO SECOND"));
         assertEquals(Duration.ofMillis(3723456), eval("INTERVAL '0 1:2:3.456' DAY TO SECOND"));
 
-        assertThrowsEx("SELECT INTERVAL '123' SECONDS", IgniteException.class, "exceeds precision");
+        assertEquals(Duration.ofSeconds(123), eval("INTERVAL '123' SECONDS"));
+        assertEquals(Duration.ofMillis(123987), eval("INTERVAL '123.987' SECONDS"));
+        // TODO: uncomment after IGNITE-19162
+        // assertEquals(Duration.ofMillis(123987654), eval("INTERVAL '123.987654' SECONDS"));
 
         // Interval range overflow
         assertThrowsSqlException(Sql.RUNTIME_ERR, "INTEGER out of range", () -> sql("SELECT INTERVAL 5000000 MONTHS * 1000"));
@@ -419,8 +422,8 @@ public class ItIntervalTest extends BaseSqlIntegrationTest {
         assertEquals(-3L, eval("EXTRACT(MINUTE FROM INTERVAL '-1 2:3:4.567' DAY TO SECOND)"));
         assertEquals(-4L, eval("EXTRACT(SECOND FROM INTERVAL '-1 2:3:4.567' DAY TO SECOND)"));
         assertEquals(-4567L, eval("EXTRACT(MILLISECOND FROM INTERVAL '-1 2:3:4.567' DAY TO SECOND)"));
+        assertEquals(0L, eval("EXTRACT(DAY FROM INTERVAL 1 MONTH)"));
 
-        assertThrowsEx("SELECT EXTRACT(DAY FROM INTERVAL 1 MONTH)", IgniteException.class, "Cannot apply");
         assertThrowsEx("SELECT EXTRACT(MONTH FROM INTERVAL 1 DAY)", IgniteException.class, "Cannot apply");
     }
 

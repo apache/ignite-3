@@ -45,9 +45,10 @@ import org.junit.jupiter.api.Test;
  */
 public class PlanningCacheMetricsTest extends AbstractPlannerTest {
 
+    private final MetricManager metricManager = new MetricManagerImpl();
+
     @Test
     public void plannerCacheStatisticsTest() throws Exception {
-        MetricManager metricManager = new MetricManagerImpl();
         // Run clean up tasks in the current thread, so no eviction event is delayed.
         CacheFactory cacheFactory = CaffeineCacheFactory.create(Runnable::run);
 
@@ -66,29 +67,27 @@ public class PlanningCacheMetricsTest extends AbstractPlannerTest {
 
         prepareService.start();
 
-        MetricSet metricSet = metricManager.enable(SqlPlanCacheMetricSource.NAME);
-
         try {
-            checkCachePlanStatistics("SELECT * FROM T", prepareService, metricSet, 0, 2);
-            checkCachePlanStatistics("SELECT * FROM T", prepareService, metricSet, 1, 2);
+            checkCachePlanStatistics("SELECT * FROM T", prepareService, 0, 2);
+            checkCachePlanStatistics("SELECT * FROM T", prepareService, 1, 2);
 
-            checkCachePlanStatistics("SELECT * FROM T t1, T t2", prepareService, metricSet, 1, 4);
-            checkCachePlanStatistics("SELECT * FROM T t1, T t2", prepareService, metricSet, 2, 4);
-            checkCachePlanStatistics("SELECT * FROM T t1, T t2", prepareService, metricSet, 3, 4);
+            checkCachePlanStatistics("SELECT * FROM T t1, T t2", prepareService, 1, 4);
+            checkCachePlanStatistics("SELECT * FROM T t1, T t2", prepareService, 2, 4);
+            checkCachePlanStatistics("SELECT * FROM T t1, T t2", prepareService, 3, 4);
 
-            checkCachePlanStatistics("SELECT * FROM T", prepareService, metricSet, 4, 4);
+            checkCachePlanStatistics("SELECT * FROM T", prepareService, 4, 4);
 
-            checkCachePlanStatistics("SELECT * FROM T t1, T t2, T t3", prepareService, metricSet, 4, 6);
+            checkCachePlanStatistics("SELECT * FROM T t1, T t2, T t3", prepareService, 4, 6);
 
             // Here, the very first plan has been evicted from cache.
-            checkCachePlanStatistics("SELECT * FROM T", prepareService, metricSet, 4, 8);
-            checkCachePlanStatistics("SELECT * FROM T", prepareService, metricSet, 5, 8);
+            checkCachePlanStatistics("SELECT * FROM T", prepareService, 4, 8);
+            checkCachePlanStatistics("SELECT * FROM T", prepareService, 5, 8);
         } finally {
             prepareService.stop();
         }
     }
 
-    private void checkCachePlanStatistics(String qry, PrepareService prepareService, MetricSet metricSet, int hits, int misses) {
+    private void checkCachePlanStatistics(String qry, PrepareService prepareService, int hits, int misses) {
         SqlOperationContext ctx = operationContext();
 
         ParserService parserService = new ParserServiceImpl();
@@ -96,7 +95,8 @@ public class PlanningCacheMetricsTest extends AbstractPlannerTest {
 
         await(prepareService.prepareAsync(parsedResult, ctx));
 
-        assertEquals("sql.plan.cache", metricSet.name());
+        MetricSet metricSet = metricManager.metricSnapshot().get1().get(SqlPlanCacheMetricSource.NAME);
+
         assertEquals(String.valueOf(hits), metricSet.get("Hits").getValueAsString(), "Hits");
         assertEquals(String.valueOf(misses), metricSet.get("Misses").getValueAsString(), "Misses");
     }

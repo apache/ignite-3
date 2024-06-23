@@ -81,7 +81,25 @@ public final class IgniteNameUtils {
      * @return Quoted object name.
      */
     public static String quote(String name) {
-        return "\"" + name + "\"";
+        if (name == null || name.isEmpty()) {
+            return name;
+        }
+
+        if (name.chars().noneMatch(cp -> cp == '\"')) {
+            return '\"' + name + '\"';
+        }
+
+        StringBuilder sb = new StringBuilder(name.length() + 2).append('\"');
+        for (int currentPosition = 0; currentPosition < name.length(); currentPosition++) {
+            char ch = name.charAt(currentPosition);
+            if (ch == '\"') {
+                sb.append('\"');
+            }
+            sb.append(ch);
+        }
+        sb.append('\"');
+
+        return sb.toString();
     }
 
     /**
@@ -92,9 +110,21 @@ public final class IgniteNameUtils {
      * @return Quoted object name.
      */
     public static String quoteIfNeeded(String name) {
-        String simpleName = parseSimpleName(name);
+        if (name == null || name.isEmpty()) {
+            return null;
+        }
 
-        return name.equals(simpleName) || name.equals(quote(simpleName)) ? name : quote(name);
+        if (name.charAt(0) == '\"') {
+            String simpleName = parseSimpleName(name);
+
+            return name.equals(quote(simpleName)) ? name : quote(name);
+        }
+
+        if (!NAME_PATTER.matcher(name).matches()) {
+            return quote(name);
+        }
+
+        return name.toUpperCase().equals(name) ? name : quote(name); // NOPMD
     }
 
     /**
@@ -147,8 +177,8 @@ public final class IgniteNameUtils {
                     if (hasNextChar() && nextChar() == '"') {  // quote is escaped
                         sb.append(source, start, currentPosition + 1);
 
-                        currentPosition += 2;
-                        start = currentPosition;
+                        start = currentPosition + 2;
+                        currentPosition += 1;
 
                         continue;
                     } else if (!hasNextChar() || nextChar() == '.') {
