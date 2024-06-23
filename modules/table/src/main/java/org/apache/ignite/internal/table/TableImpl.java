@@ -45,7 +45,6 @@ import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.table.partition.HashPartitionManagerImpl;
 import org.apache.ignite.internal.tx.LockManager;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
@@ -219,11 +218,6 @@ public class TableImpl implements TableViewInternal {
         }
 
         return tbl.partition(keyRow);
-    }
-
-    @Override
-    public ClusterNode leaderAssignment(int partition) {
-        return tbl.tableRaftService().leaderAssignment(partition);
     }
 
     /** Returns a supplier of index storage wrapper factories for given partition. */
