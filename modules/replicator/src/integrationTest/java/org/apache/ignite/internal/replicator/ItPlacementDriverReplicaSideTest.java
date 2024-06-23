@@ -508,36 +508,43 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
             serviceFutures.add(raftClientFut);
 
             CompletableFuture<Boolean> replicaFuture = raftClientFut.thenCompose(raftClient -> {
-                try {
-                    ReplicaListener listener = new ReplicaListener() {
-                        @Override
-                        public CompletableFuture<ReplicaResult> invoke(ReplicaRequest request, String senderId) {
-                            log.info("Handle request [type={}]", request.getClass().getSimpleName());
+                ReplicaListener listener = new ReplicaListener() {
+                    @Override
+                    public CompletableFuture<ReplicaResult> invoke(ReplicaRequest request, String senderId) {
+                        log.info("Handle request [type={}]", request.getClass().getSimpleName());
 
-                            return raftClient
-                                    .run(REPLICA_MESSAGES_FACTORY.safeTimeSyncCommand().build())
-                                    .thenCompose(ignored -> replicaListener == null
-                                            ? completedFuture(new ReplicaResult(null, null))
-                                            : replicaListener.apply(request, senderId));
-                        }
+                        return raftClient
+                                .run(REPLICA_MESSAGES_FACTORY.safeTimeSyncCommand().build())
+                                .thenCompose(ignored -> replicaListener == null
+                                        ? completedFuture(new ReplicaResult(null, null))
+                                        : replicaListener.apply(request, senderId));
+                    }
 
-                        @Override
-                        public RaftCommandRunner raftClient() {
-                            return raftClient;
-                        }
-                    };
+                    @Override
+                    public RaftCommandRunner raftClient() {
+                        return raftClient;
+                    }
+                };
 
-                    return replicaManager.startReplica(
-                            zoneTablePartitionId,
-                            newConfiguration,
-                            (unused) -> { },
-                            (unused) -> listener,
-                            new PendingComparableValuesTracker<>(Long.MAX_VALUE),
-                            completedFuture(raftClient));
-                } catch (NodeStoppingException e) {
-                    throw new RuntimeException(e);
-                }
+                return replicaManager.weakStartReplica(zoneTablePartitionId,
+                        () -> {
+                            try {
+                                return replicaManager.startReplica(
+                                        zoneTablePartitionId,
+                                        newConfiguration,
+                                        (unused) -> {},
+                                        (unused) -> listener,
+                                        new PendingComparableValuesTracker<>(Long.MAX_VALUE),
+                                        completedFuture(raftClient));
+                            } catch (NodeStoppingException ex) {
+                                log.error("Replica did not start!", ex);
+
+                                return null;
+                            }
+                        },
+                        null);
             });
+
             serviceFutures.add(replicaFuture);
         }
 

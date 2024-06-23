@@ -233,27 +233,31 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
 
         clusterService.messagingService().addMessageHandler(ReplicaMessageGroup.class,
                 (message, sender, correlationId) -> {
-                    try {
-                        log.info("Replica msg " + message.getClass().getSimpleName());
+                    log.info("Replica msg " + message.getClass().getSimpleName());
 
-                        ReplicaListener listener = replicaListenerCreator.apply((req, senderId) -> {
-                            ReplicaResponse response = replicaMessageFactory.replicaResponse()
-                                    .result(5)
-                                    .build();
-                            return completedFuture(new ReplicaResult(response, null));
-                        });
+                    ReplicaListener listener = replicaListenerCreator.apply((req, senderId) -> {
+                        ReplicaResponse response = replicaMessageFactory.replicaResponse()
+                                .result(5)
+                                .build();
+                        return completedFuture(new ReplicaResult(response, null));
+                    });
 
-                        replicaManager.startReplica(
-                                zoneTablePartitionId,
-                                newConfiguration,
-                                (unused) -> { },
-                                (unused) -> listener,
-                                new PendingComparableValuesTracker<>(0L),
-                                completedFuture(raftClient)
-                        );
-                    } catch (NodeStoppingException e) {
-                        throw new RuntimeException(e);
-                    }
+                    replicaManager.weakStartReplica(zoneTablePartitionId,
+                            () -> {
+                                try {
+                                    return replicaManager.startReplica(
+                                            zoneTablePartitionId,
+                                            newConfiguration,
+                                            (unused) -> {},
+                                            (unused) -> listener,
+                                            new PendingComparableValuesTracker<>(0L),
+                                            completedFuture(raftClient)
+                                    );
+                                } catch (NodeStoppingException e) {
+                                    throw new RuntimeException(e);
+                                }
+                            },
+                            null);
                 }
         );
 
@@ -355,22 +359,29 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
 
         clusterService.messagingService().addMessageHandler(ReplicaMessageGroup.class, (message, sender, correlationId) -> {
             runAsync(() -> {
-                try {
-                    log.info("Replica msg " + message.getClass().getSimpleName());
+                log.info("Replica msg " + message.getClass().getSimpleName());
 
-                    ReplicaListener listener = replicaListenerCreator.apply((r, id) -> new CompletableFuture<>());
+                ReplicaListener listener = replicaListenerCreator.apply((r, id) -> new CompletableFuture<>());
 
-                    replicaManager.startReplica(
-                            zoneTablePartitionId,
-                            newConfiguration,
-                            (unused) -> { },
-                            (unused) -> listener,
-                            new PendingComparableValuesTracker<>(0L),
-                            completedFuture(raftClient)
-                    );
-                } catch (NodeStoppingException e) {
-                    throw new RuntimeException(e);
-                }
+                replicaManager.weakStartReplica(zoneTablePartitionId,
+                        () -> {
+                            try {
+
+                                return replicaManager.startReplica(
+                                        zoneTablePartitionId,
+                                        newConfiguration,
+                                        (unused) -> {},
+                                        (unused) -> listener,
+                                        new PendingComparableValuesTracker<>(0L),
+                                        completedFuture(raftClient)
+                                );
+
+                            } catch (NodeStoppingException e) {
+                                throw new RuntimeException(e);
+                            }
+                        },
+                        null
+                );
             });
         });
 

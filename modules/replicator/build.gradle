@@ -46,6 +46,7 @@ dependencies {
     integrationTestImplementation project(':ignite-network-api')
     integrationTestImplementation project(':ignite-cluster-management')
     integrationTestImplementation project(':ignite-metrics')
+    integrationTestImplementation project(':ignite-affinity')
     integrationTestImplementation testFixtures(project)
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-configuration'))

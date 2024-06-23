@@ -250,7 +250,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
     /** Filter to determine a primary node identically on any cluster node. */
     private static final Function<Collection<ClusterNode>, ClusterNode> PRIMARY_FILTER = nodes -> nodes.stream()
-            .filter(n -> n.address().port() == BASE_PORT).findFirst().get();
+            .filter(n -> n.address().port() == BASE_PORT + 1).findFirst().get();
 
     private static final String HOST = "localhost";
 

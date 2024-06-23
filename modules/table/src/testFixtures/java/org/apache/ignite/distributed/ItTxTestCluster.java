@@ -682,43 +682,49 @@ public class ItTxTestCluster {
                         topologyAwareRaftGroupServiceFactory
                 ).thenAccept(
                         raftSvc -> {
-                            try {
-                                PartitionReplicaListener listener = newReplicaListener(
-                                        mvPartStorage,
-                                        raftSvc,
-                                        txManagers.get(assignment),
-                                        Runnable::run,
-                                        partId,
-                                        zoneId,
-                                        tableId,
-                                        () -> Map.of(pkLocker.id(), pkLocker),
-                                        pkStorage,
-                                        Map::of,
-                                        clockServices.get(assignment),
-                                        safeTime,
-                                        txStateStorage,
-                                        transactionStateResolver,
-                                        storageUpdateHandler,
-                                        new DummyValidationSchemasSource(schemaManager),
-                                        nodeResolver.getByConsistentId(assignment),
-                                        new AlwaysSyncedSchemaSyncService(),
-                                        catalogService,
-                                        placementDriver,
-                                        nodeResolver,
-                                        cursorRegistries.get(assignment),
-                                        schemaManager
-                                );
+                            PartitionReplicaListener listener = newReplicaListener(
+                                    mvPartStorage,
+                                    raftSvc,
+                                    txManagers.get(assignment),
+                                    Runnable::run,
+                                    partId,
+                                    zoneId,
+                                    tableId,
+                                    () -> Map.of(pkLocker.id(), pkLocker),
+                                    pkStorage,
+                                    Map::of,
+                                    clockServices.get(assignment),
+                                    safeTime,
+                                    txStateStorage,
+                                    transactionStateResolver,
+                                    storageUpdateHandler,
+                                    new DummyValidationSchemasSource(schemaManager),
+                                    nodeResolver.getByConsistentId(assignment),
+                                    new AlwaysSyncedSchemaSyncService(),
+                                    catalogService,
+                                    placementDriver,
+                                    nodeResolver,
+                                    cursorRegistries.get(assignment),
+                                    schemaManager
+                            );
 
-                                ZonePartitionId zoneTablePartId = new ZonePartitionId(zoneId, tableId, partId);
+                            ZonePartitionId zoneTablePartId = new ZonePartitionId(zoneId, tableId, partId);
 
-                                replicaManagers.get(assignment).startReplica(
-                                        zoneTablePartId,
-                                        storageIndexTracker,
-                                        completedFuture(listener)
-                                );
-                            } catch (NodeStoppingException e) {
-                                fail("Unexpected node stopping", e);
-                            }
+                            replicaManagers.get(assignment).weakStartReplica(zoneTablePartId,
+                                    () -> {
+                                        try {
+                                            return replicaManagers.get(assignment).startReplica(
+                                                    zoneTablePartId,
+                                                    storageIndexTracker,
+                                                    completedFuture(listener)
+                                            ).thenApply(replica -> true);
+                                        } catch (NodeStoppingException e) {
+                                            fail("Unexpected node stopping", e);
+
+                                            return completedFuture(false);
+                                        }
+                                    },
+                                    null);
                         }
                 );
 
