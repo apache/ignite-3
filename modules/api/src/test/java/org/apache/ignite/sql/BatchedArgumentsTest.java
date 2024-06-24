@@ -22,7 +22,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.not;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -38,15 +37,13 @@ public class BatchedArgumentsTest {
     @Test
     public void nullAndEmptyArgumentsAreForbidden() {
         assertThrows(NullPointerException.class, "args", () -> BatchedArguments.of((Object[]) null));
-        assertThrows(NullPointerException.class, "batchedArgs", () -> BatchedArguments.of((List<List<Object>>) null));
-        assertThrows(NullPointerException.class, "Arguments list cannot be null.", () -> BatchedArguments.of(singletonList(null)));
+        assertThrows(NullPointerException.class, "batchedArgs", () -> BatchedArguments.from((List<List<Object>>) null));
+        assertThrows(NullPointerException.class, "Arguments list cannot be null.", () -> BatchedArguments.from(singletonList(null)));
         assertThrows(IllegalArgumentException.class, "Non empty arguments required.", () -> BatchedArguments.of(new Object[0]));
 
         BatchedArguments batch = BatchedArguments.create();
         assertThrows(NullPointerException.class, "args", () -> batch.add((Object[]) null));
-        assertThrows(NullPointerException.class, "argsList", () -> batch.add((List<Object>) null));
         assertThrows(IllegalArgumentException.class, "Non empty arguments required.", () -> batch.add(new Object[0]));
-        assertThrows(IllegalArgumentException.class, "Non empty arguments required.", () -> batch.add(List.of()));
     }
 
     @Test
@@ -55,7 +52,7 @@ public class BatchedArgumentsTest {
         argLists.add(List.of(1, 2));
         argLists.add(List.of(3, 4));
 
-        BatchedArguments batch = BatchedArguments.of(argLists);
+        BatchedArguments batch = BatchedArguments.from(argLists);
         assertThat(batch.size(), is(argLists.size()));
 
         Iterator<List<Object>> itr = batch.iterator();
@@ -75,16 +72,11 @@ public class BatchedArgumentsTest {
         argLists.add(List.of(1));
         argLists.add(List.of(2, 3));
 
-        assertThrows(IllegalArgumentException.class, "Argument lists must be the same size.", () -> BatchedArguments.of(argLists));
+        assertThrows(IllegalArgumentException.class, "Argument lists must be the same size.", () -> BatchedArguments.from(argLists));
 
         {
             BatchedArguments batch = BatchedArguments.of(1);
             assertThrows(IllegalArgumentException.class, "Argument lists must be the same size.", () -> batch.add(1, 2));
-        }
-
-        {
-            BatchedArguments batch = BatchedArguments.of(1);
-            assertThrows(IllegalArgumentException.class, "Argument lists must be the same size.", () -> batch.add(List.of(1, 2)));
         }
     }
 
@@ -94,7 +86,7 @@ public class BatchedArgumentsTest {
         argLists.add(List.of(1));
         argLists.add(List.of(2));
 
-        BatchedArguments batch = BatchedArguments.of(argLists);
+        BatchedArguments batch = BatchedArguments.from(argLists);
         assertThat(batch.size(), is(argLists.size()));
 
         argLists.add(List.of(3));
@@ -105,15 +97,6 @@ public class BatchedArgumentsTest {
 
         Assertions.assertThrows(UnsupportedOperationException.class, () -> batch.get(0).add("2"));
         Assertions.assertThrows(UnsupportedOperationException.class, () -> batch.get(0).remove(0));
-
-        List<Object> modifiableList = new ArrayList<>(List.of("John"));
-        batch.add(modifiableList);
-
-        assertThat(batch.get(2), equalTo(modifiableList));
-        modifiableList.add("Mary");
-
-        assertThat(batch.get(2), not(equalTo(modifiableList)));
-        Assertions.assertThrows(UnsupportedOperationException.class, () -> batch.get(2).add("Mary"));
     }
 
     private static <T extends Throwable> void assertThrows(Class<T> expectedType, String expMsg, Executable executable) {

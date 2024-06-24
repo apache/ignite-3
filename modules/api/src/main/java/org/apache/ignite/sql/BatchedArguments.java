@@ -59,7 +59,7 @@ public final class BatchedArguments implements Iterable<List<Object>> {
      * @param batchedArgs Arguments.
      * @return Batch query arguments.
      */
-    public static BatchedArguments of(List<List<Object>> batchedArgs) {
+    public static BatchedArguments from(List<List<Object>> batchedArgs) {
         Objects.requireNonNull(batchedArgs, "batchedArgs");
 
         return new BatchedArguments(batchedArgs);
@@ -75,18 +75,6 @@ public final class BatchedArguments implements Iterable<List<Object>> {
         Objects.requireNonNull(args, "args");
 
         return addArguments(List.of(args));
-    }
-
-    /**
-     * Appends arguments to a batch.
-     *
-     * @param argsList Arguments list.
-     * @return {@code this} for chaining.
-     */
-    public BatchedArguments add(List<Object> argsList) {
-        Objects.requireNonNull(argsList, "argsList");
-
-        return addArguments(List.copyOf(argsList));
     }
 
     /**
