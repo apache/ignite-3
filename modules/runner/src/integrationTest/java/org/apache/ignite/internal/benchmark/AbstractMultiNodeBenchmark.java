@@ -27,9 +27,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.EmbeddedNode;
-import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
@@ -66,7 +64,7 @@ public class AbstractMultiNodeBenchmark {
 
     protected static final String ZONE_NAME = TABLE_NAME + "_ZONE";
 
-    private final List<EmbeddedNode> embeddedNodes = new ArrayList<>();
+    private final List<IgniteServer> igniteServers = new ArrayList<>();
 
     protected static IgniteImpl clusterNode;
 
@@ -174,7 +172,7 @@ public class AbstractMultiNodeBenchmark {
      */
     @TearDown
     public final void nodeTearDown() throws Exception {
-        IgniteUtils.closeAll(embeddedNodes.stream().map(node -> node::stop));
+        IgniteUtils.closeAll(igniteServers.stream().map(node -> node::shutdown));
     }
 
     private void startCluster() throws Exception {
@@ -202,7 +200,7 @@ public class AbstractMultiNodeBenchmark {
             String config = IgniteStringFormatter.format(configTemplate, port, connectNodeAddr,
                     BASE_CLIENT_PORT + i, BASE_REST_PORT + i);
 
-            embeddedNodes.add(TestIgnitionManager.start(nodeName, config, workDir.resolve(nodeName)));
+            igniteServers.add(TestIgnitionManager.start(nodeName, config, workDir.resolve(nodeName)));
         }
 
         String metaStorageNodeName = nodeName(BASE_PORT);
@@ -212,14 +210,13 @@ public class AbstractMultiNodeBenchmark {
                 .clusterName("cluster")
                 .build();
 
-        TestIgnitionManager.init(embeddedNodes.get(0), initParameters);
+        TestIgnitionManager.init(igniteServers.get(0), initParameters);
 
-        for (EmbeddedNode node : embeddedNodes) {
-            CompletableFuture<Ignite> future = node.igniteAsync();
-            assertThat(future, willCompleteSuccessfully());
+        for (IgniteServer node : igniteServers) {
+            assertThat(node.waitForInitAsync(), willCompleteSuccessfully());
 
             if (clusterNode == null) {
-                clusterNode = (IgniteImpl) future.get();
+                clusterNode = (IgniteImpl) node.api();
             }
         }
     }

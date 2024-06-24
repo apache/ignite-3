@@ -21,7 +21,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.nio.file.Path;
-import org.apache.ignite.EmbeddedNode;
+import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.app.IgniteRunner;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -41,11 +41,11 @@ public class IgniteRunnerTest extends BaseIgniteAbstractTest {
     @WorkDirectory
     private Path workDir;
 
-    private EmbeddedNode node;
+    private IgniteServer node;
 
     @AfterEach
     void tearDown() {
-        node.stop();
+        node.shutdown();
     }
 
     @Test
@@ -65,6 +65,6 @@ public class IgniteRunnerTest extends BaseIgniteAbstractTest {
 
         node.initCluster(initParameters);
 
-        assertThat(node.igniteAsync(), willCompleteSuccessfully());
+        assertThat(node.waitForInitAsync(), willCompleteSuccessfully());
     }
 }

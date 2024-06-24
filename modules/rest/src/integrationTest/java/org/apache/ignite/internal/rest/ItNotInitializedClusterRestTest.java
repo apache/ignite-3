@@ -146,7 +146,7 @@ public class ItNotInitializedClusterRestTest extends AbstractRestTestBase {
         );
 
         // And cluster is not initialized.
-        nodes.forEach(node -> assertThat(node.igniteAsync(), willTimeoutFast()));
+        nodes.forEach(node -> assertThat(node.waitForInitAsync(), willTimeoutFast()));
     }
 
     @Test
@@ -179,6 +179,6 @@ public class ItNotInitializedClusterRestTest extends AbstractRestTestBase {
         );
 
         // And cluster is not initialized.
-        nodes.forEach(node -> assertThat(node.igniteAsync(), willTimeoutFast()));
+        nodes.forEach(node -> assertThat(node.waitForInitAsync(), willTimeoutFast()));
     }
 }

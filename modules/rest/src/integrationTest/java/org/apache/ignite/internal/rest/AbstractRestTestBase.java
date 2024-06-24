@@ -36,7 +36,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
-import org.apache.ignite.EmbeddedNode;
+import org.apache.ignite.IgniteServer;
 import org.apache.ignite.internal.rest.api.Problem;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
@@ -72,7 +72,7 @@ public abstract class AbstractRestTestBase extends BaseIgniteAbstractTest {
     protected final List<String> nodeNames = new ArrayList<>();
 
     /** Collection of starting nodes. */
-    protected final List<EmbeddedNode> nodes = new ArrayList<>();
+    protected final List<IgniteServer> nodes = new ArrayList<>();
 
     protected ObjectMapper objectMapper;
 
@@ -171,17 +171,17 @@ public abstract class AbstractRestTestBase extends BaseIgniteAbstractTest {
      */
     @AfterEach
     void tearDown() throws Exception {
-        IgniteUtils.closeAll(nodes.stream().map(node -> node::stop));
+        IgniteUtils.closeAll(nodes.stream().map(node -> node::shutdown));
     }
 
-    void startNodeWithoutInit(String nodeName, Function<String, EmbeddedNode> starter) {
+    void startNodeWithoutInit(String nodeName, Function<String, IgniteServer> starter) {
         nodeNames.add(nodeName);
 
         nodes.add(starter.apply(nodeName));
     }
 
     void checkAllNodesStarted() {
-        nodes.forEach(node -> assertThat(node.igniteAsync(), willCompleteSuccessfully()));
+        nodes.forEach(node -> assertThat(node.waitForInitAsync(), willCompleteSuccessfully()));
     }
 
     protected HttpResponse<String> send(HttpRequest request) throws IOException, InterruptedException {

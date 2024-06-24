@@ -74,8 +74,8 @@ import java.util.function.LongFunction;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
-import org.apache.ignite.EmbeddedNode;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteServer;
 import org.apache.ignite.internal.BaseIgniteRestartTest;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.affinity.Assignments;
@@ -1120,15 +1120,13 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         } else {
             // Since the first node is the CMG leader, the second node can't be started synchronously (it won't be able to join the cluster
             // and the future will never resolve).
-            EmbeddedNode node = startNodeAsync(1, null);
+            IgniteServer node = startEmbeddedNode(1, null);
 
             startNode(0);
 
-            CompletableFuture<Ignite> future = node.igniteAsync();
+            assertThat(node.waitForInitAsync(), willCompleteSuccessfully());
 
-            assertThat(future, willCompleteSuccessfully());
-
-            ignite = future.join();
+            ignite = node.api();
         }
 
         checkTableWithData(ignite, TABLE_NAME);

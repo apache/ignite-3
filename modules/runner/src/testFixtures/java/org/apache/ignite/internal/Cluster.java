@@ -47,7 +47,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
-import org.apache.ignite.EmbeddedNode;
+import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.app.IgniteImpl;
@@ -113,7 +113,7 @@ public class Cluster {
     private final String defaultNodeBootstrapConfigTemplate;
 
     /** Embedded nodes. */
-    private final List<EmbeddedNode> embeddedNodes = new ArrayList<>();
+    private final List<IgniteServer> igniteServers = new ArrayList<>();
 
     /** Cluster nodes. */
     private final List<IgniteImpl> nodes = new CopyOnWriteArrayList<>();
@@ -216,11 +216,11 @@ public class Cluster {
 
         initialClusterSize = nodeCount;
 
-        List<EmbeddedNode> nodes = IntStream.range(0, nodeCount)
+        List<IgniteServer> nodes = IntStream.range(0, nodeCount)
                 .mapToObj(nodeIndex -> startEmbeddedNode(nodeIndex, nodeBootstrapConfigTemplate))
                 .collect(toList());
 
-        List<EmbeddedNode> metaStorageAndCmgNodes = Arrays.stream(cmgNodes).mapToObj(nodes::get).collect(toList());
+        List<IgniteServer> metaStorageAndCmgNodes = Arrays.stream(cmgNodes).mapToObj(nodes::get).collect(toList());
 
         InitParametersBuilder builder = InitParameters.builder()
                 .metaStorageNodes(metaStorageAndCmgNodes)
@@ -230,8 +230,8 @@ public class Cluster {
 
         TestIgnitionManager.init(metaStorageAndCmgNodes.get(0), builder.build());
 
-        for (EmbeddedNode node : nodes) {
-            assertThat(node.igniteAsync(), willCompleteSuccessfully());
+        for (IgniteServer node : nodes) {
+            assertThat(node.waitForInitAsync(), willCompleteSuccessfully());
         }
 
         started = true;
@@ -243,7 +243,7 @@ public class Cluster {
      * @param nodeIndex Index of the node to start.
      * @return Future that will be completed when the node starts.
      */
-    public EmbeddedNode startEmbeddedNode(int nodeIndex) {
+    public IgniteServer startEmbeddedNode(int nodeIndex) {
         return startEmbeddedNode(nodeIndex, defaultNodeBootstrapConfigTemplate);
     }
 
@@ -254,7 +254,7 @@ public class Cluster {
      * @param nodeBootstrapConfigTemplate Bootstrap config template to use for this node.
      * @return Future that will be completed when the node starts.
      */
-    public EmbeddedNode startEmbeddedNode(int nodeIndex, String nodeBootstrapConfigTemplate) {
+    public IgniteServer startEmbeddedNode(int nodeIndex, String nodeBootstrapConfigTemplate) {
         String nodeName = testNodeName(testInfo, nodeIndex);
 
         String config = IgniteStringFormatter.format(
@@ -266,18 +266,18 @@ public class Cluster {
                 BASE_HTTPS_PORT + nodeIndex
         );
 
-        EmbeddedNode node = TestIgnitionManager.start(nodeName, config, workDir.resolve(nodeName));
-        setListAtIndex(embeddedNodes, nodeIndex, node);
+        IgniteServer node = TestIgnitionManager.start(nodeName, config, workDir.resolve(nodeName));
+        setListAtIndex(igniteServers, nodeIndex, node);
 
-        node.igniteAsync().thenAccept(ignite -> {
+        node.waitForInitAsync().thenRun(() -> {
             synchronized (nodes) {
-                setListAtIndex(nodes, nodeIndex, (IgniteImpl) ignite);
+                setListAtIndex(nodes, nodeIndex, (IgniteImpl) node.api());
             }
 
             if (stopped) {
                 // Make sure we stop even a node that finished starting after the cluster has been stopped.
 
-                node.stop();
+                node.shutdown();
             }
         });
         return node;
@@ -347,8 +347,9 @@ public class Cluster {
         IgniteImpl newIgniteNode;
 
         try {
-            EmbeddedNode node = startEmbeddedNode(index, nodeBootstrapConfigTemplate);
-            newIgniteNode = (IgniteImpl) node.igniteAsync().get(20, TimeUnit.SECONDS);
+            IgniteServer node = startEmbeddedNode(index, nodeBootstrapConfigTemplate);
+            node.waitForInitAsync().get(20, TimeUnit.SECONDS);
+            newIgniteNode = (IgniteImpl) node.api();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
 
@@ -380,9 +381,9 @@ public class Cluster {
     public void stopNode(int index) {
         checkNodeIndex(index);
 
-        embeddedNodes.get(index).stop();
+        igniteServers.get(index).shutdown();
 
-        embeddedNodes.set(index, null);
+        igniteServers.set(index, null);
         nodes.set(index, null);
     }
 
@@ -482,7 +483,7 @@ public class Cluster {
     public void shutdown() {
         stopped = true;
 
-        embeddedNodes.parallelStream().filter(Objects::nonNull).forEach(EmbeddedNode::stop);
+        igniteServers.parallelStream().filter(Objects::nonNull).forEach(IgniteServer::shutdown);
     }
 
     /**

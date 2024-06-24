@@ -52,14 +52,14 @@ public class InitParametersBuilder {
      * @param metaStorageNodes Nodes that will host the Meta Storage.
      * @return {@code this} for chaining.
      */
-    public InitParametersBuilder metaStorageNodes(EmbeddedNode... metaStorageNodes) {
+    public InitParametersBuilder metaStorageNodes(IgniteServer... metaStorageNodes) {
         if (metaStorageNodes == null) {
             throw new IllegalArgumentException("Meta storage nodes cannot be null.");
         }
         if (metaStorageNodes.length == 0) {
             throw new IllegalArgumentException("Meta storage nodes cannot be empty.");
         }
-        this.metaStorageNodeNames = Arrays.stream(metaStorageNodes).map(EmbeddedNode::name).collect(Collectors.toList());
+        this.metaStorageNodeNames = Arrays.stream(metaStorageNodes).map(IgniteServer::name).collect(Collectors.toList());
         return this;
     }
 
@@ -69,14 +69,14 @@ public class InitParametersBuilder {
      * @param metaStorageNodes Nodes that will host the Meta Storage.
      * @return {@code this} for chaining.
      */
-    public InitParametersBuilder metaStorageNodes(Collection<EmbeddedNode> metaStorageNodes) {
+    public InitParametersBuilder metaStorageNodes(Collection<IgniteServer> metaStorageNodes) {
         if (metaStorageNodes == null) {
             throw new IllegalArgumentException("Meta storage nodes cannot be null.");
         }
         if (metaStorageNodes.isEmpty()) {
             throw new IllegalArgumentException("Meta storage nodes cannot be empty.");
         }
-        this.metaStorageNodeNames = metaStorageNodes.stream().map(EmbeddedNode::name).collect(Collectors.toList());
+        this.metaStorageNodeNames = metaStorageNodes.stream().map(IgniteServer::name).collect(Collectors.toList());
         return this;
     }
 
@@ -103,14 +103,14 @@ public class InitParametersBuilder {
      * @param cmgNodes Nodes that will host the CMG.
      * @return {@code this} for chaining.
      */
-    public InitParametersBuilder cmgNodeNames(EmbeddedNode... cmgNodes) {
+    public InitParametersBuilder cmgNodeNames(IgniteServer... cmgNodes) {
         if (cmgNodes == null) {
             throw new IllegalArgumentException("CMG nodes cannot be null.");
         }
         if (cmgNodes.length == 0) {
             throw new IllegalArgumentException("CMG nodes cannot be empty.");
         }
-        this.cmgNodeNames = Arrays.stream(cmgNodes).map(EmbeddedNode::name).collect(Collectors.toList());
+        this.cmgNodeNames = Arrays.stream(cmgNodes).map(IgniteServer::name).collect(Collectors.toList());
         return this;
     }
 

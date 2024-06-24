@@ -30,8 +30,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import org.apache.ignite.EmbeddedNode;
-import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
@@ -44,11 +43,11 @@ import org.junit.jupiter.api.TestInfo;
  * Integration tests for initializing a cluster.
  */
 public class ItClusterInitTest extends IgniteAbstractTest {
-    private final Map<String, EmbeddedNode> nodesByName = new HashMap<>();
+    private final Map<String, IgniteServer> nodesByName = new HashMap<>();
 
     @AfterEach
     void tearDown() throws Exception {
-        IgniteUtils.closeAll(nodesByName.values().stream().map(node -> node::stop));
+        IgniteUtils.closeAll(nodesByName.values().stream().map(node -> node::shutdown));
     }
 
     /**
@@ -58,7 +57,7 @@ public class ItClusterInitTest extends IgniteAbstractTest {
     void testDoubleInit(TestInfo testInfo) {
         createCluster(testInfo, 2);
 
-        EmbeddedNode node = nodesByName.values().iterator().next();
+        IgniteServer node = nodesByName.values().iterator().next();
 
         InitParameters initParameters = InitParameters.builder()
                 .metaStorageNodes(node)
@@ -67,8 +66,8 @@ public class ItClusterInitTest extends IgniteAbstractTest {
 
         TestIgnitionManager.init(node, initParameters);
 
-        CompletableFuture<Ignite>[] futures = nodesByName.values().stream()
-                .map(EmbeddedNode::igniteAsync)
+        CompletableFuture[] futures = nodesByName.values().stream()
+                .map(IgniteServer::waitForInitAsync)
                 .toArray(CompletableFuture[]::new);
 
         assertThat(allOf(futures), willCompleteSuccessfully());

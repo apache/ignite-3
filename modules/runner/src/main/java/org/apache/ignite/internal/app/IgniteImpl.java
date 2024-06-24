@@ -51,8 +51,8 @@ import java.util.function.Consumer;
 import java.util.function.LongFunction;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
-import org.apache.ignite.EmbeddedNode;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteServer;
 import org.apache.ignite.catalog.IgniteCatalog;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientHandlerModule;
@@ -420,7 +420,7 @@ public class IgniteImpl implements Ignite {
      * @param serviceProviderClassLoader The class loader to be used to load provider-configuration files and provider classes, or
      *         {@code null} if the system class loader (or, failing that the bootstrap class loader) is to be used.
      */
-    IgniteImpl(EmbeddedNode node, Path configPath, Path workDir, @Nullable ClassLoader serviceProviderClassLoader) {
+    IgniteImpl(IgniteServer node, Path configPath, Path workDir, @Nullable ClassLoader serviceProviderClassLoader) {
         this.name = node.name();
 
         longJvmPauseDetector = new LongJvmPauseDetector(name);
@@ -464,7 +464,7 @@ public class IgniteImpl implements Ignite {
 
         MessageSerializationRegistry serializationRegistry = createSerializationRegistry(serviceProviderClassLoader);
 
-        failureProcessor = new FailureProcessor(node::stop, nodeConfigRegistry.getConfiguration(FailureProcessorConfiguration.KEY));
+        failureProcessor = new FailureProcessor(node::shutdown, nodeConfigRegistry.getConfiguration(FailureProcessorConfiguration.KEY));
 
         CriticalWorkersConfiguration criticalWorkersConfiguration = nodeConfigRegistry.getConfiguration(CriticalWorkersConfiguration.KEY);
 
@@ -1026,8 +1026,10 @@ public class IgniteImpl implements Ignite {
      *
      * <p>When this method returns, the node is partially started and ready to accept the init command (that is, its
      * REST endpoint is functional).
+     *
+     * @return Future that will be completed when the node is started.
      */
-    void start() {
+    CompletableFuture<Void> startAsync() {
         ExecutorService startupExecutor = Executors.newSingleThreadExecutor(
                 IgniteThreadFactory.create(name, "start", LOG, STORAGE_READ, STORAGE_WRITE)
         );
@@ -1042,18 +1044,12 @@ public class IgniteImpl implements Ignite {
             metricManager.registerSource(osMetrics);
             metricManager.enable(osMetrics);
 
-            lifecycleManager.startComponent(longJvmPauseDetector, componentContext);
-
-            lifecycleManager.startComponent(vaultMgr, componentContext);
-
-            vaultMgr.putName(name);
-
-            // Node configuration manager startup.
-            lifecycleManager.startComponent(nodeCfgMgr, componentContext);
-
             // Start the components that are required to join the cluster.
-            lifecycleManager.startComponents(
+            return lifecycleManager.startComponentsAsync(
                     componentContext,
+                    longJvmPauseDetector,
+                    vaultMgr,
+                    nodeCfgMgr,
                     threadPoolsManager,
                     clockWaiter,
                     failureProcessor,
@@ -1067,13 +1063,21 @@ public class IgniteImpl implements Ignite {
                     clusterStateStorage,
                     cmgMgr,
                     lowWatermark
-            );
+            ).thenRun(() -> {
+                try {
+                    vaultMgr.putName(name);
 
-            clusterSvc.updateMetadata(new NodeMetadata(restComponent.hostName(), restComponent.httpPort(), restComponent.httpsPort()));
+                    clusterSvc.updateMetadata(
+                            new NodeMetadata(restComponent.hostName(), restComponent.httpPort(), restComponent.httpsPort()));
 
-            restAddressReporter.writeReport(restHttpAddress(), restHttpsAddress());
+                    restAddressReporter.writeReport(restHttpAddress(), restHttpsAddress());
+                } catch (Throwable e) {
+                    startupExecutor.shutdownNow();
 
-            LOG.info("Components started");
+                    throw handleStartException(e);
+                }
+                LOG.info("Components started");
+            });
         } catch (Throwable e) {
             startupExecutor.shutdownNow();
 
@@ -1101,7 +1105,7 @@ public class IgniteImpl implements Ignite {
                     LOG.info("Join complete, starting MetaStorage");
 
                     try {
-                        lifecycleManager.startComponent(metaStorageMgr, componentContext);
+                        lifecycleManager.startComponentAsync(metaStorageMgr, componentContext);
                     } catch (NodeStoppingException e) {
                         throw new CompletionException(e);
                     }
@@ -1114,7 +1118,7 @@ public class IgniteImpl implements Ignite {
 
                     // Start all other components after the join request has completed and the node has been validated.
                     try {
-                        lifecycleManager.startComponents(
+                        lifecycleManager.startComponentsAsync(
                                 componentContext,
                                 catalogManager,
                                 clusterCfgMgr,
@@ -1144,7 +1148,7 @@ public class IgniteImpl implements Ignite {
 
                         // The system view manager comes last because other components
                         // must register system views before it starts.
-                        lifecycleManager.startComponent(systemViewManager, componentContext);
+                        lifecycleManager.startComponentAsync(systemViewManager, componentContext);
                     } catch (NodeStoppingException e) {
                         throw new CompletionException(e);
                     }
@@ -1428,7 +1432,7 @@ public class IgniteImpl implements Ignite {
      * @return Completable future which completes when the cluster is initialized.
      * @throws NodeStoppingException If node stopping intention was detected.
      */
-    public CompletableFuture<Void> initClusterAsync(
+    CompletableFuture<Void> initClusterAsync(
             Collection<String> metaStorageNodeNames,
             Collection<String> cmgNodeNames,
             String clusterName,

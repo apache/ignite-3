@@ -29,9 +29,8 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.EmbeddedNode;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.app.IgniteImpl;
@@ -66,7 +65,7 @@ public abstract class ItAbstractThinClientTest extends BaseIgniteAbstractTest {
     private final List<Ignite> startedNodes = new ArrayList<>();
 
     private IgniteClient client;
-    private List<EmbeddedNode> nodes;
+    private List<IgniteServer> nodes;
 
     /**
      * Before all.
@@ -104,7 +103,7 @@ public abstract class ItAbstractThinClientTest extends BaseIgniteAbstractTest {
                 .map(e -> TestIgnitionManager.start(e.getKey(), e.getValue(), workDir.resolve(e.getKey())))
                 .collect(toList());
 
-        EmbeddedNode metaStorageNode = nodes.get(0);
+        IgniteServer metaStorageNode = nodes.get(0);
 
         InitParameters initParameters = InitParameters.builder()
                 .metaStorageNodes(metaStorageNode)
@@ -112,12 +111,10 @@ public abstract class ItAbstractThinClientTest extends BaseIgniteAbstractTest {
                 .build();
         TestIgnitionManager.init(metaStorageNode, initParameters);
 
-        for (EmbeddedNode node : nodes) {
-            CompletableFuture<Ignite> future = node.igniteAsync();
+        for (IgniteServer node : nodes) {
+            assertThat(node.waitForInitAsync(), willCompleteSuccessfully());
 
-            assertThat(future, willCompleteSuccessfully());
-
-            startedNodes.add(future.join());
+            startedNodes.add(node.api());
         }
 
         IgniteSql sql = startedNodes.get(0).sql();
@@ -142,7 +139,7 @@ public abstract class ItAbstractThinClientTest extends BaseIgniteAbstractTest {
         closeables.add(client);
 
         nodes.stream()
-                .map(node -> (AutoCloseable) node::stop)
+                .map(node -> (AutoCloseable) node::shutdown)
                 .forEach(closeables::add);
 
         IgniteUtils.closeAll(closeables);

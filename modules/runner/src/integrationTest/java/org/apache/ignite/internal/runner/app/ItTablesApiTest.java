@@ -41,8 +41,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.EmbeddedNode;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
@@ -94,7 +94,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
                     + "}"
     );
 
-    private final List<EmbeddedNode> nodes = new ArrayList<>();
+    private final List<IgniteServer> nodes = new ArrayList<>();
 
     /** Cluster nodes. */
     private final List<Ignite> clusterNodes = new ArrayList<>();
@@ -110,7 +110,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
             nodes.add(TestIgnitionManager.start(nodeName, nodesBootstrapCfg.get(i), workDir.resolve(nodeName)));
         }
 
-        EmbeddedNode metaStorageNode = nodes.get(0);
+        IgniteServer metaStorageNode = nodes.get(0);
 
         InitParameters initParameters = InitParameters.builder()
                 .metaStorageNodes(metaStorageNode)
@@ -118,12 +118,10 @@ public class ItTablesApiTest extends IgniteAbstractTest {
                 .build();
         TestIgnitionManager.init(metaStorageNode, initParameters);
 
-        for (EmbeddedNode node : nodes) {
-            CompletableFuture<Ignite> future = node.igniteAsync();
+        for (IgniteServer node : nodes) {
+            assertThat(node.waitForInitAsync(), willCompleteSuccessfully());
 
-            assertThat(future, willCompleteSuccessfully());
-
-            clusterNodes.add(future.join());
+            clusterNodes.add(node.api());
         }
     }
 
@@ -132,7 +130,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
      */
     @AfterEach
     void afterEach(TestInfo testInfo) throws Exception {
-        IgniteUtils.closeAll(nodes.stream().map(node -> node::stop));
+        IgniteUtils.closeAll(nodes.stream().map(node -> node::shutdown));
     }
 
     /**

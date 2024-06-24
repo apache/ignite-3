@@ -48,10 +48,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 import java.util.stream.IntStream;
-import org.apache.ignite.EmbeddedNode;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.cli.CliIntegrationTest;
 import org.apache.ignite.internal.cli.call.cluster.unit.DeployUnitClient;
@@ -103,7 +102,7 @@ public class ItGeneratedRestClientTest extends BaseIgniteAbstractTest {
     @WorkDirectory
     private static Path WORK_DIR;
 
-    private List<EmbeddedNode> nodes;
+    private List<IgniteServer> nodes;
 
     private final List<Ignite> clusterNodes = new ArrayList<>();
 
@@ -149,7 +148,7 @@ public class ItGeneratedRestClientTest extends BaseIgniteAbstractTest {
                 .mapToObj(i -> startNode(testInfo, i))
                 .collect(toList());
 
-        EmbeddedNode metaStorageNode = nodes.get(0);
+        IgniteServer metaStorageNode = nodes.get(0);
 
         InitParameters initParameters = InitParameters.builder()
                 .metaStorageNodes(metaStorageNode)
@@ -158,12 +157,10 @@ public class ItGeneratedRestClientTest extends BaseIgniteAbstractTest {
 
         nodes.get(0).initCluster(initParameters);
 
-        for (EmbeddedNode node : nodes) {
-            CompletableFuture<Ignite> future = node.igniteAsync();
+        for (IgniteServer node : nodes) {
+            assertThat(node.waitForInitAsync(), willCompleteSuccessfully());
 
-            assertThat(future, willCompleteSuccessfully());
-
-            clusterNodes.add(future.join());
+            clusterNodes.add(node.api());
         }
 
         firstNodeName = clusterNodes.get(0).name();
@@ -183,7 +180,7 @@ public class ItGeneratedRestClientTest extends BaseIgniteAbstractTest {
 
     @AfterAll
     void tearDown() throws Exception {
-        IgniteUtils.closeAll(nodes.stream().map(node -> node::stop));
+        IgniteUtils.closeAll(nodes.stream().map(node -> node::shutdown));
     }
 
     @Test
@@ -436,7 +433,7 @@ public class ItGeneratedRestClientTest extends BaseIgniteAbstractTest {
         }
     }
 
-    private static EmbeddedNode startNode(TestInfo testInfo, int index) {
+    private static IgniteServer startNode(TestInfo testInfo, int index) {
         String nodeName = testNodeName(testInfo, BASE_PORT + index);
 
         return TestIgnitionManager.start(nodeName, buildConfig(index), WORK_DIR.resolve(nodeName));

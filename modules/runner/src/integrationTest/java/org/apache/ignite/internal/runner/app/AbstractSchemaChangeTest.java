@@ -20,7 +20,7 @@ package org.apache.ignite.internal.runner.app;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
-import static org.apache.ignite.internal.util.CompletableFutures.allOfToList;
+import static org.apache.ignite.internal.util.CompletableFutures.allOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -28,9 +28,8 @@ import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.EmbeddedNode;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
@@ -58,7 +57,7 @@ abstract class AbstractSchemaChangeTest extends BaseIgniteAbstractTest {
     /** Nodes bootstrap configuration. */
     private final Map<String, String> nodesBootstrapCfg = new LinkedHashMap<>();
 
-    private List<EmbeddedNode> nodes;
+    private List<IgniteServer> nodes;
 
     /** Work directory. */
     @WorkDirectory
@@ -115,7 +114,7 @@ abstract class AbstractSchemaChangeTest extends BaseIgniteAbstractTest {
 
     @AfterEach
     void afterEach() throws Exception {
-        IgniteUtils.closeAll(nodes.stream().map(node -> node::stop));
+        IgniteUtils.closeAll(nodes.stream().map(node -> node::shutdown));
     }
 
     /**
@@ -126,7 +125,7 @@ abstract class AbstractSchemaChangeTest extends BaseIgniteAbstractTest {
                 .map(e -> TestIgnitionManager.start(e.getKey(), e.getValue(), workDir.resolve(e.getKey())))
                 .collect(toList());
 
-        EmbeddedNode node = nodes.get(0);
+        IgniteServer node = nodes.get(0);
 
         InitParameters initParameters = InitParameters.builder()
                 .metaStorageNodes(node)
@@ -135,11 +134,11 @@ abstract class AbstractSchemaChangeTest extends BaseIgniteAbstractTest {
 
         TestIgnitionManager.init(node, initParameters);
 
-        CompletableFuture<Ignite>[] futures = nodes.stream()
-                .map(EmbeddedNode::igniteAsync)
-                .toArray(CompletableFuture[]::new);
+        await(allOf(nodes.stream()
+                .map(IgniteServer::waitForInitAsync)
+                .collect(toList())));
 
-        return await(allOfToList(futures));
+        return nodes.stream().map(IgniteServer::api).collect(toList());
     }
 
     /**

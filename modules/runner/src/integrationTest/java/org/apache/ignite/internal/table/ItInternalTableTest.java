@@ -46,8 +46,8 @@ import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.EmbeddedNode;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
@@ -109,7 +109,7 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
             + "  }\n"
             + "}";
 
-    private static EmbeddedNode NODE;
+    private static IgniteServer NODE;
 
     @WorkDirectory
     private static Path WORK_DIR;
@@ -133,12 +133,12 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
 
         TestIgnitionManager.init(NODE, initParameters);
 
-        assertThat(NODE.igniteAsync(), willCompleteSuccessfully());
+        assertThat(NODE.waitForInitAsync(), willCompleteSuccessfully());
     }
 
     @AfterAll
     static void stopNode(TestInfo testInfo) throws Exception {
-        closeAll(() -> NODE.stop());
+        closeAll(() -> NODE.shutdown());
         NODE = null;
     }
 
@@ -727,6 +727,6 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
     }
 
     protected static IgniteImpl node() {
-        return (IgniteImpl) NODE.igniteAsync().join();
+        return (IgniteImpl) NODE.api();
     }
 }

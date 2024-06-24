@@ -37,8 +37,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.IntStream;
-import org.apache.ignite.EmbeddedNode;
-import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.internal.app.IgniteImpl;
@@ -118,7 +117,7 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
 
     public TestInfo testInfo;
 
-    protected static final List<EmbeddedNode> EMBEDDED_NODES = new ArrayList<>();
+    protected static final List<IgniteServer> IGNITE_SERVERS = new ArrayList<>();
 
     /** Cluster nodes. */
     protected List<PartialNode> partialNodes;
@@ -138,9 +137,9 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
     public void afterEachTest() throws Exception {
         var closeables = new ArrayList<AutoCloseable>();
 
-        for (EmbeddedNode node : EMBEDDED_NODES) {
+        for (IgniteServer node : IGNITE_SERVERS) {
             if (node != null) {
-                closeables.add(node::stop);
+                closeables.add(node::shutdown);
             }
         }
 
@@ -152,7 +151,7 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
 
         closeAll(closeables);
 
-        EMBEDDED_NODES.clear();
+        IGNITE_SERVERS.clear();
     }
 
     /**
@@ -322,9 +321,9 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
      * @return Created node instance.
      */
     protected IgniteImpl startNode(int idx, @Nullable String cfg) {
-        boolean initNeeded = EMBEDDED_NODES.isEmpty();
+        boolean initNeeded = IGNITE_SERVERS.isEmpty();
 
-        EmbeddedNode node = startNodeAsync(idx, cfg);
+        IgniteServer node = startEmbeddedNode(idx, cfg);
 
         if (initNeeded) {
             InitParameters initParameters = InitParameters.builder()
@@ -334,13 +333,9 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
             TestIgnitionManager.init(node, initParameters);
         }
 
-        CompletableFuture<Ignite> future = node.igniteAsync();
+        assertThat(node.waitForInitAsync(), willCompleteSuccessfully());
 
-        assertThat(future, willCompleteSuccessfully());
-
-        Ignite ignite = future.join();
-
-        return (IgniteImpl) ignite;
+        return (IgniteImpl) node.api();
     }
 
     /**
@@ -350,19 +345,19 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
      * @param cfg Configuration string or {@code null} to use the default configuration.
      * @return Future that completes with a created node instance.
      */
-    protected EmbeddedNode startNodeAsync(int idx, @Nullable String cfg) {
+    protected IgniteServer startEmbeddedNode(int idx, @Nullable String cfg) {
         String nodeName = testNodeName(testInfo, idx);
 
         String cfgString = cfg == null ? configurationString(idx) : cfg;
 
-        EmbeddedNode node = TestIgnitionManager.start(nodeName, cfgString, workDir.resolve(nodeName));
+        IgniteServer node = TestIgnitionManager.start(nodeName, cfgString, workDir.resolve(nodeName));
 
-        if (EMBEDDED_NODES.size() == idx) {
-            EMBEDDED_NODES.add(node);
+        if (IGNITE_SERVERS.size() == idx) {
+            IGNITE_SERVERS.add(node);
         } else {
-            assertNull(EMBEDDED_NODES.get(idx));
+            assertNull(IGNITE_SERVERS.get(idx));
 
-            EMBEDDED_NODES.set(idx, node);
+            IGNITE_SERVERS.set(idx, node);
         }
 
         return node;
@@ -372,14 +367,14 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
      * Starts an {@code amount} number of nodes (with sequential indices starting from 0).
      */
     protected List<IgniteImpl> startNodes(int amount) {
-        boolean initNeeded = EMBEDDED_NODES.isEmpty();
+        boolean initNeeded = IGNITE_SERVERS.isEmpty();
 
-        List<EmbeddedNode> nodes = IntStream.range(0, amount)
-                .mapToObj(i -> startNodeAsync(i, null))
+        List<IgniteServer> nodes = IntStream.range(0, amount)
+                .mapToObj(i -> startEmbeddedNode(i, null))
                 .collect(toList());
 
         if (initNeeded) {
-            EmbeddedNode node = nodes.get(0);
+            IgniteServer node = nodes.get(0);
 
             InitParameters initParameters = InitParameters.builder()
                     .metaStorageNodes(node)
@@ -390,11 +385,9 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
 
         return nodes.stream()
                 .map(node -> {
-                    CompletableFuture<Ignite> future = node.igniteAsync();
+                    assertThat(node.waitForInitAsync(), willCompleteSuccessfully());
 
-                    assertThat(future, willCompleteSuccessfully());
-
-                    return (IgniteImpl) future.join();
+                    return (IgniteImpl) node.api();
                 })
                 .collect(toList());
     }
@@ -405,10 +398,10 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
      * @param idx Node index.
      */
     protected void stopNode(int idx) {
-        EmbeddedNode node = EMBEDDED_NODES.set(idx, null);
+        IgniteServer node = IGNITE_SERVERS.set(idx, null);
 
         if (node != null) {
-            node.stop();
+            node.shutdown();
         }
     }
 

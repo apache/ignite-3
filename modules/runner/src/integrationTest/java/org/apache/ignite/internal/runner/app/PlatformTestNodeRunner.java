@@ -59,8 +59,8 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
-import org.apache.ignite.EmbeddedNode;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
@@ -223,11 +223,10 @@ public class PlatformTestNodeRunner {
             return;
         }
 
-        List<EmbeddedNode> startedEmbeddedNodes = startNodes(BASE_PATH, nodesBootstrapCfg);
+        List<IgniteServer> startedIgniteServers = startNodes(BASE_PATH, nodesBootstrapCfg);
 
-        List<Ignite> startedNodes = startedEmbeddedNodes.stream()
-                .map(EmbeddedNode::igniteAsync)
-                .map(CompletableFuture::join)
+        List<Ignite> startedNodes = startedIgniteServers.stream()
+                .map(IgniteServer::api)
                 .collect(toList());
 
         createTables(startedNodes.get(0));
@@ -244,8 +243,8 @@ public class PlatformTestNodeRunner {
         Thread.sleep(runTimeMinutes * 60_000);
         System.out.println("Exiting after " + runTimeMinutes + " minutes.");
 
-        for (EmbeddedNode node : startedEmbeddedNodes) {
-            node.stop();
+        for (IgniteServer node : startedIgniteServers) {
+            node.shutdown();
         }
     }
 
@@ -256,7 +255,7 @@ public class PlatformTestNodeRunner {
      * @param nodeCfg Node configuration.
      * @return Started nodes.
      */
-    static List<EmbeddedNode> startNodes(Path basePath, Map<String, String> nodeCfg) throws IOException {
+    static List<IgniteServer> startNodes(Path basePath, Map<String, String> nodeCfg) throws IOException {
         IgniteUtils.deleteIfExists(basePath);
         Files.createDirectories(basePath);
 
@@ -264,7 +263,7 @@ public class PlatformTestNodeRunner {
         var trustStorePath = escapeWindowsPath(getResourcePath(PlatformTestNodeRunner.class, "ssl/trust.jks"));
         var keyStorePath = escapeWindowsPath(getResourcePath(PlatformTestNodeRunner.class, "ssl/server.jks"));
 
-        List<EmbeddedNode> nodes = nodeCfg.entrySet().stream()
+        List<IgniteServer> nodes = nodeCfg.entrySet().stream()
                 .map(e -> {
                     String nodeName = e.getKey();
                     String config = e.getValue()
@@ -276,7 +275,7 @@ public class PlatformTestNodeRunner {
                 })
                 .collect(toList());
 
-        EmbeddedNode metaStorageNode = nodes.get(0);
+        IgniteServer metaStorageNode = nodes.get(0);
 
         InitParameters initParameters = InitParameters.builder()
                 .metaStorageNodes(metaStorageNode)
@@ -286,7 +285,7 @@ public class PlatformTestNodeRunner {
 
         System.out.println("Initialization complete");
 
-        allOf(nodes.stream().map(EmbeddedNode::igniteAsync).toArray(CompletableFuture[]::new)).join();
+        allOf(nodes.stream().map(IgniteServer::waitForInitAsync).toArray(CompletableFuture[]::new)).join();
 
         System.out.println("Ignite nodes started");
 

@@ -27,8 +27,8 @@ import static org.junit.jupiter.api.Assertions.fail;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
-import org.apache.ignite.EmbeddedNode;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -71,13 +71,13 @@ public class ItNoThreadsLeftTest extends IgniteAbstractTest {
     public void test(TestInfo testInfo) throws Exception {
         Set<Thread> threadsBefore = getCurrentThreads();
 
-        EmbeddedNode node = startNode(testInfo);
+        IgniteServer node = startNode(testInfo);
         try {
-            Table tbl = createTable(node.igniteAsync().join(), TABLE_NAME);
+            Table tbl = createTable(node.api(), TABLE_NAME);
 
             assertNotNull(tbl);
         } finally {
-            node.stop();
+            node.shutdown();
         }
 
         boolean threadsKilled = waitForCondition(() -> getCurrentThreads().size() <= threadsBefore.size(), 10, 3_000);
@@ -92,10 +92,10 @@ public class ItNoThreadsLeftTest extends IgniteAbstractTest {
         }
     }
 
-    private EmbeddedNode startNode(TestInfo testInfo) {
+    private IgniteServer startNode(TestInfo testInfo) {
         String nodeName = IgniteTestUtils.testNodeName(testInfo, 0);
 
-        EmbeddedNode node = TestIgnitionManager.start(nodeName, NODE_CONFIGURATION, workDir.resolve(nodeName));
+        IgniteServer node = TestIgnitionManager.start(nodeName, NODE_CONFIGURATION, workDir.resolve(nodeName));
 
         InitParameters initParameters = InitParameters.builder()
                 .metaStorageNodes(node)
@@ -103,7 +103,7 @@ public class ItNoThreadsLeftTest extends IgniteAbstractTest {
                 .build();
         node.initCluster(initParameters);
 
-        assertThat(node.igniteAsync(), willCompleteSuccessfully());
+        assertThat(node.waitForInitAsync(), willCompleteSuccessfully());
 
         return node;
     }

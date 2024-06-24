@@ -25,8 +25,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-import org.apache.ignite.EmbeddedNode;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.eventlog.api.IgniteEventType;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -34,17 +34,21 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.lang.ClusterInitFailureException;
+import org.apache.ignite.lang.ClusterNotInitializedException;
 import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.NodeNotStartedException;
+import org.apache.ignite.lang.NodeStartException;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Implementation of embedded node.
  */
-public class EmbeddedNodeImpl implements EmbeddedNode {
+public class IgniteServerImpl implements IgniteServer {
     /** The logger. */
-    private static final IgniteLogger LOG = Loggers.forClass(EmbeddedNodeImpl.class);
+    private static final IgniteLogger LOG = Loggers.forClass(IgniteServerImpl.class);
 
     private static final String[] BANNER = {
             "",
@@ -77,18 +81,7 @@ public class EmbeddedNodeImpl implements EmbeddedNode {
 
     private volatile @Nullable IgniteImpl instance;
 
-    private volatile @Nullable CompletableFuture<Ignite> igniteFuture;
-
-    /**
-     * Constructs an embedded node.
-     *
-     * @param nodeName Name of the node. Must not be {@code null}.
-     * @param configPath Path to the node configuration in the HOCON format. Must not be {@code null}. Must exist
-     * @param workDir Work directory for the started node. Must not be {@code null}.
-     */
-    public EmbeddedNodeImpl(String nodeName, Path configPath, Path workDir) {
-        this(nodeName, configPath, workDir, defaultServiceClassLoader());
-    }
+    private volatile @Nullable CompletableFuture<Void> joinFuture;
 
     /**
      * Constructs an embedded node.
@@ -99,21 +92,21 @@ public class EmbeddedNodeImpl implements EmbeddedNode {
      * @param classLoader The class loader to be used to load provider-configuration files and provider classes, or {@code null} if
      *         the system class loader (or, failing that, the bootstrap class loader) is to be used
      */
-    public EmbeddedNodeImpl(String nodeName, Path configPath, Path workDir, ClassLoader classLoader) {
+    public IgniteServerImpl(String nodeName, Path configPath, Path workDir, @Nullable ClassLoader classLoader) {
         if (nodeName == null) {
-            throw new IgniteException("Node name must not be null");
+            throw new NodeStartException("Node name must not be null");
         }
         if (nodeName.isEmpty()) {
-            throw new IgniteException("Node name must not be empty.");
+            throw new NodeStartException("Node name must not be empty.");
         }
         if (configPath == null) {
-            throw new IgniteException("Config path must not be null");
+            throw new NodeStartException("Config path must not be null");
         }
         if (Files.notExists(configPath)) {
-            throw new IgniteException("Config file doesn't exist");
+            throw new NodeStartException("Config file doesn't exist");
         }
         if (workDir == null) {
-            throw new IgniteException("Working directory must not be null");
+            throw new NodeStartException("Working directory must not be null");
         }
 
         this.nodeName = nodeName;
@@ -123,44 +116,39 @@ public class EmbeddedNodeImpl implements EmbeddedNode {
     }
 
     @Override
-    public CompletableFuture<Ignite> igniteAsync() {
+    public Ignite api() {
         IgniteImpl instance = this.instance;
         if (instance == null) {
-            throw new IgniteException("Node not started");
+            throw new NodeNotStartedException();
         }
 
-        // We need to cache the future so that this method could be called multiple times.
-        CompletableFuture<Ignite> igniteFuture = this.igniteFuture;
-        if (igniteFuture == null) {
-            igniteFuture = instance.joinClusterAsync()
-                    .handle((ignite, e) -> {
-                        if (e == null) {
-                            ackSuccessStart();
-
-                            return ignite;
-                        } else {
-                            throw handleStartException(e);
-                        }
-                    });
-            this.igniteFuture = igniteFuture;
+        CompletableFuture<Void> joinFuture = this.joinFuture;
+        if (joinFuture == null || !joinFuture.isDone()) {
+            throw new ClusterNotInitializedException();
         }
-        return igniteFuture;
+        if (joinFuture.isCompletedExceptionally()) {
+            throw new ClusterInitFailureException("Cluster initialization failed.");
+        }
+        if (joinFuture.isCancelled()) {
+            throw new ClusterInitFailureException("Cluster initialization cancelled.");
+        }
+        return instance;
     }
 
     @Override
     public CompletableFuture<Void> initClusterAsync(InitParameters parameters) {
         IgniteImpl instance = this.instance;
         if (instance == null) {
-            throw new IgniteException("Node not started");
+            throw new NodeNotStartedException();
         }
         try {
             return instance.initClusterAsync(parameters.metaStorageNodeNames(),
                     parameters.cmgNodeNames(),
                     parameters.clusterName(),
                     parameters.clusterConfiguration()
-            );
+            ).thenCompose(unused -> waitForInitAsync());
         } catch (NodeStoppingException e) {
-            throw new IgniteException("Node stop detected during init", e);
+            throw new ClusterInitFailureException("Node stop detected during init", e);
         }
     }
 
@@ -170,13 +158,41 @@ public class EmbeddedNodeImpl implements EmbeddedNode {
     }
 
     @Override
-    public CompletableFuture<Void> stopAsync() {
+    public CompletableFuture<Void> waitForInitAsync() {
+        IgniteImpl instance = this.instance;
+        if (instance == null) {
+            throw new NodeNotStartedException();
+        }
+
+        CompletableFuture<Void> joinFuture = this.joinFuture;
+        if (joinFuture == null) {
+            try {
+                joinFuture = instance.joinClusterAsync()
+                        .handle((ignite, e) -> {
+                            if (e == null) {
+                                ackSuccessStart();
+
+                                return null;
+                            } else {
+                                throw handleStartException(e);
+                            }
+                        });
+            } catch (Exception e) {
+                throw handleStartException(e);
+            }
+            this.joinFuture = joinFuture;
+        }
+        return joinFuture;
+    }
+
+    @Override
+    public CompletableFuture<Void> shutdownAsync() {
         IgniteImpl instance = this.instance;
         if (instance != null) {
             try {
                 return instance.stopAsync().thenRun(() -> {
                     this.instance = null;
-                    this.igniteFuture = null;
+                    joinFuture = null;
                 });
             } catch (Exception e) {
                 throw new IgniteException(Common.NODE_STOPPING_ERR, e);
@@ -186,36 +202,39 @@ public class EmbeddedNodeImpl implements EmbeddedNode {
     }
 
     @Override
-    public void stop() {
-        sync(stopAsync());
-    }
-
-    private static ClassLoader defaultServiceClassLoader() {
-        return Thread.currentThread().getContextClassLoader();
+    public void shutdown() {
+        sync(shutdownAsync());
     }
 
     @Override
-    public void start() {
+    public String name() {
+        return nodeName;
+    }
+
+    public CompletableFuture<Void> startAsync() {
         if (this.instance != null) {
-            throw new IgniteException("Node is already started.");
+            throw new NodeStartException("Node is already started.");
         }
         IgniteImpl instance = new IgniteImpl(this, configPath, workDir, classLoader);
 
         ackBanner();
 
-        try {
-            instance.start();
-        } catch (Exception e) {
-            throw handleStartException(e);
-        }
-        this.instance = instance;
+        return instance.startAsync().whenComplete((unused, throwable) -> {
+            if (throwable == null) {
+                this.instance = instance;
+            }
+        });
+    }
+
+    public void start() {
+        sync(startAsync());
     }
 
     private static IgniteException handleStartException(Throwable e) {
         if (e instanceof IgniteException) {
             return (IgniteException) e;
         } else {
-            return new IgniteException(e);
+            return new NodeStartException("Error during node start.", e);
         }
     }
 
@@ -231,11 +250,6 @@ public class EmbeddedNodeImpl implements EmbeddedNode {
         String version = "Apache Ignite ver. " + IgniteProductVersion.CURRENT_VERSION;
 
         LOG.info("{}" + lineSeparator() + "{}{}" + lineSeparator(), banner, padding, version);
-    }
-
-    @Override
-    public String name() {
-        return nodeName;
     }
 
     private static void sync(CompletableFuture<Void> future) {

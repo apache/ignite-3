@@ -24,8 +24,7 @@ import static org.awaitility.Awaitility.await;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
-import org.apache.ignite.EmbeddedNode;
-import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteServer;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureType;
@@ -46,17 +45,17 @@ public class FailureHandlerTest extends ClusterPerTestIntegrationTest {
 
     @Test
     void testStopNodeFailureHandler() {
-        testFailureHandler(node -> new StopNodeFailureHandler(node::stop));
+        testFailureHandler(node -> new StopNodeFailureHandler(node::shutdown));
     }
 
     @Test
     void testStopNodeOrHaltFailureHandler() {
-        testFailureHandler(node -> new StopNodeOrHaltFailureHandler(node::stop, true, TIMEOUT_MILLIS));
+        testFailureHandler(node -> new StopNodeOrHaltFailureHandler(node::shutdown, true, TIMEOUT_MILLIS));
     }
 
-    private void testFailureHandler(Function<EmbeddedNode, FailureHandler> handlerFactory) {
-        EmbeddedNode node = cluster.startEmbeddedNode(0);
-        CompletableFuture<Ignite> fut = node.igniteAsync();
+    private void testFailureHandler(Function<IgniteServer, FailureHandler> handlerFactory) {
+        IgniteServer node = cluster.startEmbeddedNode(0);
+        CompletableFuture<Void> fut = node.waitForInitAsync();
 
         FailureHandler hnd = handlerFactory.apply(node);
         hnd.onFailure(

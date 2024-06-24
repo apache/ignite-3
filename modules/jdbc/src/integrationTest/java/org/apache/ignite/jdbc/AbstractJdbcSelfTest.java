@@ -31,9 +31,8 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.EmbeddedNode;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -66,7 +65,7 @@ public class AbstractJdbcSelfTest extends BaseIgniteAbstractTest {
     @WorkDirectory
     private static Path WORK_DIR;
 
-    private static final List<EmbeddedNode> embeddedNodes = new ArrayList<>();
+    private static final List<IgniteServer> IGNITE_SERVERS = new ArrayList<>();
 
     /** Cluster nodes. */
     protected static final List<Ignite> clusterNodes = new ArrayList<>();
@@ -86,8 +85,8 @@ public class AbstractJdbcSelfTest extends BaseIgniteAbstractTest {
     public static void beforeAllBase(TestInfo testInfo) throws Exception {
         String nodeName = testNodeName(testInfo, TEST_PORT);
 
-        EmbeddedNode node = TestIgnitionManager.start(nodeName, null, WORK_DIR.resolve(nodeName));
-        embeddedNodes.add(node);
+        IgniteServer node = TestIgnitionManager.start(nodeName, null, WORK_DIR.resolve(nodeName));
+        IGNITE_SERVERS.add(node);
 
         InitParameters initParameters = InitParameters.builder()
                 .metaStorageNodeNames(nodeName)
@@ -96,11 +95,9 @@ public class AbstractJdbcSelfTest extends BaseIgniteAbstractTest {
 
         node.initCluster(initParameters);
 
-        CompletableFuture<Ignite> future = node.igniteAsync();
+        assertThat(node.waitForInitAsync(), willCompleteSuccessfully());
 
-        assertThat(future, willCompleteSuccessfully());
-
-        clusterNodes.add(future.join());
+        clusterNodes.add(node.api());
 
         conn = DriverManager.getConnection(URL);
 
@@ -116,12 +113,12 @@ public class AbstractJdbcSelfTest extends BaseIgniteAbstractTest {
     public static void afterAllBase(TestInfo testInfo) throws Exception {
         closeAll(
                 conn != null && !conn.isClosed() ? conn : null,
-                () -> embeddedNodes.forEach(EmbeddedNode::stop)
+                () -> IGNITE_SERVERS.forEach(IgniteServer::shutdown)
         );
 
         conn = null;
         clusterNodes.clear();
-        embeddedNodes.clear();
+        IGNITE_SERVERS.clear();
     }
 
     @BeforeEach

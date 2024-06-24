@@ -20,7 +20,7 @@ package org.apache.ignite.internal.app;
 import java.nio.file.Path;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
-import org.apache.ignite.EmbeddedNode;
+import org.apache.ignite.IgniteServer;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
@@ -31,7 +31,7 @@ import picocli.CommandLine.Option;
  * {@code --node-name} command line arguments respectively.
  */
 @Command(name = "runner")
-public class IgniteRunner implements Callable<EmbeddedNode> {
+public class IgniteRunner implements Callable<IgniteServer> {
     @Option(names = "--config-path", description = "Path to node configuration file in HOCON format.", required = true)
     private Path configPath;
 
@@ -42,8 +42,8 @@ public class IgniteRunner implements Callable<EmbeddedNode> {
     private String nodeName;
 
     @Override
-    public EmbeddedNode call() throws Exception {
-        return EmbeddedNode.create(nodeName, configPath.toAbsolutePath(), workDir);
+    public IgniteServer call() throws Exception {
+        return IgniteServer.start(nodeName, configPath.toAbsolutePath(), workDir);
     }
 
     /**
@@ -52,7 +52,7 @@ public class IgniteRunner implements Callable<EmbeddedNode> {
      * @param args CLI args to start a new node.
      * @return New Ignite node.
      */
-    public static EmbeddedNode start(String... args) {
+    public static IgniteServer start(String... args) {
         CommandLine commandLine = new CommandLine(new IgniteRunner());
         commandLine.setDefaultValueProvider(new EnvironmentDefaultValueProvider());
         int exitCode = commandLine.execute(args);
@@ -69,7 +69,7 @@ public class IgniteRunner implements Callable<EmbeddedNode> {
      */
     public static void main(String[] args) {
         try {
-            start(args).igniteAsync().get();
+            start(args).waitForInitAsync().get();
         } catch (ExecutionException | InterruptedException e) {
             System.out.println("Error when starting the node: " + e.getMessage());
 

@@ -624,4 +624,23 @@ public class ErrorGroups {
         /** Error while returning partition states. */
         public static final int PARTITION_STATE_ERR = RECOVERY_ERR_GROUP.registerErrorCode((short) 3);
     }
+
+    /** Embedded API error group. */
+    @ErrorCodeGroup
+    public static class Embedded {
+        /** Embedded API group. */
+        public static final ErrorGroup EMBEDDED_ERR_GROUP = registerGroup("EMBEDDED", (short) 21);
+
+        /** Cluster is not yet initialized. */
+        public static final int CLUSTER_NOT_INITIALIZED_ERR = EMBEDDED_ERR_GROUP.registerErrorCode((short) 1);
+
+        /** Cluster initialization failed. */
+        public static final int CLUSTER_INIT_FAILED_ERR = EMBEDDED_ERR_GROUP.registerErrorCode((short) 2);
+
+        /** Node not started. */
+        public static final int NODE_NOT_STARTED_ERR = EMBEDDED_ERR_GROUP.registerErrorCode((short) 3);
+
+        /** Node start failed.. */
+        public static final int NODE_START_ERR = EMBEDDED_ERR_GROUP.registerErrorCode((short) 4);
+    }
 }

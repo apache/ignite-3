@@ -24,8 +24,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.EmbeddedNode;
-import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -44,14 +43,14 @@ public abstract class AbstractExamplesTest extends IgniteAbstractTest {
     protected static final String[] EMPTY_ARGS = new String[0];
 
     /** Started embedded node. */
-    private EmbeddedNode node;
+    private IgniteServer node;
 
     /**
      * Starts a node.
      */
     @BeforeEach
     public void startNode() throws Exception {
-        node = EmbeddedNode.create(
+        node = IgniteServer.start(
                 TEST_NODE_NAME,
                 configFile(),
                 workDir
@@ -62,10 +61,8 @@ public abstract class AbstractExamplesTest extends IgniteAbstractTest {
                 .clusterName("cluster")
                 .build();
 
-        node.initCluster(initParameters);
-
-        CompletableFuture<Ignite> igniteFuture = node.igniteAsync();
-        assertThat(igniteFuture, willCompleteSuccessfully());
+        CompletableFuture<Void> initFuture = node.initClusterAsync(initParameters);
+        assertThat(initFuture, willCompleteSuccessfully());
     }
 
     /**
@@ -73,7 +70,7 @@ public abstract class AbstractExamplesTest extends IgniteAbstractTest {
      */
     @AfterEach
     public void stopNode() {
-        node.stop();
+        node.shutdown();
     }
 
     /**

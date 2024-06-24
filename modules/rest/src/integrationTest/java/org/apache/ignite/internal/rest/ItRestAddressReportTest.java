@@ -27,7 +27,7 @@ import java.net.URL;
 import java.net.UnknownHostException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import org.apache.ignite.EmbeddedNode;
+import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.app.IgniteRunner;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -55,7 +55,7 @@ public class ItRestAddressReportTest extends BaseIgniteAbstractTest {
         Path configPath = Path.of(ItRestAddressReportTest.class.getResource("/ignite-config-rest-port-not-default.json").toURI());
 
         // When start node
-        EmbeddedNode node = IgniteRunner.start(
+        IgniteServer node = IgniteRunner.start(
                 "--config-path", configPath.toAbsolutePath().toString(),
                 "--work-dir", workDir.resolve(NODE_NAME).toAbsolutePath().toString(),
                 "--node-name", NODE_NAME
@@ -70,7 +70,7 @@ public class ItRestAddressReportTest extends BaseIgniteAbstractTest {
         TestIgnitionManager.init(node, initParameters);
 
         // Then node is started
-        assertThat(node.igniteAsync(), willCompleteSuccessfully());
+        assertThat(node.waitForInitAsync(), willCompleteSuccessfully());
 
         // And there is a file in work dir with the rest address
         Path reportFile = workDir.resolve(NODE_NAME).resolve("rest-address");
@@ -82,7 +82,7 @@ public class ItRestAddressReportTest extends BaseIgniteAbstractTest {
         assertThat(restUri.getPort(), is(equalTo(10333)));
 
         // When stop node
-        node.stop();
+        node.shutdown();
 
         // Then the file is removed
         assertThat(Files.exists(reportFile), is(false));

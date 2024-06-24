@@ -21,7 +21,8 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThr
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.notNullValue;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -30,38 +31,33 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
-import org.apache.ignite.EmbeddedNode;
-import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.ClusterNotInitializedException;
+import org.apache.ignite.lang.NodeStartException;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
- * Ignition interface tests.
+ * IgniteServer interface tests.
  */
 @ExtendWith(WorkDirectoryExtension.class)
-class ItIgnitionTest extends BaseIgniteAbstractTest {
+class ItIgniteServerTest extends BaseIgniteAbstractTest {
     /** Network ports of the test nodes. */
     private static final int[] PORTS = {3344, 3345, 3346};
 
     /** Nodes bootstrap configuration. */
     private final Map<String, String> nodesBootstrapCfg = new LinkedHashMap<>();
 
-    private final List<EmbeddedNode> startedEmbeddedNodes = new ArrayList<>();
-
-    /** Collection of started nodes. */
-    private final List<Ignite> startedNodes = new ArrayList<>();
+    private final List<IgniteServer> startedIgniteServers = new ArrayList<>();
 
     /** Path to the working directory. */
     @WorkDirectory
@@ -124,31 +120,56 @@ class ItIgnitionTest extends BaseIgniteAbstractTest {
      */
     @AfterEach
     void tearDown() throws Exception {
-        IgniteUtils.closeAll(startedEmbeddedNodes.stream().map(node -> node::stop));
+        IgniteUtils.closeAll(startedIgniteServers.stream().map(node -> node::shutdown));
     }
 
     /**
-     * Check that Ignition.start() with bootstrap configuration returns Ignite instance.
+     * Check that EmbeddedNode.start() with bootstrap configuration starts a node and its api() method throws an exception because the
+     * cluster is not initialized.
      */
     @Test
     void testNodesStartWithBootstrapConfiguration() {
         for (Map.Entry<String, String> e : nodesBootstrapCfg.entrySet()) {
-            startNode(e.getKey(), name -> {
-                Path nodeWorkDir = workDir.resolve(name);
-                Path configPath = nodeWorkDir.resolve("ignite-config.conf");
-                try {
-                    Files.createDirectories(nodeWorkDir);
-                    Files.writeString(configPath, e.getValue());
-                } catch (IOException ex) {
-                    throw new RuntimeException(ex);
-                }
-                return EmbeddedNode.create(name, configPath, nodeWorkDir);
-            });
+            startNode(e.getKey(), name -> startNode(name, e.getValue()));
         }
 
-        assertEquals(3, startedNodes.size());
+        assertThat(startedIgniteServers, hasSize(3));
 
-        startedNodes.forEach(Assertions::assertNotNull);
+        assertThrowsWithCause(
+                () -> startedIgniteServers.get(0).api(),
+                ClusterNotInitializedException.class,
+                "Cluster is not initialized."
+        );
+    }
+
+    /**
+     * Check that EmbeddedNode.start() with bootstrap configuration returns a node and its api() method returns Ignite instance after init.
+     */
+    @Test
+    void testNodesStartWithBootstrapConfigurationInitializedCluster() {
+        for (Map.Entry<String, String> e : nodesBootstrapCfg.entrySet()) {
+            startNode(e.getKey(), name -> startNode(name, e.getValue()));
+        }
+
+        assertThat(startedIgniteServers, hasSize(3));
+
+        IgniteServer igniteServer = startedIgniteServers.get(0);
+        InitParameters initParameters = InitParameters.builder()
+                .metaStorageNodes(igniteServer)
+                .clusterName("cluster")
+                .build();
+        assertThat(igniteServer.initClusterAsync(initParameters), willCompleteSuccessfully());
+
+        // Check the api method on the first node, it should be available after the initClusterAsync is complete.
+        assertThat(igniteServer.api(), notNullValue());
+
+        startedIgniteServers.forEach(node -> {
+            if (node != igniteServer) {
+                assertThrowsWithCause(node::api, ClusterNotInitializedException.class, "Cluster is not initialized.");
+            }
+            assertThat(node.waitForInitAsync(), willCompleteSuccessfully());
+            assertThat(node.api(), notNullValue());
+        });
     }
 
     /**
@@ -157,33 +178,26 @@ class ItIgnitionTest extends BaseIgniteAbstractTest {
     @Test
     void testErrorWhenStartNodeWithInvalidConfiguration() {
         assertThrowsWithCause(
-                () -> startNode(
-                        "invalid-config-name",
-                        name -> EmbeddedNode.create(name, Path.of("no-such-path"), workDir.resolve(name))
-                ),
-                IgniteException.class,
+                () -> IgniteServer.start("invalid-config-name", Path.of("no-such-path"), workDir.resolve("invalid-config-name")),
+                NodeStartException.class,
                 "Config file doesn't exist"
         );
     }
 
-    private void startNode(String nodeName, Function<String, EmbeddedNode> starter) {
-        EmbeddedNode node = starter.apply(nodeName);
+    private void startNode(String nodeName, Function<String, IgniteServer> starter) {
+        startedIgniteServers.add(starter.apply(nodeName));
+    }
 
-        startedEmbeddedNodes.add(node);
-
-        if (startedNodes.isEmpty()) {
-            InitParameters initParameters = InitParameters.builder()
-                    .metaStorageNodes(node)
-                    .clusterName("cluster")
-                    .build();
-            node.initCluster(initParameters);
+    private IgniteServer startNode(String name, String config) {
+        Path nodeWorkDir = workDir.resolve(name);
+        Path configPath = nodeWorkDir.resolve("ignite-config.conf");
+        try {
+            Files.createDirectories(nodeWorkDir);
+            Files.writeString(configPath, config);
+        } catch (IOException ex) {
+            throw new RuntimeException(ex);
         }
-
-        CompletableFuture<Ignite> future = node.igniteAsync();
-
-        assertThat(future, willCompleteSuccessfully());
-
-        startedNodes.add(future.join());
+        return IgniteServer.start(name, configPath, nodeWorkDir);
     }
 
 }

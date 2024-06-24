@@ -32,13 +32,12 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
-import org.apache.ignite.EmbeddedNode;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
@@ -172,7 +171,7 @@ public class ItSqlLogicTest extends BaseIgniteAbstractTest {
             + "}";
 
     /** Embedded nodes. */
-    private static final List<EmbeddedNode> NODES = new ArrayList<>();
+    private static final List<IgniteServer> NODES = new ArrayList<>();
 
     /** Cluster nodes. */
     private static final List<Ignite> CLUSTER_NODES = new ArrayList<>();
@@ -322,7 +321,7 @@ public class ItSqlLogicTest extends BaseIgniteAbstractTest {
     private static void startNodes() {
         String connectNodeAddr = "\"localhost:" + BASE_PORT + '\"';
 
-        List<EmbeddedNode> nodes = IntStream.range(0, NODES_COUNT)
+        List<IgniteServer> nodes = IntStream.range(0, NODES_COUNT)
                 .mapToObj(i -> {
                     String nodeName = NODE_NAME_PREFIX + i;
 
@@ -346,11 +345,10 @@ public class ItSqlLogicTest extends BaseIgniteAbstractTest {
                 .build();
         TestIgnitionManager.init(nodes.get(0), initParameters);
 
-        for (EmbeddedNode node : nodes) {
-            CompletableFuture<Ignite> future = node.igniteAsync();
-            assertThat(future, willCompleteSuccessfully());
+        for (IgniteServer node : nodes) {
+            assertThat(node.waitForInitAsync(), willCompleteSuccessfully());
 
-            IgniteImpl ignite = (IgniteImpl) future.join();
+            IgniteImpl ignite = (IgniteImpl) node.api();
             CLUSTER_NODES.add(ignite);
 
             ignite.metricManager().enable("jvm");
@@ -363,7 +361,7 @@ public class ItSqlLogicTest extends BaseIgniteAbstractTest {
         LOG.info(">>> Stopping cluster...");
 
         CLUSTER_NODES.clear();
-        IgniteUtils.closeAll(NODES.stream().map(node -> node::stop));
+        IgniteUtils.closeAll(NODES.stream().map(node -> node::shutdown));
 
         LOG.info(">>> Cluster is stopped.");
     }

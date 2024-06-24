@@ -32,12 +32,11 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.IntFunction;
 import java.util.stream.IntStream;
-import org.apache.ignite.EmbeddedNode;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.BaseIgniteRestartTest;
 import org.apache.ignite.internal.app.IgniteImpl;
@@ -82,9 +81,9 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
     public void afterEach() throws Exception {
         var closeables = new ArrayList<AutoCloseable>();
 
-        for (EmbeddedNode node : EMBEDDED_NODES) {
+        for (IgniteServer node : IGNITE_SERVERS) {
             if (node != null) {
-                closeables.add(node::stop);
+                closeables.add(node::shutdown);
             }
         }
 
@@ -104,11 +103,11 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
      */
     private static IgniteImpl startNode(int idx, String nodeName, @Nullable String cfgString, Path workDir) {
         assertTrue(CLUSTER_NODES.size() == idx || CLUSTER_NODES.get(idx) == null);
-        assertTrue(EMBEDDED_NODES.size() == idx || EMBEDDED_NODES.get(idx) == null);
+        assertTrue(IGNITE_SERVERS.size() == idx || IGNITE_SERVERS.get(idx) == null);
 
-        EmbeddedNode node = TestIgnitionManager.start(nodeName, cfgString, workDir.resolve(nodeName));
+        IgniteServer node = TestIgnitionManager.start(nodeName, cfgString, workDir.resolve(nodeName));
 
-        EMBEDDED_NODES.add(idx, node);
+        IGNITE_SERVERS.add(idx, node);
 
         if (CLUSTER_NODES.isEmpty()) {
             InitParameters initParameters = InitParameters.builder()
@@ -119,11 +118,9 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
             TestIgnitionManager.init(node, initParameters);
         }
 
-        CompletableFuture<Ignite> future = node.igniteAsync();
+        assertThat(node.waitForInitAsync(), willCompleteSuccessfully());
 
-        assertThat(future, willCompleteSuccessfully());
-
-        Ignite ignite = future.join();
+        Ignite ignite = node.api();
 
         CLUSTER_NODES.add(idx, ignite);
 
@@ -148,13 +145,13 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
     /** {@inheritDoc} */
     @Override
     protected void stopNode(int idx) {
-        EmbeddedNode node = EMBEDDED_NODES.get(idx);
+        IgniteServer node = IGNITE_SERVERS.get(idx);
 
         if (node != null) {
-            node.stop();
+            node.shutdown();
 
             CLUSTER_NODES.set(idx, null);
-            EMBEDDED_NODES.set(idx, null);
+            IGNITE_SERVERS.set(idx, null);
         }
     }
 

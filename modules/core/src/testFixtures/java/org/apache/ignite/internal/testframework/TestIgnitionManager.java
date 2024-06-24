@@ -31,7 +31,7 @@ import java.nio.file.Path;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
-import org.apache.ignite.EmbeddedNode;
+import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.hlc.TestClockService;
@@ -110,14 +110,14 @@ public class TestIgnitionManager {
      *         complete.
      * @throws IgniteException If error occurs while reading node configuration.
      */
-    public static EmbeddedNode start(String nodeName, @Nullable String configStr, Path workDir) {
+    public static IgniteServer start(String nodeName, @Nullable String configStr, Path workDir) {
         try {
             Files.createDirectories(workDir);
             Path configPath = workDir.resolve(DEFAULT_CONFIG_NAME);
 
             addDefaultsToConfigurationFile(configStr, configPath);
 
-            return EmbeddedNode.create(nodeName, configPath, workDir);
+            return IgniteServer.start(nodeName, configPath, workDir);
         } catch (IOException e) {
             throw new IgniteException("Couldn't write node config.", e);
         }
@@ -148,9 +148,9 @@ public class TestIgnitionManager {
      * specified explicitly.
      *
      * @param parameters Init parameters.
-     * @see EmbeddedNode#initCluster(InitParameters)
+     * @see IgniteServer#initCluster(InitParameters)
      */
-    public static void init(EmbeddedNode node, InitParameters parameters) {
+    public static void init(IgniteServer node, InitParameters parameters) {
         node.initCluster(applyTestDefaultsToClusterConfig(parameters));
     }
 

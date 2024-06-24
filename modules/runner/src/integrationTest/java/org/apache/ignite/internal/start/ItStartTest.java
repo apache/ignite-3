@@ -31,8 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
-import org.apache.ignite.EmbeddedNode;
-import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteServer;
 import org.apache.ignite.internal.Cluster;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.index.IndexManager;
@@ -131,13 +130,13 @@ class ItStartTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void startFutureCompletesInCommonPool() {
+    void waitForInitFutureCompletesInCommonPool() {
         cluster.startAndInit(1);
 
         AtomicReference<String> threadNameRef = new AtomicReference<>();
 
-        EmbeddedNode node = cluster.startEmbeddedNode(1);
-        CompletableFuture<Ignite> future = node.igniteAsync().whenComplete((res, ex) -> {
+        IgniteServer node = cluster.startEmbeddedNode(1);
+        CompletableFuture<Void> future = node.waitForInitAsync().whenComplete((res, ex) -> {
             threadNameRef.set(Thread.currentThread().getName());
         });
 

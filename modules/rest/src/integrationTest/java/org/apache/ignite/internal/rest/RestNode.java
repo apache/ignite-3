@@ -21,9 +21,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.escapeWin
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.getResourcePath;
 
 import java.nio.file.Path;
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.EmbeddedNode;
-import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteServer;
 import org.apache.ignite.internal.rest.ssl.ItRestSslTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 
@@ -44,9 +42,7 @@ public class RestNode {
     private final boolean dualProtocol;
     private final String ciphers;
 
-    private EmbeddedNode igniteNode;
-
-    private CompletableFuture<Ignite> igniteNodeFuture;
+    private IgniteServer igniteNode;
 
     /** Constructor. */
     public RestNode(
@@ -84,21 +80,13 @@ public class RestNode {
     }
 
     /** Starts the node. */
-    public CompletableFuture<Ignite> start() {
+    public void start() {
         igniteNode = TestIgnitionManager.start(name, bootstrapCfg(), workDir.resolve(name));
-        return igniteNodeFuture;
-    }
-
-    /** Restarts the node. */
-    public CompletableFuture<Ignite> restart() {
-        igniteNode.stop();
-        igniteNode.start();
-        return igniteNodeFuture;
     }
 
     /** Stops the node. */
     public void stop() {
-        igniteNode.stop();
+        igniteNode.shutdown();
     }
 
     /** Returns the node name. */
@@ -114,11 +102,6 @@ public class RestNode {
     /** Returns HTTPS address of the node. Uses the port that was used in the config. */
     public String httpsAddress() {
         return "https://localhost:" + httpsPort;
-    }
-
-    /** Returns future of the node. */
-    public CompletableFuture<Ignite> igniteNodeFuture() {
-        return igniteNodeFuture;
     }
 
     private String bootstrapCfg() {

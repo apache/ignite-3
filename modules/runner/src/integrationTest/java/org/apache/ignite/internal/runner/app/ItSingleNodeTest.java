@@ -19,10 +19,11 @@ package org.apache.ignite.internal.runner.app;
 
 import static org.apache.ignite.internal.network.configuration.NetworkConfigurationSchema.DEFAULT_PORT;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 
-import java.util.concurrent.TimeUnit;
-import org.apache.ignite.EmbeddedNode;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -45,12 +46,12 @@ public class ItSingleNodeTest extends IgniteAbstractTest {
 
     private String nodeName;
 
-    private EmbeddedNode node;
+    private IgniteServer node;
 
     private Ignite ignite;
 
     @BeforeEach
-    void setUp(TestInfo testInfo) throws Exception {
+    void setUp(TestInfo testInfo) {
         nodeName = testNodeName(testInfo, 0);
 
         node = TestIgnitionManager.start(nodeName, NODE_CONFIG, workDir.resolve(nodeName));
@@ -62,12 +63,14 @@ public class ItSingleNodeTest extends IgniteAbstractTest {
 
         node.initCluster(parameters);
 
-        ignite = node.igniteAsync().get(30, TimeUnit.SECONDS);
+        assertThat(node.waitForInitAsync(), willCompleteSuccessfully());
+
+        ignite = node.api();
     }
 
     @AfterEach
     void tearDown() {
-        node.stop();
+        node.shutdown();
     }
 
     /**
@@ -75,7 +78,7 @@ public class ItSingleNodeTest extends IgniteAbstractTest {
      */
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-20911")
     @Test
-    void testManyPutsAfterRestart() throws Exception {
+    void testManyPutsAfterRestart() {
         String sqlCreate = "CREATE TABLE " + TABLE_NAME + "(\n"
                 + "    key int PRIMARY KEY,\n"
                 + "    field1   int\n"
@@ -83,9 +86,12 @@ public class ItSingleNodeTest extends IgniteAbstractTest {
 
         ignite.sql().execute(null, sqlCreate);
 
-        node.stop();
-        node.start();
-        ignite = node.igniteAsync().get(30, TimeUnit.SECONDS);
+        node.shutdown();
+
+        node = TestIgnitionManager.start(nodeName, NODE_CONFIG, workDir.resolve(nodeName));
+        assertThat(node.waitForInitAsync(), willCompleteSuccessfully());
+
+        ignite = node.api();
 
         KeyValueView<Tuple, Tuple> keyValueView = ignite.tables().table(TABLE_NAME).keyValueView();
 
