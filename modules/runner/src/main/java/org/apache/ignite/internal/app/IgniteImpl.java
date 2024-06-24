@@ -536,7 +536,8 @@ public class IgniteImpl implements Ignite {
                 msRaftWorkDir,
                 clock,
                 raftGroupEventsClientListener,
-                msLogStorageFactory
+                msLogStorageFactory,
+                "msRaft"
         );
 
         LockManager lockMgr = new HeapLockManager();

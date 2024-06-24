@@ -102,6 +102,8 @@ public class Loza implements RaftManager {
 
     private final MetricManager metricManager;
 
+    private final String metricName;
+
     /**
      * The constructor.
      *
@@ -121,9 +123,42 @@ public class Loza implements RaftManager {
             RaftGroupEventsClientListener raftGroupEventsClientListener,
             LogStorageFactory defaultLogStorageFactory
     ) {
+        this(
+                clusterNetSvc,
+                metricManager,
+                raftConfiguration,
+                dataPath,
+                clock,
+                raftGroupEventsClientListener,
+                defaultLogStorageFactory,
+                null
+        );
+    }
+
+    /**
+     * The constructor.
+     *
+     * @param clusterNetSvc Cluster network service.
+     * @param metricManager Metric manager.
+     * @param raftConfiguration Raft configuration.
+     * @param dataPath Data path.
+     * @param clock A hybrid logical clock.
+     * @param defaultLogStorageFactory The factory for default log storage.
+     */
+    public Loza(
+            ClusterService clusterNetSvc,
+            MetricManager metricManager,
+            RaftConfiguration raftConfiguration,
+            Path dataPath,
+            HybridClock clock,
+            RaftGroupEventsClientListener raftGroupEventsClientListener,
+            LogStorageFactory defaultLogStorageFactory,
+            @Nullable String metricName
+    ) {
         this.clusterNetSvc = clusterNetSvc;
         this.raftConfiguration = raftConfiguration;
         this.metricManager = metricManager;
+        this.metricName = metricName;
 
         NodeOptions options = new NodeOptions();
 
@@ -165,7 +200,9 @@ public class Loza implements RaftManager {
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         RaftView raftConfig = raftConfiguration.value();
 
-        var stripeSource = new RaftMetricSource(raftConfiguration.value().stripes(), raftConfiguration.value().logStripesCount());
+        var stripeSource = metricName == null
+                ? new RaftMetricSource(raftConfiguration.value().stripes(), raftConfiguration.value().logStripesCount())
+                : new RaftMetricSource(raftConfiguration.value().stripes(), raftConfiguration.value().logStripesCount(), metricName);
 
         metricManager.registerSource(stripeSource);
         metricManager.enable(stripeSource);

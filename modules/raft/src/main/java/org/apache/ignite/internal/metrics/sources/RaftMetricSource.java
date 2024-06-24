@@ -55,6 +55,8 @@ public class RaftMetricSource implements MetricSource {
     /** Metric set. */
     private final Map<String, Metric> metrics;
 
+    private final String sourceName;
+
     /**
      * Constructor.
      *
@@ -66,17 +68,35 @@ public class RaftMetricSource implements MetricSource {
         this.logStripeCount = logStripeCount;
 
         this.metrics = createMetrics();
+
+        this.sourceName = SOURCE_NAME;
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param stripeCount Count of stripes.
+     * @param logStripeCount Log manager disruptor stripe count.
+     * @param sourceName Metric source name.
+     */
+    public RaftMetricSource(int stripeCount, int logStripeCount, String sourceName) {
+        this.stripeCount = stripeCount;
+        this.logStripeCount = logStripeCount;
+
+        this.metrics = createMetrics();
+
+        this.sourceName = sourceName;
     }
 
     @Override
     public String name() {
-        return SOURCE_NAME;
+        return sourceName;
     }
 
     @Override
     public @Nullable MetricSet enable() {
         if (ENABLED.compareAndSet(this, false, true)) {
-            return new MetricSet(SOURCE_NAME, metrics);
+            return new MetricSet(sourceName, metrics);
         }
 
         return null;
