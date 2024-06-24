@@ -25,14 +25,11 @@ import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Representation of a logical node in a cluster.
  */
 public class LogicalNode extends ClusterNodeImpl {
-    private static final long serialVersionUID = -6813841530631840902L;
-
     /**
      * Node's attributes.
      *
@@ -54,13 +51,13 @@ public class LogicalNode extends ClusterNodeImpl {
     /**
      * Constructor.
      *
-     * @param id Local id that changes between restarts.
-     * @param name Unique name of a member in a cluster, {@code null} if the node has not been added to the topology.
+     * @param id      Local id that changes between restarts.
+     * @param name    Unique name of a member in a cluster.
      * @param address Node address.
      */
     public LogicalNode(
             String id,
-            @Nullable String name,
+            String name,
             NetworkAddress address
     ) {
         super(id, name, address);
@@ -137,6 +134,7 @@ public class LogicalNode extends ClusterNodeImpl {
         return storageProfiles;
     }
 
+    /** {@inheritDoc} */
     @Override
     public String toString() {
         return S.toString(LogicalNode.class, this, super.toString());
