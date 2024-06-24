@@ -1124,7 +1124,7 @@ TEST_P(tuple_big_decimal_zeros, DecimalZerosTest) { // NOLINT(cert-err58-cpp)
 }
 
 INSTANTIATE_TEST_SUITE_P(zeros, tuple_big_decimal_zeros,
-    testing::Values(big_decimal("0"), big_decimal("-0"), big_decimal("0E1000"), big_decimal("0E-1000"), big_decimal(0L),
+    testing::Values(big_decimal("0"), big_decimal("-0"), big_decimal("0E1000"), big_decimal("0E-1000"), big_decimal(0LL),
         big_decimal(std::int64_t(0), 10)));
 
 class tuple_big_decimal : public testing::TestWithParam<big_decimal> {};
@@ -1134,24 +1134,24 @@ TEST_P(tuple_big_decimal, WriteReadEqualityTest) { // NOLINT(cert-err58-cpp)
 }
 
 INSTANTIATE_TEST_SUITE_P(positive_ints, tuple_big_decimal,
-    testing::Values(big_decimal(1L), big_decimal(9L), big_decimal(10L), big_decimal(11L), big_decimal(19L),
-        big_decimal(123L), big_decimal(1234L), big_decimal(12345L), big_decimal(123456L), big_decimal(1234567L),
-        big_decimal(12345678L), big_decimal(123456789L), big_decimal(1234567890L), big_decimal(12345678909),
+    testing::Values(big_decimal(1LL), big_decimal(9LL), big_decimal(10LL), big_decimal(11LL), big_decimal(19LL),
+        big_decimal(123LL), big_decimal(1234LL), big_decimal(12345LL), big_decimal(123456LL), big_decimal(1234567LL),
+        big_decimal(12345678LL), big_decimal(123456789LL), big_decimal(1234567890LL), big_decimal(12345678909),
         big_decimal(123456789098), big_decimal(1234567890987), big_decimal(12345678909876),
         big_decimal(123456789098765), big_decimal(1234567890987654), big_decimal(12345678909876543),
-        big_decimal(123456789098765432), big_decimal(1234567890987654321), big_decimal(999999999999999999L),
-        big_decimal(999999999099999999L), big_decimal(1000000000000000000L), big_decimal(1000000000000000001L),
-        big_decimal(1000000005000000000L), big_decimal(INT64_MAX)));
+        big_decimal(123456789098765432), big_decimal(1234567890987654321), big_decimal(999999999999999999LL),
+        big_decimal(999999999099999999LL), big_decimal(1000000000000000000LL), big_decimal(1000000000000000001LL),
+        big_decimal(1000000005000000000LL), big_decimal(INT64_MAX)));
 
 INSTANTIATE_TEST_SUITE_P(negative_ints, tuple_big_decimal,
-    testing::Values(big_decimal(-1L), big_decimal(-9L), big_decimal(-10L), big_decimal(-11L), big_decimal(-19L),
-        big_decimal(-123L), big_decimal(-1234L), big_decimal(-12345L), big_decimal(-123456L), big_decimal(-1234567L),
-        big_decimal(-12345678L), big_decimal(-123456789L), big_decimal(-1234567890L), big_decimal(-12345678909),
+    testing::Values(big_decimal(-1LL), big_decimal(-9LL), big_decimal(-10LL), big_decimal(-11LL), big_decimal(-19LL),
+        big_decimal(-123LL), big_decimal(-1234LL), big_decimal(-12345LL), big_decimal(-123456LL), big_decimal(-1234567LL),
+        big_decimal(-12345678LL), big_decimal(-123456789LL), big_decimal(-1234567890LL), big_decimal(-12345678909),
         big_decimal(-123456789098), big_decimal(-1234567890987), big_decimal(-12345678909876),
         big_decimal(-123456789098765), big_decimal(-1234567890987654), big_decimal(-12345678909876543),
-        big_decimal(-123456789098765432), big_decimal(-1234567890987654321), big_decimal(-999999999999999999L),
-        big_decimal(-999999999099999999L), big_decimal(-1000000000000000000L), big_decimal(-1000000000000000001L),
-        big_decimal(-1000000005000000000L), big_decimal(INT64_MIN)));
+        big_decimal(-123456789098765432), big_decimal(-1234567890987654321), big_decimal(-999999999999999999LL),
+        big_decimal(-999999999099999999LL), big_decimal(-1000000000000000000LL), big_decimal(-1000000000000000001LL),
+        big_decimal(-1000000005000000000LL), big_decimal(INT64_MIN)));
 
 INSTANTIATE_TEST_SUITE_P(strings, tuple_big_decimal,
     testing::Values(big_decimal("1"), big_decimal("2"), big_decimal("9"), big_decimal("10"), big_decimal("1123"),
