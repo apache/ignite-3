@@ -86,7 +86,7 @@ extractParserTemplate.dependsOn copyFmppResources
 generateFmppSources.dependsOn extractParserTemplate
 javaccTemplate.dependsOn generateFmppSources
 compileJava.dependsOn javaccTemplate
-javadocJar.dependsOn javaccTemplate
+javadocJar.dependsOn compileJava
 
 idea.module {
     sourceDirs += file("${buildDir}/generated-sources/javacc")
