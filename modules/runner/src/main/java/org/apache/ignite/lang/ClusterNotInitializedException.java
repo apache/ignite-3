@@ -19,6 +19,7 @@ package org.apache.ignite.lang;
 
 import static org.apache.ignite.lang.ErrorGroups.Embedded.CLUSTER_NOT_INITIALIZED_ERR;
 
+/** Thrown when cluster is not yet initialized. */
 public class ClusterNotInitializedException extends IgniteException {
 
     public ClusterNotInitializedException() {

@@ -1187,9 +1187,9 @@ public class IgniteImpl implements Ignite {
                         lowWatermark.scheduleUpdates();
 
                         // Enable client requests handling on start complete.
-                            clientHandlerModule.enable();
+                        clientHandlerModule.enable();
 
-                            // Enable REST component on start complete.
+                        // Enable REST component on start complete.
                         restComponent.enable();
                         // Transfer the node to the STARTED state.
                         lifecycleManager.onStartComplete();

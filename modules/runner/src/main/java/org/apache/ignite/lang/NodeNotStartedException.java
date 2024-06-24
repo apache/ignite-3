@@ -19,6 +19,7 @@ package org.apache.ignite.lang;
 
 import static org.apache.ignite.lang.ErrorGroups.Embedded.NODE_NOT_STARTED_ERR;
 
+/** Thrown when embedded node is not yet started or it's already stopped. */
 public class NodeNotStartedException extends IgniteException {
 
     public NodeNotStartedException() {

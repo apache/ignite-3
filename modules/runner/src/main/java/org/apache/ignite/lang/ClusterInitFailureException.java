@@ -21,6 +21,7 @@ import static org.apache.ignite.lang.ErrorGroups.Embedded.CLUSTER_INIT_FAILED_ER
 
 import org.jetbrains.annotations.Nullable;
 
+/** Thrown when cluster initialization failed. */
 public class ClusterInitFailureException extends IgniteException {
 
     public ClusterInitFailureException(String message) {

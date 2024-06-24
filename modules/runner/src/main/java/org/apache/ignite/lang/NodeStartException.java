@@ -21,6 +21,7 @@ import static org.apache.ignite.lang.ErrorGroups.Embedded.NODE_START_ERR;
 
 import org.jetbrains.annotations.Nullable;
 
+/** Thrown when node failed to start. */
 public class NodeStartException extends IgniteException {
 
     public NodeStartException(String message, @Nullable Throwable cause) {
