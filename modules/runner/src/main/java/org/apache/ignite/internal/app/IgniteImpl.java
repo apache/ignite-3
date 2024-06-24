@@ -307,6 +307,9 @@ public class IgniteImpl implements Ignite {
     /** Raft manager. */
     private final Loza raftMgr;
 
+    /** Raft manager for metastorage. */
+    private final Loza msRaftMgr;
+
     /** Meta storage manager. */
     private final MetaStorageManagerImpl metaStorageMgr;
 
@@ -412,6 +415,9 @@ public class IgniteImpl implements Ignite {
     /** Default log storage factory for raft. */
     private final LogStorageFactory logStorageFactory;
 
+    /** Default log storage factory for metastorage raft. */
+    private final LogStorageFactory msLogStorageFactory;
+
     private IndexMetaStorage indexMetaStorage;
 
     /**
@@ -505,16 +511,32 @@ public class IgniteImpl implements Ignite {
         // TODO https://issues.apache.org/jira/browse/IGNITE-19051
         RaftGroupEventsClientListener raftGroupEventsClientListener = new RaftGroupEventsClientListener();
 
-        logStorageFactory = SharedLogStorageFactoryUtils.create(clusterSvc.nodeName(), workDir, raftConfiguration);
+        Path msRaftWorkDir = workDir.resolve("ms_raft");
+
+        Path nodeRaftWorkDir = workDir.resolve("node_raft");
+
+        logStorageFactory = SharedLogStorageFactoryUtils.create(clusterSvc.nodeName(), nodeRaftWorkDir, raftConfiguration);
+
+        msLogStorageFactory = SharedLogStorageFactoryUtils.create(clusterSvc.nodeName(), msRaftWorkDir, raftConfiguration);
 
         raftMgr = new Loza(
                 clusterSvc,
                 metricManager,
                 raftConfiguration,
-                workDir,
+                nodeRaftWorkDir,
                 clock,
                 raftGroupEventsClientListener,
                 logStorageFactory
+        );
+
+        msRaftMgr = new Loza(
+                clusterSvc,
+                metricManager,
+                raftConfiguration,
+                msRaftWorkDir,
+                clock,
+                raftGroupEventsClientListener,
+                msLogStorageFactory
         );
 
         LockManager lockMgr = new HeapLockManager();
@@ -585,7 +607,7 @@ public class IgniteImpl implements Ignite {
                 clusterSvc,
                 cmgMgr,
                 logicalTopologyService,
-                raftMgr,
+                msRaftMgr,
                 new RocksDbKeyValueStorage(name, workDir.resolve(METASTORAGE_DB_PATH), failureProcessor),
                 clock,
                 topologyAwareRaftGroupServiceFactory,
@@ -723,6 +745,7 @@ public class IgniteImpl implements Ignite {
 
         this.indexMetaStorage = new IndexMetaStorage(catalogManager, lowWatermark, metaStorageMgr);
 
+        // todo: where should these be? on ms or on the rest or both?
         raftMgr.appendEntriesRequestInterceptor(new CheckCatalogVersionOnAppendEntries(catalogManager));
         raftMgr.actionRequestInterceptor(new CheckCatalogVersionOnActionRequest(catalogManager));
 
@@ -1093,7 +1116,9 @@ public class IgniteImpl implements Ignite {
                     clusterSvc,
                     restComponent,
                     logStorageFactory,
+                    msLogStorageFactory,
                     raftMgr,
+                    msRaftMgr,
                     clusterStateStorage,
                     cmgMgr,
                     lowWatermark

@@ -69,6 +69,7 @@ public class DataStorageModules {
     }
 
     /**
+     * todo: incomplete params in javadoc
      * Creates new storage engines unique by {@link DataStorageModule#name name}.
      *
      * @param igniteInstanceName String igniteInstanceName
