@@ -77,7 +77,8 @@ public interface MessagingService {
      * exist.
      *
      * @param recipient Recipient of the message.
-     * @param msg       Message which should be delivered.
+     * @param channelType Channel which will be used to message transfer.
+     * @param msg Message which should be delivered.
      * @return Future of the send operation.
      */
     CompletableFuture<Void> send(ClusterNode recipient, ChannelType channelType, NetworkMessage msg);
@@ -97,7 +98,8 @@ public interface MessagingService {
      * exist.
      *
      * @param recipientConsistentId Consistent ID of the recipient of the message.
-     * @param msg       Message which should be delivered.
+     * @param channelType Channel which will be used to message transfer.
+     * @param msg Message which should be delivered.
      * @return Future of the send operation.
      */
     CompletableFuture<Void> send(String recipientConsistentId, ChannelType channelType, NetworkMessage msg);
@@ -119,8 +121,9 @@ public interface MessagingService {
      * Sends a response to a {@link #invoke} request.
      * Guarantees are the same as for the {@link #send(ClusterNode, NetworkMessage)}.
      *
-     * @param recipient     Recipient of the message.
-     * @param msg           Message which should be delivered.
+     * @param recipient Recipient of the message.
+     * @param channelType Channel which will be used to message transfer.
+     * @param msg Message which should be delivered.
      * @param correlationId Correlation id when replying to the request.
      * @return Future of the send operation.
      */

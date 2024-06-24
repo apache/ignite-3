@@ -218,8 +218,9 @@ public class DefaultMessagingService extends AbstractMessagingService {
      * Sends a message. If the target is the current node, then message will be delivered immediately.
      *
      * @param recipient Target cluster node.
+     * @param type Channel which will be used to message transfer.
      * @param msg Message.
-     * @param correlationId Correlation id. Not null iff the message is a response to a {@link #invoke} request.
+     * @param correlationId Correlation id. Not {@code null} iff the message is a response to a {@link #invoke} request.
      * @return Future of the send operation.
      */
     private CompletableFuture<Void> send0(ClusterNode recipient, ChannelType type, NetworkMessage msg, @Nullable Long correlationId) {
@@ -236,9 +237,11 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         if (isSelf(recipient.name(), recipientAddress)) {
             if (correlationId != null) {
-                onInvokeResponse(msg, correlationId);
+                // Choice of a thread pool was intentionally made to increase the system throughput.
+                Executor executor = chooseExecutorInInboundPoolToSendSelf(type, msg);
+                executor.execute(() -> onInvokeResponse(msg, correlationId));
             } else {
-                sendToSelf(msg, null);
+                sendToSelf(msg, type, null);
             }
 
             return nullCompletedFuture();
@@ -283,7 +286,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
         InetSocketAddress recipientAddress = new InetSocketAddress(recipient.address().host(), recipient.address().port());
 
         if (isSelf(recipient.name(), recipientAddress)) {
-            sendToSelf(msg, correlationId);
+            sendToSelf(msg, type, correlationId);
 
             return responseFuture;
         }
@@ -345,12 +348,19 @@ public class DefaultMessagingService extends AbstractMessagingService {
      * Sends a message to the current node.
      *
      * @param message Message.
-     * @param correlationId Correlation id.
+     * @param channelType Channel which will be used to message transfer.
+     * @param correlationId Correlation ID. Not {@code null} iff the message is a response to a {@link #invoke} request.
      */
-    private void sendToSelf(NetworkMessage message, @Nullable Long correlationId) {
-        for (HandlerContext context : getHandlerContexts(message.groupType())) {
-            // Invoking on the same thread, ignoring the executor chooser registered with the handler.
-            context.handler().onReceived(message, topologyService.localMember(), correlationId);
+    private void sendToSelf(NetworkMessage message, ChannelType channelType, @Nullable Long correlationId) {
+        List<HandlerContext> handlerContexts = getHandlerContexts(message.groupType());
+
+        // Specially made by a classic loop for optimization.
+        for (int i = 0; i < handlerContexts.size(); i++) {
+            HandlerContext handlerContext = handlerContexts.get(i);
+
+            // Choice of a thread pool was intentionally made to increase the system throughput.
+            Executor executor = chooseExecutorInInboundPoolToSendSelf(channelType, message);
+            executor.execute(() -> handlerContext.handler().onReceived(message, topologyService.localMember(), correlationId));
         }
     }
 
@@ -684,6 +694,20 @@ public class DefaultMessagingService extends AbstractMessagingService {
             for (CriticalWorker worker : registeredWorkers) {
                 workerRegistry.unregister(worker);
             }
+        }
+    }
+
+    private Executor chooseExecutorInInboundPoolToSendSelf(ChannelType channelType, NetworkMessage message) {
+        int stripeIndex = safeAbs(message.getClass().hashCode());
+
+        return inboundExecutors.executorFor(channelType.id(), stripeIndex);
+    }
+
+    private Executor chooseExecutorForSendSelf(NetworkMessage payload, ChannelType channelType, ExecutorChooser<NetworkMessage> chooser) {
+        if (wantsInboundPool(chooser)) {
+            return chooseExecutorInInboundPoolToSendSelf(channelType, payload);
+        } else {
+            return chooser.choose(payload);
         }
     }
 }
