@@ -19,6 +19,7 @@ package org.apache.ignite.lang;
 
 import static org.apache.ignite.lang.ErrorGroups.Embedded.CLUSTER_INIT_FAILED_ERR;
 
+import java.util.UUID;
 import org.jetbrains.annotations.Nullable;
 
 /** Thrown when cluster initialization failed. */
@@ -30,5 +31,9 @@ public class ClusterInitFailureException extends IgniteException {
 
     public ClusterInitFailureException(String message, @Nullable Throwable cause) {
         super(CLUSTER_INIT_FAILED_ERR, message, cause);
+    }
+
+    public ClusterInitFailureException(UUID traceId, int code, String message, @Nullable Throwable cause) {
+        super(traceId, code, message, cause);
     }
 }

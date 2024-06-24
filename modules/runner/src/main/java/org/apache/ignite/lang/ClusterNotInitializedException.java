@@ -19,10 +19,18 @@ package org.apache.ignite.lang;
 
 import static org.apache.ignite.lang.ErrorGroups.Embedded.CLUSTER_NOT_INITIALIZED_ERR;
 
+import java.util.UUID;
+import org.jetbrains.annotations.Nullable;
+
 /** Thrown when cluster is not yet initialized. */
 public class ClusterNotInitializedException extends IgniteException {
 
     public ClusterNotInitializedException() {
         super(CLUSTER_NOT_INITIALIZED_ERR, "Cluster is not initialized.");
+    }
+
+    public ClusterNotInitializedException(UUID traceId, int code, String message,
+            @Nullable Throwable cause) {
+        super(traceId, code, message, cause);
     }
 }

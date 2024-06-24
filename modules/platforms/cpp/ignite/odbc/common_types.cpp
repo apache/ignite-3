@@ -304,6 +304,13 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::PARTITION_STATE:
         case error::code::CLUSTER_NOT_IDLE:
             return sql_state::SHY000_GENERAL_ERROR;
+
+        // Embedded group. Group code: 21
+        case error::code::CLUSTER_NOT_INITIALIZED:
+        case error::code::CLUSTER_INIT_FAILED:
+        case error::code::NODE_NOT_STARTED:
+        case error::code::NODE_START:
+            return sql_state::SHY000_GENERAL_ERROR;
     }
 
     return sql_state::SHY000_GENERAL_ERROR;

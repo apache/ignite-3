@@ -19,10 +19,17 @@ package org.apache.ignite.lang;
 
 import static org.apache.ignite.lang.ErrorGroups.Embedded.NODE_NOT_STARTED_ERR;
 
+import java.util.UUID;
+import org.jetbrains.annotations.Nullable;
+
 /** Thrown when embedded node is not yet started or it's already stopped. */
 public class NodeNotStartedException extends IgniteException {
 
     public NodeNotStartedException() {
         super(NODE_NOT_STARTED_ERR, "Node is not started.");
+    }
+
+    public NodeNotStartedException(UUID traceId, int code, String message, @Nullable Throwable cause) {
+        super(traceId, code, message, cause);
     }
 }
