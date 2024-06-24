@@ -175,9 +175,6 @@ public class InternalTableImpl implements InternalTable {
     /** Map update guarded by {@link #updatePartitionMapsMux}. */
     private volatile Int2ObjectMap<PendingComparableValuesTracker<Long, Void>> storageIndexTrackerByPartitionId = emptyMap();
 
-    /** Table raft service. */
-    private final TableRaftServiceImpl tableRaftService;
-
     /** Implicit transaction timeout. */
     private final long implicitTransactionTimeout;
 
@@ -197,7 +194,6 @@ public class InternalTableImpl implements InternalTable {
      * @param replicaSvc Replica service.
      * @param clock A hybrid logical clock.
      * @param placementDriver Placement driver.
-     * @param tableRaftService Table raft service.
      * @param transactionInflights Transaction inflights.
      * @param implicitTransactionTimeout Implicit transaction timeout.
      * @param attemptsObtainLock Attempts to take lock.
@@ -214,7 +210,6 @@ public class InternalTableImpl implements InternalTable {
             HybridClock clock,
             HybridTimestampTracker observableTimestampTracker,
             PlacementDriver placementDriver,
-            TableRaftServiceImpl tableRaftService,
             TransactionInflights transactionInflights,
             long implicitTransactionTimeout,
             int attemptsObtainLock,
@@ -232,7 +227,6 @@ public class InternalTableImpl implements InternalTable {
         this.clock = clock;
         this.observableTimestampTracker = observableTimestampTracker;
         this.placementDriver = placementDriver;
-        this.tableRaftService = tableRaftService;
         this.transactionInflights = transactionInflights;
         this.implicitTransactionTimeout = implicitTransactionTimeout;
         this.attemptsObtainLock = attemptsObtainLock;
@@ -266,11 +260,6 @@ public class InternalTableImpl implements InternalTable {
     @Override
     public void name(String newName) {
         this.tableName = newName;
-    }
-
-    @Override
-    public TableRaftServiceImpl tableRaftService() {
-        return tableRaftService;
     }
 
     /**
@@ -2172,7 +2161,7 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public void close() {
-        tableRaftService.close();
+        // No-op
     }
 
     // TODO: IGNITE-17963 Use smarter logic for recipient node evaluation.

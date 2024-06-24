@@ -186,7 +186,6 @@ import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryDataStora
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineExtensionConfigurationSchema;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineExtensionConfigurationSchema;
 import org.apache.ignite.internal.table.InternalTable;
-import org.apache.ignite.internal.table.TableRaftService;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.TableManager;
@@ -486,8 +485,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         alterZone(node0, zoneName, 3);
 
         assertTrue(countDownLatch.await(10, SECONDS));
-
-        TableRaftService tableRaftService = nonLeaderTable.internalTable().tableRaftService();
 
         assertThat(
                 ReplicaTestUtils.getRaftClient(nonLeaderNode.replicaManager, nonLeaderTable.tableId(), 0)
