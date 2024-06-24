@@ -57,6 +57,10 @@ public class JobExecutionInternal<R> {
         return execution.state();
     }
 
+    public ComputeJob<?, R> jobInstance() {
+        return jobInstance;
+    }
+
     /**
      * Cancel job execution.
      *

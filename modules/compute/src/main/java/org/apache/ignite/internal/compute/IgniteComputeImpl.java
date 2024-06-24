@@ -108,10 +108,10 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
         if (target instanceof AnyNodeJobTarget) {
             Set<ClusterNode> nodes = ((AnyNodeJobTarget) target).nodes();
 
-        return executeAsyncWithFailover(nodes, descriptor.units(), descriptor.jobClassName(), descriptor.options(),
-                argumentMarshaler.marshal(args)
-        );
-    }
+            return executeAsyncWithFailover(
+                    nodes, descriptor.units(), descriptor.jobClassName(), descriptor.options(), argumentMarshaler.marshal(args)
+            );
+        }
 
         if (target instanceof ColocatedJobTarget) {
             ColocatedJobTarget colocatedTarget = (ColocatedJobTarget) target;

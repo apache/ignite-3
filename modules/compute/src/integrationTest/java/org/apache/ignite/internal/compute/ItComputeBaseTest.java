@@ -87,8 +87,13 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     void executesWrongJobClassLocally(String jobClassName, int errorCode, String msg) {
         IgniteImpl entryNode = node(0);
 
-        IgniteException ex = assertThrows(IgniteException.class, () ->
-                entryNode.compute().execute(JobTarget.node(entryNode.node()), JobDescriptor.builder(jobClassName).units(units()).build(), null));
+        IgniteException ex = assertThrows(
+                IgniteException.class, () ->
+                entryNode.compute().execute(
+                        JobTarget.node(entryNode.node()),
+                        JobDescriptor.builder(jobClassName).units(units()).build(),
+                        null
+                ));
 
         assertTraceableException(ex, ComputeException.class, errorCode, msg);
     }

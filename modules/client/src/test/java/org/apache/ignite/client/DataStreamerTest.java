@@ -247,14 +247,8 @@ public class DataStreamerTest extends AbstractClientTableTest {
                     .build();
 
             streamFut = withReceiver
-                    ? view.streamData(
-                        publisher,
-                        DataStreamerItem::get,
-                        t -> t.get().longValue("id"),
-                        ReceiverDescriptor.builder(TestUpsertReceiver.class).build(),
-                        null,
-                        options,
-                    null)
+                    ? view.streamData(publisher, DataStreamerItem::get, t -> t.get().longValue("id"),
+                    ReceiverDescriptor.builder(TestUpsertReceiver.class).build(), null, options, null)
                     : view.streamData(publisher, options);
 
             for (long i = 0; i < 1000; i++) {
@@ -445,7 +439,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
                     ReceiverDescriptor.builder(TestReceiver.class).build(),
                     resultSubscriber,
                     null,
-                    "arg" + ":" +  (withSubscriber ? "returnResults" : "noResults"));
+                    "arg" + ":" + (withSubscriber ? "returnResults" : "noResults"));
 
             for (long i = 0; i < count; i++) {
                 publisher.submit(new PersonPojo(i));
@@ -591,7 +585,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
                     ReceiverDescriptor.builder(TestReceiver.class).build(),
                     resultSubscriber,
                     options,
-                    "arg" + ":" + (resultCount < 0 ? null : "returnResults" ) + ":" + resultCount);
+                    "arg" + ":" + (resultCount < 0 ? null : "returnResults") + ":" + resultCount);
 
             for (long i = 0; i < 3; i++) {
                 publisher.submit(tuple(i));
@@ -671,7 +665,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
         testArgRoundtrip(LocalDateTime.now());
         testArgRoundtrip(Instant.now());
         testArgRoundtrip(UUID.randomUUID());
-        testArgRoundtrip(BitSet.valueOf(new long[] {1, 2, 3}));
+        testArgRoundtrip(BitSet.valueOf(new long[]{1, 2, 3}));
         testArgRoundtrip("Ignite 🔥");
         testArgRoundtrip(new byte[]{-1, 1});
         testArgRoundtrip(Period.ofDays(3));

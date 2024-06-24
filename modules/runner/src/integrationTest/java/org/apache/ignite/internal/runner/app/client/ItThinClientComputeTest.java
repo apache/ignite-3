@@ -419,7 +419,11 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         var key = Tuple.create().set(COLUMN_KEY, 1);
 
         IgniteException cause = getExceptionInJobExecutionSync(
-                () -> client().compute().execute(JobTarget.colocated(TABLE_NAME, key), JobDescriptor.builder(ExceptionJob.class).build(), null)
+                () -> client().compute().execute(
+                        JobTarget.colocated(TABLE_NAME, key),
+                        JobDescriptor.builder(ExceptionJob.class).build(),
+                        null
+                )
         );
 
         assertComputeExceptionWithClassAndMessage(cause);
@@ -444,7 +448,11 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         var key = Tuple.create().set(COLUMN_KEY, 2);
 
         IgniteException cause = getExceptionInJobExecutionSync(
-                () -> client().compute().execute(JobTarget.colocated(TABLE_NAME, key), JobDescriptor.builder(ExceptionJob.class).build(), null)
+                () -> client().compute().execute(
+                        JobTarget.colocated(TABLE_NAME, key),
+                        JobDescriptor.builder(ExceptionJob.class).build(),
+                        null
+                )
         );
 
         assertComputeExceptionWithStackTrace(cause);

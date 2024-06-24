@@ -226,7 +226,7 @@ public class ClientBinaryTupleUtils {
             builder.appendDouble((Double) obj);
         } else if (obj instanceof BigDecimal) {
             BigDecimal bigDecimal = (BigDecimal) obj;
-//            appendTypeAndScale(builder, ColumnType.DECIMAL, bigDecimal.scale());
+            appendTypeAndScale(builder, ColumnType.DECIMAL, bigDecimal.scale());
             builder.appendDecimal(bigDecimal, bigDecimal.scale());
         } else if (obj instanceof UUID) {
             appendTypeAndScale(builder, ColumnType.UUID);

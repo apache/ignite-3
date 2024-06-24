@@ -47,8 +47,6 @@ class ClientJobExecution<R> implements JobExecution<R> {
 
     private final CompletableFuture<R> resultAsync;
 
-    private final Marshaller<R, byte[]> marshaler;
-
     // Local state cache
     private final CompletableFuture<@Nullable JobState> stateFuture = new CompletableFuture<>();
 
@@ -56,8 +54,6 @@ class ClientJobExecution<R> implements JobExecution<R> {
         this.ch = ch;
 
         this.jobIdFuture = reqFuture.thenApply(SubmitResult::jobId);
-
-        this.marshaler = marshaler;
 
         resultAsync = reqFuture
                 .thenCompose(SubmitResult::notificationFuture)

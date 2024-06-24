@@ -149,7 +149,10 @@ class ItComputeApiThreadingTest extends ClusterPerClassIntegrationTest {
     }
 
     private enum ComputeAsyncOperation {
-        EXECUTE_ASYNC(compute -> compute.executeAsync(JobTarget.anyNode(justNonEntryNode()), JobDescriptor.builder(NoOpJob.class).build(), null)),
+        EXECUTE_ASYNC(compute -> compute.executeAsync(
+                JobTarget.anyNode(justNonEntryNode()),
+                JobDescriptor.builder(NoOpJob.class).build(),
+                null)),
         EXECUTE_COLOCATED_BY_TUPLE_ASYNC(compute ->
                 compute.executeAsync(
                         JobTarget.colocated(TABLE_NAME, KEY_TUPLE),

@@ -96,7 +96,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
         return new JobExecutionInternal<>(execution, isInterrupted, jobInstance);
     }
 
-    <T> T unmarshallOrNotIfLocal(Marshaller<T, byte[]> marshaller, Object input) { //todo
+    <T> T unmarshallOrNotIfLocal(Marshaller<T, byte[]> marshaller, Object input) { // todo
         if (input instanceof byte[]) {
             return marshaller.unmarshal((byte[]) input);
         }

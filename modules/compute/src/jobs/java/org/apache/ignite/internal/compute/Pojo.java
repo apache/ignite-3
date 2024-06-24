@@ -20,6 +20,9 @@ package org.apache.ignite.internal.compute;
 import java.io.Serializable;
 import java.util.Objects;
 
+/**
+ * Pojo.
+ */
 public class Pojo implements Serializable {
     private String name;
 
