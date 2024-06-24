@@ -32,12 +32,15 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscription;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
@@ -405,18 +408,23 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
      * @throws InterruptedException If fail.
      */
     private static void waitingForLeaderCache(IgniteImpl node, TableViewInternal tbl) throws InterruptedException {
-        RaftGroupService raftSrvc = node.replicaManager()
-                .replica(new TablePartitionId(tbl.tableId(), 0))
-                .join()
-                .raftClient();
+        int partId = 0;
+        try {
+            RaftGroupService raftSrvc = node.replicaManager()
+                    .replica(new TablePartitionId(tbl.tableId(), partId))
+                    .get(15, SECONDS)
+                    .raftClient();
 
-        assertTrue(waitForCondition(() -> {
-            raftSrvc.refreshLeader();
+            assertTrue(waitForCondition(() -> {
+                raftSrvc.refreshLeader();
 
-            Peer leader = raftSrvc.leader();
+                Peer leader = raftSrvc.leader();
 
-            return leader != null;
-        }, 10_000));
+                return leader != null;
+            }, 10_000));
+        } catch (ExecutionException | TimeoutException e) {
+            fail("Couldn't get replica for partition " + partId, e);
+        }
     }
 
     /**

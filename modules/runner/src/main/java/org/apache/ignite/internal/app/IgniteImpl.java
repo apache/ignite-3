@@ -1657,7 +1657,7 @@ public class IgniteImpl implements Ignite {
         return lowWatermark;
     }
 
-    /** Returns replicas manager */
+    /** Returns replicas manager. */
     @TestOnly
     public ReplicaManager replicaManager() {
         return replicaMgr;

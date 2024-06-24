@@ -33,6 +33,7 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -41,7 +42,9 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.function.BiPredicate;
 import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
@@ -218,10 +221,15 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
         TableViewInternal table = getTableView(node, TABLE_NAME);
         assertNotNull(table);
 
-        return ((IgniteImpl) node).replicaManager()
-                .replica(new TablePartitionId(table.tableId(), partitionId))
-                .join()
-                .raftClient();
+        try {
+            return ((IgniteImpl) node).replicaManager()
+                    .replica(new TablePartitionId(table.tableId(), partitionId))
+                    .get(15, TimeUnit.SECONDS)
+                    .raftClient();
+        } catch (InterruptedException | ExecutionException | TimeoutException e) {
+            fail(e);
+            return null;
+        }
     }
 
     /**
