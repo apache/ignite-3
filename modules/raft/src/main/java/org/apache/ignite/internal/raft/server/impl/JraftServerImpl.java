@@ -214,7 +214,7 @@ public class JraftServerImpl implements RaftServer {
 
     /**
      * Sets {@link AppendEntriesRequestInterceptor} to use. Should only be called from the same thread that is used
-     * to {@link #startAsync()} the component.
+     * to {@link #startAsync(ComponentContext)} the component.
      *
      * @param appendEntriesRequestInterceptor Interceptor to use.
      */
@@ -223,8 +223,8 @@ public class JraftServerImpl implements RaftServer {
     }
 
     /**
-     * Sets {@link ActionRequestInterceptor} to use. Should only be called from the same thread that is used to {@link #startAsync()} the
-     * component.
+     * Sets {@link ActionRequestInterceptor} to use. Should only be called from the same thread that is used to
+     * {@link #startAsync(ComponentContext)} the component.
      *
      * @param actionRequestInterceptor Interceptor to use.
      */

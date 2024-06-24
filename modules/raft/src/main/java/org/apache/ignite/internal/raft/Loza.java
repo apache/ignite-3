@@ -144,7 +144,7 @@ public class Loza implements RaftManager {
 
     /**
      * Sets {@link AppendEntriesRequestInterceptor} to use. Should only be called from the same thread that is used
-     * to {@link #startAsync()} the component.
+     * to {@link #startAsync(ComponentContext)} the component.
      *
      * @param appendEntriesRequestInterceptor Interceptor to use.
      */
@@ -154,7 +154,7 @@ public class Loza implements RaftManager {
 
     /**
      * Sets {@link ActionRequestInterceptor} to use. Should only be called from the same thread that is used
-     * to {@link #startAsync()} the component.
+     * to {@link #startAsync(ComponentContext)} the component.
      *
      * @param actionRequestInterceptor Interceptor to use.
      */
@@ -292,9 +292,7 @@ public class Loza implements RaftManager {
             RaftGroupListener lsnr,
             RaftGroupEventsListener eventsLsnr
     ) throws NodeStoppingException {
-        CompletableFuture<RaftGroupService> fut = startRaftGroupNode(nodeId, configuration, lsnr, eventsLsnr, RaftGroupOptions.defaults());
-
-        return fut;
+        return startRaftGroupNode(nodeId, configuration, lsnr, eventsLsnr, RaftGroupOptions.defaults());
     }
 
     @Override
@@ -322,7 +320,7 @@ public class Loza implements RaftManager {
         }
 
         try {
-            CompletableFuture<T> startRaftServiceFuture = startRaftGroupNodeInternal(
+            return startRaftGroupNodeInternal(
                     nodeId,
                     configuration,
                     lsnr,
@@ -332,8 +330,6 @@ public class Loza implements RaftManager {
                             .ownFsmCallerExecutorDisruptorConfig(disruptorConfiguration),
                     factory
             );
-
-            return startRaftServiceFuture;
         } finally {
             busyLock.leaveBusy();
         }
@@ -498,24 +494,6 @@ public class Loza implements RaftManager {
      */
     public void forEach(BiConsumer<RaftNodeId, org.apache.ignite.raft.jraft.RaftGroupService> consumer) {
         raftServer.forEach(consumer);
-    }
-
-    /**
-     * Returns messaging service.
-     *
-     * @return Messaging service.
-     */
-    public MessagingService messagingService() {
-        return clusterNetSvc.messagingService();
-    }
-
-    /**
-     * Returns topology service.
-     *
-     * @return Topology service.
-     */
-    public TopologyService topologyService() {
-        return clusterNetSvc.topologyService();
     }
 
     public VolatileRaftConfiguration volatileRaft() {
