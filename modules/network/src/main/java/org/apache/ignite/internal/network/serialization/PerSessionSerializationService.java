@@ -152,7 +152,7 @@ public class PerSessionSerializationService {
         for (IntIterator it = descriptorIds.intIterator(); it.hasNext(); ) {
             int descriptorId = it.nextInt();
 
-            if (!shouldBeBuiltIn(descriptorId)) {
+            if (shouldBeBuiltIn(descriptorId)) {
                 continue;
             }
 
@@ -436,6 +436,7 @@ public class PerSessionSerializationService {
         List<FieldDescriptor> fieldDescriptors = descriptor.fields();
         List<FieldDescriptorMessage> fieldDescriptorMessages = new ArrayList<>(fieldDescriptors.size());
 
+        // Specially made by classical loops for optimization.
         for (int i = 0; i < fieldDescriptors.size(); i++) {
             FieldDescriptor fieldDescriptor = fieldDescriptors.get(i);
 

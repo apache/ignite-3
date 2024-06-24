@@ -26,10 +26,12 @@ import static org.apache.ignite.internal.util.IgniteUtils.safeAbs;
 
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -63,6 +65,7 @@ import org.apache.ignite.internal.worker.CriticalWorker;
 import org.apache.ignite.internal.worker.CriticalWorkerRegistry;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -230,7 +233,9 @@ public class DefaultMessagingService extends AbstractMessagingService {
             return nullCompletedFuture();
         }
 
-        if (recipient.name().equals(connectionManager.consistentId())) {
+        InetSocketAddress recipientAddress = resolveRecipientAddress(recipient);
+
+        if (recipientAddress == null) {
             if (correlationId != null) {
                 onInvokeResponse(msg, correlationId);
             } else {
@@ -239,8 +244,6 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
             return nullCompletedFuture();
         }
-
-        InetSocketAddress recipientAddress = new InetSocketAddress(recipient.address().host(), recipient.address().port());
 
         NetworkMessage message = correlationId != null ? responseFromMessage(msg, correlationId) : msg;
 
@@ -278,13 +281,13 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         requestsMap.put(correlationId, responseFuture);
 
-        if (recipient.name().equals(connectionManager.consistentId())) {
+        InetSocketAddress recipientAddress = resolveRecipientAddress(recipient);
+
+        if (recipientAddress == null) {
             sendToSelf(msg, correlationId);
 
             return responseFuture;
         }
-
-        InetSocketAddress recipientAddress = new InetSocketAddress(recipient.address().host(), recipient.address().port());
 
         InvokeRequest message = requestFromMessage(msg, correlationId);
 
@@ -661,5 +664,44 @@ public class DefaultMessagingService extends AbstractMessagingService {
                 workerRegistry.unregister(worker);
             }
         }
+    }
+
+    /**
+     * Returns the resolved address of the target node, {@code null} if the target node is the current node.
+     *
+     * <p>NOTE: Method was written as a result of analyzing the performance of sending a message to yourself.</p>
+     *
+     * @param recipientNode Target cluster node.
+     */
+    private @Nullable InetSocketAddress resolveRecipientAddress(ClusterNode recipientNode) {
+        NetworkAddress recipientAddress = recipientNode.address();
+
+        if (recipientNode.name() != null) {
+            return connectionManager.consistentId().equals(recipientNode.name()) ? null : createResolved(recipientAddress);
+        }
+
+        InetSocketAddress localAddress = connectionManager.localAddress();
+
+        if (localAddress.getPort() != recipientAddress.port()) {
+            return createResolved(recipientAddress);
+        }
+
+        // For optimization, we will check the addresses without resolving the address of the target node.
+        if (Objects.equals(localAddress.getHostName(), recipientAddress.host())) {
+            return null;
+        }
+
+        InetSocketAddress resolvedRecipientAddress = createResolved(recipientAddress);
+        InetAddress recipientInetAddress = resolvedRecipientAddress.getAddress();
+
+        if (Objects.equals(localAddress.getAddress(), recipientInetAddress)) {
+            return null;
+        }
+
+        return recipientInetAddress.isAnyLocalAddress() || recipientInetAddress.isLoopbackAddress() ? null : resolvedRecipientAddress;
+    }
+
+    private static InetSocketAddress createResolved(NetworkAddress address) {
+        return new InetSocketAddress(address.host(), address.port());
     }
 }

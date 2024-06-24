@@ -32,11 +32,10 @@ public interface ClusterNode extends Serializable {
     String id();
 
     /**
-     * Returns the unique name (consistent ID) of the node in the cluster. Does not change between restarts.
-     *
-     * @return Unique name of a cluster member.
+     * Returns the unique name (consistent ID) of the node in the cluster, {@code null} if the node has not been added to the topology.
+     * Does not change between restarts.
      */
-    String name();
+    @Nullable String name();
 
     /**
      * Returns the network address of the node.
@@ -50,6 +49,5 @@ public interface ClusterNode extends Serializable {
      *
      * @return Metadata of the node.
      */
-    @Nullable
-    NodeMetadata nodeMetadata();
+    @Nullable NodeMetadata nodeMetadata();
 }

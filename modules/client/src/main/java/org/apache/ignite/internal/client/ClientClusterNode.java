@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.client;
 
+import java.util.Objects;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -27,28 +28,29 @@ import org.jetbrains.annotations.Nullable;
  * Client representation of a node in a cluster.
  */
 public class ClientClusterNode implements ClusterNode {
+    private static final long serialVersionUID = 3574984937527678507L;
+
     /** Local ID assigned to the node instance. The ID changes between restarts. */
     private final String id;
 
-    /** Unique name of a cluster member. Consistent between restarts. */
-    private final String name;
+    /** Unique name of a cluster member, {@code null} if the node has not been added to the topology. Consistent between restarts. */
+    private final @Nullable String name;
 
     /** Network address of the node. */
     private final NetworkAddress address;
 
     /** Metadata of this node. */
-    @Nullable
-    private final NodeMetadata nodeMetadata;
+    private final @Nullable NodeMetadata nodeMetadata;
 
     /**
      * Constructor.
      *
-     * @param id      Local id that changes between restarts.
-     * @param name    Unique name of a member in a cluster.
+     * @param id Local id that changes between restarts.
+     * @param name Unique name of a member in a cluster, {@code null} if the node has not been added to the topology.
      * @param address Node address.
      * @param nodeMetadata Node metadata.
      */
-    public ClientClusterNode(String id, String name, NetworkAddress address, @Nullable NodeMetadata nodeMetadata) {
+    public ClientClusterNode(String id, @Nullable String name, NetworkAddress address, @Nullable NodeMetadata nodeMetadata) {
         this.id = id;
         this.name = name;
         this.address = address;
@@ -58,11 +60,11 @@ public class ClientClusterNode implements ClusterNode {
     /**
      * Constructor.
      *
-     * @param id      Local ID that changes between restarts.
-     * @param name    Unique name of a cluster member.
+     * @param id Local ID that changes between restarts.
+     * @param name Unique name of a cluster member, {@code null} if the node has not been added to the topology.
      * @param address Node address.
      */
-    public ClientClusterNode(String id, String name, NetworkAddress address) {
+    public ClientClusterNode(String id, @Nullable String name, NetworkAddress address) {
         this(id, name, address, null);
     }
 
@@ -72,7 +74,7 @@ public class ClientClusterNode implements ClusterNode {
     }
 
     @Override
-    public String name() {
+    public @Nullable String name() {
         return name;
     }
 
@@ -82,8 +84,7 @@ public class ClientClusterNode implements ClusterNode {
     }
 
     @Override
-    @Nullable
-    public NodeMetadata nodeMetadata() {
+    public @Nullable NodeMetadata nodeMetadata() {
         return nodeMetadata;
     }
 
@@ -96,12 +97,12 @@ public class ClientClusterNode implements ClusterNode {
             return false;
         }
         ClientClusterNode that = (ClientClusterNode) o;
-        return name.equals(that.name) && address.equals(that.address);
+        return Objects.equals(name, that.name) && address.equals(that.address);
     }
 
     @Override
     public int hashCode() {
-        int result = name.hashCode();
+        int result = Objects.hashCode(name);
         result = 31 * result + address.hashCode();
         return result;
     }
