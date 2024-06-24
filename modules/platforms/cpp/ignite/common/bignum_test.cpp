@@ -62,7 +62,7 @@ void CheckOutputInput(const T &val) {
 }
 
 void CheckDoubleCast(double val) {
-    big_decimal dec1(val);
+    big_decimal dec1(big_decimal::from_double(val));
     big_decimal dec2;
 
     dec2.assign_double(val);
@@ -1002,9 +1002,9 @@ TEST(bignum, TestDecimalSimple) {
     EXPECT_EQ(big_decimal(-1000L, 3) / big_decimal(-1000L, 3), big_decimal(1000L, 3));
 
     // Test with zero
-    EXPECT_EQ(big_decimal(0L, 3) / big_decimal(1000L, 3), big_decimal(0L, 3));
+    EXPECT_EQ(big_decimal(0L, std::int16_t(3)) / big_decimal(1000L, 3), big_decimal(0L, 3));
 
-    // Test with large scale
+    // Test with a large scale
     EXPECT_EQ(big_decimal(123456789L, 100) / big_decimal(100000000L, 100), big_decimal(123456789L, 8));
 
     // Test with different scales
@@ -1112,7 +1112,7 @@ TEST(bignum, TestPrecisionChange) {
     EXPECT_EQ(decimal.get_precision(), 45);
     EXPECT_EQ(decimal.get_scale(), 23);
 
-    for (int32_t i = 0; i < decimal.get_scale(); ++i) {
+    for (int16_t i = 0; i < decimal.get_scale(); ++i) {
         decimal.set_scale(i, decimal);
 
         EXPECT_EQ(decimal.get_precision(), decimal.get_precision() - decimal.get_scale() + i);
