@@ -980,7 +980,7 @@ TEST(bignum, TestDecimalSimple) {
     EXPECT_EQ(big_decimal(1000L, 3) + big_decimal(1000L, 1), big_decimal(101000L, 3));
     EXPECT_EQ(big_decimal(1000L, 3) + big_decimal(1000L, 0), big_decimal(1001000L, 3));
 
-    EXPECT_EQ(big_decimal(1000L, 3) - big_decimal(1000L, 3), big_decimal(0L, 3));
+    EXPECT_EQ(big_decimal(1000L, 3) - big_decimal(1000L, 3), big_decimal(0L, std::int16_t(3)));
     EXPECT_EQ(big_decimal(1000L, 3) - big_decimal(1000L, 2), big_decimal(-9000L, 3));
     EXPECT_EQ(big_decimal(1000L, 3) - big_decimal(1000L, 1), big_decimal(-99000L, 3));
     EXPECT_EQ(big_decimal(1000L, 3) - big_decimal(1000L, 0), big_decimal(-999000L, 3));
@@ -1002,7 +1002,7 @@ TEST(bignum, TestDecimalSimple) {
     EXPECT_EQ(big_decimal(-1000L, 3) / big_decimal(-1000L, 3), big_decimal(1000L, 3));
 
     // Test with zero
-    EXPECT_EQ(big_decimal(0L, std::int16_t(3)) / big_decimal(1000L, 3), big_decimal(0L, 3));
+    EXPECT_EQ(big_decimal(0L, std::int16_t(3)) / big_decimal(1000L, 3), big_decimal(0L, std::int16_t(3)));
 
     // Test with a large scale
     EXPECT_EQ(big_decimal(123456789L, 100) / big_decimal(100000000L, 100), big_decimal(123456789L, 8));

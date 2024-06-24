@@ -17,7 +17,7 @@
 
 #include "bits.h"
 
-#include "cmake-build-debug/_deps/googletest-src/googletest/include/gtest/gtest.h"
+#include "gtest/gtest.h"
 
 using namespace ignite::detail;
 
