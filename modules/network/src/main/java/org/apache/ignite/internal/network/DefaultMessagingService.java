@@ -26,12 +26,10 @@ import static org.apache.ignite.internal.util.IgniteUtils.safeAbs;
 
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
-import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -232,9 +230,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
             return nullCompletedFuture();
         }
 
-        InetSocketAddress recipientAddress = new InetSocketAddress(recipient.address().host(), recipient.address().port());
-
-        if (isSelf(recipient.name(), recipientAddress)) {
+        if (recipient.name().equals(connectionManager.consistentId())) {
             if (correlationId != null) {
                 onInvokeResponse(msg, correlationId);
             } else {
@@ -243,6 +239,8 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
             return nullCompletedFuture();
         }
+
+        InetSocketAddress recipientAddress = new InetSocketAddress(recipient.address().host(), recipient.address().port());
 
         NetworkMessage message = correlationId != null ? responseFromMessage(msg, correlationId) : msg;
 
@@ -280,13 +278,13 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         requestsMap.put(correlationId, responseFuture);
 
-        InetSocketAddress recipientAddress = new InetSocketAddress(recipient.address().host(), recipient.address().port());
-
-        if (isSelf(recipient.name(), recipientAddress)) {
+        if (recipient.name().equals(connectionManager.consistentId())) {
             sendToSelf(msg, correlationId);
 
             return responseFuture;
         }
+
+        InetSocketAddress recipientAddress = new InetSocketAddress(recipient.address().host(), recipient.address().port());
 
         InvokeRequest message = requestFromMessage(msg, correlationId);
 
@@ -348,9 +346,14 @@ public class DefaultMessagingService extends AbstractMessagingService {
      * @param correlationId Correlation id.
      */
     private void sendToSelf(NetworkMessage message, @Nullable Long correlationId) {
-        for (HandlerContext context : getHandlerContexts(message.groupType())) {
+        List<HandlerContext> handlerContexts = getHandlerContexts(message.groupType());
+
+        // Specially made by a classic loop for optimization.
+        for (int i = 0; i < handlerContexts.size(); i++) {
+            HandlerContext handlerContext = handlerContexts.get(i);
+
             // Invoking on the same thread, ignoring the executor chooser registered with the handler.
-            context.handler().onReceived(message, topologyService.localMember(), correlationId);
+            handlerContext.handler().onReceived(message, topologyService.localMember(), correlationId);
         }
     }
 
@@ -553,33 +556,6 @@ public class DefaultMessagingService extends AbstractMessagingService {
      */
     private long createCorrelationId() {
         return correlationIdGenerator.getAndIncrement();
-    }
-
-    /**
-     * Checks if the target is the current node.
-     *
-     * @param consistentId Target consistent ID. Can be {@code null} if the node has not been added to the topology.
-     * @param targetAddress Target address.
-     * @return {@code true} if the target is the current node, {@code false} otherwise.
-     */
-    private boolean isSelf(@Nullable String consistentId, InetSocketAddress targetAddress) {
-        if (consistentId != null) {
-            return connectionManager.consistentId().equals(consistentId);
-        }
-
-        InetSocketAddress localAddress = connectionManager.localAddress();
-
-        if (Objects.equals(localAddress, targetAddress)) {
-            return true;
-        }
-
-        InetAddress targetInetAddress = targetAddress.getAddress();
-
-        if (targetInetAddress.isAnyLocalAddress() || targetInetAddress.isLoopbackAddress()) {
-            return targetAddress.getPort() == localAddress.getPort();
-        }
-
-        return false;
     }
 
     /**
