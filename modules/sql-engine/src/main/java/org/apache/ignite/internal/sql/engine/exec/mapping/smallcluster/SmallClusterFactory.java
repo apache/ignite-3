@@ -78,7 +78,9 @@ public class SmallClusterFactory implements ExecutionTargetFactory {
             finalised = finalised && assignment.nodes().size() < 2;
 
             for (Assignment a : assignment.nodes()) {
-                partitionNodes[idx] |= nodeNameToId.getOrDefault(a.consistentId(), 0);
+                long node = nodeNameToId.getOrDefault(a.consistentId(), -1);
+                assert node >= 0 : "invalid node";
+                partitionNodes[idx] = node;
                 enlistmentConsistencyTokens[idx] = assignment.token();
             }
 
@@ -90,18 +92,18 @@ public class SmallClusterFactory implements ExecutionTargetFactory {
 
     @Override
     public List<String> resolveNodes(ExecutionTarget target) {
-        target = target.finalise();
-
         assert target instanceof AbstractTarget : target == null ? "<null>" : target.getClass().getCanonicalName();
+
+        target = ((AbstractTarget) target).finalise();
 
         return ((AbstractTarget) target).nodes(nodes);
     }
 
     @Override
     public Int2ObjectMap<NodeWithConsistencyToken> resolveAssignments(ExecutionTarget target) {
-        target = target.finalise();
-
         assert target instanceof AbstractTarget : target == null ? "<null>" : target.getClass().getCanonicalName();
+
+        target = ((AbstractTarget) target).finalise();
 
         return ((AbstractTarget) target).assignments(nodes);
     }
@@ -110,7 +112,9 @@ public class SmallClusterFactory implements ExecutionTargetFactory {
         long nodesMap = 0;
 
         for (String name : nodes) {
-            nodesMap |= nodeNameToId.getOrDefault(name, 0);
+            long node = nodeNameToId.getOrDefault(name, -1);
+            assert node >= 0 : "invalid node";
+            nodesMap |= node;
         }
 
         return nodesMap;

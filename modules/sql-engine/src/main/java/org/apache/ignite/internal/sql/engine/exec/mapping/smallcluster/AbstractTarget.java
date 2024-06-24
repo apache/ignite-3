@@ -38,6 +38,8 @@ abstract class AbstractTarget implements ExecutionTarget {
     final long nodes;
 
     AbstractTarget(long nodes) {
+        assert nodes != 0 : "Empty target is not allowed";
+
         this.nodes = nodes;
     }
 
@@ -85,7 +87,16 @@ abstract class AbstractTarget implements ExecutionTarget {
         return result;
     }
 
-    abstract boolean finalised();
+    /**
+     * Finalises target by choosing exactly one node for targets with multiple options.
+     *
+     * <p>Some targets may have several options, so we have to pick one in order to get
+     * correct results. Call to this methods resolves this ambiguity by truncating all
+     * but one option. Which exactly option will be left is implementation defined.
+     *
+     * @return Finalised target.
+     */
+    abstract ExecutionTarget finalise();
 
     abstract ExecutionTarget colocate(AllOfTarget other) throws ColocationMappingException;
 

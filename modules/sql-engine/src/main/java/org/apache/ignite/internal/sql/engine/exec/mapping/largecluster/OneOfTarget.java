@@ -29,22 +29,13 @@ import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTargetFactory
  * <p>See javadoc of {@link ExecutionTargetFactory#oneOf(List)} for details.
  */
 class OneOfTarget extends AbstractTarget {
-    private final boolean finalised;
-
     OneOfTarget(BitSet nodes) {
         super(nodes);
-
-        finalised = nodes.cardinality() == 1;
-    }
-
-    @Override
-    boolean finalised() {
-        return finalised;
     }
 
     @Override
     public ExecutionTarget finalise() {
-        if (finalised()) {
+        if (nodes.cardinality() == 1) {
             return this;
         }
 

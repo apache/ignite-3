@@ -39,10 +39,12 @@ public class LargeClusterFactory implements ExecutionTargetFactory {
         this.nodes = nodes;
 
         nodeNameToId = new Object2IntOpenHashMap<>(nodes.size());
+        nodeNameToId.defaultReturnValue(-1);
 
         int idx = 0;
         for (String name : nodes) {
-            nodeNameToId.putIfAbsent(name, idx++);
+            int ret = nodeNameToId.putIfAbsent(name, idx++);
+            assert ret == -1 : "invalid node";
         }
     }
 
@@ -67,9 +69,13 @@ public class LargeClusterFactory implements ExecutionTargetFactory {
         long[] enlistmentConsistencyTokens = new long[nodes.size()];
 
         int idx = 0;
+        // TODO IGNITE-22466: add backup partition nodes to bitset.
         for (NodeWithConsistencyToken e : nodes) {
             int node = nodeNameToId.getOrDefault(e.name(), -1);
-            partitionNodes[idx] = node == -1 ? BitSets.of() : BitSets.of(node);
+
+            assert node >= 0 : "invalid node";
+
+            partitionNodes[idx] = BitSets.of(node);
             enlistmentConsistencyTokens[idx++] = e.enlistmentConsistencyToken();
         }
 
@@ -78,18 +84,18 @@ public class LargeClusterFactory implements ExecutionTargetFactory {
 
     @Override
     public List<String> resolveNodes(ExecutionTarget target) {
-        target = target.finalise();
-
         assert target instanceof AbstractTarget : target == null ? "<null>" : target.getClass().getCanonicalName();
+
+        target = ((AbstractTarget) target).finalise();
 
         return ((AbstractTarget) target).nodes(nodes);
     }
 
     @Override
     public Int2ObjectMap<NodeWithConsistencyToken> resolveAssignments(ExecutionTarget target) {
-        target = target.finalise();
-
         assert target instanceof AbstractTarget : target == null ? "<null>" : target.getClass().getCanonicalName();
+
+        target = ((AbstractTarget) target).finalise();
 
         return ((AbstractTarget) target).assignments(nodes);
     }
@@ -99,9 +105,9 @@ public class LargeClusterFactory implements ExecutionTargetFactory {
 
         for (String name : nodes) {
             int id = nodeNameToId.getOrDefault(name, -1);
-            if (id != -1) {
-                nodesMap.set(id);
-            }
+            assert id >= 0 : "invalid node";
+
+            nodesMap.set(id);
         }
 
         return nodesMap;

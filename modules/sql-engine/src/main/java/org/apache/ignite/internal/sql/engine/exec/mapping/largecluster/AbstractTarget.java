@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.exec.mapping.largecluster;
 
-import static org.apache.ignite.internal.util.IgniteUtils.isPow2;
-
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
@@ -40,16 +38,28 @@ abstract class AbstractTarget implements ExecutionTarget {
     final BitSet nodes;
 
     AbstractTarget(BitSet nodes) {
+        assert !nodes.isEmpty();
+        
         this.nodes = nodes;
     }
 
     List<String> nodes(List<String> nodeNames) {
-        int count = nodes.cardinality();
-        List<String> result = new ArrayList<>(count);
+        int cardinality = nodes.cardinality();
 
-        int next = 0;
-        while ((next = nodes.nextSetBit(next + 1)) != -1) {
-            result.add(nodeNames.get(next));
+        if (cardinality == 1) {
+            int idx = nodes.nextSetBit(0);
+
+            return List.of(nodeNames.get(idx));
+        }
+
+        List<String> result = new ArrayList<>(cardinality);
+
+        for (int idx = nodes.nextSetBit(0); idx >= 0; idx = nodes.nextSetBit(idx + 1)) {
+            result.add(nodeNames.get(idx));
+
+            if (idx == Integer.MAX_VALUE) {
+                break;  // or (i+1) would overflow
+            }
         }
 
         return result;
@@ -80,7 +90,16 @@ abstract class AbstractTarget implements ExecutionTarget {
         return result;
     }
 
-    abstract boolean finalised();
+    /**
+     * Finalises target by choosing exactly one node for targets with multiple options.
+     *
+     * <p>Some targets may have several options, so we have to pick one in order to get
+     * correct results. Call to this methods resolves this ambiguity by truncating all
+     * but one option. Which exactly option will be left is implementation defined.
+     *
+     * @return Finalised target.
+     */
+    abstract ExecutionTarget finalise();
 
     abstract ExecutionTarget colocate(AllOfTarget other) throws ColocationMappingException;
 
@@ -129,12 +148,12 @@ abstract class AbstractTarget implements ExecutionTarget {
     }
 
     static ExecutionTarget colocate(OneOfTarget oneOf, OneOfTarget anotherOneOf) throws ColocationMappingException {
-        if (!oneOf.nodes.intersects(anotherOneOf.nodes)) {
+        BitSet newNodes = (BitSet) oneOf.nodes.clone();
+        newNodes.and(anotherOneOf.nodes);
+
+        if (newNodes.isEmpty()) {
             throw new ColocationMappingException("Targets are not colocated");
         }
-
-        BitSet newNodes = BitSet.valueOf(oneOf.nodes.toLongArray());
-        newNodes.and(anotherOneOf.nodes);
 
         return new OneOfTarget(newNodes);
     }
@@ -162,7 +181,7 @@ abstract class AbstractTarget implements ExecutionTarget {
             throw new ColocationMappingException("Targets are not colocated");
         }
 
-        BitSet newNodes = BitSet.valueOf(oneOf.nodes.toLongArray());
+        BitSet newNodes = (BitSet) oneOf.nodes.clone();
         newNodes.and(someOf.nodes);
 
         return new OneOfTarget(newNodes);

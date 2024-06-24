@@ -34,11 +34,6 @@ class AllOfTarget extends AbstractTarget {
     }
 
     @Override
-    boolean finalised() {
-        return true;
-    }
-
-    @Override
     public ExecutionTarget finalise() {
         return this;
     }
