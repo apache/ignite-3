@@ -116,7 +116,7 @@ class ItMapReduceTest extends ClusterPerClassIntegrationTest {
         IgniteImpl entryNode = CLUSTER.node(0);
 
         // Given running task.
-        TaskExecution<List<String>> taskExecution = startTask(entryNode);
+        TaskExecution<List<String>> taskExecution = startTask(entryNode, null);
 
         // Save state before split.
         JobState stateBeforeSplit = taskExecution.stateAsync().join();
@@ -160,7 +160,7 @@ class ItMapReduceTest extends ClusterPerClassIntegrationTest {
         IgniteImpl entryNode = CLUSTER.node(0);
 
         // Given running task.
-        TaskExecution<List<String>> taskExecution = startTask(entryNode);
+        TaskExecution<List<String>> taskExecution = startTask(entryNode, null);
 
         // Save state before split.
         JobState stateBeforeSplit = taskExecution.stateAsync().join();
@@ -211,7 +211,7 @@ class ItMapReduceTest extends ClusterPerClassIntegrationTest {
         IgniteImpl entryNode = CLUSTER.node(0);
 
         // Given running task.
-        TaskExecution<List<String>> taskExecution = startTask(entryNode);
+        TaskExecution<List<String>> taskExecution = startTask(entryNode, null);
 
         // Save state before split.
         JobState stateBeforeSplit = taskExecution.stateAsync().join();
@@ -238,7 +238,7 @@ class ItMapReduceTest extends ClusterPerClassIntegrationTest {
         IgniteImpl entryNode = CLUSTER.node(0);
 
         // Given running task.
-        String arg = cooperativeCancel ? "NO_INTERRUPT" : "";
+        String arg = cooperativeCancel ? "NO_INTERRUPT" : null;
         TaskExecution<List<String>> taskExecution = entryNode.compute().submitMapReduce(
                 List.of(), InteractiveTasks.GlobalApi.name(), arg
         );
@@ -271,7 +271,7 @@ class ItMapReduceTest extends ClusterPerClassIntegrationTest {
         assertThat(taskExecution.cancelAsync(), willBe(false));
     }
 
-    private static TaskExecution<List<String>> startTask(IgniteImpl entryNode, Object... args) throws InterruptedException {
+    private static TaskExecution<List<String>> startTask(IgniteImpl entryNode, String args) throws InterruptedException {
         TaskExecution<List<String>> taskExecution = entryNode.compute().submitMapReduce(List.of(), InteractiveTasks.GlobalApi.name(), args);
         new TestingJobExecution<>(taskExecution).assertExecuting();
         InteractiveTasks.GlobalApi.assertAlive();

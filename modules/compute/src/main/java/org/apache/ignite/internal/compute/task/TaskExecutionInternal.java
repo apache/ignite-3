@@ -95,7 +95,7 @@ public class TaskExecutionInternal<T, R> implements JobExecution<R> {
             Class<? extends MapReduceTask<T, R>> taskClass,
             TaskExecutionContext context,
             AtomicBoolean isCancelled,
-            Object args
+            T args
     ) {
         this.isCancelled = isCancelled;
         LOG.debug("Executing task {}", taskClass.getName());
@@ -103,7 +103,7 @@ public class TaskExecutionInternal<T, R> implements JobExecution<R> {
                 () -> {
                     MapReduceTask<T, R> task = instantiateTask(taskClass);
 
-                    T input = task.inputMarshaller().unmarshal((byte[]) args); //todo
+                    T input = task.inputMarshaller().unmarshal(task.inputMarshaller().marshal(args)); //todo
 
                     return task.splitAsync(context, input)
                             .thenApply(jobs -> new SplitResult<>(task, jobs));

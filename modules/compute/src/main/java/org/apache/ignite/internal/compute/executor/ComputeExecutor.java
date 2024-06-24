@@ -25,19 +25,19 @@ import org.apache.ignite.internal.compute.task.JobSubmitter;
 import org.apache.ignite.internal.compute.task.TaskExecutionInternal;
 
 /**
- * Executor of Compute jobs.
+ * Executor of Compute jobs. r
  */
 public interface ComputeExecutor {
     <T, R> JobExecutionInternal<R> executeJob(
             ExecutionOptions options,
             Class<? extends ComputeJob<T, R>> jobClass,
             JobClassLoader classLoader,
-            Object input);
+            T input);
 
     <T, R> TaskExecutionInternal<T, R> executeTask(
             JobSubmitter jobSubmitter,
             Class<? extends MapReduceTask<T, R>> taskClass,
-            Object input
+            T input
     );
 
     void start();

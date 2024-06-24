@@ -78,7 +78,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
             ExecutionOptions options,
             Class<? extends ComputeJob<T, R>> jobClass,
             JobClassLoader classLoader,
-            Object input
+            T input
     ) {
         assert executorService != null;
 
@@ -110,7 +110,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
     public <T, R> TaskExecutionInternal<T, R> executeTask(
             JobSubmitter jobSubmitter,
             Class<? extends MapReduceTask<T, R>> taskClass,
-            Object input
+            T input
     ) {
         assert executorService != null;
 
