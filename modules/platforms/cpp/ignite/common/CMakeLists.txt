@@ -23,9 +23,9 @@ set(PUBLIC_HEADERS
     big_decimal.h
     big_integer.h
     bit_array.h
-    bytes.h
     bytes_view.h
     detail/bits.h
+    detail/bytes.h
     detail/config.h
     end_point.h
     error_codes.h
@@ -62,7 +62,7 @@ if (${INSTALL_IGNITE_FILES})
 endif()
 
 ignite_test(bits_test DISCOVER SOURCES detail/bits_test.cpp LIBS ${TARGET})
-ignite_test(bytes_test DISCOVER SOURCES bytes_test.cpp LIBS ${TARGET})
+ignite_test(bytes_test DISCOVER SOURCES detail/bytes_test.cpp LIBS ${TARGET})
 ignite_test(uuid_test DISCOVER SOURCES uuid_test.cpp LIBS ${TARGET})
 ignite_test(bignum_test DISCOVER SOURCES bignum_test.cpp LIBS ${TARGET})
 ignite_test(bit_array_test DISCOVER SOURCES bit_array_test.cpp LIBS ${TARGET})

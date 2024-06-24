@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include <ignite/common/bytes.h>
+#include "ignite/common/detail/bytes.h"
 #include <ignite/common/bytes_view.h>
 #include <ignite/common/ignite_error.h>
 #include <ignite/common/primitive.h>

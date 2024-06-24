@@ -72,7 +72,7 @@
 # define IGNITE_BYTESWAP_SPECIFIER constexpr
 #endif
 
-namespace ignite {
+namespace ignite::detail {
 
 /**
  * Byte order enum.
