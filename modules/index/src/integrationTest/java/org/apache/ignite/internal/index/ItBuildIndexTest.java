@@ -41,9 +41,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.function.BiPredicate;
 import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
@@ -58,8 +56,7 @@ import org.apache.ignite.internal.partition.replicator.network.command.BuildInde
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.replicator.Replica;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ReplicaTestUtils;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.table.InternalTable;
@@ -221,18 +218,8 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
         TableViewInternal table = getTableView(node, TABLE_NAME);
         assertNotNull(table);
 
-        CompletableFuture<Replica> replicaFut = ((IgniteImpl) node).replicaManager()
-                .replica(new TablePartitionId(table.tableId(), partitionId));
-
-        if  (replicaFut == null) {
-            return null;
-        }
-
-        try {
-            return replicaFut.get(15, TimeUnit.SECONDS).raftClient();
-        } catch (ExecutionException | InterruptedException | TimeoutException e) {
-            return null;
-        }
+        return ReplicaTestUtils.getRaftClient(node, table.tableId(), partitionId)
+                .orElse(null);
     }
 
     /**

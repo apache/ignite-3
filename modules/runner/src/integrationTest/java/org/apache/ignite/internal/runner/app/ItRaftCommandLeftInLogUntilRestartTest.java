@@ -39,6 +39,7 @@ import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.replicator.ReplicaTestUtils;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.SchemaRegistry;
@@ -342,7 +343,8 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
     private void transferLeadershipToLocalNode(IgniteImpl ignite) {
         TableViewInternal table = (TableViewInternal) ignite.tables().table(DEFAULT_TABLE_NAME);
 
-        RaftGroupService raftGroupService = table.internalTable().tableRaftService().partitionRaftGroupService(0);
+        RaftGroupService raftGroupService = ReplicaTestUtils.getRaftClient(ignite, table.tableId(), 0)
+                .orElseThrow(AssertionError::new);
 
         List<Peer> peers = raftGroupService.peers();
         assertNotNull(peers);
