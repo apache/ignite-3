@@ -68,15 +68,16 @@ public class OptimizedStream extends DirectByteBufferStreamImplV1 {
         return (short) readInt();
     }
 
-    //TODO Benchmark against protobuf, it has the same binary format. https://issues.apache.org/jira/browse/IGNITE-22559
+    // TODO Benchmark against protobuf, it has the same binary format. https://issues.apache.org/jira/browse/IGNITE-22559
     @Override
     public int readInt() {
         int res = 0;
 
+        int arrayOffset = buf.arrayOffset();
         int pos = buf.position();
         int startPos = pos;
 
-        int b = heapArr[pos++];
+        int b = heapArr[arrayOffset + pos++];
 
         // Fast-path.
         if (b >= 0) {
@@ -91,7 +92,7 @@ public class OptimizedStream extends DirectByteBufferStreamImplV1 {
             // Accumulated error (xor of all extended sign bits) is removed using "MASKS_32" at the end.
             res ^= b << shift;
             if (b < 0) {
-                b = heapArr[pos++];
+                b = heapArr[arrayOffset + pos++];
             } else {
                 res ^= MASKS_32[pos - startPos];
 
@@ -102,16 +103,17 @@ public class OptimizedStream extends DirectByteBufferStreamImplV1 {
         }
     }
 
-    //TODO Benchmark against protobuf, it has the same binary format. https://issues.apache.org/jira/browse/IGNITE-22559
+    // TODO Benchmark against protobuf, it has the same binary format. https://issues.apache.org/jira/browse/IGNITE-22559
     @Override
     public long readLong() {
         long res = 0;
 
+        int arrayOffset = buf.arrayOffset();
         int pos = buf.position();
         int startPos = pos;
 
         for (int shift = 0; ; shift += 7) {
-            long b = heapArr[pos++];
+            long b = heapArr[arrayOffset + pos++];
 
             // Instead of nullifying a sign bit of "b", we extend it into "int" and use "^" instead of "|".
             // It makes arithmetic on every iteration noticeable simpler, which helps in benchmarks.

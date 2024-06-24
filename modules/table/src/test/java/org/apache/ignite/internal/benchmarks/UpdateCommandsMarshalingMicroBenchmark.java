@@ -81,6 +81,9 @@ public class UpdateCommandsMarshalingMicroBenchmark {
 
     private byte[] messageBytes;
 
+    /**
+     * Initializes {@link #message} and {@link #messageBytes}.
+     */
     @Setup(Level.Trial)
     public void setUp() {
         byte[] array = new byte[payloadSize];
@@ -151,7 +154,7 @@ public class UpdateCommandsMarshalingMicroBenchmark {
         return MARSHALLER.marshall(message);
     }
 
-    //TODO Optimize it further. https://issues.apache.org/jira/browse/IGNITE-22559
+    // TODO Optimize it further. https://issues.apache.org/jira/browse/IGNITE-22559
     @Benchmark
     public Object unmarshal() {
         return MARSHALLER.unmarshall(messageBytes);
