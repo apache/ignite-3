@@ -204,13 +204,23 @@ public class MessageImplGenerator {
                 .addSuperinterface(Cloneable.class)
                 .addFields(fields)
                 .addMethods(methodImpls)
-                .addMethod(MethodSpec.methodBuilder("serializer")
-                        .returns(MessageSerializer.class)
-                        .addModifiers(Modifier.PUBLIC)
-                        .addAnnotation(Override.class)
-                        .addCode("return $T.INSTANCE;", message.serializerClassName())
-                        .build())
                 .addMethod(constructor(fields, notNullFieldNames, marshallableFieldNames));
+
+        if (message.isAutoSerializable()) {
+            messageImpl.addMethod(MethodSpec.methodBuilder("serializer")
+                    .returns(MessageSerializer.class)
+                    .addModifiers(Modifier.PUBLIC)
+                    .addAnnotation(Override.class)
+                    .addCode("return $T.INSTANCE;", message.serializerClassName())
+                    .build());
+        } else {
+            messageImpl.addMethod(MethodSpec.methodBuilder("serializer")
+                    .returns(MessageSerializer.class)
+                    .addModifiers(Modifier.PUBLIC)
+                    .addAnnotation(Override.class)
+                    .addCode("return null;")
+                    .build());
+        }
 
         // group type constant and getter
         FieldSpec groupTypeField = FieldSpec.builder(short.class, "GROUP_TYPE")

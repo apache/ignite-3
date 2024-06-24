@@ -115,7 +115,7 @@ public class OptimizedStream extends DirectByteBufferStreamImplV1 {
         for (int shift = 0; ; shift += 7) {
             long b = heapArr[arrayOffset + pos++];
 
-            // Instead of nullifying a sign bit of "b", we extend it into "int" and use "^" instead of "|".
+            // Instead of nullifying a sign bit of "b", we extend it into "long" and use "^" instead of "|".
             // It makes arithmetic on every iteration noticeable simpler, which helps in benchmarks.
             // Accumulated error (xor of all extended sign bits) is removed using "MASKS_64" at the end.
             res ^= b << shift;
