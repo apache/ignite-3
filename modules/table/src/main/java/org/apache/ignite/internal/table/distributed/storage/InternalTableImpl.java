@@ -265,8 +265,6 @@ public class InternalTableImpl implements InternalTable {
 
     @Override
     public void name(String newName) {
-        tableRaftService.name(newName);
-
         this.tableName = newName;
     }
 
