@@ -38,7 +38,9 @@ public class JobDescriptor<T, R> {
 
     private JobDescriptor(
             String jobClassName,
-            List<DeploymentUnit> units, JobExecutionOptions options, Marshaler<T, byte[]> resultMarshaller,
+            List<DeploymentUnit> units,
+            JobExecutionOptions options,
+            Marshaler<T, byte[]> resultMarshaller,
             Marshaler<T, byte[]> argumentMarshaller) {
         this.jobClassName = jobClassName;
         this.units = units;
@@ -111,6 +113,8 @@ public class JobDescriptor<T, R> {
         private final String jobClassName;
         private List<DeploymentUnit> units;
         private JobExecutionOptions options;
+        private Marshaler<?, ?> resultMarshaller;
+        private Marshaler<?, ?> argumentMarshaller;
 
         private Builder(String jobClassName) {
             Objects.requireNonNull(jobClassName);
@@ -152,6 +156,30 @@ public class JobDescriptor<T, R> {
         }
 
         /**
+         * Sets the result marshaller.
+         *
+         * @param marshaller Result marshaller.
+         *
+         * @return This builder.
+         */
+        public Builder resultMarshaller(Marshaler<?, ?> marshaller) {
+            this.resultMarshaller = marshaller;
+            return this;
+        }
+
+        /**
+         * Sets the argument marshaller.
+         *
+         * @param marshaller Argument marshaller.
+         *
+         * @return This builder.
+         */
+        public Builder argumentMarshaller(Marshaler<?, ?> marshaller) {
+            this.argumentMarshaller = marshaller;
+            return this;
+        }
+
+        /**
          * Builds the job descriptor.
          *
          * @return Job descriptor.
@@ -161,8 +189,9 @@ public class JobDescriptor<T, R> {
                     jobClassName,
                     units == null ? List.of() : units,
                     options == null ? JobExecutionOptions.DEFAULT : options,
-                    new ByteArrayMarshaler<>() {},
-                    new ByteArrayMarshaler<>() {});
+                    resultMarshaller == null ? new ByteArrayMarshaler<>() {} : resultMarshaller,
+                    argumentMarshaller == null ? new ByteArrayMarshaler<>() {} : argumentMarshaller
+            );
         }
     }
 }

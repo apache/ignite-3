@@ -296,7 +296,7 @@ public class ClientCompute implements IgniteCompute {
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            @Nullable Marshaler<Object, byte[]> marshaller,
+            @Nullable Marshaler<T, byte[]> marshaller,
             T args) {
         return executeColocatedInternal(
                 t,

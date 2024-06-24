@@ -42,7 +42,8 @@ public interface IgniteCompute {
     /**
      * Submits a {@link ComputeJob} of the given class for an execution on a single node from a set of candidate nodes.
      *
-     * @param <R> Job result type.
+     * @param <T> Job argument (T)ype.
+     * @param <R> Job (R)esult type.
      * @param target Execution target.
      * @param descriptor Job descriptor.
      * @param args Arguments of the job.
@@ -58,7 +59,8 @@ public interface IgniteCompute {
      * Submits a {@link ComputeJob} of the given class for an execution on a single node from a set of candidate nodes. A shortcut for
      * {@code submit(...).resultAsync()}.
      *
-     * @param <R> Job result type.
+     * @param <T> Job argument (T)ype.
+     * @param <R> Job (R)esult type.
      * @param target Execution target.
      * @param descriptor Job descriptor.
      * @param args Arguments of the job.
@@ -67,7 +69,7 @@ public interface IgniteCompute {
     default <T, R> CompletableFuture<R> executeAsync(
             JobTarget target,
             JobDescriptor descriptor,
-            T args
+            @Nullable T args
     ) {
         return this.<T, R>submit(target, descriptor, args).resultAsync();
     }
@@ -75,7 +77,8 @@ public interface IgniteCompute {
     /**
      * Executes a {@link ComputeJob} of the given class on a single node from a set of candidate nodes.
      *
-     * @param <R> Job result type
+     * @param <T> Job argument (T)ype.
+     * @param <R> Job (R)esult type.
      * @param target Execution target.
      * @param descriptor Job descriptor.
      * @param args Arguments of the job.
@@ -91,7 +94,8 @@ public interface IgniteCompute {
     /**
      * Submits a {@link ComputeJob} of the given class for an execution on all nodes in the given node set.
      *
-     * @param <R> Job result type.
+     * @param <T> Job argument (T)ype.
+     * @param <R> Job (R)esult type.
      * @param nodes Nodes to execute the job on.
      * @param descriptor Job descriptor.
      * @param args Arguments of the job.
@@ -100,13 +104,14 @@ public interface IgniteCompute {
     <T, R> Map<ClusterNode, JobExecution<R>> submitBroadcast(
             Set<ClusterNode> nodes,
             JobDescriptor descriptor,
-            T args
+            @Nullable T args
     );
 
     /**
      * Executes a {@link ComputeJob} of the given class on all nodes in the given node set.
      *
-     * @param <R> Job result type.
+     * @param <T> Job argument (T)ype.
+     * @param <R> Job (R)esult type.
      * @param nodes Nodes to execute the job on.
      * @param descriptor Job descriptor.
      * @param args Arguments of the job.
@@ -136,7 +141,8 @@ public interface IgniteCompute {
     /**
      * Executes a {@link ComputeJob} of the given class on all nodes in the given node set.
      *
-     * @param <R> Job result type.
+     * @param <T> Job argument (T)ype.
+     * @param <R> Job (R)esult type.
      * @param nodes Nodes to execute the job on.
      * @param descriptor Job descriptor.
      * @param args Arguments of the job.
@@ -160,10 +166,11 @@ public interface IgniteCompute {
     /**
      * Submits a {@link MapReduceTask} of the given class for an execution.
      *
+     * @param <T> Job argument (T)ype.
+     * @param <R> Job (R)esult type.
      * @param units Deployment units.
      * @param taskClassName Map reduce task class name.
      * @param args Task arguments.
-     * @param <R> Task result type.
      * @return Task execution interface.
      */
     <T, R> TaskExecution<R> submitMapReduce(List<DeploymentUnit> units, String taskClassName, @Nullable T args);
@@ -171,23 +178,25 @@ public interface IgniteCompute {
     /**
      * Submits a {@link MapReduceTask} of the given class for an execution. A shortcut for {@code submitMapReduce(...).resultAsync()}.
      *
+     * @param <T> Job argument (T)ype.
+     * @param <R> Job (R)esult type.
      * @param units Deployment units.
      * @param taskClassName Map reduce task class name.
      * @param input Task arguments.
-     * @param <R> Task result type.
      * @return Task result future.
      */
-    default <T, R> CompletableFuture<R> executeMapReduceAsync(List<DeploymentUnit> units, String taskClassName, T input) {
+    default <T, R> CompletableFuture<R> executeMapReduceAsync(List<DeploymentUnit> units, String taskClassName, @Nullable T input) {
         return this.<T, R>submitMapReduce(units, taskClassName, input).resultAsync();
     }
 
     /**
      * Executes a {@link MapReduceTask} of the given class.
      *
+     * @param <T> Job argument (T)ype.
+     * @param <R> Job (R)esult type.
      * @param units Deployment units.
      * @param taskClassName Map reduce task class name.
      * @param args Task arguments.
-     * @param <R> Task result type.
      * @return Task result.
      * @throws ComputeException If there is any problem executing the task.
      */

@@ -103,7 +103,7 @@ public class TaskExecutionInternal<T, R> implements JobExecution<R> {
                 () -> {
                     MapReduceTask<T, R> task = instantiateTask(taskClass);
 
-                    T input = task.inputMarshaller().unmarshal(task.inputMarshaller().marshal(args)); // todo
+                    T input = task.inputMarshaler().unmarshal(task.inputMarshaler().marshal(args));
 
                     return task.splitAsync(context, input)
                             .thenApply(jobs -> new SplitResult<>(task, jobs));

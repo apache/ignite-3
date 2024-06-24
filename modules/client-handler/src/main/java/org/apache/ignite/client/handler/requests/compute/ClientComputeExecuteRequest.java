@@ -113,6 +113,6 @@ public class ClientComputeExecuteRequest {
      * @return Args array.
      */
     static byte[] unpackPayload(ClientMessageUnpacker in) {
-        return (byte[]) in.unpackObjectFromBinaryTuple(); // todo
+        return (byte[]) in.unpackObjectFromBinaryTuple();
     }
 }

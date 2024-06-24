@@ -105,8 +105,6 @@ public class ComputeExecutorImpl implements ComputeExecutor {
         return (T) input;
     }
 
-
-
     @Override
     public <T, R> TaskExecutionInternal<T, R> executeTask(
             JobSubmitter jobSubmitter,

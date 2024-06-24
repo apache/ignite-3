@@ -54,21 +54,20 @@ public interface MapReduceTask<T, R> {
 
 
     /**
-     * ttttt.
+     * The marshaller for the input argument of the split method.
      *
-     * @return asdf.
+     * @return Input marshaller.
      */
-    default Marshaler<T, byte[]> inputMarshaller() {
-        return new ByteArrayMarshaler<>() {
-        };
+    default Marshaler<T, byte[]> inputMarshaler() {
+        return new ByteArrayMarshaler<>() {};
     }
 
     /**
-     * ttttt.
+     * The marshaller for the result of the reduce method.
      *
-     * @return asdf.
+     * @return Result marshaller.
      */
-    default Marshaler<R, byte[]> resultMarhaller() {
+    default Marshaler<R, byte[]> resultMarhaler() {
         return new ByteArrayMarshaler<>() {
         };
     }

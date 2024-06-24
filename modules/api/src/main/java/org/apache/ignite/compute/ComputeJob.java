@@ -23,7 +23,15 @@ import org.apache.ignite.marshaling.Marshaler;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * ttttt.
+ * Core Ignite Compute Job interface. If you want to define your own job, you should implement this interface and
+ * deploy the job to the cluster with Deployment API. Then, you can execute this job on the cluster by calling
+ * {@link IgniteCompute} APIs.
+ *
+ * <p>If you want to pass/return custom data structures to/from the job, you should also implement {@link Marshaler}
+ * and return it from {@link #inputMarshaller()} and {@link #resultMarhaller()} methods.
+ *
+ * @param <T> Type of the job argument.
+ * @param <R> Type of the job result.
  */
 @SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
 public interface ComputeJob<T, R> {
@@ -37,22 +45,20 @@ public interface ComputeJob<T, R> {
     @Nullable CompletableFuture<R> executeAsync(JobExecutionContext context, T args);
 
     /**
-     * ttttt.
+     * Marshaller for the input argument. Default is {@link ByteArrayMarshaler}.
      *
-     * @return asdf.
+     * @return Input marshaller.
      */
     default Marshaler<T, byte[]> inputMarshaller() {
-        return new ByteArrayMarshaler<>() {
-        };
+        return new ByteArrayMarshaler<>() {};
     }
 
     /**
-     * ttttt.
+     * Marshaller for the job result. Default is {@link ByteArrayMarshaler}.
      *
-     * @return asdf.
+     * @return Result marshaller.
      */
     default Marshaler<R, byte[]> resultMarhaller() {
-        return new ByteArrayMarshaler<>() {
-        };
+        return new ByteArrayMarshaler<>() {};
     }
 }

@@ -21,7 +21,7 @@ import java.io.Serializable;
 import java.util.Objects;
 
 /**
- * Pojo.
+ * Pojo that is used to test default java serialization.
  */
 public class Pojo implements Serializable {
     private String name;

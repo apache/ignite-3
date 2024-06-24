@@ -26,7 +26,11 @@ import org.apache.ignite.compute.JobExecutionContext;
  */
 public class PojoJob implements ComputeJob<Pojo, Pojo> {
     /**
-     * asdf.
+     * Executes this job.
+     *
+     * @param context The execution context.
+     * @param pojo Job arguments.
+     * @return Future with the same pojo that was passed as an argument.
      */
     @Override
     public CompletableFuture<Pojo> executeAsync(JobExecutionContext context, Pojo pojo) {

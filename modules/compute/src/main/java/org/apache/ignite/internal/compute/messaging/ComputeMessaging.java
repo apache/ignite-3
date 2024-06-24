@@ -201,7 +201,7 @@ public class ComputeMessaging {
 
         JobExecution<Object> execution = starter.start(
                 request.executeOptions(), units, request.jobClassName(), (byte[]) request.input()
-        ); // todo
+        );
         execution.idAsync().whenComplete((jobId, err) -> sendExecuteResponse(jobId, err, sender, correlationId));
     }
 
