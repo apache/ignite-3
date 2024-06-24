@@ -986,7 +986,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                 raftGroupListener,
                                 mvTableStorage.isVolatile(),
                                 snapshotStorageFactory,
-                                raftClient -> { },
                                 createListener,
                                 storageIndexTracker,
                                 replicaGrpId,

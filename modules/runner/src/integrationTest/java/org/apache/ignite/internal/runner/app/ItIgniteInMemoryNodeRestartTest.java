@@ -237,7 +237,7 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
                     .map(Peer::consistentId)
                     .collect(Collectors.toList())
                     .contains(restartingNodeConsistentId);
-        } catch (InterruptedException | ExecutionException |TimeoutException e) {
+        } catch (InterruptedException | ExecutionException | TimeoutException e) {
             return false;
         }
     }
