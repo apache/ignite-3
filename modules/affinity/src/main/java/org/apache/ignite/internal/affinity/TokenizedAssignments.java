@@ -15,23 +15,18 @@
  * limitations under the License.
  */
 
-apply from: "$rootDir/buildscripts/java-core.gradle"
-apply from: "$rootDir/buildscripts/publishing.gradle"
-apply from: "$rootDir/buildscripts/java-junit5.gradle"
-apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
+package org.apache.ignite.internal.affinity;
 
-dependencies {
-    annotationProcessor project(":ignite-network-annotation-processor")
+import java.io.Serializable;
+import java.util.Set;
 
-    implementation project(':ignite-core')
-    implementation project(':ignite-network-api')
-    implementation project(':ignite-affinity')
-    implementation libs.jetbrains.annotations
+/**
+ * Set of nodes along with associated token that is guaranteed to be changed if the set was changed.
+ */
+public interface TokenizedAssignments extends Serializable {
+    /** Returns a set of nodes, represented by this assignments instance. */
+    Set<Assignment> nodes();
 
-    testFixturesImplementation project(':ignite-core')
-    testFixturesImplementation project(':ignite-network-api')
-    testFixturesImplementation project(':ignite-affinity')
-    testFixturesImplementation libs.jetbrains.annotations
+    /** Returns a token associated with given assignments that is guaranteed to be changed if assignments were changed. */
+    long token();
 }
-
-description = 'ignite-placement-driver-api'
