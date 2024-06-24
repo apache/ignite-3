@@ -39,7 +39,6 @@ set(PUBLIC_HEADERS
     ignite_timestamp.h
     ignite_type.h
     primitive.h
-    server_version.h
     uuid.h
 )
 
