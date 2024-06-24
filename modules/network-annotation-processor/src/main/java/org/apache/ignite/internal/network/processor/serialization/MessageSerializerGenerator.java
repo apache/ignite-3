@@ -73,6 +73,9 @@ public class MessageSerializerGenerator {
 
         return TypeSpec.classBuilder(serializerClassName)
                 .addSuperinterface(ParameterizedTypeName.get(ClassName.get(MessageSerializer.class), message.className()))
+                .addMethod(MethodSpec.constructorBuilder()
+                        .addModifiers(Modifier.PRIVATE)
+                        .build())
                 .addMethod(writeMessageMethod(message))
                 .addField(FieldSpec.builder(serializerClassName, "INSTANCE")
                         .addModifiers(Modifier.PUBLIC, Modifier.STATIC, Modifier.FINAL)

@@ -273,7 +273,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
             lastFinished = remainingInternal() >= 1 + 1;
 
             if (lastFinished) {
-                writeByteUnchecked((byte) 1);
+                writeBooleanUnchecked(true);
 
                 writeByte(val);
             }
@@ -296,7 +296,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
             lastFinished = remainingInternal() >= 1 + MAX_VAR_SHORT_BYTES;
 
             if (lastFinished) {
-                writeByteUnchecked((byte) 1);
+                writeBooleanUnchecked(true);
 
                 writeShort(val);
             }
@@ -319,7 +319,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
             lastFinished = remainingInternal() >= 1 + MAX_VAR_INT_BYTES;
 
             if (lastFinished) {
-                writeByteUnchecked((byte) 1);
+                writeBooleanUnchecked(true);
 
                 writeInt(val);
             }
@@ -342,12 +342,12 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
             lastFinished = remainingInternal() >= 1 + MAX_VAR_LONG_BYTES;
 
             if (lastFinished) {
-                writeByteUnchecked((byte) 1);
+                writeBooleanUnchecked(true);
 
                 writeVarLong(val + 1);
             }
         } else {
-            writeByteUnchecked((byte) 0);
+            writeBoolean(false);
         }
     }
 
@@ -419,7 +419,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
             lastFinished = remainingInternal() >= 1 + 4;
 
             if (lastFinished) {
-                writeByteUnchecked((byte) 1);
+                writeBooleanUnchecked(true);
 
                 writeFloat(val);
             }
@@ -454,7 +454,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
             lastFinished = remainingInternal() >= 1 + 8;
 
             if (lastFinished) {
-                writeByteUnchecked((byte) 1);
+                writeBooleanUnchecked(true);
 
                 writeDouble(val);
             }
@@ -489,7 +489,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
             lastFinished = remainingInternal() >= 1 + 2;
 
             if (lastFinished) {
-                writeByteUnchecked((byte) 1);
+                writeBooleanUnchecked(true);
 
                 writeChar(val);
             }
@@ -504,14 +504,14 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         lastFinished = remainingInternal() >= 1;
 
         if (lastFinished) {
-            writeByteUnchecked((byte) (val ? 1 : 0));
+            writeBooleanUnchecked(val);
         }
     }
 
-    private void writeByteUnchecked(byte val) {
+    private void writeBooleanUnchecked(boolean val) {
         int pos = buf.position();
 
-        GridUnsafe.putByte(heapArr, baseOff + pos, val);
+        GridUnsafe.putByte(heapArr, baseOff + pos, (byte) (val ? 1 : 0));
 
         setPosition(pos + 1);
     }
@@ -527,7 +527,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
             lastFinished = remainingInternal() >= 1 + 1;
 
             if (lastFinished) {
-                writeByteUnchecked((byte) 1);
+                writeBooleanUnchecked(true);
 
                 writeBoolean(val);
             }
@@ -751,7 +751,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
                 GridUnsafe.putLongLittleEndian(heapArr, baseOff + pos + 1, val.getMostSignificantBits());
                 GridUnsafe.putLongLittleEndian(heapArr, baseOff + pos + 9, val.getLeastSignificantBits());
 
-                setPosition(pos + 17);
+                setPosition(pos + 1 + 2 * Long.BYTES);
             }
         }
     }
