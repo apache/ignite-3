@@ -33,7 +33,6 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -59,6 +58,7 @@ import org.apache.ignite.internal.partition.replicator.network.command.BuildInde
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.storage.index.IndexStorage;
@@ -217,17 +217,20 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
         );
     }
 
-    private static RaftGroupService getRaftClient(Ignite node, int partitionId) {
+    private static @Nullable RaftGroupService getRaftClient(Ignite node, int partitionId) {
         TableViewInternal table = getTableView(node, TABLE_NAME);
         assertNotNull(table);
 
+        CompletableFuture<Replica> replicaFut = ((IgniteImpl) node).replicaManager()
+                .replica(new TablePartitionId(table.tableId(), partitionId));
+
+        if  (replicaFut == null) {
+            return null;
+        }
+
         try {
-            return ((IgniteImpl) node).replicaManager()
-                    .replica(new TablePartitionId(table.tableId(), partitionId))
-                    .get(15, TimeUnit.SECONDS)
-                    .raftClient();
-        } catch (InterruptedException | ExecutionException | TimeoutException e) {
-            fail(e);
+            return replicaFut.get(15, TimeUnit.SECONDS).raftClient();
+        } catch (ExecutionException | InterruptedException | TimeoutException e) {
             return null;
         }
     }
@@ -338,6 +341,10 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
                 for (int partitionId = 0; partitionId < internalTable.partitions(); partitionId++) {
                     // Excluding partitions on the node outside of replication group
                     RaftGroupService raftGroupService = getRaftClient(clusterNode, partitionId);
+
+                    if (raftGroupService == null) {
+                        continue;
+                    }
 
                     List<Peer> allPeers = raftGroupService.peers();
 

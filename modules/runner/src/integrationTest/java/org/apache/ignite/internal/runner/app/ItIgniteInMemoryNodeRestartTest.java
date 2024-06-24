@@ -43,8 +43,6 @@ import org.apache.ignite.internal.BaseIgniteRestartTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.raft.Loza;
-import org.apache.ignite.internal.raft.service.LeaderWithTerm;
-import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.TableViewInternal;
@@ -58,6 +56,7 @@ import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
@@ -159,7 +158,7 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
     /**
      * Restarts an in-memory node that is not a leader of the table's partition.
      */
-    @Test
+    @RepeatedTest(40)
     public void inMemoryNodeRestartNotLeader(TestInfo testInfo) throws Exception {
         // Start three nodes, the first one is going to be CMG and MetaStorage leader.
         IgniteImpl ignite = startNode(testInfo, 0);
@@ -172,9 +171,10 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
         TableViewInternal table = unwrapTableViewInternal(ignite.tables().table(TABLE_NAME));
 
         // Find the leader of the table's partition group.
-        RaftGroupService raftGroupService = table.internalTable().tableRaftService().partitionRaftGroupService(0);
-        LeaderWithTerm leaderWithTerm = raftGroupService.refreshAndGetLeaderWithTerm().join();
-        String leaderId = leaderWithTerm.leader().consistentId();
+        String leaderId = ignite.replicaManager()
+                .replica(new TablePartitionId(table.tableId(), 0))
+                .thenApply(replica -> replica.raftClient().leader().consistentId())
+                .get(15, TimeUnit.SECONDS);
 
         log.info("Leader is {}", leaderId);
 
