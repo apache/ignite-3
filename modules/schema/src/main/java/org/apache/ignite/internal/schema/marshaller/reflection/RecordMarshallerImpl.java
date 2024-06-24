@@ -88,7 +88,7 @@ public class RecordMarshallerImpl<R> implements RecordMarshaller<R> {
     public Row marshal(R rec) throws MarshallerException {
         assert recClass.isInstance(rec);
 
-        final RowAssembler asm = createAssembler(Objects.requireNonNull(rec));
+        RowAssembler asm = createAssembler(Objects.requireNonNull(rec));
 
         recMarsh.writeObject(rec, new RowWriter(asm));
 
@@ -100,7 +100,7 @@ public class RecordMarshallerImpl<R> implements RecordMarshaller<R> {
     public Row marshalKey(R rec) throws MarshallerException {
         assert recClass.isInstance(rec);
 
-        final RowAssembler asm = createAssemblerForKey(Objects.requireNonNull(rec));
+        RowAssembler asm = createAssemblerForKey(Objects.requireNonNull(rec));
 
         keyMarsh.writeObject(rec, new RowWriter(asm));
 
