@@ -20,6 +20,9 @@ package org.apache.ignite.internal.app;
 import static java.lang.System.lineSeparator;
 
 import com.google.auto.service.AutoService;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -236,8 +239,18 @@ public class IgnitionImpl implements Ignition {
 
         String padding = " ".repeat(22);
 
-        String version = "Apache Ignite ver. " + IgniteProductVersion.CURRENT_VERSION;
+        String version;
 
-        LOG.info("{}" + lineSeparator() + "{}{}" + lineSeparator(), banner, padding, version);
+        try (InputStream versionStream = IgnitionImpl.class.getClassLoader().getResourceAsStream("ignite.version.full")) {
+            if (versionStream != null) {
+                version = new String(versionStream.readAllBytes(), StandardCharsets.UTF_8);
+            } else {
+                version = IgniteProductVersion.CURRENT_VERSION.toString();
+            }
+        } catch (IOException e) {
+            version = IgniteProductVersion.CURRENT_VERSION.toString();
+        }
+
+        LOG.info("{}" + lineSeparator() + "{}{}" + lineSeparator(), banner, padding, "Apache Ignite ver. " + version);
     }
 }
