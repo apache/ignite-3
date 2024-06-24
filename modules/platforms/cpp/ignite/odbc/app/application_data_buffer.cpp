@@ -20,7 +20,7 @@
 #include <ignite/odbc/system/odbc_constants.h>
 #include <ignite/odbc/utility.h>
 
-#include <ignite/common/bits.h>
+#include "ignite/common/detail/bits.h"
 
 #include <algorithm>
 #include <cstring>
@@ -219,7 +219,7 @@ conversion_result application_data_buffer::put_num(T value) {
                 auto *out = reinterpret_cast<SQL_NUMERIC_STRUCT *>(data_ptr);
                 auto u_val = static_cast<std::uint64_t>(value < 0 ? -value : value);
 
-                out->precision = digit_length(u_val);
+                out->precision = detail::digit_length(u_val);
                 out->scale = 0;
                 out->sign = value < 0 ? 0 : 1;
 

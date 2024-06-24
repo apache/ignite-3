@@ -49,7 +49,7 @@ const std::int32_t UINT64_MAX_PRECISION = 20;
 # include <intrin.h>
 #endif
 
-namespace ignite {
+namespace ignite::detail {
 
 /**
  * Returns the number of consecutive 0 bits in the value of x, starting from the least significant bit ("right").
