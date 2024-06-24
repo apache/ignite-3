@@ -106,7 +106,6 @@ import org.apache.ignite.internal.configuration.storage.LocalFileConfigurationSt
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidator;
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidatorImpl;
-import org.apache.ignite.internal.datareplication.ReplicaLifecycleManager;
 import org.apache.ignite.internal.deployunit.DeploymentManagerImpl;
 import org.apache.ignite.internal.deployunit.IgniteDeployment;
 import org.apache.ignite.internal.deployunit.configuration.DeploymentConfiguration;
@@ -154,6 +153,8 @@ import org.apache.ignite.internal.network.scalecube.ScaleCubeClusterServiceFacto
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.internal.network.serialization.SerializationRegistryServiceLoader;
 import org.apache.ignite.internal.network.wrapper.JumpToExecutorByConsistentIdAfterSend;
+import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
+import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.PlacementDriverManager;
 import org.apache.ignite.internal.raft.Loza;
@@ -201,8 +202,8 @@ import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
 import org.apache.ignite.internal.systemview.api.SystemViewManager;
 import org.apache.ignite.internal.table.distributed.PublicApiThreadingIgniteTables;
 import org.apache.ignite.internal.table.distributed.TableManager;
-import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager;
+import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.schema.CheckCatalogVersionOnActionRequest;
 import org.apache.ignite.internal.table.distributed.schema.CheckCatalogVersionOnAppendEntries;
@@ -366,7 +367,7 @@ public class IgniteImpl implements Ignite {
 
     private final DistributionZoneManager distributionZoneManager;
 
-    private final ReplicaLifecycleManager replicaLifecycleManager;
+    private final PartitionReplicaLifecycleManager partitionReplicaLifecycleManager;
 
     /** Creator for volatile {@link LogStorageFactory} instances. */
     private final VolatileLogStorageFactoryCreator volatileLogStorageFactoryCreator;
@@ -410,6 +411,8 @@ public class IgniteImpl implements Ignite {
 
     /** Default log storage factory for raft. */
     private final LogStorageFactory logStorageFactory;
+
+    private IndexMetaStorage indexMetaStorage;
 
     /**
      * The Constructor.
@@ -651,7 +654,7 @@ public class IgniteImpl implements Ignite {
                 clusterSvc,
                 cmgMgr,
                 clockService,
-                Set.of(TableMessageGroup.class, TxMessageGroup.class),
+                Set.of(PartitionReplicationMessageGroup.class, TxMessageGroup.class),
                 placementDriverMgr.placementDriver(),
                 threadPoolsManager.partitionOperationsExecutor(),
                 partitionIdleSafeTimePropagationPeriodMsSupplier,
@@ -709,6 +712,17 @@ public class IgniteImpl implements Ignite {
 
         this.catalogManager = catalogManager;
 
+        lowWatermark = new LowWatermarkImpl(
+                name,
+                gcConfig.lowWatermark(),
+                clockService,
+                vaultMgr,
+                failureProcessor,
+                clusterSvc.messagingService()
+        );
+
+        this.indexMetaStorage = new IndexMetaStorage(catalogManager, lowWatermark, metaStorageMgr);
+
         raftMgr.appendEntriesRequestInterceptor(new CheckCatalogVersionOnAppendEntries(catalogManager));
         raftMgr.actionRequestInterceptor(new CheckCatalogVersionOnActionRequest(catalogManager));
 
@@ -725,7 +739,14 @@ public class IgniteImpl implements Ignite {
                 rebalanceScheduler
         );
 
-        replicaLifecycleManager = new ReplicaLifecycleManager();
+        partitionReplicaLifecycleManager = new PartitionReplicaLifecycleManager(
+                catalogManager,
+                replicaMgr,
+                distributionZoneManager,
+                metaStorageMgr,
+                clusterSvc.topologyService(),
+                threadPoolsManager.tableIoExecutor()
+        );
 
         TransactionConfiguration txConfig = clusterConfigRegistry.getConfiguration(TransactionConfiguration.KEY);
 
@@ -736,15 +757,6 @@ public class IgniteImpl implements Ignite {
         );
 
         resourcesRegistry = new RemotelyTriggeredResourceRegistry();
-
-        lowWatermark = new LowWatermarkImpl(
-                name,
-                gcConfig.lowWatermark(),
-                clockService,
-                vaultMgr,
-                failureProcessor,
-                clusterSvc.messagingService()
-        );
 
         var transactionInflights = new TransactionInflights(placementDriverMgr.placementDriver(), clockService);
 
@@ -809,7 +821,8 @@ public class IgniteImpl implements Ignite {
                 this::bareSql,
                 resourcesRegistry,
                 lowWatermark,
-                transactionInflights
+                transactionInflights,
+                indexMetaStorage
         );
 
         disasterRecoveryManager = new DisasterRecoveryManager(
@@ -1121,6 +1134,7 @@ public class IgniteImpl implements Ignite {
                         lifecycleManager.startComponentsAsync(
                                 componentContext,
                                 catalogManager,
+                                indexMetaStorage,
                                 clusterCfgMgr,
                                 authenticationManager,
                                 placementDriverMgr,
@@ -1134,7 +1148,7 @@ public class IgniteImpl implements Ignite {
                                 schemaManager,
                                 volatileLogStorageFactoryCreator,
                                 outgoingSnapshotsManager,
-                                replicaLifecycleManager,
+                                partitionReplicaLifecycleManager,
                                 distributedTblMgr,
                                 disasterRecoveryManager,
                                 indexManager,
@@ -1172,7 +1186,10 @@ public class IgniteImpl implements Ignite {
                         // Enable watermark events.
                         lowWatermark.scheduleUpdates();
 
-                        // Enable REST component on start complete.
+                        // Enable client requests handling on start complete.
+                            clientHandlerModule.enable();
+
+                            // Enable REST component on start complete.
                         restComponent.enable();
                         // Transfer the node to the STARTED state.
                         lifecycleManager.onStartComplete();
@@ -1550,7 +1567,7 @@ public class IgniteImpl implements Ignite {
 
     // TODO: IGNITE-18493 - remove/move this
     @TestOnly
-    public void dropMessages(BiPredicate<String, NetworkMessage> predicate) {
+    public void dropMessages(BiPredicate<@Nullable String, NetworkMessage> predicate) {
         ((DefaultMessagingService) clusterSvc.messagingService()).dropMessages(predicate);
     }
 

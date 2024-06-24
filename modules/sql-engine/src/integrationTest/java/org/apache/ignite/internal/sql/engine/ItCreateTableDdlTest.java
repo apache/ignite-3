@@ -446,6 +446,36 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
         sql("DROP TABLE \"table\"\"Test\"\"\"");
     }
 
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-15200
+    //  Remove this after interval type support is added.
+    @Test
+    public void testCreateTableDoesNotAllowIntervals() {
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR, 
+                "Type INTERVAL YEAR cannot be used in a column definition [column=ID]", 
+                () -> sql("CREATE TABLE test(id INTERVAL YEAR PRIMARY KEY, val INT)")
+        );
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Type INTERVAL YEAR cannot be used in a column definition [column=P]",
+                () -> sql("CREATE TABLE test(id INTEGER PRIMARY KEY, p INTERVAL YEAR)")
+        );
+    }
+
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-15200
+    //  Remove this after interval type support is added.
+    @Test
+    public void testAlterTableDoesNotAllowIntervals() {
+        sql("CREATE TABLE test(id INTEGER PRIMARY KEY, val INTEGER)");
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Type INTERVAL YEAR cannot be used in a column definition [column=P]",
+                () -> sql("ALTER TABLE TEST ADD COLUMN p INTERVAL YEAR")
+        );
+    }
+
     private static CatalogZoneDescriptor getDefaultZone(IgniteImpl node) {
         CatalogManager catalogManager = node.catalogManager();
         Catalog catalog = catalogManager.catalog(catalogManager.activeCatalogVersion(node.clock().nowLong()));

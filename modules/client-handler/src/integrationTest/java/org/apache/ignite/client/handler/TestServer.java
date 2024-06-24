@@ -139,6 +139,7 @@ public class TestServer {
         );
 
         module.startAsync(componentContext).join();
+        module.enable();
 
         return module;
     }

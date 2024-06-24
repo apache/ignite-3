@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.cli.call.recovery.reset;
 
 import java.util.List;
-import org.apache.ignite.internal.cli.commands.recovery.reset.ResetPartitionsMixin;
+import org.apache.ignite.internal.cli.commands.recovery.partitions.reset.ResetPartitionsMixin;
 import org.apache.ignite.internal.cli.core.call.CallInput;
 import org.jetbrains.annotations.Nullable;
 

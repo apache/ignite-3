@@ -244,7 +244,7 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
         }
 
         void stopDroppingMessages() {
-            ((DefaultMessagingService) clusterService.messagingService()).dropMessages(null);
+            ((DefaultMessagingService) clusterService.messagingService()).stopDroppingMessages();
         }
 
         boolean checkValueInStorage(byte[] testKey, byte[] testValueExpected) {

@@ -619,7 +619,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
      *     node's consistent ID.
      */
     @TestOnly
-    public void dropMessages(BiPredicate<String, NetworkMessage> predicate) {
+    public void dropMessages(BiPredicate<@Nullable String, NetworkMessage> predicate) {
         dropMessagesPredicate = predicate;
     }
 

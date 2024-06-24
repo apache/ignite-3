@@ -19,7 +19,7 @@ package org.apache.ignite.internal.compute.executor;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
-import org.apache.ignite.compute.JobStatus;
+import org.apache.ignite.compute.JobState;
 import org.apache.ignite.internal.compute.queue.QueueExecution;
 import org.jetbrains.annotations.Nullable;
 
@@ -49,8 +49,8 @@ public class JobExecutionInternal<R> {
     }
 
     @Nullable
-    public JobStatus status() {
-        return execution.status();
+    public JobState state() {
+        return execution.state();
     }
 
     /**

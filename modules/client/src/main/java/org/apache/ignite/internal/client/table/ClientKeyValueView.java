@@ -32,7 +32,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
@@ -41,7 +40,6 @@ import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
 import org.apache.ignite.client.RetryLimitPolicy;
-import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.PayloadInputChannel;
@@ -65,6 +63,7 @@ import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.KeyValueView;
+import org.apache.ignite.table.ReceiverDescriptor;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
@@ -702,18 +701,16 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
     @Override
     public <E, P, R> CompletableFuture<Void> streamData(
             Publisher<E> publisher,
-            @Nullable DataStreamerOptions options,
             Function<E, Entry<K, V>> keyFunc,
             Function<E, P> payloadFunc,
+            ReceiverDescriptor receiver,
             @Nullable Flow.Subscriber<R> resultSubscriber,
-            List<DeploymentUnit> deploymentUnits,
-            String receiverClassName,
+            @Nullable DataStreamerOptions options,
             Object... receiverArgs) {
         Objects.requireNonNull(publisher);
         Objects.requireNonNull(keyFunc);
         Objects.requireNonNull(payloadFunc);
-        Objects.requireNonNull(deploymentUnits);
-        Objects.requireNonNull(receiverClassName);
+        Objects.requireNonNull(receiver);
 
         return ClientDataStreamer.streamData(
                 publisher,
@@ -724,8 +721,8 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
                 new KeyValuePojoStreamerPartitionAwarenessProvider<>(tbl, keySer.mapper()),
                 tbl,
                 resultSubscriber,
-                deploymentUnits,
-                receiverClassName,
+                receiver.units(),
+                receiver.receiverClassName(),
                 receiverArgs);
     }
 
