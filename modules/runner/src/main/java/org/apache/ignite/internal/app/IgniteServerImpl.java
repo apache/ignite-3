@@ -21,6 +21,9 @@ import static java.lang.System.lineSeparator;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
@@ -261,9 +264,19 @@ public class IgniteServerImpl implements IgniteServer {
 
         String padding = " ".repeat(22);
 
-        String version = "Apache Ignite ver. " + IgniteProductVersion.CURRENT_VERSION;
+        String version;
 
-        LOG.info("{}" + lineSeparator() + "{}{}" + lineSeparator(), banner, padding, version);
+        try (InputStream versionStream = IgniteServerImpl.class.getClassLoader().getResourceAsStream("ignite.version.full")) {
+            if (versionStream != null) {
+                version = new String(versionStream.readAllBytes(), StandardCharsets.UTF_8);
+            } else {
+                version = IgniteProductVersion.CURRENT_VERSION.toString();
+            }
+        } catch (IOException e) {
+            version = IgniteProductVersion.CURRENT_VERSION.toString();
+        }
+
+        LOG.info("{}" + lineSeparator() + "{}{}" + lineSeparator(), banner, padding, "Apache Ignite ver. " + version);
     }
 
     private static void sync(CompletableFuture<Void> future) {
