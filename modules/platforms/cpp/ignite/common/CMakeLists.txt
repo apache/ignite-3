@@ -26,7 +26,7 @@ set(PUBLIC_HEADERS
     bits.h
     bytes.h
     bytes_view.h
-    config.h
+    detail/config.h
     end_point.h
     error_codes.h
     ignite_date.h

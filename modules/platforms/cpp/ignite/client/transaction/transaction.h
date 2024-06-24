@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "ignite/common/config.h"
+#include "ignite/common/detail/config.h"
 #include "ignite/common/ignite_result.h"
 
 namespace ignite {

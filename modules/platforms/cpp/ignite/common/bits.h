@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "config.h"
+#include "ignite/common/detail/config.h"
 
 #include <array>
 #include <cassert>

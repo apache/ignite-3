@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "config.h"
+#include "detail/config.h"
 
 #include <cstddef>
 #include <cstdint>
