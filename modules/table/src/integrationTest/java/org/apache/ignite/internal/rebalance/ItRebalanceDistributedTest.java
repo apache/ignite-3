@@ -907,13 +907,12 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                                             .cachedTable(getTableId(n, tableName))
                                             .internalTable()
                                             .tableRaftService();
-                                    RaftGroupService raftClient;
+
                                     try {
-                                        raftClient = trs.partitionRaftGroupService(partNum);
+                                        return trs.partitionRaftGroupService(partNum) != null;
                                     } catch (IgniteInternalException e) {
                                         return false;
                                     }
-                                    return raftClient != null;
                                 });
                     } catch (IgniteInternalException e) {
                         // Raft group service not found.

@@ -935,6 +935,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             // (0) in case if node not in the assignments
             return nullCompletedFuture();
         }
+
         CompletableFuture<Boolean> shouldStartGroupFut = isRecovery
                 ? partitionReplicatorNodeRecovery.initiateGroupReentryIfNeeded(
                         replicaGrpId,
