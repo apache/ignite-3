@@ -71,7 +71,7 @@ T get_value(bytes_view data) {
     return res;
 }
 
-big_decimal get_decimal(bytes_view data, int32_t scale) {
+big_decimal get_decimal(bytes_view data, int16_t scale) {
     return binary_tuple_parser::get_decimal(data, scale);
 }
 
