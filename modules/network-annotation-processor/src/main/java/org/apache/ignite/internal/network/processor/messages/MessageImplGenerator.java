@@ -56,6 +56,7 @@ import org.apache.ignite.internal.network.processor.MessageClass;
 import org.apache.ignite.internal.network.processor.MessageGroupWrapper;
 import org.apache.ignite.internal.network.processor.ProcessingException;
 import org.apache.ignite.internal.network.processor.TypeUtils;
+import org.apache.ignite.internal.network.serialization.MessageSerializer;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
@@ -203,6 +204,12 @@ public class MessageImplGenerator {
                 .addSuperinterface(Cloneable.class)
                 .addFields(fields)
                 .addMethods(methodImpls)
+                .addMethod(MethodSpec.methodBuilder("serializer")
+                        .returns(MessageSerializer.class)
+                        .addModifiers(Modifier.PUBLIC)
+                        .addAnnotation(Override.class)
+                        .addCode("return $T.INSTANCE;", message.serializerClassName())
+                        .build())
                 .addMethod(constructor(fields, notNullFieldNames, marshallableFieldNames));
 
         // group type constant and getter
