@@ -25,13 +25,13 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobState;
 import org.apache.ignite.compute.JobStatus;
-import org.apache.ignite.compute.Marshaller;
 import org.apache.ignite.internal.client.PayloadInputChannel;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.compute.JobStateImpl;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.marshaling.Marshaler;
 import org.jetbrains.annotations.Nullable;
 
 
@@ -50,7 +50,7 @@ class ClientJobExecution<R> implements JobExecution<R> {
     // Local state cache
     private final CompletableFuture<@Nullable JobState> stateFuture = new CompletableFuture<>();
 
-    ClientJobExecution(ReliableChannel ch, CompletableFuture<SubmitResult> reqFuture, Marshaller<R, byte[]> marshaler) {
+    ClientJobExecution(ReliableChannel ch, CompletableFuture<SubmitResult> reqFuture, Marshaler<R, byte[]> marshaler) {
         this.ch = ch;
 
         this.jobIdFuture = reqFuture.thenApply(SubmitResult::jobId);

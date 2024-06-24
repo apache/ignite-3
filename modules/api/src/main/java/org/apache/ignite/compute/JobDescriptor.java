@@ -19,6 +19,8 @@ package org.apache.ignite.compute;
 
 import java.util.List;
 import java.util.Objects;
+import org.apache.ignite.marshaling.ByteArrayMarshaler;
+import org.apache.ignite.marshaling.Marshaler;
 
 /**
  * Compute job descriptor.
@@ -30,14 +32,14 @@ public class JobDescriptor<T, R> {
 
     private final JobExecutionOptions options;
 
-    private final Marshaller<T, byte[]> resultMarshaller;
+    private final Marshaler<T, byte[]> resultMarshaller;
 
-    private final Marshaller<T, byte[]> argumentMarshaler;
+    private final Marshaler<T, byte[]> argumentMarshaler;
 
     private JobDescriptor(
             String jobClassName,
-            List<DeploymentUnit> units, JobExecutionOptions options, Marshaller<T, byte[]> resultMarshaller,
-            Marshaller<T, byte[]> argumentMarshaller) {
+            List<DeploymentUnit> units, JobExecutionOptions options, Marshaler<T, byte[]> resultMarshaller,
+            Marshaler<T, byte[]> argumentMarshaller) {
         this.jobClassName = jobClassName;
         this.units = units;
         this.options = options;
@@ -94,11 +96,11 @@ public class JobDescriptor<T, R> {
         return new Builder(jobClass.getName());
     }
 
-    public Marshaller<T, byte[]> resultMarshaller() {
+    public Marshaler<T, byte[]> resultMarshaller() {
         return resultMarshaller;
     }
 
-    public Marshaller<T, byte[]> argumentMarshaler() {
+    public Marshaler<T, byte[]> argumentMarshaler() {
         return argumentMarshaler;
     }
 
@@ -159,8 +161,8 @@ public class JobDescriptor<T, R> {
                     jobClassName,
                     units == null ? List.of() : units,
                     options == null ? JobExecutionOptions.DEFAULT : options,
-                    new ByteArrayMarshaller<>() {},
-                    new ByteArrayMarshaller<>() {});
+                    new ByteArrayMarshaler<>() {},
+                    new ByteArrayMarshaler<>() {});
         }
     }
 }

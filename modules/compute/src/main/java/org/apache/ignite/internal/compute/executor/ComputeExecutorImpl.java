@@ -24,7 +24,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
-import org.apache.ignite.compute.Marshaller;
 import org.apache.ignite.compute.task.MapReduceTask;
 import org.apache.ignite.compute.task.TaskExecutionContext;
 import org.apache.ignite.internal.compute.ComputeUtils;
@@ -41,6 +40,8 @@ import org.apache.ignite.internal.compute.task.TaskExecutionInternal;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
+import org.apache.ignite.marshaling.Marshaler;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Base implementation of {@link ComputeExecutor}.
@@ -85,7 +86,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
         AtomicBoolean isInterrupted = new AtomicBoolean();
         JobExecutionContext context = new JobExecutionContextImpl(ignite, isInterrupted, classLoader);
         ComputeJob<T, R> jobInstance = ComputeUtils.instantiateJob(jobClass);
-        Marshaller<T, byte[]> marshaller = jobInstance.inputMarshaller();
+        Marshaler<T, byte[]> marshaller = jobInstance.inputMarshaller();
 
         QueueExecution<R> execution = executorService.submit(
                 () -> jobInstance.executeAsync(context, unmarshallOrNotIfLocal(marshaller, input)),
@@ -96,7 +97,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
         return new JobExecutionInternal<>(execution, isInterrupted, jobInstance);
     }
 
-    <T> T unmarshallOrNotIfLocal(Marshaller<T, byte[]> marshaller, Object input) { // todo
+    private static <T> @Nullable T unmarshallOrNotIfLocal(Marshaler<T, byte[]> marshaller, Object input) {
         if (input instanceof byte[]) {
             return marshaller.unmarshal((byte[]) input);
         }

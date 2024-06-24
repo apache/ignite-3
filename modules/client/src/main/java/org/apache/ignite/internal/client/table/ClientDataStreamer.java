@@ -24,7 +24,6 @@ import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
 import org.apache.ignite.client.RetryLimitPolicy;
 import org.apache.ignite.compute.DeploymentUnit;
-import org.apache.ignite.compute.Marshaller;
 import org.apache.ignite.internal.client.ClientUtils;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
@@ -34,6 +33,7 @@ import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.streamer.StreamerOptions;
 import org.apache.ignite.internal.streamer.StreamerPartitionAwarenessProvider;
 import org.apache.ignite.internal.streamer.StreamerSubscriber;
+import org.apache.ignite.marshaling.Marshaler;
 import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOperationType;
 import org.apache.ignite.table.DataStreamerOptions;
@@ -75,7 +75,7 @@ class ClientDataStreamer {
             List<DeploymentUnit> deploymentUnits,
             String receiverClassName,
             Object receiverArgs,
-            @Nullable Marshaller<Object, byte[]> marshaller
+            @Nullable Marshaler<Object, byte[]> marshaller
     ) {
         StreamerBatchSender<V, Integer, R> batchSender = (partitionId, items, deleted) ->
                 tbl.getPartitionAssignment().thenCompose(

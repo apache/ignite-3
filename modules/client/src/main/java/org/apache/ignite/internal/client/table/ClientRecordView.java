@@ -30,7 +30,6 @@ import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
 import org.apache.ignite.client.RetryLimitPolicy;
-import org.apache.ignite.compute.ByteArrayMarshaller;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.TuplePart;
 import org.apache.ignite.internal.client.sql.ClientSql;
@@ -39,6 +38,7 @@ import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.internal.marshaller.TupleReader;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.table.criteria.SqlRowProjection;
+import org.apache.ignite.marshaling.ByteArrayMarshaler;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.DataStreamerItem;
@@ -448,7 +448,7 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
                 receiver.units(),
                 receiver.receiverClassName(),
                 receiverArgs,
-                new ByteArrayMarshaller<>() {} // todo
+                new ByteArrayMarshaler<>() {}
         );
     }
 

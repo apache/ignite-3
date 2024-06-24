@@ -49,7 +49,6 @@ import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.compute.JobState;
 import org.apache.ignite.compute.JobTarget;
-import org.apache.ignite.compute.Marshaller;
 import org.apache.ignite.compute.NodeNotFoundException;
 import org.apache.ignite.compute.task.MapReduceJob;
 import org.apache.ignite.compute.task.TaskExecution;
@@ -65,6 +64,7 @@ import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.ErrorGroups.Compute;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.lang.util.IgniteNameUtils;
+import org.apache.ignite.marshaling.Marshaler;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
@@ -103,7 +103,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
         Objects.requireNonNull(target);
         Objects.requireNonNull(descriptor);
 
-        Marshaller<T, byte[]> argumentMarshaler = descriptor.argumentMarshaler();
+        Marshaler<T, byte[]> argumentMarshaler = descriptor.argumentMarshaler();
 
         if (target instanceof AnyNodeJobTarget) {
             Set<ClusterNode> nodes = ((AnyNodeJobTarget) target).nodes();
@@ -299,7 +299,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
         Objects.requireNonNull(nodes);
         Objects.requireNonNull(descriptor);
 
-        Marshaller<T, byte[]> argumentMarshaler = descriptor.argumentMarshaler();
+        Marshaler<T, byte[]> argumentMarshaler = descriptor.argumentMarshaler();
         return nodes.stream()
                 .collect(toUnmodifiableMap(identity(),
                         // No failover nodes for broadcast. We use failover here in order to complete futures with exceptions

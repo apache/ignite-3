@@ -183,7 +183,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void executesLocally() {
-        JobExecution<String> execution = computeComponent.executeLocally(List.of(), SimpleJob.class.getName(), "a");
+        JobExecution<String> execution = computeComponent.executeLocally(List.of(), SimpleJob.class.getName(), new byte[]{});
 
         assertThat(execution.resultAsync(), willBe("jobResponse"));
         assertThat(execution.stateAsync(), willBe(jobStateWithStatus(COMPLETED)));
@@ -430,7 +430,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
                 .executeOptions(DEFAULT)
                 .deploymentUnits(List.of())
                 .jobClassName(SimpleJob.class.getName())
-                .input("a")
+                .input(new byte[]{})
                 .build();
         ExecuteResponse executeResponse = sendRequestAndCaptureResponse(executeRequest, testNode, 123L);
 

@@ -35,10 +35,10 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import org.apache.ignite.compute.Marshaller;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.marshaling.Marshaler;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 
@@ -195,7 +195,7 @@ public class ClientBinaryTupleUtils {
      * @param builder Builder.
      * @param obj Object.
      */
-    public static <T> void appendObject(BinaryTupleBuilder builder, T obj, @Nullable Marshaller<T, byte[]> marshaler) {
+    public static <T> void appendObject(BinaryTupleBuilder builder, T obj, @Nullable Marshaler<T, byte[]> marshaler) {
         if (obj == null) {
             builder.appendNull(); // Type.
             builder.appendNull(); // Scale.

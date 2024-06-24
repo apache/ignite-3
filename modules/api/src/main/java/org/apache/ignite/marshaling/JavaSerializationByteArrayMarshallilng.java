@@ -15,58 +15,56 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.compute;
+package org.apache.ignite.marshaling;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.io.Serializable;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * ttttt.
+ * Default java serialization marshaller. It is used by default if no other marshaller is provided.
  */
-public class ByteArrayMarshallilng {
+class JavaSerializationByteArrayMarshallilng {
     /**
-     * ttttt.
+     * Writes the object to a byte array with java serialization.
      *
-     * @param <T> asdf.
-     * @return asdf.
+     * @param <T> object.
+     * @return byte array that represents the object.
      */
-    public static <T> byte[] marshal(T object) {
+    public static <T extends Serializable> byte @Nullable [] marshal(T object) {
         if (object == null) {
             return null;
         }
 
-        try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                ObjectOutputStream out = new ObjectOutputStream(baos)
-        ) {
+        try (var baos = new ByteArrayOutputStream(); var out = new ObjectOutputStream(baos)) {
             out.writeObject(object);
             out.flush();
 
             return baos.toByteArray();
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw new MarshallingException(e);
         }
     }
 
     /**
-     * ttsss.
+     * Reads the object from a byte array with java serialization.
      *
-     * @param raw asdf.
-     * @param <T> asdf.
-     * @return asdf.
+     * @param raw byte array that represents the object.
+     * @return object.
      */
-    public static <T> T unmarshal(byte[] raw) {
+    public static <T> @Nullable T unmarshal(byte @Nullable [] raw) {
         if (raw == null) {
             return null;
         }
 
-        try (ByteArrayInputStream bais = new ByteArrayInputStream(raw);
-                ObjectInputStream ois = new ObjectInputStream(bais)) {
+        try (var bais = new ByteArrayInputStream(raw); var ois = new ObjectInputStream(bais)) {
             return (T) ois.readObject();
         } catch (IOException | ClassNotFoundException e) {
-            throw new RuntimeException(e);
+            throw new MarshallingException(e);
         }
     }
 }

@@ -40,7 +40,6 @@ import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
 import org.apache.ignite.client.RetryLimitPolicy;
-import org.apache.ignite.compute.ByteArrayMarshaller;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.PayloadInputChannel;
@@ -59,6 +58,7 @@ import org.apache.ignite.internal.table.criteria.SqlRowProjection;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.lang.UnexpectedNullValueException;
+import org.apache.ignite.marshaling.ByteArrayMarshaler;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.DataStreamerItem;
@@ -725,7 +725,7 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
                 receiver.units(),
                 receiver.receiverClassName(),
                 receiverArgs,
-                new ByteArrayMarshaller<>() {}
+                new ByteArrayMarshaler<>() {}
         );
     }
 

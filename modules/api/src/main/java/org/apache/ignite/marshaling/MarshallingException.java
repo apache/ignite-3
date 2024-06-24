@@ -15,34 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.compute;
+package org.apache.ignite.marshaling;
 
-import org.apache.ignite.table.Tuple;
+import org.apache.ignite.lang.ErrorGroups.Marshalling;
+import org.apache.ignite.lang.IgniteException;
 
 /**
- * ttttt.
+ * Exception thrown when an object type is not supported by the marshaler.
  */
-public class BinaryTupleMarshallilng {
-    /**
-     * ttttt.
-     *
-     * @param <T> asdf.
-     *
-     * @return asdf.
-     */
-    public static <T> Tuple marshal(T object) {
-        return null;
-    }
+public class MarshallingException extends IgniteException {
+    private static final long serialVersionUID = -4170221560474770629L;
 
     /**
-     * ttsss.
+     * Creates an exception with the given unsupported type.
      *
-     * @param raw asdf.
-     * @param <T> asdf.
-     *
-     * @return asdf.
+     * @param exception The exception that caused the error.
      */
-    public static <T> T unmarshal(Tuple raw) {
-        return null;
+    MarshallingException(Exception exception) {
+        super(Marshalling.MARSHALLING_ERR, exception);
     }
 }

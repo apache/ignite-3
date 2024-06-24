@@ -15,21 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.compute;
+package org.apache.ignite.marshaling;
+
+import org.apache.ignite.lang.ErrorGroups.Marshalling;
+import org.apache.ignite.lang.IgniteException;
 
 /**
- * ATTTT.
- *
- * @param <T> asdf.
+ * Exception thrown when an object type is not supported by the marshaler.
  */
-public interface ByteArrayMarshaller<T> extends Marshaller<T, byte[]> {
-    @Override
-    default byte[] marshal(T object) {
-        return ByteArrayMarshallilng.marshal(object);
-    }
+public class UnsupportedObjectTypeMarshalingException extends IgniteException {
+    private static final long serialVersionUID = -8131613381875542450L;
 
-    @Override
-    default T unmarshal(byte[] raw) {
-        return ByteArrayMarshallilng.unmarshal(raw);
+    /**
+     * Creates an exception with the given unsupported type.
+     *
+     * @param unsupportedType Unsupported type.
+     */
+    UnsupportedObjectTypeMarshalingException(Class<?> unsupportedType) {
+        super(
+                Marshalling.UNSUPPORTED_OBJECT_TYPE_ERR,
+                "Unsupported object type: " + unsupportedType.getName() + ". Please, define the marshaler that can handle this type."
+        );
     }
 }

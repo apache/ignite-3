@@ -50,7 +50,8 @@ enum class group : underlying_t {
     CATALOG = 0x11,
     PLACEMENTDRIVER = 0x12,
     WORKERS = 0x13,
-    RECOVERY = 0x14
+    RECOVERY = 0x14,
+    MARSHALLING = 0x15
 };
 
 inline group get_group_by_error_code(const underlying_t code) {
@@ -211,7 +212,11 @@ enum class code : underlying_t {
     ILLEGAL_PARTITION_ID = 0x140001,
     NODES_NOT_FOUND = 0x140002,
     PARTITION_STATE = 0x140003,
-    CLUSTER_NOT_IDLE = 0x140004
+    CLUSTER_NOT_IDLE = 0x140004,
+
+    // Marshalling group. Group code: 21
+    MARSHALLING = 0x150001,
+    UNSUPPORTED_OBJECT_TYPE = 0x150002
 };
 
 } // namespace error

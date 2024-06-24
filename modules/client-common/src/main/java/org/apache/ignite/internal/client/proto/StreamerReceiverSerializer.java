@@ -21,10 +21,10 @@ import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
 
 import java.util.Collection;
 import java.util.List;
-import org.apache.ignite.compute.Marshaller;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.marshaling.Marshaler;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -40,7 +40,7 @@ public class StreamerReceiverSerializer {
      * @param items Items.
      */
     public static void serialize(ClientMessagePacker w, String receiverClassName, Object receiverArgs, Collection<?> items,
-            @Nullable Marshaller<Object, byte[]> marshaller) {
+            @Nullable Marshaler<Object, byte[]> marshaller) {
         // className + args size + args + items size + item type + items.
         int binaryTupleSize = 1 + 1 + 1 + 1 + 1 + items.size();
         var builder = new BinaryTupleBuilder(binaryTupleSize);

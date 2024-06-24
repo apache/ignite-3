@@ -28,9 +28,9 @@ import java.util.BitSet;
 import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.compute.DeploymentUnit;
-import org.apache.ignite.compute.Marshaller;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleParser;
+import org.apache.ignite.marshaling.Marshaler;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -598,7 +598,7 @@ public class ClientMessagePacker implements AutoCloseable {
      *
      * @param vals Object array.
      */
-    public void packObjectArrayAsBinaryTuple(Object @Nullable [] vals, @Nullable Marshaller<Object, byte[]> marshaller) {
+    public void packObjectArrayAsBinaryTuple(Object @Nullable [] vals, @Nullable Marshaler<Object, byte[]> marshaller) {
         assert !closed : "Packer is closed";
 
         if (vals == null) {
@@ -629,7 +629,7 @@ public class ClientMessagePacker implements AutoCloseable {
      *
      * @param val Object array.
      */
-    public <T> void packObjectAsBinaryTuple(T val, @Nullable Marshaller<T, byte[]> marshaler) {
+    public <T> void packObjectAsBinaryTuple(T val, @Nullable Marshaler<T, byte[]> marshaler) {
         assert !closed : "Packer is closed";
 
         if (val == null) {

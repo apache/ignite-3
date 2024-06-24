@@ -18,6 +18,8 @@
 package org.apache.ignite.compute;
 
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.marshaling.ByteArrayMarshaler;
+import org.apache.ignite.marshaling.Marshaler;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -39,8 +41,8 @@ public interface ComputeJob<T, R> {
      *
      * @return asdf.
      */
-    default Marshaller<T, byte[]> inputMarshaller() {
-        return new ByteArrayMarshaller<>() {
+    default Marshaler<T, byte[]> inputMarshaller() {
+        return new ByteArrayMarshaler<>() {
         };
     }
 
@@ -49,8 +51,8 @@ public interface ComputeJob<T, R> {
      *
      * @return asdf.
      */
-    default Marshaller<R, byte[]> resultMarhaller() {
-        return new ByteArrayMarshaller<>() {
+    default Marshaler<R, byte[]> resultMarhaller() {
+        return new ByteArrayMarshaler<>() {
         };
     }
 }

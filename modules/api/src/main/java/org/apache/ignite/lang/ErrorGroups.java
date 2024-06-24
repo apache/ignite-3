@@ -49,8 +49,8 @@ public class ErrorGroups {
      * @param groupName Group name to be created.
      * @param groupCode Group code to be created.
      * @return New error group.
-     * @throws IllegalArgumentException If the specified name or group code already registered.
-     *      Also, this exception is thrown if the given {@code groupName} is {@code null} or empty.
+     * @throws IllegalArgumentException If the specified name or group code already registered. Also, this exception is thrown if
+     *         the given {@code groupName} is {@code null} or empty.
      */
     public static synchronized ErrorGroup registerGroup(String groupName, short groupCode) {
         if (groupName == null || groupName.isEmpty()) {
@@ -140,8 +140,8 @@ public class ErrorGroups {
         public static final int RESOURCE_CLOSING_ERR = COMMON_ERR_GROUP.registerErrorCode((short) 7);
 
         /**
-         * This error code represents an internal error caused by faulty logic or coding in the Ignite codebase.
-         * In general, this error code should be considered as a non-recoverable error
+         * This error code represents an internal error caused by faulty logic or coding in the Ignite codebase. In general, this error code
+         * should be considered as a non-recoverable error
          */
         public static final int INTERNAL_ERR = COMMON_ERR_GROUP.registerErrorCode((short) 0xFFFF);
     }
@@ -230,8 +230,8 @@ public class ErrorGroups {
         public static final int STMT_PARSE_ERR = SQL_ERR_GROUP.registerErrorCode((short) 5);
 
         /**
-         * Statement validation error. Although statement is grammatically correct, the semantic is in question.
-         * This error may appear in following cases:
+         * Statement validation error. Although statement is grammatically correct, the semantic is in question. This error may appear in
+         * following cases:
          * <ul>
          *     <li>the statement refer to relation that doesn't exists.</li>
          *     <li>the statement describes action that is prohibited by the system, like changing columns belonging to primary keys.</li>
@@ -626,5 +626,18 @@ public class ErrorGroups {
 
         /** Error while returning partition states. */
         public static final int CLUSTER_NOT_IDLE_ERR = RECOVERY_ERR_GROUP.registerErrorCode((short) 4);
+    }
+
+    /** Marshalling error group. */
+    @ErrorCodeGroup
+    public static class Marshalling {
+        /** Marshalling error group. */
+        public static final ErrorGroup MARSHALLING_ERR_GROUP = registerGroup("MARSHALLING", (short) 21);
+
+        /** Marshalling error. */
+        public static final int MARSHALLING_ERR = MARSHALLING_ERR_GROUP.registerErrorCode((short) 1);
+
+        /** Unsupported object type error. */
+        public static final int UNSUPPORTED_OBJECT_TYPE_ERR = MARSHALLING_ERR_GROUP.registerErrorCode((short) 2);
     }
 }

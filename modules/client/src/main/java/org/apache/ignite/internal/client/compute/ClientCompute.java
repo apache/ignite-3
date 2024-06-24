@@ -36,7 +36,6 @@ import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.ignite.compute.AnyNodeJobTarget;
-import org.apache.ignite.compute.ByteArrayMarshaller;
 import org.apache.ignite.compute.ColocatedJobTarget;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.IgniteCompute;
@@ -44,7 +43,6 @@ import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.compute.JobTarget;
-import org.apache.ignite.compute.Marshaller;
 import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.internal.client.ClientUtils;
 import org.apache.ignite.internal.client.PayloadInputChannel;
@@ -63,6 +61,8 @@ import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.TableNotFoundException;
+import org.apache.ignite.marshaling.ByteArrayMarshaler;
+import org.apache.ignite.marshaling.Marshaler;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
@@ -162,7 +162,7 @@ public class ClientCompute implements IgniteCompute {
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            Marshaller<Object, byte[]> marshaler,
+            Marshaler<Object, byte[]> marshaler,
             Object args
     ) {
         return getTable(tableName)
@@ -183,7 +183,7 @@ public class ClientCompute implements IgniteCompute {
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            Marshaller<Object, byte[]> marshaler,
+            Marshaler<Object, byte[]> marshaler,
             T args
     ) {
         return getTable(tableName)
@@ -228,7 +228,7 @@ public class ClientCompute implements IgniteCompute {
         Objects.requireNonNull(units);
         Objects.requireNonNull(taskClassName);
 
-        return new ClientTaskExecution<>(ch, doExecuteMapReduceAsync(units, taskClassName, args, new ByteArrayMarshaller<>(){}));
+        return new ClientTaskExecution<>(ch, doExecuteMapReduceAsync(units, taskClassName, args, new ByteArrayMarshaler<>(){}));
     }
 
     @Override
@@ -240,7 +240,7 @@ public class ClientCompute implements IgniteCompute {
             List<DeploymentUnit> units,
             String taskClassName,
             T args,
-            @Nullable Marshaller<Object, byte[]> marshaller) {
+            @Nullable Marshaler<Object, byte[]> marshaller) {
         return ch.serviceAsync(
                 ClientOp.COMPUTE_EXECUTE_MAPREDUCE,
                 w -> packTask(w.out(), units, taskClassName, args, marshaller),
@@ -256,7 +256,7 @@ public class ClientCompute implements IgniteCompute {
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            @Nullable Marshaller<T, byte[]> marshaller,
+            @Nullable Marshaler<T, byte[]> marshaller,
             T args
     ) {
         ClusterNode node = randomNode(nodes);
@@ -296,7 +296,7 @@ public class ClientCompute implements IgniteCompute {
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            @Nullable Marshaller<Object, byte[]> marshaller,
+            @Nullable Marshaler<Object, byte[]> marshaller,
             T args) {
         return executeColocatedInternal(
                 t,
@@ -315,7 +315,7 @@ public class ClientCompute implements IgniteCompute {
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            @Nullable Marshaller<Object, byte[]> marshaller,
+            @Nullable Marshaler<Object, byte[]> marshaller,
             Object args) {
         return executeColocatedInternal(
                 t,
@@ -335,7 +335,7 @@ public class ClientCompute implements IgniteCompute {
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            @Nullable Marshaller<T, byte[]> marshaller,
+            @Nullable Marshaler<T, byte[]> marshaller,
             T args) {
         return t.doSchemaOutOpAsync(
                 ClientOp.COMPUTE_EXECUTE_COLOCATED,
@@ -414,7 +414,7 @@ public class ClientCompute implements IgniteCompute {
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            @Nullable Marshaller<T, byte[]> marshaller,
+            @Nullable Marshaler<T, byte[]> marshaller,
             T args
     ) {
         w.packDeploymentUnits(units);
@@ -429,7 +429,7 @@ public class ClientCompute implements IgniteCompute {
             List<DeploymentUnit> units,
             String taskClassName,
             Object args,
-            @Nullable Marshaller<Object, byte[]> marshaller) {
+            @Nullable Marshaler<Object, byte[]> marshaller) {
         w.packDeploymentUnits(units);
         w.packString(taskClassName);
         w.packObjectAsBinaryTuple(args, marshaller);
