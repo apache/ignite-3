@@ -23,13 +23,16 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.TestOnly;
 
 /** Utilities for working with replicas and replicas manager in tests. */
 public final class ReplicaTestUtils {
-
     /**
      * Returns raft-client if exists.
      *
@@ -41,7 +44,12 @@ public final class ReplicaTestUtils {
      */
     @TestOnly
     public static Optional<RaftGroupService> getRaftClient(Ignite node, int tableId, int partId) {
-        CompletableFuture<Replica> replicaFut = getReplicaManager(node)
+        return getRaftClient(getReplicaManager(node), tableId, partId);
+    }
+
+    @TestOnly
+    private static Optional<RaftGroupService> getRaftClient(ReplicaManager replicaManager, int tableId, int partId) {
+        CompletableFuture<Replica> replicaFut = replicaManager
                 .replica(new TablePartitionId(tableId, partId));
 
         if  (replicaFut == null) {
@@ -65,5 +73,58 @@ public final class ReplicaTestUtils {
     @TestOnly
     public static ReplicaManager getReplicaManager(Ignite node) {
         return IgniteTestUtils.getFieldValue(node, "replicaMgr");
+    }
+
+    /**
+     * Extracts {@link TopologyService} from the given {@link Ignite} node.
+     *
+     * @param node The given node with desired topology service.
+     *
+     * @return Topology service component from given node.
+     */
+    @TestOnly
+    private static TopologyService getTopologyService(Ignite node) {
+        ClusterService clusterService = IgniteTestUtils.getFieldValue(node, "clusterSvc");
+        return clusterService.topologyService();
+    }
+
+    /**
+     * Returns cluster node that is the leader of the corresponding partition group or throws an exception if it cannot be found.
+     *
+     * @param node Ignite node with raft client.
+     * @param tableId Table identifier.
+     * @param partId Partition number.
+     *
+     * @return Leader node of the partition group corresponding to the partition
+     */
+    @TestOnly
+    public static ClusterNode leaderAssignment(Ignite node, int tableId, int partId) {
+        return leaderAssignment(getReplicaManager(node), getTopologyService(node), tableId, partId);
+    }
+
+    /**
+     * Returns cluster node that is the leader of the corresponding partition group or throws an exception if it cannot be found.
+     *
+     * @param replicaManager Ignite node's replica manager with replica that should contains a raft client.
+     * @param topologyService Ignite node's topology service that should find and return leader cluster node.
+     * @param tableId Table identifier.
+     * @param partId Partition number.
+     *
+     * @return Leader node of the partition group corresponding to the partition
+     */
+    @TestOnly
+    public static ClusterNode leaderAssignment(ReplicaManager replicaManager, TopologyService topologyService, int tableId, int partId) {
+        RaftGroupService raftClient = getRaftClient(replicaManager, tableId, partId)
+                .orElseThrow(() -> new IgniteInternalException("No such partition " + partId + " in table " + tableId));
+
+        if (raftClient.leader() == null) {
+            try {
+                raftClient.refreshLeader().get(15, TimeUnit.SECONDS);
+            } catch (InterruptedException | ExecutionException | TimeoutException e) {
+                throw new IgniteInternalException("Couldn't get a leader for partition " + partId + " in table " + tableId, e);
+            }
+        }
+
+        return topologyService.getByConsistentId(raftClient.leader().consistentId());
     }
 }

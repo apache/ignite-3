@@ -166,6 +166,7 @@ dependencies {
     integrationTestImplementation(testFixtures(project(':ignite-failure-handler')))
     integrationTestImplementation(testFixtures(project(':ignite-metrics')))
     integrationTestImplementation(testFixtures(project(':ignite-sql-engine')))
+    integrationTestImplementation(testFixtures(project(':ignite-replicator')))
     integrationTestImplementation libs.fastutil.core
     integrationTestImplementation libs.jetbrains.annotations
     integrationTestImplementation libs.calcite.core

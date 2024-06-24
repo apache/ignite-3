@@ -168,6 +168,7 @@ import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.ReplicaTestUtils;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
@@ -446,7 +447,14 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         Node newNode = nodes.stream().filter(n -> !partitionNodesConsistentIds.contains(n.name)).findFirst().orElseThrow();
 
-        Node leaderNode = findNodeByConsistentId(table.tableRaftService().leaderAssignment(0).name());
+        ClusterNode leaderClusterNode = ReplicaTestUtils.leaderAssignment(
+                node1.replicaManager,
+                node1.clusterService.topologyService(),
+                table.tableId(),
+                0
+        );
+
+        Node leaderNode = findNodeByConsistentId(leaderClusterNode.name());
 
         String nonLeaderNodeConsistentId = partitionNodesConsistentIds.stream()
                 .filter(n -> !n.equals(leaderNode.name))

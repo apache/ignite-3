@@ -172,7 +172,7 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
 
         TableViewInternal table = (TableViewInternal) createTable(DEFAULT_TABLE_NAME, 2, 1);
 
-        ClusterNode leader = table.internalTable().tableRaftService().leaderAssignment(0);
+        ClusterNode leader = ReplicaTestUtils.leaderAssignment(node0, table.tableId(), 0);
 
         boolean isNode0Leader = node0.id().equals(leader.id());
 
