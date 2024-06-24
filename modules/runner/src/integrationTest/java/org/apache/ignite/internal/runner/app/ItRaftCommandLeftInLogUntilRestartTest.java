@@ -191,7 +191,8 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
 
             assertTrue(IgniteTestUtils.waitForCondition(() -> appliedIndexNode0.get() == appliedIndexNode1.get(), 10_000));
 
-            RaftGroupService raftGroupService = table.internalTable().tableRaftService().partitionRaftGroupService(0);
+            RaftGroupService raftGroupService = ReplicaTestUtils.getRaftClient(node0, table.tableId(), 0)
+                    .orElseThrow(AssertionError::new);
 
             raftGroupService.peers().forEach(peer -> assertThat(raftGroupService.snapshot(peer), willCompleteSuccessfully()));
 

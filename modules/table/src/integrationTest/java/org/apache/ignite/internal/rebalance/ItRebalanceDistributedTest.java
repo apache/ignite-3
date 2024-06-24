@@ -161,7 +161,6 @@ import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
-import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
@@ -461,8 +460,9 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                 .findFirst()
                 .orElseThrow();
 
-        TableViewInternal nonLeaderTable =
-                (TableViewInternal) findNodeByConsistentId(nonLeaderNodeConsistentId).tableManager.table(TABLE_NAME);
+        Node nonLeaderNode = findNodeByConsistentId(nonLeaderNodeConsistentId);
+
+        TableViewInternal nonLeaderTable = (TableViewInternal) nonLeaderNode.tableManager.table(TABLE_NAME);
 
         var countDownLatch = new CountDownLatch(1);
 
@@ -490,7 +490,9 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         TableRaftService tableRaftService = nonLeaderTable.internalTable().tableRaftService();
 
         assertThat(
-                tableRaftService.partitionRaftGroupService(0).transferLeadership(new Peer(nonLeaderNodeConsistentId)),
+                ReplicaTestUtils.getRaftClient(nonLeaderNode.replicaManager, nonLeaderTable.tableId(), 0)
+                        .map(raftClient -> raftClient.transferLeadership(new Peer(nonLeaderNodeConsistentId)))
+                        .orElse(null),
                 willCompleteSuccessfully()
         );
 
@@ -819,22 +821,9 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     }
 
     private static boolean isNodeUpdatesPeersOnGroupService(Node node, Set<Peer> desiredPeers) {
-        // TODO: will be replaced with replica usage in https://issues.apache.org/jira/browse/IGNITE-22218
-        TableRaftService tblRaftSvc = node.tableManager.startedTables()
-                                .get(getTableId(node, TABLE_NAME))
-                                .internalTable()
-                .tableRaftService();
-        RaftGroupService groupService;
-        try {
-            groupService = tblRaftSvc.partitionRaftGroupService(0);
-        } catch (IgniteInternalException e) {
-            return false;
-        }
-        List<Peer> peersList = groupService.peers();
-        boolean isUpdated = peersList.stream()
-                                .collect(toSet())
-                .equals(desiredPeers);
-        return isUpdated;
+        return ReplicaTestUtils.getRaftClient(node.replicaManager, getTableId(node, TABLE_NAME), 0)
+                .map(raftClient -> raftClient.peers().stream().collect(toSet()).equals(desiredPeers))
+                .orElse(false);
     }
 
     private void clearSpyInvocations() {
@@ -905,29 +894,9 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         Node anyNode = nodes.get(0);
         Set<Assignment> assignments = getPartitionClusterNodes(anyNode, tableName, replicasNum);
         assertTrue(waitForCondition(
-                () -> {
-                    try {
-                        return nodes.stream()
-                                .filter(n -> isNodeInAssignments(n, assignments))
-                                .allMatch(n -> {
-                                    // TODO: will be replaced with replica usage in https://issues.apache.org/jira/browse/IGNITE-22218
-                                    TableRaftService trs = n.tableManager
-                                            .cachedTable(getTableId(n, tableName))
-                                            .internalTable()
-                                            .tableRaftService();
-                                    RaftGroupService raftClient;
-                                    try {
-                                        raftClient = trs.partitionRaftGroupService(partNum);
-                                    } catch (IgniteInternalException e) {
-                                        return false;
-                                    }
-                                    return raftClient != null;
-                                });
-                    } catch (IgniteInternalException e) {
-                        // Raft group service not found.
-                        return false;
-                    }
-                },
+                () -> nodes.stream()
+                        .filter(n -> isNodeInAssignments(n, assignments))
+                        .allMatch(n -> ReplicaTestUtils.getRaftClient(n.replicaManager, getTableId(n, tableName), partNum).isPresent()),
                 (long) AWAIT_TIMEOUT_MILLIS * nodes.size()
         ));
     }

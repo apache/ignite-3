@@ -47,8 +47,17 @@ public final class ReplicaTestUtils {
         return getRaftClient(getReplicaManager(node), tableId, partId);
     }
 
+    /**
+     * Returns raft-client if exists.
+     *
+     * @param replicaManager Ignite node's replica manager with replica that should contains a raft client.
+     * @param tableId Desired table's ID.
+     * @param partId Desired partition's ID.
+     *
+     * @return Optional with raft-client if exists on the node by given identifiers.
+     */
     @TestOnly
-    private static Optional<RaftGroupService> getRaftClient(ReplicaManager replicaManager, int tableId, int partId) {
+    public static Optional<RaftGroupService> getRaftClient(ReplicaManager replicaManager, int tableId, int partId) {
         CompletableFuture<Replica> replicaFut = replicaManager
                 .replica(new TablePartitionId(tableId, partId));
 
