@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec.mapping.largecluster;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectFunction;
 import java.util.BitSet;
 import java.util.List;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationMappingException;
@@ -61,6 +62,56 @@ class PartitionedTarget extends AbstractTarget {
         assert other instanceof AbstractTarget : other == null ? "<null>" : other.getClass().getCanonicalName();
 
         return ((AbstractTarget) other).colocate(this);
+    }
+
+    @Override
+    public ExecutionTarget trimTo(ExecutionTarget other) {
+        assert other instanceof AbstractTarget : other == null ? "<null>" : other.getClass().getCanonicalName();
+
+        if (finalised) {
+            return this;
+        }
+
+        BitSet[] newPartitionsNodes = new BitSet[partitionsNodes.length];
+        boolean changed = false;
+        Int2ObjectFunction<BitSet> partitionNodesResolver = partitionNodeResolver(other);
+
+        for (int i = 0; i < partitionsNodes.length; i++) {
+            BitSet newNodes = partitionsNodes[i];
+            BitSet otherNodes = partitionNodesResolver.get(i);
+
+            if (!newNodes.equals(otherNodes) && newNodes.intersects(otherNodes)) {
+                newNodes = (BitSet) newNodes.clone();
+                newNodes.and(otherNodes);
+
+                changed = true;
+            }
+
+            newPartitionsNodes[i] = newNodes;
+        }
+
+        if (changed) {
+            return new PartitionedTarget(false, newPartitionsNodes, enlistmentConsistencyTokens);
+        }
+
+        return this;
+    }
+
+    private Int2ObjectFunction<BitSet> partitionNodeResolver(ExecutionTarget other) {
+        Int2ObjectFunction<BitSet> partitionNodesResolver;
+
+        if (other instanceof PartitionedTarget
+                && ((PartitionedTarget) other).partitionsNodes.length == partitionsNodes.length) {
+            PartitionedTarget otherPartitioned = (PartitionedTarget) other;
+
+            partitionNodesResolver = partId -> otherPartitioned.partitionsNodes[partId];
+        } else {
+            BitSet otherNodes = ((AbstractTarget) other).nodes;
+
+            partitionNodesResolver = partId -> otherNodes;
+        }
+
+        return partitionNodesResolver;
     }
 
     @Override

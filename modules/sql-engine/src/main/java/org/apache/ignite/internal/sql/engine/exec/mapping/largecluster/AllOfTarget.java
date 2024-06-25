@@ -46,6 +46,11 @@ class AllOfTarget extends AbstractTarget {
     }
 
     @Override
+    public ExecutionTarget trimTo(ExecutionTarget other) {
+        return this;
+    }
+
+    @Override
     ExecutionTarget colocate(AllOfTarget other) throws ColocationMappingException {
         return colocate(this, other);
     }

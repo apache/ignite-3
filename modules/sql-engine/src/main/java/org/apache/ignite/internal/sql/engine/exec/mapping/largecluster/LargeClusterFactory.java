@@ -22,7 +22,8 @@ import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import java.util.BitSet;
 import java.util.List;
-import org.apache.calcite.util.BitSets;
+import org.apache.ignite.internal.affinity.Assignment;
+import org.apache.ignite.internal.affinity.TokenizedAssignments;
 import org.apache.ignite.internal.sql.engine.exec.NodeWithConsistencyToken;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTarget;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTargetFactory;
@@ -64,22 +65,28 @@ public class LargeClusterFactory implements ExecutionTargetFactory {
     }
 
     @Override
-    public ExecutionTarget partitioned(List<NodeWithConsistencyToken> nodes) {
-        BitSet[] partitionNodes = new BitSet[nodes.size()];
-        long[] enlistmentConsistencyTokens = new long[nodes.size()];
+    public ExecutionTarget partitioned(List<TokenizedAssignments> assignments) {
+        BitSet[] partitionNodes = new BitSet[assignments.size()];
+        long[] enlistmentConsistencyTokens = new long[assignments.size()];
 
         int idx = 0;
-        // TODO IGNITE-22466: add backup partition nodes to bitset.
-        for (NodeWithConsistencyToken e : nodes) {
-            int node = nodeNameToId.getOrDefault(e.name(), -1);
+        boolean finalised = true;
+        for (TokenizedAssignments assignment : assignments) {
+            finalised = finalised && assignment.nodes().size() < 2;
 
-            assert node >= 0 : "invalid node";
+            BitSet nodes = new BitSet(assignment.nodes().size());
+            for (Assignment a : assignment.nodes()) {
+                int node = nodeNameToId.getOrDefault(a.consistentId(), -1);
+                assert node >= 0 : "invalid node";
+                nodes.set(node);
+            }
 
-            partitionNodes[idx] = BitSets.of(node);
-            enlistmentConsistencyTokens[idx++] = e.enlistmentConsistencyToken();
+            partitionNodes[idx] = nodes;
+            enlistmentConsistencyTokens[idx] = assignment.token();
+            idx++;
         }
 
-        return new PartitionedTarget(true, partitionNodes, enlistmentConsistencyTokens);
+        return new PartitionedTarget(finalised, partitionNodes, enlistmentConsistencyTokens);
     }
 
     @Override

@@ -46,6 +46,26 @@ class SomeOfTarget extends AbstractTarget {
     }
 
     @Override
+    public ExecutionTarget trimTo(ExecutionTarget other) {
+        assert other instanceof AbstractTarget : other == null ? "<null>" : other.getClass().getCanonicalName();
+
+        if (nodes.cardinality() == 1) {
+            return this;
+        }
+
+        BitSet otherNodes = ((AbstractTarget) other).nodes;
+
+        if (!nodes.equals(otherNodes) && nodes.intersects(otherNodes)) {
+            BitSet newNodes = (BitSet) nodes.clone();
+            newNodes.and(otherNodes);
+
+            return new SomeOfTarget(newNodes);
+        }
+
+        return this;
+    }
+
+    @Override
     ExecutionTarget colocate(AllOfTarget other) throws ColocationMappingException {
         return colocate(other, this);
     }

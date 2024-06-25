@@ -80,9 +80,10 @@ public class SmallClusterFactory implements ExecutionTargetFactory {
             for (Assignment a : assignment.nodes()) {
                 long node = nodeNameToId.getOrDefault(a.consistentId(), -1);
                 assert node >= 0 : "invalid node";
-                partitionNodes[idx] = node;
-                enlistmentConsistencyTokens[idx] = assignment.token();
+                partitionNodes[idx] |= node;
             }
+
+            enlistmentConsistencyTokens[idx] = assignment.token();
 
             idx++;
         }

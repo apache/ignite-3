@@ -18,8 +18,11 @@
 package org.apache.ignite.internal.sql.engine.benchmarks;
 
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.internal.sql.engine.exec.NodeWithConsistencyToken;
+import org.apache.ignite.internal.affinity.Assignment;
+import org.apache.ignite.internal.affinity.TokenizedAssignments;
+import org.apache.ignite.internal.affinity.TokenizedAssignmentsImpl;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationMappingException;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTarget;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTargetFactory;
@@ -79,12 +82,12 @@ public class MappingBenchmark {
     public void setUp() {
         List<String> nodes = List.of("n1", "n2", "n3", "n4", "n5");
         List<String> oneOfNodes = List.of("n1", "n3");
-        List<NodeWithConsistencyToken> partNodes =
-                List.of(new NodeWithConsistencyToken("n3", 1));
-        List<NodeWithConsistencyToken> partNodesMore =
-                List.of(new NodeWithConsistencyToken("n3", 1),
-                        new NodeWithConsistencyToken("n4", 2),
-                        new NodeWithConsistencyToken("n5", 3));
+        List<TokenizedAssignments> partNodes =
+                List.of(new TokenizedAssignmentsImpl(Set.of(Assignment.forPeer("n3")), 1));
+        List<TokenizedAssignments> partNodesMore =
+                List.of(new TokenizedAssignmentsImpl(Set.of(Assignment.forPeer("n3")), 1),
+                        new TokenizedAssignmentsImpl(Set.of(Assignment.forPeer("n4")), 2),
+                        new TokenizedAssignmentsImpl(Set.of(Assignment.forPeer("n5")), 3));
 
         targetFactorySmall = new SmallClusterFactory(nodes);
         targetFactoryLarge = new LargeClusterFactory(nodes);

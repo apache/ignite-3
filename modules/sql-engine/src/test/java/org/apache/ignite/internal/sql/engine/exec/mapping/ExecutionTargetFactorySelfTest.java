@@ -28,9 +28,12 @@ import static org.hamcrest.Matchers.iterableWithSize;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import org.apache.ignite.internal.sql.engine.exec.NodeWithConsistencyToken;
+import org.apache.ignite.internal.affinity.Assignment;
+import org.apache.ignite.internal.affinity.TokenizedAssignments;
+import org.apache.ignite.internal.affinity.TokenizedAssignmentsImpl;
 import org.apache.ignite.internal.sql.engine.exec.mapping.largecluster.LargeClusterFactory;
 import org.apache.ignite.internal.sql.engine.exec.mapping.smallcluster.SmallClusterFactory;
 import org.hamcrest.Matcher;
@@ -74,7 +77,7 @@ public class ExecutionTargetFactorySelfTest {
         assertThat(f.resolveNodes(f.allOf(NODE_SET)), equalTo(NODE_SET));
         assertThat(f.resolveNodes(f.someOf(NODE_SET)), hasItems(in(NODE_SET)));
         assertThat(f.resolveNodes(f.oneOf(NODE_SET)), containsSingleFrom(NODE_SET));
-        assertThat(f.resolveNodes(f.partitioned(withTokens(NODE_SET))), equalTo(NODE_SET));
+        assertThat(f.resolveNodes(f.partitioned(primaryAssignment(NODE_SET))), equalTo(NODE_SET));
     }
 
     @ParameterizedTest
@@ -88,7 +91,7 @@ public class ExecutionTargetFactorySelfTest {
         assertThrows(Throwable.class, () -> f.allOf(INVALID_NODE_SET), "invalid node");
         assertThrows(Throwable.class, () -> f.someOf(INVALID_NODE_SET), "invalid node");
         assertThrows(Throwable.class, () -> f.oneOf(INVALID_NODE_SET), "invalid node");
-        assertThrows(Throwable.class, () -> f.partitioned(withTokens(INVALID_NODE_SET)), "invalid node");
+        assertThrows(Throwable.class, () -> f.partitioned(primaryAssignment(INVALID_NODE_SET)), "invalid node");
     }
 
     @ParameterizedTest
@@ -111,11 +114,11 @@ public class ExecutionTargetFactorySelfTest {
         assertColocated(f, f.allOf(SINGLE_NODE_SET), f.oneOf(NODE_SET), equalTo(SINGLE_NODE_SET));
 
         // Colocation with Partitioned
-        assertNotColocated(f.allOf(NODE_SET), f.partitioned(withTokens(NODE_SET)),
+        assertNotColocated(f.allOf(NODE_SET), f.partitioned(primaryAssignment(NODE_SET)),
                 "AllOf target and Partitioned can't be colocated");
-        assertNotColocated(f.allOf(SINGLE_NODE_SET), f.partitioned(withTokens(NODE_SET)),
+        assertNotColocated(f.allOf(SINGLE_NODE_SET), f.partitioned(primaryAssignment(NODE_SET)),
                 "AllOf target and Partitioned can't be colocated");
-        assertNotColocated(f.allOf(SINGLE_NODE_SET), f.partitioned(withTokens(SINGLE_NODE_SET)),
+        assertNotColocated(f.allOf(SINGLE_NODE_SET), f.partitioned(primaryAssignment(SINGLE_NODE_SET)),
                 "AllOf target and Partitioned can't be colocated");
     }
 
@@ -140,9 +143,9 @@ public class ExecutionTargetFactorySelfTest {
         assertNotColocated(f.someOf(SINGLE_NODE_SET), f.oneOf(NODE_SET2)); // Disjoint sets.
 
         // Colocation with Partitioned
-        assertColocated(f, f.someOf(NODE_SET), f.partitioned(withTokens(NODE_SET)), equalTo(NODE_SET));
-        assertColocated(f, f.someOf(NODE_SET), f.partitioned(withTokens(NODE_SUBSET)), equalTo(NODE_SUBSET));
-        assertNotColocated(f.someOf(NODE_SUBSET), f.partitioned(withTokens(NODE_SET)));
+        assertColocated(f, f.someOf(NODE_SET), f.partitioned(primaryAssignment(NODE_SET)), equalTo(NODE_SET));
+        assertColocated(f, f.someOf(NODE_SET), f.partitioned(primaryAssignment(NODE_SUBSET)), equalTo(NODE_SUBSET));
+        assertNotColocated(f.someOf(NODE_SUBSET), f.partitioned(primaryAssignment(NODE_SET)));
     }
 
     @ParameterizedTest
@@ -168,49 +171,58 @@ public class ExecutionTargetFactorySelfTest {
         assertNotColocated(f.oneOf(SINGLE_NODE_SET), f.someOf(NODE_SET2)); // Disjoint sets.
 
         // Colocation with Partitioned
-        assertNotColocated(f.oneOf(NODE_SET), f.partitioned(withTokens(NODE_SET)));
-        assertColocated(f, f.oneOf(NODE_SET), f.partitioned(withTokens(SINGLE_NODE_SET)), equalTo(SINGLE_NODE_SET));
-        assertNotColocated(f.oneOf(NODE_SET2), f.partitioned(withTokens(SINGLE_NODE_SET))); // Disjoint sets.
+        assertNotColocated(f.oneOf(NODE_SET), f.partitioned(primaryAssignment(NODE_SET)));
+        assertColocated(f, f.oneOf(NODE_SET), f.partitioned(primaryAssignment(SINGLE_NODE_SET)), equalTo(SINGLE_NODE_SET));
+        assertNotColocated(f.oneOf(NODE_SET2), f.partitioned(primaryAssignment(SINGLE_NODE_SET))); // Disjoint sets.
     }
 
     @ParameterizedTest
     @MethodSource("clusterFactory")
     void partitionedTargets(ExecutionTargetFactory f) throws Exception {
         // Self colocation
-        assertColocated(f, f.partitioned(withTokens(NODE_SET)), f.partitioned(withTokens(NODE_SET)), equalTo(NODE_SET));
-        assertNotColocated(f.partitioned(withTokens(NODE_SET)), f.partitioned(shuffle(withTokens(NODE_SET))));
-        assertNotColocated(f.partitioned(withTokens(NODE_SUBSET)), f.partitioned(withTokens(NODE_SET)),
+        assertColocated(f, f.partitioned(primaryAssignment(NODE_SET)), f.partitioned(primaryAssignment(NODE_SET)), equalTo(NODE_SET));
+        assertNotColocated(f.partitioned(primaryAssignment(NODE_SET)), f.partitioned(shuffle(primaryAssignment(NODE_SET))));
+        assertNotColocated(f.partitioned(primaryAssignment(NODE_SUBSET)), f.partitioned(primaryAssignment(NODE_SET)),
                 "Partitioned targets with mot matching numbers of partitioned are not colocated");
-        assertNotColocated(f.partitioned(withTokens(NODE_SET)), f.partitioned(withTokens(NODE_SUBSET)),
+        assertNotColocated(f.partitioned(primaryAssignment(NODE_SET)), f.partitioned(primaryAssignment(NODE_SUBSET)),
                 "Partitioned targets with mot matching numbers of partitioned are not colocated");
 
         assertNotColocated(f.partitioned(singleWithToken("node1", 1)), f.partitioned(singleWithToken("node1", 2)),
                 "Partitioned targets have different terms");
 
         // Colocation with AllOf
-        assertNotColocated(f.partitioned(withTokens(NODE_SET)), f.allOf(NODE_SET),
+        assertNotColocated(f.partitioned(primaryAssignment(NODE_SET)), f.allOf(NODE_SET),
                 "AllOf target and Partitioned can't be colocated");
-        assertNotColocated(f.partitioned(withTokens(NODE_SET)), f.allOf(SINGLE_NODE_SET),
+        assertNotColocated(f.partitioned(primaryAssignment(NODE_SET)), f.allOf(SINGLE_NODE_SET),
                 "AllOf target and Partitioned can't be colocated");
 
         // Colocation with someOf
-        assertColocated(f, f.partitioned(withTokens(NODE_SET)), f.someOf(NODE_SET), equalTo(NODE_SET));
-        assertColocated(f, f.partitioned(withTokens(NODE_SUBSET)), f.someOf(NODE_SET), equalTo(NODE_SUBSET));
-        assertNotColocated(f.partitioned(withTokens(NODE_SET)), f.someOf(NODE_SUBSET));
-        assertNotColocated(f.partitioned(withTokens(SINGLE_NODE_SET)), f.someOf(NODE_SET2)); // Disjoint sets.
+        assertColocated(f, f.partitioned(primaryAssignment(NODE_SET)), f.someOf(NODE_SET), equalTo(NODE_SET));
+        assertColocated(f, f.partitioned(primaryAssignment(NODE_SUBSET)), f.someOf(NODE_SET), equalTo(NODE_SUBSET));
+        assertNotColocated(f.partitioned(primaryAssignment(NODE_SET)), f.someOf(NODE_SUBSET));
+        assertNotColocated(f.partitioned(primaryAssignment(SINGLE_NODE_SET)), f.someOf(NODE_SET2)); // Disjoint sets.
 
         // Colocation with oneOf
-        assertNotColocated(f.partitioned(withTokens(NODE_SET)), f.oneOf(NODE_SET));
-        assertColocated(f, f.partitioned(withTokens(SINGLE_NODE_SET)), f.oneOf(NODE_SET), equalTo(SINGLE_NODE_SET));
-        assertNotColocated(f.partitioned(withTokens(SINGLE_NODE_SET)), f.oneOf(NODE_SET2)); // Disjoint
+        assertNotColocated(f.partitioned(primaryAssignment(NODE_SET)), f.oneOf(NODE_SET));
+        assertColocated(f, f.partitioned(primaryAssignment(SINGLE_NODE_SET)), f.oneOf(NODE_SET), equalTo(SINGLE_NODE_SET));
+        assertNotColocated(f.partitioned(primaryAssignment(SINGLE_NODE_SET)), f.oneOf(NODE_SET2)); // Disjoint
     }
 
-    private static List<NodeWithConsistencyToken> withTokens(List<String> nodes) {
-        return nodes.stream().map(n -> new NodeWithConsistencyToken(n, ALL_NODES.indexOf(n))).collect(Collectors.toList());
+    private static List<TokenizedAssignments> primaryAssignment(List<String> nodes) {
+        return nodes.stream()
+                .map(n -> new TokenizedAssignmentsImpl(Set.of(Assignment.forPeer(n)), 1))
+                .collect(Collectors.toList());
     }
 
-    private static List<NodeWithConsistencyToken> singleWithToken(String name, int token) {
-        return List.of(new NodeWithConsistencyToken(name, token));
+
+    private static List<TokenizedAssignments> assignment(List<String> nodes) {
+        Set<Assignment> nodeAssignments = nodes.stream().map(Assignment::forPeer).collect(Collectors.toSet());
+
+        return List.of(new TokenizedAssignmentsImpl(nodeAssignments, 1));
+    }
+
+    private static List<TokenizedAssignments> singleWithToken(String name, int token) {
+        return List.of(new TokenizedAssignmentsImpl(Set.of(Assignment.forPeer(name)), token));
     }
 
     private static <T> ArrayList<T> shuffle(List<T> nodeSetWithTokens) {
