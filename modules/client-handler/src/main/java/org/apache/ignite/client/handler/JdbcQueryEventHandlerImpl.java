@@ -166,7 +166,7 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
             JdbcStatementType stmtType, 
             boolean multiStatement, 
             ZoneId timeZoneId,
-            long timeoutMillis
+            long queryTimeoutMillis
     ) {
         Set<SqlQueryType> allowedTypes;
 
@@ -187,7 +187,7 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
         return SqlPropertiesHelper.newBuilder()
                 .set(QueryProperty.ALLOWED_QUERY_TYPES, allowedTypes)
                 .set(QueryProperty.TIME_ZONE_ID, timeZoneId)
-                .set(QueryProperty.QUERY_TIMEOUT, timeoutMillis)
+                .set(QueryProperty.QUERY_TIMEOUT, queryTimeoutMillis)
                 .build();
     }
 

@@ -359,7 +359,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
         int[] updCnts = stmt.executeBatch();
 
         assertEquals(4, updCnts.length, "Invalid update counts size");
-        assertArrayEquals(new int[]{1, 2, 1, 3}, updCnts, "Invalid update count");
+        assertArrayEquals(new int[] {1, 2, 1, 3}, updCnts, "Invalid update count");
     }
 
     @Test
@@ -378,7 +378,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
             int[] updCnts = e.getUpdateCounts();
 
             assertEquals(2, updCnts.length, "Invalid update counts size");
-            assertArrayEquals(new int[]{1, 2}, updCnts, "Invalid update count");
+            assertArrayEquals(new int[] {1, 2}, updCnts, "Invalid update count");
         }
     }
 

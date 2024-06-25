@@ -305,13 +305,13 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         // This call triggers a timeout exception, if operation has timed out.
         cancelHandler.add(timeout -> {
-            QueryCancelReason reason = timeout ? QueryCancelReason.QUERY_TIMEOUT : QueryCancelReason.CANCEL;
+            QueryCompletionReason reason = timeout ? QueryCompletionReason.TIMEOUT : QueryCompletionReason.CANCEL;
             queryManager.close(reason);
         });
 
         CompletableFuture<Void> timeoutFut = operationContext.timeoutFuture();
         if (timeoutFut != null) {
-            timeoutFut.thenAcceptAsync((r) -> queryManager.close(QueryCancelReason.QUERY_TIMEOUT), taskExecutor);
+            timeoutFut.thenAcceptAsync((r) -> queryManager.close(QueryCompletionReason.TIMEOUT), taskExecutor);
         }
 
         QueryTransactionContext txContext = operationContext.txContext();
@@ -398,7 +398,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             return nullCompletedFuture();
         }
 
-        return mgr.close(QueryCancelReason.CANCEL);
+        return mgr.close(QueryCompletionReason.CANCEL);
     }
 
     private AsyncDataCursor<InternalSqlRow> executeExecutablePlan(
@@ -553,7 +553,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         DistributedQueryManager dqm = queryManagerMap.get(msg.queryId());
 
         if (dqm != null) {
-            dqm.close(QueryCancelReason.CANCEL);
+            dqm.close(QueryCompletionReason.CANCEL);
         }
     }
 
@@ -562,7 +562,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     public void stop() throws Exception {
         CompletableFuture<Void> f = CompletableFuture.allOf(queryManagerMap.values().stream()
                 .filter(mgr -> mgr.rootFragmentId != null)
-                .map(mgr -> mgr.close(QueryCancelReason.CANCEL))
+                .map(mgr -> mgr.close(QueryCompletionReason.CANCEL))
                 .toArray(CompletableFuture[]::new)
         );
 
@@ -783,7 +783,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 var root = new CompletableFuture<AsyncRootNode<RowT, InternalSqlRow>>();
 
                 root.exceptionally(t -> {
-                    this.close(QueryCancelReason.ERROR);
+                    this.close(QueryCompletionReason.ERROR);
 
                     QueryPrefetchCallback callback = ctx.prefetchCallback();
 
@@ -836,13 +836,13 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 if (rootFragmentId0 != null && fragmentId == rootFragmentId0) {
                     root.completeExceptionally(ex);
                 } else if (root == null) {
-                    // Non-root fragment received an error.
-                    close(QueryCancelReason.ERROR);
+                    // Non-root fragment received an error when attempted to submit a fragment.
+                    close(QueryCompletionReason.ERROR);
                 } else {
                     root.thenAccept(root -> {
                         root.onError(ex);
 
-                        close(QueryCancelReason.ERROR);
+                        close(QueryCompletionReason.ERROR);
                     });
                 }
             }
@@ -854,7 +854,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             root.thenAccept(root -> {
                 root.onError(ex);
 
-                close(QueryCancelReason.ERROR);
+                close(QueryCompletionReason.ERROR);
             });
         }
 
@@ -961,7 +961,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             } catch (Exception e) {
                 LOG.info("Unable to send error message", e);
 
-                close(QueryCancelReason.ERROR);
+                close(QueryCompletionReason.ERROR);
             }
         }
 
@@ -1190,10 +1190,10 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         }
 
         private CompletableFuture<Void> close() {
-            return close(null);
+            return close(QueryCompletionReason.CLOSE);
         }
 
-        private CompletableFuture<Void> close(@Nullable QueryCancelReason reason) {
+        private CompletableFuture<Void> close(QueryCompletionReason reason) {
             if (!cancelled.compareAndSet(false, true)) {
                 return cancelFut;
             }
@@ -1300,11 +1300,11 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
          * @param cancelReason If specified. Forces execution to terminate with {@link QueryCancelledException}.
          * @return Completable future that should run asynchronously.
          */
-        private CompletableFuture<Void> closeRootNode(@Nullable QueryCancelReason cancelReason) {
+        private CompletableFuture<Void> closeRootNode(QueryCompletionReason cancelReason) {
             assert root != null;
 
             String message;
-            if (cancelReason == QueryCancelReason.QUERY_TIMEOUT) {
+            if (cancelReason == QueryCompletionReason.TIMEOUT) {
                 message = QueryCancelledException.TIMEOUT_MSG;
             } else {
                 message = QueryCancelledException.CANCEL_MSG;
@@ -1371,9 +1371,11 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         }
     }
 
-    enum QueryCancelReason {
+    /** Represents reasons why a query was completed. */
+    private enum QueryCompletionReason {
+        CLOSE,
         CANCEL,
-        QUERY_TIMEOUT,
+        TIMEOUT,
         ERROR,
     }
 }
