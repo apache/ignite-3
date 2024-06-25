@@ -140,7 +140,10 @@ public class ErrorGroups {
         public static final int RESOURCE_CLOSING_ERR = COMMON_ERR_GROUP.registerErrorCode((short) 7);
 
         /** Can't marshal/unmarshal a user object. */
-        public static final int USER_OBJECT_SERIALIZATION_ERR = COMMON_ERR_GROUP.registerErrorCode((short) 9);
+        public static final int USER_OBJECT_SERIALIZATION_ERR = COMMON_ERR_GROUP.registerErrorCode((short) 8);
+
+        /** Represents nullable value for a method that does not respect {@code null} values. */
+        public static final int NULLABLE_VALUE_ERR = COMMON_ERR_GROUP.registerErrorCode((short) 9);
 
         /**
          * This error code represents an internal error caused by faulty logic or coding in the Ignite codebase.
