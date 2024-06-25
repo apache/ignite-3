@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.cli.commands.cluster.unit;
 
-
 import jakarta.inject.Inject;
 import java.util.concurrent.Callable;
 import org.apache.ignite.internal.cli.call.cluster.unit.DeployUnitCallFactory;

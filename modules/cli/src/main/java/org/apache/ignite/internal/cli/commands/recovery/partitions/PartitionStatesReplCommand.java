@@ -22,6 +22,7 @@ import org.apache.ignite.internal.cli.call.recovery.PartitionStatesCall;
 import org.apache.ignite.internal.cli.call.recovery.PartitionStatesCallInput;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
+import org.apache.ignite.internal.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
 import org.apache.ignite.internal.cli.core.flow.builder.Flows;
 import org.apache.ignite.internal.cli.decorators.TableDecorator;
 import picocli.CommandLine.Command;
@@ -45,6 +46,7 @@ public class PartitionStatesReplCommand extends BaseCommand implements Runnable 
                 .map(url -> PartitionStatesCallInput.of(options, url))
                 .then(Flows.fromCall(call))
                 .print(new TableDecorator(options.plain()))
+                .exceptionHandler(new ClusterNotInitializedExceptionHandler("Cannot list partition states", "cluster init"))
                 .verbose(verbose)
                 .start();
     }

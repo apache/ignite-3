@@ -23,6 +23,7 @@ import org.apache.ignite.internal.cli.call.recovery.PartitionStatesCall;
 import org.apache.ignite.internal.cli.call.recovery.PartitionStatesCallInput;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
+import org.apache.ignite.internal.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
 import org.apache.ignite.internal.cli.decorators.TableDecorator;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
@@ -44,6 +45,7 @@ public class PartitionStatesCommand extends BaseCommand implements Callable<Inte
                 .errOutput(spec.commandLine().getErr())
                 .decorator(new TableDecorator(options.plain()))
                 .verbose(verbose)
+                .exceptionHandler(new ClusterNotInitializedExceptionHandler("Cannot list partition states", "ignite cluster init"))
                 .build()
                 .runPipeline();
     }
