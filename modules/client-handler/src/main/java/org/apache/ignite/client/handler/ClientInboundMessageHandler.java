@@ -537,6 +537,10 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             packer.packInt(1);
             packer.packString(ErrorExtensions.EXPECTED_SCHEMA_VERSION);
             packer.packInt(schemaVersionMismatchException.expectedVersion());
+        } else if (sqlBatchException != null) {
+            packer.packInt(1);
+            packer.packString(ErrorExtensions.SQL_UPDATE_COUNTERS);
+            packer.packLongArray(sqlBatchException.updateCounters());
         } else {
             packer.packNil(); // No extensions.
         }
