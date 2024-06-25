@@ -142,7 +142,10 @@ public class ErrorGroups {
         /** Can't marshal/unmarshal a user object. */
         public static final int USER_OBJECT_SERIALIZATION_ERR = COMMON_ERR_GROUP.registerErrorCode((short) 8);
 
-        /** Represents nullable value for a method that does not respect {@code null} values. */
+        /**
+         * This error code indicates that a method can't return a {@code null} value due it's ambiguity
+         * (whether the value is absent or is {@code null}).
+         **/
         public static final int NULLABLE_VALUE_ERR = COMMON_ERR_GROUP.registerErrorCode((short) 9);
 
         /**
