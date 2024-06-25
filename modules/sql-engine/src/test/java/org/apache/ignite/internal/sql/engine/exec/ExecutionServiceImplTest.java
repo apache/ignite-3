@@ -103,7 +103,6 @@ import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunctionRegistry
 import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTarget;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTargetFactory;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTargetProvider;
-import org.apache.ignite.internal.sql.engine.exec.mapping.MappedFragment;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingServiceImpl;
 import org.apache.ignite.internal.sql.engine.exec.rel.AbstractNode;
 import org.apache.ignite.internal.sql.engine.exec.rel.Inbox;
@@ -1235,7 +1234,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
             }
         };
 
-        var partitionPruner = new PartitionPrunerImpl();
+        PartitionPruner partitionPruner = (mappedFragments, dynamicParameters) -> mappedFragments;
         return new MappingServiceImpl(nodeName, clock, targetProvider, EmptyCacheFactory.INSTANCE, 0, partitionPruner, taskExecutor);
     }
 
