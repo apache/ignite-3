@@ -40,7 +40,7 @@ public class JobDescriptor<T, R> {
             String jobClassName,
             List<DeploymentUnit> units,
             JobExecutionOptions options,
-            Marshaler<T, byte[]> resultMarshaller,
+            Marshaler<R, byte[]> resultMarshaller,
             Marshaler<T, byte[]> argumentMarshaller) {
         this.jobClassName = jobClassName;
         this.units = units;
