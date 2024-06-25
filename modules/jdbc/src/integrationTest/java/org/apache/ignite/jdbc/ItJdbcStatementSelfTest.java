@@ -898,7 +898,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
         igniteStmt.setQueryTimeout(Integer.MAX_VALUE);
         assertEquals(Integer.MAX_VALUE, igniteStmt.getQueryTimeout());
 
-        igniteStmt.timeout(Integer.MAX_VALUE*1000L);
+        igniteStmt.timeout(Integer.MAX_VALUE * 1000L);
         assertEquals(Integer.MAX_VALUE, igniteStmt.getQueryTimeout());
 
         SQLException err = assertThrows(SQLException.class, () -> igniteStmt.timeout(-1));
