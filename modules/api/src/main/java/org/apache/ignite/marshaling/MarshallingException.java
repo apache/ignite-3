@@ -17,6 +17,7 @@
 
 package org.apache.ignite.marshaling;
 
+import java.util.UUID;
 import org.apache.ignite.lang.ErrorGroups.Marshalling;
 import org.apache.ignite.lang.IgniteException;
 
@@ -33,5 +34,18 @@ public class MarshallingException extends IgniteException {
      */
     MarshallingException(Exception exception) {
         super(Marshalling.MARSHALLING_ERR, exception);
+    }
+
+
+    /**
+     * Creates an exception with the given trace ID, error code, detailed message, and cause.
+     *
+     * @param traceId Unique identifier of the exception.
+     * @param code Full error code.
+     * @param message Detailed message.
+     * @param cause Optional nested exception (can be {@code null}).
+     */
+    public MarshallingException(UUID traceId, int code, String message, Throwable cause) {
+        super(traceId, code, message, cause);
     }
 }

@@ -90,7 +90,6 @@ import org.apache.ignite.table.mapper.Mapper;
 import org.hamcrest.Matcher;
 import org.hamcrest.Matchers;
 import org.jetbrains.annotations.Nullable;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -313,7 +312,6 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     }
 
     @Test
-    @Disabled
     void testExecuteWithArgs() {
         JobExecution<String> execution = client().compute().submit(
                 JobTarget.anyNode(client().clusterNodes()), JobDescriptor.builder(ConcatJob.class).build(),
@@ -738,7 +736,6 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     }
 
     @Test
-    @Disabled
     void testExecuteMapReduceWithArgs() {
         TaskExecution<String> execution = client().compute()
                 .submitMapReduce(List.of(), MapReduceArgsTask.class.getName(), new Object[] {1, "2", 3.3});
@@ -749,7 +746,6 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     @ParameterizedTest
     @ValueSource(classes = {MapReduceExceptionOnSplitTask.class, MapReduceExceptionOnReduceTask.class})
-    @Disabled
     void testExecuteMapReduceExceptionPropagation(Class<?> taskClass) {
         IgniteException cause = getExceptionInJobExecutionAsync(
                 client().compute().submitMapReduce(List.of(), taskClass.getName(), null)

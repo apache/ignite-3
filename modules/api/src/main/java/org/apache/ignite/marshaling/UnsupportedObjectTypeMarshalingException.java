@@ -17,6 +17,7 @@
 
 package org.apache.ignite.marshaling;
 
+import java.util.UUID;
 import org.apache.ignite.lang.ErrorGroups.Marshalling;
 import org.apache.ignite.lang.IgniteException;
 
@@ -36,5 +37,17 @@ public class UnsupportedObjectTypeMarshalingException extends IgniteException {
                 Marshalling.UNSUPPORTED_OBJECT_TYPE_ERR,
                 "Unsupported object type: " + unsupportedType.getName() + ". Please, define the marshaler that can handle this type."
         );
+    }
+
+    /**
+     * Creates an exception with the given trace ID, error code, detailed message, and cause.
+     *
+     * @param traceId Unique identifier of the exception.
+     * @param code Full error code.
+     * @param message Detailed message.
+     * @param cause Optional nested exception (can be {@code null}).
+     */
+    public UnsupportedObjectTypeMarshalingException(UUID traceId, int code, String message, Throwable cause) {
+        super(traceId, code, message, cause);
     }
 }
