@@ -82,6 +82,7 @@ import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * An implementation of the {@link PrepareService} that uses a Calcite-based query planner to validate and optimize a given query.
@@ -282,6 +283,7 @@ public class PrepareServiceImpl implements PrepareService {
      *
      * @param callback Callback.
      */
+    @TestOnly
     public void setCallback(Runnable callback) {
         this.callback = Objects.requireNonNull(callback, "callback");
     }
