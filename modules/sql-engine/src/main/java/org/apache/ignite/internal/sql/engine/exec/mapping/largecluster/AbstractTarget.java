@@ -120,17 +120,10 @@ abstract class AbstractTarget implements ExecutionTarget {
     static ExecutionTarget colocate(AllOfTarget allOf, OneOfTarget oneOf) throws ColocationMappingException {
         int target = allOf.nodes.nextSetBit(0);
 
-        if (target == -1 || allOf.nodes.nextSetBit(target + 1) != -1) {
-            throw new ColocationMappingException("Targets are not colocated");
-        }
-
-        if (!oneOf.nodes.get(target)) {
-            throw new ColocationMappingException("Targets are not colocated");
-        }
-
         // When colocated, AllOfTarget must contains a single node that matches one of OneOfTarget nodes.
-        assert allOf.nodes.cardinality() == 1;
-        assert allOf.nodes.intersects(oneOf.nodes);
+        if (target == -1 || allOf.nodes.nextSetBit(target + 1) != -1 || !oneOf.nodes.get(target)) {
+            throw new ColocationMappingException("Targets are not colocated");
+        }
 
         return allOf;
     }
@@ -140,7 +133,7 @@ abstract class AbstractTarget implements ExecutionTarget {
     }
 
     static ExecutionTarget colocate(AllOfTarget allOf, SomeOfTarget someOf) throws ColocationMappingException {
-        if (!BitSets.contains(someOf.nodes, allOf.nodes) || allOf.nodes.cardinality() == 0) {
+        if (!BitSets.contains(someOf.nodes, allOf.nodes) || allOf.nodes.isEmpty()) {
             throw new ColocationMappingException("Targets are not colocated");
         }
 

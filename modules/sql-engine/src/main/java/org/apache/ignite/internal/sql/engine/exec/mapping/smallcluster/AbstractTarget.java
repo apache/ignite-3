@@ -107,7 +107,7 @@ abstract class AbstractTarget implements ExecutionTarget {
     abstract ExecutionTarget colocate(SomeOfTarget other) throws ColocationMappingException;
 
     static ExecutionTarget colocate(AllOfTarget allOf, AllOfTarget otherAllOf) throws ColocationMappingException {
-        if (otherAllOf.nodes == 0 || allOf.nodes != otherAllOf.nodes) {
+        if (allOf.nodes != otherAllOf.nodes) {
             throw new ColocationMappingException("Targets are not colocated");
         }
 
@@ -133,7 +133,7 @@ abstract class AbstractTarget implements ExecutionTarget {
     static ExecutionTarget colocate(AllOfTarget allOf, SomeOfTarget someOf) throws ColocationMappingException {
         long newNodes = allOf.nodes & someOf.nodes;
 
-        if (newNodes == 0 || allOf.nodes != newNodes) {
+        if (allOf.nodes != newNodes) {
             throw new ColocationMappingException("Targets are not colocated");
         }
 
