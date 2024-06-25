@@ -70,7 +70,7 @@ public class JdbcStatement implements Statement {
     private volatile boolean closed;
 
     /** Query timeout. */
-    protected int queryTimeoutMillis;
+    protected long queryTimeoutMillis;
 
     /** Rows limit. */
     private int maxRows;
@@ -286,21 +286,18 @@ public class JdbcStatement implements Statement {
     public int getQueryTimeout() throws SQLException {
         ensureNotClosed();
 
-        return queryTimeoutMillis / 1000;
+        long seconds = queryTimeoutMillis / 1000;
+        if (seconds >= Integer.MAX_VALUE) {
+            return Integer.MAX_VALUE;
+        }
+
+        return (int) seconds;
     }
 
     /** {@inheritDoc} */
     @Override
     public void setQueryTimeout(int timeout) throws SQLException {
-        ensureNotClosed();
-
-        if (timeout < 0) {
-            throw new SQLException("Invalid timeout value.");
-        }
-
-        // The timeout value of 0 will be converted to Integer.MAX_VALUE timeout to avoid further checks to 0.
-        // This is because zero means there is no timeout limit.
-        timeout(timeout * 1000 > timeout ? timeout * 1000 : Integer.MAX_VALUE);
+        timeout(timeout * 1000L);
     }
 
     /** {@inheritDoc} */
@@ -763,11 +760,13 @@ public class JdbcStatement implements Statement {
      * <p>For test purposes.
      *
      * @param timeout Timeout.
-     * @throws SQLException If timeout condition is not satisfied.
+     * @throws SQLException If timeout value is invalid.
      */
-    public final void timeout(int timeout) throws SQLException {
+    public final void timeout(long timeout) throws SQLException {
+        ensureNotClosed();
+
         if (timeout < 0) {
-            throw new SQLException("Condition timeout >= 0 is not satisfied.");
+            throw new SQLException("Invalid timeout value.");
         }
 
         this.queryTimeoutMillis = timeout;

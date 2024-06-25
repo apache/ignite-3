@@ -19,6 +19,8 @@ package org.apache.ignite.jdbc;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.jdbc.util.JdbcTestUtils.assertThrowsSqlException;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -883,5 +885,22 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
                 }
             }
         }
+    }
+
+    @Test
+    public void testSetTimeoutValues() throws SQLException {
+        JdbcStatement igniteStmt = stmt.unwrap(JdbcStatement.class);
+
+        igniteStmt.timeout(1_234_000);
+        assertEquals(1_234, igniteStmt.getQueryTimeout());
+
+        igniteStmt.setQueryTimeout(Integer.MAX_VALUE);
+        assertEquals(Integer.MAX_VALUE, igniteStmt.getQueryTimeout());
+
+        igniteStmt.timeout(Integer.MAX_VALUE*1000L);
+        assertEquals(Integer.MAX_VALUE, igniteStmt.getQueryTimeout());
+
+        SQLException err = assertThrows(SQLException.class, () -> igniteStmt.timeout(-1));
+        assertThat(err.getMessage(), containsString("Invalid timeout value"));
     }
 }
