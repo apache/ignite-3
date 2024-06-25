@@ -534,11 +534,11 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
         // Extensions.
         if (schemaVersionMismatchException != null) {
-            packer.packInt(1);
+            packer.packInt(1); // 1 extension.
             packer.packString(ErrorExtensions.EXPECTED_SCHEMA_VERSION);
             packer.packInt(schemaVersionMismatchException.expectedVersion());
         } else if (sqlBatchException != null) {
-            packer.packInt(1);
+            packer.packInt(1); // 1 extension.
             packer.packString(ErrorExtensions.SQL_UPDATE_COUNTERS);
             packer.packLongArray(sqlBatchException.updateCounters());
         } else {
