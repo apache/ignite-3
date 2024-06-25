@@ -111,7 +111,7 @@ public class ExecutionTargetProviderImpl implements ExecutionTargetProvider {
             ReplicationGroupId partGroupId = new TablePartitionId(table.id(), partId);
 
             CompletableFuture<TokenizedAssignments> partitionAssignment = includeBackups
-                    ? placementDriver.getAssignments(partGroupId, operationTime)
+                    ? allReplicas(partGroupId, operationTime)
                     : primaryReplica(partGroupId, operationTime);
 
             result.add(partitionAssignment);
@@ -149,6 +149,25 @@ public class ExecutionTargetProviderImpl implements ExecutionTargetProvider {
 
                 return new TokenizedAssignmentsImpl(Set.of(Assignment.forPeer(holder)), primaryReplica.getStartTime().longValue());
             }
+        });
+    }
+
+    private CompletableFuture<TokenizedAssignments> allReplicas(
+            ReplicationGroupId replicationGroupId,
+            HybridTimestamp operationTime
+    ) {
+        CompletableFuture<TokenizedAssignments> f = placementDriver.getAssignments(
+                replicationGroupId,
+                operationTime
+        );
+
+        return f.thenCompose(assignments -> {
+            if (assignments == null) {
+                // assignments are not ready yet, let's fall back to primary replicas
+                return primaryReplica(replicationGroupId, operationTime);
+            }
+
+            return completedFuture(assignments);
         });
     }
 }
