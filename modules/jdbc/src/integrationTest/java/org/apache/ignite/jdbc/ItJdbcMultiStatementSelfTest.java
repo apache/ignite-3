@@ -28,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -669,7 +670,8 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
                 }
             } catch (SQLException e) {
                 // Ignore timeout for the first statement, if takes too long.
-                assertThat("Unexpected error", e.getMessage(), containsString("Query timeout"));
+                // Skip both planning and execution timeouts.
+                assertThat("Unexpected error", e.getMessage(), containsString("timeout"));
                 continue;
             }
 
@@ -690,6 +692,8 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
 
             return;
         }
+
+        fail("Failed to get expected timeout error");
     }
 
     /**
