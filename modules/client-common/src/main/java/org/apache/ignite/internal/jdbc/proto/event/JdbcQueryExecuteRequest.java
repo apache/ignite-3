@@ -72,7 +72,7 @@ public class JdbcQueryExecuteRequest implements ClientMessage {
      * @param args       Arguments list.
      * @param autoCommit Flag indicating whether auto-commit mode is enabled.
      * @param multiStatement Multiple statement flag.
-     * @param queryTimeoutMillis Timeout in millseconds.
+     * @param queryTimeoutMillis Query timeout in millseconds.
      */
     public JdbcQueryExecuteRequest(
             JdbcStatementType stmtType,

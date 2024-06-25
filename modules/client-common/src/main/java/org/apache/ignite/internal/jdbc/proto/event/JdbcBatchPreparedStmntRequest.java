@@ -58,7 +58,7 @@ public class JdbcBatchPreparedStmntRequest implements ClientMessage {
      * @param query Sql query string.
      * @param args Sql query arguments.
      * @param autoCommit Flag indicating whether auto-commit mode is enabled.
-     * @param queryTimeoutMillis Timeout in millseconds.
+     * @param queryTimeoutMillis Query timeout in millseconds.
      */
     public JdbcBatchPreparedStmntRequest(
             String schemaName, 

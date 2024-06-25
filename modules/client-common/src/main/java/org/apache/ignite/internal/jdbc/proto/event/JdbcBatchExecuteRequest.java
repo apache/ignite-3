@@ -53,7 +53,7 @@ public class JdbcBatchExecuteRequest implements ClientMessage {
      * @param schemaName Schema name.
      * @param queries    Queries.
      * @param autoCommit Flag indicating whether auto-commit mode is enabled.
-     * @param queryTimeoutMillis Timeout in millseconds.
+     * @param queryTimeoutMillis Query timeout in millseconds.
      */
     public JdbcBatchExecuteRequest(
             String schemaName, 
