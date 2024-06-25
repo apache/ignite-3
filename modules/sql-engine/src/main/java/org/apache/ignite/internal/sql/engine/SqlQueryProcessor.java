@@ -143,7 +143,7 @@ import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
- * Main implementation of {@link QueryProcessor}.
+ *  Main implementation of {@link QueryProcessor}.
  */
 public class SqlQueryProcessor implements QueryProcessor {
     /** Default time-zone ID. */
@@ -875,9 +875,10 @@ public class SqlQueryProcessor implements QueryProcessor {
          * Collection is used to track SELECT statements to postpone following DML operation.
          *
          * <p>We have no isolation within the same transaction. This implies, that any changes to the data
-         * will be seen during next read. Considering lazy execution of read operations, DML started after SELECT operation may, in fact,
-         * outrun actual read. To address this problem, let's collect all SELECT cursor in this collection and postpone following DML until
-         * at least first page is ready for every collected so far cursor.
+         * will be seen during next read. Considering lazy execution of read operations, DML started after
+         * SELECT operation may, in fact, outrun actual read. To address this problem, let's collect all
+         * SELECT cursor in this collection and postpone following DML until at least first page is ready
+         * for every collected so far cursor.
          */
         private final Queue<CompletableFuture<Void>> inFlightSelects = new ConcurrentLinkedQueue<>();
 

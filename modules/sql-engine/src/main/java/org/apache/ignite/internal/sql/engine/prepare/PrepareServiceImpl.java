@@ -121,7 +121,7 @@ public class PrepareServiceImpl implements PrepareService {
 
     private volatile ThreadPoolExecutor planningPool;
 
-    private PrepareCallback callback = PrepareCallback.NO_OP;
+    private Runnable callback = () -> {};
 
     /**
      * Factory method.
@@ -278,11 +278,11 @@ public class PrepareServiceImpl implements PrepareService {
     }
 
     /**
-     * Sets prepare callback.
+     * Sets a callback that is run prior to optimization.
      *
      * @param callback Callback.
      */
-    public void setCallback(PrepareCallback callback) {
+    public void setCallback(Runnable callback) {
         this.callback = Objects.requireNonNull(callback, "callback");
     }
 
@@ -610,17 +610,15 @@ public class PrepareServiceImpl implements PrepareService {
     }
 
     private IgniteRel doOptimize(PlanningContext ctx, SqlNode validatedNode, IgnitePlanner planner, CacheKey key) {
-        PrepareCallback currentCallback = this.callback;
+        Runnable currentCallback = this.callback;
 
-        currentCallback.beforeOptimization(ctx, validatedNode);
+        currentCallback.run();
 
         // Convert to Relational operators graph
         IgniteRel igniteRel;
         try {
             igniteRel = optimize(validatedNode, planner);
         } catch (Exception e) {
-            currentCallback.afterOptimization(ctx, validatedNode, null, e);
-
             // Remove this cache entry if planning timed out.
             // Otherwise the cache will keep a plan that can not be used anymore,
             // and we should allow another planning attempt with increased timeout.
@@ -639,11 +637,7 @@ public class PrepareServiceImpl implements PrepareService {
         // cluster keeps a lot of cached stuff that won't be used anymore.
         // In order let GC collect that, let's reattach tree to an empty cluster
         // before storing tree in plan cache
-        IgniteRel optimized = Cloner.clone(igniteRel, Commons.emptyCluster());
-
-        currentCallback.afterOptimization(ctx, validatedNode, optimized, null);
-
-        return optimized;
+        return Cloner.clone(igniteRel, Commons.emptyCluster());
     }
 
     private static ParameterMetadata createParameterMetadata(RelDataType parameterRowType) {

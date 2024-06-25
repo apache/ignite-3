@@ -324,12 +324,12 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
         }
     }
 
-    private static class OptimizationDelay implements PrepareCallback {
+    private static class OptimizationDelay implements Runnable {
 
         private final Semaphore semaphore = new Semaphore(1);
 
         @Override
-        public void beforeOptimization(PlanningContext ctx, SqlNode node) {
+        public void run() {
             try {
                 semaphore.acquire();
             } catch (InterruptedException ignore) {

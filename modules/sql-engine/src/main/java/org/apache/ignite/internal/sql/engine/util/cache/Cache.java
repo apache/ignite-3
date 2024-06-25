@@ -23,7 +23,7 @@ import java.util.function.Predicate;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * A mapping from keys to values.
+ *  A mapping from keys to values.
  *
  * <p>Implementations of this interface are expected to be thread-safe, and can be safely accessed by
  * multiple concurrent threads.
@@ -38,8 +38,7 @@ public interface Cache<K, V> {
      * @param key A key to look up value for.
      * @return A value.
      */
-    @Nullable
-    V get(K key);
+    @Nullable V get(K key);
 
     /**
      * Returns the value associated with the {@code key} in this cache, obtaining that value from the {@code mappingFunction} if necessary.
@@ -52,8 +51,9 @@ public interface Cache<K, V> {
     V get(K key, Function<? super K, ? extends V> mappingFunction);
 
     /**
-     * Associates the {@code value} with the {@code key} in this cache. If the cache previously contained a value associated with the
-     * {@code key}, the old value is replaced by the new {@code value}.
+     * Associates the {@code value} with the {@code key} in this cache. If the cache previously
+     * contained a value associated with the {@code key}, the old value is replaced by the new
+     * {@code value}.
      *
      * @param key A key with which the specified value is to be associated.
      * @param value A value to be associated with the specified key.
@@ -64,7 +64,8 @@ public interface Cache<K, V> {
     void clear();
 
     /**
-     * Attempts to compute a mapping for the specified key and its current mapped value (or {@code null} if there is no current mapping).
+     * Attempts to compute a mapping for the specified key and its current
+     * mapped value (or {@code null} if there is no current mapping).
      *
      * @param key Key with which the specified value is to be associated.
      * @param remappingFunction The remapping function to compute a value.
@@ -87,9 +88,9 @@ public interface Cache<K, V> {
     void invalidate(K key);
 
     /**
-     * Returns the number for entries this cache.
+     * Returns the number of entries in the cache.
      *
-     * @return The number for entries this cache.
+     * @return The number of entries in the cache.
      */
     int size();
 }
