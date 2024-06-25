@@ -1297,14 +1297,14 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         /**
          * Synchronously closes the tree's execution iterator.
          *
-         * @param cancelReason If specified. Forces execution to terminate with {@link QueryCancelledException}.
+         * @param closeReason Reason to use in {@link QueryCancelledException}.
          * @return Completable future that should run asynchronously.
          */
-        private CompletableFuture<Void> closeRootNode(QueryCompletionReason cancelReason) {
+        private CompletableFuture<Void> closeRootNode(QueryCompletionReason closeReason) {
             assert root != null;
 
             String message;
-            if (cancelReason == QueryCompletionReason.TIMEOUT) {
+            if (closeReason == QueryCompletionReason.TIMEOUT) {
                 message = QueryCancelledException.TIMEOUT_MSG;
             } else {
                 message = QueryCancelledException.CANCEL_MSG;
@@ -1317,7 +1317,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             if (!root.isCompletedExceptionally()) {
                 AsyncRootNode<RowT, InternalSqlRow> node = root.getNow(null);
 
-                if (cancelReason != null) {
+                if (closeReason != QueryCompletionReason.CLOSE) {
                     node.onError(new QueryCancelledException(message));
                 }
 
