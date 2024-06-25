@@ -26,7 +26,7 @@
 
 namespace ignite {
 
-big_integer::big_integer(const int8_t *val, int32_t len, int8_t sign, bool big_endian) {
+big_integer::big_integer(const int8_t *val, int32_t len, int8_t sign, bool/* big_endian*/) {
     assert(val != nullptr);
     assert(len >= 0);
     assert(sign == detail::mpi_sign::POSITIVE || sign == 0 || sign == detail::mpi_sign::NEGATIVE);
@@ -256,7 +256,7 @@ void big_integer::add(uint64_t x) {
         return;
     }
 
-    mpi_t::word val[2];
+    std::uint32_t val[2];
 
     val[0] = static_cast<word_t>(x);
     val[1] = static_cast<word_t>(x >> 32);
