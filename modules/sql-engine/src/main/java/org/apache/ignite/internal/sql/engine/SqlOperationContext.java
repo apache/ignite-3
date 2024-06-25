@@ -46,7 +46,7 @@ public final class SqlOperationContext {
     private final @Nullable QueryCancel cancel;
     private final @Nullable String defaultSchemaName;
     private final @Nullable PrefetchCallback prefetchCallback;
-    private final CompletableFuture<Void> timeoutFuture;
+    private final @Nullable CompletableFuture<Void> timeoutFuture;
 
     /**
      * Private constructor, used by a builder.
