@@ -494,7 +494,9 @@ public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
 
     private List<ParameterType> getParameterTypes(String query, Object... params) {
         QueryProcessor qryProc = queryProcessor();
-        SqlProperties properties = SqlPropertiesHelper.emptyProperties();
+        SqlProperties properties = SqlPropertiesHelper.newBuilder()
+                .set(QueryProperty.QUERY_TIMEOUT, 0L)
+                .build();
         return await(qryProc.prepareSingleAsync(properties, null, query, params)).parameterTypes();
     }
 }
