@@ -32,7 +32,7 @@ public class JobDescriptor<T, R> {
 
     private final JobExecutionOptions options;
 
-    private final Marshaler<T, byte[]> resultMarshaller;
+    private final Marshaler<R, byte[]> resultMarshaller;
 
     private final Marshaler<T, byte[]> argumentMarshaler;
 
