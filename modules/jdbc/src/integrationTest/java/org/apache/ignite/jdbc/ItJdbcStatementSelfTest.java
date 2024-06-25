@@ -864,8 +864,9 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
             int timeoutMillis = ThreadLocalRandom.current().nextInt(10, 200);
             igniteStmt.timeout(timeoutMillis);
 
+            // Catch both execution and planning timeouts.
             assertThrowsSqlException(SQLException.class,
-                    "Query timeout", () -> {
+                    "timeout", () -> {
                         try (ResultSet rs = igniteStmt.executeQuery("SELECT * FROM TABLE(SYSTEM_RANGE(1, 100000000))")) {
                             while (rs.next()) {
                                 rs.getLong(1);
