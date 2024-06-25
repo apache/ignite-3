@@ -32,7 +32,6 @@ import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
-import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
@@ -97,7 +96,7 @@ public class ColocationHashCalculationTest {
     }
 
     @Test
-    public void allTypes() throws TupleMarshallerException {
+    public void allTypes() {
         Column[] keyCols = IntStream.range(0, SchemaTestUtils.ALL_TYPES.size())
                 .mapToObj(i -> {
                     NativeType t = SchemaTestUtils.ALL_TYPES.get(i);
@@ -180,7 +179,7 @@ public class ColocationHashCalculationTest {
         }
     }
 
-    private static Row generateRandomRow(Random rnd, SchemaDescriptor schema) throws TupleMarshallerException {
+    private static Row generateRandomRow(Random rnd, SchemaDescriptor schema) {
         TupleMarshaller marshaller = new TupleMarshallerImpl(schema);
 
         Tuple t = Tuple.create();

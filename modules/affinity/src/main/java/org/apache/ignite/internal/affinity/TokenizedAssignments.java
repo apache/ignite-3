@@ -15,22 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.marshaller;
+package org.apache.ignite.internal.affinity;
 
-import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
+import java.io.Serializable;
+import java.util.Set;
 
 /**
- * Throws when failed to marshal a tuple.
+ * Set of nodes along with associated token that is guaranteed to be changed if the set was changed.
  */
-public class TupleMarshallerException extends IgniteInternalCheckedException {
-    /**
-     * Creates a new grid exception with the given throwable as a cause and
-     * source of error message.
-     *
-     * @param s Msg.
-     * @param cause Non-null throwable cause.
-     */
-    public TupleMarshallerException(String s, Throwable cause) {
-        super(cause);
-    }
+public interface TokenizedAssignments extends Serializable {
+    /** Returns a set of nodes, represented by this assignments instance. */
+    Set<Assignment> nodes();
+
+    /** Returns a token associated with given assignments that is guaranteed to be changed if assignments were changed. */
+    long token();
 }

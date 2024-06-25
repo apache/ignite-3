@@ -17,13 +17,20 @@
 
 package org.apache.ignite.internal.compute.message;
 
+import java.util.UUID;
 import org.apache.ignite.internal.compute.ComputeMessageTypes;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
- * Remote job statuses request.
+ * Remote job state request.
  */
-@Transferable(ComputeMessageTypes.JOB_STATUSES_REQUEST)
-public interface JobStatusesRequest extends NetworkMessage {
+@Transferable(ComputeMessageTypes.JOB_STATE_REQUEST)
+public interface JobStateRequest extends NetworkMessage {
+    /**
+     * Returns job id.
+     *
+     * @return Job id.
+     */
+    UUID jobId();
 }

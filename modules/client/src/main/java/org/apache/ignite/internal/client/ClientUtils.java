@@ -218,8 +218,8 @@ public class ClientUtils {
             case ClientOp.COMPUTE_EXECUTE_MAPREDUCE:
                 return ClientOperationType.COMPUTE_EXECUTE_MAPREDUCE;
 
-            case ClientOp.COMPUTE_GET_STATUS:
-                return ClientOperationType.COMPUTE_GET_STATUS;
+            case ClientOp.COMPUTE_GET_STATE:
+                return ClientOperationType.COMPUTE_GET_STATE;
 
             case ClientOp.COMPUTE_CANCEL:
                 return ClientOperationType.COMPUTE_CANCEL;

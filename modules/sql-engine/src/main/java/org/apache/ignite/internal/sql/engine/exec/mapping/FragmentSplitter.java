@@ -68,7 +68,7 @@ class FragmentSplitter extends IgniteRelShuttle {
     public List<Fragment> go(Fragment fragment) {
         ArrayList<Fragment> res = new ArrayList<>();
 
-        stack.push(new FragmentProto(idGenerator.nextId(), fragment.correlated(), fragment.root()));
+        stack.push(new FragmentProto(fragment.fragmentId(), fragment.correlated(), fragment.root()));
 
         while (!stack.isEmpty()) {
             curr = stack.pop();

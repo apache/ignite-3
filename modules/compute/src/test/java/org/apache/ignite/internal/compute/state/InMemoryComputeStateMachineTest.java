@@ -17,16 +17,16 @@
 
 package org.apache.ignite.internal.compute.state;
 
-import static org.apache.ignite.compute.JobState.CANCELED;
-import static org.apache.ignite.compute.JobState.CANCELING;
-import static org.apache.ignite.compute.JobState.COMPLETED;
-import static org.apache.ignite.compute.JobState.EXECUTING;
-import static org.apache.ignite.compute.JobState.FAILED;
-import static org.apache.ignite.compute.JobState.QUEUED;
+import static org.apache.ignite.compute.JobStatus.CANCELED;
+import static org.apache.ignite.compute.JobStatus.CANCELING;
+import static org.apache.ignite.compute.JobStatus.COMPLETED;
+import static org.apache.ignite.compute.JobStatus.EXECUTING;
+import static org.apache.ignite.compute.JobStatus.FAILED;
+import static org.apache.ignite.compute.JobStatus.QUEUED;
 import static org.apache.ignite.internal.testframework.matchers.AnythingMatcher.anything;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.testframework.matchers.JobStatusMatcher.jobStatusWithState;
-import static org.apache.ignite.internal.testframework.matchers.JobStatusMatcher.jobStatusWithStateAndCreateTimeStartTimeFinishTime;
+import static org.apache.ignite.internal.testframework.matchers.JobStateMatcher.jobStateWithStatus;
+import static org.apache.ignite.internal.testframework.matchers.JobStateMatcher.jobStateWithStatusAndCreateTimeStartTimeFinishTime;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -75,7 +75,7 @@ public class InMemoryComputeStateMachineTest extends BaseIgniteAbstractTest {
     @Test
     public void testSubmit() {
         assertThat(jobId, is(notNullValue()));
-        assertThat(stateMachine.currentStatus(jobId), jobStatusWithState(QUEUED));
+        assertThat(stateMachine.currentState(jobId), jobStateWithStatus(QUEUED));
     }
 
     @Test
@@ -169,22 +169,22 @@ public class InMemoryComputeStateMachineTest extends BaseIgniteAbstractTest {
         executeJob(false);
         completeJob(false);
         ConditionFactory await = await().timeout(300, TimeUnit.MILLISECONDS);
-        await.untilAsserted(() -> assertThat(stateMachine.currentStatus(jobId), is(nullValue())));
+        await.untilAsserted(() -> assertThat(stateMachine.currentState(jobId), is(nullValue())));
 
         jobId = stateMachine.initJob();
         executeJob(false);
         failJob(false);
-        await.untilAsserted(() -> assertThat(stateMachine.currentStatus(jobId), is(nullValue())));
+        await.untilAsserted(() -> assertThat(stateMachine.currentState(jobId), is(nullValue())));
 
         jobId = stateMachine.initJob();
         cancelJob(false);
-        await.untilAsserted(() -> assertThat(stateMachine.currentStatus(jobId), is(nullValue())));
+        await.untilAsserted(() -> assertThat(stateMachine.currentState(jobId), is(nullValue())));
 
         jobId = stateMachine.initJob();
         executeJob(false);
         cancelingJob(false);
         cancelJob(false);
-        await.untilAsserted(() -> assertThat(stateMachine.currentStatus(jobId), is(nullValue())));
+        await.untilAsserted(() -> assertThat(stateMachine.currentState(jobId), is(nullValue())));
 
         stateMachine.stop();
     }
@@ -193,8 +193,8 @@ public class InMemoryComputeStateMachineTest extends BaseIgniteAbstractTest {
         if (!shouldFail) {
             stateMachine.cancelJob(jobId);
             assertThat(
-                    stateMachine.currentStatus(jobId),
-                    jobStatusWithStateAndCreateTimeStartTimeFinishTime(
+                    stateMachine.currentState(jobId),
+                    jobStateWithStatusAndCreateTimeStartTimeFinishTime(
                             equalTo(CANCELED),
                             notNullValue(Instant.class),
                             anything(),
@@ -202,7 +202,7 @@ public class InMemoryComputeStateMachineTest extends BaseIgniteAbstractTest {
                     )
             );
         } else {
-            assertThrows(IllegalJobStateTransition.class, () -> stateMachine.cancelJob(jobId));
+            assertThrows(IllegalJobStatusTransition.class, () -> stateMachine.cancelJob(jobId));
         }
     }
 
@@ -210,8 +210,8 @@ public class InMemoryComputeStateMachineTest extends BaseIgniteAbstractTest {
         if (!shouldFail) {
             stateMachine.cancelingJob(jobId);
             assertThat(
-                    stateMachine.currentStatus(jobId),
-                    jobStatusWithStateAndCreateTimeStartTimeFinishTime(
+                    stateMachine.currentState(jobId),
+                    jobStateWithStatusAndCreateTimeStartTimeFinishTime(
                             equalTo(CANCELING),
                             notNullValue(Instant.class),
                             anything(),
@@ -219,7 +219,7 @@ public class InMemoryComputeStateMachineTest extends BaseIgniteAbstractTest {
                     )
             );
         } else {
-            assertThrows(IllegalJobStateTransition.class, () -> stateMachine.cancelJob(jobId));
+            assertThrows(IllegalJobStatusTransition.class, () -> stateMachine.cancelJob(jobId));
         }
     }
 
@@ -227,8 +227,8 @@ public class InMemoryComputeStateMachineTest extends BaseIgniteAbstractTest {
         if (!shouldFail) {
             stateMachine.executeJob(jobId);
             assertThat(
-                    stateMachine.currentStatus(jobId),
-                    jobStatusWithStateAndCreateTimeStartTimeFinishTime(
+                    stateMachine.currentState(jobId),
+                    jobStateWithStatusAndCreateTimeStartTimeFinishTime(
                             equalTo(EXECUTING),
                             notNullValue(Instant.class),
                             notNullValue(Instant.class),
@@ -236,7 +236,7 @@ public class InMemoryComputeStateMachineTest extends BaseIgniteAbstractTest {
                     )
             );
         } else {
-            assertThrows(IllegalJobStateTransition.class, () -> stateMachine.executeJob(jobId));
+            assertThrows(IllegalJobStatusTransition.class, () -> stateMachine.executeJob(jobId));
         }
     }
 
@@ -244,8 +244,8 @@ public class InMemoryComputeStateMachineTest extends BaseIgniteAbstractTest {
         if (!shouldFail) {
             stateMachine.completeJob(jobId);
             assertThat(
-                    stateMachine.currentStatus(jobId),
-                    jobStatusWithStateAndCreateTimeStartTimeFinishTime(
+                    stateMachine.currentState(jobId),
+                    jobStateWithStatusAndCreateTimeStartTimeFinishTime(
                             equalTo(COMPLETED),
                             notNullValue(Instant.class),
                             notNullValue(Instant.class),
@@ -253,7 +253,7 @@ public class InMemoryComputeStateMachineTest extends BaseIgniteAbstractTest {
                     )
             );
         } else {
-            assertThrows(IllegalJobStateTransition.class, () -> stateMachine.completeJob(jobId));
+            assertThrows(IllegalJobStatusTransition.class, () -> stateMachine.completeJob(jobId));
         }
     }
 
@@ -261,8 +261,8 @@ public class InMemoryComputeStateMachineTest extends BaseIgniteAbstractTest {
         if (!shouldFail) {
             stateMachine.failJob(jobId);
             assertThat(
-                    stateMachine.currentStatus(jobId),
-                    jobStatusWithStateAndCreateTimeStartTimeFinishTime(
+                    stateMachine.currentState(jobId),
+                    jobStateWithStatusAndCreateTimeStartTimeFinishTime(
                             equalTo(FAILED),
                             notNullValue(Instant.class),
                             anything(),
@@ -270,7 +270,7 @@ public class InMemoryComputeStateMachineTest extends BaseIgniteAbstractTest {
                     )
             );
         } else {
-            assertThrows(IllegalJobStateTransition.class, () -> stateMachine.failJob(jobId));
+            assertThrows(IllegalJobStatusTransition.class, () -> stateMachine.failJob(jobId));
         }
     }
 
@@ -278,8 +278,8 @@ public class InMemoryComputeStateMachineTest extends BaseIgniteAbstractTest {
         if (!shouldFail) {
             stateMachine.queueJob(jobId);
             assertThat(
-                    stateMachine.currentStatus(jobId),
-                    jobStatusWithStateAndCreateTimeStartTimeFinishTime(
+                    stateMachine.currentState(jobId),
+                    jobStateWithStatusAndCreateTimeStartTimeFinishTime(
                             equalTo(QUEUED),
                             notNullValue(Instant.class),
                             notNullValue(Instant.class),
@@ -287,7 +287,7 @@ public class InMemoryComputeStateMachineTest extends BaseIgniteAbstractTest {
                     )
             );
         } else {
-            assertThrows(IllegalJobStateTransition.class, () -> stateMachine.queueJob(jobId));
+            assertThrows(IllegalJobStatusTransition.class, () -> stateMachine.queueJob(jobId));
         }
     }
 }

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.network;
 
 import it.unimi.dsi.fastutil.ints.IntSet;
+import org.apache.ignite.internal.network.serialization.MessageSerializer;
 
 /**
  * Message for exchanging information in a cluster.
@@ -25,6 +26,11 @@ import it.unimi.dsi.fastutil.ints.IntSet;
 public interface NetworkMessage extends Cloneable {
     /** Group type for the {@code null} message. */
     short NULL_GROUP_TYPE = -1;
+
+    /**
+     * Returns a serializer instance for the specific type of message, defined by the implementation.
+     */
+    MessageSerializer<NetworkMessage> serializer();
 
     /**
      * Message type. Must be <b>distinct</b> among all messages in a <i>message group</i>. Only positive values are allowed.

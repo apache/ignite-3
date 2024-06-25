@@ -71,7 +71,7 @@ T get_value(bytes_view data) {
     return res;
 }
 
-big_decimal get_decimal(bytes_view data, int32_t scale) {
+big_decimal get_decimal(bytes_view data, int16_t scale) {
     return binary_tuple_parser::get_decimal(data, scale);
 }
 
@@ -1125,7 +1125,7 @@ TEST_P(tuple_big_decimal_zeros, DecimalZerosTest) { // NOLINT(cert-err58-cpp)
 
 INSTANTIATE_TEST_SUITE_P(zeros, tuple_big_decimal_zeros,
     testing::Values(big_decimal("0"), big_decimal("-0"), big_decimal("0E1000"), big_decimal("0E-1000"), big_decimal(0L),
-        big_decimal(std::int64_t(0), 10)));
+        big_decimal(0, std::int16_t(10))));
 
 class tuple_big_decimal : public testing::TestWithParam<big_decimal> {};
 

@@ -15,30 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.marshaller;
+package org.apache.ignite.internal.rest.compute.exception;
 
-import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
+import static org.apache.ignite.lang.ErrorGroups.Common.ILLEGAL_ARGUMENT_ERR;
+
+import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.rest.api.compute.JobStatus;
 
 /**
- * Exception that is thrown during object marshal/unmarshal.
+ * Thrown when compute job has an illegal status.
  */
-public class MarshallerException extends IgniteInternalCheckedException {
+public class ComputeJobStatusException extends IgniteInternalException {
     /**
      * Constructor.
      *
-     * @param cause Cause.
+     * @param jobId Job ID.
      */
-    public MarshallerException(Throwable cause) {
-        super(cause);
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param message Message.
-     * @param cause   Cause.
-     */
-    public MarshallerException(String message, Throwable cause) {
-        super(message, cause);
+    public ComputeJobStatusException(String jobId, JobStatus status) {
+        super(ILLEGAL_ARGUMENT_ERR, "Compute job has an illegal status [jobId=" + jobId + ", status=" + status + ']');
     }
 }

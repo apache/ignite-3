@@ -50,6 +50,7 @@ import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.DataStreamerReceiver;
 import org.apache.ignite.table.DataStreamerReceiverContext;
 import org.apache.ignite.table.KeyValueView;
+import org.apache.ignite.table.ReceiverDescriptor;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -375,12 +376,11 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         try (var publisher = new SubmissionPublisher<Tuple>()) {
             streamerFut = defaultTable().recordView().streamData(
                     publisher,
-                    DataStreamerOptions.builder().retryLimit(0).build(),
                     t -> t,
                     t -> t.stringValue(1),
+                    ReceiverDescriptor.builder(TestReceiver.class).build(),
                     resultSubscriber,
-                    List.of(),
-                    TestReceiver.class.getName(),
+                    DataStreamerOptions.builder().retryLimit(0).build(),
                     "arg1",
                     123);
 
@@ -411,12 +411,11 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         try (var publisher = new SubmissionPublisher<Tuple>()) {
             streamerFut = view.streamData(
                     publisher,
-                    null,
                     t -> t,
                     t -> t.intValue(0),
+                    ReceiverDescriptor.builder(NodeNameReceiver.class).build(),
                     null,
-                    List.of(),
-                    NodeNameReceiver.class.getName());
+                    null);
 
             for (int i = 0; i < count; i++) {
                 publisher.submit(tupleKey(i));
@@ -441,12 +440,11 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         try (var publisher = new SubmissionPublisher<Tuple>()) {
             streamerFut = defaultTable().recordView().streamData(
                     publisher,
-                    DataStreamerOptions.builder().retryLimit(0).pageSize(1).build(),
                     t -> t,
                     t -> 0,
+                    ReceiverDescriptor.builder(TestReceiver.class).build(),
                     null,
-                    List.of(),
-                    TestReceiver.class.getName(),
+                    DataStreamerOptions.builder().retryLimit(0).pageSize(1).build(),
                     async ? "throw-async" : "throw");
 
             publisher.submit(tupleKey(1));

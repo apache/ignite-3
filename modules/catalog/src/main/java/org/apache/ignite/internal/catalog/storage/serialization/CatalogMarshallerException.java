@@ -15,22 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.compute.message;
+package org.apache.ignite.internal.catalog.storage.serialization;
 
-import java.util.UUID;
-import org.apache.ignite.internal.compute.ComputeMessageTypes;
-import org.apache.ignite.internal.network.NetworkMessage;
-import org.apache.ignite.internal.network.annotations.Transferable;
+import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.lang.ErrorGroups.Common;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Remote job status request.
+ * This exception is caused by a failure to marshall or unmarshall catalog event.
+ *  The failure can be due to compatibility reason or any other unrecoverable error.
  */
-@Transferable(ComputeMessageTypes.JOB_STATUS_REQUEST)
-public interface JobStatusRequest extends NetworkMessage {
-    /**
-     * Returns job id.
-     *
-     * @return Job id.
-     */
-    UUID jobId();
+public class CatalogMarshallerException extends IgniteInternalException {
+    private static final long serialVersionUID = 3401185592041257347L;
+
+    CatalogMarshallerException(@Nullable Throwable cause) {
+        super(Common.INTERNAL_ERR, cause);
+    }
 }

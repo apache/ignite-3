@@ -31,185 +31,185 @@ import org.hamcrest.Matcher;
 import org.hamcrest.TypeSafeMatcher;
 
 /**
- * Matcher for {@link JobStatus}.
+ * Matcher for {@link JobState}.
  */
-public class RestJobStatusMatcher extends TypeSafeMatcher<JobStatus> {
-    private Matcher<JobState> stateMatcher = AnythingMatcher.anything();
+public class RestJobStateMatcher extends TypeSafeMatcher<JobState> {
+    private Matcher<JobStatus> statusMatcher = AnythingMatcher.anything();
     private Matcher<UUID> idMatcher = AnythingMatcher.anything();
     private Matcher<Instant> createTimeMatcher = AnythingMatcher.anything();
     private Matcher<Instant> startTimeMatcher = AnythingMatcher.anything();
     private Matcher<Instant> finishTimeMatcher = AnythingMatcher.anything();
 
-    public static RestJobStatusMatcher isJobStatus() {
-        return new RestJobStatusMatcher();
+    public static RestJobStateMatcher isJobState() {
+        return new RestJobStateMatcher();
     }
 
-    public static RestJobStatusMatcher queued(UUID id) {
+    public static RestJobStateMatcher queued(UUID id) {
         return queued(equalTo(id));
     }
 
     /**
-     * Creates a matcher that matches when the examined {@link JobStatus} has a state of {@link JobState#QUEUED}.
+     * Creates a matcher that matches when the examined {@link JobState} has a status of {@link JobStatus#QUEUED}.
      *
      * @param idMatcher Id matcher.
      * @return Matcher.
      */
-    public static RestJobStatusMatcher queued(Matcher<UUID> idMatcher) {
-        return isJobStatus().withId(idMatcher)
-                .withState(JobState.QUEUED)
+    public static RestJobStateMatcher queued(Matcher<UUID> idMatcher) {
+        return isJobState().withId(idMatcher)
+                .withStatus(JobStatus.QUEUED)
                 .withCreateTime(notNullValue(Instant.class))
                 .withStartTime(nullValue(Instant.class));
     }
 
     /**
-     * Creates a matcher that matches when the examined {@link JobStatus} has a state of {@link JobState#EXECUTING}.
+     * Creates a matcher that matches when the examined {@link JobState} has a status of {@link JobStatus#EXECUTING}.
      *
      * @param id Id.
      * @return Matcher.
      */
-    public static RestJobStatusMatcher executing(UUID id) {
-        return isJobStatus().withId(id)
-                .withState(JobState.EXECUTING)
+    public static RestJobStateMatcher executing(UUID id) {
+        return isJobState().withId(id)
+                .withStatus(JobStatus.EXECUTING)
                 .withCreateTime(notNullValue(Instant.class))
                 .withStartTime(notNullValue(Instant.class))
                 .withFinishTime(nullValue(Instant.class));
     }
 
     /**
-     * Creates a matcher that matches when the examined {@link JobStatus} has a state of {@link JobState#FAILED}.
+     * Creates a matcher that matches when the examined {@link JobState} has a status of {@link JobStatus#FAILED}.
      *
      * @param id Id.
      * @param wasRunning Whether the job was running before it failed.
      * @return Matcher.
      */
-    public static RestJobStatusMatcher failed(UUID id, boolean wasRunning) {
-        return isJobStatus().withId(id)
-                .withState(JobState.FAILED)
+    public static RestJobStateMatcher failed(UUID id, boolean wasRunning) {
+        return isJobState().withId(id)
+                .withStatus(JobStatus.FAILED)
                 .withCreateTime(notNullValue(Instant.class))
                 .withStartTime(wasRunning ? notNullValue(Instant.class) : AnythingMatcher.anything())
                 .withFinishTime(notNullValue(Instant.class));
     }
 
     /**
-     * Creates a matcher that matches when the examined {@link JobStatus} has a state of {@link JobState#COMPLETED}.
+     * Creates a matcher that matches when the examined {@link JobState} has a status of {@link JobStatus#COMPLETED}.
      *
      * @param id Id.
      * @return Matcher.
      */
-    public static RestJobStatusMatcher completed(UUID id) {
-        return isJobStatus().withId(id)
-                .withState(JobState.COMPLETED)
+    public static RestJobStateMatcher completed(UUID id) {
+        return isJobState().withId(id)
+                .withStatus(JobStatus.COMPLETED)
                 .withCreateTime(notNullValue(Instant.class))
                 .withStartTime(notNullValue(Instant.class))
                 .withFinishTime(notNullValue(Instant.class));
     }
 
     /**
-     * Creates a matcher that matches when the examined {@link JobStatus} has a state of {@link JobState#CANCELING}.
+     * Creates a matcher that matches when the examined {@link JobState} has a status of {@link JobStatus#CANCELING}.
      *
      * @param id Id.
      * @param wasRunning Whether the job was running before it was canceled.
      * @return Matcher.
      */
-    public static RestJobStatusMatcher canceling(UUID id, boolean wasRunning) {
-        return isJobStatus().withId(id)
-                .withState(JobState.CANCELING)
+    public static RestJobStateMatcher canceling(UUID id, boolean wasRunning) {
+        return isJobState().withId(id)
+                .withStatus(JobStatus.CANCELING)
                 .withCreateTime(notNullValue(Instant.class))
                 .withStartTime(wasRunning ? notNullValue(Instant.class) : AnythingMatcher.anything())
                 .withFinishTime(notNullValue(Instant.class));
     }
 
     /**
-     * Creates a matcher that matches when the examined {@link JobStatus} has a state of {@link JobState#CANCELED}.
+     * Creates a matcher that matches when the examined {@link JobState} has a status of {@link JobStatus#CANCELED}.
      *
      * @param id Id.
      * @param wasRunning Whether the job was running before it was canceled.
      * @return Matcher.
      */
-    public static RestJobStatusMatcher canceled(UUID id, boolean wasRunning) {
-        return isJobStatus().withId(id)
-                .withState(JobState.CANCELED)
+    public static RestJobStateMatcher canceled(UUID id, boolean wasRunning) {
+        return isJobState().withId(id)
+                .withStatus(JobStatus.CANCELED)
                 .withCreateTime(notNullValue(Instant.class))
                 .withStartTime(wasRunning ? notNullValue(Instant.class) : AnythingMatcher.anything())
                 .withFinishTime(notNullValue(Instant.class));
     }
 
 
-    public RestJobStatusMatcher withState(JobState state) {
-        return withState(equalTo(state));
+    public RestJobStateMatcher withStatus(JobStatus status) {
+        return withStatus(equalTo(status));
     }
 
-    public RestJobStatusMatcher withState(Matcher<JobState> stateMatcher) {
-        this.stateMatcher = stateMatcher;
+    public RestJobStateMatcher withStatus(Matcher<JobStatus> statusMatcher) {
+        this.statusMatcher = statusMatcher;
         return this;
     }
 
 
-    public RestJobStatusMatcher withId(UUID id) {
+    public RestJobStateMatcher withId(UUID id) {
         return withId(equalTo(id));
     }
 
-    public RestJobStatusMatcher withId(Matcher<UUID> idMatcher) {
+    public RestJobStateMatcher withId(Matcher<UUID> idMatcher) {
         this.idMatcher = idMatcher;
         return this;
     }
 
-    public RestJobStatusMatcher withCreateTime(Instant createTime) {
+    public RestJobStateMatcher withCreateTime(Instant createTime) {
         return withCreateTime(equalTo(createTime));
     }
 
-    public RestJobStatusMatcher withCreateTime(Matcher<Instant> createTimeMatcher) {
+    public RestJobStateMatcher withCreateTime(Matcher<Instant> createTimeMatcher) {
         this.createTimeMatcher = createTimeMatcher;
         return this;
     }
 
-    public RestJobStatusMatcher withStartTime(Instant startTime) {
+    public RestJobStateMatcher withStartTime(Instant startTime) {
         return withStartTime(equalTo(startTime));
     }
 
-    public RestJobStatusMatcher withStartTime(Matcher<Instant> startTimeMatcher) {
+    public RestJobStateMatcher withStartTime(Matcher<Instant> startTimeMatcher) {
         this.startTimeMatcher = startTimeMatcher;
         return this;
     }
 
-    public RestJobStatusMatcher withFinishTime(Instant finishTime) {
+    public RestJobStateMatcher withFinishTime(Instant finishTime) {
         return withFinishTime(equalTo(finishTime));
     }
 
-    public RestJobStatusMatcher withFinishTime(Matcher<Instant> finishTimeMatcher) {
+    public RestJobStateMatcher withFinishTime(Matcher<Instant> finishTimeMatcher) {
         this.finishTimeMatcher = finishTimeMatcher;
         return this;
     }
 
     @Override
-    protected boolean matchesSafely(JobStatus status) {
-        return idMatcher.matches(status.id())
-                && stateMatcher.matches(status.state())
-                && createTimeMatcher.matches(status.createTime())
-                && startTimeMatcher.matches(status.startTime())
-                && finishTimeMatcher.matches(status.finishTime());
+    protected boolean matchesSafely(JobState state) {
+        return idMatcher.matches(state.id())
+                && statusMatcher.matches(state.status())
+                && createTimeMatcher.matches(state.createTime())
+                && startTimeMatcher.matches(state.startTime())
+                && finishTimeMatcher.matches(state.finishTime());
     }
 
     @Override
-    protected void describeMismatchSafely(JobStatus status, Description mismatchDescription) {
-        mismatchDescription.appendText("was a JobStatus with id ")
-                .appendValue(status.id())
-                .appendText(", state ")
-                .appendValue(status.state())
+    protected void describeMismatchSafely(JobState state, Description mismatchDescription) {
+        mismatchDescription.appendText("was a JobState with id ")
+                .appendValue(state.id())
+                .appendText(", status ")
+                .appendValue(state.status())
                 .appendText(", create time ")
-                .appendValue(status.createTime())
+                .appendValue(state.createTime())
                 .appendText(", start time ")
-                .appendValue(status.startTime())
+                .appendValue(state.startTime())
                 .appendText(" and finish time ")
-                .appendValue(status.finishTime());
+                .appendValue(state.finishTime());
     }
 
     @Override
     public void describeTo(Description description) {
-        description.appendText("a JobStatus with id ")
+        description.appendText("a JobState with id ")
                 .appendDescriptionOf(idMatcher)
-                .appendText(", state ")
-                .appendDescriptionOf(stateMatcher)
+                .appendText(", status ")
+                .appendDescriptionOf(statusMatcher)
                 .appendText(", create time ")
                 .appendDescriptionOf(createTimeMatcher)
                 .appendText(", start time ")
