@@ -41,18 +41,12 @@ dependencies {
     testFixturesAnnotationProcessor libs.micronaut.inject.annotation.processor
 
     testFixturesImplementation project(":ignite-api")
-    testFixturesImplementation project(":ignite-runner")
     testFixturesImplementation libs.auto.service.annotations
     testFixturesImplementation libs.hamcrest.core
     testFixturesImplementation libs.jetbrains.annotations
     testFixturesImplementation libs.junit.testkit
-    testFixturesImplementation libs.junit5.api
-    testFixturesImplementation libs.junit5.impl
     testFixturesImplementation libs.junit5.params
-    testFixturesImplementation libs.micronaut.junit5
     testFixturesImplementation libs.mockito.core
-    testFixturesImplementation libs.mockito.core
-    testFixturesImplementation libs.typesafe.config
 }
 
 test {

@@ -166,17 +166,21 @@ public interface IgniteServer {
     /**
      * Waits for the cluster initialization. Used when the initialization is done externally (for example, via REST endpoint).
      *
-     * @return CompletableFuture that resolves the cluster initialization is complete and the node has joined the logical topology.
+     * @return CompletableFuture that resolves when the cluster initialization is complete and the node has joined the logical topology.
      */
     CompletableFuture<Void> waitForInitAsync();
 
     /**
-     * Stops the node.
+     * Stops the node synchronously. After the future returned by method completes, the node is no longer functional and can't be restarted.
+     * Use {@code startAsync} methods to create new {@code IgniteServer} instance.
+     *
+     * @return CompletableFuture that resolves when the node is stopped.
      */
     CompletableFuture<Void> shutdownAsync();
 
     /**
-     * Stops the node synchronously. After this method completes, the node
+     * Stops the node synchronously. After this method completes, the node is no longer functional and can't be restarted. Use
+     * {@code startAsync} methods to create new {@code IgniteServer} instance.
      */
     void shutdown();
 
