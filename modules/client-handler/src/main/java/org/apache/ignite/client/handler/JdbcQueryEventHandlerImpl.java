@@ -208,12 +208,16 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
         long queryTimeoutMillis = req.queryTimeoutMillis();
 
         for (String query : queries) {
-            tail = tail.thenCompose(list -> executeAndCollectUpdateCount(connectionContext, tx, query, OBJECT_EMPTY_ARRAY, queryTimeoutMillis)
-                    .thenApply(cnt -> {
-                        list.add(cnt > Integer.MAX_VALUE ? Statement.SUCCESS_NO_INFO : cnt.intValue());
+            tail = tail.thenCompose(list -> executeAndCollectUpdateCount(
+                    connectionContext,
+                    tx, query,
+                    OBJECT_EMPTY_ARRAY,
+                    queryTimeoutMillis
+            ).thenApply(cnt -> {
+                list.add(cnt > Integer.MAX_VALUE ? Statement.SUCCESS_NO_INFO : cnt.intValue());
 
-                        return list;
-                    }));
+                return list;
+            }));
         }
 
         return tail.handle((ignored, t) -> {

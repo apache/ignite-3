@@ -91,7 +91,7 @@ public class QueryCancel {
             fut.complete(null);
         }, timeoutMillis, MILLISECONDS);
 
-        add((timeout) ->{
+        add((timeout) -> {
             if (!timeout) {
                 f.cancel(false);
             }
