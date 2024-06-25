@@ -540,7 +540,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     ) {
         SqlProperties properties0 = SqlPropertiesHelper.chain(properties, DEFAULT_PROPERTIES);
         String schemaName = properties0.get(QueryProperty.DEFAULT_SCHEMA);
-        Long queryTimeout = properties0.getOrDefault(QueryProperty.QUERY_TIMEOUT, 0L);
+        Long queryTimeout = properties0.get(QueryProperty.QUERY_TIMEOUT);
 
         QueryCancel queryCancel = new QueryCancel();
         if (queryTimeout != 0) {
@@ -624,7 +624,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     ) {
         String schemaName = properties.get(QueryProperty.DEFAULT_SCHEMA);
         ZoneId timeZoneId = properties.get(QueryProperty.TIME_ZONE_ID);
-        Long queryTimeout = properties.getOrDefault(QueryProperty.QUERY_TIMEOUT, 0L);
+        Long queryTimeout = properties.get(QueryProperty.QUERY_TIMEOUT);
 
         Instant deadline;
         if (queryTimeout != 0) {
