@@ -696,7 +696,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
             // Disable timeout
             igniteStmt.timeout(0);
 
-            for (int i = 0; i < 3; i ++) {
+            for (int i = 0; i < 3; i++) {
                 pstmt.setInt(1, 42);
 
                 igniteStmt.addBatch();
@@ -711,7 +711,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
             int timeoutMillis = ThreadLocalRandom.current().nextInt(1, 5);
             igniteStmt.timeout(timeoutMillis);
 
-            for (int i = 0; i < 3; i ++) {
+            for (int i = 0; i < 3; i++) {
                 pstmt.setInt(1, 42);
 
                 igniteStmt.addBatch();
