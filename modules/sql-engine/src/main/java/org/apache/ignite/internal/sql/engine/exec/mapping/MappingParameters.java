@@ -23,31 +23,41 @@ import org.apache.ignite.internal.util.ArrayUtils;
 public class MappingParameters {
 
     /** Empty mapping parameters. */
-    public static final MappingParameters EMPTY = new MappingParameters(ArrayUtils.OBJECT_EMPTY_ARRAY);
+    public static final MappingParameters EMPTY = new MappingParameters(ArrayUtils.OBJECT_EMPTY_ARRAY, false);
 
+    private final boolean mapOnBackups;
     private final Object[] dynamicParameters;
 
     /**
      * Creates mapping parameters.
      *
      * @param dynamicParameters Dynamic parameters.
+     * @param mapOnBackups Whether to use non-primary replicas for mapping or not.
      *
      * @return Mapping parameters.
      */
-    public static MappingParameters create(Object[] dynamicParameters) {
+    public static MappingParameters create(Object[] dynamicParameters, boolean mapOnBackups) {
         if (dynamicParameters.length == 0) {
             return EMPTY;
         } else {
-            return new MappingParameters(dynamicParameters);
+            return new MappingParameters(dynamicParameters, mapOnBackups);
         }
     }
 
-    private MappingParameters(Object[] dynamicParameters) {
+    private MappingParameters(
+            Object[] dynamicParameters,
+            boolean mapOnBackups
+    ) {
         this.dynamicParameters = dynamicParameters;
+        this.mapOnBackups = mapOnBackups;
     }
 
     /** Values of dynamic parameters. */
-    public Object[] dynamicParameters() {
+    Object[] dynamicParameters() {
         return dynamicParameters;
+    }
+
+    boolean mapOnBackups() {
+        return mapOnBackups;
     }
 }
