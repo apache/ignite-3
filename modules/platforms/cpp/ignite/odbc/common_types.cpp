@@ -122,6 +122,7 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::SSL_CONFIGURATION:
         case error::code::NODE_LEFT:
         case error::code::INTERNAL:
+        case error::code::NULLABLE_VALUE:
             return sql_state::SHY000_GENERAL_ERROR;
 
         // Table group. Group code: 2
