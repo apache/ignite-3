@@ -66,12 +66,6 @@ import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
-import org.apache.ignite.internal.client.proto.ColumnTypeConverter;
-import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
-import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
-import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderChange;
 import org.apache.ignite.internal.security.configuration.SecurityChange;
 import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
@@ -595,117 +589,8 @@ public class PlatformTestNodeRunner {
     // TODO: https://issues.apache.org/jira/browse/IGNITE-22508
     private static class ColocationHashJob implements ComputeJob<byte[], Integer> {
         @Override
-        public CompletableFuture<Integer> executeAsync(JobExecutionContext context, Object... args) {
-            var columnCount = (int) args[0];
-            var buf = (byte[]) args[1];
-            var timePrecision = (int) args[2];
-            var timestampPrecision = (int) args[3];
-
-            List<Column> columns = new ArrayList<>(columnCount);
-            var tuple = Tuple.create(columnCount);
-            var reader = new BinaryTupleReader(columnCount * 3, buf);
-
-            for (int i = 0; i < columnCount; i++) {
-                var type = ColumnTypeConverter.fromIdOrThrow(reader.intValue(i * 3));
-                var scale = reader.intValue(i * 3 + 1);
-                var valIdx = i * 3 + 2;
-
-                String colName = "COL" + i;
-
-                switch (type) {
-                    case BOOLEAN:
-                        columns.add(new Column(colName, NativeTypes.BOOLEAN, false));
-                        tuple.set(colName, reader.booleanValue(valIdx));
-                        break;
-
-                    case INT8:
-                        columns.add(new Column(colName, NativeTypes.INT8, false));
-                        tuple.set(colName, reader.byteValue(valIdx));
-                        break;
-
-                    case INT16:
-                        columns.add(new Column(colName, NativeTypes.INT16, false));
-                        tuple.set(colName, reader.shortValue(valIdx));
-                        break;
-
-                    case INT32:
-                        columns.add(new Column(colName, NativeTypes.INT32, false));
-                        tuple.set(colName, reader.intValue(valIdx));
-                        break;
-
-                    case INT64:
-                        columns.add(new Column(colName, NativeTypes.INT64, false));
-                        tuple.set(colName, reader.longValue(valIdx));
-                        break;
-
-                    case FLOAT:
-                        columns.add(new Column(colName, NativeTypes.FLOAT, false));
-                        tuple.set(colName, reader.floatValue(valIdx));
-                        break;
-
-                    case DOUBLE:
-                        columns.add(new Column(colName, NativeTypes.DOUBLE, false));
-                        tuple.set(colName, reader.doubleValue(valIdx));
-                        break;
-
-                    case DECIMAL:
-                        columns.add(new Column(colName, NativeTypes.decimalOf(100, scale), false));
-                        tuple.set(colName, reader.decimalValue(valIdx, scale));
-                        break;
-
-                    case STRING:
-                        columns.add(new Column(colName, NativeTypes.STRING, false));
-                        tuple.set(colName, reader.stringValue(valIdx));
-                        break;
-
-                    case UUID:
-                        columns.add(new Column(colName, NativeTypes.UUID, false));
-                        tuple.set(colName, reader.uuidValue(valIdx));
-                        break;
-
-                    case NUMBER:
-                        columns.add(new Column(colName, NativeTypes.numberOf(255), false));
-                        tuple.set(colName, reader.numberValue(valIdx));
-                        break;
-
-                    case BITMASK:
-                        columns.add(new Column(colName, NativeTypes.bitmaskOf(32), false));
-                        tuple.set(colName, reader.bitmaskValue(valIdx));
-                        break;
-
-                    case DATE:
-                        columns.add(new Column(colName, NativeTypes.DATE, false));
-                        tuple.set(colName, reader.dateValue(valIdx));
-                        break;
-
-                    case TIME:
-                        columns.add(new Column(colName, NativeTypes.time(timePrecision), false));
-                        tuple.set(colName, reader.timeValue(valIdx));
-                        break;
-
-                    case DATETIME:
-                        columns.add(new Column(colName, NativeTypes.datetime(timePrecision), false));
-                        tuple.set(colName, reader.dateTimeValue(valIdx));
-                        break;
-
-                    case TIMESTAMP:
-                        columns.add(new Column(colName, NativeTypes.timestamp(timestampPrecision), false));
-                        tuple.set(colName, reader.timestampValue(valIdx));
-                        break;
-
-                    default:
-                        throw new IllegalArgumentException("Unsupported type: " + type);
-                }
-            }
-
-            List<String> colocationColumns = columns.stream().map(Column::name).collect(toList());
-            var schema = new SchemaDescriptor(1, columns, colocationColumns, null);
-
-            var marsh = new TupleMarshallerImpl(schema);
-
-            Row row = marsh.marshal(tuple);
-
-            return completedFuture(row.colocationHash());
+        public CompletableFuture<Integer> executeAsync(JobExecutionContext context, byte[] args) {
+            throw new IllegalStateException("https://issues.apache.org/jira/browse/IGNITE-22508");
         }
     }
 
@@ -716,17 +601,8 @@ public class PlatformTestNodeRunner {
     private static class TableRowColocationHashJob implements ComputeJob<byte[], Integer> {
         // TODO: https://issues.apache.org/jira/browse/IGNITE-22508
         @Override
-        public CompletableFuture<Integer> executeAsync(JobExecutionContext context, Object... args) {
-            String tableName = (String) args[0];
-            int i = (int) args[1];
-            Tuple key = Tuple.create().set("id", 1 + i).set("id0", 2L + i).set("id1", "3" + i);
-
-            @SuppressWarnings("resource")
-            Table table = context.ignite().tables().table(tableName);
-            RecordBinaryViewImpl view = Wrappers.unwrap(table.recordView(), RecordBinaryViewImpl.class);
-            TupleMarshaller marsh = view.marshaller(1);
-
-            return completedFuture(marsh.marshal(key).colocationHash());
+        public CompletableFuture<Integer> executeAsync(JobExecutionContext context, byte[] args) {
+            return CompletableFuture.completedFuture(1);
         }
     }
 

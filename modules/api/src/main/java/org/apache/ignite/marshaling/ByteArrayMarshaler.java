@@ -29,6 +29,10 @@ import org.jetbrains.annotations.Nullable;
 public interface ByteArrayMarshaler<T> extends Marshaler<T, byte[]> {
     @Override
     default byte @Nullable [] marshal(@Nullable T object) {
+        if (object == null) {
+            return null;
+        }
+
         if (object instanceof Serializable) {
             return JavaSerializationByteArrayMarshallilng.marshal((Serializable) object);
         }
@@ -38,6 +42,10 @@ public interface ByteArrayMarshaler<T> extends Marshaler<T, byte[]> {
 
     @Override
     default @Nullable T unmarshal(byte @Nullable [] raw) {
+        if (raw == null) {
+            return null;
+        }
+
         return JavaSerializationByteArrayMarshallilng.unmarshal(raw);
     }
 }
