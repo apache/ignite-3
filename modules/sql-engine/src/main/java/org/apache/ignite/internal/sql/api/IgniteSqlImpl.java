@@ -52,6 +52,7 @@ import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.QueryProperty;
+import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
@@ -536,9 +537,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
         }
 
         try {
-            SqlProperties properties = SqlPropertiesHelper.newBuilder()
-                    .set(QueryProperty.QUERY_TIMEOUT, 0L)
-                    .build();
+            SqlProperties properties = SqlQueryProcessor.DEFAULT_PROPERTIES;
 
             return executeScriptCore(
                     queryProcessor,

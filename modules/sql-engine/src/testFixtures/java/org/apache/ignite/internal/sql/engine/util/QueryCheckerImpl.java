@@ -297,11 +297,14 @@ abstract class QueryCheckerImpl implements QueryChecker {
         // Check plan.
         QueryProcessor qryProc = getEngine();
 
-        SqlProperties properties = SqlPropertiesHelper.newBuilder()
+
+        SqlProperties newProperties = SqlPropertiesHelper.newBuilder()
                 .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.SINGLE_STMT_TYPES)
                 .set(QueryProperty.TIME_ZONE_ID, timeZoneId)
-                .set(QueryProperty.QUERY_TIMEOUT, 0L)
                 .build();
+
+        SqlProperties properties = SqlPropertiesHelper.merge(SqlQueryProcessor.DEFAULT_PROPERTIES, newProperties);
+
 
         String qry = queryTemplate.createQuery();
 
