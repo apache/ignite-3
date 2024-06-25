@@ -52,20 +52,6 @@ public class SqlBatchException extends SqlException {
     }
 
     /**
-     * Creates an exception with the given error message.
-     *
-     * @param traceId Unique identifier of the exception.
-     * @param code Full error code.
-     * @param updCntrs Array that describes the outcome of a batch execution.
-     * @param message Detailed message.
-     */
-    public SqlBatchException(UUID traceId, int code, long[] updCntrs, String message) {
-        super(traceId, code, message, null);
-
-        this.updCntrs = updCntrs != null ? updCntrs : LONG_EMPTY_ARRAY;
-    }
-
-    /**
      * Creates an exception with the given trace ID, error code, detailed message, and cause.
      *
      * @param traceId Unique identifier of the exception.
