@@ -28,7 +28,6 @@ import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -342,7 +341,9 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
         CompletableFuture<AsyncResultSet<SqlRow>> result;
 
         try {
-            SqlProperties properties = createPropertiesFromStatement(SqlQueryType.SINGLE_STMT_TYPES, statement);
+            SqlProperties properties = toPropertiesBuilder(statement)
+                    .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.SINGLE_STMT_TYPES)
+                    .build();
 
             result = queryProcessor.queryAsync(
                     properties, observableTimestampTracker, (InternalTransaction) transaction, statement.query(), arguments
@@ -392,7 +393,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
         }
 
         try {
-            SqlProperties properties = createPropertiesFromStatement(EnumSet.of(SqlQueryType.DML), statement);
+            SqlProperties properties = toPropertiesBuilder(statement).build();
 
             return executeBatchCore(
                     queryProcessor,
@@ -439,6 +440,11 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
             Runnable leaveBusy,
             Function<AsyncSqlCursor<?>, Integer> registerCursor,
             Consumer<Integer> removeCursor) {
+
+        SqlProperties properties0 = SqlPropertiesHelper.chain(properties, SqlPropertiesHelper.newBuilder()
+                .set(QueryProperty.ALLOWED_QUERY_TYPES, EnumSet.of(SqlQueryType.DML))
+                .build());
+
         var counters = new LongArrayList(batch.size());
         CompletableFuture<?> tail = nullCompletedFuture();
         ArrayList<CompletableFuture<?>> batchFuts = new ArrayList<>(batch.size());
@@ -452,7 +458,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
                 }
 
                 try {
-                    return queryProcessor.queryAsync(properties, observableTimestampTracker, transaction, query, args)
+                    return queryProcessor.queryAsync(properties0, observableTimestampTracker, transaction, query, args)
                             .thenCompose(cursor -> {
                                 if (!enterBusy.get()) {
                                     cursor.closeAsync();
@@ -592,13 +598,11 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
         }
     }
 
-    private static SqlProperties createPropertiesFromStatement(Set<SqlQueryType> queryType, Statement statement) {
+    private static SqlProperties.Builder toPropertiesBuilder(Statement statement) {
         return SqlPropertiesHelper.newBuilder()
-                .set(QueryProperty.ALLOWED_QUERY_TYPES, queryType)
                 .set(QueryProperty.TIME_ZONE_ID, statement.timeZoneId())
                 .set(QueryProperty.DEFAULT_SCHEMA, statement.defaultSchema())
-                .set(QueryProperty.QUERY_TIMEOUT, statement.queryTimeout(TimeUnit.MILLISECONDS))
-                .build();
+                .set(QueryProperty.QUERY_TIMEOUT, statement.queryTimeout(TimeUnit.MILLISECONDS));
     }
 
     private int registerCursor(AsyncSqlCursor<?> cursor) {

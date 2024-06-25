@@ -258,6 +258,16 @@ public class ClientHandlerModule implements IgniteComponent {
         return (InetSocketAddress) ch.localAddress();
     }
 
+    /** Enables request handling. */
+    public void enable() {
+        Channel ch = channel;
+        if (ch == null) {
+            throw new IgniteInternalException(INTERNAL_ERR, "ClientHandlerModule has not been started");
+        }
+
+        ch.config().setAutoRead(true);
+    }
+
     /**
      * Starts the endpoint.
      *
@@ -317,7 +327,8 @@ public class ClientHandlerModule implements IgniteComponent {
                         }
                     }
                 })
-                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, configuration.connectTimeout());
+                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, configuration.connectTimeout())
+                .option(ChannelOption.AUTO_READ, false);
 
         int port = configuration.port();
         String address = configuration.listenAddress();

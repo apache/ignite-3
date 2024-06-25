@@ -139,6 +139,9 @@ public class ErrorGroups {
         /** Resource closing error. */
         public static final int RESOURCE_CLOSING_ERR = COMMON_ERR_GROUP.registerErrorCode((short) 7);
 
+        /** Can't marshal/unmarshal a user object. */
+        public static final int USER_OBJECT_SERIALIZATION_ERR = COMMON_ERR_GROUP.registerErrorCode((short) 9);
+
         /**
          * This error code represents an internal error caused by faulty logic or coding in the Ignite codebase.
          * In general, this error code should be considered as a non-recoverable error
@@ -539,8 +542,8 @@ public class ErrorGroups {
         /** Compute execution queue overflow error. */
         public static final int QUEUE_OVERFLOW_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 4);
 
-        /** Compute job state transfer error. */
-        public static final int COMPUTE_JOB_STATE_TRANSITION_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 5);
+        /** Compute job status transition error. */
+        public static final int COMPUTE_JOB_STATUS_TRANSITION_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 5);
 
         /** Compute job cancel failed error. */
         public static final int CANCELLING_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 6);
@@ -548,8 +551,8 @@ public class ErrorGroups {
         /** Compute job result not found error. */
         public static final int RESULT_NOT_FOUND_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 7);
 
-        /** Compute job status can't be retrieved. */
-        public static final int FAIL_TO_GET_JOB_STATUS_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 8);
+        /** Compute job state can't be retrieved. */
+        public static final int FAIL_TO_GET_JOB_STATE_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 8);
 
         /** Compute job failed. */
         public static final int COMPUTE_JOB_FAILED_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 9);
@@ -620,5 +623,8 @@ public class ErrorGroups {
 
         /** Error while returning partition states. */
         public static final int PARTITION_STATE_ERR = RECOVERY_ERR_GROUP.registerErrorCode((short) 3);
+
+        /** Error while returning partition states. */
+        public static final int CLUSTER_NOT_IDLE_ERR = RECOVERY_ERR_GROUP.registerErrorCode((short) 4);
     }
 }

@@ -17,10 +17,15 @@
 
 package org.apache.ignite.internal.catalog.sql;
 
+import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.mapToPublicException;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
+
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import org.apache.ignite.catalog.IgniteCatalog;
 import org.apache.ignite.catalog.definitions.TableDefinition;
 import org.apache.ignite.catalog.definitions.ZoneDefinition;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.IgniteTables;
 import org.apache.ignite.table.Table;
@@ -63,11 +68,31 @@ public class IgniteCatalogSqlImpl implements IgniteCatalog {
     }
 
     @Override
+    public Table createTable(Class<?> recordClass) {
+        return join(createTableAsync(recordClass));
+    }
+
+    @Override
+    public Table createTable(Class<?> keyClass, Class<?> valueClass) {
+        return join(createTableAsync(keyClass, valueClass));
+    }
+
+    @Override
+    public Table createTable(TableDefinition definition) {
+        return join(createTableAsync(definition));
+    }
+
+    @Override
     public CompletableFuture<Void> createZoneAsync(ZoneDefinition definition) {
         return new CreateFromDefinitionImpl(sql)
                 .from(definition)
                 .executeAsync()
                 .thenRun(() -> {});
+    }
+
+    @Override
+    public void createZone(ZoneDefinition definition) {
+        join(createZoneAsync(definition));
     }
 
     @Override
@@ -89,6 +114,16 @@ public class IgniteCatalogSqlImpl implements IgniteCatalog {
     }
 
     @Override
+    public void dropTable(TableDefinition definition) {
+        join(dropTableAsync(definition));
+    }
+
+    @Override
+    public void dropTable(String name) {
+        join(dropTableAsync(name));
+    }
+
+    @Override
     public CompletableFuture<Void> dropZoneAsync(ZoneDefinition definition) {
         return new DropZoneImpl(sql)
                 .name(definition.zoneName())
@@ -104,5 +139,23 @@ public class IgniteCatalogSqlImpl implements IgniteCatalog {
                 .ifExists()
                 .executeAsync()
                 .thenRun(() -> {});
+    }
+
+    @Override
+    public void dropZone(ZoneDefinition definition) {
+        join(dropZoneAsync(definition));
+    }
+
+    @Override
+    public void dropZone(String name) {
+        join(dropZoneAsync(name));
+    }
+
+    private static <R> R join(CompletableFuture<R> future) {
+        try {
+            return future.join();
+        } catch (CompletionException e) {
+            throw ExceptionUtils.sneakyThrow(mapToPublicException(unwrapCause(e)));
+        }
     }
 }

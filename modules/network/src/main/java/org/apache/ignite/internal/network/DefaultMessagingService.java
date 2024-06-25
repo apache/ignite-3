@@ -65,6 +65,7 @@ import org.apache.ignite.internal.worker.CriticalWorker;
 import org.apache.ignite.internal.worker.CriticalWorkerRegistry;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -232,9 +233,9 @@ public class DefaultMessagingService extends AbstractMessagingService {
             return nullCompletedFuture();
         }
 
-        InetSocketAddress recipientAddress = new InetSocketAddress(recipient.address().host(), recipient.address().port());
+        InetSocketAddress recipientAddress = resolveRecipientAddress(recipient);
 
-        if (isSelf(recipient.name(), recipientAddress)) {
+        if (recipientAddress == null) {
             if (correlationId != null) {
                 onInvokeResponse(msg, correlationId);
             } else {
@@ -280,9 +281,9 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         requestsMap.put(correlationId, responseFuture);
 
-        InetSocketAddress recipientAddress = new InetSocketAddress(recipient.address().host(), recipient.address().port());
+        InetSocketAddress recipientAddress = resolveRecipientAddress(recipient);
 
-        if (isSelf(recipient.name(), recipientAddress)) {
+        if (recipientAddress == null) {
             sendToSelf(msg, correlationId);
 
             return responseFuture;
@@ -348,9 +349,14 @@ public class DefaultMessagingService extends AbstractMessagingService {
      * @param correlationId Correlation id.
      */
     private void sendToSelf(NetworkMessage message, @Nullable Long correlationId) {
-        for (HandlerContext context : getHandlerContexts(message.groupType())) {
+        List<HandlerContext> handlerContexts = getHandlerContexts(message.groupType());
+
+        // Specially made by a classic loop for optimization.
+        for (int i = 0; i < handlerContexts.size(); i++) {
+            HandlerContext handlerContext = handlerContexts.get(i);
+
             // Invoking on the same thread, ignoring the executor chooser registered with the handler.
-            context.handler().onReceived(message, topologyService.localMember(), correlationId);
+            handlerContext.handler().onReceived(message, topologyService.localMember(), correlationId);
         }
     }
 
@@ -556,33 +562,6 @@ public class DefaultMessagingService extends AbstractMessagingService {
     }
 
     /**
-     * Checks if the target is the current node.
-     *
-     * @param consistentId Target consistent ID. Can be {@code null} if the node has not been added to the topology.
-     * @param targetAddress Target address.
-     * @return {@code true} if the target is the current node, {@code false} otherwise.
-     */
-    private boolean isSelf(@Nullable String consistentId, InetSocketAddress targetAddress) {
-        if (consistentId != null) {
-            return connectionManager.consistentId().equals(consistentId);
-        }
-
-        InetSocketAddress localAddress = connectionManager.localAddress();
-
-        if (Objects.equals(localAddress, targetAddress)) {
-            return true;
-        }
-
-        InetAddress targetInetAddress = targetAddress.getAddress();
-
-        if (targetInetAddress.isAnyLocalAddress() || targetInetAddress.isLoopbackAddress()) {
-            return targetAddress.getPort() == localAddress.getPort();
-        }
-
-        return false;
-    }
-
-    /**
      * Starts the service.
      */
     public void start() {
@@ -619,7 +598,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
      *     node's consistent ID.
      */
     @TestOnly
-    public void dropMessages(BiPredicate<String, NetworkMessage> predicate) {
+    public void dropMessages(BiPredicate<@Nullable String, NetworkMessage> predicate) {
         dropMessagesPredicate = predicate;
     }
 
@@ -685,5 +664,45 @@ public class DefaultMessagingService extends AbstractMessagingService {
                 workerRegistry.unregister(worker);
             }
         }
+    }
+
+    /**
+     * Returns the resolved address of the target node, {@code null} if the target node is the current node.
+     *
+     * <p>NOTE: Method was written as a result of analyzing the performance of sending a message to yourself.</p>
+     *
+     * @param recipientNode Target cluster node.
+     */
+    private @Nullable InetSocketAddress resolveRecipientAddress(ClusterNode recipientNode) {
+        NetworkAddress recipientAddress = recipientNode.address();
+
+        // Node name is {@code null} if the node has not been added to the topology.
+        if (recipientNode.name() != null) {
+            return connectionManager.consistentId().equals(recipientNode.name()) ? null : createResolved(recipientAddress);
+        }
+
+        InetSocketAddress localAddress = connectionManager.localAddress();
+
+        if (localAddress.getPort() != recipientAddress.port()) {
+            return createResolved(recipientAddress);
+        }
+
+        // For optimization, we will check the addresses without resolving the address of the target node.
+        if (Objects.equals(localAddress.getHostName(), recipientAddress.host())) {
+            return null;
+        }
+
+        InetSocketAddress resolvedRecipientAddress = createResolved(recipientAddress);
+        InetAddress recipientInetAddress = resolvedRecipientAddress.getAddress();
+
+        if (Objects.equals(localAddress.getAddress(), recipientInetAddress)) {
+            return null;
+        }
+
+        return recipientInetAddress.isAnyLocalAddress() || recipientInetAddress.isLoopbackAddress() ? null : resolvedRecipientAddress;
+    }
+
+    private static InetSocketAddress createResolved(NetworkAddress address) {
+        return new InetSocketAddress(address.host(), address.port());
     }
 }

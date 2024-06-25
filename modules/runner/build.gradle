@@ -20,6 +20,7 @@ apply from: "$rootDir/buildscripts/publishing.gradle"
 apply from: "$rootDir/buildscripts/java-junit5.gradle"
 apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
 apply from: "$rootDir/buildscripts/java-integration-test.gradle"
+apply from: "$rootDir/buildscripts/generate-version-file.gradle"
 
 description = 'ignite-runner'
 
@@ -84,7 +85,7 @@ dependencies {
     implementation project(':ignite-catalog-dsl')
     implementation project(':ignite-eventlog')
     implementation project(':ignite-low-watermark')
-    implementation project(':ignite-replica-lifecycle')
+    implementation project(':ignite-partition-replicator')
     implementation libs.jetbrains.annotations
     implementation libs.micronaut.inject
     implementation libs.micronaut.validation
@@ -158,6 +159,7 @@ dependencies {
     integrationTestImplementation project(':ignite-workers')
     integrationTestImplementation project(':ignite-failure-handler')
     integrationTestImplementation project(':ignite-low-watermark')
+    integrationTestImplementation project(':ignite-partition-replicator')
     integrationTestImplementation testFixtures(project(":ignite-api"))
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-configuration'))

@@ -37,66 +37,66 @@ public interface ComputeStateMachine {
     void stop();
 
     /**
-     * Initialize Compute job in state machine. This job should have status {@link JobState#QUEUED}.
+     * Initialize Compute job in state machine. This job should have status {@link JobStatus#QUEUED}.
      *
      * @return Compute job identifier.
      */
     UUID initJob();
 
     /**
-     * Tries to transfer Compute Job to complete state.
+     * Tries to transfer Compute Job to complete status.
      *
      * @param jobId Compute job identifier.
-     * @throws IllegalJobStateTransition in case when job can't be transferred to complete state.
+     * @throws IllegalJobStatusTransition in case when job can't be transferred to complete status.
      */
     void completeJob(UUID jobId);
 
     /**
-     * Tries to transfer Compute Job to execute state.
+     * Tries to transfer Compute Job to execute status.
      *
      * @param jobId Compute job identifier.
-     * @throws IllegalJobStateTransition in case when job can't be transferred to execute state.
+     * @throws IllegalJobStatusTransition in case when job can't be transferred to execute status.
      */
     void executeJob(UUID jobId);
 
     /**
-     * Tries to transfer Compute Job to canceling state, it means that execution may continue.
+     * Tries to transfer Compute Job to canceling status, it means that execution may continue.
      *
      * @param jobId Compute job identifier.
-     * @throws IllegalJobStateTransition in case when job can't be transferred to canceling state.
+     * @throws IllegalJobStatusTransition in case when job can't be transferred to canceling status.
      */
     void cancelingJob(UUID jobId);
 
     /**
-     * Tries to transfer Compute Job to cancel state, it means that execution canceled.
+     * Tries to transfer Compute Job to cancel status, it means that execution canceled.
      *
      * @param jobId Compute job identifier.
-     * @throws IllegalJobStateTransition in case when job can't be transferred to canceled state.
+     * @throws IllegalJobStatusTransition in case when job can't be transferred to canceled status.
      */
     void cancelJob(UUID jobId);
 
     /**
-     * Tries to transfer Compute Job to fail state.
+     * Tries to transfer Compute Job to fail status.
      *
      * @param jobId Compute job identifier.
-     * @throws IllegalJobStateTransition in case when job can't be transferred to failed state.
+     * @throws IllegalJobStatusTransition in case when job can't be transferred to failed status.
      */
     void failJob(UUID jobId);
 
     /**
-     * Tries to transfer Compute Job to queued state from the {@link JobState#EXECUTING} state, used for retrying.
+     * Tries to transfer Compute Job to queued status from the {@link JobStatus#EXECUTING} status, used for retrying.
      *
      * @param jobId Compute job identifier.
-     * @throws IllegalJobStateTransition in case when job can't be transferred to failed state.
+     * @throws IllegalJobStatusTransition in case when job can't be transferred to failed status.
      */
     void queueJob(UUID jobId);
 
     /**
-     * Returns current status of Compute Job.
+     * Returns current state of Compute Job.
      *
      * @param jobId Compute job identifier.
-     * @return Current status of Compute Job or {@code null} in case if job with provided identifier doesn't exist.
+     * @return Current state of Compute Job or {@code null} in case if job with provided identifier doesn't exist.
      */
     @Nullable
-    JobStatus currentStatus(UUID jobId);
+    JobState currentState(UUID jobId);
 }

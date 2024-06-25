@@ -19,7 +19,7 @@
 
 #include "ignite/client/sql/result_set_metadata.h"
 #include "ignite/client/table/ignite_tuple.h"
-#include "ignite/common/config.h"
+#include "ignite/common/detail/config.h"
 #include "ignite/common/ignite_result.h"
 
 #include <functional>

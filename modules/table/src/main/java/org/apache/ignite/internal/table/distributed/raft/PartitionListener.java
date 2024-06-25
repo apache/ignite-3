@@ -20,6 +20,8 @@ package org.apache.ignite.internal.table.distributed.raft;
 import static java.util.Objects.requireNonNull;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.table.distributed.TableUtils.indexIdsAtRwTxBeginTs;
+import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.BUILDING;
+import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.REGISTERED;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
@@ -37,16 +39,19 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
-import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
-import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.SafeTimeReorderException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommand;
+import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommand;
+import org.apache.ignite.internal.partition.replicator.network.command.TablePartitionIdMessage;
+import org.apache.ignite.internal.partition.replicator.network.command.UpdateAllCommand;
+import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommand;
+import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommand;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.internal.raft.WriteCommand;
@@ -67,12 +72,9 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.MvPartitionStorage.Locker;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
-import org.apache.ignite.internal.table.distributed.command.BuildIndexCommand;
-import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
-import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMessage;
-import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
-import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
-import org.apache.ignite.internal.table.distributed.command.WriteIntentSwitchCommand;
+import org.apache.ignite.internal.table.distributed.index.IndexMeta;
+import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
+import org.apache.ignite.internal.table.distributed.index.MetaIndexStatusChange;
 import org.apache.ignite.internal.tx.TransactionResult;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
@@ -123,15 +125,9 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
     private final ClockService clockService;
 
-    /**
-     * The constructor.
-     *
-     * @param txManager Transaction manager.
-     * @param partitionDataStorage The storage.
-     * @param safeTime Safe time tracker.
-     * @param storageIndexTracker Storage index tracker.
-     * @param catalogService Catalog service.
-     */
+    private final IndexMetaStorage indexMetaStorage;
+
+    /** Constructor. */
     public PartitionListener(
             TxManager txManager,
             PartitionDataStorage partitionDataStorage,
@@ -141,7 +137,8 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
             PendingComparableValuesTracker<Long, Void> storageIndexTracker,
             CatalogService catalogService,
             SchemaRegistry schemaRegistry,
-            ClockService clockService
+            ClockService clockService,
+            IndexMetaStorage indexMetaStorage
     ) {
         this.txManager = txManager;
         this.storage = partitionDataStorage;
@@ -152,6 +149,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         this.catalogService = catalogService;
         this.schemaRegistry = schemaRegistry;
         this.clockService = clockService;
+        this.indexMetaStorage = indexMetaStorage;
     }
 
     @Override
@@ -274,7 +272,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         }
 
         if (cmd.leaseStartTime() != null) {
-            long leaseStartTime = requireNonNull(cmd.leaseStartTime(), "Inconsistent lease information in command [cmd=" + cmd + "].");
+            long leaseStartTime = cmd.leaseStartTime();
 
             long storageLeaseStartTime = storage.leaseStartTime();
 
@@ -327,7 +325,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         }
 
         if (cmd.leaseStartTime() != null) {
-            long leaseStartTime = requireNonNull(cmd.leaseStartTime(), "Inconsistent lease information in command [cmd=" + cmd + "].");
+            long leaseStartTime = cmd.leaseStartTime();
 
             long storageLeaseStartTime = storage.leaseStartTime();
 
@@ -589,9 +587,16 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
             return;
         }
 
-        BuildIndexRowVersionChooser rowVersionChooser = createBuildIndexRowVersionChooser(cmd);
+        IndexMeta indexMeta = indexMetaStorage.indexMeta(cmd.indexId());
 
-        BinaryRowUpgrader binaryRowUpgrader = createBinaryRowUpgrader(cmd);
+        if (indexMeta == null || indexMeta.isDropped()) {
+            // Index has been dropped.
+            return;
+        }
+
+        BuildIndexRowVersionChooser rowVersionChooser = createBuildIndexRowVersionChooser(indexMeta);
+
+        BinaryRowUpgrader binaryRowUpgrader = createBinaryRowUpgrader(indexMeta);
 
         storage.runConsistently(locker -> {
             List<UUID> rowUuids = new ArrayList<>(cmd.rowIds());
@@ -730,33 +735,19 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         ));
     }
 
-    private BuildIndexRowVersionChooser createBuildIndexRowVersionChooser(BuildIndexCommand command) {
-        int indexCreationCatalogVersion = command.creationCatalogVersion();
-        Catalog indexCreationCatalog = catalogService.catalog(indexCreationCatalogVersion);
+    private BuildIndexRowVersionChooser createBuildIndexRowVersionChooser(IndexMeta indexMeta) {
+        MetaIndexStatusChange registeredChangeInfo = indexMeta.statusChange(REGISTERED);
+        MetaIndexStatusChange buildingChangeInfo = indexMeta.statusChange(BUILDING);
 
-        assert indexCreationCatalog != null : "indexId=" + command.indexId() + ", catalogVersion=" + indexCreationCatalogVersion;
-
-        int startBuildingIndexCatalogVersion = command.requiredCatalogVersion();
-
-        Catalog startBuildingIndexCatalog = catalogService.catalog(startBuildingIndexCatalogVersion);
-
-        assert startBuildingIndexCatalog != null : "indexId=" + command.indexId() + ", catalogVersion=" + startBuildingIndexCatalogVersion;
-
-        return new BuildIndexRowVersionChooser(storage, indexCreationCatalog.time(), startBuildingIndexCatalog.time());
+        return new BuildIndexRowVersionChooser(
+                storage,
+                registeredChangeInfo.activationTimestamp(),
+                buildingChangeInfo.activationTimestamp()
+        );
     }
 
-    private BinaryRowUpgrader createBinaryRowUpgrader(BuildIndexCommand command) {
-        int indexCreationCatalogVersion = command.creationCatalogVersion();
-
-        CatalogIndexDescriptor indexDescriptor = catalogService.index(command.indexId(), indexCreationCatalogVersion);
-
-        assert indexDescriptor != null : "indexId=" + command.indexId() + ", catalogVersion=" + indexCreationCatalogVersion;
-
-        CatalogTableDescriptor tableDescriptor = catalogService.table(indexDescriptor.tableId(), indexCreationCatalogVersion);
-
-        assert tableDescriptor != null : "tableId=" + indexDescriptor.tableId() + ", catalogVersion=" + indexCreationCatalogVersion;
-
-        SchemaDescriptor schema = schemaRegistry.schema(tableDescriptor.tableVersion());
+    private BinaryRowUpgrader createBinaryRowUpgrader(IndexMeta indexMeta) {
+        SchemaDescriptor schema = schemaRegistry.schema(indexMeta.tableVersion());
 
         return new BinaryRowUpgrader(schemaRegistry, schema);
     }

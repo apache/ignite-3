@@ -71,7 +71,6 @@ import org.apache.ignite.internal.client.proto.ColumnTypeConverter;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
-import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderChange;
@@ -710,13 +709,9 @@ public class PlatformTestNodeRunner {
 
             var marsh = new TupleMarshallerImpl(schema);
 
-            try {
-                Row row = marsh.marshal(tuple);
+            Row row = marsh.marshal(tuple);
 
-                return completedFuture(row.colocationHash());
-            } catch (TupleMarshallerException e) {
-                throw new RuntimeException(e);
-            }
+            return completedFuture(row.colocationHash());
         }
     }
 
@@ -736,11 +731,7 @@ public class PlatformTestNodeRunner {
             RecordBinaryViewImpl view = Wrappers.unwrap(table.recordView(), RecordBinaryViewImpl.class);
             TupleMarshaller marsh = view.marshaller(1);
 
-            try {
-                return completedFuture(marsh.marshal(key).colocationHash());
-            } catch (TupleMarshallerException e) {
-                throw new RuntimeException(e);
-            }
+            return completedFuture(marsh.marshal(key).colocationHash());
         }
     }
 

@@ -22,7 +22,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.ignite.compute.JobExecution;
-import org.apache.ignite.compute.JobStatus;
+import org.apache.ignite.compute.JobState;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -32,22 +32,22 @@ import org.jetbrains.annotations.Nullable;
  */
 public interface TaskExecution<R> extends JobExecution<R> {
     /**
-     * Returns a collection of statuses of the jobs which are executing under this task. The resulting future is completed only after the
-     * jobs are submitted for execution. The list could contain {@code null} values if the time for retaining job status has been exceeded.
+     * Returns a collection of states of the jobs which are executing under this task. The resulting future is completed only after the
+     * jobs are submitted for execution. The list could contain {@code null} values if the time for retaining job state has been exceeded.
      *
-     * @return A list of current statuses of the jobs.
+     * @return A list of current states of the jobs.
      */
-    CompletableFuture<List<@Nullable JobStatus>> statusesAsync();
+    CompletableFuture<List<@Nullable JobState>> statesAsync();
 
     /**
      * Returns a collection of ids of the jobs which are executing under this task. The resulting future is completed only after the
-     * jobs are submitted for execution. The list could contain {@code null} values if the time for retaining job status has been exceeded.
+     * jobs are submitted for execution. The list could contain {@code null} values if the time for retaining job state has been exceeded.
      *
      * @return A list of ids of the jobs.
      */
     default CompletableFuture<List<@Nullable UUID>> idsAsync() {
-        return statusesAsync().thenApply(statuses -> statuses.stream()
-                .map(jobStatus -> jobStatus != null ? jobStatus.id() : null)
+        return statesAsync().thenApply(states -> states.stream()
+                .map(state -> state != null ? state.id() : null)
                 .collect(Collectors.toList()));
     }
 }

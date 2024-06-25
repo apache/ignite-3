@@ -83,6 +83,9 @@ namespace Apache.Ignite
             /// <summary> ResourceClosing error. </summary>
             public const int ResourceClosing = (GroupCode << 16) | (7 & 0xFFFF);
 
+            /// <summary> UserObjectSerialization error. </summary>
+            public const int UserObjectSerialization = (GroupCode << 16) | (9 & 0xFFFF);
+
             /// <summary> Internal error. </summary>
             public const int Internal = (GroupCode << 16) | (65535 & 0xFFFF);
         }
@@ -494,8 +497,8 @@ namespace Apache.Ignite
             /// <summary> QueueOverflow error. </summary>
             public const int QueueOverflow = (GroupCode << 16) | (4 & 0xFFFF);
 
-            /// <summary> ComputeJobStateTransition error. </summary>
-            public const int ComputeJobStateTransition = (GroupCode << 16) | (5 & 0xFFFF);
+            /// <summary> ComputeJobStatusTransition error. </summary>
+            public const int ComputeJobStatusTransition = (GroupCode << 16) | (5 & 0xFFFF);
 
             /// <summary> Cancelling error. </summary>
             public const int Cancelling = (GroupCode << 16) | (6 & 0xFFFF);
@@ -503,8 +506,8 @@ namespace Apache.Ignite
             /// <summary> ResultNotFound error. </summary>
             public const int ResultNotFound = (GroupCode << 16) | (7 & 0xFFFF);
 
-            /// <summary> FailToGetJobStatus error. </summary>
-            public const int FailToGetJobStatus = (GroupCode << 16) | (8 & 0xFFFF);
+            /// <summary> FailToGetJobState error. </summary>
+            public const int FailToGetJobState = (GroupCode << 16) | (8 & 0xFFFF);
 
             /// <summary> ComputeJobFailed error. </summary>
             public const int ComputeJobFailed = (GroupCode << 16) | (9 & 0xFFFF);
@@ -587,6 +590,9 @@ namespace Apache.Ignite
 
             /// <summary> PartitionState error. </summary>
             public const int PartitionState = (GroupCode << 16) | (3 & 0xFFFF);
+
+            /// <summary> ClusterNotIdle error. </summary>
+            public const int ClusterNotIdle = (GroupCode << 16) | (4 & 0xFFFF);
         }
     }
 }

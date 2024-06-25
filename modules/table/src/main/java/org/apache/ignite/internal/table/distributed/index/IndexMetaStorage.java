@@ -208,14 +208,14 @@ public class IndexMetaStorage implements IgniteComponent {
     }
 
     private CompletableFuture<Boolean> onCatalogIndexCreateEvent(CreateIndexEventParameters parameters) {
-        CatalogIndexDescriptor catalogIndexDescriptor = parameters.indexDescriptor();
+        int indexId = parameters.indexDescriptor().id();
 
         Catalog catalog = catalog(parameters.catalogVersion());
 
-        return updateAndSaveIndexMetaToMetastore(catalogIndexDescriptor.id(), indexMeta -> {
-            assert indexMeta == null : "indexId=" + catalogIndexDescriptor.id() + "catalogVersion=" + catalog.version();
+        return updateAndSaveIndexMetaToMetastore(indexId, indexMeta -> {
+            assert indexMeta == null : "indexId=" + indexId + "catalogVersion=" + catalog.version();
 
-            return IndexMeta.of(catalogIndexDescriptor, catalog);
+            return IndexMeta.of(indexId, catalog);
         }).thenApply(unused -> false);
     }
 
@@ -337,7 +337,7 @@ public class IndexMetaStorage implements IgniteComponent {
 
                 if (fromMetastore == null) {
                     // We did not have time to save at the index creation event.
-                    futures.add(updateAndSaveIndexMetaToMetastore(indexId, indexMeta -> IndexMeta.of(catalogIndexDescriptor, catalog)));
+                    futures.add(updateAndSaveIndexMetaToMetastore(indexId, indexMeta -> IndexMeta.of(indexId, catalog)));
                 } else if (fromMetastore.catalogVersion() < catalog.version()) {
                     if (!catalogIndexDescriptor.name().equals(fromMetastore.indexName())) {
                         // We did not have time to process the index renaming event.

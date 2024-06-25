@@ -176,6 +176,7 @@ import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.gc.MvGc;
+import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
@@ -407,6 +408,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     @Nullable
     private ScheduledExecutorService streamerFlushExecutor;
 
+    private final IndexMetaStorage indexMetaStorage;
+
     /**
      * Creates a new table manager.
      *
@@ -430,6 +433,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param sql A supplier function that returns {@link IgniteSql}.
      * @param lowWatermark Low watermark.
      * @param transactionInflights Transaction inflights.
+     * @param indexMetaStorage Index meta storage.
      */
     public TableManager(
             String nodeName,
@@ -462,7 +466,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             Supplier<IgniteSql> sql,
             RemotelyTriggeredResourceRegistry remotelyTriggeredResourceRegistry,
             LowWatermark lowWatermark,
-            TransactionInflights transactionInflights
+            TransactionInflights transactionInflights,
+            IndexMetaStorage indexMetaStorage
     ) {
         this.topologyService = topologyService;
         this.replicaMgr = replicaMgr;
@@ -488,6 +493,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         this.transactionInflights = transactionInflights;
         this.txCfg = txCfg;
         this.nodeName = nodeName;
+        this.indexMetaStorage = indexMetaStorage;
 
         this.executorInclinedSchemaSyncService = new ExecutorInclinedSchemaSyncService(schemaSyncService, partitionOperationsExecutor);
         this.executorInclinedPlacementDriver = new ExecutorInclinedPlacementDriver(placementDriver, partitionOperationsExecutor);
@@ -977,7 +983,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                 storageIndexTracker,
                                 catalogService,
                                 table.schemaView(),
-                                clockService
+                                clockService,
+                                indexMetaStorage
                         );
 
                         SnapshotStorageFactory snapshotStorageFactory = createSnapshotStorageFactory(replicaGrpId,
@@ -1117,7 +1124,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 executorInclinedPlacementDriver,
                 topologyService,
                 remotelyTriggeredResourceRegistry,
-                schemaManager.schemaRegistry(tableId)
+                schemaManager.schemaRegistry(tableId),
+                indexMetaStorage
         );
     }
 
@@ -1430,7 +1438,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     protected MvTableStorage createTableStorage(CatalogTableDescriptor tableDescriptor, CatalogZoneDescriptor zoneDescriptor) {
         StorageEngine engine = dataStorageMgr.engineByStorageProfile(tableDescriptor.storageProfile());
 
-        assert engine != null : "tableId=" + tableDescriptor.id() + ", engine=" + engine.name();
+        assert engine != null : "tableId=" + tableDescriptor.id() + ", storageProfile=" + tableDescriptor.storageProfile();
 
         return engine.createMvTable(
                 new StorageTableDescriptor(tableDescriptor.id(), zoneDescriptor.partitions(), tableDescriptor.storageProfile()),
@@ -1857,7 +1865,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         // This condition can only pass if all stable nodes are dead, and we start new raft group from scratch.
         // In this case new initial configuration must match new forced assignments.
-        // TODO https://issues.apache.org/jira/browse/IGNITE-21661 Something might not work, extensive testing is required.
         if (nonStableNodeAssignments.nodes().isEmpty()) {
             nonStableNodeAssignments = Assignments.forced(pendingAssignmentsNodes);
         }

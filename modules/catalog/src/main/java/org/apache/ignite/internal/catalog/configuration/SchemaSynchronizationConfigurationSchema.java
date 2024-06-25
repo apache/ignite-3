@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.catalog.configuration;
 
-import java.util.concurrent.TimeUnit;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.annotation.Value;
@@ -35,7 +34,7 @@ public class SchemaSynchronizationConfigurationSchema {
     @Value(hasDefault = true)
     @Range(min = 1)
     @Immutable
-    public long delayDuration = TimeUnit.SECONDS.toMillis(1);
+    public long delayDuration = 500;
 
     /**
      * Max physical clock skew (ms) that is tolerated by the cluster. If difference between physical clocks of 2 nodes of a cluster

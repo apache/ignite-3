@@ -25,14 +25,12 @@ import static org.apache.ignite.internal.marshaller.ValidationUtils.validateNull
 import static org.apache.ignite.internal.util.CompletableFutures.emptyCollectionCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyMapCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
@@ -41,7 +39,6 @@ import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
 import org.apache.ignite.client.RetryLimitPolicy;
-import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.PayloadInputChannel;
@@ -53,11 +50,9 @@ import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.marshaller.ClientMarshallerReader;
 import org.apache.ignite.internal.marshaller.ClientMarshallerWriter;
 import org.apache.ignite.internal.marshaller.Marshaller;
-import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.internal.marshaller.TupleReader;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.table.criteria.SqlRowProjection;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.lang.UnexpectedNullValueException;
 import org.apache.ignite.sql.ResultSetMetadata;
@@ -65,6 +60,7 @@ import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.KeyValueView;
+import org.apache.ignite.table.ReceiverDescriptor;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
@@ -595,19 +591,15 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
         var noValueSet = new BitSet();
         ClientMarshallerWriter writer = new ClientMarshallerWriter(builder, noValueSet);
 
-        try {
-            Marshaller keyMarsh = s.getMarshaller(keySer.mapper(), TuplePart.KEY, false);
-            Marshaller valMarsh = s.getMarshaller(valSer.mapper(), TuplePart.VAL, false);
+        Marshaller keyMarsh = s.getMarshaller(keySer.mapper(), TuplePart.KEY, false);
+        Marshaller valMarsh = s.getMarshaller(valSer.mapper(), TuplePart.VAL, false);
 
-            for (var column : s.columns()) {
-                if (column.key()) {
-                    keyMarsh.writeField(key, writer, column.keyIndex());
-                } else {
-                    valMarsh.writeField(val, writer, column.valIndex());
-                }
+        for (var column : s.columns()) {
+            if (column.key()) {
+                keyMarsh.writeField(key, writer, column.keyIndex());
+            } else {
+                valMarsh.writeField(val, writer, column.valIndex());
             }
-        } catch (MarshallerException e) {
-            throw new IgniteException(INTERNAL_ERR, e.getMessage(), e);
         }
 
         w.out().packBinaryTuple(builder, noValueSet);
@@ -627,21 +619,17 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
         Marshaller keyMarsh = schema.getMarshaller(keySer.mapper(), TuplePart.KEY);
         Marshaller valMarsh = schema.getMarshaller(valSer.mapper(), TuplePart.VAL);
 
-        try {
-            for (int i = 0; i < cnt; i++) {
-                // TODO: Optimize (IGNITE-16022).
-                if (in.in().unpackBoolean()) {
-                    var tupleReader = new BinaryTupleReader(schema.columns().length, in.in().readBinaryUnsafe());
-                    var keyReader = new ClientMarshallerReader(tupleReader, schema.keyColumns(), TuplePart.KEY_AND_VAL);
-                    var valReader = new ClientMarshallerReader(tupleReader, schema.valColumns(), TuplePart.KEY_AND_VAL);
-                    res.put((K) keyMarsh.readObject(keyReader, null), (V) valMarsh.readObject(valReader, null));
-                }
+        for (int i = 0; i < cnt; i++) {
+            // TODO: Optimize (IGNITE-16022).
+            if (in.in().unpackBoolean()) {
+                var tupleReader = new BinaryTupleReader(schema.columns().length, in.in().readBinaryUnsafe());
+                var keyReader = new ClientMarshallerReader(tupleReader, schema.keyColumns(), TuplePart.KEY_AND_VAL);
+                var valReader = new ClientMarshallerReader(tupleReader, schema.valColumns(), TuplePart.KEY_AND_VAL);
+                res.put((K) keyMarsh.readObject(keyReader, null), (V) valMarsh.readObject(valReader, null));
             }
-
-            return res;
-        } catch (MarshallerException e) {
-            throw new IgniteException(INTERNAL_ERR, e.getMessage(), e);
         }
+
+        return res;
     }
 
     /** {@inheritDoc} */
@@ -677,14 +665,10 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
                         var builder = new BinaryTupleBuilder(colCount);
                         ClientMarshallerWriter writer = new ClientMarshallerWriter(builder, noValueSet);
 
-                        try {
-                            keyMarsh.writeObject(e.getKey(), writer);
+                        keyMarsh.writeObject(e.getKey(), writer);
 
-                            if (!del) {
-                                valMarsh.writeObject(e.getValue(), writer);
-                            }
-                        } catch (MarshallerException ex) {
-                            throw new IgniteException(INTERNAL_ERR, ex.getMessage(), ex);
+                        if (!del) {
+                            valMarsh.writeObject(e.getValue(), writer);
                         }
 
                         w.out().packBinaryTuple(builder, noValueSet);
@@ -702,18 +686,16 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
     @Override
     public <E, P, R> CompletableFuture<Void> streamData(
             Publisher<E> publisher,
-            @Nullable DataStreamerOptions options,
             Function<E, Entry<K, V>> keyFunc,
             Function<E, P> payloadFunc,
+            ReceiverDescriptor receiver,
             @Nullable Flow.Subscriber<R> resultSubscriber,
-            List<DeploymentUnit> deploymentUnits,
-            String receiverClassName,
+            @Nullable DataStreamerOptions options,
             Object... receiverArgs) {
         Objects.requireNonNull(publisher);
         Objects.requireNonNull(keyFunc);
         Objects.requireNonNull(payloadFunc);
-        Objects.requireNonNull(deploymentUnits);
-        Objects.requireNonNull(receiverClassName);
+        Objects.requireNonNull(receiver);
 
         return ClientDataStreamer.streamData(
                 publisher,
@@ -724,8 +706,8 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
                 new KeyValuePojoStreamerPartitionAwarenessProvider<>(tbl, keySer.mapper()),
                 tbl,
                 resultSubscriber,
-                deploymentUnits,
-                receiverClassName,
+                receiver.units(),
+                receiver.receiverClassName(),
                 receiverArgs);
     }
 
@@ -738,16 +720,10 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
         Marshaller keyMarsh = schema.getMarshaller(keySer.mapper(), TuplePart.KEY, true);
         Marshaller valMarsh = schema.getMarshaller(valSer.mapper(), TuplePart.VAL, true);
 
-        return (row) -> {
-            try {
-                return new IgniteBiTuple<>(
-                        (K) keyMarsh.readObject(new TupleReader(new SqlRowProjection(row, meta, keyCols)), null),
-                        (V) valMarsh.readObject(new TupleReader(new SqlRowProjection(row, meta, valCols)), null)
-                );
-            } catch (MarshallerException e) {
-                throw new org.apache.ignite.lang.MarshallerException(e);
-            }
-        };
+        return (row) -> new IgniteBiTuple<>(
+                (K) keyMarsh.readObject(new TupleReader(new SqlRowProjection(row, meta, keyCols)), null),
+                (V) valMarsh.readObject(new TupleReader(new SqlRowProjection(row, meta, valCols)), null)
+        );
     }
 
     private static <T> T throwIfNull(T obj, String altMethod) {

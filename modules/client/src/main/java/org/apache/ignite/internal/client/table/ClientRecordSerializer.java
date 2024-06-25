@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.client.table;
 
 import static org.apache.ignite.internal.client.table.ClientTable.writeTx;
-import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.util.ArrayList;
 import java.util.BitSet;
@@ -35,8 +34,6 @@ import org.apache.ignite.internal.marshaller.BinaryMode;
 import org.apache.ignite.internal.marshaller.ClientMarshallerReader;
 import org.apache.ignite.internal.marshaller.ClientMarshallerWriter;
 import org.apache.ignite.internal.marshaller.Marshaller;
-import org.apache.ignite.internal.marshaller.MarshallerException;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
@@ -102,17 +99,13 @@ public class ClientRecordSerializer<R> {
      * @param <R> Record type.
      */
     static <R> void writeRecRaw(@Nullable R rec, ClientMessagePacker out, Marshaller marshaller, int columnCount) {
-        try {
-            var builder = new BinaryTupleBuilder(columnCount);
-            var noValueSet = new BitSet();
+        var builder = new BinaryTupleBuilder(columnCount);
+        var noValueSet = new BitSet();
 
-            var writer = new ClientMarshallerWriter(builder, noValueSet);
-            marshaller.writeObject(rec, writer);
+        var writer = new ClientMarshallerWriter(builder, noValueSet);
+        marshaller.writeObject(rec, writer);
 
-            out.packBinaryTuple(builder, noValueSet);
-        } catch (MarshallerException e) {
-            throw new IgniteException(INTERNAL_ERR, e.getMessage(), e);
-        }
+        out.packBinaryTuple(builder, noValueSet);
     }
 
     void writeRecRaw(@Nullable R rec, ClientSchema schema, ClientMessagePacker out, TuplePart part) {
@@ -212,19 +205,15 @@ public class ClientRecordSerializer<R> {
 
         Marshaller marshaller = schema.getMarshaller(mapper, part);
 
-        try {
-            for (int i = 0; i < cnt; i++) {
-                if (nullable && !in.unpackBoolean()) {
-                    res.add(null);
-                } else {
-                    ClientColumn[] columns = schema.columns(part);
-                    var tupleReader = new BinaryTupleReader(columns.length, in.readBinaryUnsafe());
-                    var reader = new ClientMarshallerReader(tupleReader, columns, part);
-                    res.add((R) marshaller.readObject(reader, null));
-                }
+        for (int i = 0; i < cnt; i++) {
+            if (nullable && !in.unpackBoolean()) {
+                res.add(null);
+            } else {
+                ClientColumn[] columns = schema.columns(part);
+                var tupleReader = new BinaryTupleReader(columns.length, in.readBinaryUnsafe());
+                var reader = new ClientMarshallerReader(tupleReader, columns, part);
+                res.add((R) marshaller.readObject(reader, null));
             }
-        } catch (MarshallerException e) {
-            throw new IgniteException(INTERNAL_ERR, e.getMessage(), e);
         }
 
         return res;
@@ -236,11 +225,7 @@ public class ClientRecordSerializer<R> {
         var tupleReader = new BinaryTupleReader(schema.columns().length, in.readBinaryUnsafe());
         ClientMarshallerReader reader = new ClientMarshallerReader(tupleReader, schema.columns(partToRead), dataPart);
 
-        try {
-            return (R) marshaller.readObject(reader, null);
-        } catch (MarshallerException e) {
-            throw new IgniteException(INTERNAL_ERR, e.getMessage(), e);
-        }
+        return (R) marshaller.readObject(reader, null);
     }
 
     R readValRec(R keyRec, ClientSchema schema, ClientMessageUnpacker in) {
@@ -253,11 +238,7 @@ public class ClientRecordSerializer<R> {
         var tupleReader = new BinaryTupleReader(schema.columns().length, in.readBinaryUnsafe());
         ClientMarshallerReader reader = new ClientMarshallerReader(tupleReader, schema.columns(), TuplePart.KEY_AND_VAL);
 
-        try {
-            return (R) valMarshaller.readObject(reader, null);
-        } catch (MarshallerException e) {
-            throw new IgniteException(INTERNAL_ERR, e.getMessage(), e);
-        }
+        return (R) valMarshaller.readObject(reader, null);
     }
 
     private static int columnCount(ClientSchema schema, TuplePart part) {
