@@ -972,7 +972,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                             fut.completeExceptionally(err);
                         }, statementTimeoutMillis, MILLISECONDS);
 
-                        fut.whenComplete((r, t) -> f.cancel(true));
+                        fut.whenComplete((r, t) -> f.cancel(false));
                     }
                 } else {
                     scriptTxContext.registerCursorFuture(parsedResult.queryType(), cursorFuture);

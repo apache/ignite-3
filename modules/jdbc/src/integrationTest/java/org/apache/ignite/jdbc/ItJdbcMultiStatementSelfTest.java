@@ -403,6 +403,7 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
         assertTrue(rs.next());
         assertEquals(0, rs.getInt(1));
 
+
         stmt.execute("INSERT INTO TEST_TX VALUES (5, 19, 'Nick');");
         conn.commit();
 
@@ -616,11 +617,11 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
 
         String complexQuery =
                 "INSERT INTO TEST_TX VALUES (5, ?, 'Leo'); "
-                        + "START TRANSACTION ; "
-                        + "UPDATE TEST_TX SET name = ? WHERE name = 'Nick' ;"
-                        + "INSERT INTO TEST_TX VALUES (6, ?, ?); "
-                        + "DELETE FROM TEST_TX WHERE age < ?; "
-                        + "COMMIT;";
+                    + "START TRANSACTION ; "
+                    + "UPDATE TEST_TX SET name = ? WHERE name = 'Nick' ;"
+                    + "INSERT INTO TEST_TX VALUES (6, ?, ?); "
+                    + "DELETE FROM TEST_TX WHERE age < ?; "
+                    + "COMMIT;";
 
         try (PreparedStatement p = conn.prepareStatement(complexQuery)) {
             p.setInt(1, leoAge);
