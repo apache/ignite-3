@@ -19,7 +19,6 @@
 
 #include "detail/bytes.h"
 
-#include <algorithm>
 #include <array>
 #include <cassert>
 #include <memory>
@@ -27,146 +26,60 @@
 
 namespace ignite {
 
-void big_integer::from_big_endian(const std::byte *data, std::size_t size) {
-    while (size > 0 && data[0] == std::byte{0}) {
-        size--;
-        data++;
-    }
-
-    if (size == 0) {
-        assign_uint64(0);
-        return;
-    }
-
-    m_mpi.grow((size + 3) / 4);
-
-    for (std::size_t i = 0; size >= 4; i++) {
-        size -= 4;
-        m_mpi.magnitude()[i] = detail::bytes::load<detail::endian::BIG, std::uint32_t>(data + size);
-    }
-
-    if (size > 0) {
-        std::uint32_t last = 0;
-        switch (size) {
-            case 3:
-                last |= std::to_integer<std::uint32_t>(data[size - 3]) << 16;
-                [[fallthrough]];
-            case 2:
-                last |= std::to_integer<std::uint32_t>(data[size - 2]) << 8;
-                [[fallthrough]];
-            case 1:
-                last |= std::to_integer<std::uint32_t>(data[size - 1]);
-                break;
-            default:
-                assert(false);
-        }
-        m_mpi.magnitude()[m_mpi.length() - 1] = last;
-    }
-
-    m_mpi.make_positive();
-}
-
-void big_integer::from_negative_big_endian(const std::byte *data, std::size_t size) {
-    assert(size > 0);
-    assert(data[0] != std::byte{0});
-
-    while (size > 0 && data[0] == std::byte{0xff}) {
-        size--;
-        data++;
-    }
-
-    // Take one step back if only zeroes remain.
-    if (std::all_of(data, data + size, [](std::byte x) { return x == std::byte{0}; })) {
-        size++;
-        data--;
-    }
-
-    m_mpi.grow((size + 3) / 4);
-
-    for (std::size_t i = 0; size >= 4; i++) {
-        size -= 4;
-        m_mpi.magnitude()[i] = ~detail::bytes::load<detail::endian::BIG, std::uint32_t>(data + size);
-    }
-
-    if (size > 0) {
-        std::uint32_t last = 0;
-        switch (size) {
-            case 3:
-                last |= std::to_integer<std::uint32_t>(~data[size - 3]) << 16;
-                [[fallthrough]];
-            case 2:
-                last |= std::to_integer<std::uint32_t>(~data[size - 2]) << 8;
-                [[fallthrough]];
-            case 1:
-                last |= std::to_integer<std::uint32_t>(~data[size - 1]);
-                break;
-            default:
-                assert(false);
-        }
-        m_mpi.magnitude()[m_mpi.length() - 1] = last;
-    }
-
-    for (std::size_t i = 0; i < m_mpi.length(); i++) {
-        ++m_mpi.magnitude()[i];
-        if (m_mpi.magnitude()[i] != 0) {
-            break;
-        }
-    }
-
-    m_mpi.make_negative();
-}
-
 big_integer::big_integer(const int8_t *val, int32_t len, int8_t sign, bool big_endian) {
     assert(val != nullptr);
     assert(len >= 0);
     assert(sign == detail::mpi_sign::POSITIVE || sign == 0 || sign == detail::mpi_sign::NEGATIVE);
 
-    // Normalize sign.
-    sign = sign >= 0 ? detail::mpi_sign::POSITIVE : detail::mpi_sign::NEGATIVE;
+    from_binary(reinterpret_cast<const std::uint8_t *>(val), len);
+    m_mpi.set_sign(sign >= 0 ? detail::mpi_sign::POSITIVE : detail::mpi_sign::NEGATIVE);
+}
 
-    std::size_t size = len;
-    const auto *data = (const std::byte *) (val);
-
-    if (big_endian) {
-        from_big_endian(reinterpret_cast<const std::byte *>(val), len);
-    } else {
-        while (size > 0 && data[size - 1] != std::byte{0}) {
-            --size;
-        }
-
-        if (size == 0) {
-            assign_int64(0);
-            return;
-        }
-
-        m_mpi.grow((size + 3) / 4);
-
-        for (std::size_t i = 0; size >= 4; i++) {
-            m_mpi.magnitude()[i] = detail::bytes::load<detail::endian::LITTLE, std::uint32_t>(data);
-            size -= 4;
-            data += 4;
-        }
-
-        if (size > 0) {
-            std::uint32_t last = 0;
-            switch (size) {
-                case 3:
-                    last |= std::to_integer<std::uint32_t>(data[2]) << 16;
-                    [[fallthrough]];
-                case 2:
-                    last |= std::to_integer<std::uint32_t>(data[1]) << 8;
-                    [[fallthrough]];
-                case 1:
-                    last |= std::to_integer<std::uint32_t>(data[0]);
-                    break;
-                default:
-                    assert(false);
-            }
-            m_mpi.magnitude()[m_mpi.length() - 1] = last;
+void big_integer::from_binary(const std::uint8_t *data, std::size_t size, bool negative) {
+    // Skip 0xFF bytes if this is negative number.
+    std::size_t skip_ff = 0;
+    if (negative) {
+        while (skip_ff < size && data[skip_ff] == 0xFF) {
+            skip_ff++;
         }
     }
 
-    m_mpi.set_sign(detail::mpi_sign(sign));
+    // Skip 0x00 bytes before highest byte.
+    std::size_t skip_00 = skip_ff;
+    while (skip_00 < size && data[skip_00] == 0) {
+        skip_00++;
+    }
+
+    // Extra byte will be needed if we have reached end of the array and there were only zero bytes.
+    std::size_t extra_byte = skip_00 == size ? 1 : 0;
+    m_mpi.grow((size - skip_ff + extra_byte + 3) >> 2);
+    std::size_t index = size - 1;
+    mpi_t::word carry = 1;
+
+    // Fill magnitude words byte by byte.
+    for (auto &word : m_mpi.magnitude()) {
+        word = data[index--];
+
+        // Count bytes of the word we should copy after the lower byte.
+        std::size_t bytes_to_write = (index + 1 > skip_ff) ? std::min(3ul, index - skip_ff + 1) : 0;
+
+        // Copy other bytes of the word.
+        for (std::size_t i = 1; i <= bytes_to_write; i++) {
+            word |= data[index--] << 8 * i;
+        }
+
+        if (negative) {
+            // Invert word and add carry if number is negative because it should be in two's complement form.
+            mpi_t::word mask = (0xFFFFFFFF >> 8 * (3 - bytes_to_write));
+            word = (~word & mask) + carry;
+            if (word != 0) {
+                carry = 0;
+            }
+        }
+    }
+
+    m_mpi.shrink();
+    m_mpi.set_sign(negative ? detail::mpi_sign::NEGATIVE : detail::mpi_sign::POSITIVE);
 }
 
 big_integer::big_integer(const std::byte *data, std::size_t size) {
@@ -174,11 +87,9 @@ big_integer::big_integer(const std::byte *data, std::size_t size) {
         return;
     }
 
-    if (std::to_integer<std::int8_t>(data[0]) >= 0) {
-        from_big_endian(data, size);
-    } else {
-        from_negative_big_endian(data, size);
-    }
+    auto ptr = reinterpret_cast<const std::uint8_t *>(data);
+
+    from_binary(ptr, size, ptr[0] & 0x80);
 }
 
 void big_integer::assign_int64(int64_t val) {
@@ -230,8 +141,17 @@ std::uint32_t big_integer::bit_length() const noexcept {
     if (is_negative()) {
         // Check if the magnitude is a power of 2.
         auto last = view.back();
-        if ((last & (last - 1)) == 0 && std::all_of(view.rbegin() + 1, view.rend(), [](auto x) { return x == 0; })) {
-            res--;
+        if ((last & (last - 1)) == 0) {
+            bool all_zero = true;
+            for (auto i = std::int64_t(view.size() - 2); i > 0; i--) {
+                if (view[i] != 0) {
+                    all_zero = false;
+                    break;
+                }
+            }
+            if (all_zero) {
+                res--;
+            }
         }
     }
     return res;
@@ -250,68 +170,29 @@ void big_integer::store_bytes(std::byte *data) const {
 
     m_mpi.shrink();
 
-    std::size_t size = byte_size();
+    bool negative = is_negative();
 
-    if (is_positive()) {
-        for (std::size_t i = 0; size >= 4; i++) {
-            size -= 4;
-            detail::bytes::store<detail::endian::BIG, std::uint32_t>(data + size, m_mpi.magnitude()[i]);
+    std::size_t index = 0;
+    std::size_t copied = 4;
+    mpi_t::word next_word = 0;
+    mpi_t::word carry = 1;
+
+    for (std::size_t data_index = byte_size(); data_index > 0; --data_index) {
+        if (copied == 4) {
+            next_word = index < m_mpi.magnitude().size() ? m_mpi.magnitude()[index++] : 0;
+            if (negative) {
+                next_word = ~next_word + carry;
+                if (next_word != 0) {
+                    carry = 0;
+                }
+            }
+            copied = 1;
+        } else {
+            next_word >>= 8;
+            ++copied;
         }
 
-        if (size > 0) {
-            std::uint32_t last = m_mpi.length() == 0 ? 0u : m_mpi.magnitude()[m_mpi.length() - 1];
-            if (std::int8_t(last) < 0 && size == 1) {
-                last = 0;
-            }
-
-            switch (size) {
-                case 3:
-                    data[size - 3] = std::byte(last >> 16);
-                    [[fallthrough]];
-                case 2:
-                    data[size - 2] = std::byte(last >> 8);
-                    [[fallthrough]];
-                case 1:
-                    data[size - 1] = std::byte(last);
-                    break;
-                default:
-                    assert(false);
-            }
-        }
-    } else {
-        std::uint32_t carry = 1;
-
-        for (std::size_t i = 0; size >= 4; i++) {
-            std::uint32_t value = ~m_mpi.magnitude()[i] + carry;
-            if (value != 0) {
-                carry = 0;
-            }
-
-            size -= 4;
-            detail::bytes::store<detail::endian::BIG, std::uint32_t>(data + size, value);
-        }
-
-        if (size > 0) {
-            std::uint32_t last = ~m_mpi.magnitude()[m_mpi.length() - 1] + carry;
-            if (std::int8_t(last) > 0 && size == 1) {
-                last = -1;
-            }
-
-            switch (size) {
-                case 3:
-                    data[size - 3] = std::byte(last >> 16);
-                    [[fallthrough]];
-                case 2:
-                    data[size - 2] = std::byte(last >> 8);
-                    [[fallthrough]];
-                case 1:
-                    data[size - 1] = std::byte(last);
-                    break;
-                default:
-                    assert(false);
-                    break;
-            }
-        }
+        data[data_index - 1] = std::byte(next_word & 0xFF);
     }
 }
 
@@ -375,7 +256,7 @@ void big_integer::add(uint64_t x) {
         return;
     }
 
-    std::uint32_t val[2];
+    mpi_t::word val[2];
 
     val[0] = static_cast<word_t>(x);
     val[1] = static_cast<word_t>(x >> 32);

@@ -62,19 +62,28 @@ struct mpi {
         [[nodiscard]] bool empty() const noexcept { return size() == 0; }
 
         /** Returns pointer to the magnitude beginning. */
-        [[nodiscard]] const mpi::word *begin() const { return m_ptr; }
+        [[nodiscard]] mpi::word *begin() { return m_ptr; }
 
         /** Returns pointer to the element past last. */
+        [[nodiscard]] mpi::word *end() { return m_ptr + m_size; }
+
+        /** Returns const pointer to the magnitude beginning. */
+        [[nodiscard]] const mpi::word *begin() const { return m_ptr; }
+
+        /** Returns const pointer to the element past last. */
         [[nodiscard]] const mpi::word *end() const { return m_ptr + m_size; }
 
-        /** Returns pointer to the last element. */
-        [[nodiscard]] const mpi::word *rbegin() const { return m_ptr + m_size - 1; }
-
-        /** Returns pointer to the element prior to the first. */
-        [[nodiscard]] const mpi::word *rend() const { return m_ptr - 1; }
+        /** Returns const reference to the last element. */
+        [[nodiscard]] const mpi::word &back() const { return m_ptr[m_size - 1]; }
 
         /** Returns reference to the last element. */
-        [[nodiscard]] const mpi::word &back() const { return m_ptr[m_size - 1]; }
+        [[nodiscard]] mpi::word &back() { return m_ptr[m_size - 1]; }
+
+        /** Returns const reference to the last element. */
+        [[nodiscard]] const mpi::word &front() const { return m_ptr[0]; }
+
+        /** Returns reference to the last element. */
+        [[nodiscard]] mpi::word &front() { return m_ptr[0]; }
 
     private:
         /** Pointer to the magnitude array. */
