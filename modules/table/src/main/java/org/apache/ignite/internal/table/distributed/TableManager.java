@@ -843,19 +843,19 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         int tableId = table.tableId();
 
         // Create new raft nodes according to new assignments.
-        return assignmentsFuture.thenCompose(assignmentsList -> {
+        return assignmentsFuture.thenCompose(tableAssignments -> {
             // Empty assignments might be a valid case if tables are created from within cluster init HOCON
             // configuration, which is not supported now.
-            assert assignmentsList != null : IgniteStringFormatter.format("Table [id={}] has empty assignments.", tableId);
+            assert tableAssignments != null : IgniteStringFormatter.format("Table [id={}] has empty assignments.", tableId);
 
-            int partitions = assignmentsList.size();
+            int partitions = tableAssignments.size();
 
-            List<CompletableFuture<?>> futures = new ArrayList<>();
+            var futures = new CompletableFuture<?>[partitions];
 
             for (int i = 0; i < partitions; i++) {
                 int partId = i;
 
-                Assignments assignments = assignmentsList.get(i);
+                Assignments assignments = tableAssignments.get(i);
 
                 CompletableFuture<?> future = startPartitionAndStartClient(
                         table,
@@ -871,10 +871,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             }
                         });
 
-                futures.add(future);
+                futures[i] = future;
             }
 
-            return allOf(futures.toArray(new CompletableFuture<?>[0]));
+            return allOf(futures);
         });
     }
 
@@ -890,7 +890,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         var internalTbl = (InternalTableImpl) table.internalTable();
 
-        PeersAndLearners stableConfiguration = fromAssignments(stableAssignments.nodes());
+        PeersAndLearners stablePeersAndLearners = fromAssignments(stableAssignments.nodes());
 
         TablePartitionId replicaGrpId = new TablePartitionId(tableId, partId);
 
@@ -906,7 +906,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     ? partitionReplicatorNodeRecovery.initiateGroupReentryIfNeeded(
                             replicaGrpId,
                             internalTbl,
-                            stableConfiguration,
+                            stablePeersAndLearners,
                             localMemberAssignment
                     )
                     : trueCompletedFuture();
@@ -984,7 +984,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                     createListener,
                                     storageIndexTracker,
                                     replicaGrpId,
-                                    stableConfiguration);
+                                    stablePeersAndLearners);
                         } catch (NodeStoppingException e) {
                             throw new AssertionError("Loza was stopped before Table manager", e);
                         }
@@ -1019,7 +1019,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                     CompletableFuture<TopologyAwareRaftGroupService> newRaftClientFut;
                     try {
-                        newRaftClientFut = replicaMgr.startRaftClient(replicaGrpId, stableConfiguration, getCachedRaftClient);
+                        newRaftClientFut = replicaMgr.startRaftClient(replicaGrpId, stablePeersAndLearners, getCachedRaftClient);
                     } catch (NodeStoppingException e) {
                         throw new CompletionException(e);
                     }
@@ -1790,8 +1790,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                 .thenCompose(r -> handleChangePendingAssignmentEvent(
                                         replicaGrpId,
                                         table,
-                                        pendingAssignments,
                                         stableAssignments,
+                                        pendingAssignments,
                                         revision,
                                         isRecovery
                                 ))
@@ -1806,8 +1806,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     private CompletableFuture<Void> handleChangePendingAssignmentEvent(
             TablePartitionId replicaGrpId,
             TableImpl tbl,
-            Assignments pendingAssignments,
             @Nullable Assignments stableAssignments,
+            Assignments pendingAssignments,
             long revision,
             boolean isRecovery
     ) {
