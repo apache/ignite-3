@@ -680,14 +680,24 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
 
     @Test
     public void testPreparedBatchTimeout() throws SQLException {
+        pstmt.close();
+
+        // Use some complex query that is not transformed into KV plan easily.
+        String updateStmt = "UPDATE Person SET age = ? "
+                + "WHERE id IN "
+                + "(SELECT * FROM TABLE(SYSTEM_RANGE(1, 50)) "
+                + "UNION "
+                + "SELECT * FROM TABLE(SYSTEM_RANGE(50, 100)))";
+        pstmt = conn.prepareStatement(updateStmt);
+
         JdbcPreparedStatement igniteStmt = pstmt.unwrap(JdbcPreparedStatement.class);
 
         {
             // Disable timeout
             igniteStmt.timeout(0);
 
-            for (int persIdx = 100; persIdx < 103; ++persIdx) {
-                fillParamsWithPerson(pstmt, persIdx);
+            for (int i = 0; i < 3; i ++) {
+                pstmt.setInt(1, 42);
 
                 igniteStmt.addBatch();
             }
@@ -701,8 +711,8 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
             int timeoutMillis = ThreadLocalRandom.current().nextInt(1, 5);
             igniteStmt.timeout(timeoutMillis);
 
-            for (int persIdx = 200; persIdx < 300; ++persIdx) {
-                fillParamsWithPerson(pstmt, persIdx);
+            for (int i = 0; i < 3; i ++) {
+                pstmt.setInt(1, 42);
 
                 igniteStmt.addBatch();
             }
@@ -715,8 +725,8 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
             // Disable timeout
             igniteStmt.timeout(0);
 
-            for (int persIdx = 300; persIdx < 303; ++persIdx) {
-                fillParamsWithPerson(pstmt, persIdx);
+            for (int i = 0; i < 3; i ++) {
+                pstmt.setInt(1, 42);
 
                 igniteStmt.addBatch();
             }
