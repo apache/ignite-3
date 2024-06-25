@@ -301,7 +301,7 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
 
         Throwable cause = ExceptionUtils.unwrapCause(err);
         SqlException sqlErr = assertInstanceOf(SqlException.class, cause, "Unexpected error. Root error: " + err);
-        assertEquals(Sql.PLANNING_TIMEOUT_ERR, sqlErr.code(), "Unexpected error: " + sqlErr);
+        assertEquals(Sql.EXECUTION_CANCELLED_ERR, sqlErr.code(), "Unexpected error: " + sqlErr);
 
         // Cache invalidate does not immediately remove the entry, so we need to wait some time to ensure it is removed.
         boolean empty = IgniteTestUtils.waitForCondition(() -> cache.size() == 0, 1000);

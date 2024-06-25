@@ -35,6 +35,7 @@ import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.tx.Transaction;
+import org.junit.jupiter.api.AssertionFailureBuilder;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -160,22 +161,11 @@ public class ItSqlSynchronousApiTest extends ItSqlApiBaseTest {
                 .queryTimeout(100, TimeUnit.MILLISECONDS)
                 .build();
 
-        ResultSet<SqlRow> rs;
-        while (true) {
-            try {
-                rs = igniteSql().execute(null, stmt);
-                break;
-            } catch (SqlException e) {
-                if (e.code() == Sql.PLANNING_TIMEOUT_ERR || e.code() == Sql.EXECUTION_CANCELLED_ERR) {
-                    continue;
-                }
-                fail(e.getMessage());
-            }
-        }
-        ResultSet<SqlRow> resultSet = rs;
+        // Run ignoring any timeout util we get some result.
+        ResultSet<SqlRow> resultSet = runIgnoringExecutionErrors(stmt);
         assertNotNull(resultSet);
 
-        // Read data until exception occurs.
+        // Read data until timeout exception occurs.
         assertThrowsSqlException(Sql.EXECUTION_CANCELLED_ERR, "Query timeout", () -> {
             while (resultSet.hasNext()) {
                 resultSet.next();
@@ -190,21 +180,9 @@ public class ItSqlSynchronousApiTest extends ItSqlApiBaseTest {
                 .queryTimeout(100, TimeUnit.MILLISECONDS)
                 .build();
 
-        ResultSet<SqlRow> rs;
-        while (true) {
-            try {
-                rs = igniteSql().execute(null, stmt);
-                break;
-            } catch (SqlException e) {
-                if (e.code() == Sql.PLANNING_TIMEOUT_ERR || e.code() == Sql.EXECUTION_CANCELLED_ERR) {
-                    continue;
-                }
-                fail(e.getMessage());
-            }
-        }
-        ResultSet<SqlRow> resultSet = rs;
+        // Run ignoring any timeout to get some results.
+        ResultSet<SqlRow> resultSet = runIgnoringExecutionErrors(stmt);
 
-        assertNotNull(resultSet);
         assertTrue(resultSet.hasNext());
         assertNotNull(resultSet.next());
 
@@ -217,6 +195,31 @@ public class ItSqlSynchronousApiTest extends ItSqlApiBaseTest {
                 resultSet.next();
             }
         });
+    }
+
+    private ResultSet<SqlRow> runIgnoringExecutionErrors(Statement stmt) {
+
+        SqlException lastError = null;
+
+        for (int i = 0; i < 10; i++) {
+            try {
+                return igniteSql().execute(null, stmt);
+            } catch (SqlException e) {
+                // Ignore all execution cancelled error. We assume that all these errors are transient (timeouts),
+                // and we will eventually get a result set.
+                if (e.code() == Sql.EXECUTION_CANCELLED_ERR) {
+                    lastError = e;
+                    continue;
+                }
+
+                fail(e.getMessage());
+            }
+        }
+
+        throw AssertionFailureBuilder.assertionFailure()
+                .message("Failed to execute the statement without timeouts.")
+                .cause(lastError)
+                .build();
     }
 
     @Test

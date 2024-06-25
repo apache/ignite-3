@@ -259,9 +259,6 @@ public class ErrorGroups {
          */
         public static final int RUNTIME_ERR = SQL_ERR_GROUP.registerErrorCode((short) 9);
 
-        /** Planning timed out without finding any valid plan. */
-        public static final int PLANNING_TIMEOUT_ERR = SQL_ERR_GROUP.registerErrorCode((short) 10);
-
         /**
          * SQL engine was unable to map query on current cluster topology.
          *
@@ -270,10 +267,10 @@ public class ErrorGroups {
          *
          * <p>See error message for details.
          */
-        public static final int MAPPING_ERR = SQL_ERR_GROUP.registerErrorCode((short) 11);
+        public static final int MAPPING_ERR = SQL_ERR_GROUP.registerErrorCode((short) 10);
 
         /** Execution of transaction control statement inside an external transaction is forbidden. */
-        public static final int TX_CONTROL_INSIDE_EXTERNAL_TX_ERR = SQL_ERR_GROUP.registerErrorCode((short) 12);
+        public static final int TX_CONTROL_INSIDE_EXTERNAL_TX_ERR = SQL_ERR_GROUP.registerErrorCode((short) 11);
     }
 
     /** Meta storage error group. */

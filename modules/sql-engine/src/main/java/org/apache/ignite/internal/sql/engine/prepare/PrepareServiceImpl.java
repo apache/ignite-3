@@ -22,7 +22,7 @@ import static org.apache.ignite.internal.sql.engine.prepare.PlannerHelper.optimi
 import static org.apache.ignite.internal.sql.engine.trait.TraitUtils.distributionPresent;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 import static org.apache.ignite.internal.thread.ThreadOperation.NOTHING_ALLOWED;
-import static org.apache.ignite.lang.ErrorGroups.Sql.PLANNING_TIMEOUT_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.EXECUTION_CANCELLED_ERR;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -629,7 +629,7 @@ public class PrepareServiceImpl implements PrepareService {
 
                 //noinspection ThrowInsideCatchBlockWhichIgnoresCaughtException
                 throw new SqlException(
-                        PLANNING_TIMEOUT_ERR,
+                        EXECUTION_CANCELLED_ERR,
                         "Planning of a query aborted due to planner timeout threshold is reached");
             } else {
                 throw new CompletionException(e);
