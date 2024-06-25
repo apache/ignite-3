@@ -745,8 +745,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
 
         // Each statement in a batch is executed separately, so a timeout is applied to each statement.
         {
-            int timeoutMs = ThreadLocalRandom.current().nextInt(1, 20);
-            igniteStmt.timeout(timeoutMs);
+            igniteStmt.timeout(1);
 
             for (int persIdx = 200; persIdx < 300; ++persIdx) {
                 String stmt = "insert into Person (id, firstName, lastName, age) values " + generateValues(persIdx, 1);

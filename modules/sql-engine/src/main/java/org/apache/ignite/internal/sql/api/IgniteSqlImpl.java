@@ -536,6 +536,10 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
         }
 
         try {
+            SqlProperties properties = SqlPropertiesHelper.newBuilder()
+                    .set(QueryProperty.QUERY_TIMEOUT, 0L)
+                    .build();
+
             return executeScriptCore(
                     queryProcessor,
                     observableTimestampTracker,
@@ -543,7 +547,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
                     busyLock::leaveBusy,
                     query,
                     arguments,
-                    SqlPropertiesHelper.emptyProperties());
+                    properties);
         } finally {
             busyLock.leaveBusy();
         }

@@ -300,6 +300,7 @@ abstract class QueryCheckerImpl implements QueryChecker {
         SqlProperties properties = SqlPropertiesHelper.newBuilder()
                 .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.SINGLE_STMT_TYPES)
                 .set(QueryProperty.TIME_ZONE_ID, timeZoneId)
+                .set(QueryProperty.QUERY_TIMEOUT, 0L)
                 .build();
 
         String qry = queryTemplate.createQuery();
