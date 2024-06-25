@@ -31,14 +31,12 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
-import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.marshaller.MarshallersProvider;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
-import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.table.criteria.SqlRowProjection;
@@ -46,7 +44,6 @@ import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.sql.IgniteSql;
@@ -55,6 +52,7 @@ import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.KeyValueView;
+import org.apache.ignite.table.ReceiverDescriptor;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
@@ -470,14 +468,10 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
      * @param val Value.
      * @param schemaVersion Schema version to use when marshalling
      * @return Row.
-     * @throws IgniteException If failed to marshal key and/or value.
+     * @throws MarshallerException If failed to marshal key and/or value.
      */
-    private Row marshal(Tuple key, @Nullable Tuple val, int schemaVersion) throws IgniteException {
-        try {
-            return marshallerCache.marshaller(schemaVersion).marshal(key, val);
-        } catch (TupleMarshallerException ex) {
-            throw new MarshallerException(ex);
-        }
+    private Row marshal(Tuple key, @Nullable Tuple val, int schemaVersion) {
+        return marshallerCache.marshaller(schemaVersion).marshal(key, val);
     }
 
     /**
@@ -578,12 +572,11 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
     @Override
     public <E, V, R> CompletableFuture<Void> streamData(
             Publisher<E> publisher,
-            @Nullable DataStreamerOptions options,
             Function<E, Entry<Tuple, Tuple>> keyFunc,
             Function<E, V> payloadFunc,
+            ReceiverDescriptor receiver,
             @Nullable Flow.Subscriber<R> resultSubscriber,
-            List<DeploymentUnit> deploymentUnits,
-            String receiverClassName,
+            @Nullable DataStreamerOptions options,
             Object... receiverArgs) {
         // TODO: IGNITE-22285 Embedded Data Streamer with Receiver.
         throw new UnsupportedOperationException("Not implemented yet");

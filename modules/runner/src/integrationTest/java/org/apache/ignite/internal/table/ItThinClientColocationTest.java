@@ -37,7 +37,6 @@ import org.apache.ignite.internal.marshaller.ReflectionMarshallersProvider;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
-import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -59,8 +58,7 @@ public class ItThinClientColocationTest extends ClusterPerClassIntegrationTest {
 
     @ParameterizedTest
     @MethodSource("nativeTypes")
-    public void testClientAndServerColocationHashesAreSame(NativeType type)
-            throws TupleMarshallerException {
+    public void testClientAndServerColocationHashesAreSame(NativeType type) {
         var columnName = "COL1";
 
         TupleMarshaller serverMarshaller = tupleMarshaller(type, columnName);

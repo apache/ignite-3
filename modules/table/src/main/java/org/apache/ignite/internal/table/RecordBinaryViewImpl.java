@@ -30,23 +30,21 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
-import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.internal.marshaller.MarshallersProvider;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
-import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
+import org.apache.ignite.table.ReceiverDescriptor;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
@@ -379,9 +377,9 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
      * @param schemaVersion Schema version in which to marshal.
      * @param keyOnly Marshal key part only if {@code true}, otherwise marshal both, key and value parts.
      * @return Row.
-     * @throws IgniteException If failed to marshal tuple.
+     * @throws MarshallerException If failed to marshal tuple.
      */
-    private Row marshal(Tuple tuple, int schemaVersion, boolean keyOnly) throws IgniteException {
+    private Row marshal(Tuple tuple, int schemaVersion, boolean keyOnly) {
         TupleMarshaller marshaller = marshaller(schemaVersion);
 
         return marshal(tuple, marshaller, keyOnly);
@@ -394,17 +392,13 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
      * @param marshaller Marshaller.
      * @param keyOnly Marshal key part only if {@code true}, otherwise marshal both, key and value parts.
      * @return Row.
-     * @throws IgniteException If failed to marshal tuple.
+     * @throws MarshallerException If failed to marshal tuple.
      */
     private static Row marshal(Tuple tuple, TupleMarshaller marshaller, boolean keyOnly) {
-        try {
-            if (keyOnly) {
-                return marshaller.marshalKey(tuple);
-            } else {
-                return marshaller.marshal(tuple);
-            }
-        } catch (TupleMarshallerException ex) {
-            throw new MarshallerException(ex);
+        if (keyOnly) {
+            return marshaller.marshalKey(tuple);
+        } else {
+            return marshaller.marshal(tuple);
         }
     }
 
@@ -526,12 +520,11 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
     @Override
     public <E, V, R> CompletableFuture<Void> streamData(
             Publisher<E> publisher,
-            @Nullable DataStreamerOptions options,
             Function<E, Tuple> keyFunc,
             Function<E, V> payloadFunc,
+            ReceiverDescriptor receiver,
             @Nullable Flow.Subscriber<R> resultSubscriber,
-            List<DeploymentUnit> deploymentUnits,
-            String receiverClassName,
+            @Nullable DataStreamerOptions options,
             Object... receiverArgs) {
         // TODO: IGNITE-22285 Embedded Data Streamer with Receiver.
         throw new UnsupportedOperationException("Not implemented yet");

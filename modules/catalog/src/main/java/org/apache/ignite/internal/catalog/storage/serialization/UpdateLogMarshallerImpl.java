@@ -24,7 +24,6 @@ import org.apache.ignite.internal.catalog.storage.UpdateLogEvent;
 import org.apache.ignite.internal.catalog.storage.VersionedUpdate;
 import org.apache.ignite.internal.util.io.IgniteUnsafeDataInput;
 import org.apache.ignite.internal.util.io.IgniteUnsafeDataOutput;
-import org.apache.ignite.lang.MarshallerException;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -95,7 +94,7 @@ public class UpdateLogMarshallerImpl implements UpdateLogMarshaller {
 
             return output.array();
         } catch (Throwable t) {
-            throw new MarshallerException(t);
+            throw new CatalogMarshallerException(t);
         }
     }
 
@@ -113,7 +112,7 @@ public class UpdateLogMarshallerImpl implements UpdateLogMarshaller {
 
             return (UpdateLogEvent) serializers.get(typeId).readFrom(input);
         } catch (Throwable t) {
-            throw new MarshallerException(t);
+            throw new CatalogMarshallerException(t);
         }
     }
 }

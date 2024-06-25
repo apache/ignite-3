@@ -143,7 +143,8 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
                 metaStorageManager,
                 topologyService,
                 leaseTracker,
-                new TestClockService(new HybridClockImpl())
+                new TestClockService(new HybridClockImpl()),
+                new AssignmentsTracker(metaStorageManager)
         );
 
         leaseUpdater.init();

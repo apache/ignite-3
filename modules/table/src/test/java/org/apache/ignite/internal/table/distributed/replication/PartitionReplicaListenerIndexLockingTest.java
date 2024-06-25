@@ -55,7 +55,6 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
-import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryRowMessage;
@@ -88,6 +87,7 @@ import org.apache.ignite.internal.table.distributed.IndexLocker;
 import org.apache.ignite.internal.table.distributed.SortedIndexLocker;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
+import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
@@ -261,7 +261,8 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 new TestPlacementDriver(localNode),
                 mock(ClusterNodeResolver.class),
                 new RemotelyTriggeredResourceRegistry(),
-                schemaManager
+                schemaManager,
+                mock(IndexMetaStorage.class)
         );
 
         kvMarshaller = new ReflectionMarshallerFactory().create(schemaDescriptor, Integer.class, Integer.class);
@@ -306,7 +307,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
     /** Verifies the mode in which the lock was acquired on the index key for a particular operation. */
     @ParameterizedTest
     @MethodSource("readWriteSingleTestArguments")
-    void testReadWriteSingle(ReadWriteTestArg arg) throws MarshallerException {
+    void testReadWriteSingle(ReadWriteTestArg arg) {
         BinaryRow testPk = kvMarshaller.marshal(1);
         BinaryRow testBinaryRow = kvMarshaller.marshal(1, 1);
 
@@ -386,7 +387,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
     /** Verifies the mode in which the lock was acquired on the index key for a particular operation. */
     @ParameterizedTest
     @MethodSource("readWriteMultiTestArguments")
-    void testReadWriteMulti(ReadWriteTestArg arg) throws MarshallerException {
+    void testReadWriteMulti(ReadWriteTestArg arg) {
         var pks = new ArrayList<BinaryRow>();
         var rows = new ArrayList<BinaryRow>();
 

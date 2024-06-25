@@ -24,6 +24,8 @@ plugins {
     alias(libs.plugins.setupbuilder)
 }
 
+apply from: "$rootDir/buildscripts/generate-version-file.gradle"
+
 java {
     sourceCompatibility = JavaVersion.VERSION_11
     targetCompatibility = JavaVersion.VERSION_11
@@ -163,6 +165,7 @@ distributions {
                 from "$buildDir/zip/${zipStartScriptTokensWin.VARS_FILE_NAME}"
                 from generateConfigDefaults
                 from "$buildDir/zip/ignite.java.util.logging.properties"
+                from createVersionFile
             }
             into('bin') {
                 fileMode 0755
@@ -280,6 +283,7 @@ ospackage {
             from "$buildDir/linux/service/vars.env"
             from "$buildDir/linux/ignite.java.util.logging.properties"
             from generateConfigDefaults
+            from createVersionFile
         }
 
         into('etc') {
@@ -289,8 +293,6 @@ ospackage {
     link "/etc/ignite3db", "${packageTokens.INSTALL_DIR}/etc/"
     link "/opt/ignite3db", "${packageTokens.INSTALL_DIR}"
 }
-
-
 
 if (project.hasProperty('prepareRelease')) {
     artifacts {
@@ -348,6 +350,7 @@ setupBuilder {
         }
         into('etc') {
             from generateConfigDefaults
+            from createVersionFile
         }
         into('etc') {
             from("ignite.java.util.logging.properties")
