@@ -108,6 +108,7 @@ public class ExecutionContext<RowT> implements DataContext {
      * @param params Parameters.
      * @param txAttributes Transaction attributes.
      * @param timeZoneId Session time-zone ID.
+     * @param timeoutFut Timeout future.
      */
     @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
     public ExecutionContext(
