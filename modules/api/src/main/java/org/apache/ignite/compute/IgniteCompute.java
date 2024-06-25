@@ -46,13 +46,13 @@ public interface IgniteCompute {
      * @param <R> Job (R)esult type.
      * @param target Execution target.
      * @param descriptor Job descriptor.
-     * @param args Arguments of the job.
+     * @param arg Arguments of the job.
      * @return Job execution object.
      */
     <T, R> JobExecution<R> submit(
             JobTarget target,
             JobDescriptor descriptor,
-            T args
+            @Nullable T arg
     );
 
     /**
@@ -63,15 +63,15 @@ public interface IgniteCompute {
      * @param <R> Job (R)esult type.
      * @param target Execution target.
      * @param descriptor Job descriptor.
-     * @param args Arguments of the job.
+     * @param arg Arguments of the job.
      * @return Job result future.
      */
     default <T, R> CompletableFuture<R> executeAsync(
             JobTarget target,
             JobDescriptor descriptor,
-            @Nullable T args
+            @Nullable T arg
     ) {
-        return this.<T, R>submit(target, descriptor, args).resultAsync();
+        return this.<T, R>submit(target, descriptor, arg).resultAsync();
     }
 
     /**
@@ -81,14 +81,14 @@ public interface IgniteCompute {
      * @param <R> Job (R)esult type.
      * @param target Execution target.
      * @param descriptor Job descriptor.
-     * @param args Arguments of the job.
+     * @param arg Arguments of the job.
      * @return Job result.
      * @throws ComputeException If there is any problem executing the job.
      */
     <T, R> R execute(
             JobTarget target,
             JobDescriptor descriptor,
-            @Nullable T args
+            @Nullable T arg
     );
 
     /**
@@ -98,13 +98,13 @@ public interface IgniteCompute {
      * @param <R> Job (R)esult type.
      * @param nodes Nodes to execute the job on.
      * @param descriptor Job descriptor.
-     * @param args Arguments of the job.
+     * @param arg Arguments of the job.
      * @return Map from node to job execution object.
      */
     <T, R> Map<ClusterNode, JobExecution<R>> submitBroadcast(
             Set<ClusterNode> nodes,
             JobDescriptor descriptor,
-            @Nullable T args
+            @Nullable T arg
     );
 
     /**
@@ -114,16 +114,16 @@ public interface IgniteCompute {
      * @param <R> Job (R)esult type.
      * @param nodes Nodes to execute the job on.
      * @param descriptor Job descriptor.
-     * @param args Arguments of the job.
+     * @param arg Arguments of the job.
      * @return Map from node to job result.
      */
     default <T, R> CompletableFuture<Map<ClusterNode, R>> executeBroadcastAsync(
             Set<ClusterNode> nodes,
             JobDescriptor descriptor,
-            @Nullable T args
+            @Nullable T arg
     ) {
         Map<ClusterNode, CompletableFuture<R>> futures = nodes.stream()
-                .collect(toMap(identity(), node -> this.executeAsync(JobTarget.node(node), descriptor, args)));
+                .collect(toMap(identity(), node -> this.executeAsync(JobTarget.node(node), descriptor, arg)));
 
         return allOf(futures.values().toArray(CompletableFuture[]::new))
                 .thenApply(ignored -> {
@@ -145,19 +145,19 @@ public interface IgniteCompute {
      * @param <R> Job (R)esult type.
      * @param nodes Nodes to execute the job on.
      * @param descriptor Job descriptor.
-     * @param args Arguments of the job.
+     * @param arg Arguments of the job.
      * @return Map from node to job result.
      * @throws ComputeException If there is any problem executing the job.
      */
     default <T, R> Map<ClusterNode, R> executeBroadcast(
             Set<ClusterNode> nodes,
             JobDescriptor descriptor,
-            @Nullable T args
+            @Nullable T arg
     ) {
         Map<ClusterNode, R> map = new HashMap<>();
 
         for (ClusterNode node : nodes) {
-            map.put(node, execute(JobTarget.node(node), descriptor, args));
+            map.put(node, execute(JobTarget.node(node), descriptor, arg));
         }
 
         return map;
@@ -170,10 +170,10 @@ public interface IgniteCompute {
      * @param <R> Job (R)esult type.
      * @param units Deployment units.
      * @param taskClassName Map reduce task class name.
-     * @param args Task arguments.
+     * @param arg Task arguments.
      * @return Task execution interface.
      */
-    <T, R> TaskExecution<R> submitMapReduce(List<DeploymentUnit> units, String taskClassName, @Nullable T args);
+    <T, R> TaskExecution<R> submitMapReduce(List<DeploymentUnit> units, String taskClassName, @Nullable T arg);
 
     /**
      * Submits a {@link MapReduceTask} of the given class for an execution. A shortcut for {@code submitMapReduce(...).resultAsync()}.
@@ -196,9 +196,9 @@ public interface IgniteCompute {
      * @param <R> Job (R)esult type.
      * @param units Deployment units.
      * @param taskClassName Map reduce task class name.
-     * @param args Task arguments.
+     * @param arg Task arguments.
      * @return Task result.
      * @throws ComputeException If there is any problem executing the task.
      */
-    <T, R> R executeMapReduce(List<DeploymentUnit> units, String taskClassName, @Nullable T args);
+    <T, R> R executeMapReduce(List<DeploymentUnit> units, String taskClassName, @Nullable T arg);
 }

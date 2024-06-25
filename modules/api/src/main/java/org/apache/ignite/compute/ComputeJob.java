@@ -28,7 +28,7 @@ import org.jetbrains.annotations.Nullable;
  * {@link IgniteCompute} APIs.
  *
  * <p>If you want to pass/return custom data structures to/from the job, you should also implement {@link Marshaler}
- * and return it from {@link #inputMarshaller()} and {@link #resultMarhaller()} methods.
+ * and return it from {@link #inputMarshaler()} and {@link #resultMarshaler()} methods.
  *
  * @param <T> Type of the job argument.
  * @param <R> Type of the job result.
@@ -39,26 +39,26 @@ public interface ComputeJob<T, R> {
      * Executes the job on an Ignite node.
      *
      * @param context The execution context.
-     * @param args Job arguments.
+     * @param arg Job arguments.
      * @return Job future. Can be null if the job is synchronous and does not return any result.
      */
-    @Nullable CompletableFuture<R> executeAsync(JobExecutionContext context, T args);
+    @Nullable CompletableFuture<R> executeAsync(JobExecutionContext context, @Nullable T arg);
 
     /**
-     * Marshaller for the input argument. Default is {@link ByteArrayMarshaler}.
+     * Marshaler for the input argument. Default is {@link ByteArrayMarshaler}.
      *
-     * @return Input marshaller.
+     * @return Input marshaler.
      */
-    default Marshaler<T, byte[]> inputMarshaller() {
+    default Marshaler<T, byte[]> inputMarshaler() {
         return new ByteArrayMarshaler<>() {};
     }
 
     /**
-     * Marshaller for the job result. Default is {@link ByteArrayMarshaler}.
+     * Marshaler for the job result. Default is {@link ByteArrayMarshaler}.
      *
-     * @return Result marshaller.
+     * @return Result marshaler.
      */
-    default Marshaler<R, byte[]> resultMarhaller() {
+    default Marshaler<R, byte[]> resultMarshaler() {
         return new ByteArrayMarshaler<>() {};
     }
 }

@@ -86,7 +86,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
         AtomicBoolean isInterrupted = new AtomicBoolean();
         JobExecutionContext context = new JobExecutionContextImpl(ignite, isInterrupted, classLoader);
         ComputeJob<T, R> jobInstance = ComputeUtils.instantiateJob(jobClass);
-        Marshaler<T, byte[]> marshaller = jobInstance.inputMarshaller();
+        Marshaler<T, byte[]> marshaller = jobInstance.inputMarshaler();
 
         QueueExecution<R> execution = executorService.submit(
                 () -> jobInstance.executeAsync(context, unmarshallOrNotIfLocal(marshaller, input)),

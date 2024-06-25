@@ -98,7 +98,7 @@ public class JobDescriptor<T, R> {
         return new Builder(jobClass.getName());
     }
 
-    public Marshaler<T, byte[]> resultMarshaller() {
+    public Marshaler<R, byte[]> resultMarshaller() {
         return resultMarshaller;
     }
 

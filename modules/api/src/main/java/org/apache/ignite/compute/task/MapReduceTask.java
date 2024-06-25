@@ -23,6 +23,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.marshaling.ByteArrayMarshaler;
 import org.apache.ignite.marshaling.Marshaler;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * A map reduce task interface. Implement this interface and pass a name of the implemented class to the
@@ -36,10 +37,10 @@ public interface MapReduceTask<T, R> {
      * This method should return a list of compute job execution parameters which will be used to submit compute jobs.
      *
      * @param taskContext Task execution context.
-     * @param input Map reduce task argument.
+     * @param input Map reduce task input.
      * @return A future with the list of compute job execution parameters.
      */
-    CompletableFuture<List<MapReduceJob>> splitAsync(TaskExecutionContext taskContext, T input);
+    CompletableFuture<List<MapReduceJob>> splitAsync(TaskExecutionContext taskContext, @Nullable T input);
 
     /**
      * This is a finishing step in the task execution. This method will be called with the map from identifiers of compute jobs submitted as
@@ -67,8 +68,7 @@ public interface MapReduceTask<T, R> {
      *
      * @return Result marshaller.
      */
-    default Marshaler<R, byte[]> resultMarhaler() {
-        return new ByteArrayMarshaler<>() {
-        };
+    default Marshaler<R, byte[]> resultMarshaler() {
+        return new ByteArrayMarshaler<>() {};
     }
 }

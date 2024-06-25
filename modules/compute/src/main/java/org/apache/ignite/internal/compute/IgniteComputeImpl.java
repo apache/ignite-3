@@ -327,7 +327,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
     }
 
     private JobExecution<Object> submitJob(MapReduceJob runner) {
-        return submit(JobTarget.anyNode(runner.nodes()), runner.jobDescriptor(), runner.args());
+        return submit(JobTarget.anyNode(runner.nodes()), runner.jobDescriptor(), runner.arg());
     }
 
     @Override

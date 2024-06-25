@@ -30,8 +30,8 @@ import java.util.UUID;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleParser;
-import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.marshaling.Marshaler;
+import org.apache.ignite.sql.BatchedArguments;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -651,7 +651,7 @@ public class ClientMessagePacker implements AutoCloseable {
             var builder = new BinaryTupleBuilder(rowLen * 3);
 
             for (Object value : values) {
-                ClientBinaryTupleUtils.appendObject(builder, value);
+                ClientBinaryTupleUtils.appendObject(builder, value, null);
             }
 
             packBinaryTuple(builder);
