@@ -15,30 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.marshaller;
-
-import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
-
-/**
- * Exception that is thrown during object marshal/unmarshal.
- */
-public class MarshallerException extends IgniteInternalCheckedException {
-    /**
-     * Constructor.
-     *
-     * @param cause Cause.
-     */
-    public MarshallerException(Throwable cause) {
-        super(cause);
+def createVersionFile = tasks.register('createVersionFile') {
+    onlyIf {
+        project.hasProperty("lastCommitHash")
     }
 
-    /**
-     * Constructor.
-     *
-     * @param message Message.
-     * @param cause   Cause.
-     */
-    public MarshallerException(String message, Throwable cause) {
-        super(message, cause);
+    def versionFileName = "ignite.version.full"
+    def versionFile = file("$buildDir/$versionFileName")
+
+    if (versionFile.exists()) {
+        versionFile.delete()
     }
+
+    doLast {
+        def versionProp = project.property("lastCommitHash")
+
+        versionFile << project.version + "-sha1:" + versionProp
+    }
+
+    outputs.file versionFile
+}
+
+// make  processResources depends on createExtraFilesIndex task
+processResources {
+    from createVersionFile
 }

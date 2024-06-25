@@ -23,7 +23,10 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.BaseIgniteRestartTest.createVault;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_TEST_PROFILE_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.alterZone;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertValueInStorage;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.REBALANCE_SCHEDULER_POOL_SIZE;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager.FEATURE_FLAG_NAME;
 import static org.apache.ignite.internal.sql.SqlCommon.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
@@ -58,6 +61,7 @@ import java.util.function.LongSupplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
+import org.apache.ignite.internal.affinity.Assignments;
 import org.apache.ignite.internal.app.ThreadPoolsManager;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
@@ -163,6 +167,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.Timeout;
@@ -192,8 +197,14 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
     @InjectConfiguration
     private static ClusterManagementConfiguration clusterManagementConfiguration;
 
-    @InjectConfiguration
-    private static NodeAttributesConfiguration nodeAttributes;
+    @InjectConfiguration("mock.nodeAttributes: {region.attribute = US, storage.attribute = SSD}")
+    private static NodeAttributesConfiguration nodeAttributes1;
+
+    @InjectConfiguration("mock.nodeAttributes: {region.attribute = EU, storage.attribute = SSD}")
+    private static NodeAttributesConfiguration nodeAttributes2;
+
+    @InjectConfiguration("mock.nodeAttributes: {region.attribute = UK, storage.attribute = SSD}")
+    private static NodeAttributesConfiguration nodeAttributes3;
 
     @InjectConfiguration
     private ReplicationConfiguration replicationConfiguration;
@@ -239,14 +250,19 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
 
         List<NetworkAddress> nodeAddresses = new ArrayList<>();
 
+        List<NodeAttributesConfiguration> nodeAttributesConfigurations = new ArrayList<>();
+        nodeAttributesConfigurations.addAll(List.of(nodeAttributes1, nodeAttributes2, nodeAttributes3));
+
         for (int i = 0; i < NODE_COUNT; i++) {
             nodeAddresses.add(new NetworkAddress(HOST, BASE_PORT + i));
         }
 
         finder = new StaticNodeFinder(nodeAddresses);
 
+        int i = 0;
+
         for (NetworkAddress addr : nodeAddresses) {
-            var node = new Node(testInfo, addr);
+            var node = new Node(testInfo, addr, nodeAttributesConfigurations.get(i++));
 
             nodes.add(node);
 
@@ -304,6 +320,110 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
 
         // Actually we are testing not the fair put value, but the hardcoded one from temporary noop replica listener
         assertEquals(-1, keyValueView.get(null, 1L));
+    }
+
+    @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22410")
+    void testAlterReplicaTrigger() throws Exception {
+        Assignment replicaAssignment = (Assignment) AffinityUtils.calculateAssignmentForPartition(
+                nodes.stream().map(n -> n.name).collect(Collectors.toList()), 0, 1).toArray()[0];
+
+        Node node = getNode(replicaAssignment.consistentId());
+
+        placementDriver.setPrimary(node.clusterService.topologyService().localMember());
+
+        createZone(node, "test_zone", 2, 3);
+
+        int zoneId = DistributionZonesTestUtil.getZoneId(node.catalogManager, "test_zone", node.hybridClock.nowLong());
+
+        createTable(node, "test_zone", "test_table");
+
+        MetaStorageManager metaStorageManager = node.metaStorageManager;
+
+        ZonePartitionId partId = new ZonePartitionId(zoneId, 0);
+
+        assertValueInStorage(
+                metaStorageManager,
+                stablePartAssignmentsKey(partId),
+                (v) -> Assignments.fromBytes(v).nodes()
+                        .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
+                nodes.stream().map(n -> n.name).collect(Collectors.toSet()),
+                10_000L
+        );
+
+        CatalogManager catalogManager = node.catalogManager;
+
+        alterZone(catalogManager, "test_zone", 2);
+
+        assertValueInStorage(
+                metaStorageManager,
+                stablePartAssignmentsKey(partId),
+                (v) -> Assignments.fromBytes(v).nodes()
+                        .stream().map(Assignment::consistentId).collect(Collectors.toSet()).size(),
+                2,
+                10_000L * 2
+        );
+
+        assertValueInStorage(
+                metaStorageManager,
+                stablePartAssignmentsKey(partId),
+                (v) -> Assignments.fromBytes(v).nodes().contains(replicaAssignment),
+                true,
+                10_000L * 2
+        );
+    }
+
+    @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22410")
+    void testAlterFilterTrigger() throws Exception {
+        Assignment replicaAssignment = (Assignment) AffinityUtils.calculateAssignmentForPartition(
+                nodes.stream().map(n -> n.name).collect(Collectors.toList()), 0, 1).toArray()[0];
+
+        Node node = getNode(replicaAssignment.consistentId());
+
+        placementDriver.setPrimary(node.clusterService.topologyService().localMember());
+
+        createZone(node, "test_zone", 2, 3);
+
+        int zoneId = DistributionZonesTestUtil.getZoneId(node.catalogManager, "test_zone", node.hybridClock.nowLong());
+
+        createTable(node, "test_zone", "test_table");
+
+        MetaStorageManager metaStorageManager = node.metaStorageManager;
+
+        ZonePartitionId partId = new ZonePartitionId(zoneId, 0);
+
+        assertValueInStorage(
+                metaStorageManager,
+                stablePartAssignmentsKey(partId),
+                (v) -> Assignments.fromBytes(v).nodes()
+                        .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
+                nodes.stream().map(n -> n.name).collect(Collectors.toSet()),
+                10_000L
+        );
+
+        CatalogManager catalogManager = node.catalogManager;
+
+        String newFilter = "$[?(@.region == \"US\" && @.storage == \"SSD\")]";
+
+        alterZone(catalogManager, "test_zone", null, null, newFilter);
+
+        assertValueInStorage(
+                metaStorageManager,
+                stablePartAssignmentsKey(partId),
+                (v) -> Assignments.fromBytes(v).nodes()
+                        .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
+                Set.of(nodes.get(0).name),
+                10_000L * 2
+        );
+
+        assertValueInStorage(
+                metaStorageManager,
+                stablePartAssignmentsKey(partId),
+                (v) -> Assignments.fromBytes(v).nodes().contains(replicaAssignment),
+                true,
+                10_000L * 2
+        );
     }
 
     private Node getNode(int nodeIndex) {
@@ -423,7 +543,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
         /**
          * Constructor that simply creates a subset of components of this node.
          */
-        Node(TestInfo testInfo, NetworkAddress addr) {
+        Node(TestInfo testInfo, NetworkAddress addr, NodeAttributesConfiguration nodeAttributes) {
             networkAddress = addr;
 
             name = testNodeName(testInfo, addr.port());
@@ -435,7 +555,8 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
             nodeCfgGenerator = new ConfigurationTreeGenerator(
                     List.of(
                             NetworkConfiguration.KEY,
-                            StorageConfiguration.KEY),
+                            StorageConfiguration.KEY
+                    ),
                     List.of(
                             PersistentPageMemoryStorageEngineExtensionConfigurationSchema.class,
                             VolatilePageMemoryStorageEngineExtensionConfigurationSchema.class
