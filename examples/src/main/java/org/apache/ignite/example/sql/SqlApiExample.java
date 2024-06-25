@@ -57,22 +57,18 @@ public class SqlApiExample {
             //
             //--------------------------------------------------------------------------------------
 
-            client.sql().execute(
-                    null,
+            client.sql().executeScript(
                     "CREATE TABLE CITIES ("
                             + "ID   INT PRIMARY KEY,"
-                            + "NAME VARCHAR)"
-            ).close(); // Ignore result.
+                            + "NAME VARCHAR);"
 
-            client.sql().execute(
-                    null,
-                    "CREATE TABLE ACCOUNTS ("
+                            + "CREATE TABLE ACCOUNTS ("
                             + "    ACCOUNT_ID INT PRIMARY KEY,"
                             + "    CITY_ID    INT,"
                             + "    FIRST_NAME VARCHAR,"
                             + "    LAST_NAME  VARCHAR,"
                             + "    BALANCE    DOUBLE)"
-            ).close();
+            );
 
             //--------------------------------------------------------------------------------------
             //
@@ -110,8 +106,8 @@ public class SqlApiExample {
                             "INSERT INTO ACCOUNTS (ACCOUNT_ID, CITY_ID, FIRST_NAME, LAST_NAME, BALANCE) values (?, ?, ?, ?, ?)",
                             BatchedArguments.of(1, 1, "John", "Doe", 1000.0d)
                                     .add(2, 1, "Jane", "Roe", 2000.0d)
-                                    .add(3, 1, "Mary", "Major", 1500.0d)
-                                    .add(4, 1, "Richard", "Miles", 1450.0d)))
+                                    .add(3, 2, "Mary", "Major", 1500.0d)
+                                    .add(4, 3, "Richard", "Miles", 1450.0d)))
                     .sum();
 
             System.out.println("\nAdded accounts: " + rowsAdded);
@@ -131,9 +127,9 @@ public class SqlApiExample {
                     SqlRow row = rs.next();
 
                     System.out.println("    "
+                            + row.stringValue(0) + ", "
                             + row.stringValue(1) + ", "
-                            + row.stringValue(2) + ", "
-                            + row.stringValue(3));
+                            + row.stringValue(2));
                 }
             }
 
@@ -199,8 +195,10 @@ public class SqlApiExample {
 
             System.out.println("\nDropping the tables...");
 
-            client.sql().execute(null, "DROP TABLE ACCOUNTS").close();
-            client.sql().execute(null, "DROP TABLE CITIES").close();
+            client.sql().executeScript(
+                    "DROP TABLE ACCOUNTS;"
+                    + "DROP TABLE CITIES"
+            );
         }
     }
 
@@ -216,9 +214,9 @@ public class SqlApiExample {
         //
         for (var row : resultSet.currentPage()) {
             System.out.println("    "
+                    + row.stringValue(0) + ", "
                     + row.stringValue(1) + ", "
-                    + row.stringValue(2) + ", "
-                    + row.stringValue(3));
+                    + row.stringValue(2));
         }
 
         //
