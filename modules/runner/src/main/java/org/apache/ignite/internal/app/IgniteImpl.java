@@ -1275,7 +1275,7 @@ public class IgniteImpl implements Ignite {
     public CompletableFuture<Void> stopAsync() {
         ExecutorService lifecycleExecutor = stopExecutor();
 
-        //TODO https://issues.apache.org/jira/browse/IGNITE-22570
+        // TODO https://issues.apache.org/jira/browse/IGNITE-22570
         return lifecycleManager.stopNode(new ComponentContext(lifecycleExecutor))
                 .whenCompleteAsync((unused, throwable) -> restAddressReporter.removeReport())
                 // Moving to the common pool on purpose to close the stop pool and proceed user's code in the common pool.
