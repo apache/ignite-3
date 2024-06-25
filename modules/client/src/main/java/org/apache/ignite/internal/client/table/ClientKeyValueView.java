@@ -710,7 +710,7 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
                 receiver.units(),
                 receiver.receiverClassName(),
                 receiverArgs,
-                new ByteArrayMarshaler<>() {}
+                ByteArrayMarshaler.create()
         );
     }
 

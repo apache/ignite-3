@@ -60,7 +60,7 @@ public interface MapReduceTask<T, R> {
      * @return Input marshaller.
      */
     default Marshaler<T, byte[]> inputMarshaler() {
-        return new ByteArrayMarshaler<>() {};
+        return ByteArrayMarshaler.create();
     }
 
     /**
@@ -69,6 +69,6 @@ public interface MapReduceTask<T, R> {
      * @return Result marshaller.
      */
     default Marshaler<R, byte[]> resultMarshaler() {
-        return new ByteArrayMarshaler<>() {};
+        return ByteArrayMarshaler.create();
     }
 }

@@ -108,6 +108,15 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
         if (target instanceof AnyNodeJobTarget) {
             Set<ClusterNode> nodes = ((AnyNodeJobTarget) target).nodes();
 
+            if (nodes.size() == 1) {
+                ClusterNode node = nodes.iterator().next();
+                if (node.id().equals(topologyService.localMember().id())) {
+                    return executeAsyncWithFailover(
+                            nodes, descriptor.units(), descriptor.jobClassName(), descriptor.options(), args
+                    );
+                }
+            }
+
             return executeAsyncWithFailover(
                     nodes, descriptor.units(), descriptor.jobClassName(), descriptor.options(), argumentMarshaler.marshal(args)
             );

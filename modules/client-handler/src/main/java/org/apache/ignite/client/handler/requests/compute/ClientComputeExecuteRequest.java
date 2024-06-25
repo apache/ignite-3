@@ -100,8 +100,7 @@ public class ClientComputeExecuteRequest {
         return execution.resultAsync().whenComplete((val, err) ->
                 execution.stateAsync().whenComplete((state, errState) ->
                         notificationSender.sendNotification(w -> {
-                            w.packObjectAsBinaryTuple(val, new ByteArrayMarshaler<>() {
-                            });
+                            w.packObjectAsBinaryTuple(val, ByteArrayMarshaler.create());
                             packJobState(w, state);
                         }, err)));
     }

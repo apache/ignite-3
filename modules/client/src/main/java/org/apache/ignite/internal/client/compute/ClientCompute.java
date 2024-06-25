@@ -228,7 +228,7 @@ public class ClientCompute implements IgniteCompute {
         Objects.requireNonNull(units);
         Objects.requireNonNull(taskClassName);
 
-        return new ClientTaskExecution<>(ch, doExecuteMapReduceAsync(units, taskClassName, args, new ByteArrayMarshaler<>(){}));
+        return new ClientTaskExecution<>(ch, doExecuteMapReduceAsync(units, taskClassName, args, ByteArrayMarshaler.create()));
     }
 
     @Override

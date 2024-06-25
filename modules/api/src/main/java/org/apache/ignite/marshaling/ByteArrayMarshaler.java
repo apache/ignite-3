@@ -27,6 +27,11 @@ import org.jetbrains.annotations.Nullable;
  * <p>The default implementation of the marshal method is plain java serialization.
  */
 public interface ByteArrayMarshaler<T> extends Marshaler<T, byte[]> {
+
+    static <T> ByteArrayMarshaler<T> create() {
+        return new ByteArrayMarshaler<>() {};
+    }
+
     @Override
     default byte @Nullable [] marshal(@Nullable T object) {
         if (object == null) {

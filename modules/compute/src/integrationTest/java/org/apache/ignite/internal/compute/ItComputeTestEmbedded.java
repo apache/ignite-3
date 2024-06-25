@@ -65,6 +65,7 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Table;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -125,6 +126,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22577")
     void cancelsJobRemotely() {
         IgniteImpl entryNode = node(0);
 
@@ -151,6 +153,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22577")
     void changeExecutingJobPriorityRemotely() {
         IgniteImpl entryNode = node(0);
 

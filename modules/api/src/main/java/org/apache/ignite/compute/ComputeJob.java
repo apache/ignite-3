@@ -50,7 +50,7 @@ public interface ComputeJob<T, R> {
      * @return Input marshaler.
      */
     default Marshaler<T, byte[]> inputMarshaler() {
-        return new ByteArrayMarshaler<>() {};
+        return ByteArrayMarshaler.create();
     }
 
     /**
@@ -59,6 +59,6 @@ public interface ComputeJob<T, R> {
      * @return Result marshaler.
      */
     default Marshaler<R, byte[]> resultMarshaler() {
-        return new ByteArrayMarshaler<>() {};
+        return ByteArrayMarshaler.create();
     }
 }
