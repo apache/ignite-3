@@ -1,0 +1,4 @@
+# these pip packages are necessary for the pyignite3 to run
+
+attrs==23.1.0
+contextvars==2.4
