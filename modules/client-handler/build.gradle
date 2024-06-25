@@ -90,6 +90,7 @@ dependencies {
     testFixturesImplementation project(':ignite-placement-driver-api')
     testFixturesImplementation project(':ignite-catalog')
     testFixturesImplementation project(':ignite-security-api')
+    testFixturesImplementation project(':ignite-affinity')
     testFixturesImplementation libs.mockito.junit
 }
 

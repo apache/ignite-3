@@ -26,6 +26,7 @@ import java.util.TreeSet;
 import org.apache.ignite.internal.marshaller.FieldAccessor.IdentityAccessor;
 import org.apache.ignite.internal.util.Factory;
 import org.apache.ignite.internal.util.ObjectFactory;
+import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.table.mapper.OneColumnMapper;
 import org.apache.ignite.table.mapper.PojoMapper;

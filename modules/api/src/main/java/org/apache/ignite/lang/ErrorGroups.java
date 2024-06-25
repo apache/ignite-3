@@ -139,6 +139,9 @@ public class ErrorGroups {
         /** Resource closing error. */
         public static final int RESOURCE_CLOSING_ERR = COMMON_ERR_GROUP.registerErrorCode((short) 7);
 
+        /** Can't marshal/unmarshal a user object. */
+        public static final int USER_OBJECT_SERIALIZATION_ERR = COMMON_ERR_GROUP.registerErrorCode((short) 9);
+
         /**
          * This error code represents an internal error caused by faulty logic or coding in the Ignite codebase. In general, this error code
          * should be considered as a non-recoverable error

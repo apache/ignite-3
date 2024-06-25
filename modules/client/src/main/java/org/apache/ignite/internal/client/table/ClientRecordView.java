@@ -34,7 +34,6 @@ import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.TuplePart;
 import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.internal.marshaller.Marshaller;
-import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.internal.marshaller.TupleReader;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.table.criteria.SqlRowProjection;
@@ -458,12 +457,6 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
         String[] cols = columnNames(schema.columns());
         Marshaller marsh = schema.getMarshaller(ser.mapper(), TuplePart.KEY_AND_VAL, true);
 
-        return (row) -> {
-            try {
-                return (R) marsh.readObject(new TupleReader(new SqlRowProjection(row, meta, cols)), null);
-            } catch (MarshallerException e) {
-                throw new org.apache.ignite.lang.MarshallerException(e);
-            }
-        };
+        return (row) -> (R) marsh.readObject(new TupleReader(new SqlRowProjection(row, meta, cols)), null);
     }
 }

@@ -68,6 +68,7 @@ enum class code : underlying_t {
     NODE_LEFT = 0x10005,
     CURSOR_ALREADY_CLOSED = 0x10006,
     RESOURCE_CLOSING = 0x10007,
+    USER_OBJECT_SERIALIZATION = 0x10009,
     INTERNAL = 0x1ffff,
 
     // Table group. Group code: 2
