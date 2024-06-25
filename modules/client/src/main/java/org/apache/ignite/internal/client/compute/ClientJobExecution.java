@@ -53,7 +53,7 @@ class ClientJobExecution<R> implements JobExecution<R> {
     ClientJobExecution(ReliableChannel ch, CompletableFuture<SubmitResult> reqFuture, Marshaler<R, byte[]> marshaler) {
         this.ch = ch;
 
-        this.jobIdFuture = reqFuture.thenApply(SubmitResult::jobId);
+        jobIdFuture = reqFuture.thenApply(SubmitResult::jobId);
 
         resultAsync = reqFuture
                 .thenCompose(SubmitResult::notificationFuture)
