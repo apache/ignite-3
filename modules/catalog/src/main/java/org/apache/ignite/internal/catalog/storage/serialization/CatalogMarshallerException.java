@@ -15,30 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.marshaller;
+package org.apache.ignite.internal.catalog.storage.serialization;
 
-import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.lang.ErrorGroups.Common;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Exception that is thrown during object marshal/unmarshal.
+ * This exception is caused by a failure to marshall or unmarshall catalog event.
+ *  The failure can be due to compatibility reason or any other unrecoverable error.
  */
-public class MarshallerException extends IgniteInternalCheckedException {
-    /**
-     * Constructor.
-     *
-     * @param cause Cause.
-     */
-    public MarshallerException(Throwable cause) {
-        super(cause);
-    }
+public class CatalogMarshallerException extends IgniteInternalException {
+    private static final long serialVersionUID = 3401185592041257347L;
 
-    /**
-     * Constructor.
-     *
-     * @param message Message.
-     * @param cause   Cause.
-     */
-    public MarshallerException(String message, Throwable cause) {
-        super(message, cause);
+    CatalogMarshallerException(@Nullable Throwable cause) {
+        super(Common.INTERNAL_ERR, cause);
     }
 }
