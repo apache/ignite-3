@@ -699,6 +699,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
         // Each statement in a batch is executed separately, and timeout is applied to each statement.
         {
             int timeoutMillis = ThreadLocalRandom.current().nextInt(1, 5);
+            PreparedStatement pstmt = conn.prepareStatement("UPDATE Person SET age = ? WHERE id = ?F");
             igniteStmt.timeout(timeoutMillis);
 
             for (int persIdx = 200; persIdx < 300; ++persIdx) {
@@ -747,10 +748,8 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
         {
             igniteStmt.timeout(1);
 
-            for (int persIdx = 200; persIdx < 300; ++persIdx) {
-                String stmt = "insert into Person (id, firstName, lastName, age) values " + generateValues(persIdx, 1);
-                igniteStmt.addBatch(stmt);
-            }
+            String stmt = "insert into Person (id, firstName, lastName, age) values " + generateValues(200, 100);
+            igniteStmt.addBatch(stmt);
 
             assertThrowsSqlException(SQLException.class,
                     "Query timeout", igniteStmt::executeBatch);
