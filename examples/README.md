@@ -25,26 +25,31 @@ The following examples are included:
 IGNITE_SOURCES=/path/to/ignite3-sources
 ```
 
-3. Start an Ignite node:
+3. Build the Ignite Docker image. As a result the `apacheignite/ignite3` image will be built and loaded into the Docker Engine:
+```shell
+cd $IGNITE_SOURCES; ./gradlew clean docker
+```
+
+4. Start an Ignite node:
 ```shell
 docker run --name ignite3-node -d --rm -p 10300:10300 -p 10800:10800 \
   -v $IGNITE_SOURCES/examples/config/ignite-config.conf:/opt/ignite/etc/ignite-config.conf apacheignite/ignite3
 ```
 
-4. Get the IP address of the node:
+5. Get the IP address of the node:
 ```shell
 NODE_IP_ADDRESS=$(docker inspect --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' ignite3-node)
 ```
 
-5. Initialize the node:
+6. Initialize the node:
 ```shell
 docker run -it apacheignite/ignite3 cli cluster init --url http://$NODE_IP_ADDRESS:10300 --name myCluster1 \
   --cluster-management-group defaultNode --metastorage-group defaultNode
 ```
 
-6. Run the example via IDE.
+7. Run the example via IDE.
 
-7. Stop the Ignite node:
+8. Stop the Ignite node:
 ```shell
 docker stop ignite3-node
 ```
