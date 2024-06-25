@@ -19,18 +19,15 @@ package org.apache.ignite.internal.sql.engine.prepare;
 
 import static java.util.Objects.requireNonNull;
 import static org.apache.calcite.sql.type.SqlTypeName.INTEGER;
-import static org.apache.calcite.sql.type.SqlTypeName.INT_TYPES;
 import static org.apache.calcite.sql.type.SqlTypeUtil.isNull;
 import static org.apache.calcite.util.Static.RESOURCE;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_PARSE_ERR;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectArrayMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.IntArraySet;
 import it.unimi.dsi.fastutil.ints.IntSet;
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.AbstractList;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -41,7 +38,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
-import java.util.regex.Pattern;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.prepare.CalciteCatalogReader;
 import org.apache.calcite.prepare.Prepare;
@@ -73,9 +69,7 @@ import org.apache.calcite.sql.dialect.CalciteSqlDialect;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.SqlTypeName;
-import org.apache.calcite.sql.type.SqlTypeName.Limit;
 import org.apache.calcite.sql.type.SqlTypeUtil;
-import org.apache.calcite.sql.util.SqlBasicVisitor;
 import org.apache.calcite.sql.util.SqlShuttle;
 import org.apache.calcite.sql.validate.SelectScope;
 import org.apache.calcite.sql.validate.SqlValidator;
@@ -84,7 +78,6 @@ import org.apache.calcite.sql.validate.SqlValidatorNamespace;
 import org.apache.calcite.sql.validate.SqlValidatorScope;
 import org.apache.calcite.sql.validate.SqlValidatorTable;
 import org.apache.calcite.sql.validate.SqlValidatorUtil;
-import org.apache.calcite.util.Util;
 import org.apache.ignite.internal.sql.engine.schema.IgniteDataSource;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSystemView;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
@@ -95,7 +88,6 @@ import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.IgniteResource;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
-import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
 /** Validator. */
@@ -108,9 +100,6 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     private static final Set<SqlKind> HUMAN_READABLE_ALIASES_FOR;
 
     public static final String NUMERIC_FIELD_OVERFLOW_ERROR = "Numeric field overflow";
-
-    // Approximate and exact numeric types.
-    private static final Pattern NUMERIC = Pattern.compile("^\\s*\\d+(\\.{1}\\d*)\\s*$");
 
     static {
         EnumSet<SqlKind> kinds = EnumSet.noneOf(SqlKind.class);
@@ -137,9 +126,6 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
      * We store them to check that every i-th parameter has the same type.
      */
     private final IdentityHashMap<SqlDynamicParam, SqlDynamicParam> dynamicParamNodes = new IdentityHashMap<>();
-
-    /** Literal processing. */
-    private final LiteralExtractor litExtractor = new LiteralExtractor();
 
     /**
      * Creates a validator.
@@ -676,71 +662,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
                     String typeName = returnType.getSqlTypeName().getSpaceName();
                     throw newValidationError(expr, IgniteResource.INSTANCE.invalidStringLength(typeName));
                 }
-
-                literalCanFitType(expr, returnType);
             }
-        }
-    }
-
-    /** Check literal can fit to declared exact numeric type, work only for single literal. */
-    private void literalCanFitType(SqlNode expr, RelDataType toType) {
-        if (INT_TYPES.contains(toType.getSqlTypeName())) {
-            SqlLiteral literal = litExtractor.getLiteral(expr);
-
-            if (literal == null || literal.toValue() == null) {
-                return;
-            }
-
-            int precision = toType.getSqlTypeName().allowsPrec() ? toType.getPrecision() : -1;
-            int scale = toType.getSqlTypeName().allowsScale() ? toType.getScale() : -1;
-
-            BigDecimal max = (BigDecimal) toType.getSqlTypeName().getLimit(true, Limit.OVERFLOW, false, precision, scale);
-            BigDecimal min = (BigDecimal) toType.getSqlTypeName().getLimit(false, Limit.OVERFLOW, false, precision, scale);
-
-            String litValue = requireNonNull(literal.toValue());
-
-            BigDecimal litValueToDecimal = null;
-
-            try {
-                litValueToDecimal = new BigDecimal(litValue).setScale(0, RoundingMode.HALF_UP);
-            } catch (NumberFormatException e) {
-                if (!NUMERIC.matcher(litValue).matches()) {
-                    throw new SqlException(STMT_PARSE_ERR, e);
-                }
-            }
-
-            if (max.compareTo(litValueToDecimal) < 0 || min.compareTo(litValueToDecimal) > 0) {
-                throw new SqlException(STMT_PARSE_ERR, "Value '" + litValue + "'"
-                        + " out of range for type " + toType.getSqlTypeName());
-            }
-        }
-    }
-
-    private static class LiteralExtractor extends SqlBasicVisitor<SqlNode> {
-        private @Nullable SqlLiteral extracted;
-
-        private @Nullable SqlLiteral getLiteral(SqlNode expr) {
-            extracted = null;
-            try {
-                expr.accept(this);
-            } catch (Util.FoundOne e) {
-                Util.swallow(e, null);
-            }
-            return extracted;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public SqlNode visit(SqlLiteral literal) {
-            extracted = extracted != null ? null : literal;
-            return literal;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public SqlNode visit(SqlDynamicParam param) {
-            extracted = null;
-            throw Util.FoundOne.NULL;
         }
     }
 

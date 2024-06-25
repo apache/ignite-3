@@ -150,8 +150,17 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
                 + Integer.MAX_VALUE + ", " + Long.MAX_VALUE + ')');
 
         assertQuery("SELECT tiny FROM tbl").returns(Byte.MAX_VALUE).check();
+        assertQuery(format("SELECT tiny FROM tbl WHERE tiny < {}", 2 * Byte.MAX_VALUE)).returns(Byte.MAX_VALUE).check();
+        assertQuery(format("SELECT tiny FROM tbl WHERE tiny < '{}'::INTEGER", 2 * Byte.MAX_VALUE)).returns(Byte.MAX_VALUE).check();
+
         assertQuery("SELECT small FROM tbl").returns(Short.MAX_VALUE).check();
+        assertQuery(format("SELECT small FROM tbl WHERE small < {}", 2 * Short.MAX_VALUE)).returns(Short.MAX_VALUE).check();
+        assertQuery(format("SELECT small FROM tbl WHERE small < '{}'::INTEGER", 2 * Short.MAX_VALUE)).returns(Short.MAX_VALUE).check();
+
         assertQuery("SELECT i FROM tbl").returns(Integer.MAX_VALUE).check();
+        assertQuery(format("SELECT i FROM tbl WHERE i < {}", 2L * Integer.MAX_VALUE)).returns(Integer.MAX_VALUE).check();
+        assertQuery(format("SELECT i FROM tbl WHERE i < '{}'::BIGINT", 2L * Integer.MAX_VALUE)).returns(Integer.MAX_VALUE).check();
+
         assertQuery("SELECT big FROM tbl").returns(Long.MAX_VALUE).check();
 
         sql("DELETE from tbl");
@@ -160,8 +169,17 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
                 + Integer.MIN_VALUE + ", " + Long.MIN_VALUE + ')');
 
         assertQuery("SELECT tiny FROM tbl").returns(Byte.MIN_VALUE).check();
+        assertQuery(format("SELECT tiny FROM tbl WHERE tiny > {}", 2 * Byte.MIN_VALUE)).returns(Byte.MIN_VALUE).check();
+        assertQuery(format("SELECT tiny FROM tbl WHERE tiny > '{}'::INTEGER", 2 * Byte.MIN_VALUE)).returns(Byte.MIN_VALUE).check();
+
         assertQuery("SELECT small FROM tbl").returns(Short.MIN_VALUE).check();
+        assertQuery(format("SELECT small FROM tbl WHERE small > {}", 2 * Short.MIN_VALUE)).returns(Short.MIN_VALUE).check();
+        assertQuery(format("SELECT small FROM tbl WHERE small > '{}'::INTEGER", 2 * Short.MIN_VALUE)).returns(Short.MIN_VALUE).check();
+
         assertQuery("SELECT i FROM tbl").returns(Integer.MIN_VALUE).check();
+        assertQuery(format("SELECT i FROM tbl WHERE i > {}", 2L * Integer.MIN_VALUE)).returns(Integer.MIN_VALUE).check();
+        assertQuery(format("SELECT i FROM tbl WHERE i > '{}'::BIGINT", 2L * Integer.MIN_VALUE)).returns(Integer.MIN_VALUE).check();
+
         assertQuery("SELECT big FROM tbl").returns(Long.MIN_VALUE).check();
     }
 
@@ -453,6 +471,7 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
         return Stream.of(
                 // BIGINT
                 arguments(SqlTypeName.BIGINT, "SELECT 9223372036854775807 + 1", EMPTY_PARAM),
+                arguments(SqlTypeName.BIGINT, "SELECT CAST(9223372036854775807.5 AS BIGINT)", EMPTY_PARAM),
                 arguments(SqlTypeName.BIGINT, "SELECT 9223372036854775807 * 2", EMPTY_PARAM),
                 arguments(SqlTypeName.BIGINT, "SELECT -9223372036854775808 - 1", EMPTY_PARAM),
                 arguments(SqlTypeName.BIGINT, "SELECT -(-9223372036854775807 - 1)", EMPTY_PARAM),
@@ -462,6 +481,7 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
 
                 // INTEGER
                 arguments(SqlTypeName.INTEGER, "SELECT 2147483647 + 1", EMPTY_PARAM),
+                arguments(SqlTypeName.INTEGER, "SELECT CAST(CAST(2147483648 AS BIGINT) AS INTEGER)", EMPTY_PARAM),
                 arguments(SqlTypeName.INTEGER, "SELECT 2147483647 * 2", EMPTY_PARAM),
                 arguments(SqlTypeName.INTEGER, "SELECT -2147483648 - 1", EMPTY_PARAM),
                 arguments(SqlTypeName.INTEGER, "SELECT -(-2147483647 - 1)", EMPTY_PARAM),
@@ -471,6 +491,9 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
 
                 // SMALLINT
                 arguments(SqlTypeName.SMALLINT, "SELECT 32000::SMALLINT + 1000::SMALLINT", EMPTY_PARAM),
+                arguments(SqlTypeName.SMALLINT, "SELECT CAST(CAST(33000 AS BIGINT) AS SMALLINT)", EMPTY_PARAM),
+                arguments(SqlTypeName.SMALLINT, "SELECT CAST(CAST(33000 AS FLOAT) AS SMALLINT)", EMPTY_PARAM),
+                arguments(SqlTypeName.SMALLINT, "SELECT CAST(CAST(33000 + 1 AS FLOAT) AS SMALLINT)", EMPTY_PARAM),
                 arguments(SqlTypeName.SMALLINT, "SELECT 17000::SMALLINT * 2::SMALLINT", EMPTY_PARAM),
                 arguments(SqlTypeName.SMALLINT, "SELECT -32000::SMALLINT - 1000::SMALLINT", EMPTY_PARAM),
                 arguments(SqlTypeName.SMALLINT, "SELECT -(-32767::SMALLINT - 1::SMALLINT)", EMPTY_PARAM),
@@ -480,23 +503,87 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
 
                 // TINYINT
                 arguments(SqlTypeName.TINYINT, "SELECT 2::TINYINT + 127::TINYINT", EMPTY_PARAM),
+                arguments(SqlTypeName.TINYINT, "SELECT CAST(CAST(200 AS BIGINT) AS TINYINT)", EMPTY_PARAM),
+                arguments(SqlTypeName.TINYINT, "SELECT CAST(CAST(200 AS FLOAT) AS TINYINT)", EMPTY_PARAM),
+                arguments(SqlTypeName.TINYINT, "SELECT CAST(CAST(200 + 1 AS FLOAT) AS TINYINT)", EMPTY_PARAM),
                 arguments(SqlTypeName.TINYINT, "SELECT 2::TINYINT * 127::TINYINT", EMPTY_PARAM),
                 arguments(SqlTypeName.TINYINT, "SELECT -2::TINYINT - 127::TINYINT", EMPTY_PARAM),
                 arguments(SqlTypeName.TINYINT, "SELECT -(-127::TINYINT - 1::TINYINT)", EMPTY_PARAM),
                 arguments(SqlTypeName.TINYINT, "SELECT -CAST(-128 AS TINYINT)", EMPTY_PARAM),
                 arguments(SqlTypeName.TINYINT, "SELECT -CAST(? AS TINYINT)", -128),
-                arguments(SqlTypeName.TINYINT, "SELECT CAST(-128 AS TINYINT)/-1::TINYINT", EMPTY_PARAM)
+                arguments(SqlTypeName.TINYINT, "SELECT CAST(-128 AS TINYINT)/-1::TINYINT", EMPTY_PARAM),
+                arguments(SqlTypeName.TINYINT, "SELECT CAST(CAST(200 + 1 AS FLOAT) AS TINYINT)", EMPTY_PARAM)
         );
     }
 
     @ParameterizedTest(name = "{1}")
     @MethodSource("decimalOverflowsValidation")
-    public void testCalcOpOverflowValidationCheck(SqlTypeName type, String expr, Boolean withException) {
+    public void testCastDecimalOverflows(SqlTypeName type, String expr, Boolean withException) {
         if (withException) {
-            assertThrowsSqlException(Sql.STMT_PARSE_ERR, "out of range", () -> sql(expr));
+            assertThrowsSqlException(Sql.RUNTIME_ERR, type + " out of range", () -> sql(expr));
         } else {
             sql(expr);
         }
+    }
+
+    private static Stream<Arguments> decimalOverflowsValidation() {
+        return Stream.of(
+                // BIGINT
+                arguments(SqlTypeName.BIGINT, "SELECT CAST(9223372036854775807.1 AS BIGINT)", false),
+                arguments(SqlTypeName.BIGINT, "SELECT CAST(9223372036854775807.5 - 1 AS BIGINT)", false),
+                arguments(SqlTypeName.BIGINT, "SELECT CAST(-9223372036854775808.1 AS BIGINT)", false),
+                arguments(SqlTypeName.BIGINT, "SELECT CAST(9223372036854775807.5 AS BIGINT)", true),
+                arguments(SqlTypeName.BIGINT, "SELECT CAST(9223372036854775808.1 AS BIGINT)", true),
+                arguments(SqlTypeName.BIGINT, "SELECT CAST(9223372036854775808 AS BIGINT)", true),
+                arguments(SqlTypeName.BIGINT, "SELECT CAST('9223372036854775808' AS BIGINT)", true),
+                arguments(SqlTypeName.BIGINT, "SELECT CAST(-9223372036854775809 AS BIGINT)", true),
+                arguments(SqlTypeName.BIGINT, "SELECT CAST(' -9223372036854775809' AS BIGINT)", true),
+
+
+                // INTEGER
+                arguments(SqlTypeName.INTEGER, "SELECT CAST(2147483647.1 AS INTEGER)", false),
+                arguments(SqlTypeName.INTEGER, "SELECT CAST(2147483647.5 AS INTEGER)", false),
+                arguments(SqlTypeName.INTEGER, "SELECT CAST(2147483647.5 - 1 AS INTEGER)", false),
+                arguments(SqlTypeName.INTEGER, "SELECT CAST(-2147483648.1 AS INTEGER)", false),
+                arguments(SqlTypeName.INTEGER, "SELECT CAST(2147483647 + 1 AS INTEGER)", true),
+                arguments(SqlTypeName.INTEGER, "SELECT CAST(2147483648.1 AS INTEGER)", true),
+                arguments(SqlTypeName.INTEGER, "SELECT CAST(CAST(2147483648.1 AS DOUBLE) AS INTEGER)", true),
+                arguments(SqlTypeName.INTEGER, "SELECT CAST(CAST(2147483648.1 AS FLOAT) AS INTEGER)", true),
+                arguments(SqlTypeName.INTEGER, "SELECT CAST(2147483648 AS INTEGER)", true),
+                arguments(SqlTypeName.INTEGER, "SELECT CAST('2147483648' AS INTEGER)", true),
+                arguments(SqlTypeName.INTEGER, "SELECT CAST(-2147483649 AS INTEGER)", true),
+                arguments(SqlTypeName.INTEGER, "SELECT CAST(' -2147483649' AS INTEGER)", true),
+
+
+                // SMALLINT
+                arguments(SqlTypeName.SMALLINT, "SELECT CAST(32767.1 AS SMALLINT)", false),
+                arguments(SqlTypeName.SMALLINT, "SELECT CAST(32767.5 AS SMALLINT)", false),
+                arguments(SqlTypeName.SMALLINT, "SELECT CAST(32767.5 - 1 AS SMALLINT)", false),
+                arguments(SqlTypeName.SMALLINT, "SELECT CAST(-32768.1 AS SMALLINT)", false),
+                arguments(SqlTypeName.SMALLINT, "SELECT CAST(32767 + 1 AS SMALLINT)", true),
+                arguments(SqlTypeName.SMALLINT, "SELECT CAST(32768.1 AS SMALLINT)", true),
+                arguments(SqlTypeName.SMALLINT, "SELECT CAST(CAST(32768 AS DOUBLE) AS SMALLINT)", true),
+                arguments(SqlTypeName.SMALLINT, "SELECT CAST(CAST(32768 AS FLOAT) AS SMALLINT)", true),
+                arguments(SqlTypeName.SMALLINT, "SELECT CAST(32768 AS SMALLINT)", true),
+                arguments(SqlTypeName.SMALLINT, "SELECT CAST('32768' AS SMALLINT)", true),
+                arguments(SqlTypeName.SMALLINT, "SELECT CAST(-32769 AS SMALLINT)", true),
+                arguments(SqlTypeName.SMALLINT, "SELECT CAST(' -32769' AS SMALLINT)", true),
+
+
+                // TINYINT
+                arguments(SqlTypeName.TINYINT, "SELECT CAST(127.1 AS TINYINT)", false),
+                arguments(SqlTypeName.TINYINT, "SELECT CAST(127.5 AS TINYINT)", false),
+                arguments(SqlTypeName.TINYINT, "SELECT CAST(127.5 - 1 AS TINYINT)", false),
+                arguments(SqlTypeName.TINYINT, "SELECT CAST(-128.1 AS TINYINT)", false),
+                arguments(SqlTypeName.TINYINT, "SELECT CAST(127 + 1 AS TINYINT)", true),
+                arguments(SqlTypeName.TINYINT, "SELECT CAST(128.1 AS TINYINT)", true),
+                arguments(SqlTypeName.TINYINT, "SELECT CAST(CAST(128 AS DOUBLE) AS TINYINT)", true),
+                arguments(SqlTypeName.TINYINT, "SELECT CAST(CAST(128 AS FLOAT) AS TINYINT)", true),
+                arguments(SqlTypeName.TINYINT, "SELECT CAST(128 AS TINYINT)", true),
+                arguments(SqlTypeName.TINYINT, "SELECT CAST('128' AS TINYINT)", true),
+                arguments(SqlTypeName.TINYINT, "SELECT CAST(-129 AS TINYINT)", true),
+                arguments(SqlTypeName.TINYINT, "SELECT CAST(' -129' AS TINYINT)", true)
+        );
     }
 
     @Test
@@ -650,46 +737,6 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
                 STMT_VALIDATION_ERR,
                 "Length for type VARBINARY must be at least 1",
                 () -> sql("SELECT CAST(x'0101' AS VARBINARY(0))")
-        );
-    }
-
-    private static Stream<Arguments> decimalOverflowsValidation() {
-        return Stream.of(
-                // BIGINT
-                arguments(SqlTypeName.BIGINT, "SELECT CAST(9223372036854775807.1 AS BIGINT)", false),
-                arguments(SqlTypeName.BIGINT, "SELECT CAST(9223372036854775807.5 AS BIGINT)", true),
-                arguments(SqlTypeName.BIGINT, "SELECT CAST(9223372036854775807.5 - 1 AS BIGINT)", false),
-                arguments(SqlTypeName.BIGINT, "SELECT CAST(9223372036854775808.1 AS BIGINT)", true),
-                arguments(SqlTypeName.BIGINT, "SELECT CAST(9223372036854775808 AS BIGINT)", true),
-                arguments(SqlTypeName.BIGINT, "SELECT CAST(-9223372036854775809 AS BIGINT)", true),
-                arguments(SqlTypeName.BIGINT, "SELECT CAST(-9223372036854775808.1 AS BIGINT)", false),
-
-                // INTEGER
-                arguments(SqlTypeName.INTEGER, "SELECT CAST(2147483647.1 AS INTEGER)", false),
-                arguments(SqlTypeName.INTEGER, "SELECT CAST(2147483647.5 AS INTEGER)", true),
-                arguments(SqlTypeName.INTEGER, "SELECT CAST(2147483647.5 - 1 AS INTEGER)", false),
-                arguments(SqlTypeName.INTEGER, "SELECT CAST(2147483648.1 AS INTEGER)", true),
-                arguments(SqlTypeName.INTEGER, "SELECT CAST(2147483648 AS INTEGER)", true),
-                arguments(SqlTypeName.INTEGER, "SELECT CAST(-2147483649 AS INTEGER)", true),
-                arguments(SqlTypeName.INTEGER, "SELECT CAST(-2147483648.1 AS INTEGER)", false),
-
-                // SMALLINT
-                arguments(SqlTypeName.SMALLINT, "SELECT CAST(32767.1 AS SMALLINT)", false),
-                arguments(SqlTypeName.SMALLINT, "SELECT CAST(32767.5 AS SMALLINT)", true),
-                arguments(SqlTypeName.SMALLINT, "SELECT CAST(32767.5 - 1 AS SMALLINT)", false),
-                arguments(SqlTypeName.SMALLINT, "SELECT CAST(32768.1 AS SMALLINT)", true),
-                arguments(SqlTypeName.SMALLINT, "SELECT CAST(32768 AS SMALLINT)", true),
-                arguments(SqlTypeName.SMALLINT, "SELECT CAST(-32769 AS SMALLINT)", true),
-                arguments(SqlTypeName.SMALLINT, "SELECT CAST(-32768.1 AS SMALLINT)", false),
-
-                // TINYINT
-                arguments(SqlTypeName.TINYINT, "SELECT CAST(127.1 AS TINYINT)", false),
-                arguments(SqlTypeName.TINYINT, "SELECT CAST(127.5 AS TINYINT)", true),
-                arguments(SqlTypeName.TINYINT, "SELECT CAST(127.5 - 1 AS TINYINT)", false),
-                arguments(SqlTypeName.TINYINT, "SELECT CAST(128.1 AS TINYINT)", true),
-                arguments(SqlTypeName.TINYINT, "SELECT CAST(128 AS TINYINT)", true),
-                arguments(SqlTypeName.TINYINT, "SELECT CAST(-129 AS TINYINT)", true),
-                arguments(SqlTypeName.TINYINT, "SELECT CAST(-128.1 AS TINYINT)", false)
         );
     }
 
