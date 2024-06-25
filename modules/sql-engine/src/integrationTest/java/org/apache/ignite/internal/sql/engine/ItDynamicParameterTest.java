@@ -448,7 +448,7 @@ public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
     public void testPrepareTimeout() {
         StringBuilder stmt = new StringBuilder();
 
-        // Generates
+        // Generate a complex query so it takes some to parse and validate.
         // SELECT random-numbers
         // UNION
         // SELECT random-numbers

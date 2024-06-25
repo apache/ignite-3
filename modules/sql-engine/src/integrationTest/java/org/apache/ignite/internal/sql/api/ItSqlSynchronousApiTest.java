@@ -17,26 +17,17 @@
 
 package org.apache.ignite.internal.sql.api;
 
-import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
-import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
-import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.tx.Transaction;
-import org.junit.jupiter.api.AssertionFailureBuilder;
-import org.junit.jupiter.api.Test;
 
 /**
  * Tests for synchronous SQL API.
@@ -139,102 +130,5 @@ public class ItSqlSynchronousApiTest extends ItSqlApiBaseTest {
             affectedRows = resultSet.affectedRows();
             resultSet.forEachRemaining(res::add);
         }
-    }
-
-    @Test
-    public void testEarlyQueryTimeout() {
-        Statement stmt = igniteSql().statementBuilder()
-                .query("SELECT * FROM TABLE(SYSTEM_RANGE(1, 1000000000000000))")
-                .queryTimeout(1, TimeUnit.MILLISECONDS)
-                .build();
-
-        // Do not have enough time to do anything.
-        assertThrowsSqlException(Sql.EXECUTION_CANCELLED_ERR, "Query timeout", () -> {
-            igniteSql().execute(null, stmt);
-        });
-    }
-
-    @Test
-    public void testQueryTimeout() {
-        Statement stmt = igniteSql().statementBuilder()
-                .query("SELECT * FROM TABLE(SYSTEM_RANGE(1, 1000000000000000))")
-                .queryTimeout(100, TimeUnit.MILLISECONDS)
-                .build();
-
-        // Run ignoring any timeout util we get some result.
-        ResultSet<SqlRow> resultSet = runIgnoringExecutionErrors(stmt);
-        assertNotNull(resultSet);
-
-        // Read data until timeout exception occurs.
-        assertThrowsSqlException(Sql.EXECUTION_CANCELLED_ERR, "Query timeout", () -> {
-            while (resultSet.hasNext()) {
-                resultSet.next();
-            }
-        });
-    }
-
-    @Test
-    public void testQueryTimeoutIsPropagatedFromTheServer() throws Exception {
-        Statement stmt = igniteSql().statementBuilder()
-                .query("SELECT * FROM TABLE(SYSTEM_RANGE(1, 1000000000000000))")
-                .queryTimeout(100, TimeUnit.MILLISECONDS)
-                .build();
-
-        // Run ignoring any timeout to get some results.
-        ResultSet<SqlRow> resultSet = runIgnoringExecutionErrors(stmt);
-
-        assertTrue(resultSet.hasNext());
-        assertNotNull(resultSet.next());
-
-        // wait sometime until the time is right for a timeout to occur.
-        // then start retrieving the remaining data to trigger timeout exception.
-        TimeUnit.SECONDS.sleep(2);
-
-        assertThrowsSqlException(Sql.EXECUTION_CANCELLED_ERR, "Query timeout", () -> {
-            while (resultSet.hasNext()) {
-                resultSet.next();
-            }
-        });
-    }
-
-    private ResultSet<SqlRow> runIgnoringExecutionErrors(Statement stmt) {
-
-        SqlException lastError = null;
-
-        for (int i = 0; i < 10; i++) {
-            try {
-                return igniteSql().execute(null, stmt);
-            } catch (SqlException e) {
-                // Ignore all execution cancelled error. We assume that all these errors are transient (timeouts),
-                // and we will eventually get a result set.
-                if (e.code() == Sql.EXECUTION_CANCELLED_ERR) {
-                    lastError = e;
-                    continue;
-                }
-
-                fail(e.getMessage());
-            }
-        }
-
-        throw AssertionFailureBuilder.assertionFailure()
-                .message("Failed to execute the statement without timeouts.")
-                .cause(lastError)
-                .build();
-    }
-
-    @Test
-    public void testDdlTimeout() {
-        IgniteSql igniteSql = igniteSql();
-        int timeoutMillis = 1;
-
-        Statement stmt = igniteSql.statementBuilder()
-                .query("CREATE TABLE test (ID INT PRIMARY KEY, VAL0 INT)")
-                .queryTimeout(timeoutMillis, TimeUnit.MILLISECONDS)
-                .build();
-
-        // Trigger query timeout from the planner or the parser.
-        assertThrowsSqlException(Sql.EXECUTION_CANCELLED_ERR, "Query timeout", () -> {
-            igniteSql.execute(null, stmt);
-        });
     }
 }
