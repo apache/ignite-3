@@ -87,7 +87,7 @@ public class TaskExecutionInternal<T, R> implements JobExecution<R> {
      * @param taskClass Map reduce task class.
      * @param context Task execution context.
      * @param isCancelled Flag which is passed to the execution context so that the task can check it for cancellation request.
-     * @param args Task argument.
+     * @param arg Task argument.
      */
     public TaskExecutionInternal(
             PriorityQueueExecutor executorService,
@@ -95,7 +95,7 @@ public class TaskExecutionInternal<T, R> implements JobExecution<R> {
             Class<? extends MapReduceTask<T, R>> taskClass,
             TaskExecutionContext context,
             AtomicBoolean isCancelled,
-            T args
+            T arg
     ) {
         this.isCancelled = isCancelled;
         LOG.debug("Executing task {}", taskClass.getName());
@@ -103,9 +103,7 @@ public class TaskExecutionInternal<T, R> implements JobExecution<R> {
                 () -> {
                     MapReduceTask<T, R> task = instantiateTask(taskClass);
 
-                    T input = task.inputMarshaler().unmarshal(task.inputMarshaler().marshal(args));
-
-                    return task.splitAsync(context, input)
+                    return task.splitAsync(context, arg)
                             .thenApply(jobs -> new SplitResult<>(task, jobs));
                 },
 

@@ -26,6 +26,7 @@ import org.apache.ignite.compute.JobExecution;
  * Captures the context of a remote job execution. Also provides methods to access the job execution object
  * that is returned to the user. The access is thread safe.
  *
+ * @param <T> type of the input of the job.
  * @param <R> type of the result of the job.
  */
 class RemoteExecutionContext<T, R> {
@@ -36,15 +37,15 @@ class RemoteExecutionContext<T, R> {
 
     private final String jobClassName;
 
-    private final Object args;
+    private final T arg;
 
     private final AtomicReference<FailSafeJobExecution<R>> jobExecution;
 
-    RemoteExecutionContext(List<DeploymentUnit> units, String jobClassName, ExecutionOptions executionOptions, Object args) {
+    RemoteExecutionContext(List<DeploymentUnit> units, String jobClassName, ExecutionOptions executionOptions, T arg) {
         this.executionOptions = executionOptions;
         this.units = units;
         this.jobClassName = jobClassName;
-        this.args = args;
+        this.arg = arg;
         this.jobExecution = new AtomicReference<>(null);
     }
 
@@ -73,7 +74,6 @@ class RemoteExecutionContext<T, R> {
         return jobExecution;
     }
 
-
     /**
      * Updates the state of the job execution object but does not change the link to the object.
      * The context holds exactly one link that is returned to the user and mutates its internal state only.
@@ -96,7 +96,7 @@ class RemoteExecutionContext<T, R> {
         return jobClassName;
     }
 
-    Object args() {
-        return args;
+    T arg() {
+        return arg;
     }
 }
