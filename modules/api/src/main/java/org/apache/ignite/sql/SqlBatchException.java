@@ -20,6 +20,7 @@ package org.apache.ignite.sql;
 import java.util.UUID;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Subclass of {@link SqlException} is thrown when an error occurs during a batch update operation. In addition to the
@@ -41,10 +42,11 @@ public class SqlBatchException extends SqlException {
      * @param traceId Unique identifier of the exception.
      * @param code Full error code.
      * @param updCntrs Array that describes the outcome of a batch execution.
-     * @param cause Non-null throwable cause.
+     * @param message Detailed message.
+     * @param cause Optional cause.
      */
-    public SqlBatchException(UUID traceId, int code, long[] updCntrs, Throwable cause) {
-        super(traceId, code, cause.getMessage(), cause);
+    public SqlBatchException(UUID traceId, int code, long[] updCntrs, String message, @Nullable Throwable cause) {
+        super(traceId, code, message, cause);
 
         this.updCntrs = updCntrs != null ? updCntrs : LONG_EMPTY_ARRAY;
     }
@@ -71,7 +73,7 @@ public class SqlBatchException extends SqlException {
      * @param message Detailed message.
      * @param cause Optional nested exception (can be {@code null}).
      */
-    public SqlBatchException(UUID traceId, int code, String message, Throwable cause) {
+    public SqlBatchException(UUID traceId, int code, String message, @Nullable Throwable cause) {
         super(traceId, code, message, cause);
 
         while ((cause instanceof CompletionException || cause instanceof ExecutionException) && cause.getCause() != null) {
