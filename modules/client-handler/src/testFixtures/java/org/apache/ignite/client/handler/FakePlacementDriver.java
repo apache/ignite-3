@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client.handler;
 
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.ArrayList;
@@ -24,6 +25,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.affinity.TokenizedAssignments;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
@@ -89,7 +91,7 @@ public class FakePlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
         TablePartitionId id = (TablePartitionId) groupId;
 
         return returnError
-                ? CompletableFuture.failedFuture(new RuntimeException("FakePlacementDriver expected error"))
+                ? failedFuture(new RuntimeException("FakePlacementDriver expected error"))
                 : CompletableFuture.completedFuture(primaryReplicas.get(id.partitionId()));
     }
 
@@ -101,6 +103,14 @@ public class FakePlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
     @Override
     public CompletableFuture<Void> previousPrimaryExpired(ReplicationGroupId grpId) {
         return nullCompletedFuture();
+    }
+
+    @Override
+    public CompletableFuture<TokenizedAssignments> getAssignments(
+            ReplicationGroupId replicationGroupId,
+            HybridTimestamp clusterTimeToAwait
+    ) {
+        return failedFuture(new UnsupportedOperationException("getAssignments() is not supported in FakePlacementDriver yet."));
     }
 
     private static ReplicaMeta getReplicaMeta(String leaseholder, long leaseStartTime) {

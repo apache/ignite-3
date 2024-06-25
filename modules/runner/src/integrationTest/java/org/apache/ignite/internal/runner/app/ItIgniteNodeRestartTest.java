@@ -19,7 +19,6 @@ package org.apache.ignite.internal.runner.app;
 
 import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableManager;
@@ -76,7 +75,6 @@ import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.BaseIgniteRestartTest;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.affinity.Assignments;
@@ -143,6 +141,7 @@ import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.recovery.VaultStaleIds;
 import org.apache.ignite.internal.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.internal.network.wrapper.JumpToExecutorByConsistentIdAfterSend;
+import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.placementdriver.PlacementDriverManager;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
@@ -172,7 +171,7 @@ import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.TableManager;
-import org.apache.ignite.internal.table.distributed.TableMessageGroup;
+import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncServiceImpl;
 import org.apache.ignite.internal.table.distributed.schema.ThreadLocalPartitionCommandsMarshaller;
@@ -496,7 +495,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 clusterSvc,
                 cmgManager,
                 clockService,
-                Set.of(TableMessageGroup.class, TxMessageGroup.class),
+                Set.of(PartitionReplicationMessageGroup.class, TxMessageGroup.class),
                 placementDriverManager.placementDriver(),
                 threadPoolsManager.partitionOperationsExecutor(),
                 partitionIdleSafeTimePropagationPeriodMsSupplier,
@@ -504,7 +503,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 new ThreadLocalPartitionCommandsMarshaller(clusterSvc.serializationRegistry()),
                 topologyAwareRaftGroupServiceFactory,
                 raftMgr,
-                view -> new LocalLogStorageFactory()
+                view -> new LocalLogStorageFactory(),
+                threadPoolsManager.tableIoExecutor()
         );
 
         var resourcesRegistry = new RemotelyTriggeredResourceRegistry();
@@ -580,6 +580,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 partitionIdleSafeTimePropagationPeriodMsSupplier
         );
 
+        var indexMetaStorage = new IndexMetaStorage(catalogManager, lowWatermark, metaStorageMgr);
+
         SchemaManager schemaManager = new SchemaManager(registry, catalogManager);
 
         var dataNodesMock = dataNodesMockByNode.get(idx);
@@ -637,7 +639,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 sqlRef::get,
                 resourcesRegistry,
                 lowWatermark,
-                transactionInflights
+                transactionInflights,
+                indexMetaStorage
         );
 
         var indexManager = new IndexManager(
@@ -704,6 +707,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 dataStorageManager,
                 clockWaiter,
                 catalogManager,
+                indexMetaStorage,
                 schemaManager,
                 distributionZoneManager,
                 tableManager,
@@ -755,36 +759,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         }
 
         return partitionsStore;
-    }
-
-    /**
-     * Starts an {@code amount} number of nodes (with sequential indices starting from 0).
-     */
-    private List<IgniteImpl> startNodes(int amount) {
-        boolean initNeeded = CLUSTER_NODES_NAMES.isEmpty();
-
-        List<CompletableFuture<Ignite>> futures = IntStream.range(0, amount)
-                .mapToObj(i -> startNodeAsync(i, null))
-                .collect(toList());
-
-        if (initNeeded) {
-            String nodeName = CLUSTER_NODES_NAMES.get(0);
-
-            InitParameters initParameters = InitParameters.builder()
-                    .destinationNodeName(nodeName)
-                    .metaStorageNodeNames(List.of(nodeName))
-                    .clusterName("cluster")
-                    .build();
-            TestIgnitionManager.init(initParameters);
-        }
-
-        return futures.stream()
-                .map(future -> {
-                    assertThat(future, willCompleteSuccessfully());
-
-                    return (IgniteImpl) future.join();
-                })
-                .collect(toList());
     }
 
     /**
@@ -1414,13 +1388,15 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         TableImpl table = unwrapTableImpl(restartedNode.tables().table(TABLE_NAME));
 
-        assertTrue(waitForCondition(() -> {
+        boolean success = waitForCondition(() -> {
             // Check that only storage for 1 partition left on the restarted node.
             return IntStream.range(0, partitions)
                     .mapToObj(i -> table.internalTable().storage().getMvPartition(i))
                     .filter(Objects::nonNull)
                     .count() == 1;
-        }, 10_000));
+        }, 10_000);
+
+        assertTrue(success);
     }
 
     @Test
@@ -1711,6 +1687,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22521")
     public void testSequentialAsyncTableCreationThenAlterZoneThenRestartOnMsSnapshot() throws InterruptedException {
         IgniteImpl node0 = startNode(0);
         IgniteImpl node1 = startNode(1);
@@ -1770,12 +1747,19 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         IgniteImpl finalNode1 = node1;
 
         // Restart is followed by rebalance, because data nodes are recalculated after full table creation that is completed after restart.
-        assertTrue(waitForCondition(() -> {
+        boolean success = waitForCondition(() -> {
             Set<Assignment> assignments0 = getAssignmentsFromMetaStorage(node0.metaStorageManager(), assignmentsKey.bytes());
             Set<Assignment> assignments1 = getAssignmentsFromMetaStorage(finalNode1.metaStorageManager(), assignmentsKey.bytes());
 
             return assignments0.size() == 1 && assignments0.equals(assignments1);
-        }, 10_000));
+        }, 10_000);
+
+        if (!success) {
+            log.info("Test: assignment on node0:" + getAssignmentsFromMetaStorage(node0.metaStorageManager(), assignmentsKey.bytes()));
+            log.info("Test: assignment on node1:" + getAssignmentsFromMetaStorage(finalNode1.metaStorageManager(), assignmentsKey.bytes()));
+        }
+
+        assertTrue(success);
     }
 
     private int latestCatalogVersionInMs(MetaStorageManager metaStorageManager) {

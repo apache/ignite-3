@@ -19,10 +19,11 @@ namespace Apache.Ignite.Internal.Table
 {
     using System;
     using System.Collections.Generic;
-    using System.Diagnostics;
     using System.Diagnostics.CodeAnalysis;
     using System.Linq;
+    using System.Runtime.CompilerServices;
     using System.Threading;
+    using System.Threading.Channels;
     using System.Threading.Tasks;
     using Buffers;
     using Common;
@@ -307,7 +308,7 @@ namespace Apache.Ignite.Internal.Table
                 cancellationToken).ConfigureAwait(false);
 
         /// <inheritdoc/>
-        public IAsyncEnumerable<TResult> StreamDataAsync<TSource, TPayload, TResult>(
+        public async IAsyncEnumerable<TResult> StreamDataAsync<TSource, TPayload, TResult>(
             IAsyncEnumerable<TSource> data,
             Func<TSource, T> keySelector,
             Func<TSource, TPayload> payloadSelector,
@@ -315,20 +316,83 @@ namespace Apache.Ignite.Internal.Table
             string receiverClassName,
             ICollection<object>? receiverArgs,
             DataStreamerOptions? options,
-            CancellationToken cancellationToken = default)
-            where TPayload : notnull =>
-            DataStreamerWithReceiver.StreamDataAsync<TSource, T, TPayload, TResult>(
-                data,
-                _table,
-                keySelector,
-                payloadSelector,
-                keyWriter: _ser.Handler,
-                options ?? DataStreamerOptions.Default,
-                expectResults: true,
-                units,
-                receiverClassName,
-                receiverArgs,
-                cancellationToken);
+            [EnumeratorCancellation] CancellationToken cancellationToken = default)
+            where TPayload : notnull
+        {
+            options ??= DataStreamerOptions.Default;
+
+            // Validate before using for channel capacity.
+            DataStreamer.ValidateOptions(options);
+
+            // Double the page size to read the next page while the previous one is being consumed.
+            var resultChannelCapacity = options.PageSize * 2;
+
+            Channel<TResult> resultChannel = Channel.CreateBounded<TResult>(new BoundedChannelOptions(resultChannelCapacity)
+            {
+                // Backpressure - streamer will wait for results to be consumed before streaming more.
+                FullMode = BoundedChannelFullMode.Wait,
+
+                // One reader: resulting IAsyncEnumerable.
+                SingleReader = true,
+
+                // Many writers: batches may complete in parallel.
+                SingleWriter = false
+            });
+
+            // Stream in background.
+            var streamTask = Stream();
+
+            // Result async enumerable is returned immediately. It will be completed when the streaming completes.
+            var reader = resultChannel.Reader;
+
+            try
+            {
+                while (await reader.WaitToReadAsync(cancellationToken).ConfigureAwait(false))
+                {
+                    while (reader.TryRead(out var item))
+                    {
+                        yield return item;
+                    }
+                }
+            }
+            finally
+            {
+                // Consumer has stopped reading, complete the channel.
+                resultChannel.Writer.TryComplete();
+
+                // Wait for the streamer to complete even if the result consumer has stopped reading.
+                await streamTask.ConfigureAwait(false);
+            }
+
+            [SuppressMessage(
+                "Design",
+                "CA1031:Do not catch general exception types",
+                Justification = "All exceptions should be propagated to the result channel.")]
+            async Task Stream()
+            {
+                try
+                {
+                    await DataStreamerWithReceiver.StreamDataAsync(
+                        data,
+                        _table,
+                        keySelector,
+                        payloadSelector,
+                        keyWriter: _ser.Handler,
+                        options,
+                        resultChannel,
+                        units,
+                        receiverClassName,
+                        receiverArgs,
+                        cancellationToken).ConfigureAwait(false);
+
+                    resultChannel.Writer.Complete();
+                }
+                catch (Exception e)
+                {
+                    resultChannel.Writer.TryComplete(e);
+                }
+            }
+        }
 
         /// <inheritdoc/>
         public async Task StreamDataAsync<TSource, TPayload>(
@@ -342,24 +406,18 @@ namespace Apache.Ignite.Internal.Table
             CancellationToken cancellationToken = default)
             where TPayload : notnull
         {
-            IAsyncEnumerable<object> results = DataStreamerWithReceiver.StreamDataAsync<TSource, T, TPayload, object>(
+            await DataStreamerWithReceiver.StreamDataAsync<TSource, T, TPayload, object>(
                 data,
                 _table,
                 keySelector,
                 payloadSelector,
                 keyWriter: _ser.Handler,
                 options ?? DataStreamerOptions.Default,
-                expectResults: false,
+                resultChannel: null,
                 units,
                 receiverClassName,
                 receiverArgs,
-                cancellationToken);
-
-            // Await streaming completion.
-            await foreach (var unused in results)
-            {
-                Debug.Fail("Got results with expectResults=false: " + unused);
-            }
+                cancellationToken).ConfigureAwait(false);
         }
 
         /// <inheritdoc/>

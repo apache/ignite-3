@@ -17,16 +17,23 @@
 
 package org.apache.ignite.internal.table.distributed.disaster;
 
+import org.apache.ignite.internal.tostring.IgniteToStringInclude;
+import org.apache.ignite.internal.tostring.S;
+
 /**
  * Global partition state.
  */
 public class GlobalPartitionState {
+    @IgniteToStringInclude
     public final String tableName;
 
+    @IgniteToStringInclude
     public final String zoneName;
 
+    @IgniteToStringInclude
     public final int partitionId;
 
+    @IgniteToStringInclude
     public final GlobalPartitionStateEnum state;
 
     GlobalPartitionState(String tableName, String zoneName, int partitionId, GlobalPartitionStateEnum state) {
@@ -34,5 +41,10 @@ public class GlobalPartitionState {
         this.zoneName = zoneName;
         this.partitionId = partitionId;
         this.state = state;
+    }
+
+    @Override
+    public String toString() {
+        return S.toString(GlobalPartitionState.class, this);
     }
 }

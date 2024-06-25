@@ -41,6 +41,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.partition.replicator.network.replication.BuildIndexReplicaRequest;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
@@ -48,7 +49,6 @@ import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.index.IndexStorage;
-import org.apache.ignite.internal.table.distributed.replication.request.BuildIndexReplicaRequest;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.network.ClusterNode;
 import org.junit.jupiter.api.AfterEach;
@@ -63,8 +63,6 @@ public class IndexBuilderTest extends BaseIgniteAbstractTest {
     private static final int PARTITION_ID = 3;
 
     private static final long ANY_ENLISTMENT_CONSISTENCY_TOKEN = 100500;
-
-    private static final int ANY_INDEX_CREATION_CATALOG_VERSION = 1;
 
     private final ReplicaService replicaService = mock(ReplicaService.class, invocation -> nullCompletedFuture());
 
@@ -173,8 +171,7 @@ public class IndexBuilderTest extends BaseIgniteAbstractTest {
                 indexStorage(nextRowIdsToBuild),
                 mock(MvPartitionStorage.class),
                 mock(ClusterNode.class),
-                ANY_ENLISTMENT_CONSISTENCY_TOKEN,
-                ANY_INDEX_CREATION_CATALOG_VERSION
+                ANY_ENLISTMENT_CONSISTENCY_TOKEN
         );
     }
 
@@ -186,8 +183,7 @@ public class IndexBuilderTest extends BaseIgniteAbstractTest {
                 indexStorage(nextRowIdsToBuild),
                 mock(MvPartitionStorage.class),
                 mock(ClusterNode.class),
-                ANY_ENLISTMENT_CONSISTENCY_TOKEN,
-                ANY_INDEX_CREATION_CATALOG_VERSION
+                ANY_ENLISTMENT_CONSISTENCY_TOKEN
         );
     }
 

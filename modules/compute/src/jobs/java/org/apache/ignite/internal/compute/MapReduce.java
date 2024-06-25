@@ -17,43 +17,47 @@
 
 package org.apache.ignite.internal.compute;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.DeploymentUnit;
+import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecutionOptions;
-import org.apache.ignite.compute.task.ComputeJobRunner;
+import org.apache.ignite.compute.task.MapReduceJob;
 import org.apache.ignite.compute.task.MapReduceTask;
 import org.apache.ignite.compute.task.TaskExecutionContext;
 
 /** Map reduce task which runs a {@link GetNodeNameJob} on each node and computes a sum of length of all node names. */
 public class MapReduce implements MapReduceTask<Integer> {
     @Override
-    public List<ComputeJobRunner> split(TaskExecutionContext taskContext, Object... args) {
+    public CompletableFuture<List<MapReduceJob>> splitAsync(TaskExecutionContext taskContext, Object... args) {
         List<DeploymentUnit> deploymentUnits = (List<DeploymentUnit>) args[0];
 
-        return taskContext.ignite().clusterNodes().stream().map(node ->
-                ComputeJobRunner.builder()
-                        .jobClassName(GetNodeNameJob.class.getName())
-                        .units(deploymentUnits)
+        return taskContext.ignite().clusterNodesAsync().thenApply(nodes -> nodes.stream().map(node ->
+                MapReduceJob.builder()
+                        .jobDescriptor(JobDescriptor.builder(GetNodeNameJob.class)
+                                .units(deploymentUnits)
+                                .options(JobExecutionOptions.builder()
+                                    .maxRetries(10)
+                                    .priority(Integer.MAX_VALUE)
+                                    .build())
+                                .build())
                         .nodes(Set.of(node))
-                        .options(JobExecutionOptions.builder()
-                                .maxRetries(10)
-                                .priority(Integer.MAX_VALUE)
-                                .build()
-                        ).build()
-        ).collect(toList());
+                        .build()
+        ).collect(toList()));
     }
 
     @Override
-    public Integer reduce(Map<UUID, ?> results) {
-        return results.values().stream()
+    public CompletableFuture<Integer> reduceAsync(TaskExecutionContext taskContext, Map<UUID, ?> results) {
+        return completedFuture(results.values().stream()
                 .map(String.class::cast)
                 .map(String::length)
                 .reduce(Integer::sum)
-                .orElseThrow();
+                .orElseThrow());
     }
 }

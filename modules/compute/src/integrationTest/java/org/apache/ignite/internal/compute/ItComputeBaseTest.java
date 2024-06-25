@@ -18,11 +18,11 @@
 package org.apache.ignite.internal.compute;
 
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.compute.JobState.COMPLETED;
-import static org.apache.ignite.compute.JobState.FAILED;
+import static org.apache.ignite.compute.JobStatus.COMPLETED;
+import static org.apache.ignite.compute.JobStatus.FAILED;
 import static org.apache.ignite.internal.IgniteExceptionTestUtils.assertTraceableException;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
-import static org.apache.ignite.internal.testframework.matchers.JobStatusMatcher.jobStatusWithState;
+import static org.apache.ignite.internal.testframework.matchers.JobStateMatcher.jobStateWithStatus;
 import static org.apache.ignite.lang.ErrorGroups.Compute.CLASS_INITIALIZATION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Compute.COMPUTE_JOB_FAILED_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -46,8 +46,10 @@ import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.DeploymentUnit;
+import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
-import org.apache.ignite.compute.TaskExecution;
+import org.apache.ignite.compute.JobTarget;
+import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.util.ExceptionUtils;
@@ -83,8 +85,8 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     void executesWrongJobClassLocally(String jobClassName, int errorCode, String msg) {
         IgniteImpl entryNode = node(0);
 
-        IgniteException ex = assertThrows(IgniteException.class, () -> entryNode.compute()
-                .execute(Set.of(entryNode.node()), units(), jobClassName));
+        IgniteException ex = assertThrows(IgniteException.class, () ->
+                entryNode.compute().execute(JobTarget.node(entryNode.node()), JobDescriptor.builder(jobClassName).units(units()).build()));
 
         assertTraceableException(ex, ComputeException.class, errorCode, msg);
     }
@@ -94,8 +96,8 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     void executesWrongJobClassLocallyAsync(String jobClassName, int errorCode, String msg) {
         IgniteImpl entryNode = node(0);
 
-        ExecutionException ex = assertThrows(ExecutionException.class, () -> entryNode.compute()
-                .executeAsync(Set.of(entryNode.node()), units(), jobClassName)
+        ExecutionException ex = assertThrows(ExecutionException.class, () -> entryNode.compute().executeAsync(
+                JobTarget.node(entryNode.node()), JobDescriptor.builder(jobClassName).units(units()).build())
                 .get(1, TimeUnit.SECONDS));
 
         assertTraceableException(ex, ComputeException.class, errorCode, msg);
@@ -106,8 +108,9 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     void executesWrongJobClassOnRemoteNodes(String jobClassName, int errorCode, String msg) {
         Ignite entryNode = node(0);
 
-        IgniteException ex = assertThrows(IgniteException.class, () -> entryNode.compute()
-                .execute(Set.of(node(1).node(), node(2).node()), units(), jobClassName));
+        IgniteException ex = assertThrows(IgniteException.class, () -> entryNode.compute().execute(
+                JobTarget.anyNode(node(1).node(), node(2).node()),
+                JobDescriptor.builder(jobClassName).units(units()).build()));
 
         assertTraceableException(ex, ComputeException.class, errorCode, msg);
     }
@@ -117,8 +120,8 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     void executesWrongJobClassOnRemoteNodesAsync(String jobClassName, int errorCode, String msg) {
         Ignite entryNode = node(0);
 
-        ExecutionException ex = assertThrows(ExecutionException.class, () -> entryNode.compute()
-                .executeAsync(Set.of(node(1).node(), node(2).node()), units(), jobClassName)
+        ExecutionException ex = assertThrows(ExecutionException.class, () -> entryNode.compute().executeAsync(
+                JobTarget.anyNode(node(1).node(), node(2).node()), JobDescriptor.builder(jobClassName).units(units()).build())
                 .get(1, TimeUnit.SECONDS));
 
         assertTraceableException(ex, ComputeException.class, errorCode, msg);
@@ -128,8 +131,10 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     void executesJobLocally() {
         IgniteImpl entryNode = node(0);
 
-        String result = entryNode.compute()
-                .execute(Set.of(entryNode.node()), units(), concatJobClassName(), "a", 42);
+        String result = entryNode.compute().execute(
+                JobTarget.node(entryNode.node()),
+                JobDescriptor.builder(concatJobClassName()).units(units()).build(),
+                "a", 42);
 
         assertThat(result, is("a42"));
     }
@@ -138,11 +143,13 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     void executesJobLocallyAsync() {
         IgniteImpl entryNode = node(0);
 
-        JobExecution<String> execution = entryNode.compute()
-                .submit(Set.of(entryNode.node()), units(), concatJobClassName(), "a", 42);
+        JobExecution<String> execution = entryNode.compute().submit(
+                JobTarget.node(entryNode.node()),
+                JobDescriptor.builder(concatJobClassName()).units(units()).build(),
+                "a", 42);
 
         assertThat(execution.resultAsync(), willBe("a42"));
-        assertThat(execution.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
+        assertThat(execution.stateAsync(), willBe(jobStateWithStatus(COMPLETED)));
         assertThat(execution.cancelAsync(), willBe(false));
     }
 
@@ -150,21 +157,25 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     void executesJobOnRemoteNodes() {
         Ignite entryNode = node(0);
 
-        String result = entryNode.compute()
-                .execute(Set.of(node(1).node(), node(2).node()), units(), concatJobClassName(), "a", 42);
+        String result = entryNode.compute().execute(
+                JobTarget.anyNode(node(1).node(), node(2).node()),
+                JobDescriptor.builder(concatJobClassName()).units(units()).build(),
+                "a", 42);
 
         assertThat(result, is("a42"));
     }
 
     @Test
     void executesJobOnRemoteNodesAsync() {
-        Ignite entryNode = node(0);
+        IgniteImpl entryNode = node(0);
 
-        JobExecution<String> execution = entryNode.compute()
-                .submit(Set.of(node(1).node(), node(2).node()), units(), concatJobClassName(), "a", 42);
+        JobExecution<String> execution = entryNode.compute().submit(
+                JobTarget.anyNode(node(1).node(), node(2).node()),
+                JobDescriptor.builder(concatJobClassName()).units(units()).build(),
+                new Object[]{"a", 42});
 
         assertThat(execution.resultAsync(), willBe("a42"));
-        assertThat(execution.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
+        assertThat(execution.stateAsync(), willBe(jobStateWithStatus(COMPLETED)));
         assertThat(execution.cancelAsync(), willBe(false));
     }
 
@@ -172,7 +183,9 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     void localExecutionActuallyUsesLocalNode() {
         IgniteImpl entryNode = node(0);
 
-        CompletableFuture<String> fut = entryNode.compute().executeAsync(Set.of(entryNode.node()), units(), getNodeNameJobClassName());
+        CompletableFuture<String> fut = entryNode.compute().executeAsync(
+                JobTarget.node(entryNode.node()),
+                JobDescriptor.builder(getNodeNameJobClassName()).units(units()).build());
 
         assertThat(fut, willBe(entryNode.name()));
     }
@@ -182,7 +195,9 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
         IgniteImpl entryNode = node(0);
         IgniteImpl remoteNode = node(1);
 
-        CompletableFuture<String> fut = entryNode.compute().executeAsync(Set.of(remoteNode.node()), units(), getNodeNameJobClassName());
+        CompletableFuture<String> fut = entryNode.compute().executeAsync(
+                JobTarget.node(remoteNode.node()),
+                JobDescriptor.builder(getNodeNameJobClassName()).units(units()).build());
 
         assertThat(fut, willBe(remoteNode.name()));
     }
@@ -191,8 +206,9 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     void executesFailingJobLocally() {
         IgniteImpl entryNode = node(0);
 
-        IgniteException ex = assertThrows(IgniteException.class, () -> entryNode.compute()
-                .execute(Set.of(entryNode.node()), units(), failingJobClassName()));
+        IgniteException ex = assertThrows(IgniteException.class, () -> entryNode.compute().execute(
+                JobTarget.node(entryNode.node()),
+                JobDescriptor.builder(failingJobClassName()).units(units()).build()));
 
         assertComputeException(ex, "JobException", "Oops");
     }
@@ -201,14 +217,15 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     void executesFailingJobLocallyAsync() {
         IgniteImpl entryNode = node(0);
 
-        JobExecution<String> execution = entryNode.compute()
-                .submit(Set.of(entryNode.node()), units(), failingJobClassName());
+        JobExecution<String> execution = entryNode.compute().submit(
+                JobTarget.node(entryNode.node()),
+                JobDescriptor.builder(failingJobClassName()).units(units()).build());
 
         ExecutionException ex = assertThrows(ExecutionException.class, () -> execution.resultAsync().get(1, TimeUnit.SECONDS));
 
         assertComputeException(ex, "JobException", "Oops");
 
-        assertThat(execution.statusAsync(), willBe(jobStatusWithState(FAILED)));
+        assertThat(execution.stateAsync(), willBe(jobStateWithStatus(FAILED)));
         assertThat(execution.cancelAsync(), willBe(false));
     }
 
@@ -216,8 +233,9 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     void executesFailingJobOnRemoteNodes() {
         Ignite entryNode = node(0);
 
-        IgniteException ex = assertThrows(IgniteException.class, () -> entryNode.compute()
-                .execute(Set.of(node(1).node(), node(2).node()), units(), failingJobClassName()));
+        IgniteException ex = assertThrows(IgniteException.class, () -> entryNode.compute().execute(
+                JobTarget.anyNode(node(1).node(), node(2).node()),
+                JobDescriptor.builder(failingJobClassName()).units(units()).build()));
 
         assertComputeException(ex, "JobException", "Oops");
     }
@@ -226,14 +244,15 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     void executesFailingJobOnRemoteNodesAsync() {
         Ignite entryNode = node(0);
 
-        JobExecution<String> execution = entryNode.compute()
-                .submit(Set.of(node(1).node(), node(2).node()), units(), failingJobClassName());
+        JobExecution<String> execution = entryNode.compute().submit(
+                JobTarget.anyNode(node(1).node(), node(2).node()),
+                JobDescriptor.builder(failingJobClassName()).units(units()).build());
 
         ExecutionException ex = assertThrows(ExecutionException.class, () -> execution.resultAsync().get(1, TimeUnit.SECONDS));
 
         assertComputeException(ex, "JobException", "Oops");
 
-        assertThat(execution.statusAsync(), willBe(jobStatusWithState(FAILED)));
+        assertThat(execution.stateAsync(), willBe(jobStateWithStatus(FAILED)));
         assertThat(execution.cancelAsync(), willBe(false));
     }
 
@@ -241,15 +260,17 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     void broadcastsJobWithArgumentsAsync() {
         IgniteImpl entryNode = node(0);
 
-        Map<ClusterNode, JobExecution<String>> results = entryNode.compute()
-                .submitBroadcast(Set.of(entryNode.node(), node(1).node(), node(2).node()), units(), concatJobClassName(), "a", 42);
+        Map<ClusterNode, JobExecution<String>> results = entryNode.compute().submitBroadcast(
+                Set.of(entryNode.node(), node(1).node(), node(2).node()),
+                JobDescriptor.builder(concatJobClassName()).units(units()).build(),
+                "a", 42);
 
         assertThat(results, is(aMapWithSize(3)));
         for (int i = 0; i < 3; i++) {
             ClusterNode node = node(i).node();
             JobExecution<String> execution = results.get(node);
             assertThat(execution.resultAsync(), willBe("a42"));
-            assertThat(execution.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
+            assertThat(execution.stateAsync(), willBe(jobStateWithStatus(COMPLETED)));
             assertThat(execution.cancelAsync(), willBe(false));
         }
     }
@@ -258,15 +279,16 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     void broadcastExecutesJobOnRespectiveNodes() {
         IgniteImpl entryNode = node(0);
 
-        Map<ClusterNode, JobExecution<String>> results = entryNode.compute()
-                .submitBroadcast(Set.of(entryNode.node(), node(1).node(), node(2).node()), units(), getNodeNameJobClassName());
+        Map<ClusterNode, JobExecution<String>> results = entryNode.compute().submitBroadcast(
+                Set.of(entryNode.node(), node(1).node(), node(2).node()),
+                JobDescriptor.builder(getNodeNameJobClassName()).units(units()).build());
 
         assertThat(results, is(aMapWithSize(3)));
         for (int i = 0; i < 3; i++) {
             ClusterNode node = node(i).node();
             JobExecution<String> execution = results.get(node);
             assertThat(execution.resultAsync(), willBe(node.name()));
-            assertThat(execution.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
+            assertThat(execution.stateAsync(), willBe(jobStateWithStatus(COMPLETED)));
             assertThat(execution.cancelAsync(), willBe(false));
         }
     }
@@ -275,8 +297,9 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     void broadcastsFailingJob() throws Exception {
         IgniteImpl entryNode = node(0);
 
-        Map<ClusterNode, JobExecution<String>> results = entryNode.compute()
-                .submitBroadcast(Set.of(entryNode.node(), node(1).node(), node(2).node()), units(), failingJobClassName());
+        Map<ClusterNode, JobExecution<String>> results = entryNode.compute().submitBroadcast(
+                Set.of(entryNode.node(), node(1).node(), node(2).node()),
+                JobDescriptor.builder(failingJobClassName()).units(units()).build());
 
         assertThat(results, is(aMapWithSize(3)));
         for (int i = 0; i < 3; i++) {
@@ -288,7 +311,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
             assertThat(result, is(instanceOf(CompletionException.class)));
             assertComputeException(result, "JobException", "Oops");
 
-            assertThat(execution.statusAsync(), willBe(jobStatusWithState(FAILED)));
+            assertThat(execution.stateAsync(), willBe(jobStateWithStatus(FAILED)));
             assertThat(execution.cancelAsync(), willBe(false));
         }
     }
@@ -299,8 +322,9 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
 
         IgniteImpl entryNode = node(0);
 
-        String actualNodeName = entryNode.compute()
-                .executeColocated("test", Tuple.create(Map.of("k", 1)), units(), getNodeNameJobClassName());
+        String actualNodeName = entryNode.compute().execute(
+                JobTarget.colocated("test", Tuple.create(Map.of("k", 1))),
+                JobDescriptor.builder(getNodeNameJobClassName()).units(units()).build());
 
         assertThat(actualNodeName, in(allNodeNames()));
     }
@@ -311,11 +335,12 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
 
         IgniteImpl entryNode = node(0);
 
-        JobExecution<String> execution = entryNode.compute()
-                .submitColocated("test", Tuple.create(Map.of("k", 1)), units(), getNodeNameJobClassName());
+        JobExecution<String> execution = entryNode.compute().submit(
+                JobTarget.colocated("test", Tuple.create(Map.of("k", 1))),
+                JobDescriptor.builder(getNodeNameJobClassName()).units(units()).build());
 
         assertThat(execution.resultAsync(), willBe(in(allNodeNames())));
-        assertThat(execution.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
+        assertThat(execution.stateAsync(), willBe(jobStateWithStatus(COMPLETED)));
         assertThat(execution.cancelAsync(), willBe(false));
     }
 
@@ -325,9 +350,10 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
         sql("CREATE TABLE test (k int, key_int int, v int, key_str VARCHAR, CONSTRAINT PK PRIMARY KEY (key_int, key_str))");
         sql("INSERT INTO test VALUES (1, 2, 3, '4')");
 
-        IgniteImpl entryNode = node(0);
-        String actualNodeName = entryNode.compute()
-                .executeColocated("test", Tuple.create(Map.of("key_int", 2, "key_str", "4")), units(), getNodeNameJobClassName());
+        String actualNodeName = node(0).compute().execute(
+                JobTarget.colocated("test", Tuple.create(Map.of("key_int", 2, "key_str", "4"))),
+                JobDescriptor.builder(getNodeNameJobClassName()).units(units()).build());
+
         assertThat(actualNodeName, in(allNodeNames()));
     }
 
@@ -336,8 +362,9 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
         IgniteImpl entryNode = node(0);
 
         var ex = assertThrows(CompletionException.class,
-                () -> entryNode.compute().submitColocated(
-                        "\"bad-table\"", Tuple.create(Map.of("k", 1)), units(), getNodeNameJobClassName()).resultAsync().join());
+                () -> entryNode.compute().submit(
+                        JobTarget.colocated("\"bad-table\"", Tuple.create(Map.of("k", 1))),
+                        JobDescriptor.builder(getNodeNameJobClassName()).units(units()).build()).resultAsync().join());
 
         assertInstanceOf(TableNotFoundException.class, ex.getCause());
         assertThat(ex.getCause().getMessage(), containsString("The table does not exist [name=\"PUBLIC\".\"bad-table\"]"));
@@ -362,8 +389,9 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
 
         IgniteImpl entryNode = node(0);
 
-        String actualNodeName = entryNode.compute()
-                .executeColocated("test", 1, Mapper.of(Integer.class), units(), getNodeNameJobClassName());
+        String actualNodeName = entryNode.compute().execute(
+                JobTarget.colocated("test", 1, Mapper.of(Integer.class)),
+                JobDescriptor.builder(getNodeNameJobClassName()).units(units()).build());
 
         assertThat(actualNodeName, in(allNodeNames()));
     }
@@ -374,11 +402,12 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
 
         IgniteImpl entryNode = node(0);
 
-        JobExecution<String> execution = entryNode.compute()
-                .submitColocated("test", 1, Mapper.of(Integer.class), units(), getNodeNameJobClassName());
+        JobExecution<String> execution = entryNode.compute().submit(
+                JobTarget.colocated("test", 1, Mapper.of(Integer.class)),
+                JobDescriptor.builder(getNodeNameJobClassName()).units(units()).build());
 
         assertThat(execution.resultAsync(), willBe(in(allNodeNames())));
-        assertThat(execution.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
+        assertThat(execution.stateAsync(), willBe(jobStateWithStatus(COMPLETED)));
         assertThat(execution.cancelAsync(), willBe(false));
     }
 
@@ -391,11 +420,11 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
         int sumOfNodeNamesLengths = CLUSTER.runningNodes().map(IgniteImpl::name).map(String::length).reduce(Integer::sum).orElseThrow();
         assertThat(taskExecution.resultAsync(), willBe(sumOfNodeNamesLengths));
 
-        // Statuses list contains statuses for 3 running nodes
-        assertThat(taskExecution.statusesAsync(), willBe(contains(
-                jobStatusWithState(COMPLETED),
-                jobStatusWithState(COMPLETED),
-                jobStatusWithState(COMPLETED)
+        // States list contains states for 3 running nodes
+        assertThat(taskExecution.statesAsync(), willBe(contains(
+                jobStateWithStatus(COMPLETED),
+                jobStateWithStatus(COMPLETED),
+                jobStateWithStatus(COMPLETED)
         )));
     }
 

@@ -143,6 +143,11 @@ public class MessageSerializationRegistryImplTest extends BaseIgniteAbstractTest
         public Msg clone() {
             throw new UnsupportedOperationException();
         }
+
+        @Override
+        public MessageSerializer<NetworkMessage> serializer() {
+            return mock(MessageSerializer.class);
+        }
     }
 
     /**

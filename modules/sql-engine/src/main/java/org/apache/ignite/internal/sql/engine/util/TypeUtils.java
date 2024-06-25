@@ -698,40 +698,39 @@ public class TypeUtils {
             RelDataType colType = rowType.getFieldList().get(i).getType();
             Object data = rowHandler.get(i, row);
 
-            if (CHAR_TYPES.contains(colType.getSqlTypeName())) {
-                if (data == null) {
-                    continue;
-                }
-
-                assert data instanceof String;
-
-                String str = (String) data;
-
-                int colPrecision = colType.getPrecision();
-
-                assert colPrecision != RelDataType.PRECISION_NOT_SPECIFIED;
-
-                if (str.length() > colPrecision) {
-                    for (int pos = str.length(); pos > colPrecision; --pos) {
-                        if (str.charAt(pos - 1) != ' ') {
-                            throw new SqlException(STMT_VALIDATION_ERR, "Value too long for type: " + colType);
-                        }
-                    }
-
-                    str = str.substring(0, colPrecision);
-
-                    if (rowBldr == null) {
-                        rowBldr = buildPartialRow(rowHandler, schema, i, row);
-                    }
-                }
-
-                if (rowBldr != null) {
-                    rowBldr.addField(str);
-                }
-            } else {
+            // Skip null values and non-character types.
+            if (!CHAR_TYPES.contains(colType.getSqlTypeName()) || data == null) {
                 if (rowBldr != null) {
                     rowBldr.addField(data);
                 }
+                continue;
+            }
+            // Otherwise validate and trim if needed.
+
+            assert data instanceof String;
+
+            String str = (String) data;
+
+            int colPrecision = colType.getPrecision();
+
+            assert colPrecision != RelDataType.PRECISION_NOT_SPECIFIED;
+
+            if (str.length() > colPrecision) {
+                for (int pos = str.length(); pos > colPrecision; --pos) {
+                    if (str.charAt(pos - 1) != ' ') {
+                        throw new SqlException(STMT_VALIDATION_ERR, "Value too long for type: " + colType);
+                    }
+                }
+
+                str = str.substring(0, colPrecision);
+
+                if (rowBldr == null) {
+                    rowBldr = buildPartialRow(rowHandler, schema, i, row);
+                }
+            }
+
+            if (rowBldr != null) {
+                rowBldr.addField(str);
             }
         }
 

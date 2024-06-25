@@ -23,9 +23,9 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
-using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Threading;
+using System.Threading.Channels;
 using System.Threading.Tasks;
 using Buffers;
 using Common;
@@ -60,7 +60,7 @@ internal static class DataStreamerWithReceiver
     /// <param name="payloadSelector">Payload func.</param>
     /// <param name="keyWriter">Key writer.</param>
     /// <param name="options">Options.</param>
-    /// <param name="expectResults">Whether to expect results from the receiver.</param>
+    /// <param name="resultChannel">Channel for results from the receiver. Null when results are not expected.</param>
     /// <param name="units">Deployment units. Can be empty.</param>
     /// <param name="receiverClassName">Java class name of the streamer receiver to execute on the server.</param>
     /// <param name="receiverArgs">Receiver args.</param>
@@ -70,29 +70,23 @@ internal static class DataStreamerWithReceiver
     /// <typeparam name="TPayload">Payload type.</typeparam>
     /// <typeparam name="TResult">Result type.</typeparam>
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
-    internal static async IAsyncEnumerable<TResult> StreamDataAsync<TSource, TKey, TPayload, TResult>(
+    internal static async Task StreamDataAsync<TSource, TKey, TPayload, TResult>(
         IAsyncEnumerable<TSource> data,
         Table table,
         Func<TSource, TKey> keySelector,
         Func<TSource, TPayload> payloadSelector,
         IRecordSerializerHandler<TKey> keyWriter,
         DataStreamerOptions options,
-        bool expectResults,
+        Channel<TResult>? resultChannel,
         IEnumerable<DeploymentUnit> units,
         string receiverClassName,
         ICollection<object>? receiverArgs,
-        [EnumeratorCancellation] CancellationToken cancellationToken)
+        CancellationToken cancellationToken)
         where TKey : notnull
         where TPayload : notnull
     {
         IgniteArgumentCheck.NotNull(data);
         DataStreamer.ValidateOptions(options);
-
-        if (expectResults)
-        {
-            // TODO IGNITE-22356 Support result retrieval.
-            throw new NotSupportedException("Result retrieval is not yet supported.");
-        }
 
         // ConcurrentDictionary is not necessary because we consume the source sequentially.
         // However, locking for batches is required due to auto-flush background task.
@@ -148,8 +142,7 @@ internal static class DataStreamerWithReceiver
             }
         }
 
-        // TODO IGNITE-22356 Support result retrieval.
-        yield break;
+        return;
 
         Batch<TPayload> Add(TSource item)
         {
@@ -246,6 +239,7 @@ internal static class DataStreamerWithReceiver
             await Task.Yield();
 
             var buf = ProtoCommon.GetMessageWriter();
+            TResult[]? results = null;
 
             try
             {
@@ -256,12 +250,32 @@ internal static class DataStreamerWithReceiver
 
                 // Wait for the previous batch for this node to preserve item order.
                 await oldTask.ConfigureAwait(false);
-                await SendBatchAsync(table, buf, count, preferredNode, retryPolicy).ConfigureAwait(false);
+                (results, int resultsCount) = await SendBatchAsync<TResult>(
+                    table, buf, count, preferredNode, retryPolicy, expectResults: resultChannel != null).ConfigureAwait(false);
+
+                if (results != null && resultChannel != null)
+                {
+                    for (var i = 0; i < resultsCount; i++)
+                    {
+                        TResult result = results[i];
+                        await resultChannel.Writer.WriteAsync(result, cancellationToken).ConfigureAwait(false);
+                    }
+                }
+            }
+            catch (ChannelClosedException)
+            {
+                // Consumer does not want more results, stop returning them, but keep streaming.
+                resultChannel = null;
             }
             finally
             {
                 buf.Dispose();
                 GetPool<TPayload>().Return(items);
+
+                if (results != null)
+                {
+                    GetPool<TResult>().Return(results);
+                }
 
                 Metrics.StreamerItemsQueuedDecrement(count);
                 Metrics.StreamerBatchesActiveDecrement();
@@ -311,6 +325,7 @@ internal static class DataStreamerWithReceiver
 
             Compute.WriteUnits(units0, buf);
 
+            var expectResults = resultChannel != null;
             w.Write(expectResults);
             WriteReceiverPayload(ref w, receiverClassName, receiverArgs ?? Array.Empty<object>(), items);
         }
@@ -339,12 +354,13 @@ internal static class DataStreamerWithReceiver
         w.Write(builder.Build().Span);
     }
 
-    private static async Task SendBatchAsync(
+    private static async Task<(T[]? ResultsPooledArray, int ResultsCount)> SendBatchAsync<T>(
         Table table,
         PooledArrayBuffer buf,
         int count,
         PreferredNode preferredNode,
-        IRetryPolicy retryPolicy)
+        IRetryPolicy retryPolicy,
+        bool expectResults)
     {
         var (resBuf, socket) = await table.Socket.DoOutInOpAndGetSocketAsync(
                 ClientOp.StreamerWithReceiverBatchSend,
@@ -354,10 +370,33 @@ internal static class DataStreamerWithReceiver
                 retryPolicy)
             .ConfigureAwait(false);
 
-        resBuf.Dispose();
+        using (resBuf)
+        {
+            Metrics.StreamerBatchesSent.Add(1, socket.MetricsContext.Tags);
+            Metrics.StreamerItemsSent.Add(count, socket.MetricsContext.Tags);
 
-        Metrics.StreamerBatchesSent.Add(1, socket.MetricsContext.Tags);
-        Metrics.StreamerItemsSent.Add(count, socket.MetricsContext.Tags);
+            return expectResults
+                ? Read(resBuf.GetReader())
+                : (null, 0);
+        }
+
+        static (T[]? ResultsPooledArray, int ResultsCount) Read(MsgPackReader reader)
+        {
+            if (reader.TryReadNil())
+            {
+                return (null, 0);
+            }
+
+            var numElements = reader.ReadInt32();
+            if (numElements == 0)
+            {
+                return (null, 0);
+            }
+
+            var tuple = new BinaryTupleReader(reader.ReadBinary(), numElements);
+
+            return tuple.GetObjectCollectionWithType<T>();
+        }
     }
 
     private static ArrayPool<T> GetPool<T>() => ArrayPool<T>.Shared;

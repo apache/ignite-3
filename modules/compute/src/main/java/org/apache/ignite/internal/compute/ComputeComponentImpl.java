@@ -35,8 +35,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobExecution;
-import org.apache.ignite.compute.JobStatus;
-import org.apache.ignite.compute.TaskExecution;
+import org.apache.ignite.compute.JobState;
+import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
 import org.apache.ignite.internal.compute.executor.ComputeExecutor;
@@ -55,11 +55,11 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.MessagingService;
+import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.TopologyService;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -231,17 +231,17 @@ public class ComputeComponentImpl implements ComputeComponent {
     }
 
     @Override
-    public CompletableFuture<Collection<JobStatus>> statusesAsync() {
-        return messaging.broadcastStatusesAsync();
+    public CompletableFuture<Collection<JobState>> statesAsync() {
+        return messaging.broadcastStatesAsync();
     }
 
     @Override
-    public CompletableFuture<@Nullable JobStatus> statusAsync(UUID jobId) {
-        return executionManager.statusAsync(jobId).thenCompose(jobStatus -> {
-            if (jobStatus != null) {
-                return completedFuture(jobStatus);
+    public CompletableFuture<@Nullable JobState> stateAsync(UUID jobId) {
+        return executionManager.stateAsync(jobId).thenCompose(state -> {
+            if (state != null) {
+                return completedFuture(state);
             }
-            return messaging.broadcastStatusAsync(jobId);
+            return messaging.broadcastStateAsync(jobId);
         });
     }
 

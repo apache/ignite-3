@@ -271,10 +271,10 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::CLASS_LOADER:
         case error::code::CLASS_INITIALIZATION:
         case error::code::QUEUE_OVERFLOW:
-        case error::code::COMPUTE_JOB_STATE_TRANSITION:
+        case error::code::COMPUTE_JOB_STATUS_TRANSITION:
         case error::code::CANCELLING:
         case error::code::RESULT_NOT_FOUND:
-        case error::code::FAIL_TO_GET_JOB_STATUS:
+        case error::code::FAIL_TO_GET_JOB_STATE:
         case error::code::COMPUTE_JOB_FAILED:
         case error::code::CHANGE_JOB_PRIORITY_NO_JOB:
         case error::code::PRIMARY_REPLICA_RESOLVE:
@@ -302,6 +302,7 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::NODES_NOT_FOUND:
         case error::code::ILLEGAL_PARTITION_ID:
         case error::code::PARTITION_STATE:
+        case error::code::CLUSTER_NOT_IDLE:
             return sql_state::SHY000_GENERAL_ERROR;
     }
 

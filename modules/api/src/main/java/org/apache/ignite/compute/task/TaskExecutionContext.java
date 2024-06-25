@@ -27,4 +27,11 @@ public interface TaskExecutionContext {
      * @return Ignite instance.
      */
     Ignite ignite();
+
+    /**
+     * Flag indicating whether the task was cancelled.
+     *
+     * @return {@code true} when the task was cancelled.
+     */
+    boolean isCancelled();
 }

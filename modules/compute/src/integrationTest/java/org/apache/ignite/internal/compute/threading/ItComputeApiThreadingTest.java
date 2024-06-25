@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.compute.threading;
 
 import static java.lang.Thread.currentThread;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.PublicApiThreadingTests.anIgniteThread;
 import static org.apache.ignite.internal.PublicApiThreadingTests.asyncContinuationPool;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
@@ -25,15 +26,15 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.either;
 import static org.hamcrest.Matchers.is;
 
-import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionContext;
-import org.apache.ignite.compute.JobExecutionOptions;
+import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.compute.IgniteComputeImpl;
 import org.apache.ignite.internal.wrapper.Wrappers;
@@ -142,32 +143,25 @@ class ItComputeApiThreadingTest extends ClusterPerClassIntegrationTest {
 
     private static class NoOpJob implements ComputeJob<String> {
         @Override
-        public String execute(JobExecutionContext context, Object... args) {
-            return "ok";
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, Object... args) {
+            return completedFuture("ok");
         }
     }
 
     private enum ComputeAsyncOperation {
-        EXECUTE_ASYNC(compute -> compute.executeAsync(justNonEntryNode(), List.of(), NoOpJob.class.getName())),
-        EXECUTE_WITH_OPTIONS_ASYNC(compute -> compute.executeAsync(
-                justNonEntryNode(), List.of(), NoOpJob.class.getName(), JobExecutionOptions.DEFAULT
-        )),
-        EXECUTE_COLOCATED_BY_TUPLE_ASYNC(compute -> compute.executeColocatedAsync(
-                TABLE_NAME, KEY_TUPLE, List.of(), NoOpJob.class.getName()
-        )),
-        EXECUTE_COLOCATED_BY_TUPLE_WITH_OPTIONS_ASYNC(compute -> compute.executeColocatedAsync(
-                TABLE_NAME, KEY_TUPLE, List.of(), NoOpJob.class.getName(), JobExecutionOptions.DEFAULT)
-        ),
-        EXECUTE_COLOCATED_BY_KEY_ASYNC(compute -> compute.executeColocatedAsync(
-                TABLE_NAME, KEY, Mapper.of(Integer.class), List.of(), NoOpJob.class.getName())
-        ),
-        EXECUTE_COLOCATED_BY_KEY_WITH_OPTIONS_ASYNC(compute -> compute.executeColocatedAsync(
-                TABLE_NAME, KEY, Mapper.of(Integer.class), List.of(), NoOpJob.class.getName(), JobExecutionOptions.DEFAULT)
-        ),
-        EXECUTE_BROADCAST_ASYNC(compute -> compute.executeBroadcastAsync(justNonEntryNode(), List.of(), NoOpJob.class.getName())),
-        EXECUTE_BROADCAST_WITH_OPTIONS_ASYNC(compute -> compute.executeBroadcastAsync(
-                justNonEntryNode(), List.of(), NoOpJob.class.getName(), JobExecutionOptions.DEFAULT
-        ));
+        EXECUTE_ASYNC(compute -> compute.executeAsync(JobTarget.anyNode(justNonEntryNode()), JobDescriptor.builder(NoOpJob.class).build())),
+
+        EXECUTE_COLOCATED_BY_TUPLE_ASYNC(compute ->
+                compute.executeAsync(
+                        JobTarget.colocated(TABLE_NAME, KEY_TUPLE),
+                        JobDescriptor.builder(NoOpJob.class).build())),
+
+        EXECUTE_COLOCATED_BY_KEY_ASYNC(compute ->
+                compute.executeAsync(
+                        JobTarget.colocated(TABLE_NAME, KEY, Mapper.of(Integer.class)),
+                        JobDescriptor.builder(NoOpJob.class).build())),
+
+        EXECUTE_BROADCAST_ASYNC(compute -> compute.executeBroadcastAsync(justNonEntryNode(), JobDescriptor.builder(NoOpJob.class).build()));
 
         private final Function<IgniteCompute, CompletableFuture<?>> action;
 
@@ -181,26 +175,19 @@ class ItComputeApiThreadingTest extends ClusterPerClassIntegrationTest {
     }
 
     private enum ComputeSubmitOperation {
-        SUBMIT(compute -> compute.submit(justNonEntryNode(), List.of(), NoOpJob.class.getName())),
-        SUBMIT_WITH_OPTIONS(compute -> compute.submit(justNonEntryNode(), List.of(), NoOpJob.class.getName(), JobExecutionOptions.DEFAULT)),
-        SUBMIT_COLOCATED_BY_TUPLE(compute -> compute.submitColocated(
-                TABLE_NAME, KEY_TUPLE, List.of(), NoOpJob.class.getName()
-        )),
-        SUBMIT_COLOCATED_BY_TUPLE_WITH_OPTIONS(compute -> compute.submitColocated(
-                TABLE_NAME, KEY_TUPLE, List.of(), NoOpJob.class.getName(), JobExecutionOptions.DEFAULT)
+        SUBMIT(compute -> compute.submit(JobTarget.anyNode(justNonEntryNode()), JobDescriptor.builder(NoOpJob.class).build())),
+
+        SUBMIT_COLOCATED_BY_TUPLE(compute -> compute.submit(
+                JobTarget.colocated(TABLE_NAME, KEY_TUPLE),
+                JobDescriptor.builder(NoOpJob.class).build())),
+
+        SUBMIT_COLOCATED_BY_KEY(compute -> compute.submit(
+                JobTarget.colocated(TABLE_NAME, KEY, Mapper.of(Integer.class)),
+                JobDescriptor.builder(NoOpJob.class).build())
         ),
-        SUBMIT_COLOCATED_BY_KEY(compute -> compute.submitColocated(
-                TABLE_NAME, KEY, Mapper.of(Integer.class), List.of(), NoOpJob.class.getName())
-        ),
-        SUBMIT_COLOCATED_BY_KEY_WITH_OPTIONS(compute -> compute.submitColocated(
-                TABLE_NAME, KEY, Mapper.of(Integer.class), List.of(), NoOpJob.class.getName(), JobExecutionOptions.DEFAULT)
-        ),
+
         SUBMIT_BROADCAST(compute -> compute
-                .submitBroadcast(justNonEntryNode(), List.of(), NoOpJob.class.getName())
-                .values().iterator().next()
-        ),
-        SUBMIT_BROADCAST_WITH_OPTIONS(compute -> compute
-                .submitBroadcast(justNonEntryNode(), List.of(), NoOpJob.class.getName(), JobExecutionOptions.DEFAULT)
+                .submitBroadcast(justNonEntryNode(), JobDescriptor.builder(NoOpJob.class).build())
                 .values().iterator().next()
         );
 
@@ -217,7 +204,7 @@ class ItComputeApiThreadingTest extends ClusterPerClassIntegrationTest {
 
     private enum JobExecutionAsyncOperation {
         RESULT_ASYNC(execution -> execution.resultAsync()),
-        STATUS_ASYNC(execution -> execution.statusAsync()),
+        STATE_ASYNC(execution -> execution.stateAsync()),
         ID_ASYNC(execution -> execution.idAsync()),
         CANCEL_ASYNC(execution -> execution.cancelAsync()),
         CHANGE_PRIORITY_ASYNC(execution -> execution.changePriorityAsync(1));

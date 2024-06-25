@@ -306,10 +306,7 @@ class IndexBuildController implements ManuallyCloseable {
     ) {
         MvPartitionStorage mvPartition = mvPartitionStorage(mvTableStorage, replicaId);
 
-        // TODO: IGNITE-22202 Deal with this situation
-        if (mvPartition == null) {
-            return;
-        }
+        assert mvPartition != null : "Partition storage is missing, replicaId=" + replicaId;
 
         IndexStorage indexStorage = indexStorage(mvTableStorage, replicaId, indexDescriptor);
 
@@ -320,8 +317,7 @@ class IndexBuildController implements ManuallyCloseable {
                 indexStorage,
                 mvPartition,
                 localNode(),
-                enlistmentConsistencyToken,
-                indexDescriptor.txWaitCatalogVersion()
+                enlistmentConsistencyToken
         );
     }
 
@@ -334,10 +330,7 @@ class IndexBuildController implements ManuallyCloseable {
     ) {
         MvPartitionStorage mvPartition = mvPartitionStorage(mvTableStorage, replicaId);
 
-        // TODO: IGNITE-22202 Deal with this situation
-        if (mvPartition == null) {
-            return;
-        }
+        assert mvPartition != null : "Partition storage is missing, replicaId=" + replicaId;
 
         IndexStorage indexStorage = indexStorage(mvTableStorage, replicaId, indexDescriptor);
 
@@ -348,8 +341,7 @@ class IndexBuildController implements ManuallyCloseable {
                 indexStorage,
                 mvPartition,
                 localNode(),
-                enlistmentConsistencyToken,
-                indexDescriptor.txWaitCatalogVersion()
+                enlistmentConsistencyToken
         );
     }
 
@@ -368,8 +360,7 @@ class IndexBuildController implements ManuallyCloseable {
     private static @Nullable MvPartitionStorage mvPartitionStorage(MvTableStorage mvTableStorage, TablePartitionId replicaId) {
         MvPartitionStorage mvPartition = mvTableStorage.getMvPartition(replicaId.partitionId());
 
-        // TODO: IGNITE-22202 Deal with this situation
-        // assert mvPartition != null : replicaId;
+        assert mvPartition != null : "Partition storage is missing, replicaId=" + replicaId;
 
         return mvPartition;
     }

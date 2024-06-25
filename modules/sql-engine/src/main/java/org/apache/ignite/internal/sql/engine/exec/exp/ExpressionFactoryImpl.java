@@ -275,8 +275,18 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
     public Supplier<RowT> rowSource(List<RexNode> values) {
         List<RelDataType> typeList = Commons.transform(values, v -> v != null ? v.getType() : NULL_TYPE);
         RowSchema rowSchema = TypeUtils.rowSchemaFromRelTypes(typeList);
+        List<RexLiteral> literalValues = new ArrayList<>(values.size());
 
-        return new ValuesImpl(scalar(values, null), ctx.rowHandler().factory(rowSchema));
+        // Avoiding compilation when all expressions are constants.
+        for (int i = 0; i < values.size(); i++) {
+            if (!(values.get(i) instanceof RexLiteral)) {
+                return new ValuesImpl(scalar(values, null), ctx.rowHandler().factory(rowSchema));
+            }
+
+            literalValues.add((RexLiteral) values.get(i));
+        }
+
+        return new ConstantValuesImpl(literalValues, typeList, ctx.rowHandler().factory(rowSchema));
     }
 
     /** {@inheritDoc} */
@@ -326,21 +336,24 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
                     rows.add(rowBuilder.buildAndReset());
                 }
 
-                RexLiteral literal = values.get(i);
-                Object val = literal.getValueAs(types.get(field));
-
-                // Literal was parsed as UTC timestamp, now we need to adjust it to the client's time zone.
-                if (val != null && literal.getTypeName() == SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE) {
-                    val = IgniteSqlFunctions.subtractTimeZoneOffset((long) val, (TimeZone) ctx.get(Variable.TIME_ZONE.camelName));
-                }
-
-                rowBuilder.addField(val);
+                rowBuilder.addField(literalValue(values.get(i), types.get(field)));
             }
 
             rows.add(rowBuilder.buildAndReset());
         }
 
         return rows;
+    }
+
+    private @Nullable Object literalValue(RexLiteral literal, Class<?> type) {
+        Object val = literal.getValueAs(type);
+
+        // Literal was parsed as UTC timestamp, now we need to adjust it to the client's time zone.
+        if (val != null && literal.getTypeName() == SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE) {
+            return IgniteSqlFunctions.subtractTimeZoneOffset((long) val, (TimeZone) ctx.get(Variable.TIME_ZONE.camelName));
+        }
+
+        return val;
     }
 
     /** {@inheritDoc} */
@@ -789,6 +802,35 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
             RowT res = rowBuilder.buildAndReset();
 
             return (T) ctx.rowHandler().get(0, res);
+        }
+    }
+
+    private class ConstantValuesImpl implements Supplier<RowT> {
+        private final List<RexLiteral> values;
+
+        private final RowBuilder<RowT> rowBuilder;
+
+        private final List<RelDataType> types;
+
+        /**
+         * Constructor.
+         */
+        private ConstantValuesImpl(List<RexLiteral> values, List<RelDataType> types, RowFactory<RowT> factory) {
+            this.values = values;
+            this.rowBuilder = factory.rowBuilder();
+            this.types = types;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public RowT get() {
+            for (int field = 0; field < values.size(); field++) {
+                Class<?> javaType = Primitives.wrap((Class<?>) TYPE_FACTORY.getJavaClass(types.get(field)));
+
+                rowBuilder.addField(literalValue(values.get(field), javaType));
+            }
+
+            return rowBuilder.buildAndReset();
         }
     }
 
