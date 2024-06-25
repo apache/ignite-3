@@ -79,6 +79,7 @@ import org.apache.ignite.internal.failure.handlers.StopNodeFailureHandler;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.RunnableX;
@@ -165,7 +166,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
     public static final int PLANNING_THREAD_COUNT = 2;
 
-    /** Timeout in ms for stopping execution service. */
+    /** Timeout in ms for stopping execution service.*/
     private static final long SHUTDOWN_TIMEOUT = 5_000;
 
     private static final int CATALOG_VERSION = 1;
@@ -377,7 +378,8 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     }
 
     /**
-     * A query initialization is failed on the initiator during the mapping phase. Need to verify that the exception is handled properly.
+     * A query initialization is failed on the initiator during the mapping phase.
+     * Need to verify that the exception is handled properly.
      */
     @Test
     public void testQueryMappingFailure() {
@@ -671,8 +673,8 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     }
 
     /**
-     * Tests the ability to run multiple statements using {@link QueryPrefetchCallback}. Each subsequent statement begins execution after
-     * the prefetching for the previous statement is completed.
+     * Tests the ability to run multiple statements using {@link QueryPrefetchCallback}. Each subsequent
+     * statement begins execution after the prefetching for the previous statement is completed.
      *
      * @throws Exception If failed.
      */
@@ -893,7 +895,6 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         assertThat(debugInfo2, equalTo(expectedOnNonCoordinator));
         assertThat(debugInfo3, equalTo(expectedOnNonCoordinator));
     }
-
 
     @Test
     public void testTimeoutStandardPlan() {
@@ -1177,29 +1178,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         ExecutionDependencyResolver dependencyResolver = new ExecutionDependencyResolverImpl(executableTableRegistry, null);
 
-        var targetProvider = new ExecutionTargetProvider() {
-            @Override
-            public CompletableFuture<ExecutionTarget> forTable(ExecutionTargetFactory factory, IgniteTable table) {
-                if (mappingException != null) {
-                    return CompletableFuture.failedFuture(mappingException);
-                }
-
-                return completedFuture(factory.allOf(nodeNames));
-            }
-
-            @Override
-            public CompletableFuture<ExecutionTarget> forSystemView(ExecutionTargetFactory factory, IgniteSystemView view) {
-                return CompletableFuture.failedFuture(new AssertionError("Not supported"));
-            }
-        };
-
-        var partitionPruner = new PartitionPruner() {
-            @Override
-            public List<MappedFragment> apply(List<MappedFragment> mappedFragments, Object[] dynamicParameters) {
-                return mappedFragments;
-            }
-        };
-        var mappingService = new MappingServiceImpl(nodeName, targetProvider, EmptyCacheFactory.INSTANCE, 0, partitionPruner, taskExecutor);
+        var mappingService = createMappingService(nodeName, clockService, taskExecutor);
         var tableFunctionRegistry = new TableFunctionRegistryImpl();
 
         List<LogicalNode> logicalNodes = nodeNames.stream()
@@ -1228,6 +1207,36 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         executionService.start();
 
         return executionService;
+    }
+
+    private MappingServiceImpl createMappingService(
+            String nodeName,
+            ClockService clock,
+            QueryTaskExecutorImpl taskExecutor
+    ) {
+        var targetProvider = new ExecutionTargetProvider() {
+            @Override
+            public CompletableFuture<ExecutionTarget> forTable(
+                    HybridTimestamp operationTime,
+                    ExecutionTargetFactory factory,
+                    IgniteTable table,
+                    boolean includeBackups
+            ) {
+                if (mappingException != null) {
+                    return CompletableFuture.failedFuture(mappingException);
+                }
+
+                return completedFuture(factory.allOf(nodeNames));
+            }
+
+            @Override
+            public CompletableFuture<ExecutionTarget> forSystemView(ExecutionTargetFactory factory, IgniteSystemView view) {
+                return CompletableFuture.failedFuture(new AssertionError("Not supported"));
+            }
+        };
+
+        var partitionPruner = new PartitionPrunerImpl();
+        return new MappingServiceImpl(nodeName, clock, targetProvider, EmptyCacheFactory.INSTANCE, 0, partitionPruner, taskExecutor);
     }
 
     private SqlOperationContext createContext() {

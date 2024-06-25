@@ -23,13 +23,9 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.lang.SqlExceptionMapperUtil.mapToPublicSqlException;
-import static org.apache.ignite.internal.table.distributed.storage.InternalTableImpl.AWAIT_PRIMARY_REPLICA_TIMEOUT;
-import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_UNAVAILABLE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.EXECUTION_CANCELLED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
@@ -53,7 +49,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.LongSupplier;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
@@ -62,17 +57,12 @@ import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
-import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.sql.ResultSetMetadataImpl;
 import org.apache.ignite.internal.sql.SqlCommon;
@@ -86,15 +76,11 @@ import org.apache.ignite.internal.sql.engine.exec.ExecutionService;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImpl;
 import org.apache.ignite.internal.sql.engine.exec.LifecycleAware;
 import org.apache.ignite.internal.sql.engine.exec.MailboxRegistryImpl;
-import org.apache.ignite.internal.sql.engine.exec.NodeWithConsistencyToken;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
 import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunctionRegistryImpl;
-import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTarget;
-import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTargetFactory;
-import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTargetProvider;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingServiceImpl;
 import org.apache.ignite.internal.sql.engine.message.MessageServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.KeyValueGetPlan;
@@ -107,14 +93,11 @@ import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPrunerImpl;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
-import org.apache.ignite.internal.sql.engine.schema.IgniteSystemView;
-import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManagerImpl;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.sql.ParserService;
 import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
-import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContextImpl;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
@@ -136,7 +119,6 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
@@ -148,9 +130,6 @@ import org.jetbrains.annotations.TestOnly;
 public class SqlQueryProcessor implements QueryProcessor {
     /** Default time-zone ID. */
     public static final ZoneId DEFAULT_TIME_ZONE_ID = ZoneId.of("UTC");
-
-    /** The logger. */
-    private static final IgniteLogger LOG = Loggers.forClass(SqlQueryProcessor.class);
 
     private static final int PARSED_RESULT_CACHE_SIZE = 10_000;
 
@@ -341,36 +320,13 @@ public class SqlQueryProcessor implements QueryProcessor {
                 view -> () -> systemViewManager.scanView(view.name())
         );
 
-        var executionTargetProvider = new ExecutionTargetProvider() {
-            @Override
-            public CompletableFuture<ExecutionTarget> forTable(ExecutionTargetFactory factory, IgniteTable table) {
-                return primaryReplicas(table)
-                        .thenApply(factory::partitioned);
-            }
-
-            @Override
-            public CompletableFuture<ExecutionTarget> forSystemView(ExecutionTargetFactory factory, IgniteSystemView view) {
-                List<String> nodes = systemViewManager.owningNodes(view.name());
-
-                if (nullOrEmpty(nodes)) {
-                    return failedFuture(
-                            new SqlException(Sql.MAPPING_ERR, format("The view with name '{}' could not be found on"
-                                    + " any active nodes in the cluster", view.name()))
-                    );
-                }
-
-                return completedFuture(
-                        view.distribution() == IgniteDistributions.single()
-                                ? factory.oneOf(nodes)
-                                : factory.allOf(nodes)
-                );
-            }
-        };
+        var executionTargetProvider = new ExecutionTargetProviderImpl(placementDriver, systemViewManager);
 
         var partitionPruner = new PartitionPrunerImpl();
 
         var mappingService = new MappingServiceImpl(
                 nodeName,
+                clockService,
                 executionTargetProvider,
                 CACHE_FACTORY,
                 clusterCfg.planner().estimatedNumberOfQueries().value(),
@@ -406,52 +362,6 @@ public class SqlQueryProcessor implements QueryProcessor {
         services.forEach(LifecycleAware::start);
 
         return nullCompletedFuture();
-    }
-
-    // need to be refactored after TODO: https://issues.apache.org/jira/browse/IGNITE-20925
-
-    /** Get primary replicas. */
-    private CompletableFuture<List<NodeWithConsistencyToken>> primaryReplicas(IgniteTable table) {
-        int partitions = table.partitions();
-
-        List<CompletableFuture<NodeWithConsistencyToken>> result = new ArrayList<>(partitions);
-
-        HybridTimestamp clockNow = clockService.now();
-
-        // no need to wait all partitions after pruning was implemented.
-        for (int partId = 0; partId < partitions; ++partId) {
-            int partitionId = partId;
-            ReplicationGroupId partGroupId = new TablePartitionId(table.id(), partitionId);
-
-            CompletableFuture<ReplicaMeta> f = placementDriver.awaitPrimaryReplica(
-                    partGroupId,
-                    clockNow,
-                    AWAIT_PRIMARY_REPLICA_TIMEOUT,
-                    SECONDS
-            );
-
-            result.add(f.handle((primaryReplica, e) -> {
-                if (e != null) {
-                    LOG.debug("Failed to retrieve primary replica for partition {}", e, partitionId);
-
-                    throw withCause(IgniteInternalException::new, REPLICA_UNAVAILABLE_ERR, "Failed to get the primary replica"
-                            + " [tablePartitionId=" + partGroupId + ']', e);
-                } else {
-                    String holder = primaryReplica.getLeaseholder();
-
-                    assert holder != null : "Unable to map query, nothing holds the lease";
-
-                    return new NodeWithConsistencyToken(holder, primaryReplica.getStartTime().longValue());
-                }
-            }));
-        }
-
-        CompletableFuture<Void> all = CompletableFuture.allOf(result.toArray(new CompletableFuture[0]));
-
-        return all.thenApply(v -> result.stream()
-                .map(CompletableFuture::join)
-                .collect(Collectors.toList())
-        );
     }
 
     /** {@inheritDoc} */
@@ -1160,5 +1070,4 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         return clockService.now();
     }
-
 }
