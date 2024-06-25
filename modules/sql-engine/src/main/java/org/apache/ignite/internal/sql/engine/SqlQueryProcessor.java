@@ -149,14 +149,6 @@ public class SqlQueryProcessor implements QueryProcessor {
     /** Default time-zone ID. */
     public static final ZoneId DEFAULT_TIME_ZONE_ID = ZoneId.of("UTC");
 
-    /** Default properties. */
-    public static final SqlProperties DEFAULT_PROPERTIES = SqlPropertiesHelper.newBuilder()
-            .set(QueryProperty.DEFAULT_SCHEMA, SqlCommon.DEFAULT_SCHEMA_NAME)
-            .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.ALL)
-            .set(QueryProperty.TIME_ZONE_ID, DEFAULT_TIME_ZONE_ID)
-            .set(QueryProperty.QUERY_TIMEOUT, 0L)
-            .build();
-
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(SqlQueryProcessor.class);
 
@@ -167,6 +159,14 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     /** Number of the schemas in cache. */
     private static final int SCHEMA_CACHE_SIZE = 128;
+
+    /** Default properties. */
+    public static final SqlProperties DEFAULT_PROPERTIES = SqlPropertiesHelper.newBuilder()
+            .set(QueryProperty.DEFAULT_SCHEMA, SqlCommon.DEFAULT_SCHEMA_NAME)
+            .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.ALL)
+            .set(QueryProperty.TIME_ZONE_ID, DEFAULT_TIME_ZONE_ID)
+            .set(QueryProperty.QUERY_TIMEOUT, 0L)
+            .build();
 
     private static final CacheFactory CACHE_FACTORY = CaffeineCacheFactory.INSTANCE;
 
