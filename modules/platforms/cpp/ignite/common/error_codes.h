@@ -99,9 +99,8 @@ enum class code : underlying_t {
     CONSTRAINT_VIOLATION = 0x40007,
     EXECUTION_CANCELLED = 0x40008,
     RUNTIME = 0x40009,
-    PLANNING_TIMEOUT = 0x4000a,
-    MAPPING = 0x4000b,
-    TX_CONTROL_INSIDE_EXTERNAL_TX = 0x4000c,
+    MAPPING = 0x4000a,
+    TX_CONTROL_INSIDE_EXTERNAL_TX = 0x4000b,
 
     // MetaStorage group. Group code: 5
     STARTING_STORAGE = 0x50001,

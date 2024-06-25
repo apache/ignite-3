@@ -191,14 +191,11 @@ namespace Apache.Ignite
             /// <summary> Runtime error. </summary>
             public const int Runtime = (GroupCode << 16) | (9 & 0xFFFF);
 
-            /// <summary> PlanningTimeout error. </summary>
-            public const int PlanningTimeout = (GroupCode << 16) | (10 & 0xFFFF);
-
             /// <summary> Mapping error. </summary>
-            public const int Mapping = (GroupCode << 16) | (11 & 0xFFFF);
+            public const int Mapping = (GroupCode << 16) | (10 & 0xFFFF);
 
             /// <summary> TxControlInsideExternalTx error. </summary>
-            public const int TxControlInsideExternalTx = (GroupCode << 16) | (12 & 0xFFFF);
+            public const int TxControlInsideExternalTx = (GroupCode << 16) | (11 & 0xFFFF);
         }
 
         /// <summary> MetaStorage errors. </summary>
