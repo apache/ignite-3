@@ -70,7 +70,7 @@ public class MapReduceJob {
      *
      * @return Arguments of the job.
      */
-    public Object args() {
+    public Object arg() {
         return args;
     }
 
