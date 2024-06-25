@@ -70,7 +70,7 @@ public class JdbcStatement implements Statement {
     private volatile boolean closed;
 
     /** Query timeout. */
-    protected int timeout;
+    protected int queryTimeoutMillis;
 
     /** Rows limit. */
     private int maxRows;
@@ -137,7 +137,7 @@ public class JdbcStatement implements Statement {
         }
 
         JdbcQueryExecuteRequest req = new JdbcQueryExecuteRequest(stmtType, schema, pageSize, maxRows, sql, args,
-                conn.getAutoCommit(), multiStatement, timeout);
+                conn.getAutoCommit(), multiStatement, queryTimeoutMillis);
 
         JdbcQueryExecuteResponse res;
         try {
@@ -286,7 +286,7 @@ public class JdbcStatement implements Statement {
     public int getQueryTimeout() throws SQLException {
         ensureNotClosed();
 
-        return timeout / 1000;
+        return queryTimeoutMillis / 1000;
     }
 
     /** {@inheritDoc} */
@@ -568,7 +568,7 @@ public class JdbcStatement implements Statement {
             return INT_EMPTY_ARRAY;
         }
 
-        JdbcBatchExecuteRequest req = new JdbcBatchExecuteRequest(conn.getSchema(), batch, conn.getAutoCommit(), timeout);
+        JdbcBatchExecuteRequest req = new JdbcBatchExecuteRequest(conn.getSchema(), batch, conn.getAutoCommit(), queryTimeoutMillis);
 
         try {
             JdbcBatchExecuteResult res = conn.handler().batchAsync(conn.connectionId(), req).get();
@@ -770,7 +770,7 @@ public class JdbcStatement implements Statement {
             throw new SQLException("Condition timeout >= 0 is not satisfied.");
         }
 
-        this.timeout = timeout;
+        this.queryTimeoutMillis = timeout;
     }
 
     private static SQLException toSqlException(ExecutionException e) {

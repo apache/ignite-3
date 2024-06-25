@@ -53,7 +53,7 @@ public class JdbcQueryExecuteRequest implements ClientMessage {
     private boolean multiStatement;
 
     /** Query timeout in milliseconds. */
-    private long timeoutMillis;
+    private long queryTimeoutMillis;
 
     /**
      * Default constructor. For deserialization purposes.
@@ -72,7 +72,7 @@ public class JdbcQueryExecuteRequest implements ClientMessage {
      * @param args       Arguments list.
      * @param autoCommit Flag indicating whether auto-commit mode is enabled.
      * @param multiStatement Multiple statement flag.
-     * @param timeoutMillis Timeout in millseconds.
+     * @param queryTimeoutMillis Timeout in millseconds.
      */
     public JdbcQueryExecuteRequest(
             JdbcStatementType stmtType,
@@ -83,7 +83,7 @@ public class JdbcQueryExecuteRequest implements ClientMessage {
             Object[] args, 
             boolean autoCommit, 
             boolean multiStatement, 
-            long timeoutMillis
+            long queryTimeoutMillis
     ) {
         Objects.requireNonNull(stmtType);
 
@@ -95,7 +95,7 @@ public class JdbcQueryExecuteRequest implements ClientMessage {
         this.sqlQry = sqlQry;
         this.args = args;
         this.multiStatement = multiStatement;
-        this.timeoutMillis = timeoutMillis;
+        this.queryTimeoutMillis = queryTimeoutMillis;
     }
 
     /**
@@ -173,8 +173,8 @@ public class JdbcQueryExecuteRequest implements ClientMessage {
      *
      * @return Timeout in milliseconds.
      */
-    public long timeoutMillis() {
-        return timeoutMillis;
+    public long queryTimeoutMillis() {
+        return queryTimeoutMillis;
     }
 
     /** {@inheritDoc} */
@@ -189,7 +189,7 @@ public class JdbcQueryExecuteRequest implements ClientMessage {
         packer.packBoolean(multiStatement);
 
         packer.packObjectArrayAsBinaryTuple(args);
-        packer.packLong(timeoutMillis);
+        packer.packLong(queryTimeoutMillis);
     }
 
     /** {@inheritDoc} */
@@ -204,7 +204,7 @@ public class JdbcQueryExecuteRequest implements ClientMessage {
         multiStatement = unpacker.unpackBoolean();
 
         args = unpacker.unpackObjectArrayFromBinaryTuple();
-        timeoutMillis = unpacker.unpackLong();
+        queryTimeoutMillis = unpacker.unpackLong();
     }
 
     /** {@inheritDoc} */

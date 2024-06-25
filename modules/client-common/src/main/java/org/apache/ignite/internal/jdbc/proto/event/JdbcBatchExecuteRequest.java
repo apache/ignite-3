@@ -39,7 +39,7 @@ public class JdbcBatchExecuteRequest implements ClientMessage {
     private boolean autoCommit;
 
     /** Query timeout in milliseconds. */
-    private long timeoutMillis;
+    private long queryTimeoutMillis;
 
     /**
      * Default constructor.
@@ -53,20 +53,20 @@ public class JdbcBatchExecuteRequest implements ClientMessage {
      * @param schemaName Schema name.
      * @param queries    Queries.
      * @param autoCommit Flag indicating whether auto-commit mode is enabled.
-     * @param timeoutMillis Timeout in millseconds.
+     * @param queryTimeoutMillis Timeout in millseconds.
      */
     public JdbcBatchExecuteRequest(
             String schemaName, 
             List<String> queries, 
             boolean autoCommit,
-            long timeoutMillis
+            long queryTimeoutMillis
     ) {
         assert !CollectionUtils.nullOrEmpty(queries);
 
         this.schemaName = schemaName;
         this.queries = queries;
         this.autoCommit = autoCommit;
-        this.timeoutMillis = timeoutMillis;
+        this.queryTimeoutMillis = queryTimeoutMillis;
     }
 
     /**
@@ -101,8 +101,8 @@ public class JdbcBatchExecuteRequest implements ClientMessage {
      *
      * @return Timeout in milliseconds.
      */
-    public long timeoutMillis() {
-        return timeoutMillis;
+    public long queryTimeoutMillis() {
+        return queryTimeoutMillis;
     }
 
     /** {@inheritDoc} */
@@ -117,7 +117,7 @@ public class JdbcBatchExecuteRequest implements ClientMessage {
             packer.packString(q);
         }
 
-        packer.packLong(timeoutMillis);
+        packer.packLong(queryTimeoutMillis);
     }
 
     /** {@inheritDoc} */
@@ -134,7 +134,7 @@ public class JdbcBatchExecuteRequest implements ClientMessage {
             queries.add(unpacker.unpackString());
         }
 
-        timeoutMillis = unpacker.unpackLong();
+        queryTimeoutMillis = unpacker.unpackLong();
     }
 
     /** {@inheritDoc} */

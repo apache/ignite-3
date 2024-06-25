@@ -43,7 +43,7 @@ public class JdbcBatchPreparedStmntRequest implements ClientMessage {
     private boolean autoCommit;
 
     /** Query timeout in milliseconds. */
-    private long timeoutMillis;
+    private long queryTimeoutMillis;
 
     /**
      * Default constructor.
@@ -58,14 +58,14 @@ public class JdbcBatchPreparedStmntRequest implements ClientMessage {
      * @param query Sql query string.
      * @param args Sql query arguments.
      * @param autoCommit Flag indicating whether auto-commit mode is enabled.
-     * @param timeoutMillis Timeout in millseconds.
+     * @param queryTimeoutMillis Timeout in millseconds.
      */
     public JdbcBatchPreparedStmntRequest(
             String schemaName, 
             String query, 
             List<Object[]> args, 
             boolean autoCommit, 
-            long timeoutMillis
+            long queryTimeoutMillis
     ) {
         assert !StringUtil.isNullOrEmpty(query);
         assert !CollectionUtils.nullOrEmpty(args);
@@ -74,7 +74,7 @@ public class JdbcBatchPreparedStmntRequest implements ClientMessage {
         this.args = args;
         this.schemaName = schemaName;
         this.autoCommit = autoCommit;
-        this.timeoutMillis = timeoutMillis;
+        this.queryTimeoutMillis = queryTimeoutMillis;
     }
 
     /**
@@ -118,8 +118,8 @@ public class JdbcBatchPreparedStmntRequest implements ClientMessage {
      *
      * @return Timeout in milliseconds.
      */
-    public long timeoutMillis() {
-        return timeoutMillis;
+    public long queryTimeoutMillis() {
+        return queryTimeoutMillis;
     }
 
     /** {@inheritDoc} */
@@ -135,7 +135,7 @@ public class JdbcBatchPreparedStmntRequest implements ClientMessage {
             packer.packObjectArrayAsBinaryTuple(arg);
         }
 
-        packer.packLong(timeoutMillis);
+        packer.packLong(queryTimeoutMillis);
     }
 
     /** {@inheritDoc} */
@@ -154,7 +154,7 @@ public class JdbcBatchPreparedStmntRequest implements ClientMessage {
             args.add(unpacker.unpackObjectArrayFromBinaryTuple());
         }
 
-        timeoutMillis = unpacker.unpackLong();
+        queryTimeoutMillis = unpacker.unpackLong();
     }
 
     /** {@inheritDoc} */

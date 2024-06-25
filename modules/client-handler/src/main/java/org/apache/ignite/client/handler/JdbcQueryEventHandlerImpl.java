@@ -146,7 +146,7 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
         JdbcStatementType reqStmtType = req.getStmtType();
         boolean multiStatement = req.multiStatement();
         ZoneId timeZoneId = connectionContext.timeZoneId();
-        long timeoutMillis = req.timeoutMillis();
+        long timeoutMillis = req.queryTimeoutMillis();
 
         SqlProperties properties = createProperties(reqStmtType, multiStatement, timeZoneId, timeoutMillis);
 
@@ -205,10 +205,10 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
         var queries = req.queries();
         var counters = new IntArrayList(req.queries().size());
         var tail = CompletableFuture.completedFuture(counters);
-        long timeoutMillis = req.timeoutMillis();
+        long queryTimeoutMillis = req.queryTimeoutMillis();
 
         for (String query : queries) {
-            tail = tail.thenCompose(list -> executeAndCollectUpdateCount(connectionContext, tx, query, OBJECT_EMPTY_ARRAY, timeoutMillis)
+            tail = tail.thenCompose(list -> executeAndCollectUpdateCount(connectionContext, tx, query, OBJECT_EMPTY_ARRAY, queryTimeoutMillis)
                     .thenApply(cnt -> {
                         list.add(cnt > Integer.MAX_VALUE ? Statement.SUCCESS_NO_INFO : cnt.intValue());
 
@@ -239,7 +239,7 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
         var argList = req.getArgs();
         var counters = new IntArrayList(req.getArgs().size());
         var tail = CompletableFuture.completedFuture(counters);
-        long timeoutMillis = req.timeoutMillis();
+        long timeoutMillis = req.queryTimeoutMillis();
 
         for (Object[] args : argList) {
             tail = tail.thenCompose(list -> executeAndCollectUpdateCount(connectionContext, tx, req.getQuery(), args, timeoutMillis)
