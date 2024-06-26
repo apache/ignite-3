@@ -814,6 +814,12 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
         /** {@inheritDoc} */
         @Override
+        public RelDataType insertRowType(IgniteTypeFactory factory) {
+            return rowType;
+        }
+
+        /** {@inheritDoc} */
+        @Override
         public ColumnDescriptor columnDescriptor(String fieldName) {
             RelDataTypeField field = rowType.getField(fieldName, false, false);
 

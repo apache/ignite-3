@@ -403,7 +403,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         SqlIdentifier alias = call.getAlias() != null ? call.getAlias() :
                 new SqlIdentifier(deriveAlias(targetTable, 0), SqlParserPos.ZERO);
 
-        igniteTable.getRowType(typeFactory)
+        igniteTable.rowTypeForUpdate((IgniteTypeFactory) typeFactory)
                 .getFieldNames().stream()
                 .map(name -> alias.plus(name, SqlParserPos.ZERO))
                 .forEach(selectList::add);
@@ -538,6 +538,18 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         validateAggregateFunction(aggCall, (SqlAggFunction) aggCall.getOperator());
 
         super.validateAggregateParams(aggCall, filter, null, orderList, scope);
+    }
+
+    /** {@inheritDoc} */
+    @Override public void validateCall(SqlCall call, SqlValidatorScope scope) {
+        if (call.getKind() == SqlKind.AS) {
+            final String alias = deriveAlias(call, 0);
+
+            if (isSystemFieldName(alias))
+                throw newValidationError(call, IgniteResource.INSTANCE.illegalAlias(alias));
+        }
+
+        super.validateCall(call, scope);
     }
 
     /** {@inheritDoc} */
@@ -948,7 +960,8 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     }
 
     private boolean isSystemFieldName(String alias) {
-        return Commons.implicitPkEnabled() && Commons.IMPLICIT_PK_COL_NAME.equals(alias);
+        return (Commons.implicitPkEnabled() && Commons.IMPLICIT_PK_COL_NAME.equals(alias))
+                || alias.equals(Commons.PART_COL_NAME);
     }
 
     /** {@inheritDoc} */

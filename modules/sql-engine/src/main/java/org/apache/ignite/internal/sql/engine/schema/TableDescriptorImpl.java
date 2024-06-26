@@ -21,13 +21,15 @@ import static org.apache.ignite.internal.sql.engine.util.TypeUtils.native2relati
 import static org.apache.ignite.internal.util.IgniteUtils.newHashMap;
 
 import java.util.Arrays;
+import java.util.BitSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.calcite.rel.type.RelDataTypeFactory.Builder;
+import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.schema.ColumnStrategy;
 import org.apache.calcite.sql2rel.InitializerContext;
@@ -55,6 +57,8 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
 
     private final RelDataType rowType;
 
+    private final ImmutableBitSet storedColumns;
+
     /**
      * Constructor.
      *
@@ -66,17 +70,28 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
 
         Map<String, ColumnDescriptor> descriptorsMap = newHashMap(columnDescriptors.size());
 
-        RelDataTypeFactory factory = Commons.typeFactory();
+        IgniteTypeFactory factory = Commons.typeFactory();
         RelDataTypeFactory.Builder typeBuilder = new RelDataTypeFactory.Builder(factory);
+        BitSet virtualColumns = new BitSet();
         for (ColumnDescriptor descriptor : columnDescriptors) {
+            if (descriptor.system()) {
+                virtualColumns.set(descriptor.logicalIndex());
+            }
+
             typeBuilder.add(descriptor.name(), deriveLogicalType(factory, descriptor));
             descriptorsMap.put(descriptor.name(), descriptor);
         }
 
         this.descriptors = columnDescriptors.toArray(DUMMY);
         this.descriptorsMap = descriptorsMap;
-
         this.rowType = typeBuilder.build();
+
+        if (virtualColumns.isEmpty()) {
+            storedColumns = ImmutableBitSet.range(descriptors.length);
+        } else {
+            virtualColumns.flip(0, descriptors.length);
+            storedColumns = ImmutableBitSet.fromBitSet(virtualColumns);
+        }
     }
 
     @Override
@@ -93,6 +108,9 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
     /** {@inheritDoc} */
     @Override
     public ColumnStrategy generationStrategy(RelOptTable tbl, int colIdx) {
+        if (descriptors[colIdx].system()) {
+            return ColumnStrategy.VIRTUAL;
+        }
         if (descriptors[colIdx].defaultStrategy() != DefaultValueStrategy.DEFAULT_NULL) {
             return ColumnStrategy.DEFAULT;
         }
@@ -121,6 +139,10 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
                 return rexBuilder.makeLiteral(internalValue, relDataType, false);
             }
             case DEFAULT_COMPUTED: {
+                if (descriptor.system()) {
+                    return rexBuilder.makeInputRef(tbl.getRowType().getFieldList().get(colIdx).getType(), colIdx);
+                }
+
                 assert descriptor.key() : "DEFAULT_COMPUTED is only supported for primary key columns. Column: " + descriptor.name();
 
                 return rexBuilder.makeCall(IgniteSqlOperatorTable.RAND_UUID);
@@ -136,10 +158,21 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
         if (usedColumns == null || usedColumns.cardinality() == descriptors.length) {
             return rowType;
         } else {
-            return new RelDataTypeFactory.Builder(factory).addAll(rowType.getFieldList().stream()
-                    .filter(field -> usedColumns.get(field.getIndex()))
-                    .collect(Collectors.toList())).build();
+            Builder builder = new Builder(factory);
+
+            List<RelDataTypeField> fieldList = rowType.getFieldList();
+            for (int i : usedColumns) {
+                builder.add(fieldList.get(i));
+            }
+
+            return builder.build();
         }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public RelDataType insertRowType(IgniteTypeFactory factory) {
+        return rowType(factory, storedColumns);
     }
 
     /** {@inheritDoc} */
@@ -158,6 +191,11 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
     @Override
     public int columnsCount() {
         return descriptors.length;
+    }
+
+    @Override
+    public int storedColumns() {
+        return storedColumns.cardinality();
     }
 
     private RelDataType deriveLogicalType(RelDataTypeFactory factory, ColumnDescriptor desc) {
