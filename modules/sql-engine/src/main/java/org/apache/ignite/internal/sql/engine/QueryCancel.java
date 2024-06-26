@@ -28,6 +28,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.util.Cancellable;
+import org.apache.ignite.internal.util.FastTimestamps;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -102,14 +103,15 @@ public class QueryCancel {
         }, timeoutMillis, MILLISECONDS);
 
         add((timeout) -> {
-            // Cancel the future if we didn't timeout.
+            // Cancel the future if we didn't timeout,
+            // since in the case of a timeout it is already completed.
             if (!timeout) {
                 f.cancel(false);
             }
         });
 
         this.timeoutFut = fut;
-        this.deadline = Instant.now().plusMillis(timeoutMillis);
+        this.deadline = Instant.ofEpochMilli(FastTimestamps.coarseCurrentTimeMillis() + timeoutMillis);
         return fut;
     }
 
