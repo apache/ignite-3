@@ -53,7 +53,11 @@ big_integer::big_integer(const std::byte *data, std::size_t size) {
             }
         }
 
-        m_mpi.magnitude().back() &= 0xFFFFFFFF >> 8 * (4 - size % 4);
+        std::size_t extra_bytes = size % 4;
+        if(extra_bytes) {
+            mpi_t::word mask = 0xFFFFFFFF >> 8 * (4 - extra_bytes);
+            m_mpi.magnitude().back() &= mask;
+        }
         m_mpi.make_negative();
     }
 
