@@ -86,11 +86,11 @@ public class MappingBenchmark {
         List<TokenizedAssignments> partNodes =
                 List.of(tokenizedAssignment(1, "n3"));
         List<TokenizedAssignments> partNodesMore =
-                List.of(tokenizedAssignment( 1, "n3", "n4"),
+                List.of(tokenizedAssignment(1, "n3", "n4"),
                         tokenizedAssignment(2, "n4", "n5"),
                         tokenizedAssignment(3, "n5", "n3"));
         List<TokenizedAssignments> partNodesMore2 =
-                List.of(tokenizedAssignment(1,  "n5", "n3"),
+                List.of(tokenizedAssignment(1, "n5", "n3"),
                         tokenizedAssignment(2, "n3", "n4"),
                         tokenizedAssignment(3, "n4", "n5"));
 

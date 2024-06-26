@@ -180,7 +180,8 @@ public class ExecutionTargetFactorySelfTest {
     @MethodSource("clusterFactory")
     void partitionedPrimaryTargets(ExecutionTargetFactory f) throws Exception {
         // Self colocation
-        assertColocated(f, f.partitioned(assignmentFromPrimaries(NODE_SET)), f.partitioned(assignmentFromPrimaries(NODE_SET)), equalTo(NODE_SET));
+        assertColocated(f, f.partitioned(assignmentFromPrimaries(NODE_SET)), f.partitioned(assignmentFromPrimaries(NODE_SET)),
+                equalTo(NODE_SET));
         assertNotColocated(f.partitioned(assignmentFromPrimaries(NODE_SET)), f.partitioned(shuffle(assignmentFromPrimaries(NODE_SET))));
         assertNotColocated(f.partitioned(assignmentFromPrimaries(NODE_SUBSET)), f.partitioned(assignmentFromPrimaries(NODE_SET)),
                 "Partitioned targets with mot matching numbers of partitioned are not colocated");

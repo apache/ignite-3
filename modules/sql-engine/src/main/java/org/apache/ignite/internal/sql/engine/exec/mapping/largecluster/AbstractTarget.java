@@ -40,7 +40,7 @@ abstract class AbstractTarget implements ExecutionTarget {
 
     AbstractTarget(BitSet nodes) {
         assert !nodes.isEmpty();
-        
+
         this.nodes = nodes;
     }
 
