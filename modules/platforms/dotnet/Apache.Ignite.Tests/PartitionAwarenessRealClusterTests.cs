@@ -53,7 +53,7 @@ public class PartitionAwarenessRealClusterTests : IgniteTestsBase
 
             var primaryNodeNameExec = await client.Compute.SubmitAsync(
                 JobTarget.Colocated(TableName, keyTuple),
-                new JobDescriptor<string>(ComputeTests.NodeNameJob));
+                ComputeTests.NodeNameJob);
 
             var primaryNodeName = await primaryNodeNameExec.GetResultAsync();
 
