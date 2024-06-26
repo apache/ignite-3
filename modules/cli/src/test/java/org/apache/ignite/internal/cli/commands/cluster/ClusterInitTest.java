@@ -214,7 +214,7 @@ class ClusterInitTest extends IgniteCliInterfaceTestBase {
         String clusterConfigurationFile1 = copyResourceToTempFile("cluster-configuration-with-enabled-auth.conf").getAbsolutePath();
         String clusterConfigurationFile2 = copyResourceToTempFile("cluster-configuration-with-default.conf").getAbsolutePath();
 
-        var expectedClusterConfiguration ="security: {\n"
+        var expectedClusterConfiguration = "security: {\n"
                 + "  enabled: true,\n"
                 + "  authentication: {\n"
                 + "    providers.default: {\n"
