@@ -240,4 +240,4 @@ inline std::uint64_t ten_power_u64(std::int32_t n) {
     return (r == UINT64_MAX_PRECISION || value < ten_power_u64(r)) ? r : r + 1;
 }
 
-} // namespace ignite
+} // namespace ignite::detail
