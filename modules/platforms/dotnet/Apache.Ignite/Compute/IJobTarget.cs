@@ -20,11 +20,11 @@ namespace Apache.Ignite.Compute;
 /// <summary>
 /// Compute job target.
 /// </summary>
-/// <typeparam name="T">Data type.</typeparam>
+/// <typeparam name="T">Underlying data type.</typeparam>
 public interface IJobTarget<out T>
 {
     /// <summary>
-    /// Gets the data.
+    /// Gets the target data.
     /// </summary>
     T Data { get; }
 }
