@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "config.h"
+#include "ignite/common/detail/config.h"
 
 #include <array>
 #include <cassert>
@@ -49,7 +49,7 @@ const std::int32_t UINT64_MAX_PRECISION = 20;
 # include <intrin.h>
 #endif
 
-namespace ignite {
+namespace ignite::detail {
 
 /**
  * Returns the number of consecutive 0 bits in the value of x, starting from the least significant bit ("right").
@@ -240,4 +240,4 @@ inline std::uint64_t ten_power_u64(std::int32_t n) {
     return (r == UINT64_MAX_PRECISION || value < ten_power_u64(r)) ? r : r + 1;
 }
 
-} // namespace ignite
+} // namespace ignite::detail

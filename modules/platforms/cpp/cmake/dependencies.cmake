@@ -20,7 +20,7 @@ set(MBEDTLS_AS_SUBPROJECT ON)
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-add_compile_definitions(MBEDTLS_USER_CONFIG_FILE="${CMAKE_CURRENT_SOURCE_DIR}/ignite/common/ignite_mbedtls_config.h")
+add_compile_definitions(MBEDTLS_USER_CONFIG_FILE="${CMAKE_CURRENT_SOURCE_DIR}/ignite/common/detail/ignite_mbedtls_config.h")
 
 if (${USE_LOCAL_DEPS})
     find_package(msgpack REQUIRED)

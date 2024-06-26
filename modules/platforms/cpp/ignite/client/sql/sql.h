@@ -20,7 +20,7 @@
 #include "ignite/client/sql/result_set.h"
 #include "ignite/client/sql/sql_statement.h"
 #include "ignite/client/transaction/transaction.h"
-#include "ignite/common/config.h"
+#include "ignite/common/detail/config.h"
 #include "ignite/common/ignite_result.h"
 #include "ignite/common/primitive.h"
 

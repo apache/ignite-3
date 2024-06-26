@@ -23,7 +23,7 @@
 #include <sstream>
 #include <string>
 
-namespace ignite {
+namespace ignite::detail {
 
 /** Server version. */
 struct server_version {
@@ -51,4 +51,4 @@ struct server_version {
     }
 };
 
-} // namespace ignite
+} // namespace ignite::detail

@@ -20,7 +20,7 @@
 #include "ignite/client/table/ignite_tuple.h"
 #include "ignite/client/table/key_value_view.h"
 #include "ignite/client/table/record_view.h"
-#include "ignite/common/config.h"
+#include "ignite/common/detail/config.h"
 
 #include <memory>
 #include <utility>

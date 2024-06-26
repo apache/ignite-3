@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "config.h"
+#include "detail/config.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -72,7 +72,7 @@
 # define IGNITE_BYTESWAP_SPECIFIER constexpr
 #endif
 
-namespace ignite {
+namespace ignite::detail {
 
 /**
  * Byte order enum.
@@ -403,4 +403,4 @@ void store(std::byte *bytes, T value) noexcept {
 }
 
 } // namespace bytes
-} // namespace ignite
+} // namespace ignite::detail

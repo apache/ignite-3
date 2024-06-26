@@ -731,12 +731,35 @@ public class ClientMessageUnpacker implements AutoCloseable {
     }
 
     /**
+     * Reads array of longs.
+     *
+     * @return Array of longs.
+     */
+    public long[] unpackLongArray() {
+        assert refCnt > 0 : "Unpacker is closed";
+
+        int size = unpackInt();
+
+        if (size == 0) {
+            return ArrayUtils.LONG_EMPTY_ARRAY;
+        }
+
+        long[] res = new long[size];
+
+        for (int i = 0; i < size; i++) {
+            res[i] = unpackInt();
+        }
+
+        return res;
+    }
+
+    /**
      * Unpacks batch of arguments from binary tuples.
      *
      * @return BatchedArguments object with the unpacked arguments.
      */
     @SuppressWarnings("unused")
-    public BatchedArguments unpackObjectArrayFromBinaryTupleArray() {
+    public BatchedArguments unpackBatchedArgumentsFromBinaryTupleArray() {
         assert refCnt > 0 : "Unpacker is closed";
 
         if (tryUnpackNil()) {
@@ -745,7 +768,7 @@ public class ClientMessageUnpacker implements AutoCloseable {
 
         int rowLen = unpackInt();
         int rows = unpackInt();
-        boolean last = unpackBoolean(); // unused now, but we will need it in case of arguments load by pages.
+        unpackBoolean(); // unused now, but we will need it in case of arguments load by pages.
 
         BatchedArguments args = BatchedArguments.create();
 

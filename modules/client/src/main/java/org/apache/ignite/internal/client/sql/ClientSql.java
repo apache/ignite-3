@@ -24,6 +24,7 @@ import java.time.ZoneId;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeUnit;
@@ -33,6 +34,7 @@ import org.apache.ignite.internal.client.PayloadReader;
 import org.apache.ignite.internal.client.PayloadWriter;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.proto.ClientBinaryTupleUtils;
+import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.tx.ClientLazyTransaction;
 import org.apache.ignite.internal.marshaller.MarshallersProvider;
@@ -43,6 +45,7 @@ import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
+import org.apache.ignite.sql.SqlBatchException;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
@@ -147,18 +150,17 @@ public class ClientSql implements IgniteSql {
     /** {@inheritDoc} */
     @Override
     public long[] executeBatch(@Nullable Transaction transaction, String dmlQuery, BatchedArguments batch) {
-        try {
-            return executeBatchAsync(transaction, dmlQuery, batch).join();
-        } catch (CompletionException e) {
-            throw ExceptionUtils.sneakyThrow(ExceptionUtils.copyExceptionWithCause(e));
-        }
+        return executeBatch(transaction, new StatementImpl(dmlQuery), batch);
     }
 
     /** {@inheritDoc} */
     @Override
     public long[] executeBatch(@Nullable Transaction transaction, Statement dmlStatement, BatchedArguments batch) {
-        // TODO IGNITE-17059.
-        throw new UnsupportedOperationException("Not implemented yet.");
+        try {
+            return executeBatchAsync(transaction, dmlStatement, batch).join();
+        } catch (CompletionException e) {
+            throw ExceptionUtils.sneakyThrow(ExceptionUtils.copyExceptionWithCause(e));
+        }
     }
 
     /** {@inheritDoc} */
@@ -244,15 +246,7 @@ public class ClientSql implements IgniteSql {
                 //noinspection resource
                 return ClientLazyTransaction.ensureStarted(transaction, ch, null)
                         .thenCompose(tx -> tx.channel().serviceAsync(ClientOp.SQL_EXEC, payloadWriter, payloadReader))
-                        .exceptionally(e -> {
-                            Throwable ex = unwrapCause(e);
-                            if (ex instanceof TransactionException) {
-                                var te = (TransactionException) ex;
-                                throw new SqlException(te.traceId(), te.code(), te.getMessage(), te);
-                            }
-
-                            throw ExceptionUtils.sneakyThrow(ex);
-                        });
+                        .exceptionally(ClientSql::handleException);
             } catch (TransactionException e) {
                 return CompletableFuture.failedFuture(new SqlException(e.traceId(), e.code(), e.getMessage(), e));
             }
@@ -264,15 +258,63 @@ public class ClientSql implements IgniteSql {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<long[]> executeBatchAsync(@Nullable Transaction transaction, String query, BatchedArguments batch) {
-        // TODO IGNITE-17059.
-        throw new UnsupportedOperationException("Not implemented yet.");
+        return executeBatchAsync(transaction, new StatementImpl(query), batch);
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<long[]> executeBatchAsync(@Nullable Transaction transaction, Statement statement, BatchedArguments batch) {
-        // TODO IGNITE-17059.
-        throw new UnsupportedOperationException("Not implemented yet.");
+        PayloadWriter payloadWriter = w -> {
+            writeTx(transaction, w);
+
+            w.out().packString(statement.defaultSchema());
+            w.out().packInt(statement.pageSize());
+            w.out().packLong(statement.queryTimeout(TimeUnit.MILLISECONDS));
+            w.out().packNil(); // sessionTimeout
+            w.out().packString(statement.timeZoneId().getId());
+
+            packProperties(w, null);
+
+            w.out().packString(statement.query());
+            w.out().packBatchedArgumentsAsBinaryTupleArray(batch);
+            w.out().packLong(ch.observableTimestamp());
+        };
+
+        PayloadReader<BatchResultInternal> payloadReader = r -> {
+            ClientMessageUnpacker unpacker = r.in();
+
+            // skipping currently unused values:
+            // 1. resourceId
+            // 2. row set flag
+            // 3. more pages flag
+            // 4. was applied flag
+            unpacker.skipValues(4);
+
+            long[] updateCounters = unpacker.unpackLongArray();
+
+            if (unpacker.tryUnpackNil()) {
+                // No error - skipping message string and trace id.
+                unpacker.skipValues(2);
+
+                return new BatchResultInternal(updateCounters);
+            }
+
+            int errCode = unpacker.unpackInt();
+            String message = unpacker.tryUnpackNil() ? null : unpacker.unpackString();
+            UUID traceId = unpacker.unpackUuid();
+
+            return new BatchResultInternal(new SqlBatchException(traceId, errCode, updateCounters, message));
+        };
+
+        return ch.serviceAsync(ClientOp.SQL_EXEC_BATCH, payloadWriter, payloadReader)
+                .thenApply((batchRes) -> {
+                    if (batchRes.exception != null) {
+                        throw batchRes.exception;
+                    }
+
+                    return batchRes.updCounters;
+                })
+                .exceptionally(ClientSql::handleException);
     }
 
     /** {@inheritDoc} */
@@ -317,5 +359,30 @@ public class ClientSql implements IgniteSql {
         }
 
         w.out().packBinaryTuple(builder);
+    }
+
+    private static <T> T handleException(Throwable e) {
+        Throwable ex = unwrapCause(e);
+        if (ex instanceof TransactionException) {
+            var te = (TransactionException) ex;
+            throw new SqlException(te.traceId(), te.code(), te.getMessage(), te);
+        }
+
+        throw ExceptionUtils.sneakyThrow(ex);
+    }
+
+    private static class BatchResultInternal {
+        final long[] updCounters;
+        final SqlBatchException exception;
+
+        BatchResultInternal(long[] updCounters) {
+            this.updCounters = updCounters;
+            this.exception = null;
+        }
+
+        BatchResultInternal(SqlBatchException exception) {
+            this.updCounters = null;
+            this.exception = exception;
+        }
     }
 }

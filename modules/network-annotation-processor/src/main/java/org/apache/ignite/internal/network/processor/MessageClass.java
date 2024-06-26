@@ -170,6 +170,13 @@ public class MessageClass {
     }
 
     /**
+     * Returns class name that the generated Serializer should have.
+     */
+    public ClassName serializerClassName() {
+        return ClassName.get(packageName(), simpleName() + "Serializer");
+    }
+
+    /**
      * Returns name of the factory method that should be used by the message factories.
      *
      * @return name of the factory method that should be used by the message factories

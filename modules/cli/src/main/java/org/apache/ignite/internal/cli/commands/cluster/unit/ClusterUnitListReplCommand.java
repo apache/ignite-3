@@ -58,7 +58,7 @@ public class ClusterUnitListReplCommand extends BaseCommand implements Runnable 
         question.askQuestionIfNotConnected(clusterUrl.getClusterUrl())
                 .map(listOptions::toListUnitCallInput)
                 .then(Flows.fromCall(call))
-                .exceptionHandler(new ClusterNotInitializedExceptionHandler("Cannot list units", "cluster init"))
+                .exceptionHandler(ClusterNotInitializedExceptionHandler.createReplHandler("Cannot list units"))
                 .verbose(verbose)
                 .print(new UnitListDecorator(plain))
                 .start();

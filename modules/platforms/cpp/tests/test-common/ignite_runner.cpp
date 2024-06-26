@@ -18,7 +18,7 @@
 #include "ignite_runner.h"
 #include "test_utils.h"
 
-#include <ignite/common/config.h>
+#include "ignite/common/detail/config.h"
 
 #include <filesystem>
 #include <iostream>

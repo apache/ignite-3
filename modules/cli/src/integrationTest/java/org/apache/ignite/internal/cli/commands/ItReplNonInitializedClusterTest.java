@@ -15,30 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.marshaller;
+package org.apache.ignite.internal.cli.commands;
 
-import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
+import org.junit.jupiter.api.BeforeEach;
 
 /**
- * Exception that is thrown during object marshal/unmarshal.
+ * Tests for non-initialized cluster fir REPL mode.
  */
-public class MarshallerException extends IgniteInternalCheckedException {
-    /**
-     * Constructor.
-     *
-     * @param cause Cause.
-     */
-    public MarshallerException(Throwable cause) {
-        super(cause);
+public class ItReplNonInitializedClusterTest extends ItNonInitializedClusterTest {
+
+    @Override
+    protected Class<?> getCommandClass() {
+        return TopLevelCliReplCommand.class;
     }
 
-    /**
-     * Constructor.
-     *
-     * @param message Message.
-     * @param cause   Cause.
-     */
-    public MarshallerException(String message, Throwable cause) {
-        super(message, cause);
+    @BeforeEach
+    void connect() {
+        execute("connect");
+    }
+
+    @Override
+    protected String getExpectedErrorMessage() {
+        return CLUSTER_NOT_INITIALIZED_REPL_ERROR_MESSAGE;
     }
 }

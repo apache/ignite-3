@@ -19,14 +19,39 @@ package org.apache.ignite.internal.raft.util;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.charset.StandardCharsets;
 import org.apache.ignite.internal.network.direct.stream.DirectByteBufferStreamImplV1;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
-import org.apache.ignite.internal.util.GridUnsafe;
 
 /**
  * Direct byte-buffer stream implementation that contains specific optimizations for optimized marshaller.
  */
 public class OptimizedStream extends DirectByteBufferStreamImplV1 {
+    /** Masks for {@link #readInt()}. */
+    private static final int[] MASKS_32 = {
+            0,
+            0,
+            0xFFFFFF80,
+            0x3F80,
+            0xFFE03F80,
+            0xFE03F80
+    };
+
+    /** Masks for {@link #readLong()}. */
+    private static final long[] MASKS_64 = {
+            0,
+            0,
+            0xFFFFFFFFFFFFFF80L,
+            0x3F80L,
+            0xFFFFFFFFFFE03F80L,
+            0xFE03F80L,
+            0xFFFFFFF80FE03F80L,
+            0x3F80FE03F80L,
+            0xFFFE03F80FE03F80L,
+            0xFE03F80FE03F80L,
+            0x80FE03F80FE03F80L
+    };
+
     /**
      * Constructor.
      *
@@ -40,33 +65,86 @@ public class OptimizedStream extends DirectByteBufferStreamImplV1 {
 
     @Override
     public short readShort() {
-        return (short) readLong();
+        return (short) readInt();
     }
 
+    // TODO Benchmark against protobuf, it has the same binary format. https://issues.apache.org/jira/browse/IGNITE-22559
     @Override
     public int readInt() {
-        return (int) readLong();
+        int res = 0;
+
+        int arrayOffset = buf.arrayOffset();
+        int pos = buf.position();
+        int startPos = pos;
+
+        int b = heapArr[arrayOffset + pos++];
+
+        // Fast-path.
+        if (b >= 0) {
+            setPosition(pos);
+
+            return b - 1;
+        }
+
+        for (int shift = 0; ; shift += 7) {
+            // Instead of nullifying a sign bit of "b", we extend it into "int" and use "^" instead of "|".
+            // It makes arithmetic on every iteration noticeably simpler, which helps in benchmarks.
+            // Accumulated error (xor of all extended sign bits) is removed using "MASKS_32" at the end.
+            res ^= b << shift;
+            if (b < 0) {
+                b = heapArr[arrayOffset + pos++];
+            } else {
+                res ^= MASKS_32[pos - startPos];
+
+                setPosition(pos);
+
+                return res - 1;
+            }
+        }
     }
 
+    // TODO Benchmark against protobuf, it has the same binary format. https://issues.apache.org/jira/browse/IGNITE-22559
     @Override
     public long readLong() {
         long res = 0;
 
+        int arrayOffset = buf.arrayOffset();
         int pos = buf.position();
+        int startPos = pos;
 
         for (int shift = 0; ; shift += 7) {
-            byte b = GridUnsafe.getByte(heapArr, baseOff + pos++);
+            long b = heapArr[arrayOffset + pos++];
 
-            res |= (b & 0x7FL) << shift;
-
+            // Instead of nullifying a sign bit of "b", we extend it into "long" and use "^" instead of "|".
+            // It makes arithmetic on every iteration noticeably simpler, which helps in benchmarks.
+            // Accumulated error (xor of all extended sign bits) is removed using "MASKS_64" at the end.
+            res ^= b << shift;
             if (b >= 0) {
-                break;
+                res ^= MASKS_64[pos - startPos];
+
+                setPosition(pos);
+
+                return res - 1;
             }
         }
+    }
 
-        buf.position(pos);
+    @Override
+    public String readString() {
+        int len = readInt();
 
-        return res - 1;
+        if (len == -1) {
+            return null;
+        } else if (len == 0) {
+            return "";
+        } else {
+            // In this implementation we read string directly from buffer instead of allocating additional byte array.
+            int pos = buf.position();
+
+            setPosition(pos + len);
+
+            return new String(heapArr, buf.arrayOffset() + pos, len, StandardCharsets.UTF_8);
+        }
     }
 
     @Override

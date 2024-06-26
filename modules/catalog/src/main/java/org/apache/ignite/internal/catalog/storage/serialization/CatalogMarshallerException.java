@@ -15,13 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.recovery.partitions.restart;
+package org.apache.ignite.internal.catalog.storage.serialization;
 
-/** Test class for {@link RestartPartitionsReplCommand}. */
-public class ItRestartPartitionsReplCommandTest extends ItRestartPartitionsTest {
+import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.lang.ErrorGroups.Common;
+import org.jetbrains.annotations.Nullable;
 
-    @Override
-    protected Class<?> getCommandClass() {
-        return RestartPartitionsReplCommand.class;
+/**
+ * This exception is caused by a failure to marshall or unmarshall catalog event.
+ *  The failure can be due to compatibility reason or any other unrecoverable error.
+ */
+public class CatalogMarshallerException extends IgniteInternalException {
+    private static final long serialVersionUID = 3401185592041257347L;
+
+    CatalogMarshallerException(@Nullable Throwable cause) {
+        super(Common.INTERNAL_ERR, cause);
     }
 }
