@@ -20,6 +20,7 @@ package org.apache.ignite.internal.metastorage.server.raft;
 import static java.util.Arrays.copyOfRange;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.util.ByteUtils.byteToBoolean;
+import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
 
 import java.io.Serializable;
 import java.nio.charset.StandardCharsets;
@@ -236,15 +237,15 @@ public class MetaStorageWriteHandler {
 
             return new ValueCondition(
                     toValueConditionType(valueCondition.type()),
-                    valueCondition.key(),
-                    valueCondition.value()
+                    toByteArray(valueCondition.key()),
+                    toByteArray(valueCondition.value())
             );
         } else if (condition instanceof SimpleCondition.RevisionCondition) {
             var revisionCondition = (SimpleCondition.RevisionCondition) condition;
 
             return new RevisionCondition(
                     toRevisionConditionType(revisionCondition.type()),
-                    revisionCondition.key(),
+                    toByteArray(revisionCondition.key()),
                     revisionCondition.revision()
             );
         } else if (condition instanceof SimpleCondition) {
@@ -252,16 +253,16 @@ public class MetaStorageWriteHandler {
 
             switch (simpleCondition.type()) {
                 case KEY_EXISTS:
-                    return new ExistenceCondition(ExistenceCondition.Type.EXISTS, simpleCondition.key());
+                    return new ExistenceCondition(ExistenceCondition.Type.EXISTS, toByteArray(simpleCondition.key()));
 
                 case KEY_NOT_EXISTS:
-                    return new ExistenceCondition(ExistenceCondition.Type.NOT_EXISTS, simpleCondition.key());
+                    return new ExistenceCondition(ExistenceCondition.Type.NOT_EXISTS, toByteArray(simpleCondition.key()));
 
                 case TOMBSTONE:
-                    return new TombstoneCondition(TombstoneCondition.Type.TOMBSTONE, simpleCondition.key());
+                    return new TombstoneCondition(TombstoneCondition.Type.TOMBSTONE, toByteArray(simpleCondition.key()));
 
                 case NOT_TOMBSTONE:
-                    return new TombstoneCondition(TombstoneCondition.Type.NOT_TOMBSTONE, simpleCondition.key());
+                    return new TombstoneCondition(TombstoneCondition.Type.NOT_TOMBSTONE, toByteArray(simpleCondition.key()));
 
                 default:
                     throw new IllegalArgumentException("Unexpected simple condition type " + simpleCondition.type());
