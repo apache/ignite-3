@@ -107,7 +107,7 @@ public class ItNonInitializedClusterTest extends CliCommandTestNotInitializedInt
     @Test
     @DisplayName("Should print error message when recovery partition-states on not initialized cluster")
     void partitionsStatesError() {
-        execute("recovery", "partition", "states", CLUSTER_URL_OPTION, NODE_URL,
+        execute("recovery", "partitions", "states", CLUSTER_URL_OPTION, NODE_URL,
                 RECOVERY_PARTITION_GLOBAL_OPTION);
         assertAll(
                 () -> assertErrOutputContains("Cannot list partition states"),
