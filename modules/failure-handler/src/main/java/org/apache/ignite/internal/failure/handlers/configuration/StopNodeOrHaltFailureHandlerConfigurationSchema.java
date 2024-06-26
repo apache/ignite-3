@@ -34,7 +34,7 @@ public class StopNodeOrHaltFailureHandlerConfigurationSchema extends FailureHand
     public boolean tryStop = false;
 
     /**
-     * Timeout in ms that is used to gracefully stop a node before
+     * Timeout in milliseconds that is used to gracefully stop a node before
      * JVM process will be terminated forcibly using {@code Runtime.getRuntime().halt()}.
      * The value {@code 0} means that the node will be stopped immediately.
      *
@@ -42,5 +42,5 @@ public class StopNodeOrHaltFailureHandlerConfigurationSchema extends FailureHand
      */
     @Value(hasDefault = true)
     @Range(min = 0)
-    public long timeout = 0;
+    public long timeoutMillis = 0;
 }
