@@ -17,6 +17,7 @@
 package org.apache.ignite.raft.jraft.storage;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.ignite.raft.jraft.util.BytesUtil.toByteArray;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -123,7 +124,7 @@ public class FileServiceTest extends BaseIgniteAbstractTest {
         assertTrue(msg instanceof RpcRequests.GetFileResponse);
         RpcRequests.GetFileResponse response = (RpcRequests.GetFileResponse) msg;
         assertTrue(response.eof());
-        assertEquals("jraft is great!", new String(response.data().toByteArray(), UTF_8));
+        assertEquals("jraft is great!", new String(toByteArray(response.data()), UTF_8));
         assertEquals(-1, response.readSize());
     }
 
@@ -155,7 +156,7 @@ public class FileServiceTest extends BaseIgniteAbstractTest {
             assertTrue(msg instanceof RpcRequests.GetFileResponse);
             final RpcRequests.GetFileResponse response = (RpcRequests.GetFileResponse) msg;
             final byte[] sourceArray = data.getBytes(UTF_8);
-            final byte[] respData = response.data().toByteArray();
+            final byte[] respData = toByteArray(response.data());
 
             final int length = sourceArray.length;
             int offset = 0;

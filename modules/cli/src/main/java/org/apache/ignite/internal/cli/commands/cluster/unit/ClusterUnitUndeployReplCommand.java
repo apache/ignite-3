@@ -64,7 +64,7 @@ public class ClusterUnitUndeployReplCommand extends BaseCommand implements Runna
                         .clusterUrl(clusterUrl)
                         .build())
                 .then(Flows.fromCall(call))
-                .exceptionHandler(new ClusterNotInitializedExceptionHandler("Cannot undeploy unit", "cluster init"))
+                .exceptionHandler(ClusterNotInitializedExceptionHandler.createReplHandler("Cannot undeploy unit"))
                 .verbose(verbose)
                 .print()
                 .start();

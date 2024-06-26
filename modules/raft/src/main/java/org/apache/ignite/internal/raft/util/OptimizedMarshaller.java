@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.raft.util;
 
-import static org.apache.ignite.internal.network.direct.DirectMessageWriter.EMPTY_BYTE_BUFFER;
+import static org.apache.ignite.internal.util.ArrayUtils.EMPTY_BYTE_BUFFER;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;

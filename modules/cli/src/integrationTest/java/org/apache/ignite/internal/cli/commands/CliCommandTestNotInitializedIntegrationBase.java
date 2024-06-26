@@ -27,6 +27,13 @@ import org.junit.jupiter.api.TestInfo;
  * won't be initialized. If you want to use initialized cluster use {@link CliIntegrationTest} directly.
  */
 public class CliCommandTestNotInitializedIntegrationBase extends CliIntegrationTest {
+
+    protected static String CLUSTER_NOT_INITIALIZED_ERROR_MESSAGE = "Probably, you have not initialized the cluster, "
+            + "try to run ignite cluster init command";
+
+    protected static String CLUSTER_NOT_INITIALIZED_REPL_ERROR_MESSAGE = "Probably, you have not initialized the cluster, "
+            + "try to run cluster init command";
+
     @BeforeAll
     @Override
     protected void beforeAll(TestInfo testInfo) {
