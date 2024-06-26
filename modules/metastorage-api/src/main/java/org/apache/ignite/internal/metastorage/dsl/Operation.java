@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.metastorage.dsl;
 
+import java.nio.ByteBuffer;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.jetbrains.annotations.Nullable;
@@ -24,18 +25,17 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Defines operation for meta storage conditional update (invoke).
  */
-// TODO: IGNITE-22583 тут
 @Transferable(MetaStorageMessageGroup.OPERATION)
 public interface Operation extends NetworkMessage {
     /**
      * Key identifies an entry which operation will be applied to. Key is {@code null} for {@link OperationType#NO_OP} operation.
      */
-    byte @Nullable [] key();
+    @Nullable ByteBuffer key();
 
     /**
      * Value which will be associated with the {@link #key}. Value is not {@code null} only for {@link OperationType#PUT} operation.
      */
-    byte @Nullable [] value();
+    @Nullable ByteBuffer value();
 
     /**
      * Operation type (integer representation).

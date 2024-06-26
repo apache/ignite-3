@@ -36,6 +36,7 @@ import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.subscr
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
 import static org.apache.ignite.internal.util.CursorUtils.emptyCursor;
 import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
@@ -684,8 +685,8 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
 
         assertArrayEquals(expKey.bytes(), conditionCaptor.getValue().key());
 
-        assertArrayEquals(expKey.bytes(), successCaptor.getValue().iterator().next().key());
-        assertArrayEquals(expVal, successCaptor.getValue().iterator().next().value());
+        assertArrayEquals(expKey.bytes(), toByteArray(successCaptor.getValue().iterator().next().key()));
+        assertArrayEquals(expVal, toByteArray(successCaptor.getValue().iterator().next().value()));
 
         assertEquals(OperationType.NO_OP, failureCaptor.getValue().iterator().next().type());
     }

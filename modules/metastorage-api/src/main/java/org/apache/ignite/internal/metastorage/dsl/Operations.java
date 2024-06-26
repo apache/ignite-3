@@ -117,7 +117,7 @@ public final class Operations {
      */
     public static Operation remove(ByteArray key) {
         return MSG_FACTORY.operation()
-                .key(key.bytes())
+                .key(ByteBuffer.wrap(key.bytes()))
                 .operationType(OperationType.REMOVE.ordinal())
                 .build();
     }
@@ -131,8 +131,8 @@ public final class Operations {
      */
     public static Operation put(ByteArray key, byte[] value) {
         return MSG_FACTORY.operation()
-                .key(key.bytes())
-                .value(value)
+                .key(ByteBuffer.wrap(key.bytes()))
+                .value(ByteBuffer.wrap(value))
                 .operationType(OperationType.PUT.ordinal())
                 .build();
     }

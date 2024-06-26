@@ -29,7 +29,6 @@ import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
-import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.UUID;
 import java.util.stream.Stream;
@@ -104,7 +103,7 @@ class CheckCatalogVersionOnActionRequestTest extends BaseIgniteAbstractTest {
     void delegatesWhenCommandHasNoRequiredCatalogVersion() {
         ActionRequest request = raftMessagesFactory.writeActionRequest()
                 .groupId("test")
-                .command(marshall(commandWithoutRequiredCatalogVersion()))
+                .command(commandsMarshaller.marshall(commandWithoutRequiredCatalogVersion()))
                 .build();
 
         assertThat(interceptor.intercept(rpcContext, request, commandsMarshaller), is(nullValue()));
@@ -120,7 +119,7 @@ class CheckCatalogVersionOnActionRequestTest extends BaseIgniteAbstractTest {
 
         ActionRequest request = raftMessagesFactory.writeActionRequest()
                 .groupId("test")
-                .command(marshall(commandWithRequiredCatalogVersion(3)))
+                .command(commandsMarshaller.marshall(commandWithRequiredCatalogVersion(3)))
                 .build();
 
         assertThat(interceptor.intercept(rpcContext, request, commandsMarshaller), is(nullValue()));
@@ -142,7 +141,7 @@ class CheckCatalogVersionOnActionRequestTest extends BaseIgniteAbstractTest {
 
         ActionRequest request = raftMessagesFactory.writeActionRequest()
                 .groupId("test")
-                .command(marshall(commandWithRequiredCatalogVersion(6)))
+                .command(commandsMarshaller.marshall(commandWithRequiredCatalogVersion(6)))
                 .build();
 
         Message result = interceptor.intercept(rpcContext, request, commandsMarshaller);
@@ -163,7 +162,7 @@ class CheckCatalogVersionOnActionRequestTest extends BaseIgniteAbstractTest {
 
         ActionRequest request = raftMessagesFactory.writeActionRequest()
                 .groupId("test")
-                .command(marshall(commandWithRequiredCatalogVersion(6)))
+                .command(commandsMarshaller.marshall(commandWithRequiredCatalogVersion(6)))
                 .build();
 
         Message result = interceptor.intercept(rpcContext, request, commandsMarshaller);
@@ -189,7 +188,7 @@ class CheckCatalogVersionOnActionRequestTest extends BaseIgniteAbstractTest {
 
         ActionRequest request = raftMessagesFactory.writeActionRequest()
                 .groupId("test")
-                .command(marshall(commandWithRequiredCatalogVersion(6)))
+                .command(commandsMarshaller.marshall(commandWithRequiredCatalogVersion(6)))
                 .build();
 
         Message result = interceptor.intercept(rpcContext, request, commandsMarshaller);
@@ -201,9 +200,5 @@ class CheckCatalogVersionOnActionRequestTest extends BaseIgniteAbstractTest {
         assertThat(errorResponse.errorCode(), is(RaftError.EBUSY.getNumber()));
         assertThat(errorResponse.errorMsg(), is("Is transferring leadership."));
         assertThat(errorResponse.leaderId(), is(nullValue()));
-    }
-
-    private ByteBuffer marshall(WriteCommand command) {
-        return ByteBuffer.wrap(commandsMarshaller.marshall(command));
     }
 }

@@ -34,7 +34,6 @@ import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.List;
 import java.util.Random;
@@ -128,7 +127,7 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
                     if (leaseConsumer != null) {
                         OperationImpl op = invocation.getArgument(1);
 
-                        Lease lease = LeaseBatch.fromBytes(ByteBuffer.wrap(op.value()).order(ByteOrder.LITTLE_ENDIAN)).leases().iterator()
+                        Lease lease = LeaseBatch.fromBytes(op.value().order(ByteOrder.LITTLE_ENDIAN)).leases().iterator()
                                 .next();
 
                         leaseConsumer.accept(lease);

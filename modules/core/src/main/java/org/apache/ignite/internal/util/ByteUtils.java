@@ -282,4 +282,16 @@ public class ByteUtils {
     public static @Nullable String stringFromBytes(byte @Nullable [] bytes) {
         return bytes == null ? null : new String(bytes, UTF_8);
     }
+
+    /**
+     * Converts a byte buffer to a byte array.
+     *
+     * @param buffer Byte buffer from which we copy bytes.
+     */
+    public static byte[] toByteArray(ByteBuffer buffer) {
+        var bytes = new byte[buffer.remaining()];
+        buffer.get(bytes);
+        buffer.flip();
+        return bytes;
+    }
 }

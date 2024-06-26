@@ -36,6 +36,7 @@ import static org.apache.ignite.internal.metastorage.server.raft.MetaStorageWrit
 import static org.apache.ignite.internal.rocksdb.RocksUtils.incrementPrefix;
 import static org.apache.ignite.internal.rocksdb.snapshot.ColumnFamilyRange.fullRange;
 import static org.apache.ignite.internal.util.ArrayUtils.LONG_EMPTY_ARRAY;
+import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
 import static org.apache.ignite.lang.ErrorGroups.MetaStorage.COMPACTION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.MetaStorage.OP_EXECUTION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.MetaStorage.RESTORING_STORAGE_ERR;
@@ -751,13 +752,13 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
         try (WriteBatch batch = new WriteBatch()) {
             for (Operation op : ops) {
-                byte[] key = op.key();
+                byte[] key = toByteArray(op.key());
 
                 switch (op.type()) {
                     case PUT:
                         counter++;
 
-                        addDataToBatch(batch, key, op.value(), curRev, counter);
+                        addDataToBatch(batch, key, toByteArray(op.value()), curRev, counter);
 
                         updatedKeys.add(key);
 

@@ -22,6 +22,7 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.metastorage.server.Value.TOMBSTONE;
 import static org.apache.ignite.internal.metastorage.server.raft.MetaStorageWriteHandler.IDEMPOTENT_COMMAND_PREFIX_BYTES;
 import static org.apache.ignite.internal.rocksdb.RocksUtils.incrementPrefix;
+import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
 import static org.apache.ignite.lang.ErrorGroups.MetaStorage.OP_EXECUTION_ERR;
 
 import java.nio.file.Path;
@@ -265,14 +266,14 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
             for (Operation op : ops) {
                 switch (op.type()) {
                     case PUT:
-                        doPut(op.key(), op.value(), curRev);
+                        doPut(toByteArray(op.key()), toByteArray(op.value()), curRev);
 
                         modified = true;
 
                         break;
 
                     case REMOVE:
-                        modified |= doRemove(op.key(), curRev);
+                        modified |= doRemove(toByteArray(op.key()), curRev);
 
                         break;
 
@@ -318,14 +319,14 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
                     for (Operation op : ops) {
                         switch (op.type()) {
                             case PUT:
-                                doPut(op.key(), op.value(), curRev);
+                                doPut(toByteArray(op.key()), toByteArray(op.value()), curRev);
 
                                 modified = true;
 
                                 break;
 
                             case REMOVE:
-                                modified |= doRemove(op.key(), curRev);
+                                modified |= doRemove(toByteArray(op.key()), curRev);
 
                                 break;
 

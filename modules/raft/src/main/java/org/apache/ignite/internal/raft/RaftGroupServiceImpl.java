@@ -42,7 +42,6 @@ import static org.apache.ignite.raft.jraft.rpc.CliRequests.TransferLeaderRequest
 
 import java.io.IOException;
 import java.net.ConnectException;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -469,7 +468,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
             requestFactory = targetPeer -> factory.writeActionRequest()
                     .groupId(groupId)
-                    .command(ByteBuffer.wrap(commandBytes))
+                    .command(commandBytes)
                     // Having prepared deserialized command makes its handling more efficient in the state machine.
                     // This saves us from extra-deserialization on a local machine, which would take precious time to do.
                     .deserializedCommand((WriteCommand) cmd)

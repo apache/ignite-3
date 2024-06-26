@@ -154,7 +154,7 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
         if (request instanceof WriteActionRequest) {
             return (AR) factory.writeActionRequest()
                 .groupId(request.groupId())
-                .command(ByteBuffer.wrap(commandsMarshaller.marshall(command)))
+                .command(commandsMarshaller.marshall(command))
                 .deserializedCommand((WriteCommand)command)
                 .build();
         } else {
@@ -179,7 +179,7 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
      * @param rpcCtx The context.
      */
     private void applyWrite(Node node, WriteActionRequest request, Command command, RpcContext rpcCtx) {
-        node.apply(new Task(request.command(),
+        node.apply(new Task(ByteBuffer.wrap(request.command()),
                 new CommandClosureImpl<>(command) {
                     @Override
                     public void result(Serializable res) {
