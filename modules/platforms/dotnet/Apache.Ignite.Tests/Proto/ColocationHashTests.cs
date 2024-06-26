@@ -331,11 +331,11 @@ public class ColocationHashTests : IgniteTestsBase
 
     private async Task<int> GetServerHash(byte[] bytes, int count, int timePrecision, int timestampPrecision)
     {
-        var nodes = await Client.GetClusterNodesAsync();
+        var target = JobTarget.AnyNode(await Client.GetClusterNodesAsync());
 
-        IJobExecution<int> jobExecution = await Client.Compute.SubmitAsync<int>(
-            nodes,
-            new(ColocationHashJob),
+        IJobExecution<int> jobExecution = await Client.Compute.SubmitAsync(
+            target,
+            new JobDescriptor<int>(ColocationHashJob),
             count,
             bytes,
             timePrecision,
