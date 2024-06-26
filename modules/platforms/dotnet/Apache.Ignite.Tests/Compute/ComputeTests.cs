@@ -54,7 +54,7 @@ namespace Apache.Ignite.Tests.Compute
 
         public static readonly JobDescriptor<string> SleepJob = new(ItThinClientComputeTest + "$SleepJob");
 
-        public static readonly JobDescriptor<string> DecimalJob = new(ItThinClientComputeTest + "$DecimalJob");
+        public static readonly JobDescriptor<decimal> DecimalJob = new(ItThinClientComputeTest + "$DecimalJob");
 
         public static readonly JobDescriptor<string> CreateTableJob = new(PlatformTestNodeRunner + "$CreateTableJob");
 
@@ -119,7 +119,7 @@ namespace Apache.Ignite.Tests.Compute
         {
             var node = (await GetNodeAsync(0)).Data;
 
-            IDictionary<IClusterNode, Task<IJobExecution<string>>> taskMap = Client.Compute.SubmitBroadcast<string>(
+            IDictionary<IClusterNode, Task<IJobExecution<string>>> taskMap = Client.Compute.SubmitBroadcast(
                 new[] { node },
                 NodeNameJob,
                 "123");
@@ -137,7 +137,7 @@ namespace Apache.Ignite.Tests.Compute
         {
             var nodes = await Client.GetClusterNodesAsync();
 
-            IDictionary<IClusterNode, Task<IJobExecution<string>>> taskMap = Client.Compute.SubmitBroadcast<string>(
+            IDictionary<IClusterNode, Task<IJobExecution<string>>> taskMap = Client.Compute.SubmitBroadcast(
                 nodes,
                 NodeNameJob,
                 "123");
@@ -573,7 +573,7 @@ namespace Apache.Ignite.Tests.Compute
             using var client = await IgniteClient.StartAsync(GetConfig());
 
             const int sleepMs = 3000;
-            var jobExecution = await client.Compute.SubmitAsync(await GetNodeAsync(1), new(SleepJob), sleepMs);
+            var jobExecution = await client.Compute.SubmitAsync(await GetNodeAsync(1), SleepJob, sleepMs);
             var jobTask = jobExecution.GetResultAsync();
 
             // Wait a bit and close the connection.
@@ -592,7 +592,7 @@ namespace Apache.Ignite.Tests.Compute
             const int sleepMs = 3000;
             var beforeStart = SystemClock.Instance.GetCurrentInstant();
 
-            var jobExecution = await Client.Compute.SubmitAsync(await GetNodeAsync(1), new(SleepJob), sleepMs);
+            var jobExecution = await Client.Compute.SubmitAsync(await GetNodeAsync(1), SleepJob, sleepMs);
 
             await AssertJobStatus(jobExecution, JobState.Executing, beforeStart);
         }
@@ -603,7 +603,7 @@ namespace Apache.Ignite.Tests.Compute
             const int sleepMs = 1;
             var beforeStart = SystemClock.Instance.GetCurrentInstant();
 
-            var jobExecution = await Client.Compute.SubmitAsync(await GetNodeAsync(1), new(SleepJob), sleepMs);
+            var jobExecution = await Client.Compute.SubmitAsync(await GetNodeAsync(1), SleepJob, sleepMs);
             await jobExecution.GetResultAsync();
 
             await AssertJobStatus(jobExecution, JobState.Completed, beforeStart);
@@ -614,7 +614,7 @@ namespace Apache.Ignite.Tests.Compute
         {
             var beforeStart = SystemClock.Instance.GetCurrentInstant();
 
-            var jobExecution = await Client.Compute.SubmitAsync(await GetNodeAsync(1), new(ErrorJob), "unused");
+            var jobExecution = await Client.Compute.SubmitAsync(await GetNodeAsync(1), ErrorJob, "unused");
             Assert.CatchAsync(async () => await jobExecution.GetResultAsync());
 
             await AssertJobStatus(jobExecution, JobState.Failed, beforeStart);
@@ -637,7 +637,7 @@ namespace Apache.Ignite.Tests.Compute
             const int sleepMs = 5000;
             var beforeStart = SystemClock.Instance.GetCurrentInstant();
 
-            var jobExecution = await Client.Compute.SubmitAsync(await GetNodeAsync(1), new(SleepJob), sleepMs);
+            var jobExecution = await Client.Compute.SubmitAsync(await GetNodeAsync(1), SleepJob, sleepMs);
             await jobExecution.CancelAsync();
 
             await AssertJobStatus(jobExecution, JobState.Canceled, beforeStart);
@@ -648,7 +648,7 @@ namespace Apache.Ignite.Tests.Compute
         {
             var jobExecution = await Client.Compute.SubmitAsync(
                 await GetNodeAsync(1),
-                new(SleepJob)
+                SleepJob with
                 {
                     Options = new(Priority: 10, MaxRetries: 11)
                 },
@@ -664,7 +664,7 @@ namespace Apache.Ignite.Tests.Compute
         public async Task TestJobExecutionOptionsPropagation()
         {
             // ReSharper disable once WithExpressionModifiesAllMembers
-            var job = new JobDescriptor(FakeServer.GetDetailsJob)
+            var job = new JobDescriptor<string>(FakeServer.GetDetailsJob)
             {
                 Options = JobExecutionOptions.Default with
                 {
@@ -685,7 +685,7 @@ namespace Apache.Ignite.Tests.Compute
 
             // Colocated.
             var keyTuple = new IgniteTuple { ["ID"] = 1 };
-            var colocatedRes = await client.Compute.SubmitAsync(FakeServer.ExistingTableName, keyTuple, job);
+            var colocatedRes = await client.Compute.SubmitAsync(JobTarget.Colocated(FakeServer.ExistingTableName, keyTuple), job);
 
             StringAssert.Contains("priority = 999, maxRetries = 66", await colocatedRes.GetResultAsync());
         }
@@ -697,7 +697,7 @@ namespace Apache.Ignite.Tests.Compute
         [TestCase("1.123456789", 5)]
         public async Task TestBigDecimalPropagation(string number, int scale)
         {
-            var res = await Client.Compute.SubmitAsync<decimal>(await GetNodeAsync(1), new(DecimalJob), number, scale);
+            var res = await Client.Compute.SubmitAsync(await GetNodeAsync(1), DecimalJob, number, scale);
             var resVal = await res.GetResultAsync();
 
             var expected = decimal.Parse(number, NumberStyles.Float);
