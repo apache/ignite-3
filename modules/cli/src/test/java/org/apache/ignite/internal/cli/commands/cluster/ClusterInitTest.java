@@ -26,9 +26,12 @@ import static org.mockserver.model.HttpStatusCode.INTERNAL_SERVER_ERROR_500;
 import static org.mockserver.model.HttpStatusCode.OK_200;
 import static org.mockserver.model.JsonBody.json;
 
+import com.typesafe.config.ConfigFactory;
+import com.typesafe.config.ConfigRenderOptions;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.regex.Pattern;
 import org.apache.ignite.internal.cli.commands.IgniteCliInterfaceTestBase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -37,6 +40,8 @@ import org.mockserver.model.MediaType;
 /** Tests "cluster init" command. */
 @DisplayName("cluster init")
 class ClusterInitTest extends IgniteCliInterfaceTestBase {
+    private static final Pattern PATTERN = Pattern.compile("\"");
+
     @Test
     void duplicatedOption() {
         execute(
@@ -99,7 +104,7 @@ class ClusterInitTest extends IgniteCliInterfaceTestBase {
                 + "    \"node3ConsistentId\"\n"
                 + "  ],\n"
                 + "  \"clusterName\": \"cluster\",\n"
-                + "  \"clusterConfiguration\": \"" + clusterConfiguration + "\"\n"
+                + "  \"clusterConfiguration\": \"" + escapedJson(clusterConfiguration) + "\"\n"
                 + "}";
 
         clientAndServer
@@ -202,5 +207,72 @@ class ClusterInitTest extends IgniteCliInterfaceTestBase {
                 this::assertOutputIsEmpty,
                 () -> assertErrOutputContains("Missing required option: '--name=<clusterName>'")
         );
+    }
+
+    @Test
+    void clusterInitFromMultipleConfigFiles() {
+        String clusterConfigurationFile1 = copyResourceToTempFile("cluster-configuration-with-enabled-auth.conf").getAbsolutePath();
+        String clusterConfigurationFile2 = copyResourceToTempFile("cluster-configuration-with-default.conf").getAbsolutePath();
+
+        var expectedClusterConfiguration ="security: {\n"
+                + "  enabled: true,\n"
+                + "  authentication: {\n"
+                + "    providers.default: {\n"
+                + "      type: basic,\n"
+                + "      users: [\n"
+                + "        {\n"
+                + "          username: admin,\n"
+                + "          password: password\n"
+                + "        },\n"
+                + "        {\n"
+                + "          username: admin1,\n"
+                + "          password: password\n"
+                + "        }\n"
+                + "      ]\n"
+                + "    }\n"
+                + "  }\n"
+                + "}\n"
+                + "schemaSync.delayDuration: 100,\n"
+                + "schemaSync.maxClockSkew: 7,\n"
+                + "metaStorage.idleSyncTimeInterval: 10,\n"
+                + "replication.idleSafeTimePropagationDuration: 100";
+
+        var expectedSentContent = "{\n"
+                + "  \"metaStorageNodes\": [\n"
+                + "    \"node1ConsistentId\"\n"
+                + "  ],\n"
+                + "  \"cmgNodes\": [\n"
+                + "    \"node2ConsistentId\"\n"
+                + "  ],\n"
+                + "  \"clusterName\": \"cluster\",\n"
+                + "  \"clusterConfiguration\": \"" + escapedJson(expectedClusterConfiguration) + "\"\n"
+                + "}";
+
+        clientAndServer
+                .when(request()
+                        .withMethod("POST")
+                        .withPath("/management/v1/cluster/init")
+                        .withBody(json(expectedSentContent, ONLY_MATCHING_FIELDS))
+                        .withContentType(MediaType.APPLICATION_JSON_UTF_8)
+                )
+                .respond(response(null));
+
+        execute(
+                "cluster", "init",
+                "--url", mockUrl,
+                "--metastorage-group", "node1ConsistentId",
+                "--cluster-management-group", "node2ConsistentId",
+                "--name", "cluster",
+                "--config-file", String.join(",", clusterConfigurationFile1, clusterConfigurationFile2)
+        );
+
+        assertSuccessfulOutputIs("Cluster was initialized successfully");
+    }
+
+    private static String escapedJson(String configuration) {
+        String json = ConfigFactory.parseString(configuration)
+                .root().render(ConfigRenderOptions.concise().setFormatted(true).setJson(true));
+
+        return PATTERN.matcher(json).replaceAll("\\\\\"");
     }
 }
