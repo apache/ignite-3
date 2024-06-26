@@ -18,8 +18,8 @@
 #pragma once
 
 #include "bytes_view.h"
-#include "config.h"
 
+#include "detail/config.h"
 #include "detail/mpi.h"
 
 #include <cstddef>
@@ -383,23 +383,6 @@ private:
     [[nodiscard]] std::uint32_t magnitude_bit_length() const noexcept;
 
     /**
-     * Initializes a big integer from a byte array with big-endian byte order.
-     *
-     * @param data Byte array.
-     * @param size Byte array size.
-     */
-    void from_big_endian(const std::byte *data, std::size_t size);
-
-    /**
-     * Initializes a big integer from a byte array with big-endian byte order and a negative value
-     * represenetd as two's-complement.
-     *
-     * @param data Byte array.
-     * @param size Byte array size.
-     */
-    void from_negative_big_endian(const std::byte *data, std::size_t size);
-
-    /**
      * Divide this to another big integer.
      *
      * @param divisor Divisor. Can be *this.
@@ -408,6 +391,16 @@ private:
      *     Can be null if the remainder is not needed.
      */
     void divide(const big_integer &divisor, big_integer &res, big_integer *rem) const;
+
+    /**
+     * Initializes a big integer from a byte array with big-endian byte order. There should be binary representation of
+     * a value in two's-complement form.
+     *
+     * @param data Byte array.
+     * @param size Byte array size.
+     * @param negative True if the encoded number is negative, false otherwise.
+     */
+    void from_binary(const std::uint8_t *data, std::size_t size, bool negative = false);
 
     /**
      * Internal multiprecision integer structure.

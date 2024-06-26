@@ -20,7 +20,7 @@
 #include "ignite/client/detail/cluster_connection.h"
 #include "ignite/client/detail/transaction/transaction_impl.h"
 
-#include "ignite/common/config.h"
+#include "ignite/common/detail/config.h"
 #include "ignite/common/ignite_result.h"
 
 #include <memory>

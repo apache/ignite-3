@@ -32,7 +32,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.JobExecution;
-import org.apache.ignite.compute.JobStatus;
+import org.apache.ignite.compute.JobState;
 import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
 import org.apache.ignite.internal.compute.messaging.RemoteJobExecution;
 import org.apache.ignite.internal.network.TopologyService;
@@ -98,32 +98,32 @@ public class ExecutionManager {
     }
 
     /**
-     * Retrieves the current status of all jobs in the local node.
+     * Retrieves the current state of all jobs in the local node.
      *
-     * @return The set of all job statuses.
+     * @return The set of all job states.
      */
-    public CompletableFuture<List<JobStatus>> localStatusesAsync() {
-        CompletableFuture<JobStatus>[] statusFutures = executions.values().stream()
+    public CompletableFuture<List<JobState>> localStatesAsync() {
+        CompletableFuture<JobState>[] statesFutures = executions.values().stream()
                 .filter(it -> !(it instanceof RemoteJobExecution) && !(it instanceof FailSafeJobExecution))
-                .map(JobExecution::statusAsync)
+                .map(JobExecution::stateAsync)
                 .toArray(CompletableFuture[]::new);
 
-        return allOfToList(statusFutures)
-                .thenApply(statuses -> statuses.stream()
+        return allOfToList(statesFutures)
+                .thenApply(states -> states.stream()
                         .filter(Objects::nonNull)
                         .collect(toList()));
     }
 
     /**
-     * Retrieves the current status of the job.
+     * Retrieves the current state of the job.
      *
      * @param jobId Job id.
-     * @return The current status of the job, or {@code null} if there's no job with the specified id.
+     * @return The current state of the job, or {@code null} if there's no job with the specified id.
      */
-    public CompletableFuture<@Nullable JobStatus> statusAsync(UUID jobId) {
+    public CompletableFuture<@Nullable JobState> stateAsync(UUID jobId) {
         JobExecution<?> execution = executions.get(jobId);
         if (execution != null) {
-            return execution.statusAsync();
+            return execution.stateAsync();
         }
         return nullCompletedFuture();
     }

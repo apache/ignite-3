@@ -58,7 +58,7 @@ public class NodeUnitListCommand extends BaseCommand implements Callable<Integer
                 .errOutput(spec.commandLine().getErr())
                 .verbose(verbose)
                 .decorator(new UnitListDecorator(plain))
-                .exceptionHandler(new ClusterNotInitializedExceptionHandler("Cannot list units", "ignite cluster init"))
+                .exceptionHandler(ClusterNotInitializedExceptionHandler.createHandler("Cannot list units"))
                 .build().runPipeline();
     }
 }

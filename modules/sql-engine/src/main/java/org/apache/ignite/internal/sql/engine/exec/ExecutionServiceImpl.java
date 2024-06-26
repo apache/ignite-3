@@ -930,7 +930,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         private AsyncCursor<InternalSqlRow> execute(InternalTransaction tx, MultiStepPlan multiStepPlan) {
             assert root != null;
 
-            MappingParameters mappingParameters = MappingParameters.create(ctx.parameters());
+            boolean mapOnBackups = tx.isReadOnly();
+            MappingParameters mappingParameters = MappingParameters.create(ctx.parameters(), mapOnBackups);
 
             mappingService.map(multiStepPlan, mappingParameters).whenCompleteAsync((mappedFragments, mappingErr) -> {
                 if (mappingErr != null) {

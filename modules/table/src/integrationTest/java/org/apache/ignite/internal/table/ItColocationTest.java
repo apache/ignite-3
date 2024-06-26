@@ -91,7 +91,6 @@ import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NullBinaryRow;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
-import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
@@ -391,8 +390,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
      */
     @ParameterizedTest(name = "types=" + ARGUMENTS_PLACEHOLDER)
     @MethodSource("twoColumnsParameters")
-    public void colocationTwoColumnsInsert(NativeTypeSpec t0, NativeTypeSpec t1)
-            throws TupleMarshallerException {
+    public void colocationTwoColumnsInsert(NativeTypeSpec t0, NativeTypeSpec t1) {
         init(t0, t1);
 
         for (int i = 0; i < KEYS; ++i) {
@@ -415,8 +413,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
      */
     @ParameterizedTest(name = "types=" + ARGUMENTS_PLACEHOLDER)
     @MethodSource("twoColumnsParameters")
-    public void colocationTwoColumnsInsertAll(NativeTypeSpec t0, NativeTypeSpec t1)
-            throws TupleMarshallerException {
+    public void colocationTwoColumnsInsertAll(NativeTypeSpec t0, NativeTypeSpec t1) {
         int keysCount = t0 == NativeTypeSpec.BOOLEAN && t0 == t1 ? 2 : KEYS;
 
         init(t0, t1);

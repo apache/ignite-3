@@ -24,7 +24,6 @@ import java.util.stream.IntStream;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
-import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.type.NativeTypes;
@@ -119,7 +118,7 @@ public class TupleMarshallerFixlenOnlyBenchmark {
      * @param bh Black hole.
      */
     @Benchmark
-    public void measureTupleBuildAndMarshallerCost(Blackhole bh) throws TupleMarshallerException {
+    public void measureTupleBuildAndMarshallerCost(Blackhole bh) {
         List<Column> cols = schema.valueColumns();
 
         final Tuple valBld = Tuple.create(cols.size());

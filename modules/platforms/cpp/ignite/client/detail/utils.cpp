@@ -19,7 +19,7 @@
 
 #include <ignite/client/detail/client_error_flags.h>
 
-#include <ignite/common/bits.h>
+#include "ignite/common/detail/bits.h"
 #include <ignite/common/uuid.h>
 #include <ignite/protocol/utils.h>
 

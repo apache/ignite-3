@@ -20,7 +20,7 @@
 #include "ignite/client/compute/job_execution.h"
 #include "ignite/client/compute/job_status.h"
 #include "ignite/client/detail/cluster_connection.h"
-#include "ignite/common/config.h"
+#include "ignite/common/detail/config.h"
 #include "ignite/common/ignite_result.h"
 #include "ignite/common/primitive.h"
 #include "ignite/common/uuid.h"

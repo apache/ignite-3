@@ -55,7 +55,7 @@ public class ClusterUnitDeployReplCommand extends BaseCommand implements Runnabl
                             .output(spec.commandLine().getOut())
                             .errOutput(spec.commandLine().getErr())
                             .verbose(verbose)
-                            .exceptionHandler(new ClusterNotInitializedExceptionHandler("Cannot deploy unit", "cluster init"))
+                            .exceptionHandler(ClusterNotInitializedExceptionHandler.createReplHandler("Cannot deploy unit"))
                             .build().runPipeline()
                 ))
                 .start();

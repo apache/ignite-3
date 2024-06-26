@@ -168,11 +168,10 @@ public class ClassDescriptorRegistry implements DescriptorRegistry {
      * Returns {@code true} if descriptor with the specified descriptor id belongs to the range reserved for built-in
      * types, {@code false} otherwise.
      *
-     *
      * @param descriptorId Descriptor id.
      * @return Whether descriptor should be a built-in.
      */
-    public static boolean shouldBeBuiltIn(int descriptorId) {
+    static boolean shouldBeBuiltIn(int descriptorId) {
         return descriptorId < BUILTIN_DESCRIPTORS_OFFSET_COUNT;
     }
 }

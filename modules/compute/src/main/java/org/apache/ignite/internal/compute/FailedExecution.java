@@ -21,7 +21,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.JobExecution;
-import org.apache.ignite.compute.JobStatus;
+import org.apache.ignite.compute.JobState;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -43,7 +43,7 @@ public class FailedExecution<R> implements JobExecution<R> {
     }
 
     @Override
-    public CompletableFuture<@Nullable JobStatus> statusAsync() {
+    public CompletableFuture<@Nullable JobState> stateAsync() {
         return failedFuture(error);
     }
 

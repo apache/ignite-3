@@ -33,8 +33,8 @@ import org.jetbrains.annotations.Nullable;
 @SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
 public interface DataStreamerReceiver<T, R> {
     /**
-     * Receives an item from the data streamer (see {@link DataStreamerTarget#streamData(Publisher, DataStreamerOptions,
-     * Function, Function, Subscriber, List, String, Object...)}).
+     * Receives an item from the data streamer (see {@link DataStreamerTarget#streamData(Publisher, Function, Function,
+     * ReceiverDescriptor, Subscriber, DataStreamerOptions, Object...)}).
      *
      * <p>The receiver is called for each page (batch) in the data streamer and is responsible for processing the items,
      * updating zero or more tables, and returning a result.
