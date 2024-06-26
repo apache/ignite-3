@@ -30,7 +30,6 @@ import static org.apache.ignite.internal.index.TestIndexManagementUtils.TABLE_NA
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.createTable;
 import static org.apache.ignite.internal.table.TableTestUtils.createHashIndex;
 import static org.apache.ignite.internal.table.TableTestUtils.getIndexIdStrict;
-import static org.apache.ignite.internal.table.TableTestUtils.getIndexStrict;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableIdStrict;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -61,6 +60,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -70,7 +70,6 @@ import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.network.TopologyService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -149,8 +148,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 any(),
                 any(),
                 eq(LOCAL_NODE),
-                anyLong(),
-                eq(indexCreationCatalogVersion(INDEX_NAME))
+                anyLong()
         );
 
         verify(indexBuilder, never()).scheduleBuildIndexAfterDisasterRecovery(
@@ -160,8 +158,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 any(),
                 any(),
                 eq(LOCAL_NODE),
-                anyLong(),
-                eq(indexCreationCatalogVersion(INDEX_NAME))
+                anyLong()
         );
     }
 
@@ -182,8 +179,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 any(),
                 any(),
                 eq(LOCAL_NODE),
-                anyLong(),
-                eq(indexCreationCatalogVersion(INDEX_NAME))
+                anyLong()
         );
 
         verify(indexBuilder, never()).scheduleBuildIndexAfterDisasterRecovery(
@@ -193,8 +189,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 any(),
                 any(),
                 eq(LOCAL_NODE),
-                anyLong(),
-                eq(indexCreationCatalogVersion(INDEX_NAME))
+                anyLong()
         );
     }
 
@@ -229,8 +224,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 any(),
                 any(),
                 eq(LOCAL_NODE),
-                anyLong(),
-                eq(indexCreationCatalogVersion(INDEX_NAME))
+                anyLong()
         );
 
         verify(indexBuilder).scheduleBuildIndexAfterDisasterRecovery(
@@ -240,8 +234,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 any(),
                 any(),
                 eq(LOCAL_NODE),
-                anyLong(),
-                eq(indexCreationCatalogVersion(PK_INDEX_NAME))
+                anyLong()
         );
     }
 
@@ -274,8 +267,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 any(),
                 any(),
                 eq(LOCAL_NODE),
-                anyLong(),
-                anyInt()
+                anyLong()
         );
 
         verify(indexBuilder, never()).scheduleBuildIndexAfterDisasterRecovery(
@@ -285,8 +277,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 any(),
                 any(),
                 eq(LOCAL_NODE),
-                anyLong(),
-                anyInt()
+                anyLong()
         );
     }
 
@@ -328,8 +319,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 any(),
                 any(),
                 eq(LOCAL_NODE),
-                anyLong(),
-                anyInt()
+                anyLong()
         );
 
         verify(indexBuilder).scheduleBuildIndexAfterDisasterRecovery(
@@ -339,8 +329,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 any(),
                 any(),
                 eq(LOCAL_NODE),
-                anyLong(),
-                anyInt()
+                anyLong()
         );
     }
 
@@ -395,9 +384,5 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 startTime.addPhysicalTime(1_000),
                 new TablePartitionId(tableId(), PARTITION_ID)
         );
-    }
-
-    private int indexCreationCatalogVersion(String indexName) {
-        return getIndexStrict(catalogManager, indexName, clock.nowLong()).txWaitCatalogVersion();
     }
 }

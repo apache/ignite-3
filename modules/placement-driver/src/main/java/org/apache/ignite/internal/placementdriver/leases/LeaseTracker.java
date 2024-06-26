@@ -53,7 +53,8 @@ import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
-import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.network.ClusterNodeResolver;
+import org.apache.ignite.internal.placementdriver.LeasePlacementDriver;
 import org.apache.ignite.internal.placementdriver.PrimaryReplicaAwaitException;
 import org.apache.ignite.internal.placementdriver.PrimaryReplicaAwaitTimeoutException;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
@@ -63,14 +64,14 @@ import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.PendingIndependentComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.ClusterNodeResolver;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Class tracks cluster leases in memory.
  * At first, the class state recoveries from Vault, then updates on watch's listener.
  */
-public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, PrimaryReplicaEventParameters> implements PlacementDriver {
+public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, PrimaryReplicaEventParameters> implements
+        LeasePlacementDriver {
     /** Ignite logger. */
     private static final IgniteLogger LOG = Loggers.forClass(LeaseTracker.class);
 

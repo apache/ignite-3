@@ -25,8 +25,11 @@ import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThro
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_PARSE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
 import java.util.Objects;
@@ -39,6 +42,8 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.sql.SqlException;
+import org.apache.ignite.table.Table;
+import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.AfterEach;
@@ -412,6 +417,62 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
                 STMT_VALIDATION_ERR,
                 "Length for column 'ID' of type 'BYTE_ARRAY' must be at least 1",
                 () -> sql("CREATE TABLE TEST(ID VARBINARY(0) PRIMARY KEY, VAL0 INT)")
+        );
+    }
+
+    @Test
+    public void quotedTableName() {
+        sql("CREATE TABLE \"table Test\" (key INT PRIMARY KEY, \"Col 1\" INT)");
+        sql("CREATE TABLE \"table\"\"Test\"\"\" (key INT PRIMARY KEY, \"Col\"\"1\"\"\" INT)");
+
+        sql("INSERT INTO \"table Test\" VALUES (1, 1)");
+        sql("INSERT INTO \"table\"\"Test\"\"\" VALUES (1, 2)");
+
+        IgniteImpl node = CLUSTER.node(0);
+
+        assertThrows(IllegalArgumentException.class, () -> node.tables().table("table Test"));
+        assertThrows(IllegalArgumentException.class, () -> node.tables().table("table\"Test\""));
+        assertThrows(IllegalArgumentException.class, () -> node.tables().table("table\"\"Test\"\""));
+
+        Table table = node.tables().table("\"table Test\"");
+        assertNotNull(table);
+        assertThat(table.keyValueView().get(null, Tuple.create().set("key", 1)), equalTo(Tuple.create().set("\"Col 1\"", 1)));
+
+        table = node.tables().table("\"table\"\"Test\"\"\"");
+        assertNotNull(table);
+        assertThat(table.keyValueView().get(null, Tuple.create().set("key", 1)), equalTo(Tuple.create().set("\"Col\"\"1\"\"\"", 2)));
+
+        sql("DROP TABLE \"table Test\"");
+        sql("DROP TABLE \"table\"\"Test\"\"\"");
+    }
+
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-15200
+    //  Remove this after interval type support is added.
+    @Test
+    public void testCreateTableDoesNotAllowIntervals() {
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR, 
+                "Type INTERVAL YEAR cannot be used in a column definition [column=ID]", 
+                () -> sql("CREATE TABLE test(id INTERVAL YEAR PRIMARY KEY, val INT)")
+        );
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Type INTERVAL YEAR cannot be used in a column definition [column=P]",
+                () -> sql("CREATE TABLE test(id INTEGER PRIMARY KEY, p INTERVAL YEAR)")
+        );
+    }
+
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-15200
+    //  Remove this after interval type support is added.
+    @Test
+    public void testAlterTableDoesNotAllowIntervals() {
+        sql("CREATE TABLE test(id INTEGER PRIMARY KEY, val INTEGER)");
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Type INTERVAL YEAR cannot be used in a column definition [column=P]",
+                () -> sql("ALTER TABLE TEST ADD COLUMN p INTERVAL YEAR")
         );
     }
 

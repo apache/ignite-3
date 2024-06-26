@@ -27,7 +27,7 @@ import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionOptions;
-import org.apache.ignite.compute.JobStatus;
+import org.apache.ignite.compute.JobState;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
@@ -90,19 +90,19 @@ public interface IgniteComputeInternal extends IgniteCompute {
     }
 
     /**
-     * Retrieves the current status of all jobs on all nodes in the cluster.
+     * Retrieves the current state of all jobs on all nodes in the cluster.
      *
-     * @return The collection of job statuses.
+     * @return The collection of job states.
      */
-    CompletableFuture<Collection<JobStatus>> statusesAsync();
+    CompletableFuture<Collection<JobState>> statesAsync();
 
     /**
-     * Gets job status by id.
+     * Gets job state by id.
      *
      * @param jobId Job id.
-     * @return Job status or {@code null} if there's no status registered for this id.
+     * @return Job state or {@code null} if there's no state registered for this id.
      */
-    CompletableFuture<@Nullable JobStatus> statusAsync(UUID jobId);
+    CompletableFuture<@Nullable JobState> stateAsync(UUID jobId);
 
     /**
      * Cancels compute job.

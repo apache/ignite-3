@@ -21,7 +21,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import org.apache.ignite.configuration.SuperRootChange;
@@ -29,7 +28,6 @@ import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.SuperRoot;
 import org.apache.ignite.internal.configuration.SuperRootChangeImpl;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileView;
-import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.configurations.StorageView;
 import org.junit.jupiter.api.BeforeEach;
@@ -45,10 +43,7 @@ public class PageMemoryStorageEngineLocalConfigurationModuleTest {
 
     @BeforeEach
     void setUp() {
-        Collection<Class<?>> polymorphicSchemaExtensions = new ArrayList<>() {{
-                add(UnsafeMemoryAllocatorConfigurationSchema.class);
-                addAll(module.polymorphicSchemaExtensions());
-            }};
+        Collection<Class<?>> polymorphicSchemaExtensions = module.polymorphicSchemaExtensions();
 
         ConfigurationTreeGenerator generator = new ConfigurationTreeGenerator(
                 List.of(StorageConfiguration.KEY),

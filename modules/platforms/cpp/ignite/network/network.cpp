@@ -19,7 +19,7 @@
 
 #include "async_client_pool_adapter.h"
 
-#include <ignite/common/config.h>
+#include "ignite/common/detail/config.h"
 
 #ifdef _WIN32
 # include "detail/win/tcp_socket_client.h"

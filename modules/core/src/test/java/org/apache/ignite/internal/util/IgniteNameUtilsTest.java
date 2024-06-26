@@ -50,7 +50,7 @@ public class IgniteNameUtilsTest {
 
     @ParameterizedTest
     @ValueSource(strings = {
-            "f.f", "f f", "f\"f", "f\"\"f", "\"foo", "\"fo\"o"
+            "f.f", "f f", "f\"f", "f\"\"f", "\"foo", "\"fo\"o\""
     })
     public void malformedSimpleNames(String source) {
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> IgniteNameUtils.parseSimpleName(source));
@@ -62,8 +62,10 @@ public class IgniteNameUtilsTest {
 
     @ParameterizedTest
     @CsvSource({
-            "foo, \"foo\"", "fOo, \"fOo\"", "FOO, FOO", "\"FOO\", \"FOO\"", "1o0, \"1o0\"", "@#$, @#$",
-            "\"foo\", \"foo\"", "\"fOo\", \"fOo\"", "\"f.f\", \"f.f\""
+            "foo, \"foo\"", "fOo, \"fOo\"", "FOO, FOO", "\"FOO\", \"FOO\"", "1o0, \"1o0\"", "@#$, \"@#$\"",
+            "\"foo\", \"foo\"", "\"fOo\", \"fOo\"", "\"f.f\", \"f.f\"",
+            "foo\"bar\", \"foo\"\"bar\"\"\"", "\"foo\"\"bar\"\"\", \"foo\"\"bar\"\"\"",
+            "foo\"bar, \"foo\"\"bar\"", "\"foo\"\"bar\", \"foo\"\"bar\""
     })
     public void quoteIfNeeded(String source, String expected) {
         assertThat(IgniteNameUtils.quoteIfNeeded(source), equalTo(expected));

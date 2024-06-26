@@ -73,12 +73,14 @@ import org.apache.ignite.internal.failure.handlers.StopNodeFailureHandler;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.NodeLeftException;
@@ -134,7 +136,6 @@ import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -873,24 +874,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         ExecutionDependencyResolver dependencyResolver = new ExecutionDependencyResolverImpl(executableTableRegistry, null);
 
-        var targetProvider = new ExecutionTargetProvider() {
-            @Override
-            public CompletableFuture<ExecutionTarget> forTable(ExecutionTargetFactory factory, IgniteTable table) {
-                if (mappingException != null) {
-                    return CompletableFuture.failedFuture(mappingException);
-                }
-
-                return completedFuture(factory.allOf(nodeNames));
-            }
-
-            @Override
-            public CompletableFuture<ExecutionTarget> forSystemView(ExecutionTargetFactory factory, IgniteSystemView view) {
-                return CompletableFuture.failedFuture(new AssertionError("Not supported"));
-            }
-        };
-
-        var partitionPruner = new PartitionPrunerImpl();
-        var mappingService = new MappingServiceImpl(nodeName, targetProvider, EmptyCacheFactory.INSTANCE, 0, partitionPruner, taskExecutor);
+        var mappingService = createMappingService(nodeName, clockService, taskExecutor);
         var tableFunctionRegistry = new TableFunctionRegistryImpl();
 
         List<LogicalNode> logicalNodes = nodeNames.stream()
@@ -919,6 +903,36 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         executionService.start();
 
         return executionService;
+    }
+
+    private MappingServiceImpl createMappingService(
+            String nodeName,
+            ClockService clock,
+            QueryTaskExecutorImpl taskExecutor
+    ) {
+        var targetProvider = new ExecutionTargetProvider() {
+            @Override
+            public CompletableFuture<ExecutionTarget> forTable(
+                    HybridTimestamp operationTime,
+                    ExecutionTargetFactory factory,
+                    IgniteTable table,
+                    boolean includeBackups
+            ) {
+                if (mappingException != null) {
+                    return CompletableFuture.failedFuture(mappingException);
+                }
+
+                return completedFuture(factory.allOf(nodeNames));
+            }
+
+            @Override
+            public CompletableFuture<ExecutionTarget> forSystemView(ExecutionTargetFactory factory, IgniteSystemView view) {
+                return CompletableFuture.failedFuture(new AssertionError("Not supported"));
+            }
+        };
+
+        var partitionPruner = new PartitionPrunerImpl();
+        return new MappingServiceImpl(nodeName, clock, targetProvider, EmptyCacheFactory.INSTANCE, 0, partitionPruner, taskExecutor);
     }
 
     private SqlOperationContext createContext() {

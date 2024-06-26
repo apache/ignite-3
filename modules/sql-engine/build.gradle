@@ -49,6 +49,8 @@ dependencies {
     implementation project(':ignite-system-view')
     implementation project(':ignite-failure-handler')
     implementation project(':ignite-placement-driver-api')
+    implementation project(':ignite-partition-replicator')
+    implementation project(':ignite-affinity')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
     implementation libs.caffeine
@@ -90,10 +92,10 @@ dependencies {
     testImplementation project(':ignite-vault')
     testImplementation project(':ignite-placement-driver')
     testImplementation libs.jmh.core
-    testImplementation(testFixtures(project(':ignite-api')))
     testImplementation(testFixtures(project(':ignite-core')))
     testImplementation(testFixtures(project(':ignite-configuration')))
     testImplementation(testFixtures(project(':ignite-schema')))
+    testImplementation(testFixtures(project(':ignite-network-api')))
     testImplementation(testFixtures(project(':ignite-storage-api')))
     testImplementation(testFixtures(project(':ignite-sql-engine')))
     testImplementation(testFixtures(project(':ignite-distribution-zones')))

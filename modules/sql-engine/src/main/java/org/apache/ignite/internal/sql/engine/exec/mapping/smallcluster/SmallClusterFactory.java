@@ -21,6 +21,9 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
 import java.util.List;
+import java.util.stream.Collectors;
+import org.apache.ignite.internal.affinity.Assignment;
+import org.apache.ignite.internal.affinity.TokenizedAssignments;
 import org.apache.ignite.internal.sql.engine.exec.NodeWithConsistencyToken;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTarget;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTargetFactory;
@@ -38,12 +41,13 @@ public class SmallClusterFactory implements ExecutionTargetFactory {
             throw new IllegalArgumentException("Supported up to 64 nodes, but was " + nodes.size());
         }
 
-        this.nodes = nodes;
+        // to make mapping stable
+        this.nodes = nodes.stream().sorted().collect(Collectors.toList());
 
         nodeNameToId = new Object2LongOpenHashMap<>(nodes.size());
 
         int idx = 0;
-        for (String name : nodes) {
+        for (String name : this.nodes) {
             nodeNameToId.putIfAbsent(name, 1L << idx++);
         }
     }
@@ -64,17 +68,24 @@ public class SmallClusterFactory implements ExecutionTargetFactory {
     }
 
     @Override
-    public ExecutionTarget partitioned(List<NodeWithConsistencyToken> nodes) {
-        long[] partitionNodes = new long[nodes.size()];
-        long[] enlistmentConsistencyTokens = new long[nodes.size()];
+    public ExecutionTarget partitioned(List<TokenizedAssignments> assignments) {
+        long[] partitionNodes = new long[assignments.size()];
+        long[] enlistmentConsistencyTokens = new long[assignments.size()];
 
         int idx = 0;
-        for (NodeWithConsistencyToken e : nodes) {
-            partitionNodes[idx] = nodeNameToId.getOrDefault(e.name(), 0);
-            enlistmentConsistencyTokens[idx++] = e.enlistmentConsistencyToken();
+        boolean finalised = true;
+        for (TokenizedAssignments assignment : assignments) {
+            finalised = finalised && assignment.nodes().size() < 2;
+
+            for (Assignment a : assignment.nodes()) {
+                partitionNodes[idx] |= nodeNameToId.getOrDefault(a.consistentId(), 0);
+                enlistmentConsistencyTokens[idx] = assignment.token();
+            }
+
+            idx++;
         }
 
-        return new PartitionedTarget(true, partitionNodes, enlistmentConsistencyTokens);
+        return new PartitionedTarget(finalised, partitionNodes, enlistmentConsistencyTokens);
     }
 
     @Override

@@ -86,17 +86,14 @@ public class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemo
         this.pageMemory = pageMemory;
     }
 
-    private FreeListImpl createFreeList(
-            PageMemory pageMemory
-    ) throws IgniteInternalCheckedException {
-        long metaPageId = pageMemory.allocatePage(FREE_LIST_GROUP_ID, FREE_LIST_PARTITION_ID, FLAG_AUX);
+    private FreeListImpl createFreeList(PageMemory pageMemory) throws IgniteInternalCheckedException {
+        long metaPageId = pageMemory.allocatePageNoReuse(FREE_LIST_GROUP_ID, FREE_LIST_PARTITION_ID, FLAG_AUX);
 
         return new FreeListImpl(
                 FREE_LIST_GROUP_ID,
                 FREE_LIST_PARTITION_ID,
                 FREE_LIST_NAME,
                 pageMemory,
-                null,
                 PageLockListenerNoOp.INSTANCE,
                 metaPageId,
                 true,

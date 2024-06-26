@@ -206,7 +206,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
         startBuildIndex(indexId);
 
-        finishBuildingIndexForPartition(indexId, 0, indexCreationCatalogVersion(INDEX_NAME));
+        finishBuildingIndexForPartition(indexId, 0);
 
         awaitTillGlobalMetastoreRevisionIsApplied();
 
@@ -278,7 +278,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
         int indexId = indexId(INDEX_NAME);
 
-        finishBuildingIndexForPartition(indexId, 0, indexCreationCatalogVersion(INDEX_NAME));
+        finishBuildingIndexForPartition(indexId, 0);
 
         dropIndex(INDEX_NAME);
 
@@ -298,7 +298,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
         int indexId = indexId(INDEX_NAME);
 
         for (int partitionId = 1; partitionId < partitions; partitionId++) {
-            finishBuildingIndexForPartition(indexId, partitionId, indexCreationCatalogVersion(INDEX_NAME));
+            finishBuildingIndexForPartition(indexId, partitionId);
         }
 
         dropIndex(INDEX_NAME);
@@ -319,7 +319,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
         int indexId = indexId(INDEX_NAME);
 
         for (int partitionId = 2; partitionId < partitions; partitionId++) {
-            finishBuildingIndexForPartition(indexId, partitionId, indexCreationCatalogVersion(INDEX_NAME));
+            finishBuildingIndexForPartition(indexId, partitionId);
         }
 
         dropIndex(INDEX_NAME);
@@ -374,7 +374,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
         partitions = newPartitions;
     }
 
-    private void finishBuildingIndexForPartition(int indexId, int partitionId, int indexCreationCatalogVersion) {
+    private void finishBuildingIndexForPartition(int indexId, int partitionId) {
         // It may look complicated, but the other method through mocking IndexBuilder seems messier.
         IndexStorage indexStorage = mock(IndexStorage.class);
 
@@ -389,8 +389,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
                 indexStorage,
                 mock(MvPartitionStorage.class),
                 mock(ClusterNode.class),
-                ANY_ENLISTMENT_CONSISTENCY_TOKEN,
-                indexCreationCatalogVersion
+                ANY_ENLISTMENT_CONSISTENCY_TOKEN
         );
 
         CompletableFuture<Void> finishBuildIndexFuture = new CompletableFuture<>();
@@ -453,9 +452,5 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
     private static String partitionBuildIndexKey(int indexId, int partitionId) {
         return "indexBuild.partition." + indexId + "." + partitionId;
-    }
-
-    private int indexCreationCatalogVersion(String indexName) {
-        return TableTestUtils.getIndexStrict(catalogManager, indexName, clock.nowLong()).txWaitCatalogVersion();
     }
 }

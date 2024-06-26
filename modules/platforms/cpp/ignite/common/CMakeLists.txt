@@ -23,10 +23,10 @@ set(PUBLIC_HEADERS
     big_decimal.h
     big_integer.h
     bit_array.h
-    bits.h
-    bytes.h
     bytes_view.h
-    config.h
+    detail/bits.h
+    detail/bytes.h
+    detail/config.h
     end_point.h
     error_codes.h
     ignite_date.h
@@ -39,27 +39,30 @@ set(PUBLIC_HEADERS
     ignite_timestamp.h
     ignite_type.h
     primitive.h
-    server_version.h
     uuid.h
 )
 
 set(SOURCES
     big_decimal.cpp
     big_integer.cpp
+    detail/mpi.cpp
 )
 
 add_library(${TARGET} STATIC ${SOURCES})
 
+target_link_libraries(${TARGET} PUBLIC MbedTLS::mbedtls)
+
 target_include_directories(${TARGET} INTERFACE
     $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}>
-    $<INSTALL_INTERFACE:${IGNITE_INCLUDEDIR}>)
+    $<INSTALL_INTERFACE:${IGNITE_INCLUDEDIR}>
+    PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 if (${INSTALL_IGNITE_FILES})
     ignite_install_headers(FILES ${PUBLIC_HEADERS} DESTINATION ${IGNITE_INCLUDEDIR}/common)
 endif()
 
-ignite_test(bits_test DISCOVER SOURCES bits_test.cpp LIBS ${TARGET})
-ignite_test(bytes_test DISCOVER SOURCES bytes_test.cpp LIBS ${TARGET})
+ignite_test(bits_test DISCOVER SOURCES detail/bits_test.cpp LIBS ${TARGET})
+ignite_test(bytes_test DISCOVER SOURCES detail/bytes_test.cpp LIBS ${TARGET})
 ignite_test(uuid_test DISCOVER SOURCES uuid_test.cpp LIBS ${TARGET})
 ignite_test(bignum_test DISCOVER SOURCES bignum_test.cpp LIBS ${TARGET})
 ignite_test(bit_array_test DISCOVER SOURCES bit_array_test.cpp LIBS ${TARGET})

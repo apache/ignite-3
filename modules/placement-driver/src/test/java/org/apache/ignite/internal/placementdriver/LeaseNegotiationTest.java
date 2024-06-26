@@ -53,6 +53,7 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
+import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
 import org.apache.ignite.internal.placementdriver.leases.LeaseBatch;
 import org.apache.ignite.internal.placementdriver.leases.LeaseTracker;
@@ -62,7 +63,6 @@ import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessage
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.network.TopologyService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -158,7 +158,8 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
                 metaStorageManager,
                 pdLogicalTopologyService,
                 leaseTracker,
-                new TestClockService(new HybridClockImpl())
+                new TestClockService(new HybridClockImpl()),
+                new AssignmentsTracker(metaStorageManager)
         );
     }
 

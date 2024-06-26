@@ -22,7 +22,7 @@
 #include <ignite/client/transaction/transaction.h>
 #include <ignite/client/type_mapping.h>
 
-#include <ignite/common/config.h>
+#include "ignite/common/detail/config.h"
 #include <ignite/common/ignite_result.h>
 
 #include <memory>

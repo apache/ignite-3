@@ -64,6 +64,8 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.TopologyEventHandler;
+import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.InternalSqlRowImpl;
@@ -116,8 +118,6 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.TopologyEventHandler;
-import org.apache.ignite.network.TopologyService;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -930,7 +930,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         private AsyncCursor<InternalSqlRow> execute(InternalTransaction tx, MultiStepPlan multiStepPlan) {
             assert root != null;
 
-            MappingParameters mappingParameters = MappingParameters.create(ctx.parameters());
+            boolean mapOnBackups = tx.isReadOnly();
+            MappingParameters mappingParameters = MappingParameters.create(ctx.parameters(), mapOnBackups);
 
             mappingService.map(multiStepPlan, mappingParameters).whenCompleteAsync((mappedFragments, mappingErr) -> {
                 if (mappingErr != null) {

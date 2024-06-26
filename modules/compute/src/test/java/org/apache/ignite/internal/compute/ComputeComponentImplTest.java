@@ -18,16 +18,16 @@
 package org.apache.ignite.internal.compute;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.compute.JobState.CANCELED;
-import static org.apache.ignite.compute.JobState.COMPLETED;
-import static org.apache.ignite.compute.JobState.EXECUTING;
-import static org.apache.ignite.compute.JobState.QUEUED;
+import static org.apache.ignite.compute.JobStatus.CANCELED;
+import static org.apache.ignite.compute.JobStatus.COMPLETED;
+import static org.apache.ignite.compute.JobStatus.EXECUTING;
+import static org.apache.ignite.compute.JobStatus.QUEUED;
 import static org.apache.ignite.internal.compute.ExecutionOptions.DEFAULT;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowWithCauseOrSuppressed;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.testframework.matchers.JobStatusMatcher.jobStatusWithState;
+import static org.apache.ignite.internal.testframework.matchers.JobStateMatcher.jobStateWithStatus;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -67,7 +67,6 @@ import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionContext;
-import org.apache.ignite.compute.JobState;
 import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
@@ -85,8 +84,8 @@ import org.apache.ignite.internal.compute.message.JobChangePriorityRequest;
 import org.apache.ignite.internal.compute.message.JobChangePriorityResponse;
 import org.apache.ignite.internal.compute.message.JobResultRequest;
 import org.apache.ignite.internal.compute.message.JobResultResponse;
-import org.apache.ignite.internal.compute.message.JobStatusRequest;
-import org.apache.ignite.internal.compute.message.JobStatusResponse;
+import org.apache.ignite.internal.compute.message.JobStateRequest;
+import org.apache.ignite.internal.compute.message.JobStateResponse;
 import org.apache.ignite.internal.compute.state.InMemoryComputeStateMachine;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -100,11 +99,11 @@ import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessageHandler;
+import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.network.TopologyService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -187,7 +186,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         JobExecution<String> execution = computeComponent.executeLocally(List.of(), SimpleJob.class.getName(), "a", 42);
 
         assertThat(execution.resultAsync(), willBe("jobResponse"));
-        assertThat(execution.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
+        assertThat(execution.stateAsync(), willBe(jobStateWithStatus(COMPLETED)));
         assertThat(execution.cancelAsync(), willBe(false));
         assertThat(execution.changePriorityAsync(1), willBe(false));
 
@@ -195,33 +194,33 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void getsStatusAndCancelsLocally() {
+    void getsStateAndCancelsLocally() {
         JobExecution<String> execution = computeComponent.executeLocally(List.of(), LongJob.class.getName());
 
-        await().until(execution::statusAsync, willBe(jobStatusWithState(EXECUTING)));
+        await().until(execution::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
 
         assertThat(execution.cancelAsync(), willBe(true));
 
-        await().until(execution::statusAsync, willBe(jobStatusWithState(CANCELED)));
+        await().until(execution::stateAsync, willBe(jobStateWithStatus(CANCELED)));
 
         assertThatNoRequestsWereSent();
     }
 
     @Test
-    void statusCancelAndChangePriorityTriesLocalNodeFirst() {
+    void stateCancelAndChangePriorityTriesLocalNodeFirst() {
         JobExecution<String> runningExecution = computeComponent.executeLocally(List.of(), LongJob.class.getName());
-        await().until(runningExecution::statusAsync, willBe(jobStatusWithState(EXECUTING)));
+        await().until(runningExecution::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
 
         JobExecution<String> queuedExecution = computeComponent.executeLocally(List.of(), LongJob.class.getName());
-        await().until(queuedExecution::statusAsync, willBe(jobStatusWithState(QUEUED)));
+        await().until(queuedExecution::stateAsync, willBe(jobStateWithStatus(QUEUED)));
 
-        UUID jobId = queuedExecution.statusAsync().join().id();
+        UUID jobId = queuedExecution.idAsync().join();
 
-        assertThat(computeComponent.statusAsync(jobId), willBe(jobStatusWithState(QUEUED)));
+        assertThat(computeComponent.stateAsync(jobId), willBe(jobStateWithStatus(QUEUED)));
         assertThat(computeComponent.changePriorityAsync(jobId, 1), willBe(true));
         assertThat(computeComponent.cancelAsync(jobId), willBe(true));
 
-        await().until(queuedExecution::statusAsync, willBe(jobStatusWithState(CANCELED)));
+        await().until(queuedExecution::stateAsync, willBe(jobStateWithStatus(CANCELED)));
 
         assertThatNoRequestsWereSent();
     }
@@ -247,7 +246,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         UUID jobId = UUID.randomUUID();
         respondWithExecuteResponseWhenExecuteRequestIsSent(jobId);
         respondWithJobResultResponseWhenJobResultRequestIsSent(jobId);
-        respondWithJobStatusResponseWhenJobStatusRequestIsSent(jobId, COMPLETED);
+        respondWithJobStateResponseWhenJobStateRequestIsSent(jobId, COMPLETED);
         respondWithJobCancelResponseWhenJobCancelRequestIsSent(jobId, false);
 
         JobExecution<String> execution = computeComponent.executeRemotely(remoteNode, List.of(), SimpleJob.class.getName(), "a", 42);
@@ -256,32 +255,32 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         // Verify that second invocation of resultAsync will not result in the network communication (i.e. the result is cached locally)
         assertThat(execution.resultAsync(), willBe("remoteResponse"));
 
-        assertThat(execution.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
+        assertThat(execution.stateAsync(), willBe(jobStateWithStatus(COMPLETED)));
         assertThat(execution.cancelAsync(), willBe(false));
 
         assertThatExecuteRequestWasSent(SimpleJob.class.getName(), "a", 42);
         assertThatJobResultRequestWasSent(jobId);
-        assertThatJobStatusRequestWasSent(jobId);
+        assertThatJobStateRequestWasSent(jobId);
         assertThatJobCancelRequestWasSent(jobId);
     }
 
     @Test
-    void getsStatusAndCancelsRemotelyUsingNetworkCommunication() {
+    void getsStateAndCancelsRemotelyUsingNetworkCommunication() {
         UUID jobId = UUID.randomUUID();
         respondWithExecuteResponseWhenExecuteRequestIsSent(jobId);
         respondWithJobResultResponseWhenJobResultRequestIsSent(jobId);
-        respondWithJobStatusResponseWhenJobStatusRequestIsSent(jobId, EXECUTING);
+        respondWithJobStateResponseWhenJobStateRequestIsSent(jobId, EXECUTING);
         respondWithJobCancelResponseWhenJobCancelRequestIsSent(jobId, true);
 
         JobExecution<String> execution = computeComponent.executeRemotely(remoteNode, List.of(), LongJob.class.getName());
 
-        assertThat(execution.statusAsync(), willBe(jobStatusWithState(EXECUTING)));
+        assertThat(execution.stateAsync(), willBe(jobStateWithStatus(EXECUTING)));
         assertThat(execution.resultAsync(), willBe("remoteResponse"));
         assertThat(execution.cancelAsync(), willBe(true));
 
         assertThatExecuteRequestWasSent(LongJob.class.getName());
         assertThatJobResultRequestWasSent(jobId);
-        assertThatJobStatusRequestWasSent(jobId);
+        assertThatJobStateRequestWasSent(jobId);
         assertThatJobCancelRequestWasSent(jobId);
     }
 
@@ -314,12 +313,12 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
                 .thenReturn(completedFuture(jobResultResponse));
     }
 
-    private void respondWithJobStatusResponseWhenJobStatusRequestIsSent(UUID jobId, JobState jobState) {
-        JobStatusResponse jobStatusResponse = new ComputeMessagesFactory().jobStatusResponse()
-                .status(JobStatus.builder().id(jobId).state(jobState).createTime(Instant.now()).build())
+    private void respondWithJobStateResponseWhenJobStateRequestIsSent(UUID jobId, JobStatus status) {
+        JobStateResponse jobStateResponse = new ComputeMessagesFactory().jobStateResponse()
+                .state(JobStateImpl.builder().id(jobId).status(status).createTime(Instant.now()).build())
                 .build();
-        when(messagingService.invoke(any(ClusterNode.class), argThat(msg -> jobStatusRequestWithJobId(msg, jobId)), anyLong()))
-                .thenReturn(completedFuture(jobStatusResponse));
+        when(messagingService.invoke(any(ClusterNode.class), argThat(msg -> jobStateRequestWithJobId(msg, jobId)), anyLong()))
+                .thenReturn(completedFuture(jobStateResponse));
     }
 
     private void respondWithJobCancelResponseWhenJobCancelRequestIsSent(UUID jobId, boolean result) {
@@ -346,10 +345,10 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         return false;
     }
 
-    private static boolean jobStatusRequestWithJobId(NetworkMessage argument, UUID jobId) {
-        if (argument instanceof JobStatusRequest) {
-            JobStatusRequest jobStatusRequest = (JobStatusRequest) argument;
-            return jobStatusRequest.jobId() == jobId;
+    private static boolean jobStateRequestWithJobId(NetworkMessage argument, UUID jobId) {
+        if (argument instanceof JobStateRequest) {
+            JobStateRequest jobStateRequest = (JobStateRequest) argument;
+            return jobStateRequest.jobId() == jobId;
         }
         return false;
     }
@@ -383,8 +382,8 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         assertThat(capturedRequest.jobId(), is(jobId));
     }
 
-    private void assertThatJobStatusRequestWasSent(UUID jobId) {
-        JobStatusRequest capturedRequest = invokeAndCaptureRequest(JobStatusRequest.class);
+    private void assertThatJobStateRequestWasSent(UUID jobId) {
+        JobStateRequest capturedRequest = invokeAndCaptureRequest(JobStateRequest.class);
 
         assertThat(capturedRequest.jobId(), is(jobId));
     }
@@ -520,15 +519,15 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void stoppedComponentReturnsExceptionOnJobStatusRequestAttempt() {
+    void stoppedComponentReturnsExceptionOnJobStateRequestAttempt() {
         assertThat(computeComponent.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
-        JobStatusRequest jobStatusRequest = new ComputeMessagesFactory().jobStatusRequest()
+        JobStateRequest jobStateRequest = new ComputeMessagesFactory().jobStateRequest()
                 .jobId(UUID.randomUUID())
                 .build();
-        JobStatusResponse response = sendRequestAndCaptureResponse(jobStatusRequest, testNode, 123L);
+        JobStateResponse response = sendRequestAndCaptureResponse(jobStateRequest, testNode, 123L);
 
-        assertThat(response.status(), is(nullValue()));
+        assertThat(response.state(), is(nullValue()));
         assertThat(response.throwable(), is(instanceOf(IgniteInternalException.class)));
         assertThat(response.throwable().getCause(), is(instanceOf(NodeStoppingException.class)));
     }
@@ -689,15 +688,15 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
     private static class SimpleJob implements ComputeJob<String> {
         /** {@inheritDoc} */
         @Override
-        public String execute(JobExecutionContext context, Object... args) {
-            return "jobResponse";
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, Object... args) {
+            return completedFuture("jobResponse");
         }
     }
 
     private static class FailingJob implements ComputeJob<String> {
         /** {@inheritDoc} */
         @Override
-        public String execute(JobExecutionContext context, Object... args) {
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, Object... args) {
             throw new JobException("Oops", new Exception());
         }
     }
@@ -711,15 +710,15 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
     private static class GetThreadNameJob implements ComputeJob<String> {
         /** {@inheritDoc} */
         @Override
-        public String execute(JobExecutionContext context, Object... args) {
-            return Thread.currentThread().getName();
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, Object... args) {
+            return completedFuture(Thread.currentThread().getName());
         }
     }
 
     private static class LongJob implements ComputeJob<String> {
         /** {@inheritDoc} */
         @Override
-        public String execute(JobExecutionContext context, Object... args) {
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, Object... args) {
             try {
                 Thread.sleep(1_000_000);
             } catch (InterruptedException e) {

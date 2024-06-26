@@ -33,9 +33,9 @@ import java.util.Arrays;
 import java.util.UUID;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
-import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.NodeManager;
@@ -62,7 +62,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class CheckCatalogVersionOnActionRequestTest extends BaseIgniteAbstractTest {
     private final ReplicaMessagesFactory replicaMessagesFactory = new ReplicaMessagesFactory();
 
-    private final TableMessagesFactory tableMessagesFactory = new TableMessagesFactory();
+    private final PartitionReplicationMessagesFactory tableMessagesFactory = new PartitionReplicationMessagesFactory();
 
     private final RaftMessagesFactory raftMessagesFactory = new RaftMessagesFactory();
 

@@ -83,6 +83,6 @@ private:
 };
 
 /** Factory for length_prefix_codec. */
-typedef basic_factory<codec, length_prefix_codec> length_prefix_codec_factory;
+typedef detail::basic_factory<codec, length_prefix_codec> length_prefix_codec_factory;
 
 } // namespace ignite::network

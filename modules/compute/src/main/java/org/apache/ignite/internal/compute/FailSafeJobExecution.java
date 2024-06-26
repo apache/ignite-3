@@ -54,9 +54,9 @@ class FailSafeJobExecution<T> implements JobExecution<T> {
     private final CompletableFuture<T> resultFuture;
 
     /**
-     * The status of the first job execution attempt. It is used to preserve the original job creation time.
+     * The state of the first job execution attempt. It is used to preserve the original job creation time.
      */
-    private final AtomicReference<JobStatus> capturedStatus;
+    private final AtomicReference<JobState> capturedState;
 
     /**
      * Link to the current job execution object. It can be updated when the job is restarted on another node.
@@ -67,26 +67,26 @@ class FailSafeJobExecution<T> implements JobExecution<T> {
         this.resultFuture = new CompletableFuture<>();
         this.runningJobExecution = new AtomicReference<>(runningJobExecution);
 
-        this.capturedStatus = new AtomicReference<>(null);
-        captureStatus(runningJobExecution);
+        this.capturedState = new AtomicReference<>(null);
+        captureState(runningJobExecution);
 
         registerCompleteHook();
     }
 
-    private void captureStatus(JobExecution<T> runningJobExecution) {
-        runningJobExecution.statusAsync()
-                .completeOnTimeout(failedStatus(), 10, TimeUnit.SECONDS)
-                .whenComplete((status, e) -> {
-                    if (status != null) {
-                        this.capturedStatus.compareAndSet(null, status);
+    private void captureState(JobExecution<T> runningJobExecution) {
+        runningJobExecution.stateAsync()
+                .completeOnTimeout(failedState(), 10, TimeUnit.SECONDS)
+                .whenComplete((state, e) -> {
+                    if (state != null) {
+                        this.capturedState.compareAndSet(null, state);
                     } else {
-                        this.capturedStatus.compareAndSet(null, failedStatus());
+                        this.capturedState.compareAndSet(null, failedState());
                     }
                 });
     }
 
-    private static JobStatus failedStatus() {
-        return JobStatus.builder().id(UUID.randomUUID()).createTime(Instant.now()).state(JobState.FAILED).build();
+    private static JobState failedState() {
+        return JobStateImpl.builder().id(UUID.randomUUID()).createTime(Instant.now()).status(JobStatus.FAILED).build();
     }
 
     /**
@@ -110,26 +110,26 @@ class FailSafeJobExecution<T> implements JobExecution<T> {
     }
 
     /**
-     * Transforms the status by modifying the fields that should be always the same regardless of the job execution attempt. For example,
+     * Transforms the state by modifying the fields that should be always the same regardless of the job execution attempt. For example,
      * the job creation time should be the same for all attempts.
      *
-     * <p>Can update {@link #capturedStatus} as a side-effect if the one is null.
+     * <p>Can update {@link #capturedState} as a side-effect if the one is null.
      *
-     * @param jobStatus current job status.
-     * @return transformed job status.
+     * @param jobState current job state.
+     * @return transformed job state.
      */
-    private @Nullable JobStatus transformStatus(@Nullable JobStatus jobStatus) {
-        if (jobStatus == null) {
+    private @Nullable JobState transformState(@Nullable JobState jobState) {
+        if (jobState == null) {
             return null;
         }
 
-        if (capturedStatus.get() == null) {
-            capturedStatus.compareAndSet(null, jobStatus);
+        if (capturedState.get() == null) {
+            capturedState.compareAndSet(null, jobState);
         }
 
-        return jobStatus.toBuilder()
-                .createTime(capturedStatus.get().createTime())
-                .id(capturedStatus.get().id())
+        return JobStateImpl.toBuilder(jobState)
+                .createTime(capturedState.get().createTime())
+                .id(capturedState.get().id())
                 .build();
     }
 
@@ -139,20 +139,20 @@ class FailSafeJobExecution<T> implements JobExecution<T> {
     }
 
     /**
-     * Returns the transformed status of the running job execution. The transformation is needed because we do not want to change some
-     * fields of the status (e.g. creation time) when the job is restarted.
+     * Returns the transformed state of the running job execution. The transformation is needed because we do not want to change some
+     * fields of the state (e.g. creation time) when the job is restarted.
      *
-     * @return the transformed status.
+     * @return the transformed state.
      */
     @Override
-    public CompletableFuture<@Nullable JobStatus> statusAsync() {
+    public CompletableFuture<@Nullable JobState> stateAsync() {
         if (exception.get() != null) {
             return CompletableFuture.failedFuture(exception.get());
         }
 
         return runningJobExecution.get()
-                .statusAsync()
-                .thenApply(this::transformStatus);
+                .stateAsync()
+                .thenApply(this::transformState);
     }
 
     @Override

@@ -23,8 +23,8 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobExecution;
-import org.apache.ignite.compute.JobStatus;
-import org.apache.ignite.compute.TaskExecution;
+import org.apache.ignite.compute.JobState;
+import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.internal.compute.task.JobSubmitter;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.network.ClusterNode;
@@ -146,20 +146,20 @@ public interface ComputeComponent extends IgniteComponent {
     );
 
     /**
-     * Retrieves the current status of all jobs on all nodes in the cluster.
+     * Retrieves the current state of all jobs on all nodes in the cluster.
      *
-     * @return The collection of job statuses.
+     * @return The collection of job states.
      */
-    CompletableFuture<Collection<JobStatus>> statusesAsync();
+    CompletableFuture<Collection<JobState>> statesAsync();
 
     /**
-     * Retrieves the current status of the job on any node in the cluster. The job status may be deleted and thus return {@code null} if the
-     * time for retaining job status has been exceeded.
+     * Retrieves the current state of the job on any node in the cluster. The job state may be deleted and thus return {@code null} if the
+     * time for retaining job state has been exceeded.
      *
      * @param jobId Job id.
-     * @return The current status of the job, or {@code null} if the job status no longer exists due to exceeding the retention time limit.
+     * @return The current state of the job, or {@code null} if the job state no longer exists due to exceeding the retention time limit.
      */
-    CompletableFuture<@Nullable JobStatus> statusAsync(UUID jobId);
+    CompletableFuture<@Nullable JobState> stateAsync(UUID jobId);
 
     /**
      * Cancels the job running on any node in the cluster.

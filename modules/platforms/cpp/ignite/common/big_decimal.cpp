@@ -16,10 +16,29 @@
  */
 
 #include "big_decimal.h"
+#include "detail/bytes.h"
 
 #include <cstring>
 
 namespace ignite {
+
+std::size_t big_decimal::byte_size() const noexcept {
+    return sizeof(m_scale) + get_unscaled_value().byte_size();
+}
+
+void big_decimal::store_bytes(std::byte *data) const {
+    detail::bytes::store<detail::endian::LITTLE, std::int16_t>(data, m_scale);
+    get_unscaled_value().store_bytes(data + sizeof(m_scale));
+}
+
+big_decimal::big_decimal(const std::byte *data, std::size_t size) {
+    if (size < sizeof(m_scale)) {
+        return;
+    }
+
+    m_scale = detail::bytes::load<detail::endian::LITTLE, std::int16_t>(data);
+    m_magnitude = big_integer(data + sizeof(m_scale), size - sizeof(m_scale));
+}
 
 void big_decimal::set_scale(std::int16_t new_scale, big_decimal &res) const {
     if (m_scale == new_scale)
@@ -67,76 +86,26 @@ std::ostream &operator<<(std::ostream &os, const big_decimal &val) {
     const big_integer &unscaled = val.get_unscaled_value();
 
     // Zero magnitude case. Scale does not matter.
-    if (unscaled.get_magnitude().empty())
+    if (unscaled.is_zero())
         return os << '0';
 
-    // Scale is zero or negative. No decimal point here.
-    if (val.m_scale <= 0) {
-        os << unscaled;
+    std::string serialized = unscaled.to_string();
 
-        // Adding zeroes if needed.
-        for (int32_t i = 0; i < -val.m_scale; ++i)
-            os << '0';
+    auto sign = unscaled.get_sign();
+    std::size_t adj = sign > 0 ? 0 : 1;
 
-        return os;
-    }
-
-    // Getting magnitude as a string.
-    std::stringstream converter;
-
-    converter << unscaled;
-
-    std::string magStr = converter.str();
-
-    auto magLen = int32_t(magStr.size());
-
-    int32_t magBegin = 0;
-
-    // If value is negative passing minus sign.
-    if (magStr[magBegin] == '-') {
-        os << magStr[magBegin];
-
-        ++magBegin;
-        --magLen;
-    }
-
-    // Finding last non-zero char. There is no sense in trailing zeroes
-    // beyond the decimal point.
-    int32_t lastNonZero = static_cast<int32_t>(magStr.size()) - 1;
-
-    while (lastNonZero >= magBegin && magStr[lastNonZero] == '0')
-        --lastNonZero;
-
-    // This is expected as we already covered zero number case.
-    assert(lastNonZero >= magBegin);
-
-    int32_t dotPos = magLen - val.m_scale;
-
-    if (dotPos <= 0) {
-        // Means we need to add leading zeroes.
-        os << '0' << '.';
-
-        while (dotPos < 0) {
-            ++dotPos;
-
-            os << '0';
+    if (val.m_scale < 0) {
+        std::string zeros(-val.m_scale, '0');
+        serialized += zeros;
+    } else if (val.m_scale > 0) {
+        if (static_cast<std::size_t>(val.m_scale) >= serialized.length() - adj) {
+            std::string zeros(val.m_scale - serialized.length() + adj + 1, '0');
+            serialized.insert(adj, zeros);
         }
-
-        os.write(&magStr[magBegin], lastNonZero - magBegin + 1);
-    } else {
-        // Decimal point is in the middle of the number.
-        // Just output everything before the decimal point.
-        os.write(&magStr[magBegin], dotPos);
-
-        int32_t afterDot = lastNonZero - dotPos - magBegin + 1;
-
-        if (afterDot > 0) {
-            os << '.';
-
-            os.write(&magStr[magBegin + dotPos], afterDot);
-        }
+        serialized.insert(serialized.end() - val.m_scale, '.');
     }
 
+    os << serialized;
     return os;
 }
 
@@ -152,71 +121,26 @@ std::istream &operator>>(std::istream &is, big_decimal &val) {
     // Current char.
     int c = is.peek();
 
-    // Current value parts.
-    uint64_t part = 0;
-    int32_t partDigits = 0;
-    int32_t scale = -1;
-    int32_t sign = 1;
-
-    big_integer &mag = val.m_magnitude;
-    big_integer pow;
-    big_integer bigPart;
-
     if (!is)
         return is;
 
-    // Checking sign.
-    if (c == '-' || c == '+') {
-        if (c == '-')
-            sign = -1;
+    bool scale_found = false;
+    std::int16_t scale = 0;
 
-        is.ignore();
-        c = is.peek();
-    }
-
-    // Reading number itself.
-    while (is) {
-        if (isdigit(c)) {
-            part = part * 10 + (c - '0');
-            ++partDigits;
-        } else if (c == '.' && scale < 0) {
-            // We have found decimal point. Starting counting scale.
-            scale = 0;
-        } else
-            break;
-
-        is.ignore();
-        c = is.peek();
-
-        if (part >= 1000000000000000000U) {
-            big_integer::get_power_of_ten(partDigits, pow);
-            mag.multiply(pow, mag);
-
-            mag.add(part);
-
-            part = 0;
-            partDigits = 0;
+    std::string str;
+    while (is && (isdigit(c) || c == '-' || c == '+' || c == '.')) {
+        if (scale_found) {
+            scale++;
         }
 
-        // Counting scale if the decimal point have been encountered.
-        if (scale >= 0)
-            ++scale;
+        if (c == '.') {
+            scale_found = true;
+        } else {
+            str.push_back(c);
+        }
+        is.ignore();
+        c = is.peek();
     }
-
-    // Adding last part of the number.
-    if (partDigits) {
-        big_integer::get_power_of_ten(partDigits, pow);
-
-        mag.multiply(pow, mag);
-
-        mag.add(part);
-    }
-
-    // Adjusting scale.
-    if (scale < 0)
-        scale = 0;
-    else
-        --scale;
 
     // Reading exponent.
     if (c == 'e' || c == 'E') {
@@ -228,11 +152,63 @@ std::istream &operator>>(std::istream &is, big_decimal &val) {
         scale -= exp;
     }
 
+    val.m_magnitude.assign_string(str.c_str());
     val.m_scale = scale;
-
-    if (sign < 0)
-        mag.negate();
 
     return is;
 }
+
+void big_decimal::add(const big_decimal &other, big_decimal &res) const {
+    big_decimal v1 = *this;
+    big_decimal v2 = other;
+
+    auto scale = std::max(m_scale, other.m_scale);
+
+    v1.set_scale(scale, v1);
+    v2.set_scale(scale, v2);
+
+    res.m_magnitude = v1.m_magnitude + v2.m_magnitude;
+    res.m_scale = scale;
+}
+
+void big_decimal::subtract(const big_decimal &other, big_decimal &res) const {
+    big_decimal v1 = *this;
+    big_decimal v2 = other;
+
+    res.m_scale = std::max(m_scale, other.m_scale);
+
+    v1.set_scale(res.m_scale, v1);
+    v2.set_scale(res.m_scale, v2);
+
+    res.m_magnitude = v1.m_magnitude - v2.m_magnitude;
+}
+
+void big_decimal::multiply(const big_decimal &other, big_decimal &res) const {
+    res.m_magnitude = m_magnitude * other.m_magnitude;
+    res.m_scale = m_scale + other.m_scale;
+}
+
+// Let p1, s1 be the precision and scale of the first operand
+// Let p2, s2 be the precision and scale of the second operand
+// Let p, s be the precision and scale of the result
+// Let d be the number of whole digits in the result
+// Then the result type is a decimal with:
+//     d = p1 - s1 + s2
+//     s < max(6, s1 + p2 + 1)
+//     p = d + s
+//     p and s are capped at their maximum values
+
+void big_decimal::divide(const big_decimal &other, big_decimal &res) const {
+    big_decimal v1 = *this;
+    big_decimal v2 = other;
+
+    std::int16_t scale = std::max(6, get_scale() + other.get_precision() + 1);
+
+    v1.set_scale(scale, v1);
+
+    res.m_magnitude = v1.m_magnitude / v2.m_magnitude;
+    res.m_scale = scale - other.get_scale();
+    res.set_scale(scale, res);
+}
+
 } // namespace ignite

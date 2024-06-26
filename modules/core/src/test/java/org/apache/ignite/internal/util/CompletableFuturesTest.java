@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.testframework.asserts.CompletableFuture
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.will;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.util.CompletableFutures.allOfToList;
 import static org.apache.ignite.internal.util.CompletableFutures.booleanCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.completedOrFailedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.copyStateTo;
@@ -129,7 +130,7 @@ public class CompletableFuturesTest {
 
     @Test
     void testAllOfSuccessFuture() {
-        CompletableFuture<List<Integer>> future = CompletableFutures.allOf(
+        CompletableFuture<List<Integer>> future = allOfToList(
                 nullCompletedFuture(),
                 completedFuture(1),
                 completedFuture(42)
@@ -140,7 +141,7 @@ public class CompletableFuturesTest {
 
     @Test
     void testAllFailedFuture() {
-        CompletableFuture<List<Integer>> future = CompletableFutures.allOf(
+        CompletableFuture<List<Integer>> future = allOfToList(
                 nullCompletedFuture(),
                 failedFuture(new RuntimeException("test error")),
                 completedFuture(42)
@@ -189,5 +190,54 @@ public class CompletableFuturesTest {
         future0.complete("test");
 
         assertThat(future1, willBe("test"));
+    }
+
+    @Test
+    void testAllOfEmpty() {
+        CompletableFuture<Void> allOfFuture0 = CompletableFutures.allOf(List.of());
+        CompletableFuture<Void> allOfFuture1 = CompletableFutures.allOf(Set.of());
+
+        assertTrue(allOfFuture0.isDone());
+        assertTrue(allOfFuture1.isDone());
+
+        assertThat(allOfFuture0, willBe(nullValue()));
+        assertThat(allOfFuture1, willBe(nullValue()));
+    }
+
+    @Test
+    void testAllOfSuccessfully() {
+        var future0 = new CompletableFuture<String>();
+        var future1 = new CompletableFuture<Integer>();
+
+        CompletableFuture<Void> allOfFuture = CompletableFutures.allOf(Set.of(future0, future1));
+        assertFalse(allOfFuture.isDone());
+
+        future1.complete(1);
+        assertFalse(allOfFuture.isDone());
+
+        future0.complete("test");
+        assertTrue(allOfFuture.isDone());
+
+        assertThat(allOfFuture, willBe(nullValue()));
+    }
+
+    @Test
+    void testAllOfFailed() {
+        var future0 = new CompletableFuture<String>();
+        var future1 = new CompletableFuture<Integer>();
+
+        CompletableFuture<Void> allOfFuture = CompletableFutures.allOf(List.of(future0, future1));
+        assertFalse(allOfFuture.isDone());
+
+        var exception0 = new Exception("from test 0");
+        var exception1 = new Exception("from test 1");
+
+        future0.completeExceptionally(exception0);
+        assertFalse(allOfFuture.isDone());
+
+        future1.completeExceptionally(exception1);
+        assertTrue(allOfFuture.isDone());
+
+        assertThat(allOfFuture, willThrow(Exception.class, "from test 0"));
     }
 }

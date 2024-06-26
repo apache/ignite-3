@@ -18,7 +18,7 @@
 package org.apache.ignite.client.handler.requests.compute;
 
 import static org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteRequest.unpackArgs;
-import static org.apache.ignite.client.handler.requests.compute.ClientComputeGetStatusRequest.packJobStatus;
+import static org.apache.ignite.client.handler.requests.compute.ClientComputeGetStateRequest.packJobState;
 import static org.apache.ignite.internal.util.IgniteUtils.firstNotNull;
 
 import java.util.Collections;
@@ -27,8 +27,8 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.NotificationSender;
 import org.apache.ignite.compute.DeploymentUnit;
-import org.apache.ignite.compute.JobStatus;
-import org.apache.ignite.compute.TaskExecution;
+import org.apache.ignite.compute.JobState;
+import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
@@ -80,20 +80,20 @@ public class ClientComputeExecuteMapReduceRequest {
 
     static CompletableFuture<Object> sendTaskResult(TaskExecution<Object> execution, NotificationSender notificationSender) {
         return execution.resultAsync().whenComplete((val, err) ->
-                execution.statusAsync().whenComplete((status, errStatus) ->
-                        execution.statusesAsync().whenComplete((statuses, errStatuses) ->
+                execution.stateAsync().whenComplete((state, errState) ->
+                        execution.statesAsync().whenComplete((states, errStates) ->
                                 notificationSender.sendNotification(w -> {
                                     w.packObjectAsBinaryTuple(val);
-                                    packJobStatus(w, status);
-                                    packJobStatuses(w, statuses);
-                                }, firstNotNull(err, errStatus, errStatuses)))
+                                    packJobState(w, state);
+                                    packJobStates(w, states);
+                                }, firstNotNull(err, errState, errStates)))
                 ));
     }
 
-    static void packJobStatuses(ClientMessagePacker w, List<JobStatus> statuses) {
-        w.packInt(statuses.size());
-        for (JobStatus status : statuses) {
-            packJobStatus(w, status);
+    static void packJobStates(ClientMessagePacker w, List<JobState> states) {
+        w.packInt(states.size());
+        for (JobState state : states) {
+            packJobState(w, state);
         }
     }
 }

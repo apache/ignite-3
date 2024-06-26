@@ -23,7 +23,7 @@
 #include "ignite/client/network/cluster_node.h"
 #include "ignite/client/table/ignite_tuple.h"
 #include "ignite/client/transaction/transaction.h"
-#include "ignite/common/config.h"
+#include "ignite/common/detail/config.h"
 #include "ignite/common/ignite_result.h"
 #include "ignite/common/primitive.h"
 

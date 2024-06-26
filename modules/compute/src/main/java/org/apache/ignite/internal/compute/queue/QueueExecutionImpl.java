@@ -26,9 +26,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import org.apache.ignite.compute.ComputeException;
-import org.apache.ignite.compute.JobStatus;
+import org.apache.ignite.compute.JobState;
 import org.apache.ignite.internal.compute.state.ComputeStateMachine;
-import org.apache.ignite.internal.compute.state.IllegalJobStateTransition;
+import org.apache.ignite.internal.compute.state.IllegalJobStatusTransition;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.jetbrains.annotations.Nullable;
@@ -42,7 +42,7 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
     private static final IgniteLogger LOG = Loggers.forClass(QueueExecutionImpl.class);
 
     private final UUID jobId;
-    private final Callable<R> job;
+    private final Callable<CompletableFuture<R>> job;
     private final ComputeThreadPoolExecutor executor;
     private final ComputeStateMachine stateMachine;
 
@@ -67,7 +67,7 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
      */
     QueueExecutionImpl(
             UUID jobId,
-            Callable<R> job,
+            Callable<CompletableFuture<R>> job,
             int priority,
             ComputeThreadPoolExecutor executor,
             ComputeStateMachine stateMachine) {
@@ -84,8 +84,8 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
     }
 
     @Override
-    public @Nullable JobStatus status() {
-        return stateMachine.currentStatus(jobId);
+    public @Nullable JobState state() {
+        return stateMachine.currentState(jobId);
     }
 
     @Override
@@ -98,7 +98,7 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
                 cancel(queueEntry);
                 return true;
             }
-        } catch (IllegalJobStateTransition e) {
+        } catch (IllegalJobStatusTransition e) {
             LOG.info("Cannot cancel the job", e);
         }
         return false;
@@ -126,13 +126,13 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
         try {
             QueueEntry<R> queueEntry = this.queueEntry;
 
-            if (executor.removeFromQueue(queueEntry)) {
+            if (queueEntry != null && executor.removeFromQueue(queueEntry)) {
                 this.priority = newPriority;
                 this.queueEntry = null;
                 run();
                 return true;
             }
-            LOG.info("Cannot change job priority, job already processing. [job id = {}]", job);
+            LOG.info("Cannot change job priority, job already processing. [job id = {}]", jobId);
         } finally {
             executionLock.unlock();
         }
@@ -152,6 +152,7 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
     private void run() {
         QueueEntry<R> queueEntry = new QueueEntry<>(() -> {
             stateMachine.executeJob(jobId);
+
             return job.call();
         }, priority);
 

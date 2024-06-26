@@ -17,7 +17,10 @@
 
 #pragma once
 
-#include "config.h"
+#include "bytes_view.h"
+
+#include "detail/config.h"
+#include "detail/mpi.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -34,9 +37,12 @@ namespace ignite {
 class big_integer {
     friend class big_decimal;
 
+    using mpi_t = detail::mpi;
+    using word_t = mpi_t::word;
+
 public:
     // Magnitude array type.
-    using mag_array = std::vector<std::uint32_t>;
+    using mag_array_view = mpi_t::mag_view;
 
     /**
      * Default constructor. Constructs zero-value big integer.
@@ -55,18 +61,7 @@ public:
      *
      * @param other Other value.
      */
-    big_integer(big_integer &&other) = default;
-
-    /**
-     * Constructs big integer with the specified magnitude.
-     * @warning Magnitude is moved. This mean mag left empty after the call.
-     *
-     * @param mag Magnitude. Moved.
-     * @param sign Sign. Can be 1 or -1.
-     */
-    big_integer(mag_array &&mag, std::int8_t sign)
-        : sign(sign)
-        , mag(std::move(mag)) {}
+    big_integer(big_integer &&other) noexcept = default;
 
     /**
      * Constructs big integer with the specified integer value.
@@ -99,7 +94,7 @@ public:
      * @param bigEndian If true then magnitude is in big-endian. Otherwise
      *     the byte order of the magnitude considered to be little-endian.
      */
-    big_integer(const std::int8_t *val, std::int32_t len, std::int8_t sign, bool bigEndian = true);
+    big_integer(const std::int8_t *val, std::int32_t len, std::int8_t sign, bool big_endian = true);
 
     /**
      * Constructs a big integer from the byte array.
@@ -123,7 +118,41 @@ public:
      * @param other Other value.
      * @return *this.
      */
-    big_integer &operator=(big_integer &&other) = default;
+    big_integer &operator=(big_integer &&other) noexcept = default;
+
+    /**
+     * Copy-assigment operator.
+     *
+     * @param other Other value.
+     * @return *this.
+     */
+    big_integer &operator=(const mpi_t &other) {
+        if (&other == &this->m_mpi) {
+            return *this;
+        }
+
+        m_mpi = other;
+
+        return *this;
+    }
+
+    /**
+     * Move-assigment operator.
+     *
+     * @param other Other value.
+     * @return *this.
+     */
+    big_integer &operator=(mpi_t &&other) noexcept {
+        using std::swap;
+
+        if (&other == &this->m_mpi) {
+            return *this;
+        }
+
+        swap(m_mpi, other);
+
+        return *this;
+    }
 
     /**
      * Assign specified value to this big_integer.
@@ -144,7 +173,7 @@ public:
      *
      * @param val String to assign.
      */
-    void assign_string(const std::string &val) { assign_string(val.data(), val.size()); }
+    void assign_string(const std::string &val);
 
     /**
      * Assign specified value to this Decimal.
@@ -159,21 +188,14 @@ public:
      *
      * @return Sign of the number.
      */
-    [[nodiscard]] std::int8_t get_sign() const noexcept { return sign; }
+    [[nodiscard]] std::int8_t get_sign() const noexcept { return std::int8_t(m_mpi.sign()); }
 
     /**
      * Get magnitude array.
      *
      * @return magnitude array.
      */
-    [[nodiscard]] const mag_array &get_magnitude() const noexcept { return mag; }
-
-    /**
-     * Swap function for the big_integer type.
-     *
-     * @param other Other instance.
-     */
-    void swap(big_integer &other);
+    [[nodiscard]] mag_array_view get_magnitude() const noexcept { return m_mpi.magnitude(); }
 
     /**
      * Get length in bits of the two's-complement representation of this number, excluding a sign bit.
@@ -193,7 +215,7 @@ public:
      * Store this number as a byte array.
      *
      * @param data Destination byte array. Its size must be at least as large as the value returned by @ref
-     * bytes_size();
+     * byte_size();
      */
     void store_bytes(std::byte *data) const;
 
@@ -249,6 +271,22 @@ public:
     void divide(const big_integer &divisor, big_integer &res, big_integer &rem) const;
 
     /**
+     * Add another big integer to this.
+     *
+     * @param other Addendum. Can be *this.
+     * @param res Result placed there. Can be *this.
+     */
+    void add(const big_integer &other, big_integer &res) const;
+
+    /**
+     * Subtract another big integer from this.
+     *
+     * @param other Subtrahend. Can be *this.
+     * @param res  Result placed there. Can be *this.
+     */
+    void subtract(const big_integer &other, big_integer &res) const;
+
+    /**
      * Add unsigned integer number to this big_integer.
      *
      * @param x Number to add.
@@ -259,11 +297,11 @@ public:
      * compare this instance to another.
      *
      * @param other Another instance.
-     * @param ignoreSign If set to true than only magnitudes are compared.
+     * @param ignore_sign If set to true than only magnitudes are compared.
      * @return Comparasion result - 0 if equal, 1 if this is greater, -1 if
      *     this is less.
      */
-    [[nodiscard]] int compare(const big_integer &other, bool ignoreSign = false) const;
+    [[nodiscard]] int compare(const big_integer &other, bool ignore_sign = false) const;
 
     /**
      * Convert to int64_t.
@@ -277,30 +315,31 @@ public:
      *
      * @return True if this value is negative and false otherwise.
      */
-    [[nodiscard]] bool is_negative() const noexcept { return sign < 0; }
+    [[nodiscard]] bool is_negative() const noexcept { return m_mpi.is_negative(); }
 
     /**
      * Check whether this value is zero.
      *
      * @return True if this value is negative and false otherwise.
      */
-    [[nodiscard]] bool is_zero() const noexcept { return mag.empty(); }
+    [[nodiscard]] bool is_zero() const noexcept { return m_mpi.is_zero(); }
 
     /**
      * Check whether this value is positive.
      *
      * @return True if this value is positive and false otherwise.
      */
-    [[nodiscard]] bool is_positive() const noexcept { return sign > 0 && !is_zero(); }
+    [[nodiscard]] bool is_positive() const noexcept { return m_mpi.is_positive(); }
 
     /**
      * Reverses sign of this value.
      */
-    void negate() {
-        if (!is_zero()) {
-            sign = int8_t(-sign);
-        }
-    }
+    void negate() { m_mpi.negate(); }
+
+    /**
+     * Converts value to string.
+     */
+    [[nodiscard]] std::string to_string() const;
 
     /**
      * Output operator.
@@ -328,6 +367,13 @@ public:
      */
     static void get_power_of_ten(std::int32_t pow, big_integer &res);
 
+    /**
+     * Swap function for the big_integer type.
+     *
+     * @param other Other instance.
+     */
+    friend void swap(big_integer &lhs, big_integer &rhs);
+
 private:
     /**
      * Get this number's length in bits as if it was positive.
@@ -354,22 +400,6 @@ private:
     void from_negative_big_endian(const std::byte *data, std::size_t size);
 
     /**
-     * Add magnitude array to current.
-     *
-     * @param addend Addend.
-     * @param len Length of the addend.
-     */
-    void add(const uint32_t *addend, int32_t len);
-
-    /**
-     * Get n-th integer of the magnitude.
-     *
-     * @param n Index.
-     * @return Value of the n-th int of the magnitude.
-     */
-    [[nodiscard]] std::uint32_t get_mag_int(std::int32_t n) const;
-
-    /**
      * Divide this to another big integer.
      *
      * @param divisor Divisor. Can be *this.
@@ -380,15 +410,9 @@ private:
     void divide(const big_integer &divisor, big_integer &res, big_integer *rem) const;
 
     /**
-     * Normalizes current value removing trailing zeroes from the magnitude.
+     * Internal multiprecision integer structure.
      */
-    void normalize();
-
-    /** The sign of this big_integer: -1 for negative and 1 for non-negative. */
-    std::int8_t sign = 1;
-
-    /** The magnitude of this big_integer. Byte order is little-endian. */
-    mag_array mag;
+    mutable mpi_t m_mpi;
 };
 
 /**
@@ -455,6 +479,72 @@ inline bool operator>(const big_integer &lhs, const big_integer &rhs) noexcept {
  */
 inline bool operator>=(const big_integer &lhs, const big_integer &rhs) noexcept {
     return lhs.compare(rhs) >= 0;
+}
+
+/**
+ * @brief Sum operator.
+ *
+ * @param lhs First value.
+ * @param rhs Second value.
+ * @return New value that holds result of lhs + rhs.
+ */
+inline big_integer operator+(const big_integer &lhs, const big_integer &rhs) noexcept {
+    big_integer res;
+    lhs.add(rhs, res);
+    return res;
+}
+
+/**
+ * @brief Subtract operator.
+ *
+ * @param lhs First value.
+ * @param rhs Second value.
+ * @return New value that holds result of lhs - rhs.
+ */
+inline big_integer operator-(const big_integer &lhs, const big_integer &rhs) noexcept {
+    big_integer res;
+    lhs.subtract(rhs, res);
+    return res;
+}
+
+/**
+ * @brief Multiply operator.
+ *
+ * @param lhs First value.
+ * @param rhs Second value.
+ * @return New value that holds result of lhs * rhs.
+ */
+inline big_integer operator*(const big_integer &lhs, const big_integer &rhs) noexcept {
+    big_integer res;
+    lhs.multiply(rhs, res);
+    return res;
+}
+
+/**
+ * @brief Divide operator.
+ *
+ * @param lhs First value.
+ * @param rhs Second value.
+ * @return New value that holds result of lhs / rhs.
+ */
+inline big_integer operator/(const big_integer &lhs, const big_integer &rhs) noexcept {
+    big_integer res;
+    lhs.divide(rhs, res);
+    return res;
+}
+
+/**
+ * @brief Modulo operator.
+ *
+ * @param lhs First value.
+ * @param rhs Second value.
+ * @return New value that holds result of lhs % rhs.
+ */
+inline big_integer operator%(const big_integer &lhs, const big_integer &rhs) noexcept {
+    big_integer res;
+    big_integer rem;
+    lhs.divide(rhs, res, rem);
+    return rem;
 }
 
 } // namespace ignite
