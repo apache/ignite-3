@@ -31,6 +31,6 @@ public class NoOpFailureHandler extends AbstractFailureHandler {
 
     @Override
     public String toString() {
-        return S.toString(NoOpFailureHandler.class, this);
+        return S.toString(NoOpFailureHandler.class, this, super.toString());
     }
 }
