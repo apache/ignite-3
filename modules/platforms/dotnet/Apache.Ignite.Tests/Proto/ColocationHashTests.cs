@@ -186,6 +186,8 @@ public class ColocationHashTests : IgniteTestsBase
         var schemas = table.GetFieldValue<IDictionary<int, Task<Schema>>>("_schemas");
         var schema = schemas[1].GetAwaiter().GetResult();
         var clusterNodes = await Client.GetClusterNodesAsync();
+        var jobTarget = JobTarget.AnyNode(clusterNodes);
+        var job = new JobDescriptor<int>(TableRowColocationHashJob);
 
         for (int i = 0; i < 100; i++)
         {
@@ -194,12 +196,7 @@ public class ColocationHashTests : IgniteTestsBase
             using var writer = ProtoCommon.GetMessageWriter();
             var (clientColocationHash, _) = ser.Write(writer, null, schema, key);
 
-            var serverColocationHashExec = await Client.Compute.SubmitAsync<int>(
-                clusterNodes,
-                new(TableRowColocationHashJob),
-                tableName,
-                i);
-
+            var serverColocationHashExec = await Client.Compute.SubmitAsync(jobTarget, job, tableName, i);
             var serverColocationHash = await serverColocationHashExec.GetResultAsync();
 
             Assert.AreEqual(serverColocationHash, clientColocationHash, key.ToString());
