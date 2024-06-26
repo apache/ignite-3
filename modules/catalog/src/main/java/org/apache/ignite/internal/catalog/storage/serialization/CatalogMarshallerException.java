@@ -15,22 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.marshaller;
+package org.apache.ignite.internal.catalog.storage.serialization;
 
-import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.lang.ErrorGroups.Common;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Throws when failed to marshal a tuple.
+ * This exception is caused by a failure to marshall or unmarshall catalog event.
+ *  The failure can be due to compatibility reason or any other unrecoverable error.
  */
-public class TupleMarshallerException extends IgniteInternalCheckedException {
-    /**
-     * Creates a new grid exception with the given throwable as a cause and
-     * source of error message.
-     *
-     * @param s Msg.
-     * @param cause Non-null throwable cause.
-     */
-    public TupleMarshallerException(String s, Throwable cause) {
-        super(cause);
+public class CatalogMarshallerException extends IgniteInternalException {
+    private static final long serialVersionUID = 3401185592041257347L;
+
+    CatalogMarshallerException(@Nullable Throwable cause) {
+        super(Common.INTERNAL_ERR, cause);
     }
 }

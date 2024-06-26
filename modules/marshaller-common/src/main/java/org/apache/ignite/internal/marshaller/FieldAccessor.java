@@ -31,6 +31,7 @@ import java.time.LocalTime;
 import java.util.BitSet;
 import java.util.Objects;
 import java.util.UUID;
+import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.table.mapper.TypeConverter;
 import org.jetbrains.annotations.Nullable;
 

@@ -17,7 +17,7 @@
 
 #include "big_integer.h"
 
-#include "bytes.h"
+#include "detail/bytes.h"
 
 #include <algorithm>
 #include <array>
@@ -42,7 +42,7 @@ void big_integer::from_big_endian(const std::byte *data, std::size_t size) {
 
     for (std::size_t i = 0; size >= 4; i++) {
         size -= 4;
-        m_mpi.magnitude()[i] = bytes::load<endian::BIG, std::uint32_t>(data + size);
+        m_mpi.magnitude()[i] = detail::bytes::load<detail::endian::BIG, std::uint32_t>(data + size);
     }
 
     if (size > 0) {
@@ -85,7 +85,7 @@ void big_integer::from_negative_big_endian(const std::byte *data, std::size_t si
 
     for (std::size_t i = 0; size >= 4; i++) {
         size -= 4;
-        m_mpi.magnitude()[i] = ~bytes::load<endian::BIG, std::uint32_t>(data + size);
+        m_mpi.magnitude()[i] = ~detail::bytes::load<detail::endian::BIG, std::uint32_t>(data + size);
     }
 
     if (size > 0) {
@@ -142,7 +142,7 @@ big_integer::big_integer(const int8_t *val, int32_t len, int8_t sign, bool big_e
         m_mpi.grow((size + 3) / 4);
 
         for (std::size_t i = 0; size >= 4; i++) {
-            m_mpi.magnitude()[i] = bytes::load<endian::LITTLE, std::uint32_t>(data);
+            m_mpi.magnitude()[i] = detail::bytes::load<detail::endian::LITTLE, std::uint32_t>(data);
             size -= 4;
             data += 4;
         }
@@ -255,7 +255,7 @@ void big_integer::store_bytes(std::byte *data) const {
     if (is_positive()) {
         for (std::size_t i = 0; size >= 4; i++) {
             size -= 4;
-            bytes::store<endian::BIG, std::uint32_t>(data + size, m_mpi.magnitude()[i]);
+            detail::bytes::store<detail::endian::BIG, std::uint32_t>(data + size, m_mpi.magnitude()[i]);
         }
 
         if (size > 0) {
@@ -288,7 +288,7 @@ void big_integer::store_bytes(std::byte *data) const {
             }
 
             size -= 4;
-            bytes::store<endian::BIG, std::uint32_t>(data + size, value);
+            detail::bytes::store<detail::endian::BIG, std::uint32_t>(data + size, value);
         }
 
         if (size > 0) {

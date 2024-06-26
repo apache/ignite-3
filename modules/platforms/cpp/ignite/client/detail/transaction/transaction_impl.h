@@ -19,7 +19,7 @@
 
 #include "ignite/client/detail/node_connection.h"
 
-#include "ignite/common/config.h"
+#include "ignite/common/detail/config.h"
 #include "ignite/common/ignite_result.h"
 
 #include <atomic>

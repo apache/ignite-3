@@ -26,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
@@ -38,12 +39,15 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.TestHybridClock;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
@@ -71,6 +75,7 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
     private static final MultiStepPlan PLAN;
     private static final MultiStepPlan PLAN_WITH_SYSTEM_VIEW;
     private static final TestCluster cluster;
+    private static final ClockService CLOCK_SERVICE = new TestClockService(new TestHybridClock(System::currentTimeMillis));
     private static final MappingParameters PARAMS = MappingParameters.EMPTY;
     private static final PartitionPruner PARTITION_PRUNER = (fragments, dynParams) -> fragments;
 
@@ -179,8 +184,9 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
 
         // Initialize mapping service.
         ExecutionTargetProvider targetProvider = Mockito.spy(createTargetProvider(nodeNames));
-        MappingServiceImpl mappingService =
-                new MappingServiceImpl(localNodeName, targetProvider, CaffeineCacheFactory.INSTANCE, 100, PARTITION_PRUNER, Runnable::run);
+        MappingServiceImpl mappingService = new MappingServiceImpl(
+                localNodeName, CLOCK_SERVICE, targetProvider, CaffeineCacheFactory.INSTANCE, 100, PARTITION_PRUNER, Runnable::run
+        );
 
         mappingService.onNodeJoined(Mockito.mock(LogicalNode.class),
                 new LogicalTopologySnapshot(1, logicalNodes(nodeNames.toArray(new String[0]))));
@@ -188,7 +194,7 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
         List<MappedFragment> tableOnlyMapping = await(mappingService.map(PLAN, PARAMS));
         List<MappedFragment> sysViewMapping = await(mappingService.map(PLAN_WITH_SYSTEM_VIEW, PARAMS));
 
-        verify(targetProvider, times(2)).forTable(any(), any());
+        verify(targetProvider, times(2)).forTable(any(), any(), any(), anyBoolean());
         verify(targetProvider, times(1)).forSystemView(any(), any());
 
         assertSame(tableOnlyMapping, await(mappingService.map(PLAN, PARAMS)));
@@ -222,7 +228,7 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
         // Plan with tables that include left node must be invalidated.
         assertNotSame(tableOnlyMapping, await(mappingService.map(PLAN, PARAMS)));
 
-        verify(targetProvider, times(4)).forTable(any(), any());
+        verify(targetProvider, times(4)).forTable(any(), any(), any(), anyBoolean());
         verify(targetProvider, times(2)).forSystemView(any(), any());
     }
 
@@ -248,14 +254,15 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
 
         // Initialize mapping service.
         ExecutionTargetProvider targetProvider = Mockito.spy(createTargetProvider(nodeNames));
-        MappingServiceImpl mappingService =
-                new MappingServiceImpl(localNodeName, targetProvider, CaffeineCacheFactory.INSTANCE, 100, PARTITION_PRUNER, Runnable::run);
+        MappingServiceImpl mappingService = new MappingServiceImpl(
+                localNodeName, CLOCK_SERVICE, targetProvider, CaffeineCacheFactory.INSTANCE, 100, PARTITION_PRUNER, Runnable::run
+        );
 
         mappingService.onNodeJoined(Mockito.mock(LogicalNode.class),
                 new LogicalTopologySnapshot(1, logicalNodes(nodeNames.toArray(new String[0]))));
 
         List<MappedFragment> mappedFragments = await(mappingService.map(PLAN_WITH_SYSTEM_VIEW, PARAMS));
-        verify(targetProvider, times(1)).forTable(any(), any());
+        verify(targetProvider, times(1)).forTable(any(), any(), any(), anyBoolean());
         verify(targetProvider, times(1)).forSystemView(any(), any());
 
         // Simulate expiration of the primary replica for non-mapped table - the cache entry should not be invalidated.
@@ -266,7 +273,7 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
         // Simulate expiration of the primary replica for mapped table - the cache entry should be invalidated.
         await(mappingService.onPrimaryReplicaExpired(prepareEvtParams.apply("T1")));
         assertNotSame(mappedFragments, await(mappingService.map(PLAN_WITH_SYSTEM_VIEW, PARAMS)));
-        verify(targetProvider, times(2)).forTable(any(), any());
+        verify(targetProvider, times(2)).forTable(any(), any(), any(), anyBoolean());
         verify(targetProvider, times(2)).forSystemView(any(), any());
     }
 
@@ -279,6 +286,7 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
     private static MappingServiceImpl createMappingServiceNoCache(String localNodeName, List<String> nodeNames) {
         return new MappingServiceImpl(
                 localNodeName,
+                CLOCK_SERVICE,
                 createTargetProvider(nodeNames),
                 EmptyCacheFactory.INSTANCE,
                 0,
@@ -290,7 +298,12 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
     private static ExecutionTargetProvider createTargetProvider(List<String> nodeNames) {
         return new ExecutionTargetProvider() {
             @Override
-            public CompletableFuture<ExecutionTarget> forTable(ExecutionTargetFactory factory, IgniteTable table) {
+            public CompletableFuture<ExecutionTarget> forTable(
+                    HybridTimestamp operationTime,
+                    ExecutionTargetFactory factory,
+                    IgniteTable table,
+                    boolean includeBackups
+            ) {
                 return CompletableFuture.completedFuture(factory.allOf(nodeNames));
             }
 

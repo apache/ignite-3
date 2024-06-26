@@ -18,8 +18,8 @@
 #pragma once
 
 #include "bytes_view.h"
-#include "config.h"
 
+#include "detail/config.h"
 #include "detail/mpi.h"
 
 #include <cstddef>
