@@ -465,7 +465,7 @@ namespace Apache.Ignite.Tests.Compute
         [Test]
         public void TestExecuteOnUnknownUnitWithLatestVersionThrows()
         {
-            var job = new JobDescriptor(NodeNameJob)
+            var job = NodeNameJob with
             {
                 DeploymentUnits = new DeploymentUnit[] { new("unit-latest") }
             };
@@ -480,10 +480,10 @@ namespace Apache.Ignite.Tests.Compute
         public void TestExecuteColocatedOnUnknownUnitWithLatestVersionThrows()
         {
             var keyTuple = new IgniteTuple { [KeyCol] = 1L };
-            var deploymentUnits = new DeploymentUnit[] { new("unit-latest") };
+            var job = NodeNameJob with { DeploymentUnits = new DeploymentUnit[] { new("unit-latest") } };
 
             var ex = Assert.ThrowsAsync<IgniteException>(
-                async () => await Client.Compute.SubmitAsync(TableName, keyTuple, new(NodeNameJob, deploymentUnits)));
+                async () => await Client.Compute.SubmitAsync(JobTarget.Colocated(TableName, keyTuple), job));
 
             StringAssert.Contains("Deployment unit unit-latest:latest doesn't exist", ex!.Message);
         }
@@ -491,10 +491,10 @@ namespace Apache.Ignite.Tests.Compute
         [Test]
         public void TestNullUnitNameThrows()
         {
-            var deploymentUnits = new DeploymentUnit[] { new(null!) };
+            var job = NodeNameJob with { DeploymentUnits = new DeploymentUnit[] { new(null!) } };
 
             var ex = Assert.ThrowsAsync<ArgumentNullException>(
-                async () => await Client.Compute.SubmitAsync(await GetNodeAsync(1), new(NodeNameJob, deploymentUnits)));
+                async () => await Client.Compute.SubmitAsync(await GetNodeAsync(1), job));
 
             Assert.AreEqual("Value cannot be null. (Parameter 'unit.Name')", ex!.Message);
         }
