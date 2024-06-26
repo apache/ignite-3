@@ -67,7 +67,7 @@ public class StopNodeOrHaltFailureHandler extends AbstractFailureHandler {
      */
     public StopNodeOrHaltFailureHandler(StopNodeOrHaltFailureHandlerView view) {
         tryStop = view.tryStop();
-        timeout = view.timeout();
+        timeout = view.timeoutMillis();
     }
 
     @Override
