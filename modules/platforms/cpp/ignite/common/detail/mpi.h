@@ -227,7 +227,7 @@ struct mpi {
      *
      * @return True if write successful, false otherwise.
      * */
-    bool write(std::uint8_t* data, std::size_t size, bool big_endian = true);
+    bool write(std::uint8_t *data, std::size_t size, bool big_endian = true);
 
     /**
      * Reads mpi magnitude from the byte array. Reads only magnitude, sign should be set separately.
@@ -238,7 +238,7 @@ struct mpi {
      *
      * @return True if read successful, false otherwise.
      * */
-    bool read(const std::uint8_t* data, std::size_t size, bool big_endian = true);
+    bool read(const std::uint8_t *data, std::size_t size, bool big_endian = true);
 
 private:
     /** Internal MbedTLS mpi structure. */

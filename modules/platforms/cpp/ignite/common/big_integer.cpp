@@ -34,6 +34,8 @@ big_integer::big_integer(const int8_t *val, int32_t len, int8_t sign, bool big_e
     m_mpi.read(reinterpret_cast<const std::uint8_t *>(val), len, big_endian);
 
     m_mpi.set_sign(sign >= 0 ? detail::mpi_sign::POSITIVE : detail::mpi_sign::NEGATIVE);
+
+    m_mpi.shrink();
 }
 
 big_integer::big_integer(const std::byte *data, std::size_t size) {
@@ -54,6 +56,8 @@ big_integer::big_integer(const std::byte *data, std::size_t size) {
         m_mpi.magnitude().back() &= 0xFFFFFFFF >> 8 * (4 - size % 4);
         m_mpi.make_negative();
     }
+
+    m_mpi.shrink();
 }
 
 void big_integer::assign_int64(int64_t val) {
@@ -135,13 +139,13 @@ void big_integer::store_bytes(std::byte *data) const {
     m_mpi.shrink();
 
     auto size = byte_size();
-    m_mpi.write(reinterpret_cast<std::uint8_t*>(data), size);
+    m_mpi.write(reinterpret_cast<std::uint8_t *>(data), size);
 
-    if(is_negative()) {
+    if (is_negative()) {
         mpi_t::word carry = 1;
-        for(std::size_t i = size; i >0; i--) {
+        for (std::size_t i = size; i > 0; i--) {
             data[i - 1] = std::byte(std::uint8_t(~data[i - 1]) + carry);
-            if(data[i - 1] != std::byte(0)) {
+            if (data[i - 1] != std::byte(0)) {
                 carry = 0;
             }
         }
