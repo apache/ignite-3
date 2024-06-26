@@ -22,16 +22,17 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_ALTER;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.DISTRIBUTION_ZONE_DATA_NODES_VALUE_PREFIX;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.filterDataNodes;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.findNonEmptyTablesByZoneId;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.findTablesByZoneId;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.getZoneFromCatalog;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.parseDataNodes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceRaftGroupEventsListener.doStableKeySwitch;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.catalogVersionKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractPartitionNumber;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractZoneId;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.raftConfigurationAppliedKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.tablesCounterPrefixKey;
+import static org.apache.ignite.internal.util.ByteUtils.bytesToInt;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
@@ -267,10 +268,12 @@ public class DistributionZoneRebalanceEngine {
 
                     int zoneId = RebalanceUtil.extractZoneIdFromTablesCounter(event.entryEvent().newEntry().key());
 
-                    // TODO: https://issues.apache.org/jira/browse/IGNITE-21254 tables here must be the same as they were on rebalance start
-                    List<CatalogTableDescriptor> tables = findNonEmptyTablesByZoneId(zoneId, catalogService);
+                    int partId = extractPartitionNumber(event.entryEvent().newEntry().key());
 
-                    assert !tables.isEmpty() : "Empty tables from the zone = " + zoneId;
+                    int catalogVersion = getCatalogVersionForCounter(zoneId, partId);
+
+                    // TODO: https://issues.apache.org/jira/browse/IGNITE-21254 tables here must be the same as they were on rebalance start
+                    List<CatalogTableDescriptor> tables = findTablesByZoneId(zoneId, catalogVersion, catalogService);
 
                     rebalanceScheduler.schedule(() -> {
                         if (!busyLock.enterBusy()) {
@@ -284,8 +287,6 @@ public class DistributionZoneRebalanceEngine {
 
                         try {
                             Map<ByteArray, TablePartitionId> partitionTablesKeys = new HashMap<>();
-
-                            int partId = extractPartitionNumber(event.entryEvent().newEntry().key());
 
                             for (CatalogTableDescriptor table : tables) {
                                 TablePartitionId replicaGrpId = new TablePartitionId(table.id(), partId);
@@ -325,6 +326,20 @@ public class DistributionZoneRebalanceEngine {
 
             }
         };
+    }
+
+    private int getCatalogVersionForCounter(int zoneId, int partId) {
+        try {
+            byte[] value = metaStorageManager.get(catalogVersionKey(zoneId, partId)).get().value();
+
+            if (value != null) {
+                return bytesToInt(value);
+            }
+        } catch (Exception e) {
+            LOG.error("Failed to get catalog version for [zoneId={}, partitionId={}]", e, zoneId, partId);
+        }
+
+        return catalogService.latestCatalogVersion();
     }
 
     private CompletableFuture<Void> onUpdateReplicas(AlterZoneEventParameters parameters) {

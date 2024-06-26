@@ -600,33 +600,6 @@ public class DistributionZonesUtil {
     }
 
     /**
-     * Returns list of table descriptors bound to the zone.
-     *
-     * <p>Looks for the descriptors in the catalog starting from the latest catalog version.
-     * If not found in the latest version, tries again in the previous one until finds or we reach the earliest available version.
-     *
-     * @param zoneId Zone id.
-     * @param catalogService Catalog service
-     * @return List of table descriptors from the zone.
-     */
-    public static List<CatalogTableDescriptor> findNonEmptyTablesByZoneId(int zoneId, CatalogService catalogService) {
-        int latestCatalogVersion = catalogService.latestCatalogVersion();
-
-        for (int catalogVersion = latestCatalogVersion, minVersion = catalogService.earliestCatalogVersion();
-                catalogVersion >= minVersion;
-                catalogVersion--
-        ) {
-            List<CatalogTableDescriptor> tablesByZoneId = findTablesByZoneId(zoneId, catalogVersion, catalogService);
-
-            if (!tablesByZoneId.isEmpty()) {
-                return tablesByZoneId;
-            }
-        }
-
-        throw new AssertionError("Failed to find tables for zone " + zoneId + ", latestCatalogVersion " + latestCatalogVersion);
-    }
-
-    /**
      * Looks for a table and zone in the catalog starting from the latest catalog version.
      *
      * <p>If the table or zone is not found in the latest version, tries again in the previous one until finds or we reach the earliest
