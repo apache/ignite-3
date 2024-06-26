@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.network.direct;
 
+import static org.apache.ignite.internal.util.ArrayUtils.EMPTY_BYTE_BUFFER;
+
 import java.nio.ByteBuffer;
 import java.util.BitSet;
 import java.util.Collection;
@@ -32,7 +34,6 @@ import org.apache.ignite.internal.network.direct.stream.DirectByteBufferStream;
 import org.apache.ignite.internal.network.direct.stream.DirectByteBufferStreamImplV1;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.internal.network.serialization.MessageWriter;
-import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.plugin.extensions.communication.MessageCollectionItemType;
 import org.jetbrains.annotations.Nullable;
 
@@ -40,9 +41,6 @@ import org.jetbrains.annotations.Nullable;
  * Message writer implementation.
  */
 public class DirectMessageWriter implements MessageWriter {
-    /** Empty array-based byte buffer. Not read-only. */
-    public static final ByteBuffer EMPTY_BYTE_BUFFER = ByteBuffer.wrap(ArrayUtils.BYTE_EMPTY_ARRAY);
-
     /** State. */
     private final DirectMessageState<StateItem> state;
 

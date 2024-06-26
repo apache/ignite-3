@@ -16,7 +16,12 @@
  */
 package org.apache.ignite.raft.jraft.util;
 
+import java.io.IOException;
+import java.io.OutputStream;
 import java.io.Serializable;
+import java.nio.ByteBuffer;
+import java.nio.channels.Channels;
+import java.nio.channels.WritableByteChannel;
 import java.util.Comparator;
 
 /**
@@ -172,6 +177,31 @@ public final class BytesUtil {
             bytes[i / 2] = (byte) ((Character.digit(s.charAt(i), 16) << 4) + Character.digit(s.charAt(i + 1), 16));
         }
         return bytes;
+    }
+
+    /**
+     * Converts a byte buffer to a byte array.
+     *
+     * @param buf Byte buffer from which we copy bytes.
+     */
+    public static byte[] toByteArray(ByteBuffer buf) {
+        byte[] arr = new byte[buf.remaining()];
+        buf.get(arr);
+        buf.flip();
+        return arr;
+    }
+
+    /**
+     * Writes a byte buffer to the output stream.
+     *
+     * @param outputStream Output stream into which bytes will be written.
+     * @param buf Byte buffer from which bytes are to be retrieved.
+     * @throws IOException When writing to the output stream.
+     */
+    public static void writeTo(OutputStream outputStream, ByteBuffer buf) throws IOException {
+        WritableByteChannel channel = Channels.newChannel(outputStream);
+
+        channel.write(buf);
     }
 
     private BytesUtil() {
