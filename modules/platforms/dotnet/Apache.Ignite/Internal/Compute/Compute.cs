@@ -62,7 +62,7 @@ namespace Apache.Ignite.Internal.Compute
         /// <inheritdoc/>
         public Task<IJobExecution<TResult>> SubmitAsync<TTarget, TResult>(
             IJobTarget<TTarget> target,
-            JobDescriptor jobDescriptor,
+            JobDescriptor<TResult> jobDescriptor,
             params object?[]? args)
             where TTarget : notnull
         {
@@ -71,17 +71,17 @@ namespace Apache.Ignite.Internal.Compute
 
             return target switch
             {
-                JobTarget.SingleNodeTarget singleNode => SubmitAsync<TResult>(new[] { singleNode.Data }, jobDescriptor, args),
+                JobTarget.SingleNodeTarget singleNode => SubmitAsync(new[] { singleNode.Data }, jobDescriptor, args),
 
-                JobTarget.AnyNodeTarget anyNode => SubmitAsync<TResult>(anyNode.Data, jobDescriptor, args),
+                JobTarget.AnyNodeTarget anyNode => SubmitAsync(anyNode.Data, jobDescriptor, args),
 
-                JobTarget.ColocatedTarget<IIgniteTuple> colocatedTuple => SubmitColocatedAsync<TResult, IIgniteTuple>(
+                JobTarget.ColocatedTarget<IIgniteTuple> colocatedTuple => SubmitColocatedAsync(
                     colocatedTuple,
                     static _ => TupleSerializerHandler.Instance,
                     jobDescriptor,
                     args),
 
-                JobTarget.ColocatedTarget<TTarget> colocated => SubmitColocatedAsync<TResult, TTarget>(
+                JobTarget.ColocatedTarget<TTarget> colocated => SubmitColocatedAsync(
                     colocated,
                     static table => table.GetRecordViewInternal<TTarget>().RecordSerializer.Handler,
                     jobDescriptor,
@@ -94,7 +94,7 @@ namespace Apache.Ignite.Internal.Compute
         /// <inheritdoc/>
         public IDictionary<IClusterNode, Task<IJobExecution<T>>> SubmitBroadcast<T>(
             IEnumerable<IClusterNode> nodes,
-            JobDescriptor jobDescriptor,
+            JobDescriptor<T> jobDescriptor,
             params object?[]? args)
         {
             IgniteArgumentCheck.NotNull(nodes);
@@ -426,7 +426,7 @@ namespace Apache.Ignite.Internal.Compute
 
         private async Task<IJobExecution<T>> SubmitAsync<T>(
             IEnumerable<IClusterNode> nodes,
-            JobDescriptor jobDescriptor,
+            JobDescriptor<T> jobDescriptor,
             params object?[]? args)
         {
             IgniteArgumentCheck.NotNull(nodes);
@@ -447,7 +447,7 @@ namespace Apache.Ignite.Internal.Compute
         private async Task<IJobExecution<T>> SubmitColocatedAsync<T, TKey>(
             JobTarget.ColocatedTarget<TKey> target,
             Func<Table, IRecordSerializerHandler<TKey>> serializerHandlerFunc,
-            JobDescriptor jobDescriptor,
+            JobDescriptor<T> jobDescriptor,
             params object?[]? args)
             where TKey : notnull
         {

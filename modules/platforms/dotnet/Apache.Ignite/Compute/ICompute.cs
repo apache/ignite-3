@@ -37,7 +37,7 @@ public interface ICompute
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
     Task<IJobExecution<TResult>> SubmitAsync<TTarget, TResult>(
         IJobTarget<TTarget> target,
-        JobDescriptor jobDescriptor,
+        JobDescriptor<TResult> jobDescriptor,
         params object?[]? args)
         where TTarget : notnull;
 
@@ -47,10 +47,10 @@ public interface ICompute
     /// <param name="nodes">Nodes to use for the job execution.</param>
     /// <param name="jobDescriptor">Job descriptor.</param>
     /// <param name="args">Job arguments.</param>
-    /// <typeparam name="T">Job result type.</typeparam>
+    /// <typeparam name="TResult">Job result type.</typeparam>
     /// <returns>A map of <see cref="Task"/> representing the asynchronous operation for every node.</returns>
-    IDictionary<IClusterNode, Task<IJobExecution<T>>> SubmitBroadcast<T>(
+    IDictionary<IClusterNode, Task<IJobExecution<TResult>>> SubmitBroadcast<TResult>(
         IEnumerable<IClusterNode> nodes,
-        JobDescriptor jobDescriptor,
+        JobDescriptor<TResult> jobDescriptor,
         params object?[]? args);
 }

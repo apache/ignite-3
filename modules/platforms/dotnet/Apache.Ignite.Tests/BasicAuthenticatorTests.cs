@@ -19,6 +19,7 @@ namespace Apache.Ignite.Tests;
 
 using System;
 using System.Threading.Tasks;
+using Ignite.Compute;
 using NUnit.Framework;
 using Security.Exception;
 
@@ -93,11 +94,11 @@ public class BasicAuthenticatorTests : IgniteTestsBase
         }
 
         using var client = await IgniteClient.StartAsync(GetConfig(_authnEnabled));
-        var nodes = await client.GetClusterNodesAsync();
+        var nodes = JobTarget.AnyNode(await client.GetClusterNodesAsync());
 
         try
         {
-            await client.Compute.SubmitAsync<object>(nodes, new(EnableAuthnJob), enable ? 1 : 0);
+            await client.Compute.SubmitAsync<>(nodes, new(EnableAuthnJob), enable ? 1 : 0);
         }
         catch (IgniteClientConnectionException)
         {

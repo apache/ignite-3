@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Compute;
 
+using System;
 using System.Collections.Generic;
 
 /// <summary>
@@ -25,7 +26,14 @@ using System.Collections.Generic;
 /// <param name="JobClassName">Java class name of the job to execute.</param>
 /// <param name="DeploymentUnits">Deployment units.</param>
 /// <param name="Options">Options.</param>
-public sealed record JobDescriptor(
+/// <typeparam name="TResult">Result type.</typeparam>
+public sealed record JobDescriptor<TResult>(
     string JobClassName,
     IEnumerable<DeploymentUnit>? DeploymentUnits = null,
-    JobExecutionOptions? Options = null);
+    JobExecutionOptions? Options = null)
+{
+    /// <summary>
+    /// Gets the result type of the job.
+    /// </summary>
+    public Type ResultType => typeof(TResult);
+}
