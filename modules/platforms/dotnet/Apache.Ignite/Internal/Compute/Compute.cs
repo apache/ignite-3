@@ -75,15 +75,8 @@ namespace Apache.Ignite.Internal.Compute
 
                 JobTarget.AnyNodeTarget anyNode => SubmitAsync(anyNode.Data, jobDescriptor, args),
 
-                JobTarget.ColocatedTarget<IIgniteTuple> colocatedTuple => SubmitColocatedAsync(
-                    colocatedTuple,
-                    static _ => TupleSerializerHandler.Instance,
-                    jobDescriptor,
-                    args),
-
                 JobTarget.ColocatedTarget<TTarget> colocated => SubmitColocatedAsync(
                     colocated,
-                    static table => table.GetRecordViewInternal<TTarget>().RecordSerializer.Handler,
                     jobDescriptor,
                     args),
 
@@ -352,18 +345,12 @@ namespace Apache.Ignite.Internal.Compute
             string tableName,
             TKey key,
             Func<Table, IRecordSerializerHandler<TKey>> serializerHandlerFunc,
-            IEnumerable<DeploymentUnit>? units,
-            string jobClassName,
-            JobExecutionOptions? options,
+            JobDescriptor<T> descriptor,
             params object?[]? args)
             where TKey : notnull
         {
-            IgniteArgumentCheck.NotNull(tableName);
-            IgniteArgumentCheck.NotNull(key);
-            IgniteArgumentCheck.NotNull(jobClassName);
-
-            options ??= JobExecutionOptions.Default;
-            var units0 = GetUnitsCollection(units);
+            var options = descriptor.Options ?? JobExecutionOptions.Default;
+            var units0 = GetUnitsCollection(descriptor.DeploymentUnits);
 
             int? schemaVersion = null;
 
@@ -414,7 +401,7 @@ namespace Apache.Ignite.Internal.Compute
                 var colocationHash = serializerHandler.Write(ref w, schema, key, keyOnly: true, computeHash: true);
 
                 WriteUnits(units0, bufferWriter);
-                w.Write(jobClassName);
+                w.Write(descriptor.JobClassName);
                 w.Write(options.Priority);
                 w.Write(options.MaxRetries);
 
@@ -446,20 +433,28 @@ namespace Apache.Ignite.Internal.Compute
 
         private async Task<IJobExecution<T>> SubmitColocatedAsync<T, TKey>(
             JobTarget.ColocatedTarget<TKey> target,
-            Func<Table, IRecordSerializerHandler<TKey>> serializerHandlerFunc,
             JobDescriptor<T> jobDescriptor,
             params object?[]? args)
             where TKey : notnull
         {
             IgniteArgumentCheck.NotNull(jobDescriptor);
 
+            if (target.Data is IIgniteTuple tuple)
+            {
+                return await ExecuteColocatedAsync<T, IIgniteTuple>(
+                        target.TableName,
+                        tuple,
+                        static _ => TupleSerializerHandler.Instance,
+                        jobDescriptor,
+                        args)
+                    .ConfigureAwait(false);
+            }
+
             return await ExecuteColocatedAsync<T, TKey>(
                     target.TableName,
                     target.Data,
-                    serializerHandlerFunc,
-                    jobDescriptor.DeploymentUnits,
-                    jobDescriptor.JobClassName,
-                    jobDescriptor.Options,
+                    static table => table.GetRecordViewInternal<TKey>().RecordSerializer.Handler,
+                    jobDescriptor,
                     args)
                 .ConfigureAwait(false);
         }
