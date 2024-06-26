@@ -17,7 +17,8 @@
 
 package org.apache.ignite.raft.jraft.rpc;
 
-import java.nio.ByteBuffer;import org.apache.ignite.internal.raft.WriteCommand;
+import java.nio.ByteBuffer;
+import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.network.annotations.Transient;
 import org.apache.ignite.raft.jraft.RaftMessageGroup.RpcActionMessageGroup;

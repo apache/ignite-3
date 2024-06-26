@@ -19,7 +19,6 @@ package org.apache.ignite.raft.jraft.storage.logit.storage.file.assit;
 
 import java.io.IOException;
 
-import java.nio.ByteBuffer;
 import java.nio.file.Path;
 
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -45,17 +44,18 @@ public abstract class Checkpoint {
     /**
      * Encode metadata
      */
-    public abstract ByteBuffer encode();
+    public abstract byte[] encode();
 
     /**
      * Decode file data
      */
-    public abstract boolean decode(final ByteBuffer buf);
+    public abstract boolean decode(final byte[] bs);
 
     public synchronized boolean save() throws IOException {
         MessageFile file = new MessageFile(this.path);
+        final byte[] data = this.encode();
         final LocalFileMeta meta = raftMessagesFactory.localFileMeta() //
-            .userMeta(this.encode()) //
+            .userMeta(data) //
             .build();
         return file.save(meta, true);
     }
@@ -64,7 +64,8 @@ public abstract class Checkpoint {
         MessageFile file = new MessageFile(this.path);
         final LocalFileMeta meta = file.load();
         if (meta != null) {
-            decode(meta.userMeta());
+            final byte[] data = meta.userMeta();
+            decode(data);
         }
     }
 

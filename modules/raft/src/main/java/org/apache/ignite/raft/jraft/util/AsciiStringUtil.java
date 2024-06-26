@@ -16,7 +16,6 @@
  */
 package org.apache.ignite.raft.jraft.util;
 
-import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 
 /**
@@ -47,15 +46,6 @@ public final class AsciiStringUtil {
 
     public static String unsafeDecode(final byte[] in) {
         return unsafeDecode(in, 0, in.length);
-    }
-
-    public static String unsafeDecode(final ByteBuffer in) {
-        final int len = in.capacity();
-        final char[] out = new char[len];
-        for (int i = 0; i < len; i++) {
-            out[i] = (char) (in.get() & 0xFF);
-        }
-        return moveToString(out);
     }
 
     private AsciiStringUtil() {
