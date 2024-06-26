@@ -17,9 +17,10 @@
 
 package org.apache.ignite.internal.sql.engine.benchmarks;
 
+import java.util.Arrays;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.affinity.TokenizedAssignments;
 import org.apache.ignite.internal.affinity.TokenizedAssignmentsImpl;
@@ -83,11 +84,15 @@ public class MappingBenchmark {
         List<String> nodes = List.of("n1", "n2", "n3", "n4", "n5");
         List<String> oneOfNodes = List.of("n1", "n3");
         List<TokenizedAssignments> partNodes =
-                List.of(new TokenizedAssignmentsImpl(Set.of(Assignment.forPeer("n3")), 1));
+                List.of(tokenizedAssignment(1, "n3"));
         List<TokenizedAssignments> partNodesMore =
-                List.of(new TokenizedAssignmentsImpl(Set.of(Assignment.forPeer("n3")), 1),
-                        new TokenizedAssignmentsImpl(Set.of(Assignment.forPeer("n4")), 2),
-                        new TokenizedAssignmentsImpl(Set.of(Assignment.forPeer("n5")), 3));
+                List.of(tokenizedAssignment( 1, "n3", "n4"),
+                        tokenizedAssignment(2, "n4", "n5"),
+                        tokenizedAssignment(3, "n5", "n3"));
+        List<TokenizedAssignments> partNodesMore2 =
+                List.of(tokenizedAssignment(1,  "n5", "n3"),
+                        tokenizedAssignment(2, "n3", "n4"),
+                        tokenizedAssignment(3, "n4", "n5"));
 
         targetFactorySmall = new SmallClusterFactory(nodes);
         targetFactoryLarge = new LargeClusterFactory(nodes);
@@ -98,7 +103,7 @@ public class MappingBenchmark {
         part1Small = targetFactorySmall.partitioned(partNodes);
         part2Small = targetFactorySmall.partitioned(partNodes);
         part1SmallMore = targetFactorySmall.partitioned(partNodesMore);
-        part2SmallMore = targetFactorySmall.partitioned(partNodesMore);
+        part2SmallMore = targetFactorySmall.partitioned(partNodesMore2);
 
         oneOfBig = targetFactoryLarge.oneOf(oneOfNodes);
         someOfBig = targetFactoryLarge.someOf(nodes);
@@ -106,7 +111,7 @@ public class MappingBenchmark {
         part1Big = targetFactoryLarge.partitioned(partNodes);
         part2Big = targetFactoryLarge.partitioned(partNodes);
         part1BigMore = targetFactoryLarge.partitioned(partNodesMore);
-        part2BigMore = targetFactoryLarge.partitioned(partNodesMore);
+        part2BigMore = targetFactoryLarge.partitioned(partNodesMore2);
     }
 
     /** Measure small cluster mapping implementation. */
@@ -128,10 +133,6 @@ public class MappingBenchmark {
     @Benchmark
     public void benchSmallPartitionedOnly(Blackhole bh) throws ColocationMappingException {
         finalise(targetFactorySmall, part1SmallMore.colocateWith(part2SmallMore), bh);
-    }
-
-    private static void finalise(ExecutionTargetFactory factory, ExecutionTarget target, Blackhole bh) {
-        bh.consume(factory.resolveNodes(target));
     }
 
     /** Measure huge cluster mapping implementation. */
@@ -167,5 +168,13 @@ public class MappingBenchmark {
                 .build();
 
         new Runner(build).run();
+    }
+
+    private static TokenizedAssignmentsImpl tokenizedAssignment(int token, String... peer) {
+        return new TokenizedAssignmentsImpl(Arrays.stream(peer).map(Assignment::forPeer).collect(Collectors.toSet()), token);
+    }
+
+    private static void finalise(ExecutionTargetFactory factory, ExecutionTarget target, Blackhole bh) {
+        bh.consume(factory.resolveNodes(target));
     }
 }

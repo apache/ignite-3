@@ -225,11 +225,11 @@ public class ExecutionTargetFactorySelfTest {
 
         // Colocation with someOf
         assertColocated(f, f.partitioned(assignment(NODE_SET, NODE_SET2)), f.someOf(NODE_SET), hasItems((in(NODE_SET))));
-//        assertNotColocated(f.partitioned(assignment(NODE_SET, NODE_SET2)), f.someOf(SINGLE_NODE_SET)); // Disjoint sets.
+        assertNotColocated(f.partitioned(assignment(NODE_SET, NODE_SET2)), f.someOf(SINGLE_NODE_SET)); // Disjoint sets.
 
         // Colocation with oneOf
         assertColocated(f, f.partitioned(assignment(NODE_SET, NODE_SET2)), f.someOf(NODE_SET), hasItems((in(NODE_SUBSET))));
-//        assertColocated(f, f.partitioned(assignment(NODE_SET, NODE_SET2)), f.oneOf(NODE_SET), containsSingleFrom(NODE_SUBSET));
+        assertColocated(f, f.partitioned(assignment(NODE_SET, NODE_SET2)), f.oneOf(NODE_SET), containsSingleFrom(NODE_SUBSET));
         assertNotColocated(f.partitioned(assignment(NODE_SET, NODE_SET2)), f.oneOf(SINGLE_NODE_SET)); // Disjoint
     }
 
@@ -239,14 +239,13 @@ public class ExecutionTargetFactorySelfTest {
                 .collect(Collectors.toList());
     }
 
-
     private static List<TokenizedAssignments> assignment(List<String> part1Nodes, List<String> part2Nodes) {
         Set<Assignment> part1 = part1Nodes.stream().map(Assignment::forPeer).collect(Collectors.toSet());
         Set<Assignment> part2 = part2Nodes.stream().map(Assignment::forPeer).collect(Collectors.toSet());
 
         return List.of(
                 new TokenizedAssignmentsImpl(part1, 1),
-                new TokenizedAssignmentsImpl(part1, 2)
+                new TokenizedAssignmentsImpl(part2, 2)
         );
     }
 

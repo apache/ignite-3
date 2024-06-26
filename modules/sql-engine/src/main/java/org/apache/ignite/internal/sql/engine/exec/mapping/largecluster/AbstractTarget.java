@@ -21,6 +21,7 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.BitSet;
 import java.util.List;
 import org.apache.calcite.util.BitSets;
@@ -152,21 +153,33 @@ abstract class AbstractTarget implements ExecutionTarget {
     }
 
     static ExecutionTarget colocate(OneOfTarget oneOf, PartitionedTarget partitioned) throws ColocationMappingException {
-        int target = partitioned.nodes.nextSetBit(0);
-
-        if (target == -1 || partitioned.nodes.nextSetBit(target + 1) != -1) {
-            throw new ColocationMappingException("Targets are not colocated");
+        if (partitioned.nodes.cardinality() == 1 && oneOf.nodes.get(partitioned.nodes.nextSetBit(0))) {
+            return partitioned; // All partitions on single node.
         }
 
-        if (!oneOf.nodes.get(target)) {
-            throw new ColocationMappingException("Targets are not colocated");
+        boolean changed = false;
+        BitSet newNodes = (BitSet) oneOf.nodes.clone();
+        for (int partNo = 0; partNo < partitioned.partitionsNodes.length; partNo++) {
+            if (!newNodes.equals(partitioned.partitionsNodes[partNo])) {
+                changed = true;
+            }
+
+            newNodes.and(partitioned.partitionsNodes[partNo]);
+
+            if (newNodes.isEmpty()) {
+                throw new ColocationMappingException("Targets are not colocated");
+            }
         }
 
-        // When colocated, PartitionedTarget must contains a single node that matches one of OneOfTarget nodes.
-        assert partitioned.nodes.cardinality() == 1;
-        assert partitioned.nodes.intersects(oneOf.nodes);
+        if (!changed) {
+            return partitioned;
+        }
 
-        return partitioned;
+        BitSet[] newPartitionsNodes = new BitSet[partitioned.partitionsNodes.length];
+        Arrays.fill(newPartitionsNodes, newNodes);
+        boolean finalised = newNodes.cardinality() == 1;
+
+        return new PartitionedTarget(finalised, newPartitionsNodes, partitioned.enlistmentConsistencyTokens);
     }
 
     static ExecutionTarget colocate(OneOfTarget oneOf, SomeOfTarget someOf) throws ColocationMappingException {
@@ -185,37 +198,49 @@ abstract class AbstractTarget implements ExecutionTarget {
             throw new ColocationMappingException("Partitioned targets with mot matching numbers of partitioned are not colocated");
         }
 
+        boolean changed = false;
         boolean finalised = true;
         BitSet[] newPartitionsNodes = new BitSet[partitioned.partitionsNodes.length];
         for (int partNo = 0; partNo < partitioned.partitionsNodes.length; partNo++) {
-            if (!partitioned.partitionsNodes[partNo].intersects(otherPartitioned.partitionsNodes[partNo])) {
+            if (partitioned.partitionsNodes[partNo].equals(otherPartitioned.partitionsNodes[partNo])) {
+                newPartitionsNodes[partNo] = partitioned.partitionsNodes[partNo];
+
+                continue;
+            }
+
+            changed = true;
+            BitSet newNodes = (BitSet) partitioned.partitionsNodes[partNo].clone();
+            newNodes.and(otherPartitioned.partitionsNodes[partNo]);
+
+            if (newNodes.isEmpty()) {
                 throw new ColocationMappingException("Targets are not colocated");
             }
-
-            if (partitioned.enlistmentConsistencyTokens[partNo] != otherPartitioned.enlistmentConsistencyTokens[partNo]) {
-                throw new ColocationMappingException("Partitioned targets have different terms");
-            }
-
-            BitSet newNodes = BitSet.valueOf(partitioned.partitionsNodes[partNo].toLongArray());
-            newNodes.and(otherPartitioned.nodes);
 
             newPartitionsNodes[partNo] = newNodes;
             finalised = finalised && newNodes.cardinality() == 1;
         }
 
-        return new PartitionedTarget(finalised, newPartitionsNodes, partitioned.enlistmentConsistencyTokens);
+        if (!Arrays.equals(partitioned.enlistmentConsistencyTokens, otherPartitioned.enlistmentConsistencyTokens)) {
+            throw new ColocationMappingException("Partitioned targets have different terms");
+        }
+
+        if (changed) {
+            return new PartitionedTarget(finalised, newPartitionsNodes, partitioned.enlistmentConsistencyTokens);
+        }
+
+        return partitioned;
     }
 
     static ExecutionTarget colocate(PartitionedTarget partitioned, SomeOfTarget someOf) throws ColocationMappingException {
         boolean finalised = true;
         BitSet[] newPartitionsNodes = new BitSet[partitioned.partitionsNodes.length];
         for (int partNo = 0; partNo < partitioned.partitionsNodes.length; partNo++) {
-            if (!partitioned.partitionsNodes[partNo].intersects(someOf.nodes)) {
+            BitSet newNodes = (BitSet) partitioned.partitionsNodes[partNo].clone();
+            newNodes.and(someOf.nodes);
+
+            if (newNodes.isEmpty()) {
                 throw new ColocationMappingException("Targets are not colocated");
             }
-
-            BitSet newNodes = BitSet.valueOf(partitioned.partitionsNodes[partNo].toLongArray());
-            newNodes.and(someOf.nodes);
 
             newPartitionsNodes[partNo] = newNodes;
             finalised = finalised && newNodes.cardinality() == 1;
@@ -225,12 +250,12 @@ abstract class AbstractTarget implements ExecutionTarget {
     }
 
     static ExecutionTarget colocate(SomeOfTarget someOf, SomeOfTarget otherSomeOf) throws ColocationMappingException {
-        if (!someOf.nodes.intersects(otherSomeOf.nodes)) {
+        BitSet newNodes = (BitSet) someOf.nodes.clone();
+        newNodes.and(otherSomeOf.nodes);
+
+        if (newNodes.isEmpty()) {
             throw new ColocationMappingException("Targets are not colocated");
         }
-
-        BitSet newNodes = BitSet.valueOf(someOf.nodes.toLongArray());
-        newNodes.and(otherSomeOf.nodes);
 
         return new SomeOfTarget(newNodes);
     }

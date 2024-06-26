@@ -23,6 +23,7 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import org.apache.ignite.internal.sql.engine.exec.NodeWithConsistencyToken;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationMappingException;
@@ -155,8 +156,17 @@ abstract class AbstractTarget implements ExecutionTarget {
             throw new ColocationMappingException("Targets are not colocated");
         }
 
-        if (!isPow2((partitioned.nodes))) {
-            throw new ColocationMappingException("Targets are not colocated");
+        if (isPow2((partitioned.nodes))) {
+            return partitioned; // All partitions on single node.
+        }
+
+        long colocatedNodes = oneOf.nodes;
+        for (int partNo = 0; partNo < partitioned.partitionsNodes.length; partNo++) {
+            colocatedNodes &= partitioned.partitionsNodes[partNo];
+
+            if (colocatedNodes == 0) {
+                throw new ColocationMappingException("Targets are not colocated");
+            }
         }
 
         return partitioned;
@@ -186,12 +196,13 @@ abstract class AbstractTarget implements ExecutionTarget {
                 throw new ColocationMappingException("Targets are not colocated");
             }
 
-            if (partitioned.enlistmentConsistencyTokens[partNo] != otherPartitioned.enlistmentConsistencyTokens[partNo]) {
-                throw new ColocationMappingException("Partitioned targets have different terms");
-            }
-
             newPartitionsNodes[partNo] = newNodes;
             finalised = finalised && isPow2(newNodes);
+        }
+
+
+        if (!Arrays.equals(partitioned.enlistmentConsistencyTokens, otherPartitioned.enlistmentConsistencyTokens)) {
+            throw new ColocationMappingException("Partitioned targets have different terms");
         }
 
         return new PartitionedTarget(finalised, newPartitionsNodes, partitioned.enlistmentConsistencyTokens);
