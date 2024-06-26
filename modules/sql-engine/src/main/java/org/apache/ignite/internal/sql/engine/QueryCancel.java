@@ -36,9 +36,7 @@ import org.jetbrains.annotations.Nullable;
 public class QueryCancel {
     private final List<Cancellable> cancelActions = new ArrayList<>(3);
 
-    private boolean canceled;
-
-    private boolean timeout;
+    private Reason reason;
 
     private volatile Instant deadline;
 
@@ -55,8 +53,10 @@ public class QueryCancel {
     public synchronized void add(Cancellable clo) throws QueryCancelledException {
         assert clo != null;
 
-        if (canceled) {
-            // Immediately invoke a cancel action, if already cancelled. 
+        if (reason != null) {
+            boolean timeout = reason == Reason.TIMEOUT;
+
+            // Immediately invoke a cancel action, if already cancelled.
             // Otherwise the caller is required to catch QueryCancelledException and call an action manually.
             try {
                 clo.cancel(timeout);
@@ -91,14 +91,11 @@ public class QueryCancel {
      * @return Future that will be completed when the timeout is reached.
      */
     public synchronized CompletableFuture<Void> setTimeout(ScheduledExecutorService scheduler, long timeoutMillis) {
-        assert canceled : "Cannot set a timeout when cancelled";
+        assert reason == null : "Cannot set a timeout when cancelled";
         assert timeoutFut == null : "Timeout has already been set";
 
         CompletableFuture<Void> fut = new CompletableFuture<>();
-        fut.thenAccept((r) -> {
-            // Cancel with timeout.
-            doCancel(true);
-        });
+        fut.thenAccept((r) -> doCancel(Reason.TIMEOUT));
 
         ScheduledFuture<?> f = scheduler.schedule(() -> {
             fut.complete(null);
@@ -138,15 +135,16 @@ public class QueryCancel {
      * Executes cancel closure.
      */
     public synchronized void cancel() {
-        doCancel(false);
+        doCancel(Reason.CANCEL);
     }
 
-    private void doCancel(boolean timeout) {
-        if (canceled) {
+    private void doCancel(Reason reason) {
+        if (this.reason != null) {
             return;
         }
 
-        canceled = true;
+        boolean timeout = reason == Reason.TIMEOUT;
+        this.reason = reason;
 
         IgniteInternalException ex = null;
 
@@ -168,5 +166,10 @@ public class QueryCancel {
         if (ex != null) {
             throw ex;
         }
+    }
+
+    enum Reason {
+        CANCEL,
+        TIMEOUT
     }
 }
