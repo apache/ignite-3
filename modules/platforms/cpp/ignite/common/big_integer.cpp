@@ -26,70 +26,34 @@
 
 namespace ignite {
 
-big_integer::big_integer(const int8_t *val, int32_t len, int8_t sign, bool/* big_endian*/) {
+big_integer::big_integer(const int8_t *val, int32_t len, int8_t sign, bool big_endian) {
     assert(val != nullptr);
     assert(len >= 0);
     assert(sign == detail::mpi_sign::POSITIVE || sign == 0 || sign == detail::mpi_sign::NEGATIVE);
 
-    from_binary(reinterpret_cast<const std::uint8_t *>(val), len);
+    m_mpi.read(reinterpret_cast<const std::uint8_t *>(val), len, big_endian);
+
     m_mpi.set_sign(sign >= 0 ? detail::mpi_sign::POSITIVE : detail::mpi_sign::NEGATIVE);
 }
 
-void big_integer::from_binary(const std::uint8_t *data, std::size_t size, bool negative) {
-    // Skip 0xFF bytes if this is negative number.
-    std::size_t skip_ff = 0;
-    if (negative) {
-        while (skip_ff < size && data[skip_ff] == 0xFF) {
-            skip_ff++;
-        }
-    }
+big_integer::big_integer(const std::byte *data, std::size_t size) {
+    auto ptr = reinterpret_cast<const std::uint8_t *>(data);
 
-    // Skip 0x00 bytes before highest byte.
-    std::size_t skip_00 = skip_ff;
-    while (skip_00 < size && data[skip_00] == 0) {
-        skip_00++;
-    }
+    m_mpi.read(ptr, size);
 
-    // Extra byte will be needed if we have reached end of the array and there were only zero bytes.
-    std::size_t extra_byte = skip_00 == size ? 1 : 0;
-    m_mpi.grow((size - skip_ff + extra_byte + 3) >> 2);
-    std::size_t index = size - 1;
-    mpi_t::word carry = 1;
-
-    // Fill magnitude words byte by byte.
-    for (auto &word : m_mpi.magnitude()) {
-        word = data[index--];
-
-        // Count bytes of the word we should copy after the lower byte.
-        std::size_t bytes_to_write = (index + 1 > skip_ff) ? std::min(3ul, index - skip_ff + 1) : 0;
-
-        // Copy other bytes of the word.
-        for (std::size_t i = 1; i <= bytes_to_write; i++) {
-            word |= data[index--] << 8 * i;
-        }
-
-        if (negative) {
+    if (ptr[0] & 0x80) {
+        mpi_t::word carry = 1;
+        for (auto &word : m_mpi.magnitude()) {
             // Invert word and add carry if number is negative because it should be in two's complement form.
-            mpi_t::word mask = (0xFFFFFFFF >> 8 * (3 - bytes_to_write));
-            word = (~word & mask) + carry;
+            word = ~word + carry;
             if (word != 0) {
                 carry = 0;
             }
         }
+
+        m_mpi.magnitude().back() &= 0xFFFFFFFF >> 8 * (4 - size % 4);
+        m_mpi.make_negative();
     }
-
-    m_mpi.shrink();
-    m_mpi.set_sign(negative ? detail::mpi_sign::NEGATIVE : detail::mpi_sign::POSITIVE);
-}
-
-big_integer::big_integer(const std::byte *data, std::size_t size) {
-    if (size == 0) {
-        return;
-    }
-
-    auto ptr = reinterpret_cast<const std::uint8_t *>(data);
-
-    from_binary(ptr, size, ptr[0] & 0x80);
 }
 
 void big_integer::assign_int64(int64_t val) {
@@ -170,29 +134,17 @@ void big_integer::store_bytes(std::byte *data) const {
 
     m_mpi.shrink();
 
-    bool negative = is_negative();
+    auto size = byte_size();
+    m_mpi.write(reinterpret_cast<std::uint8_t*>(data), size);
 
-    std::size_t index = 0;
-    std::size_t copied = 4;
-    mpi_t::word next_word = 0;
-    mpi_t::word carry = 1;
-
-    for (std::size_t data_index = byte_size(); data_index > 0; --data_index) {
-        if (copied == 4) {
-            next_word = index < m_mpi.magnitude().size() ? m_mpi.magnitude()[index++] : 0;
-            if (negative) {
-                next_word = ~next_word + carry;
-                if (next_word != 0) {
-                    carry = 0;
-                }
+    if(is_negative()) {
+        mpi_t::word carry = 1;
+        for(std::size_t i = size; i >0; i--) {
+            data[i - 1] = std::byte(std::uint8_t(~data[i - 1]) + carry);
+            if(data[i - 1] != std::byte(0)) {
+                carry = 0;
             }
-            copied = 1;
-        } else {
-            next_word >>= 8;
-            ++copied;
         }
-
-        data[data_index - 1] = std::byte(next_word & 0xFF);
     }
 }
 

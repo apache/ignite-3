@@ -218,6 +218,28 @@ struct mpi {
     /** Writes mpi to the string. */
     [[nodiscard]] std::string to_string() const;
 
+    /**
+     * Writes mpi magnitude in the byte array. Sign and size will not be written.
+     *
+     * @param data Pointer to the byte array.
+     * @param size Size of the byte array.
+     * @param big_endian Write as big-endian if true, little-endian otherwise.
+     *
+     * @return True if write successful, false otherwise.
+     * */
+    bool write(std::uint8_t* data, std::size_t size, bool big_endian = true);
+
+    /**
+     * Reads mpi magnitude from the byte array. Reads only magnitude, sign should be set separately.
+     *
+     * @param data Pointer to the byte array.
+     * @param size Size of the byte array.
+     * @param big_endian Read as big-endian if true, little-endian otherwise.
+     *
+     * @return True if read successful, false otherwise.
+     * */
+    bool read(const std::uint8_t* data, std::size_t size, bool big_endian = true);
+
 private:
     /** Internal MbedTLS mpi structure. */
     type *val;
