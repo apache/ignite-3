@@ -194,9 +194,9 @@ public final class BytesUtil {
     /**
      * Writes a byte buffer to the output stream.
      *
-     * @param outputStream Output stream into which bytes will be written.
-     * @param buf Byte buffer from which bytes are to be retrieved.
-     * @throws IOException When writing to the output stream.
+     * @param outputStream Output stream to write bytes into.
+     * @param buf Byte buffer to retrieve bytes from.
+     * @throws IOException If writing to the output stream failed.
      */
     public static void writeTo(OutputStream outputStream, ByteBuffer buf) throws IOException {
         WritableByteChannel channel = Channels.newChannel(outputStream);
