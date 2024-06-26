@@ -230,7 +230,7 @@ std::uint32_t big_integer::bit_length() const noexcept {
     if (is_negative()) {
         // Check if the magnitude is a power of 2.
         auto last = view.back();
-        if ((last & (last - 1)) == 0 && std::all_of(view.rbegin() + 1, view.rend(), [](auto x) { return x == 0; })) {
+        if ((last & (last - 1)) == 0 && std::all_of(view.begin(), view.end() - 1, [](auto x) { return x == 0; })) {
             res--;
         }
     }

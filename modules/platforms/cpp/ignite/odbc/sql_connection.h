@@ -183,9 +183,29 @@ public:
      * Receive message.
      *
      * @param id Expected message ID.
+     * @param timeout Timeout.
+     * @return Message and error.
+     */
+    std::pair<network::data_buffer_owning, std::optional<odbc_error>> receive_message_nothrow(std::int64_t id,
+        std::int32_t timeout);
+
+    /**
+     * Receive message.
+     *
+     * @param id Expected message ID.
      * @return Message.
      */
     network::data_buffer_owning receive_message(std::int64_t id) { return receive_message(id, m_timeout); }
+
+    /**
+     * Receive message.
+     *
+     * @param id Expected message ID.
+     * @return Message and error.
+     */
+    std::pair<network::data_buffer_owning, std::optional<odbc_error>> receive_message_nothrow(std::int64_t id) {
+        return receive_message_nothrow(id, m_timeout);
+    }
 
     /**
      * Get configuration.
@@ -275,6 +295,22 @@ public:
 
         send_message(request);
         return receive_message(req_id);
+    }
+
+    /**
+     * Make a synchronous request and get a response.
+     *
+     * @param op Operation.
+     * @param wr Payload writing function.
+     * @return Response and error.
+     */
+    std::pair<network::data_buffer_owning, std::optional<odbc_error>> sync_request_nothrow(
+        protocol::client_operation op, const std::function<void(protocol::writer &)> &wr) {
+        auto req_id = generate_next_req_id();
+        auto request = make_request(req_id, op, wr);
+
+        send_message(request);
+        return receive_message_nothrow(req_id);
     }
 
     /**

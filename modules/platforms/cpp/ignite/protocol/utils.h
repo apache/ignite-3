@@ -39,6 +39,15 @@ namespace ignite::protocol {
 
 class reader;
 
+/**
+ * Error data extensions. When the server returns an error response, it may contain additional data in a map.
+ * Keys are defined here.
+ */
+struct error_extensions {
+static const std::string EXPECTED_SCHEMA_VERSION;
+static const std::string SQL_UPDATE_COUNTERS;
+};
+
 /** Magic bytes. */
 static constexpr std::array<std::byte, 4> MAGIC_BYTES = {
     std::byte('I'), std::byte('G'), std::byte('N'), std::byte('I')};
