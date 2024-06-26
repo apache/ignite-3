@@ -72,13 +72,8 @@ namespace Apache.Ignite.Internal.Compute
             return target switch
             {
                 JobTarget.SingleNodeTarget singleNode => SubmitAsync(new[] { singleNode.Data }, jobDescriptor, args),
-
                 JobTarget.AnyNodeTarget anyNode => SubmitAsync(anyNode.Data, jobDescriptor, args),
-
-                JobTarget.ColocatedTarget<TTarget> colocated => SubmitColocatedAsync(
-                    colocated,
-                    jobDescriptor,
-                    args),
+                JobTarget.ColocatedTarget<TTarget> colocated => SubmitColocatedAsync(colocated, jobDescriptor, args),
 
                 _ => throw new ArgumentException("Unsupported job target: " + target)
             };
