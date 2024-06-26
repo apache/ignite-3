@@ -56,12 +56,14 @@ public static class JobTarget
     /// <param name="key">Key.</param>
     /// <typeparam name="TKey">Key type.</typeparam>
     /// <returns>Colocated job target.</returns>
-    public static IJobTarget<TKey> Colocated<TKey>(string tableName, TKey key) =>
+    public static IJobTarget<TKey> Colocated<TKey>(string tableName, TKey key)
+        where TKey : notnull =>
         new ColocatedTarget<TKey>(tableName, key);
 
     internal sealed record SingleNodeTarget(IClusterNode Data) : IJobTarget<IClusterNode>;
 
     internal sealed record AnyNodeTarget(IEnumerable<IClusterNode> Data) : IJobTarget<IEnumerable<IClusterNode>>;
 
-    internal sealed record ColocatedTarget<TKey>(string TableName, TKey Data) : IJobTarget<TKey>;
+    internal sealed record ColocatedTarget<TKey>(string TableName, TKey Data) : IJobTarget<TKey>
+        where TKey : notnull;
 }

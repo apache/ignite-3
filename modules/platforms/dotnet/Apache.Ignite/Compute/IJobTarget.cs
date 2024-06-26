@@ -22,6 +22,7 @@ namespace Apache.Ignite.Compute;
 /// </summary>
 /// <typeparam name="T">Underlying data type.</typeparam>
 public interface IJobTarget<out T>
+    where T : notnull
 {
     /// <summary>
     /// Gets the target data.

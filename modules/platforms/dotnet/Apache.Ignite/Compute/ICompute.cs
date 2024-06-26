@@ -20,7 +20,6 @@ namespace Apache.Ignite.Compute;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Network;
-using Table;
 
 /// <summary>
 /// Ignite Compute API provides distributed job execution functionality.
@@ -30,47 +29,17 @@ public interface ICompute
     /// <summary>
     /// Submits a compute job represented by the given class for an execution on one of the specified nodes.
     /// </summary>
-    /// <param name="nodes">Nodes to use for the job execution.</param>
+    /// <param name="target">Job execution target.</param>
     /// <param name="jobDescriptor">Job descriptor.</param>
     /// <param name="args">Job arguments.</param>
-    /// <typeparam name="T">Job result type.</typeparam>
+    /// <typeparam name="TTarget">Job target type.</typeparam>
+    /// <typeparam name="TResult">Job result type.</typeparam>
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
-    Task<IJobExecution<T>> SubmitAsync<T>(
-        IEnumerable<IClusterNode> nodes,
-        JobDescriptor jobDescriptor,
-        params object?[]? args);
-
-    /// <summary>
-    /// Submits a compute job represented by the given class for an execution on one of the nodes where the given key is located.
-    /// </summary>
-    /// <param name="tableName">Name of the table to be used with <paramref name="key"/> to determine target node.</param>
-    /// <param name="key">Table key to be used to determine the target node for job execution.</param>
-    /// <param name="jobDescriptor">Job descriptor.</param>
-    /// <param name="args">Job arguments.</param>
-    /// <typeparam name="T">Job result type.</typeparam>
-    /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
-    Task<IJobExecution<T>> SubmitColocatedAsync<T>(
-        string tableName,
-        IIgniteTuple key,
-        JobDescriptor jobDescriptor,
-        params object?[]? args);
-
-    /// <summary>
-    /// Submits a compute job represented by the given class for an execution on one of the nodes where the given key is located.
-    /// </summary>
-    /// <param name="tableName">Name of the table to be used with <paramref name="key"/> to determine target node.</param>
-    /// <param name="key">Table key to be used to determine the target node for job execution.</param>
-    /// <param name="jobDescriptor">Job descriptor.</param>
-    /// <param name="args">Job arguments.</param>
-    /// <typeparam name="T">Job result type.</typeparam>
-    /// <typeparam name="TKey">Key type.</typeparam>
-    /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
-    Task<IJobExecution<T>> SubmitColocatedAsync<T, TKey>(
-        string tableName,
-        TKey key,
+    Task<IJobExecution<TResult>> SubmitAsync<TTarget, TResult>(
+        IJobTarget<TTarget> target,
         JobDescriptor jobDescriptor,
         params object?[]? args)
-        where TKey : notnull;
+        where TTarget : notnull;
 
     /// <summary>
     /// Submits a compute job represented by the given class for an execution on all of the specified nodes.
