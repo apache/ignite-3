@@ -273,10 +273,8 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
 
         ParsedResult parsedResult = parse("SELECT * FROM t WHERE c = ?");
 
-        long timeoutMillis = 500;
         QueryCancel queryCancel = new QueryCancel();
-        // Deadline is used to compute planner timeout.
-        CompletableFuture<Void> timeoutFut = queryCancel.setTimeout(scheduler, timeoutMillis);
+        CompletableFuture<Void> timeoutFut = queryCancel.setTimeout(scheduler, 500);
 
         SqlOperationContext context = operationContext()
                 .cancel(queryCancel)

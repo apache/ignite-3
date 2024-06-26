@@ -83,7 +83,7 @@ public class QueryCancel {
     }
 
     /**
-     * Schedules a timeout action (a call to {@link #timeout()}) after {@code timeoutMillis} milliseconds.
+     * Schedules a timeout after {@code timeoutMillis} milliseconds.
      * Call be called only once.
      *
      * @param scheduler Scheduler to trigger an action.
@@ -91,16 +91,21 @@ public class QueryCancel {
      * @return Future that will be completed when the timeout is reached.
      */
     public synchronized CompletableFuture<Void> setTimeout(ScheduledExecutorService scheduler, long timeoutMillis) {
+        assert canceled : "Cannot set a timeout when cancelled";
         assert timeoutFut == null : "Timeout has already been set";
 
         CompletableFuture<Void> fut = new CompletableFuture<>();
-        fut.thenAccept((r) -> timeout());
+        fut.thenAccept((r) -> {
+            // Cancel with timeout.
+            doCancel(true);
+        });
 
         ScheduledFuture<?> f = scheduler.schedule(() -> {
             fut.complete(null);
         }, timeoutMillis, MILLISECONDS);
 
         add((timeout) -> {
+            // Cancel the future if we didn't timeout.
             if (!timeout) {
                 f.cancel(false);
             }
@@ -133,27 +138,14 @@ public class QueryCancel {
      * Executes cancel closure.
      */
     public synchronized void cancel() {
-        if (canceled) {
-            return;
-        }
-
         doCancel(false);
     }
 
-    /**
-     * Marks this state as canceled due to timeout and executes cancel actions.
-     */
-    public synchronized void timeout() {
+    private void doCancel(boolean timeout) {
         if (canceled) {
             return;
         }
 
-        this.timeout = true;
-
-        doCancel(true);
-    }
-
-    private void doCancel(boolean timeout) {
         canceled = true;
 
         IgniteInternalException ex = null;
