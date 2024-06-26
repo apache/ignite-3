@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -27,6 +28,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.util.Cancellable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Holds query cancel state.
@@ -37,6 +39,10 @@ public class QueryCancel {
     private boolean canceled;
 
     private boolean timeout;
+
+    private volatile Instant deadline;
+
+    private volatile CompletableFuture<Void> timeoutFut;
 
     /**
      * Adds a cancel action. If operation has already been canceled, throws a {@link QueryCancelledException}.
@@ -78,12 +84,15 @@ public class QueryCancel {
 
     /**
      * Schedules a timeout action (a call to {@link #timeout()}) after {@code timeoutMillis} milliseconds.
+     * Call be called only once.
      *
      * @param scheduler Scheduler to trigger an action.
      * @param timeoutMillis Timeout in milliseconds.
      * @return Future that will be completed when the timeout is reached.
      */
-    public CompletableFuture<Void> addTimeout(ScheduledExecutorService scheduler, long timeoutMillis) {
+    public synchronized CompletableFuture<Void> setTimeout(ScheduledExecutorService scheduler, long timeoutMillis) {
+        assert timeoutFut == null : "Timeout has already been set";
+
         CompletableFuture<Void> fut = new CompletableFuture<>();
         fut.thenAccept((r) -> timeout());
 
@@ -97,7 +106,27 @@ public class QueryCancel {
             }
         });
 
+        this.timeoutFut = fut;
+        this.deadline = Instant.now().plusMillis(timeoutMillis);
         return fut;
+    }
+
+    /**
+     * Returns the deadline of the operation.
+     *
+     * <p>Can be null if a query has no timeout.
+     */
+    public @Nullable CompletableFuture<Void> timeoutFuture() {
+        return timeoutFut;
+    }
+
+    /**
+     * Returns the deadline of the operation.
+     *
+     * <p>Can be null if a query has no timeout.
+     */
+    public @Nullable Instant deadline() {
+        return deadline;
     }
 
     /**

@@ -455,7 +455,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         QueryCancel queryCancel = new QueryCancel();
         if (queryTimeout != 0) {
-            queryCancel.addTimeout(commonScheduler, queryTimeout);
+            queryCancel.setTimeout(commonScheduler, queryTimeout);
         }
 
         ParsedResult parsedResult = queryToParsedResultCache.get(sql);
@@ -487,15 +487,8 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         QueryCancel queryCancel = new QueryCancel();
 
-        CompletableFuture<Void> timeoutFut;
-        Instant deadline;
-
         if (queryTimeout != 0) {
-            deadline = Instant.now().plusMillis(queryTimeout);
-            timeoutFut = queryCancel.addTimeout(commonScheduler, queryTimeout);
-        } else {
-            deadline = null;
-            timeoutFut = null;
+            queryCancel.setTimeout(commonScheduler, queryTimeout);
         }
 
         ParsedResult parsedResult = queryToParsedResultCache.get(sql);
@@ -519,8 +512,6 @@ public class SqlQueryProcessor implements QueryProcessor {
                     .defaultSchemaName(schemaName)
                     .operationTime(operationTime)
                     .txContext(txContext)
-                    .operationDeadline(deadline)
-                    .timeoutFuture(timeoutFut)
                     .build();
 
             return executeParsedStatement(operationContext, result, null);
@@ -891,13 +882,10 @@ public class SqlQueryProcessor implements QueryProcessor {
                     HybridTimestamp operationTime = deriveOperationTime(scriptTxContext);
 
                     QueryCancel queryCancel = new QueryCancel();
-                    CompletableFuture<Void> timeoutFut;
 
                     if (deadline != null) {
                         long statementTimeoutMillis = Duration.between(Instant.now(), deadline).toMillis();
-                        timeoutFut = queryCancel.addTimeout(commonScheduler, statementTimeoutMillis);
-                    } else {
-                        timeoutFut = null;
+                        queryCancel.setTimeout(commonScheduler, statementTimeoutMillis);
                     }
 
                     SqlOperationContext operationContext = SqlOperationContext.builder()
@@ -909,8 +897,6 @@ public class SqlQueryProcessor implements QueryProcessor {
                             .defaultSchemaName(schemaName)
                             .txContext(scriptTxContext)
                             .operationTime(operationTime)
-                            .operationDeadline(deadline)
-                            .timeoutFuture(timeoutFut)
                             .build();
 
                     fut = executeParsedStatement(operationContext, parsedResult, nextCurFut);

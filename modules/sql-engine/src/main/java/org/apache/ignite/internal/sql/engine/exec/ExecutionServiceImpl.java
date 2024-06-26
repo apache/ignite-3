@@ -309,7 +309,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             queryManager.close(reason);
         });
 
-        CompletableFuture<Void> timeoutFut = operationContext.timeoutFuture();
+        CompletableFuture<Void> timeoutFut = cancelHandler.timeoutFuture();
         if (timeoutFut != null) {
             timeoutFut.thenAcceptAsync((r) -> queryManager.close(QueryCompletionReason.TIMEOUT), taskExecutor);
         }
@@ -381,9 +381,9 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
                 return executeQuery(operationContext, (MultiStepPlan) plan);
             case EXPLAIN:
-                return executeExplain((ExplainPlan) plan, operationContext.prefetchCallback());
+                return executeExplain(operationContext, (ExplainPlan) plan);
             case DDL:
-                return executeDdl((DdlPlan) plan, operationContext.prefetchCallback(), operationContext.timeoutFuture());
+                return executeDdl(operationContext, (DdlPlan) plan);
 
             default:
                 throw new AssertionError("Unexpected query type: " + plan);
@@ -405,6 +405,9 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             SqlOperationContext operationContext,
             ExecutablePlan plan
     ) {
+        QueryCancel queryCancel = operationContext.cancel();
+        assert queryCancel != null;
+
         ExecutionContext<RowT> ectx = new ExecutionContext<>(
                 taskExecutor,
                 operationContext.queryId(),
@@ -415,7 +418,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 Commons.parametersMap(operationContext.parameters()),
                 TxAttributes.dummy(),
                 operationContext.timeZoneId(),
-                operationContext.timeoutFuture()
+                queryCancel.timeoutFuture()
         );
 
         QueryTransactionContext txContext = operationContext.txContext();
@@ -443,9 +446,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         );
     }
 
-    private AsyncDataCursor<InternalSqlRow> executeDdl(DdlPlan plan,
-            @Nullable QueryPrefetchCallback callback,
-            @Nullable CompletableFuture<Void> timeoutFut
+    private AsyncDataCursor<InternalSqlRow> executeDdl(SqlOperationContext operationContext,
+            DdlPlan plan
     ) {
         CompletableFuture<Iterator<InternalSqlRow>> ret = ddlCmdHnd.handle(plan.command())
                 .thenApply(applied -> (applied ? APPLIED_ANSWER : NOT_APPLIED_ANSWER).iterator())
@@ -453,10 +455,15 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     throw convertDdlException(th);
                 });
 
+        PrefetchCallback callback = operationContext.prefetchCallback();
         if (callback != null) {
             ret.whenCompleteAsync((res, err) -> callback.onPrefetchComplete(err), taskExecutor);
         }
 
+        QueryCancel queryCancel = operationContext.cancel();
+        assert queryCancel != null;
+
+        CompletableFuture<Void> timeoutFut = queryCancel.timeoutFuture();
         if (timeoutFut != null) {
             timeoutFut.whenCompleteAsync((r, t) -> {
                 ret.completeExceptionally(new QueryCancelledException(QueryCancelledException.TIMEOUT_MSG));
@@ -483,7 +490,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         return (e instanceof RuntimeException) ? (RuntimeException) e : new IgniteInternalException(INTERNAL_ERR, e);
     }
 
-    private AsyncDataCursor<InternalSqlRow> executeExplain(ExplainPlan plan, @Nullable QueryPrefetchCallback callback) {
+    private AsyncDataCursor<InternalSqlRow> executeExplain(SqlOperationContext operationContext, ExplainPlan plan) {
+        QueryPrefetchCallback callback = operationContext.prefetchCallback();
         String planString = plan.plan().explain();
 
         InternalSqlRow res = new InternalSqlRowSingleString(planString);
@@ -780,6 +788,9 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             this.coordinatorNodeName = coordinatorNodeName;
 
             if (coordinator) {
+                QueryCancel queryCancel = ctx.cancel();
+                assert queryCancel != null;
+
                 var root = new CompletableFuture<AsyncRootNode<RowT, InternalSqlRow>>();
 
                 root.exceptionally(t -> {
@@ -795,7 +806,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 });
 
                 this.root = root;
-                this.timeoutFut = ctx.timeoutFuture();
+                this.timeoutFut = queryCancel.timeoutFuture();
             } else {
                 this.root = null;
                 this.timeoutFut = null;

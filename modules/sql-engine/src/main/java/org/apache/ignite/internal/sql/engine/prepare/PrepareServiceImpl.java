@@ -233,8 +233,13 @@ public class PrepareServiceImpl implements PrepareService {
             return CompletableFuture.failedFuture(new SchemaNotFoundException(schemaName));
         }
 
+        // Add an action to trigger planner timeout, when operation times out.
+        // Or trigger timeout immediately if operation has already timed out.
+        QueryCancel cancelHandler = operationContext.cancel();
+        assert cancelHandler != null;
+
         long actualPlannerTimeout;
-        Instant deadline = operationContext.operationDeadline();
+        Instant deadline = cancelHandler.deadline();
         if (deadline == null) {
             actualPlannerTimeout = plannerTimeout;
         } else {
@@ -250,11 +255,6 @@ public class PrepareServiceImpl implements PrepareService {
                 .plannerTimeout(actualPlannerTimeout)
                 .parameters(Commons.arrayToMap(operationContext.parameters()))
                 .build();
-
-        // Add an action to trigger planner timeout, when operation times out.
-        // Or trigger timeout immediately if operation has already timed out. 
-        QueryCancel cancelHandler = operationContext.cancel();
-        assert cancelHandler != null;
 
         Cancellable callback = (timeout) -> {
             if (timeout) {

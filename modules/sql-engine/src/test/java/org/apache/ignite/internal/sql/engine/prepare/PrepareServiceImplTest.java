@@ -30,15 +30,13 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
-import java.time.Instant;
 import java.time.ZoneId;
-import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -275,29 +273,29 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
 
         ParsedResult parsedResult = parse("SELECT * FROM t WHERE c = ?");
 
-        long timeoutMillis = 100;
+        long timeoutMillis = 500;
         QueryCancel queryCancel = new QueryCancel();
+        // Deadline is used to compute planner timeout.
+        CompletableFuture<Void> timeoutFut = queryCancel.setTimeout(scheduler, timeoutMillis);
+
         SqlOperationContext context = operationContext()
-                // Deadline is used to compute planner timeout.
-                .operationDeadline(Instant.now().plusMillis(timeoutMillis))
                 .cancel(queryCancel)
                 .build();
 
-        ScheduledFuture<?> f = scheduler.schedule(() -> {
-            queryCancel.timeout();
+        timeoutFut.whenComplete((v, e) -> {
             // Release semaphore to start optimization, so the optimizer will timeout.
             delayCallback.semaphore.release();
-        }, timeoutMillis, TimeUnit.MILLISECONDS);
+        });
 
         Throwable err = assertThrowsWithCause(
                 () -> {
-                    // Acquire semaphore to delay optimization.
+                    // Acquire semaphore to delay optimization, so the planner does all the preparation work.
+                    // And the gets stuck when it is time to run optimization.
                     delayCallback.semaphore.acquire();
                     service.prepareAsync(parsedResult, context).get();
                 },
                 SqlException.class
         );
-        f.cancel(true);
 
         Throwable cause = ExceptionUtils.unwrapCause(err);
         SqlException sqlErr = assertInstanceOf(SqlException.class, cause, "Unexpected error. Root error: " + err);
@@ -313,9 +311,10 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
 
         {
             QueryCancel queryCancel1 = new QueryCancel();
+            // Run with some other timeout.
+            queryCancel1.setTimeout(scheduler, TimeUnit.HOURS.toMillis(1));
+
             SqlOperationContext context2 = operationContext()
-                    // Run with some other timeout.
-                    .operationDeadline(Instant.now().plus(1, ChronoUnit.HOURS))
                     .cancel(queryCancel1)
                     .build();
 

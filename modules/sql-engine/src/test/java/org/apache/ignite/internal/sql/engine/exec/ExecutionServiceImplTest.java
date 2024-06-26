@@ -48,7 +48,6 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
 import java.time.Duration;
-import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -64,8 +63,10 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
@@ -199,6 +200,8 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
     private final List<QueryTaskExecutor> executers = new ArrayList<>();
 
+    private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
+
     private ClusterNode firstNode;
 
     @BeforeEach
@@ -239,6 +242,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         });
 
         executers.clear();
+        scheduler.shutdownNow();
     }
 
     /**
@@ -774,8 +778,6 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         QueryCancel cancel = new QueryCancel();
         SqlOperationContext ctx = operationContext(null)
-                // The value is ignored and we call timeout() explicitly.
-                .operationDeadline(Instant.now())
                 .cancel(cancel)
                 .build();
 
@@ -788,29 +790,6 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         IgniteTestUtils.assertThrows(QueryCancelledException.class,
                 () -> execService.executePlan(plan, ctx),
                 "The query was cancelled while executing"
-        );
-    }
-
-    @Test
-    public void testExecuteTimedOut() {
-        ExecutionService execService = executionServices.get(0);
-
-        QueryCancel cancel = new QueryCancel();
-        SqlOperationContext ctx = operationContext(null)
-                // The value is ignored and we call timeout() explicitly.
-                .operationDeadline(Instant.now())
-                .cancel(cancel)
-                .build();
-
-        QueryPlan plan = prepare("SELECT * FROM test_tbl", ctx);
-
-        // Cancel the query with a timeout
-        cancel.timeout();
-
-        // Should immediately trigger query cancel exception.
-        IgniteTestUtils.assertThrows(QueryCancelledException.class,
-                () -> execService.executePlan(plan, ctx),
-                "Query timeout"
         );
     }
 
@@ -922,13 +901,11 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         int attempts = 10;
 
         for (int k = 0; k < attempts; k++) {
-            CompletableFuture<Void> timeoutFut = new CompletableFuture<Void>()
-                    .completeOnTimeout(null, deadlineMillis, TimeUnit.MILLISECONDS);
+            QueryCancel cancel = new QueryCancel();
+            CompletableFuture<Void> timeoutFut = cancel.setTimeout(scheduler, deadlineMillis);
 
             SqlOperationContext execCtx = operationContext(null)
-                    // Set for consistency with timeoutFut.
-                    .operationDeadline(Instant.now().plusMillis(deadlineMillis))
-                    .timeoutFuture(timeoutFut)
+                    .cancel(cancel)
                     .build();
 
             AsyncCursor<InternalSqlRow> cursor;
@@ -964,21 +941,21 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         SqlOperationContext planCtx = operationContext(null).build();
         QueryPlan plan = prepare("SELECT * FROM test_tbl", planCtx);
 
-        CompletableFuture<Void> timeoutFut = new CompletableFuture<>();
-
         QueryCancel queryCancel = new QueryCancel();
+        CompletableFuture<Void> timeoutFut = queryCancel.setTimeout(scheduler, 0);
 
-        SqlOperationContext execCtx = operationContext(null)
+        SqlOperationContext ctx = operationContext(null)
                 .cancel(queryCancel)
-                .operationDeadline(Instant.now().plusMillis(-1000))
-                .timeoutFuture(timeoutFut)
                 .build();
 
         // Cancel the query with a timeout
-        queryCancel.timeout();
+        timeoutFut.join();
 
-        // Should fail immediately, because Query::add triggers QueryCancelledException.
-        assertThrows(QueryCancelledException.class, () -> execService.executePlan(plan, execCtx));
+        // Should immediately trigger query cancel exception.
+        IgniteTestUtils.assertThrows(QueryCancelledException.class,
+                () -> execService.executePlan(plan, ctx),
+                "Query timeout"
+        );
     }
 
     @Test
@@ -1000,13 +977,11 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         int attempts = 10;
 
         for (int k = 0; k < attempts; k++) {
-            CompletableFuture<Void> timeoutFut = new CompletableFuture<Void>()
-                    .completeOnTimeout(null, deadlineMillis, TimeUnit.MILLISECONDS);
+            QueryCancel queryCancel = new QueryCancel();
+            CompletableFuture<Void> timeoutFut = queryCancel.setTimeout(scheduler, deadlineMillis);
 
             SqlOperationContext execCtx = operationContext(null)
-                    // Set for consistency with timeoutFut.
-                    .operationDeadline(Instant.now().plusMillis(deadlineMillis))
-                    .timeoutFuture(timeoutFut)
+                    .cancel(queryCancel)
                     .build();
 
             AsyncCursor<InternalSqlRow> cursor;
@@ -1051,13 +1026,11 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         int attempts = 10;
 
         for (int k = 0; k < attempts; k++) {
-            CompletableFuture<Void> timeoutFut = new CompletableFuture<Void>()
-                    .completeOnTimeout(null, deadlineMillis, TimeUnit.MILLISECONDS);
+            QueryCancel queryCancel = new QueryCancel();
+            CompletableFuture<Void> timeoutFut = queryCancel.setTimeout(scheduler, deadlineMillis);
 
             SqlOperationContext execCtx = operationContext(null)
-                    // Set for consistency with timeoutFut.
-                    .operationDeadline(Instant.now().plusMillis(deadlineMillis))
-                    .timeoutFuture(timeoutFut)
+                    .cancel(queryCancel)
                     .build();
 
             AsyncCursor<InternalSqlRow> cursor;
@@ -1106,14 +1079,11 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         int attempts = 10;
 
         for (int k = 0; k < attempts; k++) {
-
-            CompletableFuture<Void> timeoutFut = new CompletableFuture<Void>()
-                    .completeOnTimeout(null, deadlineMillis, TimeUnit.MILLISECONDS);
+            QueryCancel queryCancel = new QueryCancel();
+            CompletableFuture<Void> timeoutFut = queryCancel.setTimeout(scheduler, deadlineMillis);
 
             SqlOperationContext execCtx = operationContext(null)
-                    // Set for consistency with timeoutFut.
-                    .operationDeadline(Instant.now().plusMillis(deadlineMillis))
-                    .timeoutFuture(timeoutFut)
+                    .cancel(queryCancel)
                     .build();
 
             AsyncCursor<InternalSqlRow> cursor;
