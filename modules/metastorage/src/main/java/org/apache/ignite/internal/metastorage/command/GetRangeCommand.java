@@ -24,6 +24,7 @@ import org.jetbrains.annotations.Nullable;
  * Range command for MetaStorageCommandListener that retrieves entries for the given key range in lexicographic order. Entries will be
  * filtered out by upper bound of given revision number.
  */
+// TODO: IGNITE-22583 тут
 @Transferable(MetastorageCommandsMessageGroup.GET_RANGE)
 public interface GetRangeCommand extends PaginationCommand {
     /**

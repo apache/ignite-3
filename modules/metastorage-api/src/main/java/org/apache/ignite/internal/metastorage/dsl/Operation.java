@@ -24,6 +24,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Defines operation for meta storage conditional update (invoke).
  */
+// TODO: IGNITE-22583 тут
 @Transferable(MetaStorageMessageGroup.OPERATION)
 public interface Operation extends NetworkMessage {
     /**

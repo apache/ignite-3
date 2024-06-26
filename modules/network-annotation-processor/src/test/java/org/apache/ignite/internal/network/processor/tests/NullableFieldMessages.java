@@ -49,6 +49,7 @@ public class NullableFieldMessages {
 
     /** Message with array field that is {@link Nullable}. */
     @Transferable(10)
+    // TODO: IGNITE-22583 тут
     public interface NullableArrayFieldMessage extends NetworkMessage {
         int @Nullable [] value();
     }

@@ -73,11 +73,11 @@ public class CheckCatalogVersionOnActionRequest implements ActionRequestIntercep
             return null;
         }
 
-        byte[] command = ((WriteActionRequest) request).command();
+        ByteBuffer command = ((WriteActionRequest) request).command();
 
         var partitionCommandsMarshaller = (PartitionCommandsMarshaller) commandsMarshaller;
 
-        int requiredCatalogVersion = partitionCommandsMarshaller.readRequiredCatalogVersion(ByteBuffer.wrap(command));
+        int requiredCatalogVersion = partitionCommandsMarshaller.readRequiredCatalogVersion(command);
 
         if (requiredCatalogVersion >= 0) {
             if (!isMetadataAvailableFor(requiredCatalogVersion, catalogService)) {

@@ -19,6 +19,7 @@
 
 package org.apache.ignite.raft.jraft.entity;
 
+import java.nio.ByteBuffer;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.raft.jraft.RaftMessageGroup;
 import org.apache.ignite.raft.jraft.rpc.Message;
@@ -60,7 +61,7 @@ public final class LocalFileMetaOutter {
         }
     }
 
-    @Transferable(value = RaftMessageGroup.RaftOutterMessageGroup.LOCAL_FILE_META)
+    @Transferable(RaftMessageGroup.RaftOutterMessageGroup.LOCAL_FILE_META)
     public interface LocalFileMeta extends Message {
         int sourceNumber();
 
@@ -72,6 +73,6 @@ public final class LocalFileMetaOutter {
         @Nullable
         String checksum();
 
-        byte @Nullable[] userMeta();
+        @Nullable ByteBuffer userMeta();
     }
 }

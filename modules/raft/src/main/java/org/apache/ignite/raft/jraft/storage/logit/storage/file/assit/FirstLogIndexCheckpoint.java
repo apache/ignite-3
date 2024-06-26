@@ -17,8 +17,8 @@
 
 package org.apache.ignite.raft.jraft.storage.logit.storage.file.assit;
 
+import java.nio.ByteBuffer;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
-import org.apache.ignite.raft.jraft.util.Bits;
 
 /**
  * This checkpoint is used for save firstLogIndex
@@ -35,17 +35,17 @@ public class FirstLogIndexCheckpoint extends Checkpoint {
     /**
      * firstLogIndex (8 bytes)
      */
-    public byte[] encode() {
-        byte[] bs = new byte[8];
-        Bits.putLong(bs, 0, this.firstLogIndex);
-        return bs;
+    @Override
+    public ByteBuffer encode() {
+        return ByteBuffer.allocate(8).putLong(this.firstLogIndex);
     }
 
-    public boolean decode(final byte[] bs) {
-        if (bs.length < 8) {
+    @Override
+    public boolean decode(final ByteBuffer buf) {
+        if (buf.remaining() < 8) {
             return false;
         }
-        this.firstLogIndex = Bits.getLong(bs, 0);
+        this.firstLogIndex = buf.getLong();
         return this.firstLogIndex >= 0;
     }
 

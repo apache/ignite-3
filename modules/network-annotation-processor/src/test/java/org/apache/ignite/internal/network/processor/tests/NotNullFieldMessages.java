@@ -45,6 +45,7 @@ public class NotNullFieldMessages {
     }
 
     /** Message with array field that is not {@link Nullable}. */
+    // TODO: IGNITE-22583 тут
     @Transferable(6)
     public interface NotNullArrayFieldMessage extends NetworkMessage {
         int[] value();

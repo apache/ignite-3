@@ -26,6 +26,7 @@ import org.apache.ignite.internal.network.annotations.Transferable;
  * Simple result of statement execution, backed by byte[] array.
  * Provides some shortcut methods to represent the values of some primitive types.
  */
+// TODO: IGNITE-22583 тут
 @Transferable(MetaStorageMessageGroup.STATEMENT_RESULT)
 public interface StatementResult extends NetworkMessage, Serializable {
     /** Result data. */

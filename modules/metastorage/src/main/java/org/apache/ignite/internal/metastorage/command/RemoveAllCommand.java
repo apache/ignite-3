@@ -23,6 +23,7 @@ import org.apache.ignite.internal.network.annotations.Transferable;
 /**
  * Remove all command for MetaStorageCommandListener that removes entries for given keys.
  */
+// TODO: IGNITE-22583 тут
 @Transferable(MetastorageCommandsMessageGroup.REMOVE_ALL)
 public interface RemoveAllCommand extends MetaStorageWriteCommand {
     /**

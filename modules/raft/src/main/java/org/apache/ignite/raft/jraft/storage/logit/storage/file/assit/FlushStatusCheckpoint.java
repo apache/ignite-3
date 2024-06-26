@@ -17,9 +17,9 @@
 
 package org.apache.ignite.raft.jraft.storage.logit.storage.file.assit;
 
+import java.nio.ByteBuffer;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.util.AsciiStringUtil;
-import org.apache.ignite.raft.jraft.util.Bits;
 
 /**
  * This checkpoint is used for save flushPosition and last LogIndex
@@ -38,26 +38,25 @@ public class FlushStatusCheckpoint extends Checkpoint {
     }
 
     /**
-     * flushPosition (8 bytes) + lastLogIndex (8 bytes) + path(4 bytes len + string bytes)
+     * flushPosition (8 bytes) + lastLogIndex (8 bytes) + path(string bytes)
      */
-    public byte[] encode() {
+    @Override
+    public ByteBuffer encode() {
         byte[] ps = AsciiStringUtil.unsafeEncode(this.fileName);
-        byte[] bs = new byte[20 + ps.length];
-        Bits.putLong(bs, 0, this.flushPosition);
-        Bits.putLong(bs, 8, this.lastLogIndex);
-        Bits.putInt(bs, 16, ps.length);
-        System.arraycopy(ps, 0, bs, 20, ps.length);
-        return bs;
+        return ByteBuffer.allocate(16 + ps.length)
+            .putLong(this.flushPosition)
+            .putLong(this.lastLogIndex)
+            .put(ByteBuffer.wrap(ps));
     }
 
-    public boolean decode(final byte[] bs) {
-        if (bs.length < 20) {
+    @Override
+    public boolean decode(final ByteBuffer buf) {
+        if (buf.capacity() < 16) {
             return false;
         }
-        this.flushPosition = Bits.getLong(bs, 0);
-        this.lastLogIndex = Bits.getLong(bs, 8);
-        int len = Bits.getInt(bs, 16);
-        this.fileName = AsciiStringUtil.unsafeDecode(bs, 20, len);
+        this.flushPosition = buf.getLong();
+        this.lastLogIndex = buf.getLong();
+        this.fileName = AsciiStringUtil.unsafeDecode(buf);
         return this.flushPosition >= 0 && this.lastLogIndex >= 0 && !this.fileName.isEmpty();
     }
 

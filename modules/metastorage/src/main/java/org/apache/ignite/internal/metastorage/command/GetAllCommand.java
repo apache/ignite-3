@@ -28,6 +28,7 @@ import org.apache.ignite.internal.raft.ReadCommand;
 /**
  * Get all command for MetaStorageCommandListener that retrieves entries for given keys and the revision upper bound, if latter is present.
  */
+// TODO: IGNITE-22583 тут
 @Transferable(MetastorageCommandsMessageGroup.GET_ALL)
 public interface GetAllCommand extends ReadCommand {
     /**

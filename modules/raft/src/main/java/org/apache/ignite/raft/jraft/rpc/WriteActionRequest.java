@@ -17,7 +17,7 @@
 
 package org.apache.ignite.raft.jraft.rpc;
 
-import org.apache.ignite.internal.raft.WriteCommand;
+import java.nio.ByteBuffer;import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.network.annotations.Transient;
 import org.apache.ignite.raft.jraft.RaftMessageGroup.RpcActionMessageGroup;
@@ -31,7 +31,7 @@ public interface WriteActionRequest extends ActionRequest {
     /**
      * @return Serialized action's command. Specific serialization format may differ from group to group.
      */
-    byte[] command();
+    ByteBuffer command();
 
     /**
      * @return Original non-serialized command, if available. {@code null} if not. This field is used to avoid {@link #command()}

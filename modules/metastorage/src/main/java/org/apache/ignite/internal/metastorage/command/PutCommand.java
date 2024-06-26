@@ -23,6 +23,7 @@ import org.apache.ignite.internal.network.annotations.Transferable;
  * Put command for MetaStorageCommandListener that inserts or updates an entry with the given key and the given value and retrieves a
  * previous entry for the given key.
  */
+// TODO: IGNITE-22583 тут
 @Transferable(MetastorageCommandsMessageGroup.PUT)
 public interface PutCommand extends MetaStorageWriteCommand {
     /**

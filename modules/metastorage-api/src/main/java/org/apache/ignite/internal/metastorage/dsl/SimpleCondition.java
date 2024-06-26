@@ -22,6 +22,7 @@ import org.apache.ignite.internal.network.annotations.Transferable;
 /**
  * Represents a condition for a meta storage conditional update.
  */
+// TODO: IGNITE-22583 тут
 @Transferable(MetaStorageMessageGroup.SIMPLE_CONDITION)
 public interface SimpleCondition extends Condition {
     /** Entry key. */
@@ -51,6 +52,7 @@ public interface SimpleCondition extends Condition {
     /**
      * Represents a condition on an entry value.
      */
+    // TODO: IGNITE-22583 тут
     @Transferable(MetaStorageMessageGroup.VALUE_CONDITION)
     interface ValueCondition extends SimpleCondition {
         /** The value as the condition argument. */
