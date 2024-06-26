@@ -467,7 +467,10 @@ namespace Apache.Ignite.Tests.Compute
         {
             var job = NodeNameJob with
             {
-                DeploymentUnits = new DeploymentUnit[] { new("unit-latest") }
+                DeploymentUnits = new DeploymentUnit[]
+                {
+                    new("unit-latest")
+                }
             };
 
             var ex = Assert.ThrowsAsync<IgniteException>(
@@ -480,7 +483,13 @@ namespace Apache.Ignite.Tests.Compute
         public void TestExecuteColocatedOnUnknownUnitWithLatestVersionThrows()
         {
             var keyTuple = new IgniteTuple { [KeyCol] = 1L };
-            var job = NodeNameJob with { DeploymentUnits = new DeploymentUnit[] { new("unit-latest") } };
+            var job = NodeNameJob with
+            {
+                DeploymentUnits = new DeploymentUnit[]
+                {
+                    new("unit-latest")
+                }
+            };
 
             var ex = Assert.ThrowsAsync<IgniteException>(
                 async () => await Client.Compute.SubmitAsync(JobTarget.Colocated(TableName, keyTuple), job));
@@ -491,7 +500,13 @@ namespace Apache.Ignite.Tests.Compute
         [Test]
         public void TestNullUnitNameThrows()
         {
-            var job = NodeNameJob with { DeploymentUnits = new DeploymentUnit[] { new(null!) } };
+            var job = NodeNameJob with
+            {
+                DeploymentUnits = new DeploymentUnit[]
+                {
+                    new(null!)
+                }
+            };
 
             var ex = Assert.ThrowsAsync<ArgumentNullException>(
                 async () => await Client.Compute.SubmitAsync(await GetNodeAsync(1), job));
@@ -502,10 +517,16 @@ namespace Apache.Ignite.Tests.Compute
         [Test]
         public void TestEmptyUnitNameThrows()
         {
-            var deploymentUnits = new DeploymentUnit[] { new(string.Empty) };
+            var job = NodeNameJob with
+            {
+                DeploymentUnits = new DeploymentUnit[]
+                {
+                    new(string.Empty)
+                }
+            };
 
             var ex = Assert.ThrowsAsync<ArgumentException>(
-                async () => await Client.Compute.SubmitAsync(await GetNodeAsync(1), new(NodeNameJob, deploymentUnits)));
+                async () => await Client.Compute.SubmitAsync(await GetNodeAsync(1), job));
 
             Assert.AreEqual("The value cannot be an empty string. (Parameter 'unit.Name')", ex!.Message);
         }
@@ -513,10 +534,16 @@ namespace Apache.Ignite.Tests.Compute
         [Test]
         public void TestNullUnitVersionThrows()
         {
-            var deploymentUnits = new DeploymentUnit[] { new("u", null!) };
+            var job = NodeNameJob with
+            {
+                DeploymentUnits = new DeploymentUnit[]
+                {
+                    new("u", null!)
+                }
+            };
 
             var ex = Assert.ThrowsAsync<ArgumentNullException>(
-                async () => await Client.Compute.SubmitAsync(await GetNodeAsync(1), new(NodeNameJob, deploymentUnits)));
+                async () => await Client.Compute.SubmitAsync(await GetNodeAsync(1), job));
 
             Assert.AreEqual("Value cannot be null. (Parameter 'unit.Version')", ex!.Message);
         }
@@ -524,10 +551,16 @@ namespace Apache.Ignite.Tests.Compute
         [Test]
         public void TestEmptyUnitVersionThrows()
         {
-            var deploymentUnits = new DeploymentUnit[] { new("u", string.Empty) };
+            var job = NodeNameJob with
+            {
+                DeploymentUnits = new DeploymentUnit[]
+                {
+                    new("u", string.Empty)
+                }
+            };
 
             var ex = Assert.ThrowsAsync<ArgumentException>(
-                async () => await Client.Compute.SubmitAsync(await GetNodeAsync(1), new(NodeNameJob, deploymentUnits)));
+                async () => await Client.Compute.SubmitAsync(await GetNodeAsync(1), job));
 
             Assert.AreEqual("The value cannot be an empty string. (Parameter 'unit.Version')", ex!.Message);
         }
