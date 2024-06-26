@@ -29,7 +29,6 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
-import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.Column;
@@ -76,11 +75,7 @@ public abstract class BaseMvStoragesTest extends BaseIgniteAbstractTest {
     protected final HybridClock clock = new HybridClockImpl();
 
     protected static BinaryRow binaryRow(TestKey key, TestValue value) {
-        try {
-            return KV_MARSHALLER.marshal(key, value);
-        } catch (MarshallerException e) {
-            throw new IllegalArgumentException(e);
-        }
+        return KV_MARSHALLER.marshal(key, value);
     }
 
     protected static IndexRow indexRow(StorageIndexDescriptor indexDescriptor, BinaryRow binaryRow, RowId rowId) {
@@ -99,20 +94,12 @@ public abstract class BaseMvStoragesTest extends BaseIgniteAbstractTest {
     }
 
     protected static TestKey key(BinaryRow binaryRow) {
-        try {
-            return KV_MARSHALLER.unmarshalKey(Row.wrapBinaryRow(SCHEMA_DESCRIPTOR, binaryRow));
-        } catch (MarshallerException e) {
-            throw new IllegalArgumentException(e);
-        }
+        return KV_MARSHALLER.unmarshalKey(Row.wrapBinaryRow(SCHEMA_DESCRIPTOR, binaryRow));
     }
 
     @Nullable
     protected static TestValue value(BinaryRow binaryRow) {
-        try {
-            return KV_MARSHALLER.unmarshalValue(Row.wrapBinaryRow(SCHEMA_DESCRIPTOR, binaryRow));
-        } catch (MarshallerException e) {
-            throw new IllegalArgumentException(e);
-        }
+        return KV_MARSHALLER.unmarshalValue(Row.wrapBinaryRow(SCHEMA_DESCRIPTOR, binaryRow));
     }
 
     protected static @Nullable IgniteBiTuple<TestKey, TestValue> unwrap(@Nullable BinaryRow binaryRow) {

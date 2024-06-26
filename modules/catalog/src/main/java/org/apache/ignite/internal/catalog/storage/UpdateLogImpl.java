@@ -37,6 +37,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogMarshallerException;
 import org.apache.ignite.internal.catalog.storage.serialization.UpdateLogMarshaller;
 import org.apache.ignite.internal.catalog.storage.serialization.UpdateLogMarshallerImpl;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -59,7 +60,6 @@ import org.apache.ignite.internal.metastorage.dsl.Update;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.MarshallerException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -175,7 +175,7 @@ public class UpdateLogImpl implements UpdateLog {
             Iif iif = iif(versionAsExpected, appendUpdateEntryAndBumpVersion, ops().yield(false));
 
             return metastore.invoke(iif).thenApply(StatementResult::getAsBoolean);
-        } catch (MarshallerException ex) {
+        } catch (CatalogMarshallerException ex) {
             LOG.warn("Failed to append update log.", ex);
 
             // TODO: IGNITE-14611 Pass exception to an error handler because catalog got into inconsistent state.
@@ -221,7 +221,7 @@ public class UpdateLogImpl implements UpdateLog {
             Iif iif = iif(versionIsRecent, saveSnapshotAndDropOutdatedUpdates, ops().yield(false));
 
             return metastore.invoke(iif).thenApply(StatementResult::getAsBoolean);
-        } catch (MarshallerException ex) {
+        } catch (CatalogMarshallerException ex) {
             LOG.warn("Failed to append update log.", ex);
 
             // TODO: IGNITE-14611 Pass exception to an error handler because catalog got into inconsistent state.
@@ -313,7 +313,7 @@ public class UpdateLogImpl implements UpdateLog {
                     UpdateLogEvent update = marshaller.unmarshall(payload);
 
                     handleFutures.add(onUpdateHandler.handle(update, event.timestamp(), event.revision()));
-                } catch (MarshallerException ex) {
+                } catch (CatalogMarshallerException ex) {
                     LOG.warn("Failed to deserialize update.", ex);
 
                     // TODO: IGNITE-14611 Pass exception to an error handler because catalog got into inconsistent state.

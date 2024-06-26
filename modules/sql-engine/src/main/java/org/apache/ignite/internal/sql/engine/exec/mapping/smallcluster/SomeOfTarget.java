@@ -50,6 +50,21 @@ class SomeOfTarget extends AbstractTarget {
     }
 
     @Override
+    public ExecutionTarget trimTo(ExecutionTarget other) {
+        assert other instanceof AbstractTarget : other == null ? "<null>" : other.getClass().getCanonicalName();
+
+        long otherNodes = ((AbstractTarget) other).nodes;
+
+        long newNodes = nodes & otherNodes;
+
+        if (newNodes == nodes || newNodes == 0) {
+            return this;
+        }
+
+        return new SomeOfTarget(newNodes);
+    }
+
+    @Override
     ExecutionTarget colocate(AllOfTarget other) throws ColocationMappingException {
         return colocate(other, this);
     }

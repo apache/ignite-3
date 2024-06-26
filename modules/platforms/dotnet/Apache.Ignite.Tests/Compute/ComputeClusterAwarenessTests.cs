@@ -17,7 +17,6 @@
 
 namespace Apache.Ignite.Tests.Compute
 {
-    using System;
     using System.Collections.Generic;
     using System.Linq;
     using System.Threading.Tasks;
@@ -46,10 +45,10 @@ namespace Apache.Ignite.Tests.Compute
             client.WaitForConnections(3);
 
             IJobExecution<string> exec2 = await client.Compute.SubmitAsync<string>(
-                new[] { server2.Node }, Array.Empty<DeploymentUnit>(), jobClassName: string.Empty);
+                new[] { server2.Node }, new(string.Empty));
 
             IJobExecution<string> exec3 = await client.Compute.SubmitAsync<string>(
-                new[] { server3.Node }, Array.Empty<DeploymentUnit>(), jobClassName: string.Empty);
+                new[] { server3.Node }, new(string.Empty));
 
             Assert.AreEqual("s2", await exec2.GetResultAsync());
             Assert.AreEqual("s3", await exec3.GetResultAsync());
@@ -70,10 +69,10 @@ namespace Apache.Ignite.Tests.Compute
             using var client = await server1.ConnectClientAsync();
 
             IJobExecution<string> exec2 = await client.Compute.SubmitAsync<string>(
-                new[] { server2.Node }, Array.Empty<DeploymentUnit>(), jobClassName: string.Empty);
+                new[] { server2.Node }, new(string.Empty));
 
             IJobExecution<string> exec3 = await client.Compute.SubmitAsync<string>(
-                new[] { server3.Node }, Array.Empty<DeploymentUnit>(), jobClassName: string.Empty);
+                new[] { server3.Node }, new(string.Empty));
 
             Assert.AreEqual("s1", await exec2.GetResultAsync());
             Assert.AreEqual("s1", await exec3.GetResultAsync());
@@ -107,7 +106,7 @@ namespace Apache.Ignite.Tests.Compute
                 var node = i % 2 == 0 ? server1.Node : server2.Node;
 
                 IJobExecution<string> jobExecution = await client.Compute.SubmitAsync<string>(
-                    new[] { node }, Array.Empty<DeploymentUnit>(), jobClassName: string.Empty);
+                    new[] { node }, new(string.Empty));
 
                 string res = await jobExecution.GetResultAsync();
 

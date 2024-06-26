@@ -27,13 +27,13 @@ import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.TABLE_CREATE;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.TABLE_DROP;
 import static org.apache.ignite.internal.event.EventListener.fromConsumer;
+import static org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum.CATCHING_UP;
+import static org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum.HEALTHY;
 import static org.apache.ignite.internal.table.distributed.disaster.DisasterRecoverySystemViews.createGlobalPartitionStatesSystemView;
 import static org.apache.ignite.internal.table.distributed.disaster.DisasterRecoverySystemViews.createLocalPartitionStatesSystemView;
 import static org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionStateEnum.AVAILABLE;
 import static org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionStateEnum.DEGRADED;
 import static org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionStateEnum.READ_ONLY;
-import static org.apache.ignite.internal.table.distributed.disaster.LocalPartitionStateEnum.CATCHING_UP;
-import static org.apache.ignite.internal.table.distributed.disaster.LocalPartitionStateEnum.HEALTHY;
 import static org.apache.ignite.internal.util.CompletableFutures.copyStateTo;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.DisasterRecovery.PARTITION_STATE_ERR;
@@ -74,20 +74,21 @@ import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.TopologyService;
+import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
+import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
+import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum;
+import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateMessage;
+import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStatesRequest;
+import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStatesResponse;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.systemview.api.SystemView;
 import org.apache.ignite.internal.systemview.api.SystemViewProvider;
 import org.apache.ignite.internal.table.distributed.TableManager;
-import org.apache.ignite.internal.table.distributed.TableMessageGroup;
-import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.DisasterRecoveryException;
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.IllegalPartitionIdException;
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.NodesNotFoundException;
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.ZonesNotFoundException;
-import org.apache.ignite.internal.table.distributed.disaster.messages.LocalPartitionStateMessage;
-import org.apache.ignite.internal.table.distributed.disaster.messages.LocalPartitionStatesRequest;
-import org.apache.ignite.internal.table.distributed.disaster.messages.LocalPartitionStatesResponse;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.lang.TableNotFoundException;
@@ -102,12 +103,12 @@ import org.jetbrains.annotations.Nullable;
  */
 public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvider {
     /** Logger. */
-    private static final IgniteLogger LOG = Loggers.forClass(DisasterRecoveryManager.class);
+    static final IgniteLogger LOG = Loggers.forClass(DisasterRecoveryManager.class);
 
     /** Single key for writing disaster recovery requests into meta-storage. */
     static final ByteArray RECOVERY_TRIGGER_KEY = new ByteArray("disaster.recovery.trigger");
 
-    private static final TableMessagesFactory MSG_FACTORY = new TableMessagesFactory();
+    private static final PartitionReplicationMessagesFactory MSG_FACTORY = new PartitionReplicationMessagesFactory();
 
     /** Disaster recovery operations timeout in seconds. */
     private static final int TIMEOUT_SECONDS = 30;
@@ -183,7 +184,10 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         watchListener = new WatchListener() {
             @Override
             public CompletableFuture<Void> onUpdate(WatchEvent event) {
-                return handleTriggerKeyUpdate(event);
+                handleTriggerKeyUpdate(event);
+
+                // There is no need to block a watch thread any longer.
+                return nullCompletedFuture();
             }
 
             @Override
@@ -195,7 +199,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
-        messagingService.addMessageHandler(TableMessageGroup.class, this::handleMessage);
+        messagingService.addMessageHandler(PartitionReplicationMessageGroup.class, this::handleMessage);
 
         metaStorageManager.registerExactWatch(RECOVERY_TRIGGER_KEY, watchListener);
 
@@ -248,7 +252,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
             checkPartitionsRange(partitionIds, Set.of(zone));
 
-            return processNewRequest(new ManualGroupUpdateRequest(UUID.randomUUID(), zone.id(), tableId, partitionIds));
+            return processNewRequest(new ManualGroupUpdateRequest(UUID.randomUUID(), catalog.version(), zone.id(), tableId, partitionIds));
         } catch (Throwable t) {
             return failedFuture(t);
         }
@@ -334,7 +338,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         }
     }
 
-    private CompletableFuture<Map<TablePartitionId, LocalPartitionStateMessageByNode>> localPartitionStatesInternal(
+    CompletableFuture<Map<TablePartitionId, LocalPartitionStateMessageByNode>> localPartitionStatesInternal(
             Set<String> zoneNames,
             Set<String> nodeNames,
             Set<Integer> partitionIds,
@@ -482,7 +486,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
      * Handler for {@link #RECOVERY_TRIGGER_KEY} update event. Deserializes the request and delegates the execution to
      * {@link DisasterRecoveryRequest#handle(DisasterRecoveryManager, long)}.
      */
-    private CompletableFuture<Void> handleTriggerKeyUpdate(WatchEvent watchEvent) {
+    private void handleTriggerKeyUpdate(WatchEvent watchEvent) {
         Entry newEntry = watchEvent.entryEvent().newEntry();
 
         byte[] requestBytes = newEntry.value();
@@ -494,7 +498,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         } catch (Exception e) {
             LOG.warn("Unable to deserialize disaster recovery request.", e);
 
-            return nullCompletedFuture();
+            return;
         }
 
         CompletableFuture<Void> operationFuture = ongoingOperationsById.remove(request.operationId());
@@ -503,27 +507,29 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             case SINGLE_NODE:
                 if (operationFuture == null) {
                     // We're not the initiator, or timeout has passed. Just ignore it.
-                    return nullCompletedFuture();
+                    return;
                 }
 
-                return request.handle(this, watchEvent.revision()).whenComplete(copyStateTo(operationFuture));
+                request.handle(this, watchEvent.revision()).whenComplete(copyStateTo(operationFuture));
+
+                break;
             case MULTI_NODE:
                 CompletableFuture<Void> handleFuture = request.handle(this, watchEvent.revision());
 
                 if (operationFuture == null) {
                     // We're not the initiator, or timeout has passed.
-                    return handleFuture;
+                    return;
                 }
 
-                return handleFuture.whenComplete(copyStateTo(operationFuture));
+                handleFuture.whenComplete(copyStateTo(operationFuture));
+
+                break;
             default:
                 var error = new AssertionError("Unexpected request type: " + request.getClass());
 
                 if (operationFuture != null) {
                     operationFuture.completeExceptionally(error);
                 }
-
-                return failedFuture(error);
         }
     }
 

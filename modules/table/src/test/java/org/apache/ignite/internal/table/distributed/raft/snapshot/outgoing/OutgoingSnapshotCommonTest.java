@@ -26,12 +26,12 @@ import static org.mockito.Mockito.when;
 import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.internal.catalog.CatalogService;
-import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
+import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
+import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMetaRequest;
+import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMetaResponse;
 import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionAccess;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionKey;
-import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMetaRequest;
-import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMetaResponse;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
@@ -50,7 +50,7 @@ class OutgoingSnapshotCommonTest extends BaseIgniteAbstractTest {
 
     private OutgoingSnapshot snapshot;
 
-    private final TableMessagesFactory messagesFactory = new TableMessagesFactory();
+    private final PartitionReplicationMessagesFactory messagesFactory = new PartitionReplicationMessagesFactory();
 
     private final PartitionKey partitionKey = new PartitionKey(1, 1);
 

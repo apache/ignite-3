@@ -21,6 +21,7 @@ import static java.util.stream.Collectors.toList;
 
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
+import com.squareup.javapoet.FieldSpec;
 import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeSpec;
@@ -68,9 +69,22 @@ public class MessageSerializerGenerator {
         processingEnvironment.getMessager()
                 .printMessage(Diagnostic.Kind.NOTE, "Generating a MessageSerializer for " + message.className());
 
-        return TypeSpec.classBuilder(message.simpleName() + "Serializer")
+        ClassName serializerClassName = message.serializerClassName();
+
+        return TypeSpec.classBuilder(serializerClassName)
                 .addSuperinterface(ParameterizedTypeName.get(ClassName.get(MessageSerializer.class), message.className()))
+                .addMethod(MethodSpec.constructorBuilder()
+                        .addModifiers(Modifier.PRIVATE)
+                        .build())
                 .addMethod(writeMessageMethod(message))
+                .addField(FieldSpec.builder(serializerClassName, "INSTANCE")
+                        .addModifiers(Modifier.PUBLIC, Modifier.STATIC, Modifier.FINAL)
+                        .build()
+                )
+                .addStaticBlock(CodeBlock.builder()
+                        .addStatement("INSTANCE = new $T()", serializerClassName)
+                        .build()
+                )
                 .addOriginatingElement(message.element())
                 .addOriginatingElement(messageGroup.element())
                 .build();

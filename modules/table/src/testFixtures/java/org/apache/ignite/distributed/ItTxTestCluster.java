@@ -90,6 +90,7 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NodeFinder;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
+import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.Loza;
@@ -123,8 +124,8 @@ import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.HashIndexLocker;
 import org.apache.ignite.internal.table.distributed.IndexLocker;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
-import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
+import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
@@ -421,7 +422,7 @@ public class ItTxTestCluster {
                     clusterService,
                     cmgManager,
                     clockService,
-                    Set.of(TableMessageGroup.class, TxMessageGroup.class),
+                    Set.of(PartitionReplicationMessageGroup.class, TxMessageGroup.class),
                     placementDriver,
                     partitionOperationsExecutor,
                     () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
@@ -669,7 +670,8 @@ public class ItTxTestCluster {
                         storageIndexTracker,
                         catalogService,
                         schemaManager,
-                        clockServices.get(assignment)
+                        clockServices.get(assignment),
+                        mock(IndexMetaStorage.class)
                 );
 
                 CompletableFuture<Void> partitionReadyFuture = raftServers.get(assignment).startRaftGroupNode(
@@ -831,7 +833,8 @@ public class ItTxTestCluster {
                 placementDriver,
                 clusterNodeResolver,
                 resourcesRegistry,
-                schemaRegistry
+                schemaRegistry,
+                mock(IndexMetaStorage.class)
         );
     }
 

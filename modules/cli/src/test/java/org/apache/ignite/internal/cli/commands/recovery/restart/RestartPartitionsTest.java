@@ -28,6 +28,8 @@ import static org.mockserver.model.HttpResponse.response;
 import static org.mockserver.model.JsonBody.json;
 
 import org.apache.ignite.internal.cli.commands.IgniteCliInterfaceTestBase;
+import org.apache.ignite.internal.cli.commands.recovery.partitions.restart.RestartPartitionsCommand;
+import org.apache.ignite.internal.util.ArrayUtils;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockserver.model.MediaType;
@@ -45,19 +47,19 @@ public class RestartPartitionsTest extends IgniteCliInterfaceTestBase {
         clientAndServer
                 .when(request()
                         .withMethod("POST")
-                        .withPath("/management/v1/recovery/restart-partitions")
+                        .withPath("/management/v1/recovery/partitions/restart")
                         .withBody(json(expectedSentContent))
                         .withContentType(MediaType.APPLICATION_JSON_UTF_8)
                 )
                 .respond(response(null));
 
-        execute("recovery", "restart-partitions",
-                CLUSTER_URL_OPTION, mockUrl,
+        execute(CLUSTER_URL_OPTION, mockUrl,
                 RECOVERY_TABLE_NAME_OPTION, "table_NAME",
                 RECOVERY_ZONE_NAME_OPTION, "zone_NAME"
         );
 
-        assertSuccessfulOutputIs("Successfully restarted partitions.");
+        assertErrOutputIsEmpty();
+        assertOutputIs("Successfully restarted partitions.");
     }
 
     @Test
@@ -68,20 +70,20 @@ public class RestartPartitionsTest extends IgniteCliInterfaceTestBase {
         clientAndServer
                 .when(request()
                         .withMethod("POST")
-                        .withPath("/management/v1/recovery/restart-partitions")
+                        .withPath("/management/v1/recovery/partitions/restart")
                         .withBody(json(expectedSentContent, ONLY_MATCHING_FIELDS))
                         .withContentType(MediaType.APPLICATION_JSON_UTF_8)
                 )
                 .respond(response(null));
 
-        execute("recovery", "restart-partitions",
-                CLUSTER_URL_OPTION, mockUrl,
+        execute(CLUSTER_URL_OPTION, mockUrl,
                 RECOVERY_TABLE_NAME_OPTION, "table_NAME",
                 RECOVERY_ZONE_NAME_OPTION, "zone_NAME",
                 RECOVERY_PARTITION_IDS_OPTION, "1,2"
         );
 
-        assertSuccessfulOutputIs("Successfully restarted partitions.");
+        assertErrOutputIsEmpty();
+        assertOutputIs("Successfully restarted partitions.");
     }
 
     @Test
@@ -92,20 +94,27 @@ public class RestartPartitionsTest extends IgniteCliInterfaceTestBase {
         clientAndServer
                 .when(request()
                         .withMethod("POST")
-                        .withPath("/management/v1/recovery/restart-partitions")
+                        .withPath("/management/v1/recovery/partitions/restart")
                         .withBody(json(expectedSentContent, ONLY_MATCHING_FIELDS))
                         .withContentType(MediaType.APPLICATION_JSON_UTF_8)
                 )
                 .respond(response(null));
 
 
-        execute("recovery", "restart-partitions",
-                CLUSTER_URL_OPTION, mockUrl,
+        execute(CLUSTER_URL_OPTION, mockUrl,
                 RECOVERY_TABLE_NAME_OPTION, "table_NAME",
                 RECOVERY_ZONE_NAME_OPTION, "zone_NAME",
                 RECOVERY_NODE_NAMES_OPTION, "node_NAME,node_NAME_2"
         );
 
-        assertSuccessfulOutputIs("Successfully restarted partitions.");
+        assertErrOutputIsEmpty();
+        assertOutputIs("Successfully restarted partitions.");
+    }
+
+    @Override
+    protected void execute(String... args) {
+        String[] fullArgs = ArrayUtils.concat(new String[] {"recovery", "partitions", "restart"}, args);
+
+        super.execute(fullArgs);
     }
 }

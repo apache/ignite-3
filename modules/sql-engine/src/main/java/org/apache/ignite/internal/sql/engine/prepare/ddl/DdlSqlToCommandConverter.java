@@ -78,6 +78,7 @@ import org.apache.calcite.sql.ddl.SqlDdlNodes;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.parser.SqlParserUtil;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.calcite.util.DateString;
 import org.apache.calcite.util.TimeString;
 import org.apache.calcite.util.TimestampString;
@@ -382,6 +383,18 @@ public class DdlSqlToCommandConverter {
 
         String name = col.name.getSimple();
         RelDataType relType = planner.convert(col.dataType, nullable);
+
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-15200
+        //  Remove this after interval type support is added.
+        if (SqlTypeUtil.isInterval(relType)) {
+            String error = format(
+                    "Type {} cannot be used in a column definition [column={}].", 
+                    relType.getSqlTypeName().getSpaceName(),
+                    name
+            );
+            throw new SqlException(STMT_VALIDATION_ERR, error);
+        }
+
         ColumnTypeParams typeParams = new ColumnTypeParams(relType);
 
         return ColumnParams.builder()

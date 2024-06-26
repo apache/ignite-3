@@ -167,11 +167,38 @@ public interface IgniteCatalog {
     CompletableFuture<Table> createTableAsync(TableDefinition definition);
 
     /**
+     * Creates a query object from the annotated record class.
+     *
+     * @param recordClass Annotated record class.
+     * @return Query object.
+     */
+    Table createTable(Class<?> recordClass);
+
+    /**
+     * Creates a query object from the annotated key and value classes.
+     *
+     * @param keyClass Annotated key class.
+     * @param valueClass Annotated value class.
+     * @return Query object.
+     */
+    Table createTable(Class<?> keyClass, Class<?> valueClass);
+
+    /**
+     * Creates a query object from the table definition.
+     *
+     * @param definition Table definition.
+     * @return Query object.
+     */
+    Table createTable(TableDefinition definition);
+
+    /**
      * Creates a query object from the zone definition.
      *
      * @param definition Zone definition.
      */
     CompletableFuture<Void> createZoneAsync(ZoneDefinition definition);
+
+    void createZone(ZoneDefinition definition);
 
     /**
      * Creates a {@code DROP TABLE} query object from the table definition.
@@ -188,6 +215,20 @@ public interface IgniteCatalog {
     CompletableFuture<Void> dropTableAsync(String name);
 
     /**
+     * Creates a {@code DROP TABLE} query object from the table definition.
+     *
+     * @param definition Table definition.
+     */
+    void dropTable(TableDefinition definition);
+
+    /**
+     * Creates a {@code DROP TABLE} query object from the table name.
+     *
+     * @param name Table name.
+     */
+    void dropTable(String name);
+
+    /**
      * Creates a {@code DROP ZONE} query object from the zone definition.
      *
      * @param definition Zone definition.
@@ -200,4 +241,18 @@ public interface IgniteCatalog {
      * @param name Zone name.
      */
     CompletableFuture<Void> dropZoneAsync(String name);
+
+    /**
+     * Creates a {@code DROP ZONE} query object from the zone definition.
+     *
+     * @param definition Zone definition.
+     */
+    void dropZone(ZoneDefinition definition);
+
+    /**
+     * Creates a {@code DROP ZONE} query object from the zone name.
+     *
+     * @param name Zone name.
+     */
+    void dropZone(String name);
 }

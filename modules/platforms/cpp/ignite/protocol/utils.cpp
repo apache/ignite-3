@@ -176,8 +176,8 @@ uuid unpack_object(const msgpack_object &object) {
 
     auto data = reinterpret_cast<const std::byte *>(object.via.ext.ptr);
 
-    auto msb = bytes::load<endian::LITTLE, int64_t>(data);
-    auto lsb = bytes::load<endian::LITTLE, int64_t>(data + 8);
+    auto msb = detail::bytes::load<detail::endian::LITTLE, int64_t>(data);
+    auto lsb = detail::bytes::load<detail::endian::LITTLE, int64_t>(data + 8);
 
     return {msb, lsb};
 }

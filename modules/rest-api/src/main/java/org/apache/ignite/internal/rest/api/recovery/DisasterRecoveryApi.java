@@ -77,9 +77,9 @@ public interface DisasterRecoveryApi {
             Optional<Set<Integer>> partitionIds
     );
 
-    @Post("reset-partitions")
+    @Post("partitions/reset")
     @Operation(
-            operationId = "reset-partitions",
+            operationId = "resetPartitions",
             description = "Updates assignments of partitions in a forced manner, allowing for the recovery of raft groups with "
                     + "lost majorities."
     )
@@ -92,9 +92,9 @@ public interface DisasterRecoveryApi {
     @Produces(MediaType.PROBLEM_JSON)
     CompletableFuture<Void> resetPartitions(@Body ResetPartitionsRequest command);
 
-    @Post("restart-partitions")
+    @Post("partitions/restart")
     @Operation(
-            operationId = "restart-partitions",
+            operationId = "restartPartitions",
             description = "Restarts replica service and raft group of passed partitions."
     )
     @ApiResponse(responseCode = "200", description = "Partitions restarted.")

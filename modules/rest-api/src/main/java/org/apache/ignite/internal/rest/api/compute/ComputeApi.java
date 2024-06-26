@@ -43,30 +43,30 @@ import org.apache.ignite.internal.rest.api.Problem;
 @Tag(name = "compute")
 public interface ComputeApi {
     /**
-     * Retrieves the statuses of all compute jobs.
+     * Retrieves the states of all compute jobs.
      *
-     * @return A collection of compute job statuses.
+     * @return A collection of compute job states.
      */
-    @Operation(summary = "Retrieve all job statuses", description = "Fetches the current statuses of all compute jobs.")
+    @Operation(summary = "Retrieve all job states", description = "Fetches the current states of all compute jobs.")
     @ApiResponse(
             responseCode = "200",
-            description = "Successful retrieval of job statuses.",
-            content = @Content(mediaType = APPLICATION_JSON, array = @ArraySchema(schema = @Schema(implementation = JobStatus.class)))
+            description = "Successful retrieval of job states.",
+            content = @Content(mediaType = APPLICATION_JSON, array = @ArraySchema(schema = @Schema(implementation = JobState.class)))
     )
     @Get("jobs")
-    CompletableFuture<Collection<JobStatus>> jobStatuses();
+    CompletableFuture<Collection<JobState>> jobStates();
 
     /**
-     * Retrieves the status of a specific compute job.
+     * Retrieves the state of a specific compute job.
      *
      * @param jobId The unique identifier of the compute job.
-     * @return The status of the specified compute job.
+     * @return The state of the specified compute job.
      */
-    @Operation(summary = "Retrieve a job status", description = "Fetches the current status of a specific compute job identified by jobId.")
+    @Operation(summary = "Retrieve a job state", description = "Fetches the current state of a specific compute job identified by jobId.")
     @ApiResponse(
             responseCode = "200",
-            description = "Successful retrieval of the job status.",
-            content = @Content(mediaType = APPLICATION_JSON, schema = @Schema(implementation = JobStatus.class))
+            description = "Successful retrieval of the job state.",
+            content = @Content(mediaType = APPLICATION_JSON, schema = @Schema(implementation = JobState.class))
     )
     @ApiResponse(
             responseCode = "404",
@@ -74,7 +74,7 @@ public interface ComputeApi {
             content = @Content(mediaType = APPLICATION_JSON, schema = @Schema(implementation = Problem.class))
     )
     @Get("jobs/{jobId}")
-    CompletableFuture<JobStatus> jobStatus(
+    CompletableFuture<JobState> jobState(
             @Schema(name = "jobId", description = "The unique identifier of the compute job.", requiredMode = REQUIRED) UUID jobId
     );
 
