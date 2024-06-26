@@ -50,7 +50,7 @@ public final class AsciiStringUtil {
     }
 
     public static String unsafeDecode(final ByteBuffer in) {
-        final int len = in.remaining();
+        final int len = in.capacity();
         final char[] out = new char[len];
         for (int i = 0; i < len; i++) {
             out[i] = (char) (in.get() & 0xFF);
