@@ -100,6 +100,15 @@ public interface RaftManager extends IgniteComponent {
             RaftNodeDisruptorConfiguration disruptorConfiguration
     ) throws NodeStoppingException;
 
+    CompletableFuture<RaftGroupService> startRaftGroupNodeAndWaitNodeReadyFuture(
+            RaftNodeId nodeId,
+            PeersAndLearners configuration,
+            RaftGroupListener lsnr,
+            RaftGroupEventsListener eventsLsnr,
+            RaftNodeDisruptorConfiguration disruptorConfiguration,
+            Object msLogStorageFactory
+    ) throws NodeStoppingException;
+
     /**
      * Starts a Raft group and a Raft service on the current node, using the given service factory.
      *
@@ -120,6 +129,16 @@ public interface RaftManager extends IgniteComponent {
             RaftGroupEventsListener eventsLsnr,
             RaftNodeDisruptorConfiguration disruptorConfiguration,
             RaftServiceFactory<T> factory
+    ) throws NodeStoppingException;
+
+    <T extends RaftGroupService> CompletableFuture<T> startRaftGroupNodeAndWaitNodeReadyFuture(
+            RaftNodeId nodeId,
+            PeersAndLearners configuration,
+            RaftGroupListener lsnr,
+            RaftGroupEventsListener eventsLsnr,
+            RaftNodeDisruptorConfiguration disruptorConfiguration,
+            RaftServiceFactory<T> factory,
+            Object logStorage
     ) throws NodeStoppingException;
 
     /**

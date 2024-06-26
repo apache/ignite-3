@@ -237,7 +237,8 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
                 mock(TopologyAwareRaftGroupServiceFactory.class),
                 new NoOpMetricManager(),
                 raftConfiguration.retryTimeout(),
-                completedFuture(() -> TEST_MAX_CLOCK_SKEW_MILLIS)
+                completedFuture(() -> TEST_MAX_CLOCK_SKEW_MILLIS),
+                null
         );
 
         assertThat(metaStorageManager.stopAsync(new ComponentContext()), willCompleteSuccessfully());

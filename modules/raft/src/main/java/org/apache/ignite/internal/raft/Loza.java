@@ -103,6 +103,7 @@ public class Loza implements RaftManager {
     private final NodeOptions opts;
 
     private final MetricManager metricManager;
+    private final Path dataPath;
 
     /**
      * The constructor.
@@ -126,6 +127,7 @@ public class Loza implements RaftManager {
         this.clusterNetSvc = clusterNetSvc;
         this.raftConfiguration = raftConfiguration;
         this.metricManager = metricManager;
+        this.dataPath = dataPath;
 
         NodeOptions options = new NodeOptions();
 
@@ -309,6 +311,39 @@ public class Loza implements RaftManager {
     }
 
     @Override
+    public CompletableFuture<RaftGroupService> startRaftGroupNodeAndWaitNodeReadyFuture(RaftNodeId nodeId, PeersAndLearners configuration,
+            RaftGroupListener lsnr, RaftGroupEventsListener eventsLsnr, RaftNodeDisruptorConfiguration disruptorConfiguration,
+            Object msLogStorageFactory) throws NodeStoppingException {
+        if (!busyLock.enterBusy()) {
+            throw new NodeStoppingException();
+        }
+
+        try {
+            LogStorageFactory logStorageFactory = (msLogStorageFactory instanceof LogStorageFactory)
+                    ? ((LogStorageFactory) msLogStorageFactory) : null;
+
+            Path basePath = logStorageFactory != null ? dataPath.getParent().resolve("meta-raft") : null;
+
+            CompletableFuture<RaftGroupService> startRaftServiceFuture = startRaftGroupNodeInternal(
+                    nodeId,
+                    configuration,
+                    lsnr,
+                    eventsLsnr,
+                    // Use default marshaller here, because this particular method is used in very specific circumstances.
+                    RaftGroupOptions.defaults()
+                            .ownFsmCallerExecutorDisruptorConfig(disruptorConfiguration)
+                            .setLogStorageFactory(logStorageFactory)
+                            .serverDataPath(basePath),
+                    null
+            );
+
+            return startRaftServiceFuture;
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    @Override
     public <T extends RaftGroupService> CompletableFuture<T> startRaftGroupNodeAndWaitNodeReadyFuture(
             RaftNodeId nodeId,
             PeersAndLearners configuration,
@@ -330,6 +365,40 @@ public class Loza implements RaftManager {
                     // Use default marshaller here, because this particular method is used in very specific circumstances.
                     RaftGroupOptions.defaults()
                             .ownFsmCallerExecutorDisruptorConfig(disruptorConfiguration),
+                    factory
+            );
+
+            return startRaftServiceFuture;
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    @Override
+    public <T extends RaftGroupService> CompletableFuture<T> startRaftGroupNodeAndWaitNodeReadyFuture(RaftNodeId nodeId,
+            PeersAndLearners configuration, RaftGroupListener lsnr, RaftGroupEventsListener eventsLsnr,
+            RaftNodeDisruptorConfiguration disruptorConfiguration, RaftServiceFactory<T> factory, Object logStorage)
+            throws NodeStoppingException {
+        if (!busyLock.enterBusy()) {
+            throw new NodeStoppingException();
+        }
+
+        try {
+            LogStorageFactory logStorageFactory = (logStorage instanceof LogStorageFactory)
+                    ? ((LogStorageFactory) logStorage) : null;
+
+            Path basePath = logStorageFactory != null ? dataPath.getParent().resolve("meta-raft") : null;
+
+            CompletableFuture<T> startRaftServiceFuture = startRaftGroupNodeInternal(
+                    nodeId,
+                    configuration,
+                    lsnr,
+                    eventsLsnr,
+                    // Use default marshaller here, because this particular method is used in very specific circumstances.
+                    RaftGroupOptions.defaults()
+                            .ownFsmCallerExecutorDisruptorConfig(disruptorConfiguration)
+                            .setLogStorageFactory(logStorageFactory)
+                            .serverDataPath(basePath),
                     factory
             );
 

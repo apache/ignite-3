@@ -421,7 +421,11 @@ public class JraftServerImpl implements RaftServer {
      * @return The path to persistence folder.
      */
     public Path getServerDataPath(RaftNodeId nodeId) {
-        return this.dataPath.resolve(nodeIdStr(nodeId));
+        return getServerDataPath(dataPath, nodeId);
+    }
+
+    private Path getServerDataPath(Path basePath, RaftNodeId nodeId) {
+        return basePath.resolve(nodeIdStr(nodeId));
     }
 
     private static String nodeIdStr(RaftNodeId nodeId) {
@@ -469,7 +473,10 @@ public class JraftServerImpl implements RaftServer {
 
             nodeOptions.setLogUri(nodeIdStr(nodeId));
 
-            Path serverDataPath = getServerDataPath(nodeId);
+            Path dataPath = groupOptions.serverDataPath() != null ? groupOptions.serverDataPath() : this.dataPath;
+
+            // todo: take the path from options
+            Path serverDataPath = getServerDataPath(dataPath, nodeId);
 
             if (!groupOptions.volatileStores()) {
                 try {
