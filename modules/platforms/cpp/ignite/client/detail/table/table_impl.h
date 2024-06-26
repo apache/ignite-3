@@ -147,10 +147,10 @@ public:
                     protocol::error_extensions::EXPECTED_SCHEMA_VERSION);
                 if (ver_opt) {
                     with_schema_async<T>(*ver_opt, std::move(uc), callback);
+                    return;
                 }
-            } else {
-                uc(std::move(res));
             }
+            uc(std::move(res));
         };
 
         with_latest_schema_async<T>(std::move(fail_over), callback);
