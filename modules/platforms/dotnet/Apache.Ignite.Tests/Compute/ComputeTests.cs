@@ -158,9 +158,9 @@ namespace Apache.Ignite.Tests.Compute
         [Test]
         public async Task TestExecuteWithArgs()
         {
-            var res = await Client.Compute.SubmitAsync<string>(
-                await Client.GetClusterNodesAsync(),
-                new(ConcatJob),
+            var res = await Client.Compute.SubmitAsync(
+                await GetNodeAsync(0),
+                ConcatJob,
                 1.1,
                 Guid.Empty,
                 "3",
@@ -172,7 +172,7 @@ namespace Apache.Ignite.Tests.Compute
         [Test]
         public async Task TestExecuteWithNullArgs()
         {
-            var res = await Client.Compute.SubmitAsync<string>(await Client.GetClusterNodesAsync(), new(ConcatJob), args: null);
+            var res = await Client.Compute.SubmitAsync(await GetNodeAsync(0), ConcatJob, args: null);
 
             Assert.IsNull(await res.GetResultAsync());
         }
@@ -180,7 +180,7 @@ namespace Apache.Ignite.Tests.Compute
         [Test]
         public async Task TestJobErrorPropagatesToClientWithClassAndMessage()
         {
-            var jobExecution = await Client.Compute.SubmitAsync<string>(await Client.GetClusterNodesAsync(), new(ErrorJob), "unused");
+            var jobExecution = await Client.Compute.SubmitAsync(await GetNodeAsync(0), ErrorJob, "unused");
             var ex = Assert.ThrowsAsync<IgniteException>(async () => await jobExecution.GetResultAsync());
 
             StringAssert.Contains("Custom job error", ex!.Message);
@@ -198,10 +198,10 @@ namespace Apache.Ignite.Tests.Compute
         [Test]
         public void TestUnknownNodeSubmitThrows()
         {
-            var unknownNode = new ClusterNode("x", "y", new IPEndPoint(IPAddress.Loopback, 0));
+            var unknownNode = JobTarget.Node(new ClusterNode("x", "y", new IPEndPoint(IPAddress.Loopback, 0)));
 
             var ex = Assert.ThrowsAsync<NodeNotFoundException>(async () =>
-                await Client.Compute.SubmitAsync<string>(new[] { unknownNode }, new(EchoJob), "unused"));
+                await Client.Compute.SubmitAsync(unknownNode, EchoJob, "unused"));
 
             StringAssert.Contains("None of the specified nodes are present in the cluster: [y]", ex!.Message);
             Assert.AreEqual(ErrorGroups.Compute.NodeNotFound, ex.Code);
