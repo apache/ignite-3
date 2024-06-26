@@ -121,7 +121,7 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>>, Cri
      *
      * @param tx Transaction or {@code null} to auto commit.
      * @param keys Keys whose values are to be returned. The keys cannot be {@code null}.
-     * @return Values associated with given keys.
+     * @return Values associated with given keys. If a requested key does not exist, it will have no corresponding entry in the return map.
      * @throws MarshallerException if the keys don't match the schema.
      */
     Map<K, V> getAll(@Nullable Transaction tx, Collection<K> keys);
