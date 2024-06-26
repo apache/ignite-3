@@ -16,7 +16,7 @@
  */
 
 #include "big_decimal.h"
-#include "bytes.h"
+#include "detail/bytes.h"
 
 #include <cstring>
 
@@ -27,7 +27,7 @@ std::size_t big_decimal::byte_size() const noexcept {
 }
 
 void big_decimal::store_bytes(std::byte *data) const {
-    bytes::store<endian::LITTLE, std::int16_t>(data, m_scale);
+    detail::bytes::store<detail::endian::LITTLE, std::int16_t>(data, m_scale);
     get_unscaled_value().store_bytes(data + sizeof(m_scale));
 }
 
@@ -36,7 +36,7 @@ big_decimal::big_decimal(const std::byte *data, std::size_t size) {
         return;
     }
 
-    m_scale = bytes::load<endian::LITTLE, std::int16_t>(data);
+    m_scale = detail::bytes::load<detail::endian::LITTLE, std::int16_t>(data);
     m_magnitude = big_integer(data + sizeof(m_scale), size - sizeof(m_scale));
 }
 

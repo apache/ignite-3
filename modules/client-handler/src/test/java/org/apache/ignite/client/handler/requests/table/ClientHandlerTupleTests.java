@@ -43,7 +43,6 @@ import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.type.NativeTypes;
@@ -88,7 +87,7 @@ public class ClientHandlerTupleTests {
     );
 
     @Test
-    public void testTupleEquality() throws TupleMarshallerException {
+    public void testTupleEquality() {
         Tuple tuple = createTuple();
 
         BinaryTupleReader binaryTuple = new TupleMarshallerImpl(fullSchema).marshal(tuple).binaryTuple();
@@ -98,7 +97,7 @@ public class ClientHandlerTupleTests {
     }
 
     @Test
-    public void testTupleEqualityKeyOnly() throws TupleMarshallerException {
+    public void testTupleEqualityKeyOnly() {
         Tuple tuple = createKeyTuple();
 
         BinaryTupleReader binaryTuple = new TupleMarshallerImpl(fullSchema).marshalKey(tuple).binaryTuple();

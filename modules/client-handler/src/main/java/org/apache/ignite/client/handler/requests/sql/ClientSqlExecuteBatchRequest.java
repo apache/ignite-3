@@ -19,6 +19,7 @@ package org.apache.ignite.client.handler.requests.sql;
 
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTx;
 
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
@@ -57,7 +58,7 @@ public class ClientSqlExecuteBatchRequest {
         InternalTransaction tx = readTx(in, out, resources);
         ClientSqlProperties props = new ClientSqlProperties(in);
         String statement = in.unpackString();
-        BatchedArguments arguments = in.unpackObjectArrayFromBinaryTupleArray();
+        BatchedArguments arguments = in.unpackBatchedArgumentsFromBinaryTupleArray();
 
         if (arguments == null) {
             // SQL engine requires non-null arguments, but we don't want to complicate the protocol with this requirement.
@@ -87,7 +88,7 @@ public class ClientSqlExecuteBatchRequest {
                         if (cause instanceof SqlBatchException) {
                             var exBatch = ((SqlBatchException) cause);
 
-                            writeBatchResult(out, exBatch.updateCounters(), exBatch.errorCode(), exBatch.getMessage());
+                            writeBatchResult(out, exBatch.updateCounters(), exBatch.code(), exBatch.getMessage(), exBatch.traceId());
                             return null;
                         }
 
@@ -102,16 +103,18 @@ public class ClientSqlExecuteBatchRequest {
     private static void writeBatchResult(
             ClientMessagePacker out,
             long[] affectedRows,
-            Short errorCode,
-            String errorMessage) {
+            int errorCode,
+            String errorMessage,
+            UUID traceId) {
         out.packNil(); // resourceId
 
         out.packBoolean(false); // has row set
         out.packBoolean(false); // has more pages
         out.packBoolean(false); // was applied
         out.packLongArray(affectedRows); // affected rows
-        out.packShort(errorCode); // error code
+        out.packInt(errorCode); // error code
         out.packString(errorMessage); // error message
+        out.packUuid(traceId);
     }
 
     private static void writeBatchResult(
@@ -125,5 +128,6 @@ public class ClientSqlExecuteBatchRequest {
         out.packLongArray(affectedRows); // affected rows
         out.packNil(); // error code
         out.packNil(); // error message
+        out.packNil(); // trace id
     }
 }

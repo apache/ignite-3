@@ -62,13 +62,6 @@ public:
     big_decimal(const std::byte *data, std::size_t size);
 
     /**
-     * Double constructor.
-     *
-     * @param val Double value.
-     */
-    explicit big_decimal(double val) { assign_double(val); }
-
-    /**
      * Integer constructor.
      *
      * @param val Integer value.
@@ -82,7 +75,7 @@ public:
      * @param val Integer value.
      * @param scale Scale.
      */
-    big_decimal(int64_t val, int32_t scale)
+    big_decimal(int64_t val, int16_t scale)
         : m_scale(scale)
         , m_magnitude(val) {}
 
@@ -92,7 +85,7 @@ public:
      * @param val big_integer value.
      * @param scale Scale.
      */
-    big_decimal(const big_integer &val, int32_t scale)
+    big_decimal(const big_integer &val, int16_t scale)
         : m_scale(scale)
         , m_magnitude(val) {}
 
@@ -102,7 +95,7 @@ public:
      * @param val big_integer value.
      * @param scale Scale.
      */
-    big_decimal(big_integer &&val, int32_t scale)
+    big_decimal(big_integer &&val, int16_t scale)
         : m_scale(scale)
         , m_magnitude(std::forward<big_integer>(val)) {}
 
@@ -125,6 +118,18 @@ public:
     explicit big_decimal(const std::string &val)
         : m_magnitude(0) {
         assign_string(val);
+    }
+
+    /**
+     * From double.
+     *
+     * @param val Double value.
+     * @return An instance of big_decimal from double.
+     */
+    static big_decimal from_double(double val) {
+        big_decimal res;
+        res.assign_double(val);
+        return res;
     }
 
     /**

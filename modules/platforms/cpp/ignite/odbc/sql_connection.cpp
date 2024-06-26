@@ -24,7 +24,7 @@
 #include "ignite/odbc/ssl_mode.h"
 #include "ignite/odbc/utility.h"
 
-#include <ignite/common/bytes.h>
+#include "ignite/common/detail/bytes.h"
 #include <ignite/network/network.h>
 #include <ignite/protocol/client_operation.h>
 #include <ignite/protocol/messages.h>
@@ -250,7 +250,7 @@ bool sql_connection::receive(std::vector<std::byte> &msg, std::int32_t timeout) 
         throw odbc_error(sql_state::S08S01_LINK_FAILURE, "Can not receive message header");
 
     static_assert(sizeof(std::int32_t) == PROTOCOL_HEADER_SIZE);
-    std::int32_t len = bytes::load<endian::BIG, std::int32_t>(len_buffer);
+    std::int32_t len = detail::bytes::load<detail::endian::BIG, std::int32_t>(len_buffer);
     if (len < 0) {
         close();
         throw odbc_error(sql_state::SHY000_GENERAL_ERROR, "Protocol error: Message length is negative");

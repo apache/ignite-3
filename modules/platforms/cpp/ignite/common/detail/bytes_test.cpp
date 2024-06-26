@@ -21,49 +21,51 @@
 
 #include <array>
 
+using namespace ignite::detail;
+
 TEST(bytes, swapXX) {
-    EXPECT_EQ(0x0201, ignite::bytes::swap16(0x0102));
-    EXPECT_EQ(0x04030201, ignite::bytes::swap32(0x01020304));
-    EXPECT_EQ(0x0807060504030201, ignite::bytes::swap64(0x0102030405060708));
+    EXPECT_EQ(0x0201, bytes::swap16(0x0102));
+    EXPECT_EQ(0x04030201, bytes::swap32(0x01020304));
+    EXPECT_EQ(0x0807060504030201, bytes::swap64(0x0102030405060708));
 }
 
 TEST(bytes, everse) {
     {
         std::int8_t x = 0x01;
-        EXPECT_EQ(0x01, ignite::bytes::reverse(x));
+        EXPECT_EQ(0x01, bytes::reverse(x));
     }
     {
         std::uint8_t x = 0x01;
-        EXPECT_EQ(0x01, ignite::bytes::reverse(x));
+        EXPECT_EQ(0x01, bytes::reverse(x));
     }
     {
         std::int16_t x = 0x0102;
-        EXPECT_EQ(0x0201, ignite::bytes::reverse(x));
+        EXPECT_EQ(0x0201, bytes::reverse(x));
     }
     {
         std::uint16_t x = 0x0102;
-        EXPECT_EQ(0x0201, ignite::bytes::reverse(x));
+        EXPECT_EQ(0x0201, bytes::reverse(x));
     }
     {
         std::int32_t x = 0x01020304;
-        EXPECT_EQ(0x04030201, ignite::bytes::reverse(x));
+        EXPECT_EQ(0x04030201, bytes::reverse(x));
     }
     {
         std::uint32_t x = 0x01020304;
-        EXPECT_EQ(0x04030201, ignite::bytes::reverse(x));
+        EXPECT_EQ(0x04030201, bytes::reverse(x));
     }
     {
         std::int64_t x = 0x0102030405060708;
-        EXPECT_EQ(0x0807060504030201, ignite::bytes::reverse(x));
+        EXPECT_EQ(0x0807060504030201, bytes::reverse(x));
     }
     {
         std::uint64_t x = 0x0102030405060708;
-        EXPECT_EQ(0x0807060504030201, ignite::bytes::reverse(x));
+        EXPECT_EQ(0x0807060504030201, bytes::reverse(x));
     }
 }
 
 TEST(bytes, adjustOrder) {
-    using namespace ignite::bytes;
+    using namespace bytes;
 
     {
         std::int8_t x = 0x01;
@@ -79,12 +81,12 @@ TEST(bytes, adjustOrder) {
         std::int16_t y = 0x0201;
         EXPECT_EQ(y, ltob(x));
         EXPECT_EQ(y, btol(x));
-        if (ignite::is_little_endian_platform()) {
+        if (is_little_endian_platform()) {
             EXPECT_EQ(x, ltoh(x));
             EXPECT_EQ(x, htol(x));
             EXPECT_EQ(y, btoh(x));
             EXPECT_EQ(y, htob(x));
-        } else if (ignite::is_big_endian_platform()) {
+        } else if (is_big_endian_platform()) {
             EXPECT_EQ(y, ltoh(x));
             EXPECT_EQ(y, htol(x));
             EXPECT_EQ(x, btoh(x));
@@ -96,12 +98,12 @@ TEST(bytes, adjustOrder) {
         std::int32_t y = 0x04030201;
         EXPECT_EQ(y, ltob(x));
         EXPECT_EQ(y, btol(x));
-        if (ignite::is_little_endian_platform()) {
+        if (is_little_endian_platform()) {
             EXPECT_EQ(x, ltoh(x));
             EXPECT_EQ(x, htol(x));
             EXPECT_EQ(y, btoh(x));
             EXPECT_EQ(y, htob(x));
-        } else if (ignite::is_big_endian_platform()) {
+        } else if (is_big_endian_platform()) {
             EXPECT_EQ(y, ltoh(x));
             EXPECT_EQ(y, htol(x));
             EXPECT_EQ(x, btoh(x));
@@ -113,12 +115,12 @@ TEST(bytes, adjustOrder) {
         std::int64_t y = 0x0807060504030201;
         EXPECT_EQ(y, ltob(x));
         EXPECT_EQ(y, btol(x));
-        if (ignite::is_little_endian_platform()) {
+        if (is_little_endian_platform()) {
             EXPECT_EQ(x, ltoh(x));
             EXPECT_EQ(x, htol(x));
             EXPECT_EQ(y, btoh(x));
             EXPECT_EQ(y, htob(x));
-        } else if (ignite::is_big_endian_platform()) {
+        } else if (is_big_endian_platform()) {
             EXPECT_EQ(y, ltoh(x));
             EXPECT_EQ(y, htol(x));
             EXPECT_EQ(x, btoh(x));
@@ -128,7 +130,7 @@ TEST(bytes, adjustOrder) {
 }
 
 TEST(bytes, awAccess) {
-    using namespace ignite::bytes;
+    using namespace bytes;
 
     {
         std::int8_t x = 0x01;
@@ -145,10 +147,10 @@ TEST(bytes, awAccess) {
         std::array<std::byte, sizeof(x)> buf{std::byte{0}};
 
         store_raw(buf.data(), x);
-        if (ignite::is_little_endian_platform()) {
+        if (is_little_endian_platform()) {
             EXPECT_EQ(0x02, std::to_integer<char>(buf[0]));
             EXPECT_EQ(0x01, std::to_integer<char>(buf[1]));
-        } else if (ignite::is_big_endian_platform()) {
+        } else if (is_big_endian_platform()) {
             EXPECT_EQ(0x01, std::to_integer<char>(buf[0]));
             EXPECT_EQ(0x02, std::to_integer<char>(buf[1]));
         }
@@ -161,12 +163,12 @@ TEST(bytes, awAccess) {
         std::array<std::byte, sizeof(x)> buf{std::byte{0}};
 
         store_raw(buf.data(), x);
-        if (ignite::is_little_endian_platform()) {
+        if (is_little_endian_platform()) {
             EXPECT_EQ(0x04, std::to_integer<char>(buf[0]));
             EXPECT_EQ(0x03, std::to_integer<char>(buf[1]));
             EXPECT_EQ(0x02, std::to_integer<char>(buf[2]));
             EXPECT_EQ(0x01, std::to_integer<char>(buf[3]));
-        } else if (ignite::is_big_endian_platform()) {
+        } else if (is_big_endian_platform()) {
             EXPECT_EQ(0x01, std::to_integer<char>(buf[0]));
             EXPECT_EQ(0x02, std::to_integer<char>(buf[1]));
             EXPECT_EQ(0x03, std::to_integer<char>(buf[2]));
@@ -181,7 +183,7 @@ TEST(bytes, awAccess) {
         std::array<std::byte, sizeof(x)> buf{std::byte{0}};
 
         store_raw(buf.data(), x);
-        if (ignite::is_little_endian_platform()) {
+        if (is_little_endian_platform()) {
             EXPECT_EQ(0x08, std::to_integer<char>(buf[0]));
             EXPECT_EQ(0x07, std::to_integer<char>(buf[1]));
             EXPECT_EQ(0x06, std::to_integer<char>(buf[2]));
@@ -190,7 +192,7 @@ TEST(bytes, awAccess) {
             EXPECT_EQ(0x03, std::to_integer<char>(buf[5]));
             EXPECT_EQ(0x02, std::to_integer<char>(buf[6]));
             EXPECT_EQ(0x01, std::to_integer<char>(buf[7]));
-        } else if (ignite::is_big_endian_platform()) {
+        } else if (is_big_endian_platform()) {
             EXPECT_EQ(0x01, std::to_integer<char>(buf[0]));
             EXPECT_EQ(0x02, std::to_integer<char>(buf[1]));
             EXPECT_EQ(0x03, std::to_integer<char>(buf[2]));
@@ -207,12 +209,12 @@ TEST(bytes, awAccess) {
 }
 
 TEST(bytes, genericAccess) {
-    using namespace ignite::bytes;
+    using namespace bytes;
 
     {
         std::int8_t x = 0x01;
         std::array<std::byte, sizeof(x)> buf{std::byte{0}};
-        constexpr auto E = ignite::endian::LITTLE;
+        constexpr auto E = endian::LITTLE;
 
         store<E>(buf.data(), x);
         EXPECT_EQ(0x01, std::to_integer<char>(buf[0]));
@@ -223,7 +225,7 @@ TEST(bytes, genericAccess) {
     {
         std::int8_t x = 0x01;
         std::array<std::byte, sizeof(x)> buf{std::byte{0}};
-        constexpr auto E = ignite::endian::BIG;
+        constexpr auto E = endian::BIG;
 
         store<E>(buf.data(), x);
         EXPECT_EQ(0x01, std::to_integer<char>(buf[0]));
@@ -234,7 +236,7 @@ TEST(bytes, genericAccess) {
     {
         std::int16_t x = 0x0102;
         std::array<std::byte, sizeof(x)> buf{std::byte{0}};
-        constexpr auto E = ignite::endian::LITTLE;
+        constexpr auto E = endian::LITTLE;
 
         store<E>(buf.data(), x);
         EXPECT_EQ(0x02, std::to_integer<char>(buf[0]));
@@ -246,7 +248,7 @@ TEST(bytes, genericAccess) {
     {
         std::int16_t x = 0x0102;
         std::array<std::byte, sizeof(x)> buf{std::byte{0}};
-        constexpr auto E = ignite::endian::BIG;
+        constexpr auto E = endian::BIG;
 
         store<E>(buf.data(), x);
         EXPECT_EQ(0x01, std::to_integer<char>(buf[0]));
@@ -258,7 +260,7 @@ TEST(bytes, genericAccess) {
     {
         std::int32_t x = 0x01020304;
         std::array<std::byte, sizeof(x)> buf{std::byte{0}};
-        constexpr auto E = ignite::endian::LITTLE;
+        constexpr auto E = endian::LITTLE;
 
         store<E>(buf.data(), x);
         EXPECT_EQ(0x04, std::to_integer<char>(buf[0]));
@@ -272,7 +274,7 @@ TEST(bytes, genericAccess) {
     {
         std::int32_t x = 0x01020304;
         std::array<std::byte, sizeof(x)> buf{std::byte{0}};
-        constexpr auto E = ignite::endian::BIG;
+        constexpr auto E = endian::BIG;
 
         store<E>(buf.data(), x);
         EXPECT_EQ(0x01, std::to_integer<char>(buf[0]));
@@ -286,7 +288,7 @@ TEST(bytes, genericAccess) {
     {
         std::int64_t x = 0x0102030405060708;
         std::array<std::byte, sizeof(x)> buf{std::byte{0}};
-        constexpr auto E = ignite::endian::LITTLE;
+        constexpr auto E = endian::LITTLE;
 
         store<E>(buf.data(), x);
         EXPECT_EQ(0x08, std::to_integer<char>(buf[0]));
@@ -304,7 +306,7 @@ TEST(bytes, genericAccess) {
     {
         std::int64_t x = 0x0102030405060708;
         std::array<std::byte, sizeof(x)> buf{std::byte{0}};
-        constexpr auto E = ignite::endian::BIG;
+        constexpr auto E = endian::BIG;
 
         store<E>(buf.data(), x);
         EXPECT_EQ(0x01, std::to_integer<char>(buf[0]));
@@ -322,14 +324,14 @@ TEST(bytes, genericAccess) {
 }
 
 TEST(bytes, genericAccessFloat) {
-    using namespace ignite::bytes;
+    using namespace bytes;
 
     {
         float x = 0.1234f;
         std::array<std::byte, sizeof(x)> buf1{std::byte{0}};
         std::array<std::byte, sizeof(x)> buf2{std::byte{0}};
-        constexpr auto E1 = ignite::endian::LITTLE;
-        constexpr auto E2 = ignite::endian::BIG;
+        constexpr auto E1 = endian::LITTLE;
+        constexpr auto E2 = endian::BIG;
 
         store<E1>(buf1.data(), x);
         store<E2>(buf2.data(), x);
@@ -346,8 +348,8 @@ TEST(bytes, genericAccessFloat) {
         double x = 0.1234;
         std::array<std::byte, sizeof(x)> buf1{std::byte{0}};
         std::array<std::byte, sizeof(x)> buf2{std::byte{0}};
-        constexpr auto E1 = ignite::endian::LITTLE;
-        constexpr auto E2 = ignite::endian::BIG;
+        constexpr auto E1 = endian::LITTLE;
+        constexpr auto E2 = endian::BIG;
 
         store<E1>(buf1.data(), x);
         store<E2>(buf2.data(), x);
