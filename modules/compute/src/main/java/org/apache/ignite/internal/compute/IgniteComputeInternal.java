@@ -76,7 +76,7 @@ public interface IgniteComputeInternal extends IgniteCompute {
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            byte[] payload);
+            Object payload);
 
     /**
      * Wraps the given future into a job execution object.

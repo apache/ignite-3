@@ -50,7 +50,7 @@ class ClientJobExecution<R> implements JobExecution<R> {
     // Local state cache
     private final CompletableFuture<@Nullable JobState> stateFuture = new CompletableFuture<>();
 
-    ClientJobExecution(ReliableChannel ch, CompletableFuture<SubmitResult> reqFuture, Marshaler<R, byte[]> marshaler) {
+    ClientJobExecution(ReliableChannel ch, CompletableFuture<SubmitResult> reqFuture, @Nullable Marshaler<R, byte[]> marshaler) {
         this.ch = ch;
 
         jobIdFuture = reqFuture.thenApply(SubmitResult::jobId);
@@ -60,6 +60,12 @@ class ClientJobExecution<R> implements JobExecution<R> {
                 .thenApply(r -> {
                     // Notifications require explicit input close.
                     try (r) {
+                        if (marshaler == null) {
+                            R result = (R) r.in().unpackObjectFromBinaryTuple();
+                            stateFuture.complete(unpackJobState(r));
+                            return result;
+                        }
+
                         R result = marshaler.unmarshal((byte[]) r.in().unpackObjectFromBinaryTuple());
                         stateFuture.complete(unpackJobState(r));
                         return result;
@@ -94,6 +100,11 @@ class ClientJobExecution<R> implements JobExecution<R> {
             return falseCompletedFuture();
         }
         return jobIdFuture.thenCompose(jobId -> changePriority(ch, jobId, newPriority));
+    }
+
+    @Override
+    public Marshaler<R, byte[]> resultMarshaler() {
+        return null;
     }
 
     static CompletableFuture<@Nullable JobState> getJobState(ReliableChannel ch, UUID jobId) {

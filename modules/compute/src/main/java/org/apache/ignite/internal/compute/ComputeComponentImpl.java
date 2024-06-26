@@ -129,10 +129,10 @@ public class ComputeComponentImpl implements ComputeComponent {
         }
 
         try {
-            CompletableFuture<JobExecutionInternal<R>> future =
+            CompletableFuture<JobExecutionInternal> future =
                     mapClassLoaderExceptions(jobContextManager.acquireClassLoader(units), jobClassName)
                             .thenApply(context -> {
-                                JobExecutionInternal<R> execution = execJob(context, options, jobClassName, input);
+                                JobExecutionInternal execution = execJob(context, options, jobClassName, input);
                                 execution.resultAsync().whenComplete((result, e) -> context.close());
                                 inFlightFutures.registerFuture(execution.resultAsync());
                                 return execution;
@@ -294,7 +294,7 @@ public class ComputeComponentImpl implements ComputeComponent {
     }
 
 
-    private <T, R> JobExecutionInternal<R> execJob(JobContext context, ExecutionOptions options, String jobClassName, Object args) {
+    private <T, R> JobExecutionInternal execJob(JobContext context, ExecutionOptions options, String jobClassName, Object args) {
         try {
             return executor.executeJob(options, jobClass(context.classLoader(), jobClassName), context.classLoader(), args);
         } catch (Throwable e) {

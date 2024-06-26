@@ -37,6 +37,7 @@ import java.util.concurrent.TimeoutException;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobState;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.marshaling.Marshaler;
 
 /**
  * Testing instance of {@link JobExecution}. Adds useful assertions on job's state and sync methods.
@@ -101,6 +102,11 @@ public class TestingJobExecution<R> implements JobExecution<R> {
     @Override
     public CompletableFuture<Boolean> changePriorityAsync(int newPriority) {
         return jobExecution.changePriorityAsync(newPriority);
+    }
+
+    @Override
+    public Marshaler<R, byte[]> resultMarshaler() {
+        return null;
     }
 
     /**

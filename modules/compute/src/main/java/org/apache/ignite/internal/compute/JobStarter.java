@@ -39,6 +39,6 @@ public interface JobStarter {
             ExecutionOptions options,
             List<DeploymentUnit> units,
             String jobClassName,
-            byte[] args
+            Object args
     );
 }

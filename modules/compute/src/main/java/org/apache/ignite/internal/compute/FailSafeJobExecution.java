@@ -27,6 +27,7 @@ import org.apache.ignite.compute.JobState;
 import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.marshaling.Marshaler;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -164,6 +165,11 @@ class FailSafeJobExecution<T> implements JobExecution<T> {
     @Override
     public CompletableFuture<@Nullable Boolean> changePriorityAsync(int newPriority) {
         return runningJobExecution.get().changePriorityAsync(newPriority);
+    }
+
+    @Override
+    public Marshaler<T, byte[]> resultMarshaler() {
+        return null;
     }
 
     /**

@@ -57,6 +57,7 @@ import org.apache.ignite.internal.compute.JobExecutionContextImpl;
 import org.apache.ignite.internal.compute.JobStateImpl;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.marshaling.Marshaler;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
@@ -125,7 +126,7 @@ public class FakeCompute implements IgniteComputeInternal {
     @Override
         public <R> CompletableFuture<JobExecution<R>> submitColocatedInternal(
                 TableViewInternal table, Tuple key, List<DeploymentUnit> units, String jobClassName,
-            JobExecutionOptions options, byte[] args) {
+            JobExecutionOptions options, Object args) {
         return completedFuture(jobExecution(future != null ? future : completedFuture((R) nodeName)));
     }
 
@@ -205,6 +206,11 @@ public class FakeCompute implements IgniteComputeInternal {
             public CompletableFuture<@Nullable Boolean> changePriorityAsync(int newPriority) {
                 return trueCompletedFuture();
             }
+
+            @Override
+            public Marshaler<R, byte[]> resultMarshaler() {
+                return null;
+            }
         };
     }
 
@@ -257,6 +263,11 @@ public class FakeCompute implements IgniteComputeInternal {
             @Override
             public CompletableFuture<@Nullable Boolean> changePriorityAsync(int newPriority) {
                 return trueCompletedFuture();
+            }
+
+            @Override
+            public Marshaler<R, byte[]> resultMarshaler() {
+                return null;
             }
         };
     }

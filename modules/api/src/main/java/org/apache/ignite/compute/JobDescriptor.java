@@ -19,8 +19,8 @@ package org.apache.ignite.compute;
 
 import java.util.List;
 import java.util.Objects;
-import org.apache.ignite.marshaling.ByteArrayMarshaler;
 import org.apache.ignite.marshaling.Marshaler;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Compute job descriptor.
@@ -32,16 +32,16 @@ public class JobDescriptor<T, R> {
 
     private final JobExecutionOptions options;
 
-    private final Marshaler<R, byte[]> resultMarshaller;
+    private final @Nullable Marshaler<R, byte[]> resultMarshaller;
 
-    private final Marshaler<T, byte[]> argumentMarshaler;
+    private final @Nullable Marshaler<T, byte[]> argumentMarshaler;
 
     private JobDescriptor(
             String jobClassName,
             List<DeploymentUnit> units,
             JobExecutionOptions options,
-            Marshaler<R, byte[]> resultMarshaller,
-            Marshaler<T, byte[]> argumentMarshaller) {
+            @Nullable Marshaler<R, byte[]> resultMarshaller,
+            @Nullable Marshaler<T, byte[]> argumentMarshaller) {
         this.jobClassName = jobClassName;
         this.units = units;
         this.options = options;
@@ -189,8 +189,8 @@ public class JobDescriptor<T, R> {
                     jobClassName,
                     units == null ? List.of() : units,
                     options == null ? JobExecutionOptions.DEFAULT : options,
-                    resultMarshaller == null ? new ByteArrayMarshaler<>() {} : resultMarshaller,
-                    argumentMarshaller == null ? new ByteArrayMarshaler<>() {} : argumentMarshaller
+                    resultMarshaller,
+                    argumentMarshaller
             );
         }
     }

@@ -59,7 +59,7 @@ public class ClientComputeExecuteColocatedRequest {
             List<DeploymentUnit> deploymentUnits = in.unpackDeploymentUnits();
             String jobClassName = in.unpackString();
             JobExecutionOptions options = JobExecutionOptions.builder().priority(in.unpackInt()).maxRetries(in.unpackInt()).build();
-            byte[] args = unpackPayload(in);
+            Object args = unpackPayload(in);
 
             out.packInt(table.schemaView().lastKnownSchemaVersion());
 
@@ -73,7 +73,7 @@ public class ClientComputeExecuteColocatedRequest {
 
             var jobExecution = compute.wrapJobExecutionFuture(jobExecutionFut);
 
-            sendResultAndState(jobExecution, notificationSender);
+            sendResultAndState(jobExecution, notificationSender, jobExecution.resultMarshaler());
 
             //noinspection DataFlowIssue
             return jobExecution.idAsync().thenAccept(out::packUuid);

@@ -200,7 +200,7 @@ public class ComputeMessaging {
         List<DeploymentUnit> units = toDeploymentUnit(request.deploymentUnits());
 
         JobExecution<Object> execution = starter.start(
-                request.executeOptions(), units, request.jobClassName(), (byte[]) request.input()
+                request.executeOptions(), units, request.jobClassName(), request.input()
         );
         execution.idAsync().whenComplete((jobId, err) -> sendExecuteResponse(jobId, err, sender, correlationId));
     }

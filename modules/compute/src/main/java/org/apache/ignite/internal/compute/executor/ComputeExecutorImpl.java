@@ -75,7 +75,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
     }
 
     @Override
-    public <T, R> JobExecutionInternal<R> executeJob(
+    public <T, R> JobExecutionInternal executeJob(
             ExecutionOptions options,
             Class<? extends ComputeJob<T, R>> jobClass,
             JobClassLoader classLoader,
@@ -89,15 +89,19 @@ public class ComputeExecutorImpl implements ComputeExecutor {
         Marshaler<T, byte[]> marshaller = jobInstance.inputMarshaler();
 
         QueueExecution<R> execution = executorService.submit(
-                () -> jobInstance.executeAsync(context, unmarshallOrNotIfLocal(marshaller, input)),
+                () -> jobInstance.executeAsync(context, unmarshallOrNotIfNull(marshaller, input)),
                 options.priority(),
                 options.maxRetries()
         );
 
-        return new JobExecutionInternal<>(execution, isInterrupted, jobInstance);
+        return new JobExecutionInternal(execution, isInterrupted);
     }
 
-    private static <T> @Nullable T unmarshallOrNotIfLocal(Marshaler<T, byte[]> marshaller, Object input) {
+    private static <T> @Nullable T unmarshallOrNotIfNull(@Nullable Marshaler<T, byte[]> marshaller, Object input) {
+        if (marshaller == null) {
+            return (T) input;
+        }
+
         if (input instanceof byte[]) {
             return marshaller.unmarshal((byte[]) input);
         }

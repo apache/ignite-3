@@ -430,7 +430,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
                 .executeOptions(DEFAULT)
                 .deploymentUnits(List.of())
                 .jobClassName(SimpleJob.class.getName())
-                .input(new byte[]{})
+                .input("")
                 .build();
         ExecuteResponse executeResponse = sendRequestAndCaptureResponse(executeRequest, testNode, 123L);
 

@@ -53,6 +53,7 @@ import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.marshaling.Marshaler;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.table.Tuple;
@@ -261,6 +262,11 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
             @Override
             public CompletableFuture<@Nullable Boolean> changePriorityAsync(int newPriority) {
                 return nullCompletedFuture();
+            }
+
+            @Override
+            public Marshaler<R, byte[]> resultMarshaler() {
+                return null;
             }
         };
     }

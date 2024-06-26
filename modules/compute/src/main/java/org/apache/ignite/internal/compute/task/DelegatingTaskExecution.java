@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.JobState;
 import org.apache.ignite.compute.task.TaskExecution;
+import org.apache.ignite.marshaling.Marshaler;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -58,5 +59,10 @@ public class DelegatingTaskExecution<R> implements TaskExecution<R> {
     @Override
     public CompletableFuture<@Nullable Boolean> changePriorityAsync(int newPriority) {
         return delegate.thenCompose(execution -> execution.changePriorityAsync(newPriority));
+    }
+
+    @Override
+    public Marshaler<R, byte[]> resultMarshaler() {
+        return null;
     }
 }

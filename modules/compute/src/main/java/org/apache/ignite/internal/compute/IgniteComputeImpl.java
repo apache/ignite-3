@@ -118,7 +118,8 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
             }
 
             return executeAsyncWithFailover(
-                    nodes, descriptor.units(), descriptor.jobClassName(), descriptor.options(), argumentMarshaler.marshal(args)
+                    nodes, descriptor.units(), descriptor.jobClassName(), descriptor.options(),
+                    argumentMarshaler == null ? args : argumentMarshaler.marshal(args)
             );
         }
 
@@ -138,7 +139,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
                                         descriptor.units(),
                                         descriptor.jobClassName(),
                                         descriptor.options(),
-                                        argumentMarshaler.marshal(args)
+                                        argumentMarshaler == null ? args : argumentMarshaler.marshal(args)
                                 )));
 
             } else {
@@ -149,7 +150,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
                                 descriptor.units(),
                                 descriptor.jobClassName(),
                                 descriptor.options(),
-                                argumentMarshaler.marshal(args)));
+                                argumentMarshaler == null ? args : argumentMarshaler.marshal(args)));
             }
 
             return new JobExecutionFutureWrapper<>(jobFut);
@@ -253,12 +254,12 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            byte[] args) {
+            Object arg) {
         return primaryReplicaForPartitionByTupleKey(table, key)
                 .thenApply(primaryNode -> executeOnOneNodeWithFailover(
                         primaryNode,
                         new NextColocatedWorkerSelector<>(placementDriver, topologyService, clock, table, key),
-                        units, jobClassName, options, args
+                        units, jobClassName, options, arg
                 ));
     }
 
@@ -318,7 +319,8 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
                                 return new FailedExecution<>(new NodeNotFoundException(Set.of(node.name())));
                             }
                             return new JobExecutionWrapper<>(executeOnOneNodeWithFailover(node, CompletableFutures::nullCompletedFuture,
-                                    descriptor.units(), descriptor.jobClassName(), descriptor.options(), argumentMarshaler.marshal(args)));
+                                    descriptor.units(), descriptor.jobClassName(), descriptor.options(),
+                                    argumentMarshaler == null ? args : argumentMarshaler.marshal(args)));
                         }));
     }
 

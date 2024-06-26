@@ -32,7 +32,7 @@ import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.network.ClusterService;
-import org.apache.ignite.marshaling.ByteArrayMarshaler;
+import org.apache.ignite.marshaling.Marshaler;
 import org.apache.ignite.network.ClusterNode;
 
 /**
@@ -61,10 +61,10 @@ public class ClientComputeExecuteRequest {
         List<DeploymentUnit> deploymentUnits = in.unpackDeploymentUnits();
         String jobClassName = in.unpackString();
         JobExecutionOptions options = JobExecutionOptions.builder().priority(in.unpackInt()).maxRetries(in.unpackInt()).build();
-        byte[] args = unpackPayload(in);
+        Object arg = unpackPayload(in);
 
-        JobExecution<Object> execution = compute.executeAsyncWithFailover(candidates, deploymentUnits, jobClassName, options, args);
-        sendResultAndState(execution, notificationSender);
+        JobExecution<Object> execution = compute.executeAsyncWithFailover(candidates, deploymentUnits, jobClassName, options, arg);
+        sendResultAndState(execution, notificationSender, execution.resultMarshaler());
 
         //noinspection DataFlowIssue
         return execution.idAsync().thenAccept(out::packUuid);
@@ -96,11 +96,14 @@ public class ClientComputeExecuteRequest {
         return nodes;
     }
 
-    static CompletableFuture<Object> sendResultAndState(JobExecution<Object> execution, NotificationSender notificationSender) {
+    static CompletableFuture<Object> sendResultAndState(
+            JobExecution<Object> execution, NotificationSender notificationSender,
+            Marshaler<Object, byte[]> marshaler
+    ) {
         return execution.resultAsync().whenComplete((val, err) ->
                 execution.stateAsync().whenComplete((state, errState) ->
                         notificationSender.sendNotification(w -> {
-                            w.packObjectAsBinaryTuple(val, ByteArrayMarshaler.create());
+                            w.packObjectAsBinaryTuple(val, marshaler);
                             packJobState(w, state);
                         }, err)));
     }
@@ -111,7 +114,7 @@ public class ClientComputeExecuteRequest {
      * @param in Unpacker.
      * @return Args array.
      */
-    static byte[] unpackPayload(ClientMessageUnpacker in) {
-        return (byte[]) in.unpackObjectFromBinaryTuple();
+    static Object unpackPayload(ClientMessageUnpacker in) {
+        return in.unpackObjectFromBinaryTuple();
     }
 }
