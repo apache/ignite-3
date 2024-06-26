@@ -452,13 +452,6 @@ public interface InternalTable extends ManuallyCloseable {
      */
     TxStateTableStorage txStateStorage();
 
-    /**
-     * Raft service for this table.
-     *
-     * @return Table raft service.
-     */
-    TableRaftService tableRaftService();
-
     // TODO: IGNITE-14488. Add invoke() methods.
 
     /**

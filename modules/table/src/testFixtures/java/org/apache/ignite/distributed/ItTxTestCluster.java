@@ -32,7 +32,6 @@ import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
@@ -137,7 +136,6 @@ import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.schema.ThreadLocalPartitionCommandsMarshaller;
 import org.apache.ignite.internal.table.distributed.schema.ValidationSchemasSource;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
-import org.apache.ignite.internal.table.distributed.storage.TableRaftServiceImpl;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.table.impl.DummyValidationSchemasSource;
@@ -682,7 +680,6 @@ public class ItTxTestCluster {
                         topologyAwareRaftGroupServiceFactory
                 ).thenAccept(
                         raftSvc -> {
-                            try {
                                 PartitionReplicaListener listener = newReplicaListener(
                                         mvPartStorage,
                                         raftSvc,
@@ -713,9 +710,6 @@ public class ItTxTestCluster {
                                         storageIndexTracker,
                                         completedFuture(listener)
                                 );
-                            } catch (NodeStoppingException e) {
-                                fail("Unexpected node stopping", e);
-                            }
                         }
                 );
 
@@ -772,7 +766,6 @@ public class ItTxTestCluster {
                         startClient ? clientClock : clocks.get(localNodeName),
                         timestampTracker,
                         placementDriver,
-                        new TableRaftServiceImpl(tableName, 1, clients, nodeResolver),
                         clientTransactionInflights,
                         500,
                         0,
@@ -1089,5 +1082,9 @@ public class ItTxTestCluster {
 
     public Map<String, ReplicaManager> replicaManagers() {
         return replicaManagers;
+    }
+
+    public Map<String, ClusterService> clusterServices() {
+        return clusterServices;
     }
 }

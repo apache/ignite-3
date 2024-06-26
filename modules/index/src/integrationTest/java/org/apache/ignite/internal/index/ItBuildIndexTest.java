@@ -56,6 +56,7 @@ import org.apache.ignite.internal.partition.replicator.network.command.BuildInde
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.replicator.ReplicaTestUtils;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.table.InternalTable;
@@ -213,11 +214,12 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
         );
     }
 
-    private static RaftGroupService getRaftClient(Ignite node, int partitionId) {
+    private static @Nullable RaftGroupService getRaftClient(Ignite node, int partitionId) {
         TableViewInternal table = getTableView(node, TABLE_NAME);
         assertNotNull(table);
 
-        return table.internalTable().tableRaftService().partitionRaftGroupService(partitionId);
+        return ReplicaTestUtils.getRaftClient(node, table.tableId(), partitionId)
+                .orElse(null);
     }
 
     /**
@@ -324,7 +326,12 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
                 assertNotNull(indexDescriptor);
 
                 for (int partitionId = 0; partitionId < internalTable.partitions(); partitionId++) {
-                    RaftGroupService raftGroupService = internalTable.tableRaftService().partitionRaftGroupService(partitionId);
+                    // Excluding partitions on the node outside of replication group
+                    RaftGroupService raftGroupService = getRaftClient(clusterNode, partitionId);
+
+                    if (raftGroupService == null) {
+                        continue;
+                    }
 
                     List<Peer> allPeers = raftGroupService.peers();
 

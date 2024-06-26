@@ -80,6 +80,7 @@ import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaImpl;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.ReplicaTestUtils;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
@@ -1686,7 +1687,12 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
                         0,
                         internalTx.id(),
                         internalTx.readTimestamp(),
-                        internalTable.tableRaftService().leaderAssignment(0),
+                        ReplicaTestUtils.leaderAssignment(
+                                txTestCluster.replicaManagers().get(txTestCluster.localNodeName()),
+                                txTestCluster.clusterServices().get(txTestCluster.localNodeName()).topologyService(),
+                                internalTable.tableId(),
+                                0
+                        ),
                         internalTx.coordinatorId()
                 )
                 : internalTable.scan(0, internalTx);

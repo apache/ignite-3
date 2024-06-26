@@ -39,6 +39,7 @@ import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.replicator.ReplicaTestUtils;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.SchemaRegistry;
@@ -170,7 +171,7 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
 
         TableViewInternal table = (TableViewInternal) createTable(DEFAULT_TABLE_NAME, 2, 1);
 
-        ClusterNode leader = table.internalTable().tableRaftService().leaderAssignment(0);
+        ClusterNode leader = ReplicaTestUtils.leaderAssignment(node0, table.tableId(), 0);
 
         boolean isNode0Leader = node0.id().equals(leader.id());
 
@@ -189,7 +190,8 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
 
             assertTrue(IgniteTestUtils.waitForCondition(() -> appliedIndexNode0.get() == appliedIndexNode1.get(), 10_000));
 
-            RaftGroupService raftGroupService = table.internalTable().tableRaftService().partitionRaftGroupService(0);
+            RaftGroupService raftGroupService = ReplicaTestUtils.getRaftClient(node0, table.tableId(), 0)
+                    .orElseThrow(AssertionError::new);
 
             raftGroupService.peers().forEach(peer -> assertThat(raftGroupService.snapshot(peer), willCompleteSuccessfully()));
 
@@ -341,7 +343,8 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
     private void transferLeadershipToLocalNode(IgniteImpl ignite) {
         TableViewInternal table = (TableViewInternal) ignite.tables().table(DEFAULT_TABLE_NAME);
 
-        RaftGroupService raftGroupService = table.internalTable().tableRaftService().partitionRaftGroupService(0);
+        RaftGroupService raftGroupService = ReplicaTestUtils.getRaftClient(ignite, table.tableId(), 0)
+                .orElseThrow(AssertionError::new);
 
         List<Peer> peers = raftGroupService.peers();
         assertNotNull(peers);

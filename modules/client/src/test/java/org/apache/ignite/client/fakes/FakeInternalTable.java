@@ -47,7 +47,6 @@ import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.InternalTable;
-import org.apache.ignite.internal.table.TableRaftService;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
@@ -451,12 +450,6 @@ public class FakeInternalTable implements InternalTable {
     ) {
         throw new IgniteInternalException(new OperationNotSupportedException());
     }
-
-    @Override
-    public TableRaftService tableRaftService() {
-        throw new IgniteInternalException(new OperationNotSupportedException());
-    }
-
 
     @Override public TxStateTableStorage txStateStorage() {
         return null;

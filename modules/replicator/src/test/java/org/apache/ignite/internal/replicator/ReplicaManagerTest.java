@@ -183,7 +183,6 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
         CompletableFuture<Boolean> startReplicaFuture = replicaManager.startReplica(
                 groupId,
                 newConfiguration,
-                (unused) -> { },
                 (unused) -> replicaListener,
                 new PendingComparableValuesTracker<>(0L),
                 completedFuture(raftGroupService)
