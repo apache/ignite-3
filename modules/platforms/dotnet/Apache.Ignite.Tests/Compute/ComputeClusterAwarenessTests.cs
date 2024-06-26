@@ -44,11 +44,10 @@ namespace Apache.Ignite.Tests.Compute
             using var client = await IgniteClient.StartAsync(clientCfg);
             client.WaitForConnections(3);
 
-            IJobExecution<string> exec2 = await client.Compute.SubmitAsync<string>(
-                new[] { server2.Node }, new(string.Empty));
+            var job = new JobDescriptor<string>(string.Empty);
 
-            IJobExecution<string> exec3 = await client.Compute.SubmitAsync<string>(
-                new[] { server3.Node }, new(string.Empty));
+            IJobExecution<string> exec2 = await client.Compute.SubmitAsync(JobTarget.Node(server2.Node), job);
+            IJobExecution<string> exec3 = await client.Compute.SubmitAsync(JobTarget.Node(server3.Node), job);
 
             Assert.AreEqual("s2", await exec2.GetResultAsync());
             Assert.AreEqual("s3", await exec3.GetResultAsync());
