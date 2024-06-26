@@ -468,7 +468,7 @@ public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
             stmt.setLength(stmt.length() - 2);
         }
 
-        QueryCancelledException err = assertThrows(QueryCancelledException.class, () -> {
+        assertThrowsSqlException(Sql.EXECUTION_CANCELLED_ERR, "Query timeout", () -> {
             SqlProperties properties = SqlPropertiesHelper.newBuilder()
                     .set(QueryProperty.QUERY_TIMEOUT, 1L)
                     .build();
@@ -476,8 +476,6 @@ public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
             QueryProcessor qryProc = queryProcessor();
             await(qryProc.prepareSingleAsync(properties, null, stmt.toString())).parameterTypes();
         });
-
-        assertThat(err.getMessage(), containsString("Query timeout"));
     }
 
     @Override

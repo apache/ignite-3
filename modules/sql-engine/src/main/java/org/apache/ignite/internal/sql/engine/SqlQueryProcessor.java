@@ -470,8 +470,20 @@ public class SqlQueryProcessor implements QueryProcessor {
 
             HybridTimestamp timestamp = explicitTransaction != null ? explicitTransaction.startTimestamp() : clockService.now();
 
-            return prepareParsedStatement(schemaName, result, timestamp, queryCancel, params)
+            CompletableFuture<QueryMetadata> f = prepareParsedStatement(schemaName, result, timestamp,
+                    queryCancel, params)
                     .thenApply(plan -> new QueryMetadata(plan.metadata(), plan.parameterMetadata()));
+
+            CompletableFuture<Void> timeoutFut = queryCancel.timeoutFuture();
+
+            if (timeoutFut != null) {
+                timeoutFut.thenAccept((r) -> {
+                    SqlException timeoutErr = new SqlException(EXECUTION_CANCELLED_ERR, QueryCancelledException.TIMEOUT_MSG);
+                    f.completeExceptionally(timeoutErr);
+                });
+            }
+
+            return f;
         });
     }
 
