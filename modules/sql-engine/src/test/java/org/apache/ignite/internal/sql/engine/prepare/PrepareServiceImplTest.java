@@ -28,17 +28,15 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.Semaphore;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -73,6 +71,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.mockito.Mockito;
 
 /**
  * Tests to verify {@link PrepareServiceImpl}.
@@ -244,14 +243,28 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testTimeout() throws InterruptedException {
-        IgniteTable table = TestBuilders.table()
+    public void timeoutedPlanShouldBeRemovedFromCache() throws InterruptedException {
+        IgniteTable igniteTable = TestBuilders.table()
                 .name("T")
                 .addColumn("C", NativeTypes.INT32)
                 .distribution(IgniteDistributions.single())
                 .build();
 
-        IgniteSchema schema = new IgniteSchema("PUBLIC", 0, List.of(table));
+        // Create a proxy.
+        IgniteTable spyTable = Mockito.spy(igniteTable);
+
+        // Override and slowdown a method, which is called by Planner, to emulate long planning.
+        Mockito.doAnswer(inv -> {
+            try {
+                Thread.sleep(300);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+            // Call original method.
+            return igniteTable.getRowType(inv.getArgument(0), inv.getArgument(1));
+        }).when(spyTable).getRowType(any(), any());
+
+        IgniteSchema schema = new IgniteSchema("PUBLIC", 0, List.of(igniteTable));
         Cache<Object, Object> cache = CaffeineCacheFactory.INSTANCE.create(100);
 
         CacheFactory cacheFactory = new CacheFactory() {
@@ -266,32 +279,24 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
             }
         };
 
-        PrepareServiceImpl service = createPlannerService(schema, cacheFactory);
+        PrepareServiceImpl service = createPlannerService(schema, cacheFactory, 100);
 
-        OptimizationDelay delayCallback = new OptimizationDelay();
-        service.setCallback(delayCallback);
+        StringBuilder stmt = new StringBuilder();
+        for (int i = 0; i < 100; i++) {
+            if (i > 0) {
+                stmt.append("UNION");
+                stmt.append(System.lineSeparator());
+            }
+            stmt.append("SELECT * FROM t WHERE c = ").append(i);
+            stmt.append(System.lineSeparator());
+        }
 
-        ParsedResult parsedResult = parse("SELECT * FROM t WHERE c = ?");
+        ParsedResult parsedResult = parse(stmt.toString());
 
-        QueryCancel queryCancel = new QueryCancel();
-        CompletableFuture<Void> timeoutFut = queryCancel.setTimeout(scheduler, 500);
-
-        SqlOperationContext context = operationContext()
-                .cancel(queryCancel)
-                .build();
-
-        timeoutFut.whenComplete((v, e) -> {
-            // Release semaphore to start optimization, so the optimizer will timeout.
-            delayCallback.semaphore.release();
-        });
+        SqlOperationContext context = operationContext().build();
 
         Throwable err = assertThrowsWithCause(
-                () -> {
-                    // Acquire semaphore to delay optimization, so the planner does all the preparation work.
-                    // And the gets stuck when it is time to run optimization.
-                    delayCallback.semaphore.acquire();
-                    service.prepareAsync(parsedResult, context).get();
-                },
+                () -> service.prepareAsync(parsedResult, context).get(),
                 SqlException.class
         );
 
@@ -302,36 +307,6 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
         // Cache invalidate does not immediately remove the entry, so we need to wait some time to ensure it is removed.
         boolean empty = IgniteTestUtils.waitForCondition(() -> cache.size() == 0, 1000);
         assertTrue(empty, "Cache is not empty: " + cache.size());
-
-        // Another operation for the same statement should be affected by the previous timeout.
-
-        delayCallback.semaphore.release();
-
-        {
-            QueryCancel queryCancel1 = new QueryCancel();
-            // Run with some other timeout.
-            queryCancel1.setTimeout(scheduler, TimeUnit.HOURS.toMillis(1));
-
-            SqlOperationContext context2 = operationContext()
-                    .cancel(queryCancel1)
-                    .build();
-
-            service.prepareAsync(parsedResult, context2).join();
-        }
-    }
-
-    private static class OptimizationDelay implements Runnable {
-
-        private final Semaphore semaphore = new Semaphore(1);
-
-        @Override
-        public void run() {
-            try {
-                semaphore.acquire();
-            } catch (InterruptedException ignore) {
-                // Do nothing.
-            }
-        }
     }
 
     private static Stream<Arguments> parameterTypes() {
@@ -391,12 +366,12 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
     }
 
     private static PrepareService createPlannerService(IgniteSchema schema) {
-        return createPlannerService(schema, CaffeineCacheFactory.INSTANCE);
+        return createPlannerService(schema, CaffeineCacheFactory.INSTANCE, 1000);
     }
 
-    private static PrepareServiceImpl createPlannerService(IgniteSchema schema, CacheFactory cacheFactory) {
-        PrepareServiceImpl service = new PrepareServiceImpl("test", 1_000, cacheFactory,
-                mock(DdlSqlToCommandConverter.class), 5_000, 2, mock(MetricManagerImpl.class),
+    private static PrepareServiceImpl createPlannerService(IgniteSchema schema, CacheFactory cacheFactory, int timeoutMillis) {
+        PrepareServiceImpl service = new PrepareServiceImpl("test", 1000, cacheFactory,
+                mock(DdlSqlToCommandConverter.class), timeoutMillis, 2, mock(MetricManagerImpl.class),
                 new PredefinedSchemaManager(schema));
 
         createdServices.add(service);

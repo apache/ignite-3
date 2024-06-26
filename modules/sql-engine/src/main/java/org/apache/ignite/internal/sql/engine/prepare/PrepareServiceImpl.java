@@ -24,13 +24,10 @@ import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFI
 import static org.apache.ignite.internal.thread.ThreadOperation.NOTHING_ALLOWED;
 import static org.apache.ignite.lang.ErrorGroups.Sql.EXECUTION_CANCELLED_ERR;
 
-import java.time.Duration;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -73,7 +70,6 @@ import org.apache.ignite.internal.sql.metrics.SqlPlanCacheMetricSource;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.type.NativeTypeSpec;
-import org.apache.ignite.internal.util.Cancellable;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.SchemaNotFoundException;
@@ -82,7 +78,6 @@ import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
-import org.jetbrains.annotations.TestOnly;
 
 /**
  * An implementation of the {@link PrepareService} that uses a Calcite-based query planner to validate and optimize a given query.
@@ -121,8 +116,6 @@ public class PrepareServiceImpl implements PrepareService {
     private final SqlSchemaManager schemaManager;
 
     private volatile ThreadPoolExecutor planningPool;
-
-    private Runnable callback = () -> {};
 
     /**
      * Factory method.
@@ -238,54 +231,21 @@ public class PrepareServiceImpl implements PrepareService {
         QueryCancel cancelHandler = operationContext.cancel();
         assert cancelHandler != null;
 
-        long actualPlannerTimeout;
-        Instant deadline = cancelHandler.deadline();
-        if (deadline == null) {
-            actualPlannerTimeout = plannerTimeout;
-        } else {
-            Instant now = Instant.now();
-            long timeout = Duration.between(now, deadline).toMillis();
-
-            actualPlannerTimeout = Math.min(timeout, plannerTimeout);
-        }
-
         PlanningContext planningContext = PlanningContext.builder()
                 .frameworkConfig(Frameworks.newConfigBuilder(FRAMEWORK_CONFIG).defaultSchema(schema).build())
                 .query(parsedResult.originalQuery())
-                .plannerTimeout(actualPlannerTimeout)
+                .plannerTimeout(plannerTimeout)
                 .parameters(Commons.arrayToMap(operationContext.parameters()))
                 .build();
 
-        Cancellable callback = (timeout) -> {
-            if (timeout) {
-                planningContext.abortByTimeout();
-            }
-        };
-        cancelHandler.add(callback);
-
         result = prepareAsync0(parsedResult, planningContext);
 
-        CompletableFuture<QueryPlan> f = result.exceptionally(ex -> {
+        return result.exceptionally(ex -> {
                     Throwable th = ExceptionUtils.unwrapCause(ex);
 
                     throw new CompletionException(SqlExceptionMapperUtil.mapToPublicSqlException(th));
                 }
         );
-
-        // Remove the callback when planning completes, because there is no need to trigger it at later stages.
-        f.thenRun(() -> cancelHandler.remove(callback));
-
-        return f;
-    }
-
-    /**
-     * Sets a callback that is run prior to optimization.
-     *
-     * @param callback Callback.
-     */
-    @TestOnly
-    public void setCallback(Runnable callback) {
-        this.callback = Objects.requireNonNull(callback, "callback");
     }
 
     private CompletableFuture<QueryPlan> prepareAsync0(ParsedResult parsedResult, PlanningContext planningContext) {
@@ -486,8 +446,8 @@ public class PrepareServiceImpl implements PrepareService {
      * Tries to find a prepared plan if all parameters are set.
      *
      * <p>This method relies on the fact that if parameter is specified, it's type does not change during the validation.
-     * Given the following query: SELECT * FROM t WHERE int_key = ?0, the validator assigns type {@code INTEGER} to ?0, regardless whether
-     * prepare is called with parameter values (type hints) or not:
+     * Given the following query: SELECT * FROM t WHERE int_key = ?0, the validator assigns type {@code INTEGER} to ?0,
+     * regardless whether prepare is called with parameter values (type hints) or not:
      * <ul>
      *     <li>If parameter value (type hint) is int, then the validator returns the same plan</li>
      *     <li>if type hint is not an int, then the validator return different plan with different parameter metadata.</li>
@@ -612,10 +572,6 @@ public class PrepareServiceImpl implements PrepareService {
     }
 
     private IgniteRel doOptimize(PlanningContext ctx, SqlNode validatedNode, IgnitePlanner planner, CacheKey key) {
-        Runnable currentCallback = this.callback;
-
-        currentCallback.run();
-
         // Convert to Relational operators graph
         IgniteRel igniteRel;
         try {
