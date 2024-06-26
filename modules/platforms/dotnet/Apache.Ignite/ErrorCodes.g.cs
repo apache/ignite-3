@@ -84,7 +84,10 @@ namespace Apache.Ignite
             public const int ResourceClosing = (GroupCode << 16) | (7 & 0xFFFF);
 
             /// <summary> UserObjectSerialization error. </summary>
-            public const int UserObjectSerialization = (GroupCode << 16) | (9 & 0xFFFF);
+            public const int UserObjectSerialization = (GroupCode << 16) | (8 & 0xFFFF);
+
+            /// <summary> NullableValue error. </summary>
+            public const int NullableValue = (GroupCode << 16) | (9 & 0xFFFF);
 
             /// <summary> Internal error. </summary>
             public const int Internal = (GroupCode << 16) | (65535 & 0xFFFF);

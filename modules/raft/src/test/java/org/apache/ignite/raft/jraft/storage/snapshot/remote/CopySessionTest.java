@@ -16,6 +16,7 @@
  */
 package org.apache.ignite.raft.jraft.storage.snapshot.remote;
 
+import java.nio.ByteBuffer;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
@@ -33,7 +34,6 @@ import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.rpc.RaftClientService;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 import org.apache.ignite.raft.jraft.util.ByteBufferCollector;
-import org.apache.ignite.raft.jraft.util.ByteString;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.junit.jupiter.api.AfterEach;
@@ -115,7 +115,7 @@ public class CopySessionTest extends BaseIgniteAbstractTest {
             this.session.setDestBuf(bufRef);
 
             this.session.onRpcReturned(Status.OK(), raftOpts.getRaftMessagesFactory().getFileResponse().readSize(100).eof(true)
-                .data(new ByteString(new byte[100])).build());
+                .data(ByteBuffer.wrap(new byte[100])).build());
             assertEquals(100, bufRef.capacity());
             //should be flip
             assertEquals(0, bufRef.getBuffer().position());
@@ -147,7 +147,7 @@ public class CopySessionTest extends BaseIgniteAbstractTest {
             .thenReturn(future);
 
         this.session.onRpcReturned(Status.OK(), raftOpts.getRaftMessagesFactory().getFileResponse().readSize(100).eof(false)
-            .data(new ByteString(new byte[100])).build());
+            .data(ByteBuffer.wrap(new byte[100])).build());
         assertEquals(100, bufRef.capacity());
         assertEquals(100, bufRef.getBuffer().position());
 

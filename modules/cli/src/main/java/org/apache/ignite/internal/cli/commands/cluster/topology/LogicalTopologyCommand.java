@@ -56,9 +56,7 @@ public class LogicalTopologyCommand extends BaseCommand implements Callable<Inte
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
                 .decorator(new TopologyDecorator(plain))
-                .exceptionHandler(new ClusterNotInitializedExceptionHandler(
-                        "Cannot show logical topology", "ignite cluster init"
-                ))
+                .exceptionHandler(ClusterNotInitializedExceptionHandler.createHandler("Cannot show logical topology"))
                 .verbose(verbose)
                 .build()
                 .runPipeline();

@@ -403,4 +403,4 @@ void store(std::byte *bytes, T value) noexcept {
 }
 
 } // namespace bytes
-} // namespace ignite
+} // namespace ignite::detail
