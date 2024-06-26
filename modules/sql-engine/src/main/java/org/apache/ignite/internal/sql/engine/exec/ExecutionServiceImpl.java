@@ -846,8 +846,10 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
                 if (rootFragmentId0 != null && fragmentId == rootFragmentId0) {
                     root.completeExceptionally(ex);
-                } else if (root != null) {
+                } else if (root == null) {
                     // Non-root fragment received an error when attempted to submit a fragment.
+                    close(QueryCompletionReason.ERROR);
+                } else {
                     root.thenAccept(root -> {
                         root.onError(ex);
 
@@ -856,7 +858,11 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 }
             }
 
-            remoteFragmentInitCompletion.get(new RemoteFragmentKey(nodeName, fragmentId)).complete(null);
+            // Complete if fragment is registered.
+            CompletableFuture<Void> f = remoteFragmentInitCompletion.get(new RemoteFragmentKey(nodeName, fragmentId));
+            if (f != null) {
+                f.complete(null);
+            }
         }
 
         private void onError(RemoteFragmentExecutionException ex) {
