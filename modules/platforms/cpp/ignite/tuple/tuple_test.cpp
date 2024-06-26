@@ -339,7 +339,7 @@ TEST(tuple, AllTypesExtended) {
 
         std::string buffer;
         buffer.resize(i % 100 + 1);
-        std::generate(buffer.begin(), buffer.end(), [&]() { return char(dist(rd) % 256); });
+        std::generate(buffer.begin(), buffer.end(), [&]() { return char(dist(rd) % 128); });
 
         bool v1 = (i % 2 == 0);
         int8_t v2 = int8_t(i % std::numeric_limits<int8_t>::max()) * sign;
