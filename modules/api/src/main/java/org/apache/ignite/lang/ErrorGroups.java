@@ -230,13 +230,13 @@ public class ErrorGroups {
         public static final ErrorGroup SQL_ERR_GROUP = registerGroup("SQL", (short) 4);
 
         /** Query without a result set error. */
-        public static final int QUERY_NO_RESULT_SET_ERR = SQL_ERR_GROUP.registerErrorCode((short) 2);
+        public static final int QUERY_NO_RESULT_SET_ERR = SQL_ERR_GROUP.registerErrorCode((short) 1);
 
         /** Schema not found. */
-        public static final int SCHEMA_NOT_FOUND_ERR = SQL_ERR_GROUP.registerErrorCode((short) 3);
+        public static final int SCHEMA_NOT_FOUND_ERR = SQL_ERR_GROUP.registerErrorCode((short) 2);
 
         /** Statement parsing error. This error is returned when an SQL statement string is not valid according to syntax rules. */
-        public static final int STMT_PARSE_ERR = SQL_ERR_GROUP.registerErrorCode((short) 5);
+        public static final int STMT_PARSE_ERR = SQL_ERR_GROUP.registerErrorCode((short) 3);
 
         /**
          * Statement validation error. Although statement is grammatically correct, the semantic is in question.
@@ -250,13 +250,13 @@ public class ErrorGroups {
          *
          * <p>See message for details.
          */
-        public static final int STMT_VALIDATION_ERR = SQL_ERR_GROUP.registerErrorCode((short) 6);
+        public static final int STMT_VALIDATION_ERR = SQL_ERR_GROUP.registerErrorCode((short) 4);
 
         /** Constraint violation error such as primary key violation. */
-        public static final int CONSTRAINT_VIOLATION_ERR = SQL_ERR_GROUP.registerErrorCode((short) 7);
+        public static final int CONSTRAINT_VIOLATION_ERR = SQL_ERR_GROUP.registerErrorCode((short) 5);
 
         /** Statement canceled error. Statement is canceled due to timeout, admin action, etc. */
-        public static final int EXECUTION_CANCELLED_ERR = SQL_ERR_GROUP.registerErrorCode((short) 8);
+        public static final int EXECUTION_CANCELLED_ERR = SQL_ERR_GROUP.registerErrorCode((short) 6);
 
         /**
          * Runtime error. Errors caused by programming errors in SQL statement itself, such errors happen during statement execution:
@@ -266,10 +266,7 @@ public class ErrorGroups {
          *     <li>Function execution errors.</li>
          * </ul>
          */
-        public static final int RUNTIME_ERR = SQL_ERR_GROUP.registerErrorCode((short) 9);
-
-        /** Planning timed out without finding any valid plan. */
-        public static final int PLANNING_TIMEOUT_ERR = SQL_ERR_GROUP.registerErrorCode((short) 10);
+        public static final int RUNTIME_ERR = SQL_ERR_GROUP.registerErrorCode((short) 7);
 
         /**
          * SQL engine was unable to map query on current cluster topology.
@@ -279,10 +276,10 @@ public class ErrorGroups {
          *
          * <p>See error message for details.
          */
-        public static final int MAPPING_ERR = SQL_ERR_GROUP.registerErrorCode((short) 11);
+        public static final int MAPPING_ERR = SQL_ERR_GROUP.registerErrorCode((short) 8);
 
         /** Execution of transaction control statement inside an external transaction is forbidden. */
-        public static final int TX_CONTROL_INSIDE_EXTERNAL_TX_ERR = SQL_ERR_GROUP.registerErrorCode((short) 12);
+        public static final int TX_CONTROL_INSIDE_EXTERNAL_TX_ERR = SQL_ERR_GROUP.registerErrorCode((short) 9);
     }
 
     /** Meta storage error group. */

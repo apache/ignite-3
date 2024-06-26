@@ -486,7 +486,7 @@ public class MergeJoinExecutionTest extends AbstractExecutionTest<Object[]> {
 
         ExecutionContext<Object[]> ectx =
                 new ExecutionContext<>(null, null, null, null, null,
-                        ArrayRowHandler.INSTANCE, null, null, SqlQueryProcessor.DEFAULT_TIME_ZONE_ID);
+                        ArrayRowHandler.INSTANCE, null, null, SqlQueryProcessor.DEFAULT_TIME_ZONE_ID, null);
 
         ExpressionFactoryImpl<Object[]> expFactory = new ExpressionFactoryImpl<>(ectx, SqlConformanceEnum.DEFAULT);
 
