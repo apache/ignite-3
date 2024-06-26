@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Compute;
 
 using System.Collections.Generic;
+using Internal.Common;
 using Network;
 
 /// <summary>
@@ -30,24 +31,36 @@ public static class JobTarget
     /// </summary>
     /// <param name="node">Node.</param>
     /// <returns>Single node job target.</returns>
-    public static IJobTarget<IClusterNode> Node(IClusterNode node) =>
-        new SingleNodeTarget(node);
+    public static IJobTarget<IClusterNode> Node(IClusterNode node)
+    {
+        IgniteArgumentCheck.NotNull(node);
+
+        return new SingleNodeTarget(node);
+    }
 
     /// <summary>
     /// Creates a job target for any node from the provided collection.
     /// </summary>
     /// <param name="nodes">Nodes.</param>
     /// <returns>Any node job target.</returns>
-    public static IJobTarget<IEnumerable<IClusterNode>> AnyNode(IEnumerable<IClusterNode> nodes) =>
-        new AnyNodeTarget(nodes);
+    public static IJobTarget<IEnumerable<IClusterNode>> AnyNode(IEnumerable<IClusterNode> nodes)
+    {
+        IgniteArgumentCheck.NotNull(nodes);
+
+        return new AnyNodeTarget(nodes);
+    }
 
     /// <summary>
     /// Creates a job target for any node from the provided collection.
     /// </summary>
     /// <param name="nodes">Nodes.</param>
     /// <returns>Any node job target.</returns>
-    public static IJobTarget<IEnumerable<IClusterNode>> AnyNode(params IClusterNode[] nodes) =>
-        new AnyNodeTarget(nodes);
+    public static IJobTarget<IEnumerable<IClusterNode>> AnyNode(params IClusterNode[] nodes)
+    {
+        IgniteArgumentCheck.NotNull(nodes);
+
+        return new AnyNodeTarget(nodes);
+    }
 
     /// <summary>
     /// Creates a colocated job target for a specific table and key.
@@ -57,8 +70,13 @@ public static class JobTarget
     /// <typeparam name="TKey">Key type.</typeparam>
     /// <returns>Colocated job target.</returns>
     public static IJobTarget<TKey> Colocated<TKey>(string tableName, TKey key)
-        where TKey : notnull =>
-        new ColocatedTarget<TKey>(tableName, key);
+        where TKey : notnull
+    {
+        IgniteArgumentCheck.NotNull(tableName);
+        IgniteArgumentCheck.NotNull(key);
+
+        return new ColocatedTarget<TKey>(tableName, key);
+    }
 
     internal sealed record SingleNodeTarget(IClusterNode Data) : IJobTarget<IClusterNode>;
 
