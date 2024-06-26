@@ -98,8 +98,7 @@ class FailureProcessorTest extends BaseIgniteAbstractTest {
 
             assertTrue(ignoredFailureTypes.contains(SYSTEM_WORKER_BLOCKED));
             assertTrue(ignoredFailureTypes.contains(SYSTEM_CRITICAL_OPERATION_TIMEOUT));
-        }
-        finally {
+        } finally {
             assertThat(failureProcessor.stopAsync(new ComponentContext()), willSucceedFast());
         }
     }
