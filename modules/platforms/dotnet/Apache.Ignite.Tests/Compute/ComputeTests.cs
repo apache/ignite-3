@@ -50,7 +50,7 @@ namespace Apache.Ignite.Tests.Compute
 
         public static readonly JobDescriptor<string> ErrorJob = new(ItThinClientComputeTest + "$IgniteExceptionJob");
 
-        public static readonly JobDescriptor<string> EchoJob = new(ItThinClientComputeTest + "$EchoJob");
+        public static readonly JobDescriptor<object> EchoJob = new(ItThinClientComputeTest + "$EchoJob");
 
         public static readonly JobDescriptor<string> SleepJob = new(ItThinClientComputeTest + "$SleepJob");
 
@@ -212,8 +212,8 @@ namespace Apache.Ignite.Tests.Compute
         {
             var unknownNode = new ClusterNode("x", "y", new IPEndPoint(IPAddress.Loopback, 0));
 
-            IDictionary<IClusterNode, Task<IJobExecution<string>>> taskMap =
-                Client.Compute.SubmitBroadcast<string>(new[] { unknownNode }, new(EchoJob), "unused");
+            IDictionary<IClusterNode, Task<IJobExecution<object>>> taskMap =
+                Client.Compute.SubmitBroadcast(new[] { unknownNode }, EchoJob, "unused");
 
             var ex = Assert.ThrowsAsync<NodeNotFoundException>(async () => await taskMap[unknownNode]);
 
@@ -262,9 +262,9 @@ namespace Apache.Ignite.Tests.Compute
 
             async Task Test(object val, string? expectedStr = null)
             {
-                var nodes = await Client.GetClusterNodesAsync();
+                var nodes = JobTarget.AnyNode(await Client.GetClusterNodesAsync());
                 var str = expectedStr ?? val.ToString()!.Replace("E+", "E");
-                IJobExecution<object> resExec = await Client.Compute.SubmitAsync<object>(nodes, new(EchoJob), val, str);
+                IJobExecution<object> resExec = await Client.Compute.SubmitAsync(nodes, EchoJob, val, str);
                 object res = await resExec.GetResultAsync();
 
                 Assert.AreEqual(val, res);
@@ -289,15 +289,15 @@ namespace Apache.Ignite.Tests.Compute
             client.WaitForConnections(proxies.Count);
 
             var keyTuple = new IgniteTuple { [KeyCol] = key };
-            var resNodeName = await client.Compute.SubmitColocatedAsync<string>(TableName, keyTuple, NodeNameJob);
+            var resNodeName = await client.Compute.SubmitAsync(JobTarget.Colocated(TableName, keyTuple), NodeNameJob);
             var requestTargetNodeName = GetRequestTargetNodeName(proxies, ClientOp.ComputeExecuteColocated);
 
             var keyPoco = new Poco { Key = key };
-            var resNodeName2 = await client.Compute.SubmitColocatedAsync<string, Poco>(TableName, keyPoco, NodeNameJob);
+            var resNodeName2 = await client.Compute.SubmitAsync(JobTarget.Colocated(TableName, keyPoco), NodeNameJob);
             var requestTargetNodeName2 = GetRequestTargetNodeName(proxies, ClientOp.ComputeExecuteColocated);
 
             var keyPocoStruct = new PocoStruct(key, null);
-            var resNodeName3 = await client.Compute.SubmitColocatedAsync<string, PocoStruct>(TableName, keyPocoStruct, NodeNameJob);
+            var resNodeName3 = await client.Compute.SubmitAsync(JobTarget.Colocated(TableName, keyPocoStruct), NodeNameJob);
             var requestTargetNodeName3 = GetRequestTargetNodeName(proxies, ClientOp.ComputeExecuteColocated);
 
             var nodeName = nodeIdx == 1 ? string.Empty : "_" + nodeIdx;
@@ -320,7 +320,7 @@ namespace Apache.Ignite.Tests.Compute
         public void TestExecuteColocatedThrowsWhenTableDoesNotExist()
         {
             var ex = Assert.ThrowsAsync<IgniteClientException>(async () =>
-                await Client.Compute.SubmitColocatedAsync<string>("unknownTable", new IgniteTuple(), new(EchoJob)));
+                await Client.Compute.SubmitAsync(JobTarget.Colocated("unknownTable", new IgniteTuple()), EchoJob));
 
             Assert.AreEqual("Table 'unknownTable' does not exist.", ex!.Message);
         }
@@ -329,7 +329,7 @@ namespace Apache.Ignite.Tests.Compute
         public void TestExecuteColocatedThrowsWhenKeyColumnIsMissing()
         {
             var ex = Assert.ThrowsAsync<ArgumentException>(async () =>
-                await Client.Compute.SubmitColocatedAsync<string>(TableName, new IgniteTuple { ["VAL"] = "1" }, new(EchoJob)));
+                await Client.Compute.SubmitAsync(JobTarget.Colocated(TableName, new IgniteTuple { ["VAL"] = "1" }), EchoJob));
 
             Assert.AreEqual(
                 "Can't map 'IgniteTuple { VAL = 1 }' to columns 'Int64 KEY, String VAL'. Matching fields not found.",
