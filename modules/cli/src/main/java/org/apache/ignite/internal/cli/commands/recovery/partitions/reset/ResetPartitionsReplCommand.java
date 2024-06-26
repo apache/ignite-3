@@ -45,7 +45,7 @@ public class ResetPartitionsReplCommand extends BaseCommand implements Runnable 
                 .map(url -> ResetPartitionsCallInput.of(options, url))
                 .then(Flows.fromCall(call))
                 .verbose(verbose)
-                .exceptionHandler(new ClusterNotInitializedExceptionHandler("Cannot reset partitions", "cluster init"))
+                .exceptionHandler(ClusterNotInitializedExceptionHandler.createReplHandler("Cannot reset partitions"))
                 .print()
                 .start();
     }

@@ -55,7 +55,7 @@ public class NodeMetricSetListReplCommand extends BaseCommand implements Runnabl
         question.askQuestionIfNotConnected(nodeUrl.getNodeUrl())
                 .map(UrlCallInput::new)
                 .then(Flows.fromCall(call))
-                .exceptionHandler(new ClusterNotInitializedExceptionHandler("Cannot list metrics", "cluster init"))
+                .exceptionHandler(ClusterNotInitializedExceptionHandler.createReplHandler("Cannot list metrics"))
                 .print(new MetricSetListDecorator(plain))
                 .start();
     }

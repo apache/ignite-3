@@ -46,7 +46,7 @@ public class PartitionStatesReplCommand extends BaseCommand implements Runnable 
                 .map(url -> PartitionStatesCallInput.of(options, url))
                 .then(Flows.fromCall(call))
                 .print(new TableDecorator(options.plain()))
-                .exceptionHandler(new ClusterNotInitializedExceptionHandler("Cannot list partition states", "cluster init"))
+                .exceptionHandler(ClusterNotInitializedExceptionHandler.createReplHandler("Cannot list partition states"))
                 .verbose(verbose)
                 .start();
     }

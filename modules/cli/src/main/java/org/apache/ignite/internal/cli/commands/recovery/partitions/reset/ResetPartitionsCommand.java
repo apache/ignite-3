@@ -43,7 +43,7 @@ public class ResetPartitionsCommand extends BaseCommand implements Callable<Inte
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
                 .verbose(verbose)
-                .exceptionHandler(new ClusterNotInitializedExceptionHandler("Cannot reset partitions", "ignite cluster init"))
+                .exceptionHandler(ClusterNotInitializedExceptionHandler.createHandler("Cannot reset partitions"))
                 .build()
                 .runPipeline();
     }

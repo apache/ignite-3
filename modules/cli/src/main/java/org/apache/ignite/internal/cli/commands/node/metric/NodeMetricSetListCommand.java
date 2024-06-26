@@ -55,7 +55,7 @@ public class NodeMetricSetListCommand extends BaseCommand implements Callable<In
                 .errOutput(spec.commandLine().getErr())
                 .decorator(new MetricSetListDecorator(plain))
                 .verbose(verbose)
-                .exceptionHandler(new ClusterNotInitializedExceptionHandler("Cannot list metrics", "ignite cluster init"))
+                .exceptionHandler(ClusterNotInitializedExceptionHandler.createHandler("Cannot list metrics"))
                 .build()
                 .runPipeline();
     }

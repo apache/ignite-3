@@ -45,7 +45,7 @@ public class PartitionStatesCommand extends BaseCommand implements Callable<Inte
                 .errOutput(spec.commandLine().getErr())
                 .decorator(new TableDecorator(options.plain()))
                 .verbose(verbose)
-                .exceptionHandler(new ClusterNotInitializedExceptionHandler("Cannot list partition states", "ignite cluster init"))
+                .exceptionHandler(ClusterNotInitializedExceptionHandler.createHandler("Cannot list partition states"))
                 .build()
                 .runPipeline();
     }
