@@ -123,6 +123,6 @@ public class StopNodeOrHaltFailureHandler extends AbstractFailureHandler {
     }
 
     @Override public String toString() {
-        return S.toString(StopNodeOrHaltFailureHandler.class, this);
+        return S.toString(StopNodeOrHaltFailureHandler.class, this, super.toString());
     }
 }
