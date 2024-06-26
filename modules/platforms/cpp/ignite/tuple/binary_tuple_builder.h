@@ -19,9 +19,9 @@
 
 #include "binary_tuple_common.h"
 
+#include "ignite/common/detail/bytes.h"
 #include <ignite/common/big_decimal.h>
 #include <ignite/common/big_integer.h>
-#include <ignite/common/bytes.h>
 #include <ignite/common/bytes_view.h>
 #include <ignite/common/ignite_date.h>
 #include <ignite/common/ignite_date_time.h>
@@ -646,7 +646,7 @@ private:
      * @brief Adds an entry to the offset table.
      */
     void append_entry() {
-        auto offset = bytes::htol<std::ptrdiff_t>(next_value - value_base);
+        auto offset = detail::bytes::htol<std::ptrdiff_t>(next_value - value_base);
         std::memcpy(next_entry, &offset, entry_size);
         next_entry += entry_size;
         element_index++;

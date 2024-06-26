@@ -17,8 +17,8 @@
 
 #pragma once
 
-#include "ignite/common/bytes.h"
 #include "ignite/common/bytes_view.h"
+#include "ignite/common/detail/bytes.h"
 #include "ignite/common/uuid.h"
 #include "ignite/protocol/bitset_span.h"
 #include "ignite/protocol/buffer_adapter.h"
@@ -101,8 +101,8 @@ public:
      */
     void write(uuid value) {
         std::byte data[16];
-        bytes::store<endian::LITTLE, std::int64_t>(&data[0], value.get_most_significant_bits());
-        bytes::store<endian::LITTLE, std::int64_t>(&data[8], value.get_least_significant_bits());
+        detail::bytes::store<detail::endian::LITTLE, std::int64_t>(&data[0], value.get_most_significant_bits());
+        detail::bytes::store<detail::endian::LITTLE, std::int64_t>(&data[8], value.get_least_significant_bits());
 
         msgpack_pack_ext_with_body(m_packer.get(), &data, 16, std::int8_t(extension_type::UUID));
     }

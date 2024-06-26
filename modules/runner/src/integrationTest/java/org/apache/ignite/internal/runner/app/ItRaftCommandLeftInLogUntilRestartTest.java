@@ -43,7 +43,6 @@ import org.apache.ignite.internal.replicator.ReplicaTestUtils;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.SchemaRegistry;
-import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.table.TableViewInternal;
@@ -220,7 +219,7 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
         clearData(ignite.tables().table(DEFAULT_TABLE_NAME));
     }
 
-    private static Row marshalKey(TableViewInternal table, Tuple tuple) throws TupleMarshallerException {
+    private static Row marshalKey(TableViewInternal table, Tuple tuple) {
         SchemaRegistry schemaReg = table.schemaView();
         var marshaller = new TupleMarshallerImpl(schemaReg.lastKnownSchema());
 

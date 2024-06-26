@@ -50,7 +50,6 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.marshaller.BinaryMode;
 import org.apache.ignite.internal.marshaller.Marshaller;
 import org.apache.ignite.internal.marshaller.MarshallerColumn;
-import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -62,6 +61,7 @@ import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.util.ObjectFactory;
+import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.table.mapper.PojoMapper;
 
@@ -192,8 +192,7 @@ public class AsmMarshallerGenerator implements MarshallerFactory {
         final MethodDefinition methodDef = classDef.declareMethod(
                 EnumSet.of(Access.PUBLIC),
                 "schemaVersion",
-                ParameterizedType.type(int.class)
-        ).addException(MarshallerException.class);
+                ParameterizedType.type(int.class));
 
         methodDef.declareAnnotation(Override.class);
 
@@ -386,11 +385,12 @@ public class AsmMarshallerGenerator implements MarshallerFactory {
                 .retObject();
 
         final Variable ex = methodDef.getScope().createTempVariable(Throwable.class);
+        BytecodeExpression message = ex.invoke("getMessage", String.class);
         methodDef.getBody().append(new TryCatch(
                 block,
                 new BytecodeBlock()
                         .putVariable(ex)
-                        .append(newInstance(MarshallerException.class, ex))
+                        .append(newInstance(MarshallerException.class, message, ex))
                         .throwObject(),
                 ParameterizedType.type(Throwable.class)
         ));

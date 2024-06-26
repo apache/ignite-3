@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.exec.mapping;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import java.util.List;
+import org.apache.ignite.internal.affinity.TokenizedAssignments;
 import org.apache.ignite.internal.sql.engine.exec.NodeWithConsistencyToken;
 
 /**
@@ -28,10 +29,10 @@ public interface ExecutionTargetFactory {
     /**
      * Creates target from list of primary partitions.
      *
-     * @param nodes List of partitions.
+     * @param assignments List of assignments.
      * @return An execution target.
      */
-    ExecutionTarget partitioned(List<NodeWithConsistencyToken> nodes);
+    ExecutionTarget partitioned(List<TokenizedAssignments> assignments);
 
     /**
      * Creates target from list of required nodes.

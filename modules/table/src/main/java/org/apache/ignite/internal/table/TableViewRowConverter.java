@@ -40,27 +40,27 @@ final class TableViewRowConverter {
         return schemaReg;
     }
 
-    Row resolveRow(BinaryRow binaryRow, int targetSchemaVersion) {
+    Row resolveRow(BinaryRow binaryRow, int targetSchemaVersion) throws MarshallerException {
         try {
             return schemaReg.resolve(binaryRow, targetSchemaVersion);
         } catch (SchemaRegistryException e) {
-            throw new MarshallerException(e);
+            throw new MarshallerException("Failed find a serialization schema for the binary row.", e);
         }
     }
 
-    List<Row> resolveKeys(Collection<BinaryRow> rows, int targetSchemaVersion) {
+    List<Row> resolveKeys(Collection<BinaryRow> rows, int targetSchemaVersion) throws MarshallerException {
         try {
             return schemaReg.resolveKeys(rows, targetSchemaVersion);
         } catch (SchemaRegistryException e) {
-            throw new MarshallerException(e);
+            throw new MarshallerException("Failed find a serialization schema for the binary row.", e);
         }
     }
 
-    List<Row> resolveRows(Collection<BinaryRow> rows, int targetSchemaVersion) {
+    List<Row> resolveRows(Collection<BinaryRow> rows, int targetSchemaVersion) throws MarshallerException {
         try {
             return schemaReg.resolve(rows, targetSchemaVersion);
         } catch (SchemaRegistryException e) {
-            throw new MarshallerException(e);
+            throw new MarshallerException("Failed find a serialization schema for the binary row.", e);
         }
     }
 }

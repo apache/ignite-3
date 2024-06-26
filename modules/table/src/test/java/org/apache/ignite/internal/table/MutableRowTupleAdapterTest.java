@@ -37,7 +37,6 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -54,7 +53,6 @@ import org.apache.ignite.internal.schema.SchemaAware;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaMismatchException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
-import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.type.NativeType;
@@ -112,7 +110,7 @@ public class MutableRowTupleAdapterTest extends AbstractMutableTupleTest {
     );
 
     @Test
-    public void testKeyValueChunks() throws TupleMarshallerException {
+    public void testKeyValueChunks() {
         SchemaDescriptor schema = new SchemaDescriptor(
                 42,
                 List.of(
@@ -159,7 +157,7 @@ public class MutableRowTupleAdapterTest extends AbstractMutableTupleTest {
     }
 
     @Test
-    public void testRowTupleMutability() throws TupleMarshallerException {
+    public void testRowTupleMutability() {
         TupleMarshaller marshaller = new TupleMarshallerImpl(schema);
 
         Row row = marshaller.marshal(Tuple.create().set("id", 1L).set("simpleName", "Shirt"));
@@ -186,7 +184,7 @@ public class MutableRowTupleAdapterTest extends AbstractMutableTupleTest {
     }
 
     @Test
-    public void testKeyValueTupleMutability() throws TupleMarshallerException {
+    public void testKeyValueTupleMutability() {
         TupleMarshaller marshaller = new TupleMarshallerImpl(schema);
 
         Row row = marshaller.marshal(Tuple.create().set("id", 1L).set("simpleName", "Shirt"));
@@ -215,7 +213,7 @@ public class MutableRowTupleAdapterTest extends AbstractMutableTupleTest {
     }
 
     @Test
-    public void testRowTupleSchemaAwareness() throws TupleMarshallerException {
+    public void testRowTupleSchemaAwareness() {
         TupleMarshaller marshaller = new TupleMarshallerImpl(schema);
 
         Row row = marshaller.marshal(Tuple.create().set("id", 1L).set("simpleName", "Shirt"));
@@ -238,7 +236,7 @@ public class MutableRowTupleAdapterTest extends AbstractMutableTupleTest {
     }
 
     @Test
-    public void testKeyValueTupleSchemaAwareness() throws TupleMarshallerException {
+    public void testKeyValueTupleSchemaAwareness() {
         TupleMarshaller marshaller = new TupleMarshallerImpl(schema);
 
         Row row = marshaller.marshal(Tuple.create().set("id", 1L).set("simpleName", "Shirt"));
@@ -488,46 +486,34 @@ public class MutableRowTupleAdapterTest extends AbstractMutableTupleTest {
 
     @Override
     protected Tuple createTuple(Function<Tuple, Tuple> transformer) {
-        try {
-            Tuple tuple = Tuple.create().set("ID", 1L);
+        Tuple tuple = Tuple.create().set("ID", 1L);
 
-            tuple = transformer.apply(tuple);
+        tuple = transformer.apply(tuple);
 
-            TupleMarshaller marshaller = new TupleMarshallerImpl(schema);
+        TupleMarshaller marshaller = new TupleMarshallerImpl(schema);
 
-            return TableRow.tuple(marshaller.marshal(tuple));
-        } catch (TupleMarshallerException e) {
-            return fail(e);
-        }
+        return TableRow.tuple(marshaller.marshal(tuple));
     }
 
     @Override
     protected Tuple getTuple() {
-        try {
-            Tuple tuple = Tuple.create();
+        Tuple tuple = Tuple.create();
 
-            tuple = addColumnsForDefaultSchema(tuple);
+        tuple = addColumnsForDefaultSchema(tuple);
 
-            TupleMarshaller marshaller = new TupleMarshallerImpl(schema);
+        TupleMarshaller marshaller = new TupleMarshallerImpl(schema);
 
-            return TableRow.tuple(marshaller.marshal(tuple));
-        } catch (TupleMarshallerException e) {
-            return fail(e);
-        }
+        return TableRow.tuple(marshaller.marshal(tuple));
     }
 
     @Override
     protected Tuple getTupleWithColumnOfAllTypes() {
-        try {
-            Tuple tuple = Tuple.create().set("keyUuidCol", UUID_VALUE);
+        Tuple tuple = Tuple.create().set("keyUuidCol", UUID_VALUE);
 
-            tuple = addColumnOfAllTypes(tuple);
+        tuple = addColumnOfAllTypes(tuple);
 
-            TupleMarshaller marshaller = new TupleMarshallerImpl(fullSchema);
+        TupleMarshaller marshaller = new TupleMarshallerImpl(fullSchema);
 
-            return TableRow.tuple(marshaller.marshal(tuple));
-        } catch (TupleMarshallerException e) {
-            return fail(e);
-        }
+        return TableRow.tuple(marshaller.marshal(tuple));
     }
 }
