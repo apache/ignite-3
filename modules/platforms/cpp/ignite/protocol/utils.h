@@ -43,9 +43,9 @@ class reader;
  * Error data extensions. When the server returns an error response, it may contain additional data in a map.
  * Keys are defined here.
  */
-struct error_extensions {
-static const std::string EXPECTED_SCHEMA_VERSION;
-static const std::string SQL_UPDATE_COUNTERS;
+namespace error_extensions {
+constexpr const char* EXPECTED_SCHEMA_VERSION = "expected-schema-ver";
+constexpr const char* SQL_UPDATE_COUNTERS = "sql-update-counters";
 };
 
 /** Magic bytes. */

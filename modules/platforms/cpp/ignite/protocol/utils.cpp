@@ -30,8 +30,6 @@
 
 namespace ignite::protocol {
 
-const std::string error_extensions::EXPECTED_SCHEMA_VERSION{"expected-schema-ver"};
-const std::string error_extensions::SQL_UPDATE_COUNTERS{"sql-update-counters"};
 
 /**
  * Check if int value fits in @c T.
@@ -236,7 +234,7 @@ ignite_error read_error(reader &reader) {
             if (key == error_extensions::EXPECTED_SCHEMA_VERSION) {
                 auto ver = reader.read_int32();
                 res.add_extra<std::int32_t>(std::move(key), ver);
-            } if (key == error_extensions::SQL_UPDATE_COUNTERS) {
+            } else if (key == error_extensions::SQL_UPDATE_COUNTERS) {
                 auto affected_rows = reader.read_int64_array();
                 res.add_extra<std::vector<std::int64_t>>(std::move(key), std::move(affected_rows));
             } else {
