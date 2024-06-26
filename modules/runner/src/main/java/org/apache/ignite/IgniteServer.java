@@ -70,8 +70,7 @@ public interface IgniteServer {
     }
 
     /**
-     * Starts an embedded Ignite node with a configuration from a HOCON file with an optional class loader for further usage by
-     * {@link java.util.ServiceLoader}..
+     * Starts an embedded Ignite node with a configuration from a HOCON file synchronously.
      *
      * <p>When this method returns, the node is partially started, and is ready to accept the init command (that is, its REST endpoint is
      * functional).
@@ -86,15 +85,15 @@ public interface IgniteServer {
     }
 
     /**
-     * Creates and starts an embedded Ignite node with a configuration from a HOCON file, with an optional class loader for further usage by
-     * {@link java.util.ServiceLoader}.
+     * Starts an embedded Ignite node with a configuration from a HOCON file, with an optional class loader for further usage by
+     * {@link java.util.ServiceLoader} synchronously.
      *
      * <p>When this method returns, the node is partially started, and is ready to accept the init command (that is, its REST endpoint is
      * functional).
      *
      * @param nodeName Name of the node. Must not be {@code null}.
      * @param configPath Path to the node configuration in the HOCON format. Must not be {@code null}.
-     * @param workDir Work directory for the started node. Must not be {@code null}.
+     * @param workDir Work directory for the node. Must not be {@code null}.
      * @param serviceLoaderClassLoader The class loader to be used to load provider-configuration files and provider classes, or
      *         {@code null} if the system class loader (or, failing that, the bootstrap class loader) is to be used
      */
@@ -141,7 +140,7 @@ public interface IgniteServer {
     CompletableFuture<Void> initClusterAsync(InitParameters parameters);
 
     /**
-     * Initializes the cluster that the given node is present in.
+     * Initializes the cluster that the given node is present in synchronously.
      *
      * <p>Cluster initialization propagates information about those nodes that will host the Meta Storage and CMG Raft groups
      * to all nodes in the cluster. After the operation succeeds, nodes can finish the start procedure and begin accepting incoming
@@ -171,8 +170,8 @@ public interface IgniteServer {
     CompletableFuture<Void> waitForInitAsync();
 
     /**
-     * Stops the node synchronously. After the future returned by method completes, the node is no longer functional and can't be restarted.
-     * Use {@code startAsync} methods to create new {@code IgniteServer} instance.
+     * Stops the node. After the future returned by method completes, the node is no longer functional and can't be restarted. Use
+     * {@code startAsync} methods to create new {@code IgniteServer} instance.
      *
      * @return CompletableFuture that resolves when the node is stopped.
      */
