@@ -23,7 +23,6 @@ import org.apache.ignite.internal.network.NetworkMessage;
  * Generic interface for all messages about concrete table.
  */
 public interface TableAware extends NetworkMessage {
-
     /** Table Id. */
     int tableId();
 }

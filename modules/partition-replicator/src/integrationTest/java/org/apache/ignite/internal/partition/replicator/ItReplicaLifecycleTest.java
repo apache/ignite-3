@@ -319,7 +319,6 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
 
             assertDoesNotThrow(() -> keyValueView.put(null, 1L, 100));
 
-            // Actually we are testing not the fair put value, but the hardcoded one from temporary noop replica listener
             assertEquals(100, keyValueView.get(null, 1L));
         }
 
@@ -333,7 +332,6 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
 
             assertDoesNotThrow(() -> keyValueView.put(null, 1L, 200));
 
-            // Actually we are testing not the fair put value, but the hardcoded one from temporary noop replica listener
             assertEquals(200, keyValueView.get(null, 1L));
         }
     }
