@@ -20,7 +20,6 @@ package org.apache.ignite.internal.sql.engine;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -28,7 +27,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.util.Cancellable;
-import org.apache.ignite.internal.util.FastTimestamps;
 import org.jetbrains.annotations.Nullable;
 
 /**
