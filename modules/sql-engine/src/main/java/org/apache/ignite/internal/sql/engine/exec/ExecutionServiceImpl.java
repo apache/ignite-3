@@ -846,10 +846,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
                 if (rootFragmentId0 != null && fragmentId == rootFragmentId0) {
                     root.completeExceptionally(ex);
-                } else if (root == null) {
+                } else if (root != null) {
                     // Non-root fragment received an error when attempted to submit a fragment.
-                    close(QueryCompletionReason.ERROR);
-                } else {
                     root.thenAccept(root -> {
                         root.onError(ex);
 
