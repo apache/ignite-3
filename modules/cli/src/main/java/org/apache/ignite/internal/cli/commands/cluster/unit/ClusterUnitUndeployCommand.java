@@ -63,7 +63,7 @@ public class ClusterUnitUndeployCommand extends BaseCommand implements Callable<
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
                 .verbose(verbose)
-                .exceptionHandler(new ClusterNotInitializedExceptionHandler("Cannot undeploy unit", "ignite cluster init"))
+                .exceptionHandler(ClusterNotInitializedExceptionHandler.createHandler("Cannot undeploy unit"))
                 .build().runPipeline();
     }
 }

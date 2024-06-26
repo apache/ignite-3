@@ -22,6 +22,7 @@ import org.apache.ignite.internal.cli.call.recovery.restart.RestartPartitionsCal
 import org.apache.ignite.internal.cli.call.recovery.restart.RestartPartitionsCallInput;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
+import org.apache.ignite.internal.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
 import org.apache.ignite.internal.cli.core.flow.builder.Flows;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
@@ -44,6 +45,7 @@ public class RestartPartitionsReplCommand extends BaseCommand implements Runnabl
                 .map(url -> RestartPartitionsCallInput.of(options, url))
                 .then(Flows.fromCall(call))
                 .verbose(verbose)
+                .exceptionHandler(ClusterNotInitializedExceptionHandler.createReplHandler("Cannot restart partitions"))
                 .print()
                 .start();
     }

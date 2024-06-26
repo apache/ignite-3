@@ -15,13 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.recovery.partitions.restart;
+package org.apache.ignite.internal.cli.commands;
 
-/** Test class for {@link RestartPartitionsReplCommand}. */
-public class ItRestartPartitionsReplCommandTest extends ItRestartPartitionsTest {
+import org.junit.jupiter.api.BeforeEach;
+
+/**
+ * Tests for non-initialized cluster fir REPL mode.
+ */
+public class ItReplNonInitializedClusterTest extends ItNonInitializedClusterTest {
 
     @Override
     protected Class<?> getCommandClass() {
-        return RestartPartitionsReplCommand.class;
+        return TopLevelCliReplCommand.class;
+    }
+
+    @BeforeEach
+    void connect() {
+        execute("connect");
+    }
+
+    @Override
+    protected String getExpectedErrorMessage() {
+        return CLUSTER_NOT_INITIALIZED_REPL_ERROR_MESSAGE;
     }
 }
