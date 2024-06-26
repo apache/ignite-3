@@ -22,7 +22,7 @@ import static org.apache.ignite.internal.sql.engine.prepare.PlannerHelper.optimi
 import static org.apache.ignite.internal.sql.engine.trait.TraitUtils.distributionPresent;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 import static org.apache.ignite.internal.thread.ThreadOperation.NOTHING_ALLOWED;
-import static org.apache.ignite.lang.ErrorGroups.Sql.PLANNING_TIMEOUT_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.EXECUTION_CANCELLED_ERR;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -36,7 +36,6 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
-import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.schema.SchemaPlus;
@@ -53,6 +52,7 @@ import org.apache.ignite.internal.sql.ColumnMetadataImpl;
 import org.apache.ignite.internal.sql.ResultSetMetadataImpl;
 import org.apache.ignite.internal.sql.configuration.distributed.SqlDistributedConfiguration;
 import org.apache.ignite.internal.sql.configuration.local.SqlLocalConfiguration;
+import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.SqlOperationContext;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter;
@@ -124,7 +124,7 @@ public class PrepareServiceImpl implements PrepareService {
      * @param cacheFactory A factory to create cache of query plans.
      * @param dataStorageManager Data storage manager.
      * @param metricManager Metric manager.
-     * @param clusterCfg  Cluster SQL configuration.
+     * @param clusterCfg Cluster SQL configuration.
      * @param nodeCfg Node SQL configuration.
      * @param schemaManager Schema manager to use on validation phase to bind identifiers in AST with particular schema objects.
      */
@@ -226,6 +226,11 @@ public class PrepareServiceImpl implements PrepareService {
             return CompletableFuture.failedFuture(new SchemaNotFoundException(schemaName));
         }
 
+        // Add an action to trigger planner timeout, when operation times out.
+        // Or trigger timeout immediately if operation has already timed out.
+        QueryCancel cancelHandler = operationContext.cancel();
+        assert cancelHandler != null;
+
         PlanningContext planningContext = PlanningContext.builder()
                 .frameworkConfig(Frameworks.newConfigBuilder(FRAMEWORK_CONFIG).defaultSchema(schema).build())
                 .query(parsedResult.originalQuery())
@@ -237,11 +242,6 @@ public class PrepareServiceImpl implements PrepareService {
 
         return result.exceptionally(ex -> {
                     Throwable th = ExceptionUtils.unwrapCause(ex);
-                    if (planningContext.timeouted() && th instanceof RelOptPlanner.CannotPlanException) {
-                        throw new SqlException(
-                                PLANNING_TIMEOUT_ERR,
-                                "Planning of a query aborted due to planner timeout threshold is reached");
-                    }
 
                     throw new CompletionException(SqlExceptionMapperUtil.mapToPublicSqlException(th));
                 }
@@ -356,25 +356,20 @@ public class PrepareServiceImpl implements PrepareService {
 
                 SqlNode validatedNode = validated.sqlNode();
 
-                IgniteRel igniteRel = optimize(validatedNode, planner);
-
-                // cluster keeps a lot of cached stuff that won't be used anymore.
-                // In order let GC collect that, let's reattach tree to an empty cluster
-                // before storing tree in plan cache
-                IgniteRel clonedTree = Cloner.clone(igniteRel, Commons.emptyCluster());
+                IgniteRel optimizedRel = doOptimize(ctx, validatedNode, planner, key);
 
                 ResultSetMetadata resultSetMetadata = resultSetMetadata(validated.dataType(), validated.origins(), validated.aliases());
 
                 int catalogVersion = ctx.catalogVersion();
 
-                if (clonedTree instanceof IgniteKeyValueGet) {
+                if (optimizedRel instanceof IgniteKeyValueGet) {
                     return new KeyValueGetPlan(
-                            nextPlanId(), catalogVersion, (IgniteKeyValueGet) clonedTree, resultSetMetadata, parameterMetadata
+                            nextPlanId(), catalogVersion, (IgniteKeyValueGet) optimizedRel, resultSetMetadata, parameterMetadata
                     );
                 }
 
                 var plan = new MultiStepPlan(
-                        nextPlanId(), SqlQueryType.QUERY, clonedTree, resultSetMetadata, parameterMetadata, catalogVersion
+                        nextPlanId(), SqlQueryType.QUERY, optimizedRel, resultSetMetadata, parameterMetadata, catalogVersion
                 );
 
                 if (LOG.isDebugEnabled()) {
@@ -428,24 +423,18 @@ public class PrepareServiceImpl implements PrepareService {
                 SqlNode validatedNode = stmt.value;
                 ParameterMetadata parameterMetadata = stmt.parameterMetadata;
 
-                // Convert to Relational operators graph
-                IgniteRel igniteRel = optimize(validatedNode, planner);
-
-                // cluster keeps a lot of cached stuff that won't be used anymore.
-                // In order let GC collect that, let's reattach tree to an empty cluster
-                // before storing tree in plan cache
-                IgniteRel clonedTree = Cloner.clone(igniteRel, Commons.emptyCluster());
+                IgniteRel optimizedRel = doOptimize(ctx, validatedNode, planner, key);
 
                 int catalogVersion = ctx.catalogVersion();
 
-                if (clonedTree instanceof IgniteKeyValueModify) {
+                if (optimizedRel instanceof IgniteKeyValueModify) {
                     return new KeyValueModifyPlan(
-                            nextPlanId(), catalogVersion, (IgniteKeyValueModify) clonedTree, DML_METADATA, parameterMetadata
+                            nextPlanId(), catalogVersion, (IgniteKeyValueModify) optimizedRel, DML_METADATA, parameterMetadata
                     );
                 }
 
                 return new MultiStepPlan(
-                        nextPlanId(), SqlQueryType.DML, clonedTree, DML_METADATA, parameterMetadata, catalogVersion
+                        nextPlanId(), SqlQueryType.DML, optimizedRel, DML_METADATA, parameterMetadata, catalogVersion
                 );
             }, planningPool));
 
@@ -580,6 +569,33 @@ public class PrepareServiceImpl implements PrepareService {
                     return new ResultSetMetadataImpl(fieldsMeta);
                 }
         );
+    }
+
+    private IgniteRel doOptimize(PlanningContext ctx, SqlNode validatedNode, IgnitePlanner planner, CacheKey key) {
+        // Convert to Relational operators graph
+        IgniteRel igniteRel;
+        try {
+            igniteRel = optimize(validatedNode, planner);
+        } catch (Exception e) {
+            // Remove this cache entry if planning timed out.
+            // Otherwise the cache will keep a plan that can not be used anymore,
+            // and we should allow another planning attempt with increased timeout.
+            if (ctx.timeouted()) {
+                cache.invalidate(key);
+
+                //noinspection ThrowInsideCatchBlockWhichIgnoresCaughtException
+                throw new SqlException(
+                        EXECUTION_CANCELLED_ERR,
+                        "Planning of a query aborted due to planner timeout threshold is reached");
+            } else {
+                throw new CompletionException(e);
+            }
+        }
+
+        // cluster keeps a lot of cached stuff that won't be used anymore.
+        // In order let GC collect that, let's reattach tree to an empty cluster
+        // before storing tree in plan cache
+        return Cloner.clone(igniteRel, Commons.emptyCluster());
     }
 
     private static ParameterMetadata createParameterMetadata(RelDataType parameterRowType) {

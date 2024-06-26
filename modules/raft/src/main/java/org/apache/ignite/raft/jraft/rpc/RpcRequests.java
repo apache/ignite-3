@@ -19,6 +19,7 @@ package org.apache.ignite.raft.jraft.rpc;
 
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
+import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.List;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -29,7 +30,6 @@ import org.apache.ignite.raft.jraft.entity.RaftOutter;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.EntryMeta;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.rpc.impl.SMThrowable;
-import org.apache.ignite.raft.jraft.util.ByteString;
 import org.jetbrains.annotations.Nullable;
 
 public final class RpcRequests {
@@ -158,7 +158,7 @@ public final class RpcRequests {
         boolean granted();
     }
 
-    @Transferable(value = RaftMessageGroup.RpcRequestsMessageGroup.APPEND_ENTRIES_REQUEST)
+    @Transferable(RaftMessageGroup.RpcRequestsMessageGroup.APPEND_ENTRIES_REQUEST)
     public interface AppendEntriesRequest extends Message {
         String groupId();
 
@@ -177,9 +177,7 @@ public final class RpcRequests {
 
         long committedIndex();
 
-        @Nullable
-        @Marshallable
-        ByteString data();
+        @Nullable ByteBuffer data();
 
         long timestampLong();
 
@@ -216,26 +214,23 @@ public final class RpcRequests {
         boolean readPartly();
     }
 
-    @Transferable(value = RaftMessageGroup.RpcRequestsMessageGroup.GET_FILE_RESPONSE)
+    @Transferable(RaftMessageGroup.RpcRequestsMessageGroup.GET_FILE_RESPONSE)
     public interface GetFileResponse extends Message {
         boolean eof();
 
         long readSize();
 
-        @Marshallable
-        ByteString data();
+        ByteBuffer data();
     }
 
-    @Transferable(value = RaftMessageGroup.RpcRequestsMessageGroup.READ_INDEX_REQUEST)
+    @Transferable(RaftMessageGroup.RpcRequestsMessageGroup.READ_INDEX_REQUEST)
     public interface ReadIndexRequest extends Message {
         String groupId();
 
         @Nullable
         String serverId();
 
-        @Nullable
-        @Marshallable
-        List<ByteString> entriesList();
+        @Nullable List<ByteBuffer> entriesList();
 
         @Nullable
         String peerId();

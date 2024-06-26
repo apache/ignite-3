@@ -122,6 +122,7 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::SSL_CONFIGURATION:
         case error::code::NODE_LEFT:
         case error::code::INTERNAL:
+        case error::code::NULLABLE_VALUE:
             return sql_state::SHY000_GENERAL_ERROR;
 
         // Table group. Group code: 2
@@ -157,8 +158,6 @@ sql_state error_code_to_sql_state(error::code code) {
         // Sql group. Group code: 4
         case error::code::SCHEMA_NOT_FOUND:
             return sql_state::S3F000_INVALID_SCHEMA_NAME;
-        case error::code::PLANNING_TIMEOUT:
-            return sql_state::SHYT00_TIMEOUT_EXPIRED;
         case error::code::EXECUTION_CANCELLED:
             return sql_state::SHY008_OPERATION_CANCELED;
         case error::code::TX_CONTROL_INSIDE_EXTERNAL_TX:

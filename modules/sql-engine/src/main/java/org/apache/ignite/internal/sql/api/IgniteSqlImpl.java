@@ -52,6 +52,7 @@ import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.QueryProperty;
+import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
@@ -537,6 +538,8 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
         }
 
         try {
+            SqlProperties properties = SqlQueryProcessor.DEFAULT_PROPERTIES;
+
             return executeScriptCore(
                     queryProcessor,
                     observableTimestampTracker,
@@ -544,7 +547,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
                     busyLock::leaveBusy,
                     query,
                     arguments,
-                    SqlPropertiesHelper.emptyProperties());
+                    properties);
         } finally {
             busyLock.leaveBusy();
         }
@@ -602,7 +605,8 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
     private static SqlProperties.Builder toPropertiesBuilder(Statement statement) {
         return SqlPropertiesHelper.newBuilder()
                 .set(QueryProperty.TIME_ZONE_ID, statement.timeZoneId())
-                .set(QueryProperty.DEFAULT_SCHEMA, statement.defaultSchema());
+                .set(QueryProperty.DEFAULT_SCHEMA, statement.defaultSchema())
+                .set(QueryProperty.QUERY_TIMEOUT, statement.queryTimeout(TimeUnit.MILLISECONDS));
     }
 
     private int registerCursor(AsyncSqlCursor<?> cursor) {

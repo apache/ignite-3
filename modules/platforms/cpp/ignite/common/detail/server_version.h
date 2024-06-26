@@ -51,4 +51,4 @@ struct server_version {
     }
 };
 
-} // namespace ignite
+} // namespace ignite::detail

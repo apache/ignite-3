@@ -62,13 +62,28 @@ struct mpi {
         [[nodiscard]] bool empty() const noexcept { return size() == 0; }
 
         /** Returns pointer to the magnitude beginning. */
-        [[nodiscard]] const mpi::word *begin() const { return m_ptr; }
+        [[nodiscard]] mpi::word *begin() { return m_ptr; }
 
         /** Returns pointer to the element past last. */
+        [[nodiscard]] mpi::word *end() { return m_ptr + m_size; }
+
+        /** Returns const pointer to the magnitude beginning. */
+        [[nodiscard]] const mpi::word *begin() const { return m_ptr; }
+
+        /** Returns const pointer to the element past last. */
         [[nodiscard]] const mpi::word *end() const { return m_ptr + m_size; }
 
-        /** Returns reference to the last element. */
+        /** Returns const reference to the last element. */
         [[nodiscard]] const mpi::word &back() const { return m_ptr[m_size - 1]; }
+
+        /** Returns reference to the last element. */
+        [[nodiscard]] mpi::word &back() { return m_ptr[m_size - 1]; }
+
+        /** Returns const reference to the last element. */
+        [[nodiscard]] const mpi::word &front() const { return m_ptr[0]; }
+
+        /** Returns reference to the last element. */
+        [[nodiscard]] mpi::word &front() { return m_ptr[0]; }
 
     private:
         /** Pointer to the magnitude array. */
@@ -202,6 +217,28 @@ struct mpi {
     void assign_from_string(const char *string);
     /** Writes mpi to the string. */
     [[nodiscard]] std::string to_string() const;
+
+    /**
+     * Writes mpi magnitude in the byte array. Sign and size will not be written.
+     *
+     * @param data Pointer to the byte array.
+     * @param size Size of the byte array.
+     * @param big_endian Write as big-endian if true, little-endian otherwise.
+     *
+     * @return True if write successful, false otherwise.
+     * */
+    bool write(std::uint8_t *data, std::size_t size, bool big_endian = true);
+
+    /**
+     * Reads mpi magnitude from the byte array. Reads only magnitude, sign should be set separately.
+     *
+     * @param data Pointer to the byte array.
+     * @param size Size of the byte array.
+     * @param big_endian Read as big-endian if true, little-endian otherwise.
+     *
+     * @return True if read successful, false otherwise.
+     * */
+    bool read(const std::uint8_t *data, std::size_t size, bool big_endian = true);
 
 private:
     /** Internal MbedTLS mpi structure. */

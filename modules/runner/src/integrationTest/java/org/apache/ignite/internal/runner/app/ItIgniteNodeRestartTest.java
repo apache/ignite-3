@@ -670,7 +670,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 clusterConfigRegistry.getConfiguration(SqlDistributedConfiguration.KEY),
                 nodeCfgMgr.configurationRegistry().getConfiguration(SqlLocalConfiguration.KEY),
                 transactionInflights,
-                txManager
+                txManager,
+                threadPoolsManager.commonScheduler()
         );
 
         sqlRef.set(new IgniteSqlImpl(qryEngine, new HybridTimestampTracker()));

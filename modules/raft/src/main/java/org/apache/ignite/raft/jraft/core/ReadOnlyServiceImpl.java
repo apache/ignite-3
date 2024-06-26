@@ -16,10 +16,12 @@
  */
 package org.apache.ignite.raft.jraft.core;
 
+import static org.apache.ignite.internal.util.ArrayUtils.EMPTY_BYTE_BUFFER;
 import com.lmax.disruptor.EventFactory;
 import com.lmax.disruptor.EventHandler;
 import com.lmax.disruptor.EventTranslator;
 import com.lmax.disruptor.RingBuffer;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -39,7 +41,6 @@ import org.apache.ignite.raft.jraft.closure.ReadIndexClosure;
 import org.apache.ignite.raft.jraft.disruptor.DisruptorEventType;
 import org.apache.ignite.raft.jraft.disruptor.NodeIdAware;
 import org.apache.ignite.raft.jraft.disruptor.StripedDisruptor;
-import org.apache.ignite.raft.jraft.entity.NodeId;
 import org.apache.ignite.raft.jraft.entity.ReadIndexState;
 import org.apache.ignite.raft.jraft.entity.ReadIndexStatus;
 import org.apache.ignite.raft.jraft.error.OverloadException;
@@ -51,7 +52,6 @@ import org.apache.ignite.raft.jraft.rpc.ReadIndexRequestBuilder;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.ReadIndexRequest;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.ReadIndexResponse;
 import org.apache.ignite.raft.jraft.rpc.RpcResponseClosureAdapter;
-import org.apache.ignite.raft.jraft.util.ByteString;
 import org.apache.ignite.raft.jraft.util.Bytes;
 import org.apache.ignite.raft.jraft.util.DisruptorMetricSet;
 import org.apache.ignite.raft.jraft.util.OnlyForTest;
@@ -232,11 +232,11 @@ public class ReadOnlyServiceImpl implements ReadOnlyService, LastAppliedLogIndex
             .serverId(this.node.getServerId().toString());
 
         List<ReadIndexState> states = new ArrayList<>(events.size());
-        List<ByteString> entries = new ArrayList<>(events.size());
+        List<ByteBuffer> entries = new ArrayList<>(events.size());
 
         for (ReadIndexEvent event : events) {
             byte[] ctx = event.requestContext.get();
-            entries.add(ctx == null ? ByteString.EMPTY : new ByteString(ctx));
+            entries.add(ctx == null ? EMPTY_BYTE_BUFFER : ByteBuffer.wrap(ctx));
             states.add(new ReadIndexState(event.requestContext, event.done, event.startTime));
         }
 

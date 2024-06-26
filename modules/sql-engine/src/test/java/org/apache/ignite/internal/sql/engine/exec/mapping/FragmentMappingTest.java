@@ -32,6 +32,8 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
+import org.apache.calcite.plan.RelOptUtil;
+import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.sql.SqlCommon;
@@ -93,7 +95,7 @@ public class FragmentMappingTest extends AbstractPlannerTest {
 
     private final TreeSet<String> nodeNames = new TreeSet<>();
 
-    private final TreeMap<String, Pair<IgniteDistribution, List<String>>> tables = new TreeMap<>();
+    private final TreeMap<String, Pair<IgniteDistribution, List<List<String>>>> tables = new TreeMap<>();
 
     private final Map<String, Integer> tableRows = new HashMap<>();
 
@@ -258,6 +260,17 @@ public class FragmentMappingTest extends AbstractPlannerTest {
         testRunner.runTest(this::initSchema, "test_partition_pruning.test");
     }
 
+    @Test
+    void backupPartitionsMapping() {
+        addNodes("N0", "N1", "N2", "N3");
+
+        addTable("T1", List.of(List.of("N0", "N1"), List.of("N1", "N2")));
+        addTable("T2", List.of(List.of("N0", "N1", "N2")));
+        addTable("T3", List.of(List.of("N1", "N2")));
+
+        testRunner.runTest(this::initSchema, "test_backup_mapping.test");
+    }
+
     private void addNodes(String node, String... otherNodes) {
         this.nodeNames.add(node);
         this.nodeNames.addAll(Arrays.asList(otherNodes));
@@ -269,14 +282,38 @@ public class FragmentMappingTest extends AbstractPlannerTest {
         nodeNames.addAll(Arrays.asList(otherNodes));
 
         String tableName = formatName(name, nodeNames);
-        tables.put(tableName, new Pair<>(IgniteDistributions.affinity(-1, -1, -1), new ArrayList<>(nodeNames)));
+        tables.put(
+                tableName,
+                new Pair<>(
+                        IgniteDistributions.affinity(-1, -1, -1),
+                        nodeNames.stream()
+                                .map(List::of)
+                                .collect(Collectors.toList())
+                )
+        );
+    }
+
+    private void addTable(String name, List<List<String>> assignments) {
+        String tableName = name;
+
+        for (List<String> partitionNodes : assignments) {
+            tableName = formatName(tableName, new TreeSet<>(partitionNodes));
+        }
+
+        tables.put(
+                tableName,
+                new Pair<>(
+                        IgniteDistributions.affinity(-1, -1, -1),
+                        assignments
+                )
+        );
     }
 
     private void addTableSingle(String name, String... nodes) {
         TreeSet<String> nodeNames = new TreeSet<>(Arrays.asList(nodes));
         String tableName = formatName(name, nodeNames);
 
-        tables.put(tableName, new Pair<>(IgniteDistributions.single(), new ArrayList<>(nodeNames)));
+        tables.put(tableName, new Pair<>(IgniteDistributions.single(), List.of(new ArrayList<>(nodeNames))));
     }
 
     private void addTableIdent(String name, String node, String... otherNodes) {
@@ -285,7 +322,15 @@ public class FragmentMappingTest extends AbstractPlannerTest {
         nodeNames.addAll(Arrays.asList(otherNodes));
 
         String tableName = formatName(name, nodeNames);
-        tables.put(tableName, new Pair<>(IgniteDistributions.identity(0), new ArrayList<>(nodeNames)));
+        tables.put(
+                tableName,
+                new Pair<>(
+                        IgniteDistributions.identity(0),
+                        nodeNames.stream()
+                                .map(List::of)
+                                .collect(Collectors.toList())
+                )
+        );
     }
 
     private void setRowCount(String tableName, int rowCount) {
@@ -304,6 +349,10 @@ public class FragmentMappingTest extends AbstractPlannerTest {
             try (IgnitePlanner planner = ctx.planner()) {
                 assertNotNull(planner);
 
+                var plan = physicalPlan(planner, ctx.query());
+
+                System.out.println(RelOptUtil.toString(plan, SqlExplainLevel.ALL_ATTRIBUTES));
+
                 return physicalPlan(planner, ctx.query());
             }
         } catch (Exception e) {
@@ -316,25 +365,17 @@ public class FragmentMappingTest extends AbstractPlannerTest {
         List<IgniteDataSource> dataSources = new ArrayList<>();
         int objectId = 1;
 
-        Map<String, List<String>> table2NodeNames = new HashMap<>();
+        Map<String, List<List<String>>> table2Assignments = new HashMap<>();
 
-        for (Map.Entry<String, Pair<IgniteDistribution, List<String>>> e : tables.entrySet()) {
+        for (Map.Entry<String, Pair<IgniteDistribution, List<List<String>>>> e : tables.entrySet()) {
             String tableName = e.getKey();
             String tableShortName = tableName.substring(0, tableName.indexOf('_'));
             // Generate distinct row counts for each table to ensure that the optimizer produces the same results.
-            int tableSize = tableRows.getOrDefault(tableShortName, 100 + objectId);
+            int tableSize = tableRows.getOrDefault(tableShortName, 100_000 + objectId);
 
-            List<String> tableNodeNames = e.getValue().getSecond();
+            List<List<String>> assignments = e.getValue().getSecond();
 
-            for (String tableNodeName : tableNodeNames) {
-                if (!nodeNames.contains(tableNodeName)) {
-                    String message = format(
-                            "Expected node {} for table {}. Registered nodes: {}",
-                            tableNodeName, tableShortName, nodeNames
-                    );
-                    throw new IllegalArgumentException(message);
-                }
-            }
+            validateAssignments(tableShortName, assignments);
 
             IgniteDistribution distribution = e.getValue().getFirst();
 
@@ -350,7 +391,7 @@ public class FragmentMappingTest extends AbstractPlannerTest {
 
             IgniteDistribution distributionToUse;
             if (distribution.function() instanceof AffinityDistribution) {
-                distributionToUse = IgniteDistributions.affinity(0, objectId, 1);
+                distributionToUse = IgniteDistributions.affinity(0, objectId, objectId);
             } else {
                 distributionToUse = distribution;
             }
@@ -361,12 +402,12 @@ public class FragmentMappingTest extends AbstractPlannerTest {
                     .size(tableSize)
                     .tableId(objectId)
                     .distribution(distributionToUse)
-                    .partitions(tableNodeNames.size())
+                    .partitions(assignments.size())
                     .build();
 
             dataSources.add(testTable);
 
-            table2NodeNames.put(tableName, tableNodeNames);
+            table2Assignments.put(tableName, assignments);
 
             objectId += 1;
         }
@@ -374,11 +415,25 @@ public class FragmentMappingTest extends AbstractPlannerTest {
         IgniteSchema schema = new IgniteSchema(SqlCommon.DEFAULT_SCHEMA_NAME, 1, dataSources);
         ExecutionTargetProvider executionTargetProvider = TestBuilders.executionTargetProviderBuilder()
                 .useTablePartitions(true)
-                .addTables(table2NodeNames)
+                .addTables(table2Assignments)
                 .build();
         LogicalTopologySnapshot logicalTopologySnapshot = newLogicalTopology();
 
         return new TestSetup(executionTargetProvider, schema, logicalTopologySnapshot);
+    }
+
+    private void validateAssignments(String tableName, List<List<String>> assignments) {
+        for (List<String> partitionAssignments : assignments) {
+            for (String tableNodeName : partitionAssignments) {
+                if (!nodeNames.contains(tableNodeName)) {
+                    String message = format(
+                            "Expected node {} for table {}. Registered nodes: {}",
+                            tableNodeName, tableName, nodeNames
+                    );
+                    throw new IllegalArgumentException(message);
+                }
+            }
+        }
     }
 
     private static String formatName(String name, TreeSet<String> nodeNames) {

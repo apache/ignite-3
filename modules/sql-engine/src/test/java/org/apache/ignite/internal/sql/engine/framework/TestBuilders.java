@@ -48,6 +48,9 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.calcite.util.ImmutableIntList;
+import org.apache.ignite.internal.affinity.Assignment;
+import org.apache.ignite.internal.affinity.TokenizedAssignments;
+import org.apache.ignite.internal.affinity.TokenizedAssignmentsImpl;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogTestUtils;
@@ -73,6 +76,7 @@ import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -83,7 +87,6 @@ import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTable;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTableRegistry;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
-import org.apache.ignite.internal.sql.engine.exec.NodeWithConsistencyToken;
 import org.apache.ignite.internal.sql.engine.exec.PartitionWithConsistencyToken;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
@@ -409,6 +412,9 @@ public class TestBuilders {
      * @see TestIndex
      */
     public interface SortedIndexBuilder extends SortedIndexBuilderBase<SortedIndexBuilder>, NestedBuilder<TableBuilder> {
+
+        /** Specifies whether this index is a primary key index or not. */
+        SortedIndexBuilder primaryKey(boolean value);
     }
 
     /**
@@ -417,6 +423,9 @@ public class TestBuilders {
      * @see TestIndex
      */
     public interface HashIndexBuilder extends HashIndexBuilderBase<HashIndexBuilder>, NestedBuilder<TableBuilder> {
+
+        /** Specifies whether this index is a primary key index or not. */
+        HashIndexBuilder primaryKey(boolean value);
     }
 
     /**
@@ -549,7 +558,8 @@ public class TestBuilders {
                     ArrayRowHandler.INSTANCE,
                     Commons.parametersMap(dynamicParams),
                     TxAttributes.fromTx(new NoOpTransaction(node.name())),
-                    SqlQueryProcessor.DEFAULT_TIME_ZONE_ID
+                    SqlQueryProcessor.DEFAULT_TIME_ZONE_ID,
+                    null
             );
         }
     }
@@ -629,10 +639,10 @@ public class TestBuilders {
                     new DdlSqlToCommandConverter(), PLANNING_TIMEOUT, PLANNING_THREAD_COUNT,
                     mock(MetricManagerImpl.class), schemaManager);
 
-            Map<String, List<String>> owningNodesByTableName = new HashMap<>();
+            Map<String, List<List<String>>> owningNodesByTableName = new HashMap<>();
             for (Entry<String, Map<String, ScannableTable>> entry : nodeName2tableName2table.entrySet()) {
                 for (String tableName : entry.getValue().keySet()) {
-                    owningNodesByTableName.computeIfAbsent(tableName, key -> new ArrayList<>()).add(entry.getKey());
+                    owningNodesByTableName.computeIfAbsent(tableName, key -> new ArrayList<>()).add(List.of(entry.getKey()));
                 }
             }
 
@@ -683,6 +693,7 @@ public class TestBuilders {
                         var partitionPruner = new PartitionPrunerImpl();
                         var mappingService = new MappingServiceImpl(
                                 name,
+                                new TestClockService(clock, clockWaiter),
                                 targetProvider,
                                 EmptyCacheFactory.INSTANCE,
                                 0,
@@ -1058,6 +1069,8 @@ public class TestBuilders {
             implements SortedIndexBuilder {
         private final TableBuilderImpl parent;
 
+        private boolean primary;
+
         private SortedIndexBuilderImpl(TableBuilderImpl parent) {
             this.parent = parent;
         }
@@ -1078,6 +1091,13 @@ public class TestBuilders {
 
         /** {@inheritDoc} */
         @Override
+        public SortedIndexBuilder primaryKey(boolean value) {
+            this.primary = value;
+            return self();
+        }
+
+        /** {@inheritDoc} */
+        @Override
         public TestIndex build(TableDescriptor desc) {
             if (name == null) {
                 throw new IllegalArgumentException("Name is not specified");
@@ -1091,12 +1111,14 @@ public class TestBuilders {
                 throw new IllegalArgumentException("Collation must be specified for each of columns.");
             }
 
-            return TestIndex.createSorted(name, columns, collations, desc);
+            return TestIndex.createSorted(name, columns, collations, desc, primary);
         }
     }
 
     private static class HashIndexBuilderImpl extends AbstractTableIndexBuilderImpl<HashIndexBuilder> implements HashIndexBuilder {
         private final TableBuilderImpl parent;
+
+        private boolean primary;
 
         private HashIndexBuilderImpl(TableBuilderImpl parent) {
             this.parent = parent;
@@ -1118,6 +1140,13 @@ public class TestBuilders {
 
         /** {@inheritDoc} */
         @Override
+        public HashIndexBuilder primaryKey(boolean value) {
+            this.primary = value;
+            return self();
+        }
+
+        /** {@inheritDoc} */
+        @Override
         public TestIndex build(TableDescriptor desc) {
             if (name == null) {
                 throw new IllegalArgumentException("Name is not specified");
@@ -1129,7 +1158,7 @@ public class TestBuilders {
 
             assert collations == null : "Collation is not supported.";
 
-            return TestIndex.createHash(name, columns, desc);
+            return TestIndex.createHash(name, columns, desc, primary);
         }
     }
 
@@ -1469,7 +1498,7 @@ public class TestBuilders {
     /** A builder to create instances of {@link ExecutionTargetProvider}. */
     public static final class ExecutionTargetProviderBuilder {
 
-        private final Map<String, List<String>> owningNodesByTableName = new HashMap<>();
+        private final Map<String, List<List<String>>> owningNodesByTableName = new HashMap<>();
 
         private Function<String, List<String>> owningNodesBySystemViewName = (n) -> null;
 
@@ -1480,7 +1509,7 @@ public class TestBuilders {
         }
 
         /** Adds tables to list of nodes mapping. */
-        public ExecutionTargetProviderBuilder addTables(Map<String, List<String>> tables) {
+        public ExecutionTargetProviderBuilder addTables(Map<String, List<List<String>>> tables) {
             this.owningNodesByTableName.putAll(tables);
             return this;
         }
@@ -1514,13 +1543,13 @@ public class TestBuilders {
 
         final Function<String, List<String>> owningNodesBySystemViewName;
 
-        final Map<String, List<String>> owningNodesByTableName;
+        final Map<String, List<List<String>>> owningNodesByTableName;
 
         final boolean useTablePartitions;
 
         private TestNodeExecutionTargetProvider(
                 Function<String, List<String>> owningNodesBySystemViewName,
-                Map<String, List<String>> owningNodesByTableName,
+                Map<String, List<List<String>>> owningNodesByTableName,
                 boolean useTablePartitions
         ) {
             this.owningNodesBySystemViewName = owningNodesBySystemViewName;
@@ -1529,31 +1558,43 @@ public class TestBuilders {
         }
 
         @Override
-        public CompletableFuture<ExecutionTarget> forTable(ExecutionTargetFactory factory, IgniteTable table) {
-            List<String> owningNodes = owningNodesByTableName.get(table.name());
+        public CompletableFuture<ExecutionTarget> forTable(
+                HybridTimestamp operationTime,
+                ExecutionTargetFactory factory,
+                IgniteTable table,
+                boolean includeBackups
+        ) {
+            List<List<String>> owningNodes = owningNodesByTableName.get(table.name());
 
             if (nullOrEmpty(owningNodes)) {
                 throw new AssertionError("DataProvider is not configured for table " + table.name());
             }
 
-            List<NodeWithConsistencyToken> nodes;
+            List<TokenizedAssignments> assignments;
 
             if (useTablePartitions) {
                 int p = table.partitions();
 
-                nodes = IntStream.range(0, p).mapToObj(n -> {
-                    String nodeName = owningNodes.get(n % owningNodes.size());
-                    return new NodeWithConsistencyToken(nodeName, p);
+                assignments = IntStream.range(0, p).mapToObj(n -> {
+                    List<String> nodes = owningNodes.get(n % owningNodes.size());
+                    return partitionNodesToAssignment(nodes, p);
                 }).collect(Collectors.toList());
             } else {
-                nodes = owningNodes.stream()
-                        .map(name -> new NodeWithConsistencyToken(name, 1))
+                assignments = owningNodes.stream()
+                        .map(nodes -> partitionNodesToAssignment(nodes, 1))
                         .collect(Collectors.toList());
             }
 
-            ExecutionTarget target = factory.partitioned(nodes);
+            ExecutionTarget target = factory.partitioned(assignments);
 
             return CompletableFuture.completedFuture(target);
+        }
+
+        private static TokenizedAssignments partitionNodesToAssignment(List<String> nodes, long token) {
+            return new TokenizedAssignmentsImpl(
+                    nodes.stream().map(Assignment::forPeer).collect(Collectors.toSet()),
+                    token
+            );
         }
 
         @Override
