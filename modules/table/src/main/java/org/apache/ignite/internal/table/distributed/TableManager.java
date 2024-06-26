@@ -982,6 +982,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         MvTableStorage mvTableStorage = internalTbl.storage();
 
                         try {
+                            // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 Start table replica here must be removed,
+                            // TODO: when the zone replica will be done.
                             return replicaMgr.startReplica(
                                     raftGroupEventsListener,
                                     raftGroupListener,
