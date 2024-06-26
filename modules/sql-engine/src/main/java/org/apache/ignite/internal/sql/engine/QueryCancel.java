@@ -39,8 +39,6 @@ public class QueryCancel {
 
     private Reason reason;
 
-    private volatile Instant deadline;
-
     private volatile CompletableFuture<Void> timeoutFut;
 
     /**
@@ -111,7 +109,6 @@ public class QueryCancel {
         });
 
         this.timeoutFut = fut;
-        this.deadline = Instant.ofEpochMilli(FastTimestamps.coarseCurrentTimeMillis() + timeoutMillis);
         return fut;
     }
 
@@ -122,15 +119,6 @@ public class QueryCancel {
      */
     public @Nullable CompletableFuture<Void> timeoutFuture() {
         return timeoutFut;
-    }
-
-    /**
-     * Returns the deadline of the operation.
-     *
-     * <p>Can be null if a query has no timeout.
-     */
-    public @Nullable Instant deadline() {
-        return deadline;
     }
 
     /**

@@ -906,7 +906,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
         // Do not have enough time to do anything.
         assertThrowsSqlException(Sql.EXECUTION_CANCELLED_ERR, "Query timeout", () -> {
-            igniteSql().execute(null, stmt);
+            executeForRead(igniteSql(), stmt);
         });
     }
 
@@ -958,7 +958,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
         for (int i = 0; i < 100; i++) {
             try {
-                return igniteSql().execute(null, stmt);
+                return executeForRead(igniteSql(), stmt);
             } catch (SqlException e) {
                 // Ignore all execution cancelled error. We assume that all these errors are transient (timeouts),
                 // and we will eventually get a result set.
@@ -989,7 +989,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
         // Trigger query timeout from the planner or the parser.
         assertThrowsSqlException(Sql.EXECUTION_CANCELLED_ERR, "Query timeout", () -> {
-            igniteSql.execute(null, stmt);
+            executeForRead(igniteSql, stmt);
         });
     }
 

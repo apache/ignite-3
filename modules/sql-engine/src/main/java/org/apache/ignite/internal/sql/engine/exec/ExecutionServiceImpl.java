@@ -859,6 +859,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             }
 
             // Complete if fragment is registered.
+            // TODO https://issues.apache.org/jira/browse/IGNITE-22585
             CompletableFuture<Void> f = remoteFragmentInitCompletion.get(new RemoteFragmentKey(nodeName, fragmentId));
             if (f != null) {
                 f.complete(null);
