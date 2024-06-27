@@ -522,7 +522,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
     }
 
     @SuppressWarnings("resource")
-    private static class TestReceiver implements DataStreamerReceiver<String, String> {
+    private static class TestReceiver implements DataStreamerReceiver<String, Object, String> {
         @Override
         public CompletableFuture<List<String>> receive(List<String> page, DataStreamerReceiverContext ctx, Object args) {
             if ("throw".equals(args)) {
@@ -549,7 +549,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
     }
 
     @SuppressWarnings("resource")
-    private static class NodeNameReceiver implements DataStreamerReceiver<Integer, Void> {
+    private static class NodeNameReceiver implements DataStreamerReceiver<Integer, Object, Void> {
         @Override
         public @Nullable CompletableFuture<List<Void>> receive(List<Integer> page, DataStreamerReceiverContext ctx, Object args) {
             var nodeName = ctx.ignite().name();

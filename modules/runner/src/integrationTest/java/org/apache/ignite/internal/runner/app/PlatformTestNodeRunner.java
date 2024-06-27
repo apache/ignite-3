@@ -639,7 +639,7 @@ public class PlatformTestNodeRunner {
     }
 
     @SuppressWarnings("unused") // Used by platform tests.
-    private static class TestReceiver implements DataStreamerReceiver<String, String> {
+    private static class TestReceiver implements DataStreamerReceiver<String, Object, String> {
         @SuppressWarnings("resource")
         @Override
         public @Nullable CompletableFuture<List<String>> receive(List<String> page, DataStreamerReceiverContext ctx, Object args) {
@@ -673,7 +673,7 @@ public class PlatformTestNodeRunner {
     }
 
     @SuppressWarnings("unused") // Used by platform tests.
-    private static class UpsertElementTypeNameReceiver implements DataStreamerReceiver<Object, Object> {
+    private static class UpsertElementTypeNameReceiver implements DataStreamerReceiver<Object, Object, Object> {
         @SuppressWarnings("resource")
         @Override
         public @Nullable CompletableFuture<List<Object>> receive(List<Object> page, DataStreamerReceiverContext ctx, Object args) {
@@ -703,7 +703,7 @@ public class PlatformTestNodeRunner {
     }
 
     @SuppressWarnings("unused") // Used by platform tests.
-    private static class EchoArgsReceiver implements DataStreamerReceiver<Object, Object> {
+    private static class EchoArgsReceiver implements DataStreamerReceiver<Object, Object, Object> {
         @Override
         public CompletableFuture<List<Object>> receive(List<Object> page, DataStreamerReceiverContext ctx, Object args) {
             return CompletableFuture.completedFuture(List.of(args));
@@ -711,7 +711,7 @@ public class PlatformTestNodeRunner {
     }
 
     @SuppressWarnings("unused") // Used by platform tests.
-    private static class EchoReceiver implements DataStreamerReceiver<Object, Object> {
+    private static class EchoReceiver implements DataStreamerReceiver<Object, Object, Object> {
         @Override
         public CompletableFuture<List<Object>> receive(List<Object> page, DataStreamerReceiverContext ctx, Object args) {
             return CompletableFuture.completedFuture(page);
