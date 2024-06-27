@@ -17,12 +17,13 @@
 
 package org.apache.ignite;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
 
-/** Builder of {@link org.apache.ignite.InitParameters}. */
+/** Builder of {@link InitParameters}. */
 public class InitParametersBuilder {
     private Collection<String> metaStorageNodeNames;
     private Collection<String> cmgNodeNames;
@@ -43,6 +44,23 @@ public class InitParametersBuilder {
             throw new IllegalArgumentException("Meta storage node names cannot be empty.");
         }
         this.metaStorageNodeNames = List.of(metaStorageNodeNames);
+        return this;
+    }
+
+    /**
+     * Sets names of nodes that will host the Meta Storage.
+     *
+     * @param metaStorageNodeNames Names of nodes that will host the Meta Storage.
+     * @return {@code this} for chaining.
+     */
+    public InitParametersBuilder metaStorageNodeNames(Collection<String> metaStorageNodeNames) {
+        if (metaStorageNodeNames == null) {
+            throw new IllegalArgumentException("Meta storage node names cannot be null.");
+        }
+        if (metaStorageNodeNames.isEmpty()) {
+            throw new IllegalArgumentException("Meta storage node names cannot be empty.");
+        }
+        this.metaStorageNodeNames = new ArrayList<>(metaStorageNodeNames);
         return this;
     }
 
@@ -98,12 +116,29 @@ public class InitParametersBuilder {
     }
 
     /**
-     * Sets Nodes that will host the CMG. If not set, {@link InitParametersBuilder#metaStorageNodes} will be used.
+     * Sets names of nodes that will host the CMG. If not set, {@link InitParametersBuilder#metaStorageNodeNames} will be used.
+     *
+     * @param cmgNodeNames Names of nodes that will host the CMG.
+     * @return {@code this} for chaining.
+     */
+    public InitParametersBuilder cmgNodeNames(Collection<String> cmgNodeNames) {
+        if (cmgNodeNames == null) {
+            throw new IllegalArgumentException("CMG node names cannot be null.");
+        }
+        if (cmgNodeNames.isEmpty()) {
+            throw new IllegalArgumentException("CMG node names cannot be empty.");
+        }
+        this.cmgNodeNames = new ArrayList<>(cmgNodeNames);
+        return this;
+    }
+
+    /**
+     * Sets nodes that will host the CMG. If not set, {@link InitParametersBuilder#metaStorageNodes} will be used.
      *
      * @param cmgNodes Nodes that will host the CMG.
      * @return {@code this} for chaining.
      */
-    public InitParametersBuilder cmgNodeNames(IgniteServer... cmgNodes) {
+    public InitParametersBuilder cmgNodes(IgniteServer... cmgNodes) {
         if (cmgNodes == null) {
             throw new IllegalArgumentException("CMG nodes cannot be null.");
         }
@@ -111,6 +146,23 @@ public class InitParametersBuilder {
             throw new IllegalArgumentException("CMG nodes cannot be empty.");
         }
         this.cmgNodeNames = Arrays.stream(cmgNodes).map(IgniteServer::name).collect(Collectors.toList());
+        return this;
+    }
+
+    /**
+     * Sets nodes that will host the CMG. If not set, {@link InitParametersBuilder#metaStorageNodes} will be used.
+     *
+     * @param cmgNodes Nodes that will host the CMG.
+     * @return {@code this} for chaining.
+     */
+    public InitParametersBuilder cmgNodes(Collection<IgniteServer> cmgNodes) {
+        if (cmgNodes == null) {
+            throw new IllegalArgumentException("CMG nodes cannot be null.");
+        }
+        if (cmgNodes.isEmpty()) {
+            throw new IllegalArgumentException("CMG nodes cannot be empty.");
+        }
+        this.cmgNodeNames = cmgNodes.stream().map(IgniteServer::name).collect(Collectors.toList());
         return this;
     }
 
