@@ -752,7 +752,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
         try (WriteBatch batch = new WriteBatch()) {
             for (Operation op : ops) {
-                byte[] key = toByteArray(op.key());
+                byte @Nullable [] key = op.key() == null ? null : toByteArray(op.key());
 
                 switch (op.type()) {
                     case PUT:
