@@ -153,7 +153,7 @@ public class ItMetaStorageServicePersistenceTest extends ItAbstractListenerSnaps
         String nodeName = service.nodeName();
 
         KeyValueStorage storage = storageByName.computeIfAbsent(nodeName, name -> {
-            var s = new RocksDbKeyValueStorage(name, listenerPersistencePath, new NoOpFailureProcessor(name));
+            var s = new RocksDbKeyValueStorage(name, listenerPersistencePath, new NoOpFailureProcessor());
 
             s.start();
 

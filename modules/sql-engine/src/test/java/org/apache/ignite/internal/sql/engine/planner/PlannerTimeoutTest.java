@@ -21,7 +21,7 @@ import static org.apache.calcite.tools.Frameworks.newConfigBuilder;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
-import static org.apache.ignite.lang.ErrorGroups.Sql.PLANNING_TIMEOUT_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.EXECUTION_CANCELLED_ERR;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -76,7 +76,7 @@ public class PlannerTimeoutTest extends AbstractPlannerTest {
             ParsedResult parsedResult = parserService.parse("SELECT * FROM T1 t, T1 t1, T1 t2, T1 t3");
 
             SqlTestUtils.assertThrowsSqlException(
-                    PLANNING_TIMEOUT_ERR,
+                    EXECUTION_CANCELLED_ERR,
                     "Planning of a query aborted due to planner timeout threshold is reached",
                     () -> await(prepareService.prepareAsync(parsedResult, ctx)));
         } finally {

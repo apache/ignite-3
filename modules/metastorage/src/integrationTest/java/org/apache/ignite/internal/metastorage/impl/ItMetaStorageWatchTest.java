@@ -160,7 +160,7 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
                     new TestConfigurationValidator()
             );
 
-            FailureProcessor failureProcessor = new NoOpFailureProcessor(name());
+            FailureProcessor failureProcessor = new NoOpFailureProcessor();
             components.add(failureProcessor);
 
             this.cmgManager = new ClusterManagementGroupManager(
@@ -191,7 +191,7 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
                     cmgManager,
                     logicalTopologyService,
                     raftManager,
-                    new RocksDbKeyValueStorage(name(), basePath.resolve("storage"), new NoOpFailureProcessor(name())),
+                    new RocksDbKeyValueStorage(name(), basePath.resolve("storage"), new NoOpFailureProcessor()),
                     clock,
                     topologyAwareRaftGroupServiceFactory,
                     new NoOpMetricManager(),

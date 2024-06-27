@@ -243,8 +243,7 @@ TEST_F(compute_test, all_arg_types) {
     check_argument<float>(std::numeric_limits<float>::max(), "3.4028235E38");
     try {
         check_argument<float>(std::numeric_limits<float>::min(), "1.17549435E-38");
-    }
-    catch (ignite_error&) {
+    } catch (ignite_error &) {
         check_argument<float>(std::numeric_limits<float>::min(), "1.1754944E-38");
     }
 

@@ -135,7 +135,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
         storage = new RocksDbKeyValueStorage(
                 clusterService.nodeName(),
                 workDir.resolve("metastorage"),
-                new NoOpFailureProcessor(clusterService.nodeName()));
+                new NoOpFailureProcessor());
 
         metaStorageManager = new MetaStorageManagerImpl(
                 clusterService,

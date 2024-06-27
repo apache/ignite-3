@@ -324,6 +324,15 @@ void sql_connection::send_message(bytes_view req, std::int32_t timeout) {
 }
 
 network::data_buffer_owning sql_connection::receive_message(std::int64_t id, std::int32_t timeout) {
+    auto res = receive_message_nothrow(id, timeout);
+    if (res.second) {
+        throw std::move(*res.second);
+    }
+    return std::move(res.first);
+}
+
+std::pair<network::data_buffer_owning, std::optional<odbc_error>> sql_connection::receive_message_nothrow(
+    std::int64_t id, std::int32_t timeout) {
     ensure_connected();
     std::vector<std::byte> res;
 
@@ -349,12 +358,12 @@ network::data_buffer_owning sql_connection::receive_message(std::int64_t id, std
         auto observable_timestamp = reader.read_int64();
         on_observable_timestamp(observable_timestamp);
 
+        std::optional<odbc_error> err;
         if (test_flag(flags, protocol::response_flag::ERROR_FLAG)) {
-            auto err = protocol::read_error(reader);
-            throw odbc_error(error_code_to_sql_state(err.get_status_code()), err.what_str());
+            err = odbc_error(protocol::read_error(reader));
         }
 
-        return network::data_buffer_owning{std::move(res), reader.position()};
+        return {network::data_buffer_owning{std::move(res), reader.position()}, err};
     }
 }
 

@@ -215,7 +215,7 @@ dependencies {
     testFixturesImplementation testFixtures(project(':ignite-storage-api'))
     testFixturesImplementation libs.jetbrains.annotations
     testFixturesImplementation libs.hamcrest.core
-    testFixturesImplementation libs.auto.service.annotations
+    testFixturesImplementation libs.typesafe.config
 }
 
 tasks.register("runnerPlatformTest", JavaExec) {

@@ -186,6 +186,8 @@ public class ColocationHashTests : IgniteTestsBase
         var schemas = table.GetFieldValue<IDictionary<int, Task<Schema>>>("_schemas");
         var schema = schemas[1].GetAwaiter().GetResult();
         var clusterNodes = await Client.GetClusterNodesAsync();
+        var jobTarget = JobTarget.AnyNode(clusterNodes);
+        var job = new JobDescriptor<int>(TableRowColocationHashJob);
 
         for (int i = 0; i < 100; i++)
         {
@@ -194,12 +196,7 @@ public class ColocationHashTests : IgniteTestsBase
             using var writer = ProtoCommon.GetMessageWriter();
             var (clientColocationHash, _) = ser.Write(writer, null, schema, key);
 
-            var serverColocationHashExec = await Client.Compute.SubmitAsync<int>(
-                clusterNodes,
-                new(TableRowColocationHashJob),
-                tableName,
-                i);
-
+            var serverColocationHashExec = await Client.Compute.SubmitAsync(jobTarget, job, tableName, i);
             var serverColocationHash = await serverColocationHashExec.GetResultAsync();
 
             Assert.AreEqual(serverColocationHash, clientColocationHash, key.ToString());
@@ -334,11 +331,11 @@ public class ColocationHashTests : IgniteTestsBase
 
     private async Task<int> GetServerHash(byte[] bytes, int count, int timePrecision, int timestampPrecision)
     {
-        var nodes = await Client.GetClusterNodesAsync();
+        var target = JobTarget.AnyNode(await Client.GetClusterNodesAsync());
 
-        IJobExecution<int> jobExecution = await Client.Compute.SubmitAsync<int>(
-            nodes,
-            new(ColocationHashJob),
+        IJobExecution<int> jobExecution = await Client.Compute.SubmitAsync(
+            target,
+            new JobDescriptor<int>(ColocationHashJob),
             count,
             bytes,
             timePrecision,

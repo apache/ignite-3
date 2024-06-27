@@ -94,7 +94,7 @@ public class DeploymentUnitStoreImplTest extends BaseIgniteAbstractTest {
     public void setup() {
         nodeHistory.clear();
         clusterHistory.clear();
-        KeyValueStorage storage = new RocksDbKeyValueStorage("test", workDir, new NoOpFailureProcessor("test"));
+        KeyValueStorage storage = new RocksDbKeyValueStorage("test", workDir, new NoOpFailureProcessor());
 
         MetaStorageManager metaStorageManager = StandaloneMetaStorageManager.create(storage);
         metastore = new DeploymentUnitStoreImpl(metaStorageManager);

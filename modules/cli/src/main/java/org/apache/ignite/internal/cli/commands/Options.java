@@ -173,8 +173,8 @@ public enum Options {
         /** Cluster management node name option description. */
         public static final String CMG_NODE_NAME_OPTION_DESC = "Names of nodes (use comma-separated list of node names "
                 + "'--cluster-management-group node1, node2' "
-                + "to specify more than one node) those will host the Cluster Management Group."
-                + "If omitted, then --meta-store-node values will also supply the nodes for the Cluster Management Group.";
+                + "to specify more than one node) that will host the Cluster Management Group."
+                + " If omitted, then --metastorage-group values will also supply the nodes for the Cluster Management Group.";
 
         /** Meta storage management node name option long name. */
         public static final String META_STORAGE_NODE_NAME_OPTION = "--metastorage-group";
@@ -185,7 +185,7 @@ public enum Options {
         /** Meta storage node name option description. */
         public static final String META_STORAGE_NODE_NAME_OPTION_DESC = "Metastorage group nodes (use comma-separated list of node names "
                 + "'--metastorage-group node1, node2' to specify more than one node) that will host the Meta Storage."
-                + "If the --metastorage-group parameter is omitted, the same nodes will also host the Cluster Management Group.";
+                + " If the --cluster-management-group option is omitted, the same nodes will also host the Cluster Management Group.";
 
         /** Cluster name option long name. */
         public static final String CLUSTER_NAME_OPTION = "--name";
@@ -241,9 +241,12 @@ public enum Options {
         public static final String CLUSTER_CONFIG_OPTION_DESC = "Cluster configuration that "
                 + "will be applied during the cluster initialization";
 
-        public static final String CLUSTER_CONFIG_FILE_OPTION = "--config-file";
+        public static final String CLUSTER_CONFIG_FILE_OPTION = "--config-files";
 
-        public static final String CLUSTER_CONFIG_FILE_OPTION_DESC = "Path to cluster configuration file";
+        public static final String CLUSTER_CONFIG_FILE_OPTION_DESC = "Path to cluster configuration files (use comma-separated list of "
+                + "paths '--config-files path1, path2' to specify more than one file)";
+
+        public static final String CLUSTER_CONFIG_FILE_PARAM_LABEL = "<file path>";
 
         public static final String PASSWORD_OPTION = "--password";
 
