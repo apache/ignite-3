@@ -160,9 +160,11 @@ abstract class AbstractTarget implements ExecutionTarget {
         boolean changed = false;
         BitSet newNodes = (BitSet) oneOf.nodes.clone();
         for (int partNo = 0; partNo < partitioned.partitionsNodes.length; partNo++) {
-            if (!newNodes.equals(partitioned.partitionsNodes[partNo])) {
-                changed = true;
+            if (newNodes.equals(partitioned.partitionsNodes[partNo])) {
+                continue;
             }
+
+            changed = true;
 
             newNodes.and(partitioned.partitionsNodes[partNo]);
 

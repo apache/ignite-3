@@ -169,7 +169,11 @@ abstract class AbstractTarget implements ExecutionTarget {
             }
         }
 
-        return partitioned;
+        boolean finalised = isPow2(colocatedNodes);
+        long[] newNodes = new long[partitioned.partitionsNodes.length];
+        Arrays.fill(newNodes, colocatedNodes);
+
+        return new PartitionedTarget(finalised, newNodes, partitioned.enlistmentConsistencyTokens);
     }
 
     static ExecutionTarget colocate(OneOfTarget oneOf, SomeOfTarget someOf) throws ColocationMappingException {
