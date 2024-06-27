@@ -459,7 +459,7 @@ TEST_F(compute_test, job_execution_status_executing) {
     auto status = execution.get_status();
 
     ASSERT_TRUE(status.has_value());
-    EXPECT_EQ(job_state::EXECUTING, status->state);
+    EXPECT_EQ(job_status::EXECUTING, status->state);
 }
 
 TEST_F(compute_test, DISABLED_job_execution_status_completed) {
@@ -471,7 +471,7 @@ TEST_F(compute_test, DISABLED_job_execution_status_completed) {
     auto status = execution.get_status();
 
     ASSERT_TRUE(status.has_value());
-    EXPECT_EQ(job_state::COMPLETED, status->state);
+    EXPECT_EQ(job_status::COMPLETED, status->state);
 }
 
 TEST_F(compute_test, job_execution_status_failed) {
@@ -491,7 +491,7 @@ TEST_F(compute_test, job_execution_status_failed) {
     auto status = execution.get_status();
 
     ASSERT_TRUE(status.has_value());
-    EXPECT_EQ(job_state::FAILED, status->state);
+    EXPECT_EQ(job_status::FAILED, status->state);
 }
 
 TEST_F(compute_test, job_execution_cancel) {
@@ -503,7 +503,7 @@ TEST_F(compute_test, job_execution_cancel) {
     auto status = execution.get_status();
 
     ASSERT_TRUE(status.has_value());
-    EXPECT_EQ(job_state::CANCELED, status->state);
+    EXPECT_EQ(job_status::CANCELED, status->state);
 }
 
 TEST_F(compute_test, job_execution_change_priority) {

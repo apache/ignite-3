@@ -88,7 +88,7 @@ public:
      * @param callback Callback to be called when the operation is complete. Contains the job status. Can be @c nullopt
      *  if the job status no longer exists due to exceeding the retention time limit.
      */
-    void get_status_async(uuid id, ignite_callback<std::optional<job_status>> callback);
+    void get_status_async(uuid id, ignite_callback<std::optional<job_state>> callback);
 
     /**
      * Cancels the job execution.

@@ -24,7 +24,7 @@ uuid job_execution::get_id() const {
     return m_impl->get_id();
 }
 
-void job_execution::get_status_async(ignite_callback<std::optional<job_status>> callback) {
+void job_execution::get_status_async(ignite_callback<std::optional<job_state>> callback) {
     m_impl->get_status_async(std::move(callback));
 }
 

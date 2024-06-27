@@ -55,7 +55,7 @@ void job_execution_impl::set_result(std::optional<primitive> result) {
     }
 }
 
-void job_execution_impl::get_status_async(ignite_callback<std::optional<job_status>> callback) {
+void job_execution_impl::get_status_async(ignite_callback<std::optional<job_state>> callback) {
     std::unique_lock<std::mutex> guard(m_mutex);
 
     if (m_final_status) {
@@ -68,7 +68,7 @@ void job_execution_impl::get_status_async(ignite_callback<std::optional<job_stat
     }
 }
 
-void job_execution_impl::set_final_status(const job_status &status) {
+void job_execution_impl::set_final_status(const job_state &status) {
     std::lock_guard<std::mutex> guard(m_mutex);
 
     m_final_status = status;

@@ -18,7 +18,7 @@
 #pragma once
 
 #include "ignite/client/compute/job_execution.h"
-#include "ignite/client/compute/job_status.h"
+#include "ignite/client/compute/job_state.h"
 #include "ignite/client/detail/cluster_connection.h"
 #include "ignite/common/detail/config.h"
 #include "ignite/common/ignite_result.h"
@@ -77,14 +77,14 @@ public:
      * @param callback Callback to be called when the operation is complete. Contains the job status. Can be @c nullopt
      *  if the job status no longer exists due to exceeding the retention time limit.
      */
-    void get_status_async(ignite_callback<std::optional<job_status>> callback);
+    void get_status_async(ignite_callback<std::optional<job_state>> callback);
 
     /**
      * Set final status.
      *
      * @param status Execution status.
      */
-    void set_final_status(const job_status &status);
+    void set_final_status(const job_state &status);
 
     /**
      * Set error.
@@ -120,7 +120,7 @@ private:
     std::mutex m_mutex;
 
     /** Final status. */
-    std::optional<job_status> m_final_status;
+    std::optional<job_state> m_final_status;
 
     /** Execution result. First optional to understand if the result is available. */
     std::optional<std::optional<primitive>> m_result;

@@ -85,11 +85,11 @@ std::optional<primitive> read_primitive_from_binary_tuple_nullable(protocol::rea
  * @param reader Reader.
  * @return Value.
  */
-job_status read_job_status(protocol::reader &reader) {
-    job_status res;
+job_state read_job_status(protocol::reader &reader) {
+    job_state res;
 
     res.id = reader.read_uuid();
-    res.state = job_state(reader.read_int32());
+    res.state = job_status(reader.read_int32());
 
     auto create_time = reader.read_timestamp_opt();
     res.create_time = create_time ? *create_time : ignite_timestamp{};
@@ -105,7 +105,7 @@ job_status read_job_status(protocol::reader &reader) {
  * @param reader Reader.
  * @return Value.
  */
-std::optional<job_status> read_job_status_opt(protocol::reader &reader) {
+std::optional<job_state> read_job_status_opt(protocol::reader &reader) {
     if (reader.try_read_nil())
         return std::nullopt;
 
@@ -196,7 +196,7 @@ public:
             this->m_handling_complete = true;
 
             std::optional<primitive> res{};
-            job_status status;
+            job_state status;
 
             auto read_res = result_of_operation<void>([&]() {
                 res = read_primitive_from_binary_tuple_nullable(reader);
@@ -301,14 +301,14 @@ void compute_impl::submit_colocated_async(const std::string &table_name, const i
     m_tables->get_table_async(table_name, std::move(on_table_get));
 }
 
-void compute_impl::get_status_async(uuid id, ignite_callback<std::optional<job_status>> callback) {
+void compute_impl::get_status_async(uuid id, ignite_callback<std::optional<job_state>> callback) {
     auto writer_func = [id](protocol::writer &writer) { writer.write(id); };
 
-    auto reader_func = [](protocol::reader &reader) -> std::optional<job_status> {
+    auto reader_func = [](protocol::reader &reader) -> std::optional<job_state> {
         return read_job_status_opt(reader);
     };
 
-    m_connection->perform_request<std::optional<job_status>>(
+    m_connection->perform_request<std::optional<job_state>>(
         protocol::client_operation::COMPUTE_GET_STATUS, writer_func, std::move(reader_func), std::move(callback));
 }
 
