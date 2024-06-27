@@ -171,10 +171,10 @@ artifacts {
         cppClientHeaders(file("$buildDir/install/include")) {
             builtBy cmakeBuildClient
         }
-        cppClient(file("$buildDir/cpp/lib/libignite-client.so.3")) {
+        cppClient(file("$buildDir/cpp/lib/libignite3-client.so.3")) {
             builtBy cmakeBuildClient
         }
-        cppClient(file("$buildDir/cpp/lib/libignite-client.so")) {
+        cppClient(file("$buildDir/cpp/lib/libignite3-client.so")) {
             builtBy cmakeBuildClient
         }
         odbc(file("$buildDir/cpp/lib/libignite3-odbc.so")) {
