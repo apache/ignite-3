@@ -43,11 +43,19 @@ task docfx(type: Exec) {
     commandLine "dotnet", "docfx", "docs/docfx.json"
 }
 
+
 task aggregateDotnetDocs(type: Copy) {
     dependsOn docfx
 
     from("$rootDir/modules/platforms/dotnet/docs/_site")
     into("$rootDir/build/docs/dotnet")
+}
+
+
+task doxygenCppClient(type: Exec) {
+    workingDir "$rootDir/modules/platforms/cpp"
+
+    commandLine "doxygen"
 }
 
 
