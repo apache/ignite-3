@@ -292,15 +292,15 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     @Test
     void testCancelBroadcastAllNodes() {
         int sleepMs = 1_000_000;
-        Map<ClusterNode, JobExecution<String>> executionsPerNode = client().compute().submitBroadcast(
+        Map<ClusterNode, JobExecution<Void>> executionsPerNode = client().compute().submitBroadcast(
                 new HashSet<>(sortedNodes()),
                 JobDescriptor.builder(SleepJob.class).build(),
                 sleepMs);
 
         assertEquals(2, executionsPerNode.size());
 
-        JobExecution<String> execution1 = executionsPerNode.get(node(0));
-        JobExecution<String> execution2 = executionsPerNode.get(node(1));
+        JobExecution<Void> execution1 = executionsPerNode.get(node(0));
+        JobExecution<Void> execution2 = executionsPerNode.get(node(1));
 
         await().until(execution1::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
         await().until(execution2::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
@@ -589,7 +589,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         int sleepMs = 1_000_000;
 
         IgniteCompute igniteCompute = client().compute();
-        JobExecution<String> tupleExecution = igniteCompute.submit(
+        JobExecution<Void> tupleExecution = igniteCompute.submit(
                 JobTarget.colocated(TABLE_NAME, keyTuple), JobDescriptor.builder(SleepJob.class).build(), sleepMs);
 
         await().until(tupleExecution::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
@@ -607,7 +607,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         IgniteCompute igniteCompute = client().compute();
         Mapper<TestPojo> keyMapper = Mapper.of(TestPojo.class);
-        JobExecution<String> pojoExecution = igniteCompute.submit(
+        JobExecution<Void> pojoExecution = igniteCompute.submit(
                 JobTarget.colocated(TABLE_NAME, keyPojo, keyMapper), JobDescriptor.builder(SleepJob.class).build(), sleepMs);
 
         await().until(pojoExecution::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
@@ -659,7 +659,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         Builder builder = IgniteClient.builder().addresses(getClientAddresses().toArray(new String[0]));
         try (IgniteClient client = builder.build()) {
             int delayMs = 3000;
-            CompletableFuture<String> jobFut = client.compute().executeAsync(
+            CompletableFuture<Void> jobFut = client.compute().executeAsync(
                     JobTarget.node(node(0)), JobDescriptor.builder(SleepJob.class).build(), delayMs);
 
             // Wait a bit and close the connection.
@@ -697,7 +697,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         Mapper<TestPojo> mapper = Mapper.of(TestPojo.class);
         TestPojo pojoKey = new TestPojo(1);
         Tuple tupleKey = Tuple.create().set("key", pojoKey.key);
-        JobDescriptor job = JobDescriptor.builder(NodeNameJob.class).build();
+        JobDescriptor<Object, String> job = JobDescriptor.builder(NodeNameJob.class).build();
 
         var tupleRes = client().compute().execute(JobTarget.colocated(tableName, tupleKey), job, null);
         var pojoRes = client().compute().execute(JobTarget.colocated(tableName, pojoKey, mapper), job, null);
@@ -858,11 +858,11 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         }
     }
 
-    private static class MapReduceNodeNameTask implements MapReduceTask<String, String> {
+    private static class MapReduceNodeNameTask implements MapReduceTask<String, Object, String, String> {
         @Override
-        public CompletableFuture<List<MapReduceJob>> splitAsync(TaskExecutionContext context, String args) {
+        public CompletableFuture<List<MapReduceJob<Object, String>>> splitAsync(TaskExecutionContext context, String args) {
             return completedFuture(context.ignite().clusterNodes().stream()
-                    .map(node -> MapReduceJob.builder()
+                    .map(node -> MapReduceJob.<Object, String>builder()
                             .jobDescriptor(JobDescriptor.builder(NodeNameJob.class).build())
                             .nodes(Set.of(node))
                             .args(args)
@@ -871,18 +871,18 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         }
 
         @Override
-        public CompletableFuture<String> reduceAsync(TaskExecutionContext context, Map<UUID, ?> results) {
+        public CompletableFuture<String> reduceAsync(TaskExecutionContext context, Map<UUID, String> results) {
             return completedFuture(results.values().stream()
                     .map(String.class::cast)
                     .collect(Collectors.joining(",")));
         }
     }
 
-    private static class MapReduceArgsTask implements MapReduceTask<String, String> {
+    private static class MapReduceArgsTask implements MapReduceTask<String, String, String, String> {
         @Override
-        public CompletableFuture<List<MapReduceJob>> splitAsync(TaskExecutionContext context, String args) {
+        public CompletableFuture<List<MapReduceJob<String, String>>> splitAsync(TaskExecutionContext context, String args) {
             return completedFuture(context.ignite().clusterNodes().stream()
-                    .map(node -> MapReduceJob.builder()
+                    .map(node -> MapReduceJob.<String, String>builder()
                             .jobDescriptor(JobDescriptor.builder(ConcatJob.class).build())
                             .nodes(Set.of(node))
                             .args(args)
@@ -891,21 +891,21 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         }
 
         @Override
-        public CompletableFuture<String> reduceAsync(TaskExecutionContext context, Map<UUID, ?> results) {
+        public CompletableFuture<String> reduceAsync(TaskExecutionContext context, Map<UUID, String> results) {
             return completedFuture(results.values().stream()
                     .map(String.class::cast)
                     .collect(Collectors.joining(",")));
         }
     }
 
-    private static class MapReduceExceptionOnSplitTask implements MapReduceTask<Object, String> {
+    private static class MapReduceExceptionOnSplitTask implements MapReduceTask<Object, Object, Object, String> {
         @Override
-        public CompletableFuture<List<MapReduceJob>> splitAsync(TaskExecutionContext context, Object args) {
+        public CompletableFuture<List<MapReduceJob<Object, Object>>> splitAsync(TaskExecutionContext context, Object args) {
             throw new CustomException(TRACE_ID, COLUMN_ALREADY_EXISTS_ERR, "Custom job error", null);
         }
 
         @Override
-        public CompletableFuture<String> reduceAsync(TaskExecutionContext context, Map<UUID, ?> results) {
+        public CompletableFuture<String> reduceAsync(TaskExecutionContext context, Map<UUID, Object> results) {
             return completedFuture("expected split exception");
         }
     }
@@ -915,7 +915,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         @Override
         public CompletableFuture<List<MapReduceJob<Object, String>>> splitAsync(TaskExecutionContext context, Object args) {
             return completedFuture(context.ignite().clusterNodes().stream()
-                    .map(node -> MapReduceJob.builder()
+                    .map(node -> MapReduceJob.<Object, String>builder()
                             .jobDescriptor(JobDescriptor.builder(NodeNameJob.class).build())
                             .nodes(Set.of(node))
                             .args(args)
