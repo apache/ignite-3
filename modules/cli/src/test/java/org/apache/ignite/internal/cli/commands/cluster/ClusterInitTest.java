@@ -122,7 +122,7 @@ class ClusterInitTest extends IgniteCliInterfaceTestBase {
                 "--metastorage-group", "node1ConsistentId,node2ConsistentId",
                 "--cluster-management-group", " node2ConsistentId , node3ConsistentId",
                 "--name", "cluster",
-                "--config-file", clusterConfigurationFile.toString()
+                "--config-files", clusterConfigurationFile.toString()
         );
 
         assertSuccessfulOutputIs("Cluster was initialized successfully");
@@ -263,7 +263,7 @@ class ClusterInitTest extends IgniteCliInterfaceTestBase {
                 "--metastorage-group", "node1ConsistentId",
                 "--cluster-management-group", "node2ConsistentId",
                 "--name", "cluster",
-                "--config-file", String.join(",", clusterConfigurationFile1, clusterConfigurationFile2)
+                "--config-files", String.join(",", clusterConfigurationFile1, clusterConfigurationFile2)
         );
 
         assertSuccessfulOutputIs("Cluster was initialized successfully");
