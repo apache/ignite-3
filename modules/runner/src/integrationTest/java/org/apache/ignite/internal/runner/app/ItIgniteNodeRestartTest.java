@@ -37,6 +37,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeN
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
+import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -1815,7 +1816,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     private boolean checkMetaStorageInvoke(Collection<Operation> ops, ByteArray key) {
         var k = new String(key.bytes(), StandardCharsets.UTF_8);
 
-        return ops.stream().anyMatch(op -> new String(op.key(), StandardCharsets.UTF_8).equals(k));
+        return ops.stream().anyMatch(op -> new String(toByteArray(op.key()), StandardCharsets.UTF_8).equals(k));
     }
 
     private void checkAssignmentsInMetaStorage(MetaStorageManager metaStorageManager, byte[] assignmentsKey, Set<Assignment> expected) {
