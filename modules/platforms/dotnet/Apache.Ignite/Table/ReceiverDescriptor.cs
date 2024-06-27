@@ -26,10 +26,12 @@ using Compute;
 /// </summary>
 /// <param name="ReceiverClassName">Java class name of the streamer receiver to execute.</param>
 /// <param name="DeploymentUnits">Deployment units.</param>
+/// <param name="IgnoreResults">Whether to ignore results returned by the receiver (don't send them back to the client).</param>
 /// <typeparam name="TResult">Result type.</typeparam>
 public sealed record ReceiverDescriptor<TResult>(
     string ReceiverClassName,
-    IEnumerable<DeploymentUnit>? DeploymentUnits = null)
+    IEnumerable<DeploymentUnit>? DeploymentUnits = null,
+    bool IgnoreResults = false)
 {
     /// <summary>
     /// Gets the result type.

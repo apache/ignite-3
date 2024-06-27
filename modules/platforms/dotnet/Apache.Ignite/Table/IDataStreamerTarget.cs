@@ -74,8 +74,7 @@ public interface IDataStreamerTarget<T>
     /// <param name="data">Data.</param>
     /// <param name="keySelector">Key selector.</param>
     /// <param name="payloadSelector">Payload selector.</param>
-    /// <param name="units">Deployment units. Can be empty.</param>
-    /// <param name="receiverClassName">Java class name of the streamer receiver to execute on the server.</param>
+    /// <param name="receiver">Streamer receiver descriptor.</param>
     /// <param name="receiverArgs">Receiver args.</param>
     /// <param name="options">Streamer options.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
@@ -92,8 +91,7 @@ public interface IDataStreamerTarget<T>
         IAsyncEnumerable<TSource> data,
         Func<TSource, T> keySelector,
         Func<TSource, TPayload> payloadSelector,
-        IEnumerable<DeploymentUnit> units,
-        string receiverClassName,
+        ReceiverDescriptor<TResult> receiver,
         ICollection<object>? receiverArgs = null,
         DataStreamerOptions? options = null,
         CancellationToken cancellationToken = default)
