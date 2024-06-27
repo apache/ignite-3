@@ -196,7 +196,7 @@ public class FailureProcessor implements IgniteComponent {
         Set<FailureType> ignoredFailureTypesSet = EnumSet.noneOf(FailureType.class);
         for (String ignoredFailureType : ignoredFailureTypes) {
             for (FailureType type : FailureType.values()) {
-                if (type.name().equals(ignoredFailureType)) {
+                if (type.typeName().equals(ignoredFailureType)) {
                     ignoredFailureTypesSet.add(type);
                 }
             }
@@ -215,5 +215,14 @@ public class FailureProcessor implements IgniteComponent {
     @TestOnly
     public synchronized void setInterceptor(@Nullable FailureHandler interceptor) {
         this.interceptor = interceptor;
+    }
+
+    /**
+     * Returns failure handler.
+     *
+     * @return Failure handler.
+     */
+    FailureHandler handler() {
+        return handler;
     }
 }

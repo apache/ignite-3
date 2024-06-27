@@ -21,25 +21,36 @@ import static org.apache.ignite.internal.failure.FailureType.SYSTEM_CRITICAL_OPE
 import static org.apache.ignite.internal.failure.FailureType.SYSTEM_WORKER_BLOCKED;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
+import java.util.Set;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.failure.configuration.FailureProcessorConfiguration;
 import org.apache.ignite.internal.failure.handlers.FailureHandler;
 import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Tests for {@link FailureProcessor}.
  */
+@ExtendWith(ConfigurationExtension.class)
 class FailureProcessorTest extends BaseIgniteAbstractTest {
+    @InjectConfiguration(value = "mock: { handler {type=noop} }")
+    protected static FailureProcessorConfiguration failureProcessorConfiguration;
+
     @Test
-    void testFailureProcessing() {
+    public void testFailureProcessing() {
         FailureHandler handler = mock(FailureHandler.class);
 
         FailureProcessor failureProcessor = new FailureProcessor("node_name", handler);
@@ -56,7 +67,7 @@ class FailureProcessorTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void testIgnoredFailureTypes() {
+    public void testIgnoredFailureTypes() {
         FailureHandler handler = new NoOpFailureHandler();
 
         FailureProcessor failureProcessor = new FailureProcessor("node_name", handler);
@@ -67,6 +78,26 @@ class FailureProcessorTest extends BaseIgniteAbstractTest {
             assertThat(failureProcessor.process(new FailureContext(SYSTEM_WORKER_BLOCKED, null)), is(false));
 
             assertThat(failureProcessor.process(new FailureContext(SYSTEM_CRITICAL_OPERATION_TIMEOUT, null)), is(false));
+        } finally {
+            assertThat(failureProcessor.stopAsync(new ComponentContext()), willSucceedFast());
+        }
+    }
+
+    @Test
+    public void testDefaultFailureHandlerConfiguration() {
+        FailureProcessor failureProcessor = new FailureProcessor("node_name", failureProcessorConfiguration);
+
+        try {
+            assertThat(failureProcessor.startAsync(new ComponentContext()), willSucceedFast());
+
+            assertThat(failureProcessor.handler(), instanceOf(NoOpFailureHandler.class));
+
+            Set<FailureType> ignoredFailureTypes = failureProcessor.handler().ignoredFailureTypes();
+
+            assertTrue(ignoredFailureTypes != null && ignoredFailureTypes.size() == 2);
+
+            assertTrue(ignoredFailureTypes.contains(SYSTEM_WORKER_BLOCKED));
+            assertTrue(ignoredFailureTypes.contains(SYSTEM_CRITICAL_OPERATION_TIMEOUT));
         } finally {
             assertThat(failureProcessor.stopAsync(new ComponentContext()), willSucceedFast());
         }

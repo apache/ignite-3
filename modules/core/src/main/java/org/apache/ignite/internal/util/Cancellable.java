@@ -23,6 +23,8 @@ package org.apache.ignite.internal.util;
 public interface Cancellable {
     /**
      * Cancels the ongoing operation or process or do nothing if it has been already cancelled.
+     *
+     * @param timeout If process was cancelled due to timeout.
      */
-    void cancel();
+    void cancel(boolean timeout);
 }

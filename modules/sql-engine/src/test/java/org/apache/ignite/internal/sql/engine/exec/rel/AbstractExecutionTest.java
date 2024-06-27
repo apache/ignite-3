@@ -125,7 +125,8 @@ public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
                 rowHandler(),
                 Map.of(),
                 TxAttributes.fromTx(new NoOpTransaction("fake-test-node")),
-                SqlQueryProcessor.DEFAULT_TIME_ZONE_ID
+                SqlQueryProcessor.DEFAULT_TIME_ZONE_ID,
+                null
         );
     }
 

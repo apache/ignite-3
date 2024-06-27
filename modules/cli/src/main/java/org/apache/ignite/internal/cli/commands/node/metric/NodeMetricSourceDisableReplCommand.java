@@ -49,7 +49,7 @@ public class NodeMetricSourceDisableReplCommand extends BaseCommand implements R
         question.askQuestionIfNotConnected(nodeUrl.getNodeUrl())
                 .map(metricSource::buildDisableCallInput)
                 .then(Flows.fromCall(call))
-                .exceptionHandler(new ClusterNotInitializedExceptionHandler("Cannot disable metrics", "cluster init"))
+                .exceptionHandler(ClusterNotInitializedExceptionHandler.createReplHandler("Cannot disable metrics"))
                 .verbose(verbose)
                 .print()
                 .start();

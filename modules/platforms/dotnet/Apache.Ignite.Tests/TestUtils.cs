@@ -81,6 +81,9 @@ namespace Apache.Ignite.Tests
         public static void SetFieldValue(this object obj, string fieldName, object? value) =>
             GetNonPublicField(obj, fieldName).SetValue(obj, value);
 
+        public static bool IsRecordClass(this Type type) =>
+            type.GetMethods().Any(m => m.Name == "<Clone>$" && m.ReturnType == type);
+
         public static ILoggerFactory GetConsoleLoggerFactory(LogLevel minLevel) => new ConsoleLogger(minLevel);
 
         public static void CheckByteArrayPoolLeak(int timeoutMs = 1000)

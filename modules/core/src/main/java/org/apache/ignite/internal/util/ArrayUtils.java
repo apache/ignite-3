@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.util;
 
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -58,6 +59,9 @@ public final class ArrayUtils {
 
     /** Empty string array. */
     public static final String[] STRING_EMPTY_ARRAY = new String[0];
+
+    /** Empty array-based byte buffer. Not read-only. */
+    public static final ByteBuffer EMPTY_BYTE_BUFFER = ByteBuffer.wrap(BYTE_EMPTY_ARRAY);
 
     /** {@code byte} array factory. */
     public static final ArrayFactory<byte[]> BYTE_ARRAY = len -> {

@@ -42,6 +42,9 @@ public class JdbcBatchPreparedStmntRequest implements ClientMessage {
     /** Flag indicating whether auto-commit mode is enabled. */
     private boolean autoCommit;
 
+    /** Query timeout in milliseconds. */
+    private long queryTimeoutMillis;
+
     /**
      * Default constructor.
      */
@@ -55,8 +58,15 @@ public class JdbcBatchPreparedStmntRequest implements ClientMessage {
      * @param query Sql query string.
      * @param args Sql query arguments.
      * @param autoCommit Flag indicating whether auto-commit mode is enabled.
+     * @param queryTimeoutMillis Query timeout in millseconds.
      */
-    public JdbcBatchPreparedStmntRequest(String schemaName, String query, List<Object[]> args, boolean autoCommit) {
+    public JdbcBatchPreparedStmntRequest(
+            String schemaName, 
+            String query, 
+            List<Object[]> args, 
+            boolean autoCommit, 
+            long queryTimeoutMillis
+    ) {
         assert !StringUtil.isNullOrEmpty(query);
         assert !CollectionUtils.nullOrEmpty(args);
 
@@ -64,6 +74,7 @@ public class JdbcBatchPreparedStmntRequest implements ClientMessage {
         this.args = args;
         this.schemaName = schemaName;
         this.autoCommit = autoCommit;
+        this.queryTimeoutMillis = queryTimeoutMillis;
     }
 
     /**
@@ -102,6 +113,15 @@ public class JdbcBatchPreparedStmntRequest implements ClientMessage {
         return autoCommit;
     }
 
+    /**
+     * Returns the timeout in milliseconds.
+     *
+     * @return Timeout in milliseconds.
+     */
+    public long queryTimeoutMillis() {
+        return queryTimeoutMillis;
+    }
+
     /** {@inheritDoc} */
     @Override
     public void writeBinary(ClientMessagePacker packer) {
@@ -114,6 +134,8 @@ public class JdbcBatchPreparedStmntRequest implements ClientMessage {
         for (Object[] arg : args) {
             packer.packObjectArrayAsBinaryTuple(arg);
         }
+
+        packer.packLong(queryTimeoutMillis);
     }
 
     /** {@inheritDoc} */
@@ -131,6 +153,8 @@ public class JdbcBatchPreparedStmntRequest implements ClientMessage {
         for (int i = 0; i < n; ++i) {
             args.add(unpacker.unpackObjectArrayFromBinaryTuple());
         }
+
+        queryTimeoutMillis = unpacker.unpackLong();
     }
 
     /** {@inheritDoc} */

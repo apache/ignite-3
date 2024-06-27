@@ -15,28 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.failure.handlers;
+package org.apache.ignite.internal.cli.commands;
 
-import org.apache.ignite.IgnitionManager;
-import org.apache.ignite.internal.failure.FailureContext;
-import org.apache.ignite.internal.tostring.S;
+import org.junit.jupiter.api.BeforeEach;
 
 /**
- * Handler will stop node in case of critical error using {@code IgnitionManager.stop(nodeName)} call.
+ * Tests for non-initialized cluster fir REPL mode.
  */
-public class StopNodeFailureHandler extends AbstractFailureHandler {
-    @Override
-    protected boolean handle(String nodeName, FailureContext failureCtx) {
-        new Thread(
-                () -> IgnitionManager.stop(nodeName),
-                "node-stopper"
-        ).start();
+public class ItReplNonInitializedClusterTest extends ItNonInitializedClusterTest {
 
-        return true;
+    @Override
+    protected Class<?> getCommandClass() {
+        return TopLevelCliReplCommand.class;
+    }
+
+    @BeforeEach
+    void connect() {
+        execute("connect");
     }
 
     @Override
-    public String toString() {
-        return S.toString(StopNodeFailureHandler.class, this, super.toString());
+    protected String getExpectedErrorMessage() {
+        return CLUSTER_NOT_INITIALIZED_REPL_ERROR_MESSAGE;
     }
 }

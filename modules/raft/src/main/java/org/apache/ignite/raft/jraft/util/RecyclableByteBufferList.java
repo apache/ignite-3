@@ -55,10 +55,10 @@ public final class RecyclableByteBufferList extends ArrayList<ByteBuffer> implem
      *
      * @param buffers Buffers.
      */
-    public static ByteString concatenate(List<ByteBuffer> buffers) {
+    public static ByteBuffer concatenate(List<ByteBuffer> buffers) {
         final ByteBuffer combined = ByteBuffer.allocate(buffers.stream().mapToInt(Buffer::remaining).sum());
         buffers.stream().forEach(b -> combined.put(b.duplicate()));
-        return new ByteString(combined);
+        return combined;
     }
 
     public int getCapacity() {

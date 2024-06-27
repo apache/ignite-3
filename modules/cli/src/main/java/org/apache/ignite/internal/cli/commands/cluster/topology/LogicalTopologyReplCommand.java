@@ -57,7 +57,7 @@ public class LogicalTopologyReplCommand extends BaseCommand implements Runnable 
         question.askQuestionIfNotConnected(clusterUrl.getClusterUrl())
                 .map(UrlCallInput::new)
                 .then(Flows.fromCall(call))
-                .exceptionHandler(new ClusterNotInitializedExceptionHandler("Cannot show logical topology", "cluster init"))
+                .exceptionHandler(ClusterNotInitializedExceptionHandler.createReplHandler("Cannot show logical topology"))
                 .print(new TopologyDecorator(plain))
                 .start();
     }

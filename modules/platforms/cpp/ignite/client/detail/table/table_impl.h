@@ -142,12 +142,15 @@ public:
     void with_proper_schema_async(
         ignite_callback<T> user_callback, std::function<void(const schema &, ignite_callback<T>)> callback) {
         auto fail_over = [uc = std::move(user_callback), this, callback](ignite_result<T> &&res) mutable {
-            if (res.has_error() && res.error().get_schema_version().has_value()) {
-                auto ver = *res.error().get_schema_version();
-                with_schema_async<T>(ver, std::move(uc), callback);
-            } else {
-                uc(std::move(res));
+            if (res.has_error()) {
+                auto ver_opt = res.error().template get_extra<std::int32_t>(
+                    protocol::error_extensions::EXPECTED_SCHEMA_VERSION);
+                if (ver_opt) {
+                    with_schema_async<T>(*ver_opt, std::move(uc), callback);
+                    return;
+                }
             }
+            uc(std::move(res));
         };
 
         with_latest_schema_async<T>(std::move(fail_over), callback);

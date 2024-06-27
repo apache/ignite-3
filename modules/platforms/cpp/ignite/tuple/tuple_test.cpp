@@ -15,6 +15,9 @@
  * limitations under the License.
  */
 
+#define _USE_MATH_DEFINES
+#include <cmath>
+
 #include "binary_tuple_builder.h"
 #include "binary_tuple_parser.h"
 
@@ -23,6 +26,7 @@
 
 #include <cstring>
 #include <optional>
+#include <random>
 #include <string>
 #include <tuple>
 #include <type_traits>
@@ -65,6 +69,12 @@ T get_value(bytes_view data) {
         res = std::string(binary_tuple_parser::get_varlen(data));
     } else if constexpr (std::is_same<T, big_decimal>::value) {
         res = big_decimal(binary_tuple_parser::get_decimal(data));
+    } else if constexpr (std::is_same<T, bool>::value) {
+        res = binary_tuple_parser::get_bool(data);
+    } else if constexpr (std::is_same<T, ignite_period>::value) {
+        res = binary_tuple_parser::get_period(data);
+    } else if constexpr (std::is_same<T, ignite_duration>::value) {
+        res = binary_tuple_parser::get_duration(data);
     } else {
         throw std::logic_error("Type is not supported");
     }
@@ -218,7 +228,7 @@ void check_reader_writer_equality(const T &value) {
 }
 
 TEST(tuple, AllTypes) {
-    static constexpr tuple_num_t NUM_ELEMENTS = 16;
+    static constexpr tuple_num_t NUM_ELEMENTS = 17;
 
     int8_t v1 = 1;
     int16_t v2 = 2;
@@ -239,6 +249,7 @@ TEST(tuple, AllTypes) {
     bytes_view v15{reinterpret_cast<const std::byte *>(v15_tmp.data()), v15_tmp.size()};
 
     big_decimal v16("-1");
+    bool v17(false);
 
     binary_tuple_builder tb(NUM_ELEMENTS);
     tb.start();
@@ -259,6 +270,7 @@ TEST(tuple, AllTypes) {
     tb.claim_uuid(v14);
     tb.claim_varlen(v15);
     tb.claim_number(v16);
+    tb.claim_bool(v17);
 
     tb.layout();
 
@@ -278,6 +290,7 @@ TEST(tuple, AllTypes) {
     tb.append_uuid(v14);
     tb.append_varlen(v15);
     tb.append_number(v16);
+    tb.append_bool(v17);
 
     const std::vector<std::byte> &binary_tuple = tb.build();
     binary_tuple_parser tp(NUM_ELEMENTS, binary_tuple);
@@ -298,6 +311,123 @@ TEST(tuple, AllTypes) {
     EXPECT_EQ(v14, get_value<uuid>(tp.get_next()));
     EXPECT_EQ(v15, tp.get_next());
     EXPECT_EQ(v16, get_decimal(tp.get_next(), v16.get_scale()));
+    EXPECT_EQ(v17, get_value<bool>(tp.get_next()));
+}
+
+TEST(tuple, AllTypesExtended) {
+    static constexpr tuple_num_t NUM_ELEMENTS = 19;
+
+    static constexpr std::size_t COUNT = 1000;
+
+    std::random_device rd;
+    std::uniform_int_distribution<short> dist;
+
+    for (std::size_t i = 0; i < COUNT; i++) {
+        int sign = (i % 2) ? -1 : 1;
+        std::string big_num;
+        std::string big_dec;
+        big_num.resize(i % 100 + 10);
+        big_dec.resize(i % 100 + 10);
+        std::generate(big_num.begin(), big_num.end(), [&]() { return '1' + (dist(rd) % 9); });
+        std::generate(big_dec.begin(), big_dec.end(), [&]() { return '1' + (dist(rd) % 9); });
+        big_dec.insert(big_dec.end() - (i % 8 + 1), '.');
+
+        if (sign == -1) {
+            big_num.insert(big_num.begin(), '-');
+            big_dec.insert(big_dec.begin(), '-');
+        }
+
+        std::string buffer;
+        buffer.resize(i % 100 + 1);
+        std::generate(buffer.begin(), buffer.end(), [&]() { return char(dist(rd) % 128); });
+
+        bool v1 = (i % 2 == 0);
+        int8_t v2 = int8_t(i % std::numeric_limits<int8_t>::max()) * sign;
+        int16_t v3 = int16_t(i * i % std::numeric_limits<int16_t>::max()) * sign;
+        int32_t v4 = int32_t(i * i * i % std::numeric_limits<int32_t>::max()) * sign;
+        int64_t v5 = int64_t(i * i * i * i) * sign;
+        float v6 = float(i) * float(i) * M_PI * sign;
+        double v7 = double(i) * double(i) * M_PI * sign;
+        big_decimal v8(big_dec);
+        ignite_date v9(i % 10000, i % 12 + 1, i % 28 + 1);
+        ignite_time v10(i % 24, i % 60, i % 60, i % 1000000000);
+        ignite_date_time v11(v9, v10);
+        ignite_timestamp v12(i, i % 1000000000);
+        uuid v13(i, i << 1);
+        bytes_view v14(reinterpret_cast<std::byte *>(buffer.data()), buffer.size());
+        std::string v15(buffer.data(), buffer.size());
+        ignite_period v16(i, i, i);
+        ignite_duration v17(i, i % 1000000000);
+        big_integer v18(big_num);
+
+        binary_tuple_builder tb(NUM_ELEMENTS);
+        tb.start();
+
+        tb.claim_null();
+        tb.claim_bool(v1);
+        tb.claim_int8(v2);
+        tb.claim_int16(v3);
+        tb.claim_int32(v4);
+        tb.claim_int64(v5);
+        tb.claim_float(v6);
+        tb.claim_double(v7);
+        tb.claim_number(v8);
+        tb.claim_date(v9);
+        tb.claim_time(v10);
+        tb.claim_date_time(v11);
+        tb.claim_timestamp(v12);
+        tb.claim_uuid(v13);
+        tb.claim_varlen(v14);
+        tb.claim_varlen(v15);
+        tb.claim_period(v16);
+        tb.claim_duration(v17);
+        tb.claim_number(v18);
+
+        tb.layout();
+
+        tb.append_null();
+        tb.append_bool(v1);
+        tb.append_int8(v2);
+        tb.append_int16(v3);
+        tb.append_int32(v4);
+        tb.append_int64(v5);
+        tb.append_float(v6);
+        tb.append_double(v7);
+        tb.append_number(v8);
+        tb.append_date(v9);
+        tb.append_time(v10);
+        tb.append_date_time(v11);
+        tb.append_timestamp(v12);
+        tb.append_uuid(v13);
+        tb.append_varlen(v14);
+        tb.append_varlen(v15);
+        tb.append_period(v16);
+        tb.append_duration(v17);
+        tb.append_number(v18);
+
+        const std::vector<std::byte> &binary_tuple = tb.build();
+        binary_tuple_parser tp(NUM_ELEMENTS, binary_tuple);
+
+        EXPECT_EQ(bytes_view{}, tp.get_next());
+        EXPECT_EQ(v1, get_value<bool>(tp.get_next()));
+        EXPECT_EQ(v2, get_value<int8_t>(tp.get_next()));
+        EXPECT_EQ(v3, get_value<int16_t>(tp.get_next()));
+        EXPECT_EQ(v4, get_value<int32_t>(tp.get_next()));
+        EXPECT_EQ(v5, get_value<int64_t>(tp.get_next()));
+        EXPECT_EQ(v6, get_value<float>(tp.get_next()));
+        EXPECT_EQ(v7, get_value<double>(tp.get_next()));
+        EXPECT_EQ(v8, get_value<big_decimal>(tp.get_next()));
+        EXPECT_EQ(v9, get_value<ignite_date>(tp.get_next()));
+        EXPECT_EQ(v10, get_value<ignite_time>(tp.get_next()));
+        EXPECT_EQ(v11, get_value<ignite_date_time>(tp.get_next()));
+        EXPECT_EQ(v12, get_value<ignite_timestamp>(tp.get_next()));
+        EXPECT_EQ(v13, get_value<uuid>(tp.get_next()));
+        EXPECT_EQ(v14, tp.get_next());
+        EXPECT_EQ(v15, get_value<std::string>(tp.get_next()));
+        EXPECT_EQ(v16, get_value<ignite_period>(tp.get_next()));
+        EXPECT_EQ(v17, get_value<ignite_duration>(tp.get_next()));
+        EXPECT_EQ(v18, get_value<big_integer>(tp.get_next()));
+    }
 }
 
 TEST(tuple, TwoFixedValues) { // NOLINT(cert-err58-cpp)
@@ -1158,6 +1288,9 @@ INSTANTIATE_TEST_SUITE_P(strings, tuple_big_decimal,
         big_decimal("64539472569345602304"), big_decimal("2376926357280573482539570263854"),
         big_decimal("4078460509739485762306457364875609364258763498578235876432589345693645872686453947256"
                     "93456023046037490024067294087609279"),
+        big_decimal("78386624911263451156418774267"), big_decimal("-65281"), big_decimal("-4278190081"),
+        big_decimal("-78918762577726953281363576967"), big_decimal("-43724369233562317116122583882241974163428"),
+        big_decimal("-123456654321"), big_decimal("5266375549962187335354865963678516735728443929239383984473"),
 
         big_decimal("1000000000000"), big_decimal("1000000000000000000000000000"),
         big_decimal("100000000000000000000000000000000000000000000000000000000000"),
@@ -1169,6 +1302,8 @@ INSTANTIATE_TEST_SUITE_P(strings, tuple_big_decimal,
         big_decimal("-64539472569345602304"), big_decimal("-2376926357280573482539570263854"),
         big_decimal("-407846050973948576230645736487560936425876349857823587643258934569364587268645394725"
                     "693456023046037490024067294087609279"),
+        big_decimal("-1391368497633429418536934798133412971345891865982"),
+        big_decimal("-78918762577726953281363576967"),
 
         big_decimal("-1000000000000"), big_decimal("-1000000000000000000000000000"),
         big_decimal("-100000000000000000000000000000000000000000000000000000000000"),

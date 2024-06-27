@@ -309,4 +309,18 @@ std::size_t mpi::magnitude_bit_length() const noexcept {
     return mbedtls_mpi_bitlen(val);
 }
 
+bool mpi::write(std::uint8_t *data, std::size_t size, bool big_endian) {
+    if (big_endian) {
+        return mbedtls_mpi_write_binary(val, data, size) == 0;
+    }
+    return mbedtls_mpi_write_binary_le(val, data, size) == 0;
+}
+
+bool mpi::read(const std::uint8_t *data, std::size_t size, bool big_endian) {
+    if (big_endian) {
+        return mbedtls_mpi_read_binary(val, data, size) == 0;
+    }
+    return mbedtls_mpi_read_binary_le(val, data, size) == 0;
+}
+
 } // namespace ignite::detail
