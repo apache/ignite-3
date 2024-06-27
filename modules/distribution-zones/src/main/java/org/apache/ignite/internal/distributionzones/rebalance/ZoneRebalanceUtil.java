@@ -127,7 +127,7 @@ public class ZoneRebalanceUtil {
      * @param revision Revision of Meta Storage that is specific for the assignment update.
      * @param metaStorageMgr Meta Storage manager.
      * @param partNum Partition id.
-     * @param tableCfgPartAssignments Table configuration assignments.
+     * @param zoneCfgPartAssignments Zone configuration assignments.
      * @return Future representing result of updating keys in {@code metaStorageMgr}
      */
     public static CompletableFuture<Void> updatePendingAssignmentsKeys(
@@ -138,7 +138,7 @@ public class ZoneRebalanceUtil {
             long revision,
             MetaStorageManager metaStorageMgr,
             int partNum,
-            Set<Assignment> tableCfgPartAssignments
+            Set<Assignment> zoneCfgPartAssignments
     ) {
         ByteArray partChangeTriggerKey = pendingChangeTriggerKey(zonePartitionId);
 
@@ -150,7 +150,7 @@ public class ZoneRebalanceUtil {
 
         Set<Assignment> partAssignments = AffinityUtils.calculateAssignmentForPartition(dataNodes, partNum, replicas);
 
-        boolean isNewAssignments = !tableCfgPartAssignments.equals(partAssignments);
+        boolean isNewAssignments = !zoneCfgPartAssignments.equals(partAssignments);
 
         byte[] partAssignmentsBytes = Assignments.toBytes(partAssignments);
 

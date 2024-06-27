@@ -34,15 +34,14 @@ import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalan
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.extractPartitionNumber;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.extractZoneId;
-import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.intersect;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.pendingPartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.stablePartAssignmentsKey;
-import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.union;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.zoneAssignmentsGetLocally;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.zonePartitionAssignmentsGetLocally;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.getBoolean;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
+import static org.apache.ignite.internal.raft.PeersAndLearners.fromAssignments;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
@@ -74,6 +73,7 @@ import org.apache.ignite.internal.catalog.events.CreateZoneEventParameters;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.rebalance.PartitionMover;
+import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceRaftGroupEventsListener;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -191,8 +191,7 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
             return nullCompletedFuture();
         }
 
-        metaStorageMgr.registerPrefixWatch(ByteArray.fromString(PENDING_ASSIGNMENTS_PREFIX),
-                pendingAssignmentsRebalanceListener);
+        metaStorageMgr.registerPrefixWatch(ByteArray.fromString(PENDING_ASSIGNMENTS_PREFIX), pendingAssignmentsRebalanceListener);
 
         metaStorageMgr.registerPrefixWatch(ByteArray.fromString(STABLE_ASSIGNMENTS_PREFIX), stableAssignmentsRebalanceListener);
 
@@ -228,25 +227,29 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
 
             List<CompletableFuture<?>> partitionsStartFutures = new ArrayList<>();
 
-            for (int i = 0; i < assignments.size(); i++) {
-                int partId = i;
+            for (int partId = 0; partId < assignments.size(); partId++) {
+                Assignments zoneAssignment = assignments.get(partId);
 
-                partitionsStartFutures.add(createZonePartitionReplicationNodes(zoneId, partId, assignments.get(i), null));
+                Assignment localMemberAssignment = localMemberAssignment(zoneAssignment);
+
+                partitionsStartFutures.add(createZonePartitionReplicationNodes(zoneId, partId, localMemberAssignment, zoneAssignment));
             }
 
             return allOf(partitionsStartFutures.toArray(new CompletableFuture<?>[0]));
         }));
     }
 
-    private CompletableFuture<Void> createZonePartitionReplicationNodes(int zoneId, int partId, Assignments assignments,
-            @Nullable Assignments nonStableNodeAssignments) {
-        if (!shouldStartLocally(assignments)) {
+    private CompletableFuture<Void> createZonePartitionReplicationNodes(
+            int zoneId,
+            int partId,
+            @Nullable Assignment localMemberAssignment,
+            Assignments stableAssignments
+    ) {
+        if (localMemberAssignment == null) {
             return nullCompletedFuture();
         }
 
-        PeersAndLearners realConfiguration = PeersAndLearners.fromAssignments(assignments.nodes());
-        PeersAndLearners newConfiguration = nonStableNodeAssignments == null
-                ? realConfiguration : PeersAndLearners.fromAssignments(nonStableNodeAssignments.nodes());
+        PeersAndLearners stablePeersAndLearners = fromAssignments(stableAssignments.nodes());
 
         ZonePartitionId replicaGrpId = new ZonePartitionId(zoneId, partId);
 
@@ -269,7 +272,7 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
                     replicaGrpId,
                     new ZonePartitionReplicaListener(),
                     new FailFastSnapshotStorageFactory(),
-                    newConfiguration,
+                    stablePeersAndLearners,
                     raftGroupListener,
                     raftGroupEventsListener
             ).thenApply(ignored -> null);
@@ -617,7 +620,7 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
         // Update raft client peers and learners according to the actual assignments.
         if (replicaMgr.isReplicaStarted(zonePartitionId)) {
             replicaMgr.getReplica(zonePartitionId).join()
-                    .raftClient().updateConfiguration(PeersAndLearners.fromAssignments(stableAssignments));
+                    .raftClient().updateConfiguration(fromAssignments(stableAssignments));
         }
 
         return nullCompletedFuture();
@@ -681,19 +684,22 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
             if (LOG.isInfoEnabled()) {
                 var stringKey = new String(pendingAssignmentsEntry.key(), UTF_8);
 
-                LOG.info("Received update on pending assignments. Check if new raft group should be started"
-                                + " [key={}, partition={}, zoneId={}, localMemberAddress={}, pendingAssignments={}]",
-                        stringKey, partId, zoneId, localNode().address(), pendingAssignments);
+                LOG.info("Received update on pending assignments. Check if new raft group should be started [key={}, "
+                                + "partition={}, zoneId={}, localMemberAddress={}, pendingAssignments={}, revision={}]",
+                        stringKey, partId, zoneId, localNode().address(), pendingAssignments, revision);
             }
-
-            Set<Assignment> stableAssignmentsSet = stableAssignments == null ? emptySet() : stableAssignments.nodes();
 
             return handleChangePendingAssignmentEvent(
                     zonePartitionId,
-                    pendingAssignments,
-                    stableAssignmentsSet
-            ).thenCompose(v -> changePeersOnRebalance(replicaMgr, zonePartitionId,
-                    pendingAssignments.nodes(), stableAssignmentsSet, revision));
+                    stableAssignments,
+                    pendingAssignments
+            ).thenCompose(v -> changePeersOnRebalance(
+                    replicaMgr,
+                    zonePartitionId,
+                    pendingAssignments.nodes(),
+                    stableAssignments == null ? emptySet() : stableAssignments.nodes(),
+                    revision)
+            );
         } finally {
             busyLock.leaveBusy();
         }
@@ -701,54 +707,55 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
 
     private CompletableFuture<Void> handleChangePendingAssignmentEvent(
             ZonePartitionId replicaGrpId,
-            Assignments pendingAssignments,
-            Set<Assignment> stableAssignments
+            @Nullable Assignments stableAssignments,
+            Assignments pendingAssignments
     ) {
-
-        ClusterNode localMember = localNode();
-
         boolean pendingAssignmentsAreForced = pendingAssignments.force();
         Set<Assignment> pendingAssignmentsNodes = pendingAssignments.nodes();
 
         // Start a new Raft node and Replica if this node has appeared in the new assignments.
-        boolean shouldStartLocalGroupNode = pendingAssignmentsNodes.stream()
-                .filter(assignment -> localMember.name().equals(assignment.consistentId()))
-                .anyMatch(assignment -> !stableAssignments.contains(assignment));
+        Assignment localMemberAssignment = localMemberAssignment(pendingAssignments);
 
-        CompletableFuture<Void> localServicesStartFuture;
-
-        int zoneId = replicaGrpId.zoneId();
+        boolean shouldStartLocalGroupNode = localMemberAssignment != null
+                && (stableAssignments == null || !stableAssignments.nodes().contains(localMemberAssignment));
 
         // This is a set of assignments for nodes that are not the part of stable assignments, i.e. unstable part of the distribution.
         // For regular pending assignments we use (old) stable set, so that none of new nodes would be able to propose itself as a leader.
         // For forced assignments, we should do the same thing, but only for the subset of stable set that is alive right now. Dead nodes
         // are excluded. It is calculated precisely as an intersection between forced assignments and (old) stable assignments.
-        Assignments nonStableNodeAssignments = pendingAssignmentsAreForced
-                ? Assignments.forced(intersect(stableAssignments, pendingAssignmentsNodes))
-                : Assignments.of(stableAssignments);
+        Assignments computedStableAssignments;
 
-        // This condition can only pass if all stable nodes are dead, and we start new raft group from scratch.
-        // In this case new initial configuration must match new forced assignments.
-        // TODO https://issues.apache.org/jira/browse/IGNITE-21661 Something might not work, extensive testing is required.
-        if (nonStableNodeAssignments.nodes().isEmpty()) {
-            nonStableNodeAssignments = Assignments.forced(pendingAssignmentsNodes);
+        if (stableAssignments == null || stableAssignments.nodes().isEmpty()) {
+            // This condition can only pass if all stable nodes are dead, and we start new raft group from scratch.
+            // In this case new initial configuration must match new forced assignments.
+            computedStableAssignments = Assignments.forced(pendingAssignmentsNodes);
+        } else if (pendingAssignmentsAreForced) {
+            // In case of forced assignments we need to remove nodes that are present in the stable set but are missing from the
+            // pending set. Such operation removes dead stable nodes from the resulting stable set, which guarantees that we will
+            // have a live majority.
+            Set<Assignment> intersection = RebalanceUtil.intersect(stableAssignments.nodes(), pendingAssignmentsNodes);
+
+            computedStableAssignments = intersection.isEmpty() ? pendingAssignments : Assignments.forced(intersection);
+        } else {
+            computedStableAssignments = stableAssignments;
         }
 
-        Assignments nonStableNodeAssignmentsFinal = nonStableNodeAssignments;
-
         int partitionId = replicaGrpId.partitionId();
+        int zoneId = replicaGrpId.zoneId();
+
+        CompletableFuture<Void> localServicesStartFuture;
 
         if (shouldStartLocalGroupNode) {
             localServicesStartFuture = createZonePartitionReplicationNodes(
                     zoneId,
                     partitionId,
-                    pendingAssignments,
-                    nonStableNodeAssignmentsFinal
+                    localMemberAssignment,
+                    computedStableAssignments
             );
         } else {
             localServicesStartFuture = runAsync(() -> {
                 if (pendingAssignmentsAreForced && replicaMgr.isReplicaStarted(replicaGrpId)) {
-                    replicaMgr.resetPeers(replicaGrpId, PeersAndLearners.fromAssignments(nonStableNodeAssignmentsFinal.nodes()));
+                    replicaMgr.resetPeers(replicaGrpId, fromAssignments(computedStableAssignments.nodes()));
                 }
             }, ioExecutor);
         }
@@ -760,11 +767,11 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
 
             // For forced assignments, we exclude dead stable nodes, and all alive stable nodes are already in pending assignments.
             // Union is not required in such a case.
-            Set<Assignment> cfg = pendingAssignmentsAreForced
+            Set<Assignment> newAssignments = pendingAssignmentsAreForced || stableAssignments == null
                     ? pendingAssignmentsNodes
-                    : union(pendingAssignmentsNodes, stableAssignments);
+                    : RebalanceUtil.union(pendingAssignmentsNodes, stableAssignments.nodes());
 
-            replicaMgr.getReplica(replicaGrpId).join().raftClient().updateConfiguration(PeersAndLearners.fromAssignments(cfg));
+            replicaMgr.getReplica(replicaGrpId).join().raftClient().updateConfiguration(fromAssignments(newAssignments));
         }, ioExecutor);
     }
 
@@ -775,7 +782,7 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
             Set<Assignment> stableAssignments,
             long revision
     ) {
-        Set<Assignment> union = new HashSet();
+        Set<Assignment> union = new HashSet<>();
         union.addAll(pendingAssignments);
         union.addAll(stableAssignments);
 
@@ -822,8 +829,7 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
                                     return nullCompletedFuture();
                                 }
 
-                                PeersAndLearners newConfiguration =
-                                        PeersAndLearners.fromAssignments(pendingAssignments);
+                                PeersAndLearners newConfiguration = fromAssignments(pendingAssignments);
 
                                 CompletableFuture<Void> voidCompletableFuture = partGrpSvc.changePeersAsync(newConfiguration,
                                         leaderWithTerm.term()).exceptionally(e -> {
@@ -836,6 +842,13 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
 
     private boolean isLocalPeer(Peer peer) {
         return peer.consistentId().equals(localNode().name());
+    }
+
+    @Nullable
+    private Assignment localMemberAssignment(Assignments assignments) {
+        Assignment localMemberAssignment = Assignment.forPeer(localNode().name());
+
+        return assignments.nodes().contains(localMemberAssignment) ? localMemberAssignment : null;
     }
 
     @Override
