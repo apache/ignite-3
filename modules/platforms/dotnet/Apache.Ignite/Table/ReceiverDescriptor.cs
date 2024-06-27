@@ -22,16 +22,23 @@ using System.Collections.Generic;
 using Compute;
 
 /// <summary>
-/// Stream receiver descriptor.
+/// Stream receiver descriptor without results. If the specified receiver returns results, they will be discarded on the server.
 /// </summary>
 /// <param name="ReceiverClassName">Java class name of the streamer receiver to execute.</param>
 /// <param name="DeploymentUnits">Deployment units.</param>
-/// <param name="IgnoreResults">Whether to ignore results returned by the receiver (don't send them back to the client).</param>
+public sealed record ReceiverDescriptor(
+    string ReceiverClassName,
+    IEnumerable<DeploymentUnit>? DeploymentUnits = null);
+
+/// <summary>
+/// Stream receiver descriptor with result type.
+/// </summary>
+/// <param name="ReceiverClassName">Java class name of the streamer receiver to execute.</param>
+/// <param name="DeploymentUnits">Deployment units.</param>
 /// <typeparam name="TResult">Result type.</typeparam>
 public sealed record ReceiverDescriptor<TResult>(
     string ReceiverClassName,
-    IEnumerable<DeploymentUnit>? DeploymentUnits = null,
-    bool IgnoreResults = false)
+    IEnumerable<DeploymentUnit>? DeploymentUnits = null)
 {
     /// <summary>
     /// Gets the result type.
