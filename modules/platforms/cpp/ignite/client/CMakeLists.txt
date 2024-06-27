@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 
-project(ignite-client)
+project(ignite3-client)
 
 set(TARGET ${PROJECT_NAME})
 
@@ -86,7 +86,7 @@ foreach(_target_lib IN LISTS _target_libs)
     set_target_properties(${_target_lib} PROPERTIES POSITION_INDEPENDENT_CODE 1)
 
     if (WIN32)
-        set_target_properties(${_target_lib} PROPERTIES OUTPUT_NAME "ignite-client")
+        set_target_properties(${_target_lib} PROPERTIES OUTPUT_NAME ${PROJECT_NAME})
     endif()
 
     target_link_libraries(${_target_lib} ${LIBRARIES})
