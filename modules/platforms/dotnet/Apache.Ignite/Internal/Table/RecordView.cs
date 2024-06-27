@@ -398,8 +398,7 @@ namespace Apache.Ignite.Internal.Table
             IAsyncEnumerable<TSource> data,
             Func<TSource, T> keySelector,
             Func<TSource, TPayload> payloadSelector,
-            IEnumerable<DeploymentUnit> units,
-            string receiverClassName,
+            ReceiverDescriptor receiver,
             ICollection<object>? receiverArgs,
             DataStreamerOptions? options,
             CancellationToken cancellationToken = default)
@@ -413,8 +412,8 @@ namespace Apache.Ignite.Internal.Table
                 keyWriter: _ser.Handler,
                 options ?? DataStreamerOptions.Default,
                 resultChannel: null,
-                units,
-                receiverClassName,
+                receiver.DeploymentUnits ?? Array.Empty<DeploymentUnit>(),
+                receiver.ReceiverClassName,
                 receiverArgs,
                 cancellationToken).ConfigureAwait(false);
         }

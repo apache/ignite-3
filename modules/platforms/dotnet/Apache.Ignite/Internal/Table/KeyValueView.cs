@@ -24,7 +24,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Apache.Ignite.Transactions;
 using Common;
-using Ignite.Compute;
 using Ignite.Sql;
 using Ignite.Table;
 using Linq;
@@ -188,8 +187,7 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
         IAsyncEnumerable<TSource> data,
         Func<TSource, KeyValuePair<TK, TV>> keySelector,
         Func<TSource, TPayload> payloadSelector,
-        IEnumerable<DeploymentUnit> units,
-        string receiverClassName,
+        ReceiverDescriptor receiver,
         ICollection<object>? receiverArgs,
         DataStreamerOptions? options,
         CancellationToken cancellationToken = default)
@@ -198,8 +196,7 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
             data,
             src => ToKv(keySelector(src)),
             payloadSelector,
-            units,
-            receiverClassName,
+            receiver,
             receiverArgs,
             options,
             cancellationToken);
