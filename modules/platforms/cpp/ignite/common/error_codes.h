@@ -51,7 +51,8 @@ enum class group : underlying_t {
     PLACEMENTDRIVER = 0x12,
     WORKERS = 0x13,
     RECOVERY = 0x14,
-    EMBEDDED = 0x15
+    EMBEDDED = 0x15,
+    MARSHALLING = 0x16
 };
 
 inline group get_group_by_error_code(const underlying_t code) {
@@ -219,7 +220,11 @@ enum class code : underlying_t {
     CLUSTER_NOT_INITIALIZED = 0x150001,
     CLUSTER_INIT_FAILED = 0x150002,
     NODE_NOT_STARTED = 0x150003,
-    NODE_START = 0x150004
+    NODE_START = 0x150004,
+
+    // Marshalling group. Group code: 22
+    MARSHALLING = 0x160001,
+    UNSUPPORTED_OBJECT_TYPE = 0x160002
 };
 
 } // namespace error

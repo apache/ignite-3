@@ -50,6 +50,7 @@ namespace Apache.Ignite
             CriticalWorkers.GroupCode => CriticalWorkers.GroupName,
             DisasterRecovery.GroupCode => DisasterRecovery.GroupName,
             Embedded.GroupCode => Embedded.GroupName,
+            Marshalling.GroupCode => Marshalling.GroupName,
 
             _ => UnknownGroupName
         };
@@ -619,6 +620,22 @@ namespace Apache.Ignite
 
             /// <summary> NodeStart error. </summary>
             public const int NodeStart = (GroupCode << 16) | (4 & 0xFFFF);
+        }
+
+        /// <summary> Marshalling errors. </summary>
+        public static class Marshalling
+        {
+            /// <summary> Marshalling group code. </summary>
+            public const short GroupCode = 22;
+
+            /// <summary> Marshalling group name. </summary>
+            public const String GroupName = "MARSHALLING";
+
+            /// <summary> Marshalling error. </summary>
+            public const int Marshalling = (GroupCode << 16) | (1 & 0xFFFF);
+
+            /// <summary> UnsupportedObjectType error. </summary>
+            public const int UnsupportedObjectType = (GroupCode << 16) | (2 & 0xFFFF);
         }
     }
 }
