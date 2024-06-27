@@ -197,7 +197,6 @@ public class DistributionZoneRebalanceEngineV2 {
             long causalityToken,
             int catalogVersion
     ) {
-
         return distributionZoneManager.dataNodes(causalityToken, catalogVersion, zoneDescriptor.id())
                 .thenCompose(dataNodes -> {
                     if (dataNodes.isEmpty()) {
