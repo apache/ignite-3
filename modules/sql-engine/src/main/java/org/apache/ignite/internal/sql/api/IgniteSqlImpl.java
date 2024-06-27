@@ -512,6 +512,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
                                 ((TraceableException) t).traceId(),
                                 ((TraceableException) t).code(),
                                 counters.toArray(ArrayUtils.LONG_EMPTY_ARRAY),
+                                t.getMessage(),
                                 t);
                     }
 
