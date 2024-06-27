@@ -55,23 +55,23 @@ void job_execution_impl::set_result(std::optional<primitive> result) {
     }
 }
 
-void job_execution_impl::get_status_async(ignite_callback<std::optional<job_state>> callback) {
+void job_execution_impl::get_state_async(ignite_callback<std::optional<job_state>> callback) {
     std::unique_lock<std::mutex> guard(m_mutex);
 
-    if (m_final_status) {
-        auto copy{m_final_status};
+    if (m_final_state) {
+        auto copy{m_final_state};
         guard.unlock();
 
         callback({std::move(copy)});
     } else {
-        m_compute->get_status_async(m_id, std::move(callback));
+        m_compute->get_state_async(m_id, std::move(callback));
     }
 }
 
-void job_execution_impl::set_final_status(const job_state &status) {
+void job_execution_impl::set_final_state(const job_state &status) {
     std::lock_guard<std::mutex> guard(m_mutex);
 
-    m_final_status = status;
+    m_final_state = status;
 }
 
 void job_execution_impl::set_error(ignite_error error) {
@@ -92,7 +92,7 @@ void job_execution_impl::cancel_async(ignite_callback<job_execution::operation_r
     bool status_set;
     {
         std::lock_guard<std::mutex> guard(m_mutex);
-        status_set = m_final_status.has_value();
+        status_set = m_final_state.has_value();
     }
 
     if (status_set) {
@@ -109,7 +109,7 @@ void job_execution_impl::change_priority_async(
     bool status_set;
     {
         std::lock_guard<std::mutex> guard(m_mutex);
-        status_set = m_final_status.has_value();
+        status_set = m_final_state.has_value();
     }
 
     if (status_set) {

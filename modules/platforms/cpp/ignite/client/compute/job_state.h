@@ -32,8 +32,8 @@ struct job_state {
     /// Job ID.
     uuid id{};
 
-    /// State.
-    job_status state{job_status::QUEUED};
+    /// Status.
+    job_status status{job_status::QUEUED};
 
     /// Create time.
     ignite_timestamp create_time{};

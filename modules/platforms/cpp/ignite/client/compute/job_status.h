@@ -20,7 +20,7 @@
 namespace ignite {
 
 /**
- * Compute job state.
+ * Compute job status.
  */
 enum class job_status {
     /// The job is submitted and waiting for an execution start.
