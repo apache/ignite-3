@@ -33,7 +33,7 @@ public class MarshallingException extends IgniteException {
      * @param exception The exception that caused the error.
      */
     MarshallingException(Exception exception) {
-        super(Marshalling.MARSHALLING_ERR, exception);
+        super(Marshalling.MARSHALLING_COMMON_ERR, exception);
     }
 
     /**

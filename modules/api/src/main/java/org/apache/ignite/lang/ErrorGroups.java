@@ -660,7 +660,7 @@ public class ErrorGroups {
         public static final ErrorGroup MARSHALLING_ERR_GROUP = registerGroup("MARSHALLING", (short) 22);
 
         /** Marshalling error. */
-        public static final int MARSHALLING_ERR = MARSHALLING_ERR_GROUP.registerErrorCode((short) 1);
+        public static final int MARSHALLING_COMMON_ERR = MARSHALLING_ERR_GROUP.registerErrorCode((short) 1);
 
         /** Unsupported object type error. */
         public static final int UNSUPPORTED_OBJECT_TYPE_ERR = MARSHALLING_ERR_GROUP.registerErrorCode((short) 2);

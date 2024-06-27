@@ -130,12 +130,12 @@ public enum ClientOperationType {
     TUPLE_CONTAINS_KEY,
 
     /**
-     * Compute Execute ({@link org.apache.ignite.compute.IgniteCompute#submit(JobTarget, JobDescriptor, Object...)}).
+     * Compute Execute ({@link org.apache.ignite.compute.IgniteCompute#submit(JobTarget, JobDescriptor, Object)}).
      */
     COMPUTE_EXECUTE,
 
     /**
-     * Compute Execute MapReduce ({@link org.apache.ignite.compute.IgniteCompute#submitMapReduce(List, String, Object...)}).
+     * Compute Execute MapReduce ({@link org.apache.ignite.compute.IgniteCompute#submitMapReduce(List, String, Object)}).
      */
     COMPUTE_EXECUTE_MAPREDUCE,
 
