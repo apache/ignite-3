@@ -36,7 +36,7 @@ import org.jetbrains.annotations.Nullable;
  * Provides the ability to execute Compute jobs.
  *
  * @see ComputeJob
- * @see ComputeJob#executeAsync(JobExecutionContext, Object...)
+ * @see ComputeJob#executeAsync(JobExecutionContext, Object)
  */
 public interface IgniteCompute {
     /**
@@ -182,11 +182,11 @@ public interface IgniteCompute {
      * @param <R> Job (R)esult type.
      * @param units Deployment units.
      * @param taskClassName Map reduce task class name.
-     * @param input Task arguments.
+     * @param arg Task arguments.
      * @return Task result future.
      */
-    default <T, R> CompletableFuture<R> executeMapReduceAsync(List<DeploymentUnit> units, String taskClassName, @Nullable T input) {
-        return this.<T, R>submitMapReduce(units, taskClassName, input).resultAsync();
+    default <T, R> CompletableFuture<R> executeMapReduceAsync(List<DeploymentUnit> units, String taskClassName, @Nullable T arg) {
+        return this.<T, R>submitMapReduce(units, taskClassName, arg).resultAsync();
     }
 
     /**

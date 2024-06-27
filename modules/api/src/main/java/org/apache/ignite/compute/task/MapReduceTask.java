@@ -21,7 +21,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.marshaling.Marshaler;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -29,14 +28,17 @@ import org.jetbrains.annotations.Nullable;
  * {@link org.apache.ignite.compute.IgniteCompute#submitMapReduce(List, String, Object) IgniteCompute#submitMapReduce} method to run this
  * task.
  *
- * @param <R> Result type.
+ * @param <I> Split task (I)nput type.
+ * @param <M> (M)ap job input type.
+ * @param <T> Map job output (T)ype and reduce job input (T)ype.
+ * @param <R> Reduce (R)esult type.
  */
 public interface MapReduceTask<I, M, T, R> {
     /**
      * This method should return a list of compute job execution parameters which will be used to submit compute jobs.
      *
      * @param taskContext Task execution context.
-     * @param input Map reduce task input.
+     * @param input Map reduce task (I)nput.
      * @return A future with the list of compute job execution parameters.
      */
     CompletableFuture<List<MapReduceJob<M, T>>> splitAsync(TaskExecutionContext taskContext, @Nullable I input);
@@ -51,23 +53,4 @@ public interface MapReduceTask<I, M, T, R> {
      * @return Final task result future.
      */
     CompletableFuture<R> reduceAsync(TaskExecutionContext taskContext, Map<UUID, T> results);
-
-
-    /**
-     * The marshaller for the input argument of the split method.
-     *
-     * @return Input marshaller.
-     */
-    default Marshaler<I, byte[]> inputMarshaler() {
-        return null;
-    }
-
-    /**
-     * The marshaller for the result of the reduce method.
-     *
-     * @return Result marshaller.
-     */
-    default Marshaler<R, byte[]> resultMarshaler() {
-        return null;
-    }
 }
