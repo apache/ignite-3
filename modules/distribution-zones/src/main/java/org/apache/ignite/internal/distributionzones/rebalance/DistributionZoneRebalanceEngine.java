@@ -329,17 +329,28 @@ public class DistributionZoneRebalanceEngine {
     }
 
     private int getCatalogVersionForCounter(int zoneId, int partId) {
+        int latestCatalogVersion = catalogService.latestCatalogVersion();
+
         try {
             byte[] value = metaStorageManager.get(catalogVersionKey(zoneId, partId)).get().value();
 
             if (value != null) {
-                return bytesToInt(value);
+                int storedVersion = bytesToInt(value);
+
+                if (storedVersion > latestCatalogVersion) {
+                    LOG.warn("Latest catalog version is smaller than the stored one [latest={}, stored={}]",
+                            latestCatalogVersion, storedVersion);
+                    
+                    return latestCatalogVersion;
+                }
+
+                return storedVersion;
             }
         } catch (Exception e) {
             LOG.error("Failed to get catalog version for [zoneId={}, partitionId={}]", e, zoneId, partId);
         }
 
-        return catalogService.latestCatalogVersion();
+        return latestCatalogVersion;
     }
 
     private CompletableFuture<Void> onUpdateReplicas(AlterZoneEventParameters parameters) {
