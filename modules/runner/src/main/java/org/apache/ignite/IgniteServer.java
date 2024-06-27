@@ -25,6 +25,7 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Embedded Ignite node. Manages node's lifecycle, provides Ignite API and allows cluster initialization.
+ *
  * <p>NOTE: Methods of this interface are not thread-safe and shouldn't be called from different threads.
  */
 public interface IgniteServer {
