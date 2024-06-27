@@ -23,13 +23,16 @@ import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_ALTER;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.DISTRIBUTION_ZONE_DATA_NODES_VALUE_PREFIX;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.filterDataNodes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.findTablesByZoneId;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.getZoneFromCatalog;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.parseDataNodes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceRaftGroupEventsListener.doStableKeySwitch;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.catalogVersionKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractPartitionNumber;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractZoneId;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.raftConfigurationAppliedKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.tablesCounterPrefixKey;
+import static org.apache.ignite.internal.util.ByteUtils.bytesToInt;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
@@ -257,7 +260,7 @@ public class DistributionZoneRebalanceEngine {
 
                     int counter = ((Set<Integer>) fromBytes(event.entryEvent().newEntry().value())).size();
 
-                    assert counter >= 0 : "Tables counter for rabalances cannot be negative.";
+                    assert counter >= 0 : "Tables counter for rebalances cannot be negative.";
 
                     if (counter > 0) {
                         return nullCompletedFuture();
@@ -265,8 +268,12 @@ public class DistributionZoneRebalanceEngine {
 
                     int zoneId = RebalanceUtil.extractZoneIdFromTablesCounter(event.entryEvent().newEntry().key());
 
+                    int partId = extractPartitionNumber(event.entryEvent().newEntry().key());
+
+                    int catalogVersion = getCatalogVersionForCounter(zoneId, partId);
+
                     // TODO: https://issues.apache.org/jira/browse/IGNITE-21254 tables here must be the same as they were on rebalance start
-                    List<CatalogTableDescriptor> tables = findTablesByZoneId(zoneId, catalogService.latestCatalogVersion(), catalogService);
+                    List<CatalogTableDescriptor> tables = findTablesByZoneId(zoneId, catalogVersion, catalogService);
 
                     rebalanceScheduler.schedule(() -> {
                         if (!busyLock.enterBusy()) {
@@ -280,8 +287,6 @@ public class DistributionZoneRebalanceEngine {
 
                         try {
                             Map<ByteArray, TablePartitionId> partitionTablesKeys = new HashMap<>();
-
-                            int partId = extractPartitionNumber(event.entryEvent().newEntry().key());
 
                             for (CatalogTableDescriptor table : tables) {
                                 TablePartitionId replicaGrpId = new TablePartitionId(table.id(), partId);
@@ -303,7 +308,7 @@ public class DistributionZoneRebalanceEngine {
 
                         } catch (Exception e) {
                             LOG.error(
-                                    "Failed to update stable keys for tables [{}]",
+                                    "Failed to update stable keys for tables [{}]", e,
                                     tables.stream().map(CatalogObjectDescriptor::name).collect(Collectors.toSet())
                             );
                         } finally {
@@ -323,6 +328,31 @@ public class DistributionZoneRebalanceEngine {
         };
     }
 
+    private int getCatalogVersionForCounter(int zoneId, int partId) {
+        int latestCatalogVersion = catalogService.latestCatalogVersion();
+
+        try {
+            byte[] value = metaStorageManager.get(catalogVersionKey(zoneId, partId)).get().value();
+
+            if (value != null) {
+                int storedVersion = bytesToInt(value);
+
+                if (storedVersion > latestCatalogVersion) {
+                    LOG.warn("Latest catalog version is smaller than the stored one [latest={}, stored={}]",
+                            latestCatalogVersion, storedVersion);
+
+                    return latestCatalogVersion;
+                }
+
+                return storedVersion;
+            }
+        } catch (Exception e) {
+            LOG.error("Failed to get catalog version for [zoneId={}, partitionId={}]", e, zoneId, partId);
+        }
+
+        return latestCatalogVersion;
+    }
+
     private CompletableFuture<Void> onUpdateReplicas(AlterZoneEventParameters parameters) {
         return recalculateAssignmentsAndScheduleRebalance(
                 parameters.zoneDescriptor(),
@@ -336,15 +366,15 @@ public class DistributionZoneRebalanceEngine {
             CatalogService catalogService,
             DistributionZoneManager distributionZoneManager
     ) {
-        int catalogVersion = catalogService.latestCatalogVersion();
+        VersionedTableZoneDescriptor zoneFromCatalog = getZoneFromCatalog(tablePartitionId.tableId(), catalogService);
 
-        CatalogTableDescriptor tableDescriptor = catalogService.table(tablePartitionId.tableId(), catalogVersion);
+        CatalogTableDescriptor tableDescriptor = zoneFromCatalog.tableDescriptor();
 
-        CatalogZoneDescriptor zoneDescriptor = catalogService.zone(tableDescriptor.zoneId(), catalogVersion);
+        CatalogZoneDescriptor zoneDescriptor = zoneFromCatalog.zoneDescriptor();
 
         return distributionZoneManager.dataNodes(
                 zoneDescriptor.updateToken(),
-                catalogVersion,
+                zoneFromCatalog.catalogVersion(),
                 tableDescriptor.zoneId()
         ).thenApply(dataNodes ->
                 AffinityUtils.calculateAssignmentForPartition(
