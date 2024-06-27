@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "ignite/client/compute/job_status.h"
+#include "ignite/client/compute/job_state.h"
 #include "ignite/common/detail/config.h"
 #include "ignite/common/ignite_result.h"
 #include "ignite/common/primitive.h"
@@ -69,24 +69,24 @@ public:
     [[nodiscard]] uuid get_id() const;
 
     /**
-     * Gets the job execution status asynchronously. Can be @c nullopt if the job status no longer exists due to
+     * Gets the job execution state asynchronously. Can be @c nullopt if the job state no longer exists due to
      * exceeding the retention time limit.
      *
-     * @param callback Callback to be called when the operation is complete. Called with the job status.
-     *  Can be @c nullopt if the job status no longer exists due to exceeding the retention time limit.
+     * @param callback Callback to be called when the operation is complete. Called with the job state.
+     *  Can be @c nullopt if the job state no longer exists due to exceeding the retention time limit.
      */
-    IGNITE_API void get_status_async(ignite_callback<std::optional<job_status>> callback);
+    IGNITE_API void get_state_async(ignite_callback<std::optional<job_state>> callback);
 
     /**
-     * Gets the job execution status. Can be @c nullopt if the job status no longer exists due to exceeding the
+     * Gets the job execution state. Can be @c nullopt if the job state no longer exists due to exceeding the
      * retention time limit.
      *
-     * @return The job status. Can be @c nullopt if the job status no longer exists due to exceeding the retention
+     * @return The job state. Can be @c nullopt if the job state no longer exists due to exceeding the retention
      *  time limit.
      */
-    IGNITE_API std::optional<job_status> get_status() {
-        return sync<std::optional<job_status>>(
-            [this](auto callback) mutable { get_status_async(std::move(callback)); });
+    IGNITE_API std::optional<job_state> get_state() {
+        return sync<std::optional<job_state>>(
+            [this](auto callback) mutable { get_state_async(std::move(callback)); });
     }
 
     /**

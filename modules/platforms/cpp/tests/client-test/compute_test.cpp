@@ -456,10 +456,10 @@ TEST_F(compute_test, job_execution_status_executing) {
 
     auto execution = m_client.get_compute().submit({get_node(1)}, {}, SLEEP_JOB, {sleep_ms}, {});
 
-    auto status = execution.get_status();
+    auto state = execution.get_state();
 
-    ASSERT_TRUE(status.has_value());
-    EXPECT_EQ(job_state::EXECUTING, status->state);
+    ASSERT_TRUE(state.has_value());
+    EXPECT_EQ(job_status::EXECUTING, state->status);
 }
 
 TEST_F(compute_test, DISABLED_job_execution_status_completed) {
@@ -468,10 +468,10 @@ TEST_F(compute_test, DISABLED_job_execution_status_completed) {
     auto execution = m_client.get_compute().submit({get_node(1)}, {}, SLEEP_JOB, {sleep_ms}, {});
     execution.get_result();
 
-    auto status = execution.get_status();
+    auto state = execution.get_state();
 
-    ASSERT_TRUE(status.has_value());
-    EXPECT_EQ(job_state::COMPLETED, status->state);
+    ASSERT_TRUE(state.has_value());
+    EXPECT_EQ(job_status::COMPLETED, state->status);
 }
 
 TEST_F(compute_test, job_execution_status_failed) {
@@ -488,10 +488,10 @@ TEST_F(compute_test, job_execution_status_failed) {
         },
         ignite_error);
 
-    auto status = execution.get_status();
+    auto state = execution.get_state();
 
-    ASSERT_TRUE(status.has_value());
-    EXPECT_EQ(job_state::FAILED, status->state);
+    ASSERT_TRUE(state.has_value());
+    EXPECT_EQ(job_status::FAILED, state->status);
 }
 
 TEST_F(compute_test, job_execution_cancel) {
@@ -500,10 +500,10 @@ TEST_F(compute_test, job_execution_cancel) {
     auto execution = m_client.get_compute().submit({get_node(1)}, {}, SLEEP_JOB, {sleep_ms}, {});
     execution.cancel();
 
-    auto status = execution.get_status();
+    auto state = execution.get_state();
 
-    ASSERT_TRUE(status.has_value());
-    EXPECT_EQ(job_state::CANCELED, status->state);
+    ASSERT_TRUE(state.has_value());
+    EXPECT_EQ(job_status::CANCELED, state->status);
 }
 
 TEST_F(compute_test, job_execution_change_priority) {

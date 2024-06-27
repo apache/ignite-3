@@ -18,7 +18,7 @@
 #pragma once
 
 #include "ignite/client/compute/job_execution.h"
-#include "ignite/client/compute/job_status.h"
+#include "ignite/client/compute/job_state.h"
 #include "ignite/client/detail/cluster_connection.h"
 #include "ignite/common/detail/config.h"
 #include "ignite/common/ignite_result.h"
@@ -71,20 +71,20 @@ public:
     void set_result(std::optional<primitive> result);
 
     /**
-     * Gets the job execution status. Can be @c nullopt if the job status no longer exists due to exceeding the
+     * Gets the job execution state. Can be @c nullopt if the job state no longer exists due to exceeding the
      * retention time limit.
      *
-     * @param callback Callback to be called when the operation is complete. Contains the job status. Can be @c nullopt
-     *  if the job status no longer exists due to exceeding the retention time limit.
+     * @param callback Callback to be called when the operation is complete. Contains the job state. Can be @c nullopt
+     *  if the job state no longer exists due to exceeding the retention time limit.
      */
-    void get_status_async(ignite_callback<std::optional<job_status>> callback);
+    void get_state_async(ignite_callback<std::optional<job_state>> callback);
 
     /**
-     * Set final status.
+     * Set final state.
      *
-     * @param status Execution status.
+     * @param state Execution state.
      */
-    void set_final_status(const job_status &status);
+    void set_final_state(const job_state &state);
 
     /**
      * Set error.
@@ -119,8 +119,8 @@ private:
     /** Mutex. Should be held to change any data. */
     std::mutex m_mutex;
 
-    /** Final status. */
-    std::optional<job_status> m_final_status;
+    /** Final state. */
+    std::optional<job_state> m_final_state;
 
     /** Execution result. First optional to understand if the result is available. */
     std::optional<std::optional<primitive>> m_result;

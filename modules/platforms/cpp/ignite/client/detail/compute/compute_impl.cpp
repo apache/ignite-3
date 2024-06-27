@@ -80,16 +80,16 @@ std::optional<primitive> read_primitive_from_binary_tuple_nullable(protocol::rea
 }
 
 /**
- * Read primitive from a stream, which is encoded as a binary tuple.
+ * Read job state from a stream, which is encoded as a binary tuple.
  *
  * @param reader Reader.
  * @return Value.
  */
-job_status read_job_status(protocol::reader &reader) {
-    job_status res;
+job_state read_job_state(protocol::reader &reader) {
+    job_state res;
 
     res.id = reader.read_uuid();
-    res.state = job_state(reader.read_int32());
+    res.status = job_status(reader.read_int32());
 
     auto create_time = reader.read_timestamp_opt();
     res.create_time = create_time ? *create_time : ignite_timestamp{};
@@ -100,16 +100,16 @@ job_status read_job_status(protocol::reader &reader) {
 }
 
 /**
- * Read primitive from a stream, which is encoded as a binary tuple.
+ * Read job state from a stream, which is encoded as a binary tuple.
  *
  * @param reader Reader.
- * @return Value.
+ * @return Value or std::nullopt on nil in stream.
  */
-std::optional<job_status> read_job_status_opt(protocol::reader &reader) {
+std::optional<job_state> read_job_state_opt(protocol::reader &reader) {
     if (reader.try_read_nil())
         return std::nullopt;
 
-    return read_job_status(reader);
+    return read_job_state(reader);
 }
 
 /**
@@ -196,15 +196,15 @@ public:
             this->m_handling_complete = true;
 
             std::optional<primitive> res{};
-            job_status status;
+            job_state state;
 
             auto read_res = result_of_operation<void>([&]() {
                 res = read_primitive_from_binary_tuple_nullable(reader);
-                status = read_job_status(reader);
+                state = read_job_state(reader);
             });
 
             if (!m_execution) {
-                m_execution = std::make_shared<job_execution_impl>(status.id, std::move(m_compute));
+                m_execution = std::make_shared<job_execution_impl>(state.id, std::move(m_compute));
                 result_of_operation<void>([&]() { this->m_callback(job_execution{m_execution}); });
             }
 
@@ -216,7 +216,7 @@ public:
 
             auto handle_res = result_of_operation<void>([&]() {
                 m_execution->set_result(res);
-                m_execution->set_final_status(status);
+                m_execution->set_final_state(state);
             });
 
             return handle_res;
@@ -301,14 +301,14 @@ void compute_impl::submit_colocated_async(const std::string &table_name, const i
     m_tables->get_table_async(table_name, std::move(on_table_get));
 }
 
-void compute_impl::get_status_async(uuid id, ignite_callback<std::optional<job_status>> callback) {
+void compute_impl::get_state_async(uuid id, ignite_callback<std::optional<job_state>> callback) {
     auto writer_func = [id](protocol::writer &writer) { writer.write(id); };
 
-    auto reader_func = [](protocol::reader &reader) -> std::optional<job_status> {
-        return read_job_status_opt(reader);
+    auto reader_func = [](protocol::reader &reader) -> std::optional<job_state> {
+        return read_job_state_opt(reader);
     };
 
-    m_connection->perform_request<std::optional<job_status>>(
+    m_connection->perform_request<std::optional<job_state>>(
         protocol::client_operation::COMPUTE_GET_STATUS, writer_func, std::move(reader_func), std::move(callback));
 }
 
