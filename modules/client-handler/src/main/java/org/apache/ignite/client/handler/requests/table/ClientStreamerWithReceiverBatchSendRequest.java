@@ -122,8 +122,8 @@ public class ClientStreamerWithReceiverBatchSendRequest {
             var receiverInfo = StreamerReceiverSerializer.deserialize(remainingBytes, payloadElementCount);
 
             ClassLoader classLoader = ((JobExecutionContextImpl) context).classLoader();
-            Class<DataStreamerReceiver<Object, Object>> receiverClass = ComputeUtils.receiverClass(classLoader, receiverInfo.className());
-            DataStreamerReceiver<Object, Object> receiver = ComputeUtils.instantiateReceiver(receiverClass);
+            Class<DataStreamerReceiver<Object, Object, Object>> receiverClass = ComputeUtils.receiverClass(classLoader, receiverInfo.className());
+            DataStreamerReceiver<Object, Object, Object> receiver = ComputeUtils.instantiateReceiver(receiverClass);
             DataStreamerReceiverContext receiverContext = context::ignite;
 
             return receiver.receive(receiverInfo.items(), receiverContext, receiverInfo.args());

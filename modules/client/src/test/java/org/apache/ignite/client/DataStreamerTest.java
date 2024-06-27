@@ -727,7 +727,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
         return ignite2;
     }
 
-    private static class TestReceiver implements DataStreamerReceiver<Long, String> {
+    private static class TestReceiver implements DataStreamerReceiver<Long, Object, String> {
         @Override
         public CompletableFuture<List<String>> receive(List<Long> page, DataStreamerReceiverContext ctx, Object args) {
             var parsedArgs = TestReceiverArs.from(args);
@@ -778,7 +778,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
         }
     }
 
-    private static class TestUpsertReceiver implements DataStreamerReceiver<Long, Void> {
+    private static class TestUpsertReceiver implements DataStreamerReceiver<Long, Object, Void> {
         @Override
         @Nullable
         public CompletableFuture<List<Void>> receive(List<Long> page, DataStreamerReceiverContext ctx, Object args) {
@@ -832,7 +832,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
         }
     }
 
-    private static class EchoArgsReceiver implements DataStreamerReceiver<Object, Object> {
+    private static class EchoArgsReceiver implements DataStreamerReceiver<Object, Object, Object> {
         @Override
         public CompletableFuture<List<Object>> receive(List<Object> page, DataStreamerReceiverContext ctx, Object args) {
             return CompletableFuture.completedFuture(List.of(args));

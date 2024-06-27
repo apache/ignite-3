@@ -36,7 +36,6 @@ public class MarshallingException extends IgniteException {
         super(Marshalling.MARSHALLING_ERR, exception);
     }
 
-
     /**
      * Creates an exception with the given trace ID, error code, detailed message, and cause.
      *

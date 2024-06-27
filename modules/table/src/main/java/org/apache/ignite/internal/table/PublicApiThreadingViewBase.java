@@ -58,14 +58,14 @@ abstract class PublicApiThreadingViewBase<T> implements DataStreamerTarget<T>, C
     }
 
     @Override
-    public <E, V, R> CompletableFuture<Void> streamData(
+    public <E, V, R, A> CompletableFuture<Void> streamData(
             Publisher<E> publisher,
             Function<E, T> keyFunc,
             Function<E, V> payloadFunc,
-            ReceiverDescriptor receiver,
+            ReceiverDescriptor<A> receiver,
             @Nullable Flow.Subscriber<R> resultSubscriber,
             @Nullable DataStreamerOptions options,
-            Object receiverArgs) {
+            A receiverArgs) {
         return executeAsyncOp(() -> streamerTarget.streamData(
                 publisher,
                 keyFunc,

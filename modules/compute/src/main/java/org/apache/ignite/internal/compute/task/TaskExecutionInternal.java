@@ -53,7 +53,6 @@ import org.apache.ignite.internal.compute.queue.PriorityQueueExecutor;
 import org.apache.ignite.internal.compute.queue.QueueExecution;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.marshaling.Marshaler;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -257,11 +256,6 @@ public class TaskExecutionInternal<T, R> implements JobExecution<R> {
                 return false;
             });
         });
-    }
-
-    @Override
-    public Marshaler<R, byte[]> resultMarshaler() {
-        return null;
     }
 
     CompletableFuture<List<@Nullable JobState>> statesAsync() {

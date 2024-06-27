@@ -19,7 +19,6 @@ package org.apache.ignite.compute;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.marshaling.Marshaler;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -71,6 +70,4 @@ public interface JobExecution<R> {
      *         retention time limit.
      */
     CompletableFuture<@Nullable Boolean> changePriorityAsync(int newPriority);
-
-    Marshaler<R, byte[]> resultMarshaler();
 }

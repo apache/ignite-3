@@ -61,9 +61,9 @@ class ClientDataStreamer {
                 tbl);
     }
 
-    // T = key, E = element, V = payload, R = result.
+    // T = key, E = element, V = payload, R = result, A = Argument.
     @SuppressWarnings("resource")
-    static <T, E, V, R> CompletableFuture<Void> streamData(
+    static <T, E, V, R, A> CompletableFuture<Void> streamData(
             Publisher<E> publisher,
             Function<E, T> keyFunc,
             Function<E, V> payloadFunc,
@@ -74,8 +74,8 @@ class ClientDataStreamer {
             @Nullable Flow.Subscriber<R> resultSubscriber,
             List<DeploymentUnit> deploymentUnits,
             String receiverClassName,
-            Object receiverArgs,
-            @Nullable Marshaler<Object, byte[]> receiverArgsMarshaller
+            A receiverArgs,
+            @Nullable Marshaler<A, byte[]> receiverArgsMarshaller
     ) {
         StreamerBatchSender<V, Integer, R> batchSender = (partitionId, items, deleted) ->
                 tbl.getPartitionAssignment().thenCompose(

@@ -570,14 +570,14 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
     }
 
     @Override
-    public <E, V, R1> CompletableFuture<Void> streamData(
+    public <E, V, R1, A> CompletableFuture<Void> streamData(
             Publisher<E> publisher,
             Function<E, R> keyFunc,
             Function<E, V> payloadFunc,
-            ReceiverDescriptor receiver,
+            ReceiverDescriptor<A> receiver,
             @Nullable Flow.Subscriber<R1> resultSubscriber,
             @Nullable DataStreamerOptions options,
-            Object receiverArgs) {
+            A receiverArgs) {
         // TODO: IGNITE-22285 Embedded Data Streamer with Receiver
         throw new UnsupportedOperationException("Not implemented yet");
     }

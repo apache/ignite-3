@@ -54,13 +54,14 @@ public interface DataStreamerTarget<T> {
      * @param <E> Producer item type.
      * @param <V> Payload type.
      * @param <R> Result type.
+     * @param <A> Receiver job argument type.
      */
-    <E, V, R> CompletableFuture<Void> streamData(
+    <E, V, R, A> CompletableFuture<Void> streamData(
             Flow.Publisher<E> publisher,
             Function<E, T> keyFunc,
             Function<E, V> payloadFunc,
-            ReceiverDescriptor receiver,
+            ReceiverDescriptor<A> receiver,
             @Nullable Flow.Subscriber<R> resultSubscriber,
             @Nullable DataStreamerOptions options,
-            Object receiverArgs);
+            A receiverArgs);
 }

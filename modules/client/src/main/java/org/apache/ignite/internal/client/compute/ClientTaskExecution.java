@@ -34,7 +34,6 @@ import org.apache.ignite.compute.JobState;
 import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.internal.client.PayloadInputChannel;
 import org.apache.ignite.internal.client.ReliableChannel;
-import org.apache.ignite.marshaling.Marshaler;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -103,11 +102,6 @@ class ClientTaskExecution<R> implements TaskExecution<R> {
             return falseCompletedFuture();
         }
         return jobIdFuture.thenCompose(jobId -> changePriority(ch, jobId, newPriority));
-    }
-
-    @Override
-    public Marshaler<R, byte[]> resultMarshaler() {
-        return null;
     }
 
     @Override

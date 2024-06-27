@@ -787,14 +787,14 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
     }
 
     @Override
-    public <E, V1, R> CompletableFuture<Void> streamData(
+    public <E, V1, R, A> CompletableFuture<Void> streamData(
             Publisher<E> publisher,
             Function<E, Entry<K, V>> keyFunc,
             Function<E, V1> payloadFunc,
-            ReceiverDescriptor receiver,
+            ReceiverDescriptor<A> receiver,
             @Nullable Flow.Subscriber<R> resultSubscriber,
             @Nullable DataStreamerOptions options,
-            Object receiverArgs) {
+            A receiverArgs) {
         // TODO: IGNITE-22285 Embedded Data Streamer with Receiver.
         throw new UnsupportedOperationException("Not implemented yet");
     }

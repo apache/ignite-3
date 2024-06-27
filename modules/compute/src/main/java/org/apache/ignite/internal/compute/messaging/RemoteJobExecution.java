@@ -22,7 +22,6 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobState;
 import org.apache.ignite.internal.future.InFlightFutures;
-import org.apache.ignite.marshaling.Marshaler;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
@@ -89,10 +88,5 @@ public class RemoteJobExecution<R> implements JobExecution<R> {
         return inFlightFutures.registerFuture(
                 jobIdFuture.thenCompose(jobId -> messaging.remoteChangePriorityAsync(remoteNode, jobId, newPriority))
         );
-    }
-
-    @Override
-    public Marshaler<R, byte[]> resultMarshaler() {
-        return null;
     }
 }

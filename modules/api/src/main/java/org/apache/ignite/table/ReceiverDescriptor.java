@@ -26,15 +26,15 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Data streamer receiver descriptor.
  */
-public class ReceiverDescriptor {
+public class ReceiverDescriptor<A> {
     private final String receiverClassName;
 
     private final List<DeploymentUnit> units;
 
-    private final @Nullable Marshaler<Object, byte[]> argumentsMarshaler;
+    private final @Nullable Marshaler<A, byte[]> argumentsMarshaler;
 
     private ReceiverDescriptor(
-            String receiverClassName, List<DeploymentUnit> units, @Nullable Marshaler<Object, byte[]> argumentsMarshaler
+            String receiverClassName, List<DeploymentUnit> units, @Nullable Marshaler<A, byte[]> argumentsMarshaler
     ) {
         Objects.requireNonNull(receiverClassName);
         Objects.requireNonNull(units);
@@ -78,23 +78,23 @@ public class ReceiverDescriptor {
      *
      * @return Receiver descriptor builder.
      */
-    public static Builder builder(Class<? extends DataStreamerReceiver<?, ?>> receiverClass) {
+    public static <A> Builder<A> builder(Class<? extends DataStreamerReceiver<?, A, ?>> receiverClass) {
         Objects.requireNonNull(receiverClass);
 
         return new Builder(receiverClass.getName());
     }
 
-    public @Nullable Marshaler<Object, byte[]> argumentsMarshaler() {
+    public @Nullable Marshaler<A, byte[]> argumentsMarshaler() {
         return argumentsMarshaler;
     }
 
     /**
      * Builder.
      */
-    public static class Builder {
+    public static class Builder<A> {
         private final String receiverClassName;
         private List<DeploymentUnit> units;
-        private @Nullable Marshaler<Object, byte[]> argumentsMarshaller;
+        private @Nullable Marshaler<A, byte[]> argumentsMarshaller;
 
 
         private Builder(String receiverClassName) {
@@ -109,7 +109,7 @@ public class ReceiverDescriptor {
          * @param units Deployment units.
          * @return This builder.
          */
-        public Builder units(List<DeploymentUnit> units) {
+        public Builder<A> units(List<DeploymentUnit> units) {
             this.units = units;
             return this;
         }
@@ -120,12 +120,12 @@ public class ReceiverDescriptor {
          * @param units Deployment units.
          * @return This builder.
          */
-        public Builder units(DeploymentUnit... units) {
+        public Builder<A> units(DeploymentUnit... units) {
             this.units = List.of(units);
             return this;
         }
 
-        public Builder argumentsMarshaler(@Nullable Marshaler<Object, byte[]> argumentsMarshaller) {
+        public Builder<A> argumentsMarshaler(@Nullable Marshaler<A, byte[]> argumentsMarshaller) {
             this.argumentsMarshaller = argumentsMarshaller;
             return this;
         }
@@ -135,8 +135,8 @@ public class ReceiverDescriptor {
          *
          * @return Receiver descriptor.
          */
-        public ReceiverDescriptor build() {
-            return new ReceiverDescriptor(
+        public ReceiverDescriptor<A> build() {
+            return new ReceiverDescriptor<>(
                     receiverClassName,
                     units == null ? List.of() : units,
                     argumentsMarshaller

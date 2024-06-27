@@ -21,7 +21,6 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobState;
 import org.apache.ignite.internal.compute.executor.JobExecutionInternal;
-import org.apache.ignite.marshaling.Marshaler;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -59,10 +58,5 @@ class DelegatingJobExecution<R> implements JobExecution<R> {
     @Override
     public CompletableFuture<@Nullable Boolean> changePriorityAsync(int newPriority) {
         return delegate.thenApply(jobExecutionInternal -> jobExecutionInternal.changePriority(newPriority));
-    }
-
-    @Override
-    public Marshaler<R, byte[]> resultMarshaler() {
-        return null;
     }
 }

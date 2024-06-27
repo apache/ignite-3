@@ -685,11 +685,11 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         return List.of(testServer2.nodeName(), testServer.nodeName(), testServer2.nodeName(), testServer.nodeName());
     }
 
-    private static ReceiverDescriptor receiver() {
-        return ReceiverDescriptor.builder(TestReceiver.class).build();
+    private static <A> ReceiverDescriptor<A> receiver() {
+        return (ReceiverDescriptor<A>) ReceiverDescriptor.builder(TestReceiver.class).build();
     }
 
-    private static class TestReceiver implements DataStreamerReceiver<Object, Object> {
+    private static class TestReceiver implements DataStreamerReceiver<Object, Object, Object> {
         @SuppressWarnings("resource")
         @Override
         public CompletableFuture<List<Object>> receive(List<Object> page, DataStreamerReceiverContext ctx, Object args) {

@@ -29,9 +29,10 @@ import org.jetbrains.annotations.Nullable;
  *
  * @param <T> Payload type.
  * @param <R> Result type.
+ * @param <A> Receiver job arguments type.
  */
 @SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
-public interface DataStreamerReceiver<T, R> {
+public interface DataStreamerReceiver<T, A, R> {
     /**
      * Receives an item from the data streamer (see {@link DataStreamerTarget#streamData(Publisher, Function, Function,
      * ReceiverDescriptor, Subscriber, DataStreamerOptions, Object...)}).
@@ -47,5 +48,5 @@ public interface DataStreamerReceiver<T, R> {
     @Nullable CompletableFuture<List<R>> receive(
             List<T> page,
             DataStreamerReceiverContext ctx,
-            Object args);
+            A args);
 }

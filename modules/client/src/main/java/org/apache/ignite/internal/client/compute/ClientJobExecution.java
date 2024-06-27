@@ -102,11 +102,6 @@ class ClientJobExecution<R> implements JobExecution<R> {
         return jobIdFuture.thenCompose(jobId -> changePriority(ch, jobId, newPriority));
     }
 
-    @Override
-    public Marshaler<R, byte[]> resultMarshaler() {
-        return null;
-    }
-
     static CompletableFuture<@Nullable JobState> getJobState(ReliableChannel ch, UUID jobId) {
         // Send the request to any node, the request will be broadcast since client doesn't know which particular node is running the job
         // especially in case of colocated execution.

@@ -64,7 +64,7 @@ public class ClientComputeExecuteRequest {
         Object arg = unpackPayload(in);
 
         JobExecution<Object> execution = compute.executeAsyncWithFailover(candidates, deploymentUnits, jobClassName, options, arg);
-        sendResultAndState(execution, notificationSender, execution.resultMarshaler());
+        sendResultAndState(execution, notificationSender, null);
 
         //noinspection DataFlowIssue
         return execution.idAsync().thenAccept(out::packUuid);

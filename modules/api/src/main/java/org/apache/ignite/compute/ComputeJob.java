@@ -18,7 +18,6 @@
 package org.apache.ignite.compute;
 
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.marshaling.ByteArrayMarshaler;
 import org.apache.ignite.marshaling.Marshaler;
 import org.jetbrains.annotations.Nullable;
 
@@ -45,7 +44,7 @@ public interface ComputeJob<T, R> {
     @Nullable CompletableFuture<R> executeAsync(JobExecutionContext context, @Nullable T arg);
 
     /**
-     * Marshaler for the input argument. Default is {@link ByteArrayMarshaler}.
+     * Marshaler for the input argument. Default is {@code null} meaning that only primitive types are supported.
      *
      * @return Input marshaler.
      */
@@ -54,7 +53,7 @@ public interface ComputeJob<T, R> {
     }
 
     /**
-     * Marshaler for the job result. Default is {@link ByteArrayMarshaler}.
+     * Marshaler for the job result. Default is {@code null} meaning that only primitive types are supported.
      *
      * @return Result marshaler.
      */

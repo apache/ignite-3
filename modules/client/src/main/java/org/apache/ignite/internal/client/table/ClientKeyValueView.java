@@ -684,14 +684,14 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
 
     /** {@inheritDoc} */
     @Override
-    public <E, P, R> CompletableFuture<Void> streamData(
+    public <E, P, R, A> CompletableFuture<Void> streamData(
             Publisher<E> publisher,
             Function<E, Entry<K, V>> keyFunc,
             Function<E, P> payloadFunc,
-            ReceiverDescriptor receiver,
+            ReceiverDescriptor<A> receiver,
             @Nullable Flow.Subscriber<R> resultSubscriber,
             @Nullable DataStreamerOptions options,
-            Object receiverArgs) {
+            A receiverArgs) {
         Objects.requireNonNull(publisher);
         Objects.requireNonNull(keyFunc);
         Objects.requireNonNull(payloadFunc);

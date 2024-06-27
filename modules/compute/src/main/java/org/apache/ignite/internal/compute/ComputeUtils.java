@@ -150,7 +150,7 @@ public class ComputeUtils {
      * @param <R> Receiver return type.
      * @return Receiver instance.
      */
-    public static <T, R> DataStreamerReceiver<T, R> instantiateReceiver(Class<? extends DataStreamerReceiver<T, R>> recvClass) {
+    public static <T, R, A> DataStreamerReceiver<T, R, A> instantiateReceiver(Class<? extends DataStreamerReceiver<T, R, A>> recvClass) {
         if (!(DataStreamerReceiver.class.isAssignableFrom(recvClass))) {
             throw new ComputeException(
                     CLASS_INITIALIZATION_ERR,
@@ -159,7 +159,7 @@ public class ComputeUtils {
         }
 
         try {
-            Constructor<? extends DataStreamerReceiver<T, R>> constructor = recvClass.getDeclaredConstructor();
+            Constructor<? extends DataStreamerReceiver<T, R, A>> constructor = recvClass.getDeclaredConstructor();
 
             if (!constructor.canAccess(null)) {
                 constructor.setAccessible(true);
@@ -179,9 +179,9 @@ public class ComputeUtils {
      * @param <R> Return type.
      * @return Receiver class.
      */
-    public static <T, R> Class<DataStreamerReceiver<T, R>> receiverClass(ClassLoader classLoader, String className) {
+    public static <T, R, A> Class<DataStreamerReceiver<T, R, A>> receiverClass(ClassLoader classLoader, String className) {
         try {
-            return (Class<DataStreamerReceiver<T, R>>) Class.forName(className, true, classLoader);
+            return (Class<DataStreamerReceiver<T, R, A>>) Class.forName(className, true, classLoader);
         } catch (ClassNotFoundException e) {
             throw new ComputeException(CLASS_INITIALIZATION_ERR, "Cannot load receiver class by name '" + className + "'", e);
         }

@@ -488,14 +488,14 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
 
     /** {@inheritDoc} */
     @Override
-    public <E, V, R> CompletableFuture<Void> streamData(
+    public <E, V, R, A> CompletableFuture<Void> streamData(
             Publisher<E> publisher,
             Function<E, Entry<Tuple, Tuple>> keyFunc,
             Function<E, V> payloadFunc,
-            ReceiverDescriptor receiver,
+            ReceiverDescriptor<A> receiver,
             @Nullable Flow.Subscriber<R> resultSubscriber,
             @Nullable DataStreamerOptions options,
-            Object receiverArgs) {
+            A receiverArgs) {
         Objects.requireNonNull(publisher);
         Objects.requireNonNull(keyFunc);
         Objects.requireNonNull(payloadFunc);

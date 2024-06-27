@@ -39,10 +39,10 @@ public class StreamerReceiverSerializer {
      * @param receiverArgs Receiver arguments.
      * @param items Items.
      */
-    public static void serialize(ClientMessagePacker w, String receiverClassName, Object receiverArgs,
-            @Nullable Marshaler<Object, byte[]> receiverArgsMarshaler, Collection<?> items) {
+    public static <A> void serialize(ClientMessagePacker w, String receiverClassName, A receiverArgs,
+            @Nullable Marshaler<A, byte[]> receiverArgsMarshaler, Collection<?> items) {
         // className + args size + args + items size + item type + items.
-        int binaryTupleSize = 1 + 1 + 3 + 1 + 1 + items.size();
+        int binaryTupleSize = 1 + 3 + 1 + 1 + items.size();
         var builder = new BinaryTupleBuilder(binaryTupleSize);
         builder.appendString(receiverClassName);
 
@@ -73,6 +73,8 @@ public class StreamerReceiverSerializer {
 
         Object receiverArgs = ClientBinaryTupleUtils.readObject(reader, readerIndex);
 
+        readerIndex += 3;
+
         List<Object> items = ClientBinaryTupleUtils.readCollectionFromBinaryTuple(reader, readerIndex);
 
         return new SteamerReceiverInfo(receiverClassName, receiverArgs, items);
@@ -85,7 +87,7 @@ public class StreamerReceiverSerializer {
      * @param receiverResults Receiver results.
      */
     public static void serializeResults(ClientMessagePacker w, @Nullable List<Object> receiverResults) {
-        if (receiverResults == null) {
+        if (receiverResults == null || receiverResults.isEmpty()) {
             w.packNil();
             return;
         }

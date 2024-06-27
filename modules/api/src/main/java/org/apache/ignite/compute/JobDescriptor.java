@@ -40,13 +40,14 @@ public class JobDescriptor<T, R> {
             String jobClassName,
             List<DeploymentUnit> units,
             JobExecutionOptions options,
-            @Nullable Marshaler<R, byte[]> resultMarshaller,
-            @Nullable Marshaler<T, byte[]> argumentMarshaller) {
+            @Nullable Marshaler<T, byte[]> argumentMarshaller,
+            @Nullable Marshaler<R, byte[]> resultMarshaller
+    ) {
         this.jobClassName = jobClassName;
         this.units = units;
         this.options = options;
-        this.resultMarshaller = resultMarshaller;
         this.argumentMarshaler = argumentMarshaller;
+        this.resultMarshaller = resultMarshaller;
     }
 
     /**
@@ -92,7 +93,7 @@ public class JobDescriptor<T, R> {
      *
      * @return Job descriptor builder.
      */
-    public static Builder builder(Class<? extends ComputeJob<?, ?>> jobClass) {
+    public static <T, R> Builder builder(Class<? extends ComputeJob<T, R>> jobClass) {
         Objects.requireNonNull(jobClass);
 
         return new Builder(jobClass.getName());
@@ -109,12 +110,12 @@ public class JobDescriptor<T, R> {
     /**
      * Builder.
      */
-    public static class Builder {
+    public static class Builder<T, R> {
         private final String jobClassName;
         private List<DeploymentUnit> units;
         private JobExecutionOptions options;
-        private Marshaler<?, ?> resultMarshaller;
-        private Marshaler<?, ?> argumentMarshaller;
+        private Marshaler<T, byte[]> argumentMarshaller;
+        private Marshaler<R, byte[]> resultMarshaller;
 
         private Builder(String jobClassName) {
             Objects.requireNonNull(jobClassName);
@@ -128,7 +129,7 @@ public class JobDescriptor<T, R> {
          * @param units Deployment units.
          * @return This builder.
          */
-        public Builder units(List<DeploymentUnit> units) {
+        public Builder<T, R> units(List<DeploymentUnit> units) {
             this.units = units;
             return this;
         }
@@ -139,7 +140,7 @@ public class JobDescriptor<T, R> {
          * @param units Deployment units.
          * @return This builder.
          */
-        public Builder units(DeploymentUnit... units) {
+        public Builder<T, R> units(DeploymentUnit... units) {
             this.units = List.of(units);
             return this;
         }
@@ -150,7 +151,7 @@ public class JobDescriptor<T, R> {
          * @param options Job execution options.
          * @return This builder.
          */
-        public Builder options(JobExecutionOptions options) {
+        public Builder<T, R> options(JobExecutionOptions options) {
             this.options = options;
             return this;
         }
@@ -162,7 +163,7 @@ public class JobDescriptor<T, R> {
          *
          * @return This builder.
          */
-        public Builder resultMarshaller(Marshaler<?, ?> marshaller) {
+        public Builder<T, R> resultMarshaller(Marshaler<R, byte[]> marshaller) {
             this.resultMarshaller = marshaller;
             return this;
         }
@@ -174,7 +175,7 @@ public class JobDescriptor<T, R> {
          *
          * @return This builder.
          */
-        public Builder argumentMarshaller(Marshaler<?, ?> marshaller) {
+        public Builder<T, R> argumentMarshaller(Marshaler<T, byte[]> marshaller) {
             this.argumentMarshaller = marshaller;
             return this;
         }
@@ -184,13 +185,13 @@ public class JobDescriptor<T, R> {
          *
          * @return Job descriptor.
          */
-        public <T, R> JobDescriptor build() {
-            return new JobDescriptor(
+        public JobDescriptor<T, R> build() {
+            return new JobDescriptor<>(
                     jobClassName,
                     units == null ? List.of() : units,
                     options == null ? JobExecutionOptions.DEFAULT : options,
-                    resultMarshaller,
-                    argumentMarshaller
+                    argumentMarshaller,
+                    resultMarshaller
             );
         }
     }
