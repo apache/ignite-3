@@ -340,7 +340,7 @@ public class DistributionZoneRebalanceEngine {
                 if (storedVersion > latestCatalogVersion) {
                     LOG.warn("Latest catalog version is smaller than the stored one [latest={}, stored={}]",
                             latestCatalogVersion, storedVersion);
-                    
+
                     return latestCatalogVersion;
                 }
 
