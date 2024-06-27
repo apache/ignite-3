@@ -290,7 +290,7 @@ public class ByteUtils {
     /**
      * Converts a byte buffer to a byte array.
      *
-     * @param buffer Byte buffer from which we copy bytes.
+     * @param buffer Byte buffer to copy bytes from.
      */
     public static byte[] toByteArray(ByteBuffer buffer) {
         int remaining = buffer.remaining();
@@ -308,7 +308,8 @@ public class ByteUtils {
     /**
      * Converts a byte array list to a byte buffer list.
      *
-     * @param byteBufferList Immutable list of byte buffers.
+     * @param byteBufferList List of byte buffers.
+     * @return Immutable list of byte arrays.
      */
     public static List<byte[]> toByteArrayList(List<ByteBuffer> byteBufferList) {
         if (byteBufferList.isEmpty()) {
