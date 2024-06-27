@@ -17,17 +17,17 @@
 
 package org.apache.ignite.internal.metastorage.command;
 
+import java.nio.ByteBuffer;
 import java.util.List;
 import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
  * Remove all command for MetaStorageCommandListener that removes entries for given keys.
  */
-// TODO: IGNITE-22583 тут
 @Transferable(MetastorageCommandsMessageGroup.REMOVE_ALL)
 public interface RemoveAllCommand extends MetaStorageWriteCommand {
     /**
      * Returns the keys list. Couldn't be {@code null}.
      */
-    List<byte[]> keys();
+    List<ByteBuffer> keys();
 }

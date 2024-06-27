@@ -195,13 +195,13 @@ public class MetaStorageWriteHandler {
         } else if (command instanceof RemoveCommand) {
             RemoveCommand rmvCmd = (RemoveCommand) command;
 
-            storage.remove(rmvCmd.key(), opTime);
+            storage.remove(toByteArray(rmvCmd.key()), opTime);
 
             clo.result(null);
         } else if (command instanceof RemoveAllCommand) {
             RemoveAllCommand rmvAllCmd = (RemoveAllCommand) command;
 
-            storage.removeAll(rmvAllCmd.keys(), opTime);
+            storage.removeAll(toByteArrayList(rmvAllCmd.keys()), opTime);
 
             clo.result(null);
         } else if (command instanceof InvokeCommand) {

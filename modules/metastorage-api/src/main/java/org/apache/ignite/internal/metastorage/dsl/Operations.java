@@ -57,7 +57,7 @@ public final class Operations {
      */
     public Update yield(boolean result) {
         StatementResult statementResult = MSG_FACTORY.statementResult()
-                .result(ByteBuffer.allocate(1).put((byte) (result ? 1 : 0)))
+                .result(ByteBuffer.allocate(1).put((byte) (result ? 1 : 0)).flip())
                 .build();
 
         return MSG_FACTORY.update()
@@ -74,7 +74,7 @@ public final class Operations {
      */
     public Update yield(int result) {
         StatementResult statementResult = MSG_FACTORY.statementResult()
-                .result(ByteBuffer.allocate(Integer.BYTES).putInt(result))
+                .result(ByteBuffer.allocate(Integer.BYTES).putInt(result).flip())
                 .build();
 
         return MSG_FACTORY.update()

@@ -147,7 +147,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
 
     @Override
     public CompletableFuture<Void> remove(ByteArray key) {
-        RemoveCommand removeCommand = context.commandsFactory().removeCommand().key(key.bytes())
+        RemoveCommand removeCommand = context.commandsFactory().removeCommand().key(ByteBuffer.wrap(key.bytes()))
                 .initiatorTimeLong(clusterTime.nowLong()).build();
 
         return context.raftService().run(removeCommand);
@@ -324,10 +324,10 @@ public class MetaStorageServiceImpl implements MetaStorageService {
      * @param ts Local time.
      */
     private RemoveAllCommand removeAllCommand(MetaStorageCommandsFactory commandsFactory, Set<ByteArray> keys, HybridTimestamp ts) {
-        List<byte[]> list = new ArrayList<>(keys.size());
+        var list = new ArrayList<ByteBuffer>(keys.size());
 
         for (ByteArray key : keys) {
-            list.add(key.bytes());
+            list.add(ByteBuffer.wrap(key.bytes()));
         }
 
         return commandsFactory.removeAllCommand().keys(list).initiatorTimeLong(ts.longValue()).build();
