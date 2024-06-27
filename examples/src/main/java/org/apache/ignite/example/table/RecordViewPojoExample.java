@@ -26,7 +26,7 @@ import org.apache.ignite.table.RecordView;
 /**
  * This example demonstrates the usage of the {@link RecordView} API with user-defined POJOs.
  *
- * <p>Find instructions on how to run the example in the {@code README.md}:
+ * <p>Find instructions on how to run the example in the README.md file located in the "examples" directory root.
  */
 public class RecordViewPojoExample {
     /**

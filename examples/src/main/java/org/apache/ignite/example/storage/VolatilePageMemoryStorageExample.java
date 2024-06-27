@@ -20,7 +20,7 @@ package org.apache.ignite.example.storage;
 /**
  * This example demonstrates a usage of the PageMemory storage engine configured with an in-memory data region.
  *
- * <p>Find instructions on how to run the example in the {@code README.md}:
+ * <p>Find instructions on how to run the example in the README.md file located in the "examples" directory root.
  */
 public class VolatilePageMemoryStorageExample {
     /**

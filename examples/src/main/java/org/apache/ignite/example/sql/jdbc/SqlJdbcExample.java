@@ -26,7 +26,7 @@ import java.sql.Statement;
 /**
  * This example demonstrates the usage of the Apache Ignite JDBC driver.
  *
- * <p>Find instructions on how to run the example in the {@code README.md}:
+ * <p>Find instructions on how to run the example in the README.md file located in the "examples" directory root.
  */
 public class SqlJdbcExample {
     /**

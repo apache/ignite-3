@@ -28,7 +28,7 @@ import org.apache.ignite.tx.IgniteTransactions;
 /**
  * This example demonstrates the usage of the {@link IgniteTransactions} API.
  *
- * <p>Find instructions on how to run the example in the {@code README.md}:
+ * <p>Find instructions on how to run the example in the README.md file located in the "examples" directory root.
  */
 public class TransactionsExample {
     /**
