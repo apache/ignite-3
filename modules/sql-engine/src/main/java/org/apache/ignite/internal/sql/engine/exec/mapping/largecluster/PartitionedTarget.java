@@ -15,9 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.exec.mapping.smallcluster;
+package org.apache.ignite.internal.sql.engine.exec.mapping.largecluster;
 
-import it.unimi.dsi.fastutil.ints.Int2LongFunction;
+import it.unimi.dsi.fastutil.ints.Int2ObjectFunction;
+import java.util.BitSet;
 import java.util.List;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationMappingException;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTarget;
@@ -30,10 +31,10 @@ import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTargetFactory
  */
 class PartitionedTarget extends AbstractTarget {
     private final boolean finalised;
-    final long[] partitionsNodes;
+    final BitSet[] partitionsNodes;
     final long[] enlistmentConsistencyTokens;
 
-    PartitionedTarget(boolean finalised, long[] partitionsNodes, long[] enlistmentConsistencyTokens) {
+    PartitionedTarget(boolean finalised, BitSet[] partitionsNodes, long[] enlistmentConsistencyTokens) {
         super(computeNodes(partitionsNodes));
 
         this.finalised = finalised;
@@ -42,12 +43,12 @@ class PartitionedTarget extends AbstractTarget {
     }
 
     @Override
-    ExecutionTarget finalise() {
+    public ExecutionTarget finalise() {
         if (finalised) {
             return this;
         }
 
-        long[] newPartitionsNodes = new long[partitionsNodes.length];
+        BitSet[] newPartitionsNodes = new BitSet[partitionsNodes.length];
 
         for (int partNo = 0; partNo < partitionsNodes.length; partNo++) {
             newPartitionsNodes[partNo] = pickOne(partitionsNodes[partNo]);
@@ -71,18 +72,18 @@ class PartitionedTarget extends AbstractTarget {
             return this;
         }
 
-        long[] newPartitionsNodes = new long[partitionsNodes.length];
+        BitSet[] newPartitionsNodes = new BitSet[partitionsNodes.length];
         boolean changed = false;
-        Int2LongFunction partitionNodesResolver = partitionNodeResolver(other);
+        Int2ObjectFunction<BitSet> partitionNodesResolver = partitionNodeResolver(other);
 
         for (int i = 0; i < partitionsNodes.length; i++) {
-            long newNodes = partitionsNodes[i] & partitionNodesResolver.get(i);
+            BitSet newNodes = partitionsNodes[i];
+            BitSet otherNodes = partitionNodesResolver.get(i);
 
-            if (newNodes == 0) {
-                newNodes = partitionsNodes[i];
-            }
+            if (!newNodes.equals(otherNodes) && newNodes.intersects(otherNodes)) {
+                newNodes = (BitSet) newNodes.clone();
+                newNodes.and(otherNodes);
 
-            if (newNodes != partitionsNodes[i]) {
                 changed = true;
             }
 
@@ -96,16 +97,16 @@ class PartitionedTarget extends AbstractTarget {
         return this;
     }
 
-    private Int2LongFunction partitionNodeResolver(ExecutionTarget other) {
-        Int2LongFunction partitionNodesResolver;
+    private Int2ObjectFunction<BitSet> partitionNodeResolver(ExecutionTarget other) {
+        Int2ObjectFunction<BitSet> partitionNodesResolver;
 
-        if (other instanceof PartitionedTarget 
+        if (other instanceof PartitionedTarget
                 && ((PartitionedTarget) other).partitionsNodes.length == partitionsNodes.length) {
             PartitionedTarget otherPartitioned = (PartitionedTarget) other;
 
             partitionNodesResolver = partId -> otherPartitioned.partitionsNodes[partId];
         } else {
-            long otherNodes = ((AbstractTarget) other).nodes;
+            BitSet otherNodes = ((AbstractTarget) other).nodes;
 
             partitionNodesResolver = partId -> otherNodes;
         }
@@ -133,10 +134,10 @@ class PartitionedTarget extends AbstractTarget {
         return colocate(this, other);
     }
 
-    private static long computeNodes(long[] partitionsNodes) {
-        long nodes = 0;
-        for (long nodesOfPartition : partitionsNodes) {
-            nodes |= nodesOfPartition;
+    private static BitSet computeNodes(BitSet[] partitionsNodes) {
+        BitSet nodes = new BitSet();
+        for (BitSet nodesOfPartition : partitionsNodes) {
+            nodes.or(nodesOfPartition);
         }
 
         return nodes;

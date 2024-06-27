@@ -15,32 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.exec.mapping.smallcluster;
+package org.apache.ignite.internal.sql.engine.exec.mapping.largecluster;
 
-import static org.apache.ignite.internal.util.IgniteUtils.isPow2;
-
+import java.util.BitSet;
 import java.util.List;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationMappingException;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTarget;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTargetFactory;
 
 /**
- * Represents a target that should be executed on exactly one node from given list.
+ * Represents a target that may be executed on a non empty subset of the given nodes.
  *
- * <p>See javadoc of {@link ExecutionTargetFactory#oneOf(List)} for details.
+ * <p>See javadoc of {@link ExecutionTargetFactory#someOf(List)} for details.
  */
-class OneOfTarget extends AbstractTarget {
-    OneOfTarget(long nodes) {
+class SomeOfTarget extends AbstractTarget {
+    SomeOfTarget(BitSet nodes) {
         super(nodes);
     }
 
     @Override
     public ExecutionTarget finalise() {
-        if (isPow2(nodes)) {
-            return this;
-        }
-
-        return new OneOfTarget(pickOne(nodes));
+        return this;
     }
 
     @Override
@@ -54,34 +49,39 @@ class OneOfTarget extends AbstractTarget {
     public ExecutionTarget trimTo(ExecutionTarget other) {
         assert other instanceof AbstractTarget : other == null ? "<null>" : other.getClass().getCanonicalName();
 
-        long otherNodes = ((AbstractTarget) other).nodes;
-
-        long newNodes = nodes & otherNodes;
-
-        if (newNodes == nodes || newNodes == 0) {
+        if (nodes.cardinality() == 1) {
             return this;
         }
 
-        return new OneOfTarget(newNodes);
+        BitSet otherNodes = ((AbstractTarget) other).nodes;
+
+        if (!nodes.equals(otherNodes) && nodes.intersects(otherNodes)) {
+            BitSet newNodes = (BitSet) nodes.clone();
+            newNodes.and(otherNodes);
+
+            return new SomeOfTarget(newNodes);
+        }
+
+        return this;
     }
 
     @Override
-    public ExecutionTarget colocate(AllOfTarget other) throws ColocationMappingException {
+    ExecutionTarget colocate(AllOfTarget other) throws ColocationMappingException {
         return colocate(other, this);
     }
 
     @Override
-    public ExecutionTarget colocate(OneOfTarget other) throws ColocationMappingException {
-        return colocate(this, other);
+    ExecutionTarget colocate(OneOfTarget other) throws ColocationMappingException {
+        return colocate(other, this);
     }
 
     @Override
-    public ExecutionTarget colocate(PartitionedTarget other) throws ColocationMappingException {
-        return colocate(this, other);
+    ExecutionTarget colocate(PartitionedTarget other) throws ColocationMappingException {
+        return colocate(other, this);
     }
 
     @Override
-    public ExecutionTarget colocate(SomeOfTarget other) throws ColocationMappingException {
+    ExecutionTarget colocate(SomeOfTarget other) throws ColocationMappingException {
         return colocate(this, other);
     }
 }

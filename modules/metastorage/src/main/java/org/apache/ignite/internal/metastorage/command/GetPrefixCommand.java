@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.metastorage.command;
 
+import java.nio.ByteBuffer;
 import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
@@ -26,5 +27,5 @@ import org.apache.ignite.internal.network.annotations.Transferable;
 @Transferable(MetastorageCommandsMessageGroup.GET_PREFIX)
 public interface GetPrefixCommand extends PaginationCommand {
     /** Returns the prefix that all returned keys should start with. */
-    byte[] prefix();
+    ByteBuffer prefix();
 }

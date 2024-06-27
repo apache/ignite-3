@@ -15,13 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.exec.mapping.smallcluster;
+package org.apache.ignite.internal.sql.engine.exec.mapping.largecluster;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
-import it.unimi.dsi.fastutil.objects.Object2LongMap;
-import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
+import it.unimi.dsi.fastutil.objects.Object2IntMap;
+import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
+import java.util.BitSet;
 import java.util.List;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.affinity.TokenizedAssignments;
 import org.apache.ignite.internal.sql.engine.exec.NodeWithConsistencyToken;
@@ -31,24 +31,21 @@ import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTargetFactory
 /**
  * A factory that able to create targets for cluster with up to 64 nodes.
  */
-public class SmallClusterFactory implements ExecutionTargetFactory {
+public class LargeClusterFactory implements ExecutionTargetFactory {
     private final List<String> nodes;
-    private final Object2LongMap<String> nodeNameToId;
+    private final Object2IntMap<String> nodeNameToId;
 
     /** Constructor. */
-    public SmallClusterFactory(List<String> nodes) {
-        if (nodes.size() > 64) {
-            throw new IllegalArgumentException("Supported up to 64 nodes, but was " + nodes.size());
-        }
+    public LargeClusterFactory(List<String> nodes) {
+        this.nodes = nodes;
 
-        // to make mapping stable
-        this.nodes = nodes.stream().sorted().collect(Collectors.toList());
-
-        nodeNameToId = new Object2LongOpenHashMap<>(nodes.size());
+        nodeNameToId = new Object2IntOpenHashMap<>(nodes.size());
+        nodeNameToId.defaultReturnValue(-1);
 
         int idx = 0;
-        for (String name : this.nodes) {
-            nodeNameToId.putIfAbsent(name, 1L << idx++);
+        for (String name : nodes) {
+            int ret = nodeNameToId.putIfAbsent(name, idx++);
+            assert ret == -1 : "invalid node";
         }
     }
 
@@ -69,7 +66,7 @@ public class SmallClusterFactory implements ExecutionTargetFactory {
 
     @Override
     public ExecutionTarget partitioned(List<TokenizedAssignments> assignments) {
-        long[] partitionNodes = new long[assignments.size()];
+        BitSet[] partitionNodes = new BitSet[assignments.size()];
         long[] enlistmentConsistencyTokens = new long[assignments.size()];
 
         int idx = 0;
@@ -77,14 +74,15 @@ public class SmallClusterFactory implements ExecutionTargetFactory {
         for (TokenizedAssignments assignment : assignments) {
             finalised = finalised && assignment.nodes().size() < 2;
 
+            BitSet nodes = new BitSet(assignment.nodes().size());
             for (Assignment a : assignment.nodes()) {
-                long node = nodeNameToId.getOrDefault(a.consistentId(), -1);
+                int node = nodeNameToId.getOrDefault(a.consistentId(), -1);
                 assert node >= 0 : "invalid node";
-                partitionNodes[idx] |= node;
+                nodes.set(node);
             }
 
+            partitionNodes[idx] = nodes;
             enlistmentConsistencyTokens[idx] = assignment.token();
-
             idx++;
         }
 
@@ -109,13 +107,14 @@ public class SmallClusterFactory implements ExecutionTargetFactory {
         return ((AbstractTarget) target).assignments(nodes);
     }
 
-    private long nodeListToMap(List<String> nodes) {
-        long nodesMap = 0;
+    private BitSet nodeListToMap(List<String> nodes) {
+        BitSet nodesMap = new BitSet(nodes.size());
 
         for (String name : nodes) {
-            long node = nodeNameToId.getOrDefault(name, -1);
-            assert node >= 0 : "invalid node";
-            nodesMap |= node;
+            int id = nodeNameToId.getOrDefault(name, -1);
+            assert id >= 0 : "invalid node";
+
+            nodesMap.set(id);
         }
 
         return nodesMap;
