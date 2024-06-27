@@ -42,7 +42,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Ignite client entry point.
  */
-public interface IgniteClient extends Ignite {
+public interface IgniteClient extends Ignite, AutoCloseable {
     /**
      * Gets the configuration.
      *

@@ -15,13 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.recovery.partitions.restart;
+namespace Apache.Ignite.Compute;
 
-/** Test class for {@link RestartPartitionsReplCommand}. */
-public class ItRestartPartitionsReplCommandTest extends ItRestartPartitionsTest {
-
-    @Override
-    protected Class<?> getCommandClass() {
-        return RestartPartitionsReplCommand.class;
-    }
+/// <summary>
+/// Compute job target.
+/// </summary>
+/// <typeparam name="T">Underlying data type.</typeparam>
+public interface IJobTarget<out T>
+    where T : notnull
+{
+    /// <summary>
+    /// Gets the target data.
+    /// </summary>
+    T Data { get; }
 }

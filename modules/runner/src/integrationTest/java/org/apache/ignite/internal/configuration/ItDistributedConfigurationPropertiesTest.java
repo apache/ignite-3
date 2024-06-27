@@ -180,7 +180,7 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
                     new TestConfigurationValidator()
             );
 
-            this.failureProcessor = new NoOpFailureProcessor(clusterService.nodeName());
+            this.failureProcessor = new NoOpFailureProcessor();
 
             cmgManager = new ClusterManagementGroupManager(
                     vaultManager,

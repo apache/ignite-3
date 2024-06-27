@@ -190,6 +190,13 @@ private:
     sql_result make_request_execute();
 
     /**
+     * Process affected keys array received from the server.
+     *
+     * @param affected_rows Affected keys.
+     */
+    void process_affected_rows(const std::vector<std::int64_t> &affected_rows);
+
+    /**
      * Make query close request.
      *
      * @return Result.

@@ -102,9 +102,8 @@ void binary_tuple_builder::append_varlen(bytes_view bytes) {
 }
 
 void binary_tuple_builder::append_bool(bool value) {
-    static const std::byte true_byte{1};
     const tuple_size_t size = gauge_bool(value);
-    append_bytes({&true_byte, size});
+    append_bytes({&value, size});
 }
 
 void binary_tuple_builder::append_int8(std::int8_t value) {

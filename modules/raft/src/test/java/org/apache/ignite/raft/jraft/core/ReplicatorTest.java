@@ -16,6 +16,16 @@
  */
 package org.apache.ignite.raft.jraft.core;
 
+import static org.apache.ignite.internal.util.ArrayUtils.EMPTY_BYTE_BUFFER;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.same;
+
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
@@ -48,7 +58,6 @@ import org.apache.ignite.raft.jraft.rpc.RpcResponseClosureAdapter;
 import org.apache.ignite.raft.jraft.storage.LogManager;
 import org.apache.ignite.raft.jraft.storage.SnapshotStorage;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
-import org.apache.ignite.raft.jraft.util.ByteString;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.jraft.util.ThreadId;
 import org.apache.ignite.raft.jraft.util.Utils;
@@ -64,15 +73,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.mockito.stubbing.Answer;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNotSame;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.same;
 
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
@@ -151,7 +151,7 @@ public class ReplicatorTest extends BaseIgniteAbstractTest {
             .prevLogTerm(1)
             .committedIndex(0);
         if (!isHeartbeat) {
-            rb.data(ByteString.EMPTY);
+            rb.data(EMPTY_BYTE_BUFFER);
         }
         return rb.build();
     }
@@ -294,7 +294,7 @@ public class ReplicatorTest extends BaseIgniteAbstractTest {
             .peerId(this.peerId.toString())
             .term(1)
             .prevLogIndex(9)
-            .data(ByteString.EMPTY)
+            .data(EMPTY_BYTE_BUFFER)
             .prevLogTerm(1)
             .committedIndex(0)
             .build();
@@ -336,7 +336,7 @@ public class ReplicatorTest extends BaseIgniteAbstractTest {
             .term(1)
             .prevLogIndex(8)
             .prevLogTerm(1)
-            .data(ByteString.EMPTY)
+            .data(EMPTY_BYTE_BUFFER)
             .committedIndex(0)
             .build();
         Mockito.when(this.rpcService.appendEntries(eq(this.peerId), eq(newReq), eq(-1), Mockito.any()))
@@ -464,7 +464,7 @@ public class ReplicatorTest extends BaseIgniteAbstractTest {
 
         rb.entriesList(entries);
 
-        rb.data(new ByteString(new byte[totalDataLen]));
+        rb.data(ByteBuffer.wrap(new byte[totalDataLen]));
 
         final RpcRequests.AppendEntriesRequest request = rb.build();
         Mockito.when(this.rpcService.appendEntries(eq(this.peerId), eq(request), eq(-1), Mockito.any()))

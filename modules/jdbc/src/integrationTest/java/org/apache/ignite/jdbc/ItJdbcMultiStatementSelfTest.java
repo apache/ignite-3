@@ -20,12 +20,15 @@ package org.apache.ignite.jdbc;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.jdbc.util.JdbcTestUtils.assertThrowsSqlException;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -33,6 +36,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import org.apache.ignite.internal.jdbc.JdbcStatement;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
@@ -645,6 +649,51 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
                 assertFalse(pers.next());
             }
         }
+    }
+
+    @Test
+    public void testTimeout() throws SQLException {
+        JdbcStatement igniteStmt = (JdbcStatement) stmt;
+        igniteStmt.timeout(500);
+
+        int attempts = 10;
+
+        for (int i = 0; i < attempts; i++) {
+            stmt.execute("SELECT 1; SELECT * FROM TABLE(SYSTEM_RANGE(1, 1000000000)); SELECT * FROM TABLE(SYSTEM_RANGE(1, 10));");
+
+            // The first statement should succeed, if it times out, retry.
+            try {
+                try (ResultSet rs = stmt.getResultSet()) {
+                    while (rs.next()) {
+                        assertNotNull(rs.getObject(1));
+                    }
+                }
+            } catch (SQLException e) {
+                // Ignore timeout for the first statement, if takes too long.
+                // Skip both planning and execution timeouts.
+                assertThat("Unexpected error", e.getMessage(), containsString("timeout"));
+                continue;
+            }
+
+            assertTrue(stmt.getMoreResults(), "Expected more results");
+
+            // The second statement should always fail.
+            assertThrowsSqlException(SQLException.class,
+                    "Query timeout", () -> {
+                        try (ResultSet rs = stmt.getResultSet()) {
+                            while (rs.next()) {
+                                assertNotNull(rs.getObject(1));
+                            }
+                        }
+                    });
+
+            // Script timed out. We should also get a timeout.
+            assertThrowsSqlException(SQLException.class, "Query timeout", () -> stmt.getMoreResults());
+
+            return;
+        }
+
+        fail("Failed to get expected timeout error");
     }
 
     /**

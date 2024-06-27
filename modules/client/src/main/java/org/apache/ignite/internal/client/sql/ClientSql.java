@@ -24,7 +24,6 @@ import java.time.ZoneId;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeUnit;
@@ -45,7 +44,6 @@ import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
-import org.apache.ignite.sql.SqlBatchException;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
@@ -280,7 +278,7 @@ public class ClientSql implements IgniteSql {
             w.out().packLong(ch.observableTimestamp());
         };
 
-        PayloadReader<BatchResultInternal> payloadReader = r -> {
+        PayloadReader<long[]> payloadReader = r -> {
             ClientMessageUnpacker unpacker = r.in();
 
             // skipping currently unused values:
@@ -290,31 +288,10 @@ public class ClientSql implements IgniteSql {
             // 4. was applied flag
             unpacker.skipValues(4);
 
-            long[] updateCounters = unpacker.unpackLongArray();
-
-            if (unpacker.tryUnpackNil()) {
-                // No error - skipping message string and trace id.
-                unpacker.skipValues(2);
-
-                return new BatchResultInternal(updateCounters);
-            }
-
-            int errCode = unpacker.unpackInt();
-            String message = unpacker.tryUnpackNil() ? null : unpacker.unpackString();
-            UUID traceId = unpacker.unpackUuid();
-
-            return new BatchResultInternal(new SqlBatchException(traceId, errCode, updateCounters, message));
+            return unpacker.unpackLongArray(); // Update counters.
         };
 
-        return ch.serviceAsync(ClientOp.SQL_EXEC_BATCH, payloadWriter, payloadReader)
-                .thenApply((batchRes) -> {
-                    if (batchRes.exception != null) {
-                        throw batchRes.exception;
-                    }
-
-                    return batchRes.updCounters;
-                })
-                .exceptionally(ClientSql::handleException);
+        return ch.serviceAsync(ClientOp.SQL_EXEC_BATCH, payloadWriter, payloadReader);
     }
 
     /** {@inheritDoc} */
@@ -369,20 +346,5 @@ public class ClientSql implements IgniteSql {
         }
 
         throw ExceptionUtils.sneakyThrow(ex);
-    }
-
-    private static class BatchResultInternal {
-        final long[] updCounters;
-        final SqlBatchException exception;
-
-        BatchResultInternal(long[] updCounters) {
-            this.updCounters = updCounters;
-            this.exception = null;
-        }
-
-        BatchResultInternal(SqlBatchException exception) {
-            this.updCounters = null;
-            this.exception = exception;
-        }
     }
 }

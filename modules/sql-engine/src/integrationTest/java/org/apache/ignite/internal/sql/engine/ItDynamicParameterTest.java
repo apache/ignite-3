@@ -28,6 +28,7 @@ import java.sql.Date;
 import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.calcite.rel.type.RelDataType;
@@ -440,6 +441,40 @@ public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
         return ddl.toString();
     }
 
+    @Test
+    public void testPrepareTimeout() {
+        StringBuilder stmt = new StringBuilder();
+
+        // Generate a complex query so it takes some to parse and validate.
+        // SELECT random-numbers
+        // UNION
+        // SELECT random-numbers
+        // ..
+        for (int i = 0; i < 5; i++) {
+            if (i > 0) {
+                stmt.append(System.lineSeparator());
+                stmt.append("UNION");
+                stmt.append(System.lineSeparator());
+            }
+
+            stmt.append("SELECT ");
+            for (int j = 0; j < 100; j++) {
+                stmt.append(ThreadLocalRandom.current().nextInt(0, 100));
+                stmt.append(", ");
+            }
+            stmt.setLength(stmt.length() - 2);
+        }
+
+        assertThrowsSqlException(Sql.EXECUTION_CANCELLED_ERR, "Query timeout", () -> {
+            SqlProperties properties = SqlPropertiesHelper.newBuilder()
+                    .set(QueryProperty.QUERY_TIMEOUT, 1L)
+                    .build();
+
+            QueryProcessor qryProc = queryProcessor();
+            await(qryProc.prepareSingleAsync(properties, null, stmt.toString())).parameterTypes();
+        });
+    }
+
     @Override
     protected int initialNodes() {
         return 1;
@@ -454,7 +489,6 @@ public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
 
     private List<ParameterType> getParameterTypes(String query, Object... params) {
         QueryProcessor qryProc = queryProcessor();
-        SqlProperties properties = SqlPropertiesHelper.emptyProperties();
-        return await(qryProc.prepareSingleAsync(properties, null, query, params)).parameterTypes();
+        return await(qryProc.prepareSingleAsync(SqlQueryProcessor.DEFAULT_PROPERTIES, null, query, params)).parameterTypes();
     }
 }

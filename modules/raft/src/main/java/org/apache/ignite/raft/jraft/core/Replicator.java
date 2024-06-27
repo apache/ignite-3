@@ -19,6 +19,7 @@ package org.apache.ignite.raft.jraft.core;
 import static com.codahale.metrics.MetricRegistry.name;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
+import static org.apache.ignite.internal.util.ArrayUtils.EMPTY_BYTE_BUFFER;
 
 import com.codahale.metrics.Gauge;
 import com.codahale.metrics.Metric;
@@ -56,7 +57,6 @@ import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.rpc.RaftClientService;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesRequest;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesResponse;
-import org.apache.ignite.raft.jraft.rpc.RpcRequests.ErrorResponse;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.InstallSnapshotRequest;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.InstallSnapshotResponse;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.TimeoutNowRequest;
@@ -65,7 +65,6 @@ import org.apache.ignite.raft.jraft.rpc.RpcResponseClosure;
 import org.apache.ignite.raft.jraft.rpc.RpcResponseClosureAdapter;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
 import org.apache.ignite.raft.jraft.util.ByteBufferCollector;
-import org.apache.ignite.raft.jraft.util.ByteString;
 import org.apache.ignite.raft.jraft.util.OnlyForTest;
 import org.apache.ignite.raft.jraft.util.Recyclable;
 import org.apache.ignite.raft.jraft.util.RecyclableByteBufferList;
@@ -782,7 +781,7 @@ public class Replicator implements ThreadId.OnError {
             else {
                 // No entries and has empty data means a probe request.
                 // TODO refactor, adds a new flag field? https://issues.apache.org/jira/browse/IGNITE-14832
-                rb.data(ByteString.EMPTY);
+                rb.data(EMPTY_BYTE_BUFFER);
                 request = rb.build();
                 // Sending a probe request.
                 this.statInfo.runningState = RunningState.APPENDING_ENTRIES;
@@ -1402,8 +1401,7 @@ public class Replicator implements ThreadId.OnError {
         if (request.entriesList() != null) {
             r.nodeMetrics.recordLatency("replicate-entries", Utils.monotonicMs() - rpcSendTime);
             r.nodeMetrics.recordSize("replicate-entries-count", request.entriesList().size());
-            r.nodeMetrics.recordSize("replicate-entries-bytes", request.data() != null ? request.data().size()
-                : 0);
+            r.nodeMetrics.recordSize("replicate-entries-bytes", request.data() != null ? request.data().capacity() : 0);
         }
 
         final boolean isLogDebugEnabled = LOG.isDebugEnabled();
@@ -1667,7 +1665,7 @@ public class Replicator implements ThreadId.OnError {
                 }
                 final ByteBuffer buf = dataBuf.getBuffer();
                 buf.flip();
-                rb.data(new ByteString(buf));
+                rb.data(buf);
             }
         }
         finally {
@@ -1716,7 +1714,7 @@ public class Replicator implements ThreadId.OnError {
             ThrowUtil.throwException(t);
         }
         addInflight(RequestType.AppendEntries, nextSendingIndex, Utils.size(request.entriesList()),
-            request.data() == null ? 0 : request.data().size(), seq, rpcFuture);
+            request.data() == null ? 0 : request.data().capacity(), seq, rpcFuture);
 
         return true;
     }

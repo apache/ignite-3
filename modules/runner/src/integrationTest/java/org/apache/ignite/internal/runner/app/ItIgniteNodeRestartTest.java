@@ -75,6 +75,7 @@ import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteServer;
 import org.apache.ignite.internal.BaseIgniteRestartTest;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.affinity.Assignments;
@@ -323,7 +324,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         var threadPoolsManager = new ThreadPoolsManager(name);
 
-        var failureProcessor = new NoOpFailureProcessor(name);
+        var failureProcessor = new NoOpFailureProcessor();
 
         var workerRegistry = new CriticalWorkerWatchdog(workersConfiguration, threadPoolsManager.commonScheduler(), failureProcessor);
 
@@ -411,7 +412,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 raftGroupEventsClientListener
         );
 
-        var metaStorage = new RocksDbKeyValueStorage(name, dir.resolve("metastorage"), new NoOpFailureProcessor(name));
+        var metaStorage = new RocksDbKeyValueStorage(name, dir.resolve("metastorage"), new NoOpFailureProcessor());
 
         InvokeInterceptor metaStorageInvokeInterceptor = metaStorageInvokeInterceptorByNode.get(idx);
 
@@ -670,7 +671,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 clusterConfigRegistry.getConfiguration(SqlDistributedConfiguration.KEY),
                 nodeCfgMgr.configurationRegistry().getConfiguration(SqlLocalConfiguration.KEY),
                 transactionInflights,
-                txManager
+                txManager,
+                threadPoolsManager.commonScheduler()
         );
 
         sqlRef.set(new IgniteSqlImpl(qryEngine, new HybridTimestampTracker()));
@@ -1124,13 +1126,13 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         } else {
             // Since the first node is the CMG leader, the second node can't be started synchronously (it won't be able to join the cluster
             // and the future will never resolve).
-            CompletableFuture<Ignite> future = startNodeAsync(1, null);
+            IgniteServer node = startEmbeddedNode(1, null);
 
             startNode(0);
 
-            assertThat(future, willCompleteSuccessfully());
+            assertThat(node.waitForInitAsync(), willCompleteSuccessfully());
 
-            ignite = future.join();
+            ignite = node.api();
         }
 
         checkTableWithData(ignite, TABLE_NAME);

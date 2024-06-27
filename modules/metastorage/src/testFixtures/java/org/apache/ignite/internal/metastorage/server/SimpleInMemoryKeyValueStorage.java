@@ -100,7 +100,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     private @Nullable LongConsumer recoveryRevisionListener;
 
     public SimpleInMemoryKeyValueStorage(String nodeName) {
-        this.watchProcessor = new WatchProcessor(nodeName, this::get, new NoOpFailureProcessor(nodeName));
+        this.watchProcessor = new WatchProcessor(nodeName, this::get, new NoOpFailureProcessor());
     }
 
     @Override
