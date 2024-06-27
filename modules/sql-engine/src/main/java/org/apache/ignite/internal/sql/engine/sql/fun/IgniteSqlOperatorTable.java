@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.sql.fun;
 
+import java.util.List;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.sql.SqlBasicFunction;
@@ -174,6 +175,16 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
 
     /** Singleton instance. */
     public static final IgniteSqlOperatorTable INSTANCE = new IgniteSqlOperatorTable();
+
+    /** IgniteCustomType: A list of functions supported by all custom data types. */
+    public static final List<SqlFunction> CUSTOM_TYPE_FUNCTIONS = List.of(
+            SqlStdOperatorTable.CAST,
+            SqlStdOperatorTable.COALESCE,
+            SqlStdOperatorTable.NULLIF,
+            SqlStdOperatorTable.COUNT,
+            SqlStdOperatorTable.MIN,
+            SqlStdOperatorTable.MAX
+    );
 
     /**
      * Default constructor.
