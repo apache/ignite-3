@@ -241,9 +241,12 @@ public enum Options {
         public static final String CLUSTER_CONFIG_OPTION_DESC = "Cluster configuration that "
                 + "will be applied during the cluster initialization";
 
-        public static final String CLUSTER_CONFIG_FILE_OPTION = "--config-file";
+        public static final String CLUSTER_CONFIG_FILE_OPTION = "--config-files";
 
-        public static final String CLUSTER_CONFIG_FILE_OPTION_DESC = "Path to cluster configuration file";
+        public static final String CLUSTER_CONFIG_FILE_OPTION_DESC = "Path to cluster configuration files (use comma-separated list of "
+                + "paths '--config-files path1, path2' to specify more than one file)";
+
+        public static final String CLUSTER_CONFIG_FILE_PARAM_LABEL = "<file path>";
 
         public static final String PASSWORD_OPTION = "--password";
 
