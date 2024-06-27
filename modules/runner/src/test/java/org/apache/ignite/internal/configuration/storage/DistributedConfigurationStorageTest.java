@@ -19,6 +19,7 @@ package org.apache.ignite.internal.configuration.storage;
 
 import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.fromCursor;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -118,13 +119,13 @@ public class DistributedConfigurationStorageTest extends ConfigurationStorageTes
             case REV_LESS_OR_EQUAL:
                 return new RevisionCondition(
                         RevisionCondition.Type.LESS_OR_EQUAL,
-                        condition.key(),
+                        toByteArray(condition.key()),
                         ((SimpleCondition.RevisionCondition) condition).revision()
                 );
             case KEY_NOT_EXISTS:
                 return new ExistenceCondition(
                         ExistenceCondition.Type.NOT_EXISTS,
-                        condition.key()
+                        toByteArray(condition.key())
                 );
             default:
                 throw new UnsupportedOperationException("Unsupported condition type: " + condition.type());

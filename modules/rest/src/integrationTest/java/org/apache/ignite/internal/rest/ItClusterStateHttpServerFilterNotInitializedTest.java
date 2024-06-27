@@ -78,7 +78,7 @@ public class ItClusterStateHttpServerFilterNotInitializedTest extends ClusterPer
     public void setup(TestInfo testInfo) {
         // Given non-initialized cluster.
         for (int i = 0; i < super.initialNodes(); i++) {
-            CLUSTER.startNodeAsync(i);
+            CLUSTER.startEmbeddedNode(i);
         }
     }
 

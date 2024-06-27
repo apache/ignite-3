@@ -22,6 +22,7 @@
 #include <utility>
 
 #include "common_types.h"
+#include "ignite/common/ignite_error.h"
 
 namespace ignite {
 
@@ -44,6 +45,16 @@ public:
         , m_message(std::move(message)) {}
 
     /**
+     * Constructor.
+     *
+     * @param err Ignite error.
+     */
+    explicit odbc_error(ignite_error err) noexcept
+        : m_state(error_code_to_sql_state(err.get_status_code()))
+        , m_message(err.what_str())
+        , m_cause(std::move(err)) {}
+
+    /**
      * Get state.
      *
      * @return State.
@@ -62,12 +73,22 @@ public:
      */
     [[nodiscard]] char const *what() const noexcept override { return m_message.c_str(); }
 
+    /**
+     * Get cause.
+     *
+     * @return Cause.
+     */
+    [[nodiscard]] const std::optional<ignite_error>& get_cause() const { return m_cause; }
+
 private:
     /** Status. */
     sql_state m_state{sql_state::UNKNOWN};
 
     /** Error message. */
     std::string m_message;
+
+    /** Cause. */
+    std::optional<ignite_error> m_cause;
 };
 
 } // namespace ignite

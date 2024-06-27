@@ -48,10 +48,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.cli.CliIntegrationTest;
 import org.apache.ignite.internal.cli.call.cluster.unit.DeployUnitClient;
@@ -103,7 +102,7 @@ public class ItGeneratedRestClientTest extends BaseIgniteAbstractTest {
     @WorkDirectory
     private static Path WORK_DIR;
 
-    private final List<String> clusterNodeNames = new ArrayList<>();
+    private List<IgniteServer> nodes;
 
     private final List<Ignite> clusterNodes = new ArrayList<>();
 
@@ -145,24 +144,23 @@ public class ItGeneratedRestClientTest extends BaseIgniteAbstractTest {
 
     @BeforeAll
     void setUp(TestInfo testInfo) {
-        List<CompletableFuture<Ignite>> futures = IntStream.range(0, 3)
-                .mapToObj(i -> startNodeAsync(testInfo, i))
+        nodes = IntStream.range(0, 3)
+                .mapToObj(i -> startNode(testInfo, i))
                 .collect(toList());
 
-        String metaStorageNode = testNodeName(testInfo, BASE_PORT);
+        IgniteServer metaStorageNode = nodes.get(0);
 
         InitParameters initParameters = InitParameters.builder()
-                .destinationNodeName(metaStorageNode)
-                .metaStorageNodeNames(List.of(metaStorageNode))
+                .metaStorageNodes(metaStorageNode)
                 .clusterName("cluster")
                 .build();
 
-        TestIgnitionManager.init(initParameters);
+        nodes.get(0).initCluster(initParameters);
 
-        for (CompletableFuture<Ignite> future : futures) {
-            assertThat(future, willCompleteSuccessfully());
+        for (IgniteServer node : nodes) {
+            assertThat(node.waitForInitAsync(), willCompleteSuccessfully());
 
-            clusterNodes.add(future.join());
+            clusterNodes.add(node.api());
         }
 
         firstNodeName = clusterNodes.get(0).name();
@@ -182,11 +180,7 @@ public class ItGeneratedRestClientTest extends BaseIgniteAbstractTest {
 
     @AfterAll
     void tearDown() throws Exception {
-        List<AutoCloseable> closeables = clusterNodeNames.stream()
-                .map(name -> (AutoCloseable) () -> IgnitionManager.stop(name))
-                .collect(toList());
-
-        IgniteUtils.closeAll(closeables);
+        IgniteUtils.closeAll(nodes.stream().map(node -> node::shutdown));
     }
 
     @Test
@@ -439,10 +433,8 @@ public class ItGeneratedRestClientTest extends BaseIgniteAbstractTest {
         }
     }
 
-    private CompletableFuture<Ignite> startNodeAsync(TestInfo testInfo, int index) {
+    private static IgniteServer startNode(TestInfo testInfo, int index) {
         String nodeName = testNodeName(testInfo, BASE_PORT + index);
-
-        clusterNodeNames.add(nodeName);
 
         return TestIgnitionManager.start(nodeName, buildConfig(index), WORK_DIR.resolve(nodeName));
     }

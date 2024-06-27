@@ -35,9 +35,7 @@ public interface ExecutionTarget {
      * <p>Colocation is a process of finding intersection of the given two targets. For example,
      * lets assume that we have two targets T1 and T2. T1 may be execute on one of the nodes
      * [N1, N2, N3]. T2 may be executed on one of the nodes [N2, N3, N4, N5]. The result of
-     * colocation of T1 and T2 will be target OneOf[N2, N3]. Please note, that result of this
-     * example requires finalisation, since we've got two nodes [N2, N3], but target should
-     * be executed on only one of them.
+     * colocation of T1 and T2 will be target OneOf[N2, N3].
      *
      * @param other A target to colocate with.
      * @return A colocated target.
@@ -46,13 +44,12 @@ public interface ExecutionTarget {
     ExecutionTarget colocateWith(ExecutionTarget other) throws ColocationMappingException;
 
     /**
-     * Finalises target by choosing exactly one node for targets with multiple options.
+     * Removes options from current target which are not colocated with other target.
      *
-     * <p>Some targets may have several options, so we have to pick one in order to get
-     * correct results. Call to this methods resolves this ambiguity by truncating all
-     * but one option. Which exactly option will be left is implementation defined.
+     * <p>If target has several options, remove those are not presented in given target to improve colocation.
      *
-     * @return Finalised target.
+     * @param other Target with which we need to colocate current target.
+     * @return Returns new target in case current has been adjusted, return {@code this} instance otherwise.
      */
-    ExecutionTarget finalise();
+    ExecutionTarget trimTo(ExecutionTarget other);
 }

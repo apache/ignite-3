@@ -63,7 +63,7 @@ public class ClusterConfigShowReplCommand extends BaseCommand implements Runnabl
         question.askQuestionIfNotConnected(clusterUrl.getClusterUrl())
                 .map(this::configShowCallInput)
                 .then(Flows.fromCall(call))
-                .exceptionHandler(new ClusterNotInitializedExceptionHandler("Cannot show cluster config", "cluster init"))
+                .exceptionHandler(ClusterNotInitializedExceptionHandler.createReplHandler("Cannot show cluster config"))
                 .verbose(verbose)
                 .print(new JsonDecorator(isHighlightEnabled()))
                 .start();

@@ -26,6 +26,6 @@ import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValue
 public class ItMetaStorageMultipleNodesRocksDbTest extends ItMetaStorageMultipleNodesAbstractTest {
     @Override
     public KeyValueStorage createStorage(String nodeName, Path path) {
-        return new RocksDbKeyValueStorage(nodeName, path.resolve("ms"), new NoOpFailureProcessor(nodeName));
+        return new RocksDbKeyValueStorage(nodeName, path.resolve("ms"), new NoOpFailureProcessor());
     }
 }

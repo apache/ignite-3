@@ -52,6 +52,9 @@ public class JdbcQueryExecuteRequest implements ClientMessage {
     /** Multiple statement flag. */
     private boolean multiStatement;
 
+    /** Query timeout in milliseconds. */
+    private long queryTimeoutMillis;
+
     /**
      * Default constructor. For deserialization purposes.
      */
@@ -69,9 +72,19 @@ public class JdbcQueryExecuteRequest implements ClientMessage {
      * @param args       Arguments list.
      * @param autoCommit Flag indicating whether auto-commit mode is enabled.
      * @param multiStatement Multiple statement flag.
+     * @param queryTimeoutMillis Query timeout in millseconds.
      */
-    public JdbcQueryExecuteRequest(JdbcStatementType stmtType, String schemaName,
-            int pageSize, int maxRows, String sqlQry, Object[] args, boolean autoCommit, boolean multiStatement) {
+    public JdbcQueryExecuteRequest(
+            JdbcStatementType stmtType,
+            String schemaName,
+            int pageSize,
+            int maxRows,
+            String sqlQry,
+            Object[] args,
+            boolean autoCommit,
+            boolean multiStatement,
+            long queryTimeoutMillis
+    ) {
         Objects.requireNonNull(stmtType);
 
         this.autoCommit = autoCommit;
@@ -82,6 +95,7 @@ public class JdbcQueryExecuteRequest implements ClientMessage {
         this.sqlQry = sqlQry;
         this.args = args;
         this.multiStatement = multiStatement;
+        this.queryTimeoutMillis = queryTimeoutMillis;
     }
 
     /**
@@ -154,6 +168,15 @@ public class JdbcQueryExecuteRequest implements ClientMessage {
         return autoCommit;
     }
 
+    /**
+     * Returns the timeout in milliseconds.
+     *
+     * @return Timeout in milliseconds.
+     */
+    public long queryTimeoutMillis() {
+        return queryTimeoutMillis;
+    }
+
     /** {@inheritDoc} */
     @Override
     public void writeBinary(ClientMessagePacker packer) {
@@ -166,6 +189,7 @@ public class JdbcQueryExecuteRequest implements ClientMessage {
         packer.packBoolean(multiStatement);
 
         packer.packObjectArrayAsBinaryTuple(args, null);
+        packer.packLong(queryTimeoutMillis);
     }
 
     /** {@inheritDoc} */
@@ -180,6 +204,7 @@ public class JdbcQueryExecuteRequest implements ClientMessage {
         multiStatement = unpacker.unpackBoolean();
 
         args = unpacker.unpackObjectArrayFromBinaryTuple();
+        queryTimeoutMillis = unpacker.unpackLong();
     }
 
     /** {@inheritDoc} */

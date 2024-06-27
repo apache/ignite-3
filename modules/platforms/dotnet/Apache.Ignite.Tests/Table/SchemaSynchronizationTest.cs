@@ -23,6 +23,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading.Tasks;
 using Compute;
+using Ignite.Compute;
 using Ignite.Table;
 using NUnit.Framework;
 
@@ -95,8 +96,9 @@ public class SchemaSynchronizationTest : IgniteTestsBase
                     break;
 
                 case TestMode.Compute:
-                    await Client.Compute.SubmitColocatedAsync<string>(
-                        table.Name, rec2, new(ComputeTests.NodeNameJob));
+                    await Client.Compute.SubmitAsync(
+                        JobTarget.Colocated(table.Name, rec2),
+                        ComputeTests.NodeNameJob);
                     break;
 
                 default:
@@ -152,8 +154,9 @@ public class SchemaSynchronizationTest : IgniteTestsBase
 
             case TestMode.Compute:
                 // ExecuteColocated requires key part only.
-                await Client.Compute.SubmitColocatedAsync<string>(
-                    table.Name, rec, new(ComputeTests.NodeNameJob));
+                await Client.Compute.SubmitAsync(
+                    JobTarget.Colocated(table.Name, rec),
+                    ComputeTests.NodeNameJob);
                 break;
 
             default:
@@ -292,8 +295,9 @@ public class SchemaSynchronizationTest : IgniteTestsBase
                 break;
 
             case TestMode.Compute:
-                var jobExecution = await Client.Compute.SubmitColocatedAsync<string, Poco>(
-                    table.Name, new Poco(1, "foo"), new(ComputeTests.NodeNameJob));
+                var jobExecution = await Client.Compute.SubmitAsync(
+                    JobTarget.Colocated(table.Name, new Poco(1, "foo")),
+                    ComputeTests.NodeNameJob);
 
                 await jobExecution.GetResultAsync();
 

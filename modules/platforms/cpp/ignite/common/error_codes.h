@@ -51,7 +51,7 @@ enum class group : underlying_t {
     PLACEMENTDRIVER = 0x12,
     WORKERS = 0x13,
     RECOVERY = 0x14,
-    MARSHALLING = 0x15
+    EMBEDDED = 0x15
 };
 
 inline group get_group_by_error_code(const underlying_t code) {
@@ -68,7 +68,8 @@ enum class code : underlying_t {
     NODE_LEFT = 0x10005,
     CURSOR_ALREADY_CLOSED = 0x10006,
     RESOURCE_CLOSING = 0x10007,
-    USER_OBJECT_SERIALIZATION = 0x10009,
+    USER_OBJECT_SERIALIZATION = 0x10008,
+    NULLABLE_VALUE = 0x10009,
     INTERNAL = 0x1ffff,
 
     // Table group. Group code: 2
@@ -94,16 +95,15 @@ enum class code : underlying_t {
     HANDSHAKE_HEADER = 0x3000a,
 
     // Sql group. Group code: 4
-    QUERY_NO_RESULT_SET = 0x40002,
-    SCHEMA_NOT_FOUND = 0x40003,
-    STMT_PARSE = 0x40005,
-    STMT_VALIDATION = 0x40006,
-    CONSTRAINT_VIOLATION = 0x40007,
-    EXECUTION_CANCELLED = 0x40008,
-    RUNTIME = 0x40009,
-    PLANNING_TIMEOUT = 0x4000a,
-    MAPPING = 0x4000b,
-    TX_CONTROL_INSIDE_EXTERNAL_TX = 0x4000c,
+    QUERY_NO_RESULT_SET = 0x40001,
+    SCHEMA_NOT_FOUND = 0x40002,
+    STMT_PARSE = 0x40003,
+    STMT_VALIDATION = 0x40004,
+    CONSTRAINT_VIOLATION = 0x40005,
+    EXECUTION_CANCELLED = 0x40006,
+    RUNTIME = 0x40007,
+    MAPPING = 0x40008,
+    TX_CONTROL_INSIDE_EXTERNAL_TX = 0x40009,
 
     // MetaStorage group. Group code: 5
     STARTING_STORAGE = 0x50001,
@@ -215,9 +215,11 @@ enum class code : underlying_t {
     PARTITION_STATE = 0x140003,
     CLUSTER_NOT_IDLE = 0x140004,
 
-    // Marshalling group. Group code: 21
-    MARSHALLING = 0x150001,
-    UNSUPPORTED_OBJECT_TYPE = 0x150002
+    // Embedded group. Group code: 21
+    CLUSTER_NOT_INITIALIZED = 0x150001,
+    CLUSTER_INIT_FAILED = 0x150002,
+    NODE_NOT_STARTED = 0x150003,
+    NODE_START = 0x150004
 };
 
 } // namespace error

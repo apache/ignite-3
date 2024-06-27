@@ -22,8 +22,9 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import org.apache.ignite.internal.Cluster;
-import org.apache.ignite.internal.IgniteIntegrationTest;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.jdbc.util.JdbcTestUtils;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -33,8 +34,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.TestInstance.Lifecycle;
+import org.junit.jupiter.api.extension.ExtendWith;
 
-class ItJdbcAuthenticationTest extends IgniteIntegrationTest {
+@ExtendWith(WorkDirectoryExtension.class)
+class ItJdbcAuthenticationTest extends BaseIgniteAbstractTest {
     private Cluster cluster;
 
     @Nested
