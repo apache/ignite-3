@@ -594,7 +594,7 @@ namespace Apache.Ignite.Tests.Compute
 
             var jobExecution = await Client.Compute.SubmitAsync(await GetNodeAsync(1), SleepJob, sleepMs);
 
-            await AssertJobStatus(jobExecution, JobState.Executing, beforeStart);
+            await AssertJobStatus(jobExecution, JobStatus.Executing, beforeStart);
         }
 
         [Test]
@@ -606,7 +606,7 @@ namespace Apache.Ignite.Tests.Compute
             var jobExecution = await Client.Compute.SubmitAsync(await GetNodeAsync(1), SleepJob, sleepMs);
             await jobExecution.GetResultAsync();
 
-            await AssertJobStatus(jobExecution, JobState.Completed, beforeStart);
+            await AssertJobStatus(jobExecution, JobStatus.Completed, beforeStart);
         }
 
         [Test]
@@ -617,14 +617,14 @@ namespace Apache.Ignite.Tests.Compute
             var jobExecution = await Client.Compute.SubmitAsync(await GetNodeAsync(1), ErrorJob, "unused");
             Assert.CatchAsync(async () => await jobExecution.GetResultAsync());
 
-            await AssertJobStatus(jobExecution, JobState.Failed, beforeStart);
+            await AssertJobStatus(jobExecution, JobStatus.Failed, beforeStart);
         }
 
         [Test]
         public async Task TestJobExecutionStatusNull()
         {
             var fakeJobExecution = new JobExecution<int>(
-                Guid.NewGuid(), Task.FromException<(int, JobStatus)>(new Exception("x")), (Compute)Client.Compute);
+                Guid.NewGuid(), Task.FromException<(int, JobState)>(new Exception("x")), (Compute)Client.Compute);
 
             var status = await fakeJobExecution.GetStatusAsync();
 
@@ -640,7 +640,7 @@ namespace Apache.Ignite.Tests.Compute
             var jobExecution = await Client.Compute.SubmitAsync(await GetNodeAsync(1), SleepJob, sleepMs);
             await jobExecution.CancelAsync();
 
-            await AssertJobStatus(jobExecution, JobState.Canceled, beforeStart);
+            await AssertJobStatus(jobExecution, JobStatus.Canceled, beforeStart);
         }
 
         [Test]
@@ -710,23 +710,23 @@ namespace Apache.Ignite.Tests.Compute
             Assert.AreEqual(expected, resVal);
         }
 
-        private static async Task AssertJobStatus<T>(IJobExecution<T> jobExecution, JobState state, Instant beforeStart)
+        private static async Task AssertJobStatus<T>(IJobExecution<T> jobExecution, JobStatus status, Instant beforeStart)
         {
-            JobStatus? status = await jobExecution.GetStatusAsync();
+            JobState? state = await jobExecution.GetStatusAsync();
 
-            Assert.IsNotNull(status);
-            Assert.AreEqual(jobExecution.Id, status!.Id);
-            Assert.AreEqual(state, status.State);
-            Assert.Greater(status.CreateTime, beforeStart);
-            Assert.Greater(status.StartTime, status.CreateTime);
+            Assert.IsNotNull(state);
+            Assert.AreEqual(jobExecution.Id, state!.Id);
+            Assert.AreEqual(status, state.Status);
+            Assert.Greater(state.CreateTime, beforeStart);
+            Assert.Greater(state.StartTime, state.CreateTime);
 
-            if (state is JobState.Canceled or JobState.Completed or JobState.Failed)
+            if (status is JobStatus.Canceled or JobStatus.Completed or JobStatus.Failed)
             {
-                Assert.Greater(status.FinishTime, status.StartTime);
+                Assert.Greater(state.FinishTime, state.StartTime);
             }
             else
             {
-                Assert.IsNull(status.FinishTime);
+                Assert.IsNull(state.FinishTime);
             }
         }
 

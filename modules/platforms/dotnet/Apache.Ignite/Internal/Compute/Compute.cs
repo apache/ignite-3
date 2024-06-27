@@ -136,7 +136,7 @@ namespace Apache.Ignite.Internal.Compute
         /// </summary>
         /// <param name="jobId">Job ID.</param>
         /// <returns>Status.</returns>
-        internal async Task<JobStatus?> GetJobStatusAsync(Guid jobId)
+        internal async Task<JobState?> GetJobStatusAsync(Guid jobId)
         {
             using var writer = ProtoCommon.GetMessageWriter();
             writer.MessageWriter.Write(jobId);
@@ -144,7 +144,7 @@ namespace Apache.Ignite.Internal.Compute
             using var res = await _socket.DoOutInOpAsync(ClientOp.ComputeGetStatus, writer).ConfigureAwait(false);
             return Read(res.GetReader());
 
-            JobStatus? Read(MsgPackReader reader) => reader.TryReadNil() ? null : ReadJobStatus(reader);
+            JobState? Read(MsgPackReader reader) => reader.TryReadNil() ? null : ReadJobStatus(reader);
         }
 
         /// <summary>
@@ -242,15 +242,15 @@ namespace Apache.Ignite.Internal.Compute
             });
         }
 
-        private static JobStatus ReadJobStatus(MsgPackReader reader)
+        private static JobState ReadJobStatus(MsgPackReader reader)
         {
             var id = reader.ReadGuid();
-            var state = (JobState)reader.ReadInt32();
+            var state = (JobStatus)reader.ReadInt32();
             var createTime = reader.ReadInstantNullable();
             var startTime = reader.ReadInstantNullable();
             var endTime = reader.ReadInstantNullable();
 
-            return new JobStatus(id, state, createTime.GetValueOrDefault(), startTime, endTime);
+            return new JobState(id, state, createTime.GetValueOrDefault(), startTime, endTime);
         }
 
         private IJobExecution<T> GetJobExecution<T>(PooledBuffer computeExecuteResult, bool readSchema)
@@ -267,13 +267,13 @@ namespace Apache.Ignite.Internal.Compute
 
             return new JobExecution<T>(jobId, resultTask, this);
 
-            static async Task<(T, JobStatus)> GetResult(NotificationHandler handler)
+            static async Task<(T, JobState)> GetResult(NotificationHandler handler)
             {
                 using var notificationRes = await handler.Task.ConfigureAwait(false);
                 return Read(notificationRes.GetReader());
             }
 
-            static (T, JobStatus) Read(MsgPackReader reader)
+            static (T, JobState) Read(MsgPackReader reader)
             {
                 var res = (T)reader.ReadObjectFromBinaryTuple()!;
                 var status = ReadJobStatus(reader);
