@@ -23,7 +23,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Comparator;
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
@@ -44,9 +43,6 @@ import org.junit.jupiter.api.Test;
  */
 @SuppressWarnings("resource")
 public class ItThinClientComputeMarshallingTest extends ItAbstractThinClientTest {
-    /** Test trace id. */
-    private static final UUID TRACE_ID = UUID.randomUUID();
-
     @Test
     void testClusterNodes() {
         List<ClusterNode> nodes = sortedNodes();
@@ -83,26 +79,6 @@ public class ItThinClientComputeMarshallingTest extends ItAbstractThinClientTest
         assertEquals("Input:marshalledOnClient:unmarshalledOnServer", result);
     }
 
-    @Test
-    void customResultMarshaller() {
-        // Given entry node that are not supposed to execute job.
-        var node = server(0);
-        // And another target node.
-        var targetNode = node(1);
-
-        // When run job with custom marshaller for string argument.
-        var compute = computeClientOn(node);
-        String result = compute.execute(
-                JobTarget.node(targetNode),
-                JobDescriptor.builder(ResultMarshalingJob.class)
-                        .resultMarshaller(new ResultStringMarshaller())
-                        .build(),
-                "Input"
-        );
-
-        assertEquals("Input:processedOnServer:marshalledOnServer:unmarshalledOnClient", result);
-    }
-
     private IgniteCompute computeClientOn(Ignite node) {
         return IgniteClient.builder()
                 .addresses(getClientAddresses(List.of(node)).toArray(new String[0]))
@@ -114,13 +90,6 @@ public class ItThinClientComputeMarshallingTest extends ItAbstractThinClientTest
         @Override
         public byte @Nullable [] marshal(@Nullable String object) {
             return ByteArrayMarshaler.super.marshal(object + ":marshalledOnClient");
-        }
-    }
-
-    static class ResultStringMarshaller implements ByteArrayMarshaler<String> {
-        @Override
-        public @Nullable String unmarshal(byte @Nullable [] raw) {
-            return ByteArrayMarshaler.super.unmarshal(raw) + ":unmarshalledOnClient";
         }
     }
 

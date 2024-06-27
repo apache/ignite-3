@@ -125,6 +125,11 @@ public class ItThinClientPartitionAwarenessTest extends ItAbstractThinClientTest
     private static class NodeNameJob implements ComputeJob<Object[], String> {
         @Override
         public CompletableFuture<String> executeAsync(JobExecutionContext context, Object... args) {
+            if (args == null) {
+                //noinspection resource
+                return completedFuture(context.ignite().name());
+            }
+
             //noinspection resource
             return completedFuture(
                     context.ignite().name() + Arrays.stream(args).map(Object::toString).collect(Collectors.joining("_")));

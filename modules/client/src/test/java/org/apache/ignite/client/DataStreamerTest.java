@@ -374,7 +374,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
                     ReceiverDescriptor.builder(TestReceiver.class).build(),
                     null,
                     options,
-                    "arg");
+                    ":arg:");
 
             for (long i = 0; i < count; i++) {
                 publisher.submit(tuple(i));
@@ -406,7 +406,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
                     ReceiverDescriptor.builder(TestReceiver.class).build(),
                     resultSubscriber,
                     options,
-                    "arg:returnResults");
+                    "returnResults:arg");
 
             for (long i = 0; i < count; i++) {
                 publisher.submit(tuple(i));
@@ -444,7 +444,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
                     ReceiverDescriptor.builder(TestReceiver.class).build(),
                     resultSubscriber,
                     null,
-                    "arg" + ":" + (withSubscriber ? "returnResults" : "noResults"));
+                     (withSubscriber ? "returnResults" : "noResults") + ":arg");
 
             for (long i = 0; i < count; i++) {
                 publisher.submit(new PersonPojo(i));
@@ -485,7 +485,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
                     ReceiverDescriptor.builder(TestReceiver.class).build(),
                     resultSubscriber,
                     null,
-                    "arg" + ":" + (withSubscriber ? "returnResults" : "noResults")
+                    (withSubscriber ? "returnResults" : "noResults") + ":arg"
             );
 
             for (long i = 0; i < count; i++) {
@@ -527,7 +527,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
                     ReceiverDescriptor.builder(TestReceiver.class).build(),
                     resultSubscriber,
                     null,
-                    "arg" + ":" + (withSubscriber ? "returnResults" : "noResults")
+                    (withSubscriber ? "returnResults" : "noResults") + ":arg"
             );
 
             for (long i = 0; i < count; i++) {
@@ -592,7 +592,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
                     ReceiverDescriptor.builder(TestReceiver.class).build(),
                     resultSubscriber,
                     options,
-                    "arg" + ":" + (resultCount < 0 ? null : "returnResults") + ":" + resultCount
+                    (resultCount < 0 ? null : "returnResults") + ":arg:" + resultCount
             );
 
             for (long i = 0; i < 3; i++) {
@@ -622,7 +622,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
                     ReceiverDescriptor.builder(TestReceiver.class).build(),
                     resultSubscriber,
                     options,
-                    "arg:returnResults"
+                    "returnResults:arg"
             );
 
             for (long i = 0; i < 3; i++) {
@@ -739,7 +739,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
             int resultCount = parsedArgs.resultCount < 0 ? page.size() : parsedArgs.resultCount;
 
             for (Long id : page) {
-                String name = "recv_" + parsedArgs.returnResults + "_" + id;
+                String name = "recv_" + parsedArgs.arg + "_" + id;
                 view.upsert(null, tuple(id, name));
 
                 if (resultCount-- > 0) {
@@ -756,23 +756,26 @@ public class DataStreamerTest extends AbstractClientTableTest {
 
         static class TestReceiverArs {
             final boolean returnResults;
+            final String arg;
             final int resultCount;
 
-            TestReceiverArs(boolean returnResults, int resultCount) {
+            TestReceiverArs(boolean returnResults, String arg, int resultCount) {
                 this.returnResults = returnResults;
+                this.arg = arg;
                 this.resultCount = resultCount;
             }
 
             static TestReceiverArs from(@Nullable Object str) {
                 if (str == null) {
-                    return new TestReceiverArs(false, -1);
+                    return new TestReceiverArs(false, null, -1);
                 }
 
                 String[] split = ((String) str).split(":");
                 boolean returnResults = "returnResults".equals(split[0]);
-                int resultCount = split.length > 2 ? Integer.parseInt(split[1]) : -1;
+                String arg = split[1];
+                int resultCount = split.length > 2 ? Integer.parseInt(split[2]) : -1;
 
-                return new TestReceiverArs(returnResults, resultCount);
+                return new TestReceiverArs(returnResults, arg, resultCount);
             }
 
         }
