@@ -84,7 +84,7 @@ class FailureProcessorTest extends BaseIgniteAbstractTest {
 
     @Test
     public void testDefaultFailureHandlerConfiguration() {
-        FailureProcessor failureProcessor = new FailureProcessor("node_name", failureProcessorConfiguration);
+        FailureProcessor failureProcessor = new FailureProcessor(() -> {}, failureProcessorConfiguration);
 
         try {
             assertThat(failureProcessor.startAsync(new ComponentContext()), willSucceedFast());
