@@ -123,7 +123,7 @@ public interface IgniteCompute {
             @Nullable T arg
     ) {
         Map<ClusterNode, CompletableFuture<R>> futures = nodes.stream()
-                .collect(toMap(identity(), node -> this.executeAsync(JobTarget.node(node), descriptor, arg)));
+                .collect(toMap(identity(), node -> executeAsync(JobTarget.node(node), descriptor, arg)));
 
         return allOf(futures.values().toArray(CompletableFuture[]::new))
                 .thenApply(ignored -> {
