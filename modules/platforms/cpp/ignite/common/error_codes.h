@@ -223,7 +223,7 @@ enum class code : underlying_t {
     NODE_START = 0x150004,
 
     // Marshalling group. Group code: 22
-    MARSHALLING = 0x160001,
+    MARSHALLING_COMMON = 0x160001,
     UNSUPPORTED_OBJECT_TYPE = 0x160002
 };
 

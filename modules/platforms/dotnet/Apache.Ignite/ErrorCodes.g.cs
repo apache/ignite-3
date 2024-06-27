@@ -631,8 +631,8 @@ namespace Apache.Ignite
             /// <summary> Marshalling group name. </summary>
             public const String GroupName = "MARSHALLING";
 
-            /// <summary> Marshalling error. </summary>
-            public const int Marshalling = (GroupCode << 16) | (1 & 0xFFFF);
+            /// <summary> MarshallingCommon error. </summary>
+            public const int MarshallingCommon = (GroupCode << 16) | (1 & 0xFFFF);
 
             /// <summary> UnsupportedObjectType error. </summary>
             public const int UnsupportedObjectType = (GroupCode << 16) | (2 & 0xFFFF);
