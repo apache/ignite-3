@@ -169,18 +169,16 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
         IAsyncEnumerable<TSource> data,
         Func<TSource, KeyValuePair<TK, TV>> keySelector,
         Func<TSource, TPayload> payloadSelector,
-        IEnumerable<DeploymentUnit> units,
-        string receiverClassName,
+        ReceiverDescriptor<TResult> receiver,
         ICollection<object>? receiverArgs,
         DataStreamerOptions? options,
         CancellationToken cancellationToken = default)
         where TPayload : notnull =>
-        _recordView.StreamDataAsync<TSource, TPayload, TResult>(
+        _recordView.StreamDataAsync(
             data,
             src => ToKv(keySelector(src)),
             payloadSelector,
-            units,
-            receiverClassName,
+            receiver,
             receiverArgs,
             options,
             cancellationToken);
