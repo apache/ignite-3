@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.util;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Collections.unmodifiableList;
+import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -291,7 +293,13 @@ public class ByteUtils {
      * @param buffer Byte buffer from which we copy bytes.
      */
     public static byte[] toByteArray(ByteBuffer buffer) {
-        var bytes = new byte[buffer.remaining()];
+        int remaining = buffer.remaining();
+
+        if (remaining == 0) {
+            return BYTE_EMPTY_ARRAY;
+        }
+
+        var bytes = new byte[remaining];
         buffer.get(bytes);
         buffer.flip();
         return bytes;
@@ -300,15 +308,19 @@ public class ByteUtils {
     /**
      * Converts a byte array list to a byte buffer list.
      *
-     * @param byteBufferList List of byte buffers.
+     * @param byteBufferList Immutable list of byte buffers.
      */
     public static List<byte[]> toByteArrayList(List<ByteBuffer> byteBufferList) {
+        if (byteBufferList.isEmpty()) {
+            return List.of();
+        }
+
         var result = new ArrayList<byte[]>(byteBufferList.size());
 
         for (int i = 0; i < byteBufferList.size(); i++) {
             result.add(toByteArray(byteBufferList.get(i)));
         }
 
-        return result;
+        return unmodifiableList(result);
     }
 }

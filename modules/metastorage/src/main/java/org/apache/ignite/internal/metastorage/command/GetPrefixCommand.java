@@ -17,15 +17,15 @@
 
 package org.apache.ignite.internal.metastorage.command;
 
+import java.nio.ByteBuffer;
 import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
  * Range command for MetaStorageCommandListener that retrieves entries for the given key prefix in lexicographic order. Entries will be
  * filtered out by upper bound of given revision number.
  */
-// TODO: IGNITE-22583 тут
 @Transferable(MetastorageCommandsMessageGroup.GET_PREFIX)
 public interface GetPrefixCommand extends PaginationCommand {
     /** Returns the prefix that all returned keys should start with. */
-    byte[] prefix();
+    ByteBuffer prefix();
 }

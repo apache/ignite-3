@@ -216,8 +216,8 @@ public class MetaStorageServiceImpl implements MetaStorageService {
             boolean includeTombstones
     ) {
         Function<byte[], ReadCommand> getRangeCommand = prevKey -> context.commandsFactory().getRangeCommand()
-                .keyFrom(keyFrom.bytes())
-                .keyTo(keyTo == null ? null : keyTo.bytes())
+                .keyFrom(ByteBuffer.wrap(keyFrom.bytes()))
+                .keyTo(keyTo == null ? null : ByteBuffer.wrap(keyTo.bytes()))
                 .revUpperBound(revUpperBound)
                 .includeTombstones(includeTombstones)
                 .previousKey(prevKey)
@@ -230,7 +230,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     @Override
     public Publisher<Entry> prefix(ByteArray prefix, long revUpperBound) {
         Function<byte[], ReadCommand> getPrefixCommand = prevKey -> context.commandsFactory().getPrefixCommand()
-                .prefix(prefix.bytes())
+                .prefix(ByteBuffer.wrap(prefix.bytes()))
                 .revUpperBound(revUpperBound)
                 .includeTombstones(false)
                 .previousKey(prevKey)

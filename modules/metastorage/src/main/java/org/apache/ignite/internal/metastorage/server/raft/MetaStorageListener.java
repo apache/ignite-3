@@ -110,20 +110,22 @@ public class MetaStorageListener implements RaftGroupListener, BeforeApplyHandle
                     byte[] previousKey = rangeCmd.previousKey();
 
                     byte[] keyFrom = previousKey == null
-                            ? rangeCmd.keyFrom()
+                            ? toByteArray(rangeCmd.keyFrom())
                             : requireNonNull(storage.nextKey(previousKey));
 
-                    clo.result(handlePaginationCommand(keyFrom, rangeCmd.keyTo(), rangeCmd));
+                    byte @Nullable [] keyTo = rangeCmd.keyTo() == null ? null : toByteArray(rangeCmd.keyTo());
+
+                    clo.result(handlePaginationCommand(keyFrom, keyTo, rangeCmd));
                 } else if (command instanceof GetPrefixCommand) {
                     var prefixCmd = (GetPrefixCommand) command;
 
                     byte[] previousKey = prefixCmd.previousKey();
 
-                    byte[] keyFrom = previousKey == null
-                            ? prefixCmd.prefix()
-                            : requireNonNull(storage.nextKey(previousKey));
+                    byte[] prefix = toByteArray(prefixCmd.prefix());
 
-                    byte[] keyTo = storage.nextKey(prefixCmd.prefix());
+                    byte[] keyFrom = previousKey == null ? prefix : requireNonNull(storage.nextKey(previousKey));
+
+                    byte[] keyTo = storage.nextKey(prefix);
 
                     clo.result(handlePaginationCommand(keyFrom, keyTo, prefixCmd));
                 } else if (command instanceof GetCurrentRevisionCommand) {

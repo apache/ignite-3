@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.metastorage.command;
 
+import java.nio.ByteBuffer;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.jetbrains.annotations.Nullable;
 
@@ -24,16 +25,15 @@ import org.jetbrains.annotations.Nullable;
  * Range command for MetaStorageCommandListener that retrieves entries for the given key range in lexicographic order. Entries will be
  * filtered out by upper bound of given revision number.
  */
-// TODO: IGNITE-22583 тут
 @Transferable(MetastorageCommandsMessageGroup.GET_RANGE)
 public interface GetRangeCommand extends PaginationCommand {
     /**
      * Returns start key of range (inclusive).
      */
-    byte[] keyFrom();
+    ByteBuffer keyFrom();
 
     /**
      * Returns end key of range (exclusive), {@code null} means open upper bound.
      */
-    byte @Nullable [] keyTo();
+    @Nullable ByteBuffer keyTo();
 }

@@ -42,7 +42,7 @@ public interface StatementResult extends NetworkMessage, Serializable {
             throw new IllegalStateException("Result can't be interpreted as boolean");
         }
 
-        return result().get() != 0;
+        return result().rewind().get() != 0;
 
     }
 
@@ -57,6 +57,6 @@ public interface StatementResult extends NetworkMessage, Serializable {
             throw new IllegalStateException("Result can't be interpreted as int");
         }
 
-        return result().getInt();
+        return result().rewind().getInt();
     }
 }
