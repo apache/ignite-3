@@ -22,7 +22,7 @@ The following examples are included:
 
 2. Prepare an environment variable:
 ```shell
-IGNITE_SOURCES=/path/to/ignite3-sources
+IGNITE_SOURCES=/path/to/ignite3-sources-dir
 ```
 
 3. Build the Ignite Docker image. As a result the `apacheignite/ignite3` image will be built and loaded into the Docker Engine:
@@ -63,9 +63,9 @@ docker stop ignite3-node
 
 3. Prepare the environment variables. `IGNITE_HOME` is used in the Ignite startup. Therefore, you need to export it:
 ```shell
-export IGNITE_HOME=/path/to/ignite3-db-VERSION
-IGNITE_CLI_HOME=/path/to/ignite3-cli-VERSION
-IGNITE_SOURCES=/path/to/ignite3-sources
+export IGNITE_HOME=/path/to/ignite3-db-dir
+IGNITE_CLI_HOME=/path/to/ignite3-cli-dir
+IGNITE_SOURCES=/path/to/ignite3-sources-dir
 ```
 
 4. Override the default configuration file:
