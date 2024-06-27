@@ -88,6 +88,26 @@ public interface RaftManager extends IgniteComponent {
      * @param configuration Peers and Learners of the Raft group.
      * @param lsnr Raft group listener.
      * @param eventsLsnr Raft group events listener.
+     * @throws NodeStoppingException If node stopping intention was detected.
+     */
+    // FIXME: IGNITE-19047 Meta storage and cmg raft log re-application in async manner
+    CompletableFuture<RaftGroupService> startRaftGroupNodeAndWaitNodeReadyFuture(
+            RaftNodeId nodeId,
+            PeersAndLearners configuration,
+            RaftGroupListener lsnr,
+            RaftGroupEventsListener eventsLsnr,
+            Object msLogStorageFactory
+    ) throws NodeStoppingException;
+
+    /**
+     * Starts a Raft group and a Raft service on the current node.
+     *
+     * <p>Synchronously waits for the Raft log to be applied.
+     *
+     * @param nodeId Raft node ID.
+     * @param configuration Peers and Learners of the Raft group.
+     * @param lsnr Raft group listener.
+     * @param eventsLsnr Raft group events listener.
      * @param disruptorConfiguration Configuration own (not shared) striped disruptor for FSMCaller service of raft node.
      * @throws NodeStoppingException If node stopping intention was detected.
      */

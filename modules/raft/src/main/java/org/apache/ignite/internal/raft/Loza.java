@@ -294,9 +294,17 @@ public class Loza implements RaftManager {
             RaftGroupListener lsnr,
             RaftGroupEventsListener eventsLsnr
     ) throws NodeStoppingException {
-        CompletableFuture<RaftGroupService> fut = startRaftGroupNode(nodeId, configuration, lsnr, eventsLsnr, RaftGroupOptions.defaults());
+        return startRaftGroupNode(nodeId, configuration, lsnr, eventsLsnr, RaftGroupOptions.defaults());
+    }
 
-        return fut;
+    @Override
+    public CompletableFuture<RaftGroupService> startRaftGroupNodeAndWaitNodeReadyFuture(RaftNodeId nodeId, PeersAndLearners configuration,
+            RaftGroupListener lsnr, RaftGroupEventsListener eventsLsnr, Object storageFactory) throws NodeStoppingException {
+        LogStorageFactory logStorageFactory = (storageFactory instanceof LogStorageFactory)
+                ? ((LogStorageFactory) storageFactory) : null;
+
+        return startRaftGroupNode(nodeId, configuration, lsnr, eventsLsnr, RaftGroupOptions.defaults()
+                .setLogStorageFactory(logStorageFactory));
     }
 
     @Override

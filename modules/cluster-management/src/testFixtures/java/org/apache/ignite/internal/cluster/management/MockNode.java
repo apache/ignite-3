@@ -114,7 +114,8 @@ public class MockNode {
                 new LogicalTopologyImpl(clusterStateStorage),
                 cmgConfiguration,
                 new NodeAttributesCollector(nodeAttributes, storageProfilesConfiguration),
-                failureProcessor
+                failureProcessor,
+                null
         );
 
         components = List.of(

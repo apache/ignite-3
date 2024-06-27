@@ -184,7 +184,8 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
                     logicalTopology,
                     cmgConfiguration,
                     new NodeAttributesCollector(nodeAttributes, storageConfiguration),
-                    failureProcessor
+                    failureProcessor,
+                    null
             );
 
             var logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);

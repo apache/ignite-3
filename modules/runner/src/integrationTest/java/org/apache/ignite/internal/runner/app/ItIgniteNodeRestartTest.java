@@ -379,7 +379,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 clusterManagementConfiguration,
                 new NodeAttributesCollector(nodeAttributes,
                         nodeCfgMgr.configurationRegistry().getConfiguration(StorageConfiguration.KEY)),
-                failureProcessor
+                failureProcessor,
+                null
         );
 
         LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier

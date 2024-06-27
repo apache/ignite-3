@@ -262,7 +262,7 @@ public class IgniteImpl implements Ignite {
     /**
      * Path to the persistent storage used by the {@link ClusterManagementGroupManager} component.
      */
-    private static final Path CMG_DB_PATH = Paths.get("cmg");
+    private static final Path CMG_DB_PATH = Paths.get("cmg_xxx");
 
     /**
      * Path for the partitions persistent storage.
@@ -414,6 +414,8 @@ public class IgniteImpl implements Ignite {
 
     private final LogStorageFactory mslogStorageFactory;
 
+    private final LogStorageFactory cmgLogStorageFactory;
+
     private IndexMetaStorage indexMetaStorage;
 
     /**
@@ -509,12 +511,17 @@ public class IgniteImpl implements Ignite {
 
         Path msRaftWorkDir = workDir.resolve("ms_raft");
 
+        Path cmgRaftWorkDir = workDir.resolve("cmg_raft");
+
         Path nodeRaftWorkDir = workDir.resolve("node_raft");
 
         logStorageFactory = SharedLogStorageFactoryUtils.create(clusterSvc.nodeName(), nodeRaftWorkDir, raftConfiguration);
 
         mslogStorageFactory =
                 SharedLogStorageFactoryUtils.create(clusterSvc.nodeName(), msRaftWorkDir, raftConfiguration);
+
+        cmgLogStorageFactory =
+                SharedLogStorageFactoryUtils.create(clusterSvc.nodeName(), cmgRaftWorkDir, raftConfiguration);
 
         raftMgr = new Loza(
                 clusterSvc,
@@ -576,7 +583,8 @@ public class IgniteImpl implements Ignite {
                 logicalTopology,
                 nodeConfigRegistry.getConfiguration(ClusterManagementConfiguration.KEY),
                 nodeAttributesCollector,
-                failureProcessor
+                failureProcessor,
+                cmgLogStorageFactory
         );
 
         logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgMgr);
@@ -1085,6 +1093,7 @@ public class IgniteImpl implements Ignite {
                     restComponent,
                     logStorageFactory,
                     mslogStorageFactory,
+                    cmgLogStorageFactory,
                     raftMgr,
                     clusterStateStorage,
                     cmgMgr,
