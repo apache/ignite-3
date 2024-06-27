@@ -35,7 +35,7 @@ import org.jetbrains.annotations.Nullable;
 public interface DataStreamerReceiver<T, A, R> {
     /**
      * Receives an item from the data streamer (see {@link DataStreamerTarget#streamData(Publisher, Function, Function,
-     * ReceiverDescriptor, Subscriber, DataStreamerOptions, Object...)}).
+     * ReceiverDescriptor, Subscriber, DataStreamerOptions, Object)}).
      *
      * <p>The receiver is called for each page (batch) in the data streamer and is responsible for processing the items,
      * updating zero or more tables, and returning a result.
