@@ -419,9 +419,9 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         }
     }
 
-    private static class NullReturningJob implements ComputeJob<Void, Void> {
+    private static class NullReturningJob implements ComputeJob<Object, Object> {
         @Override
-        public CompletableFuture<Void> executeAsync(JobExecutionContext context, Void input) {
+        public CompletableFuture<Object> executeAsync(JobExecutionContext context, Object input) {
             return null;
         }
     }

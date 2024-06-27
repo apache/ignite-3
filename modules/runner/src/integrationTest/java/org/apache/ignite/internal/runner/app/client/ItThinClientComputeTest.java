@@ -778,9 +778,9 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
                 .collect(Collectors.toList());
     }
 
-    private static class NodeNameJob implements ComputeJob<Void, String> {
+    private static class NodeNameJob implements ComputeJob<Object, String> {
         @Override
-        public CompletableFuture<String> executeAsync(JobExecutionContext context, Void args) {
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, Object args) {
             return completedFuture(context.ignite().name());
         }
     }
@@ -910,10 +910,10 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         }
     }
 
-    private static class MapReduceExceptionOnReduceTask implements MapReduceTask<Object, String> {
+    private static class MapReduceExceptionOnReduceTask implements MapReduceTask<Object, Object, String, String> {
 
         @Override
-        public CompletableFuture<List<MapReduceJob>> splitAsync(TaskExecutionContext context, Object args) {
+        public CompletableFuture<List<MapReduceJob<Object, String>>> splitAsync(TaskExecutionContext context, Object args) {
             return completedFuture(context.ignite().clusterNodes().stream()
                     .map(node -> MapReduceJob.builder()
                             .jobDescriptor(JobDescriptor.builder(NodeNameJob.class).build())
@@ -924,7 +924,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         }
 
         @Override
-        public CompletableFuture<String> reduceAsync(TaskExecutionContext context, Map<UUID, ?> results) {
+        public CompletableFuture<String> reduceAsync(TaskExecutionContext context, Map<UUID, String> results) {
             throw new CustomException(TRACE_ID, COLUMN_ALREADY_EXISTS_ERR, "Custom job error", null);
         }
     }

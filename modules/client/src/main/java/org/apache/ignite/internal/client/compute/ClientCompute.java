@@ -92,7 +92,7 @@ public class ClientCompute implements IgniteCompute {
     }
 
     @Override
-    public <T, R> JobExecution<R> submit(JobTarget target, JobDescriptor descriptor, T args) {
+    public <T, R> JobExecution<R> submit(JobTarget target, JobDescriptor<T, R> descriptor, T args) {
         Objects.requireNonNull(target);
         Objects.requireNonNull(descriptor);
 
@@ -151,18 +151,18 @@ public class ClientCompute implements IgniteCompute {
     }
 
     @Override
-    public <T, R> R execute(JobTarget target, JobDescriptor descriptor, T args) {
+    public <T, R> R execute(JobTarget target, JobDescriptor<T, R> descriptor, T args) {
         return sync(executeAsync(target, descriptor, args));
     }
 
-    private CompletableFuture<SubmitResult> doExecuteColocatedAsync(
+    private <T> CompletableFuture<SubmitResult> doExecuteColocatedAsync(
             String tableName,
             Tuple key,
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            Marshaler<Object, byte[]> marshaler,
-            Object args
+            Marshaler<T, byte[]> marshaler,
+            T args
     ) {
         return getTable(tableName)
                 .thenCompose(table -> executeColocatedTupleKey(table, key, units, jobClassName, options, marshaler, args))
@@ -182,7 +182,7 @@ public class ClientCompute implements IgniteCompute {
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            Marshaler<Object, byte[]> marshaler,
+            Marshaler<T, byte[]> marshaler,
             T args
     ) {
         return getTable(tableName)
@@ -200,7 +200,7 @@ public class ClientCompute implements IgniteCompute {
     @Override
     public <T, R> Map<ClusterNode, JobExecution<R>> submitBroadcast(
             Set<ClusterNode> nodes,
-            JobDescriptor descriptor,
+            JobDescriptor<T, R> descriptor,
             T args
     ) {
         Objects.requireNonNull(nodes);
@@ -308,14 +308,14 @@ public class ClientCompute implements IgniteCompute {
                 args);
     }
 
-    private static CompletableFuture<SubmitResult> executeColocatedTupleKey(
+    private static <T> CompletableFuture<SubmitResult> executeColocatedTupleKey(
             ClientTable t,
             Tuple key,
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            @Nullable Marshaler<Object, byte[]> marshaller,
-            Object args) {
+            @Nullable Marshaler<T, byte[]> marshaller,
+            T args) {
         return executeColocatedInternal(
                 t,
                 (outputChannel, schema) -> ClientTupleSerializer.writeTupleRaw(key, schema, outputChannel, true),

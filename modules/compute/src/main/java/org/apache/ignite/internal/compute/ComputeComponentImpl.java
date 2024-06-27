@@ -116,11 +116,11 @@ public class ComputeComponentImpl implements ComputeComponent {
 
     /** {@inheritDoc} */
     @Override
-     public <R> JobExecution<R> executeLocally(
+     public <I, R> JobExecution<R> executeLocally(
             ExecutionOptions options,
             List<DeploymentUnit> units,
             String jobClassName,
-            Object input
+            I input
     ) {
         if (!busyLock.enterBusy()) {
             return new DelegatingJobExecution<>(
@@ -149,11 +149,11 @@ public class ComputeComponentImpl implements ComputeComponent {
     }
 
     @Override
-    public <R> TaskExecution<R> executeTask(
-            JobSubmitter jobSubmitter,
+    public <I, M, T, R> TaskExecution<R> executeTask(
+            JobSubmitter<M, T> jobSubmitter,
             List<DeploymentUnit> units,
             String taskClassName,
-            Object input
+            I input
     ) {
         if (!busyLock.enterBusy()) {
             return new DelegatingTaskExecution<>(
@@ -162,10 +162,10 @@ public class ComputeComponentImpl implements ComputeComponent {
         }
 
         try {
-            CompletableFuture<TaskExecutionInternal<?, R>> taskFuture =
+            CompletableFuture<TaskExecutionInternal<I, M, T, R>> taskFuture =
                     mapClassLoaderExceptions(jobContextManager.acquireClassLoader(units), taskClassName)
                             .thenApply(context -> {
-                                TaskExecutionInternal<?, R> execution = execTask(context, jobSubmitter, taskClassName, input);
+                                TaskExecutionInternal<I, M, T, R> execution = execTask(context, jobSubmitter, taskClassName, input);
                                 execution.resultAsync().whenComplete((r, e) -> context.close());
                                 inFlightFutures.registerFuture(execution.resultAsync());
                                 return execution;
@@ -173,7 +173,7 @@ public class ComputeComponentImpl implements ComputeComponent {
 
             inFlightFutures.registerFuture(taskFuture);
 
-            DelegatingTaskExecution<R> result = new DelegatingTaskExecution<>(taskFuture);
+            DelegatingTaskExecution<I, M, T, R> result = new DelegatingTaskExecution<>(taskFuture);
             result.idAsync().thenAccept(jobId -> executionManager.addExecution(jobId, result));
             return result;
         } finally {
@@ -183,12 +183,12 @@ public class ComputeComponentImpl implements ComputeComponent {
 
     /** {@inheritDoc} */
     @Override
-    public <R> JobExecution<R> executeRemotely(
+    public <T, R> JobExecution<R> executeRemotely(
             ExecutionOptions options,
             ClusterNode remoteNode,
             List<DeploymentUnit> units,
             String jobClassName,
-            Object input
+            T input
     ) {
         if (!busyLock.enterBusy()) {
             return new DelegatingJobExecution<>(
@@ -212,13 +212,13 @@ public class ComputeComponentImpl implements ComputeComponent {
     }
 
     @Override
-    public <R> JobExecution<R> executeRemotelyWithFailover(
+    public <T, R> JobExecution<R> executeRemotelyWithFailover(
             ClusterNode remoteNode,
             NextWorkerSelector nextWorkerSelector,
             List<DeploymentUnit> units,
             String jobClassName,
             ExecutionOptions options,
-            Object input
+            T input
     ) {
         JobExecution<R> result = new ComputeJobFailover<R>(
                 this, logicalTopologyService, topologyService,
@@ -303,11 +303,11 @@ public class ComputeComponentImpl implements ComputeComponent {
         }
     }
 
-    private <T, R> TaskExecutionInternal<T, R> execTask(
+    private <I, M, T, R> TaskExecutionInternal<I, M, T, R> execTask(
             JobContext context,
-            JobSubmitter jobSubmitter,
+            JobSubmitter<M, T> jobSubmitter,
             String taskClassName,
-            T input
+            I input
     ) {
         try {
             return executor.executeTask(jobSubmitter, taskClass(context.classLoader(), taskClassName), input);

@@ -148,7 +148,7 @@ public final class InteractiveTasks {
     /**
      * Interactive map reduce task that communicates via {@link #GLOBAL_CHANNEL} and {@link #GLOBAL_SIGNALS}.
      */
-    private static class GlobalInteractiveMapReduceTask implements MapReduceTask<String, List<String>> {
+    private static class GlobalInteractiveMapReduceTask implements MapReduceTask<String, Object, Object, List<String>> {
         // When listening for signal is interrupted, if this flag is true, then corresponding method will throw exception,
         // otherwise it will clean the interrupted status.
         private boolean throwExceptionOnInterruption = true;
@@ -169,7 +169,7 @@ public final class InteractiveTasks {
         }
 
         @Override
-        public CompletableFuture<List<MapReduceJob>> splitAsync(TaskExecutionContext context, String args) {
+        public CompletableFuture<List<MapReduceJob<Object, Object>>> splitAsync(TaskExecutionContext context, String args) {
             RUNNING_GLOBAL_SPLIT_CNT.incrementAndGet();
 
             offerArgsAsSignals(args);
@@ -208,7 +208,7 @@ public final class InteractiveTasks {
         }
 
         @Override
-        public CompletableFuture<List<String>> reduceAsync(TaskExecutionContext context, Map<UUID, ?> results) {
+        public CompletableFuture<List<String>> reduceAsync(TaskExecutionContext context, Map<UUID, Object> results) {
             RUNNING_GLOBAL_REDUCE_CNT.incrementAndGet();
             try {
                 while (true) {

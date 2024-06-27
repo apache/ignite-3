@@ -21,18 +21,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.marshaling.ByteArrayMarshaler;
 import org.apache.ignite.marshaling.Marshaler;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * A map reduce task interface. Implement this interface and pass a name of the implemented class to the
- * {@link org.apache.ignite.compute.IgniteCompute#submitMapReduce(List, String, Object...) IgniteCompute#submitMapReduce} method to run this
+ * {@link org.apache.ignite.compute.IgniteCompute#submitMapReduce(List, String, Object) IgniteCompute#submitMapReduce} method to run this
  * task.
  *
  * @param <R> Result type.
  */
-public interface MapReduceTask<T, R> {
+public interface MapReduceTask<I, M, T, R> {
     /**
      * This method should return a list of compute job execution parameters which will be used to submit compute jobs.
      *
@@ -40,18 +39,18 @@ public interface MapReduceTask<T, R> {
      * @param input Map reduce task input.
      * @return A future with the list of compute job execution parameters.
      */
-    CompletableFuture<List<MapReduceJob>> splitAsync(TaskExecutionContext taskContext, @Nullable T input);
+    CompletableFuture<List<MapReduceJob<M, T>>> splitAsync(TaskExecutionContext taskContext, @Nullable I input);
 
     /**
      * This is a finishing step in the task execution. This method will be called with the map from identifiers of compute jobs submitted as
-     * a result of the {@link #splitAsync(TaskExecutionContext, Object...)} method call to the results of the execution of the corresponding
+     * a result of the {@link #splitAsync(TaskExecutionContext, Object)} method call to the results of the execution of the corresponding
      * job. The return value of this method will be returned as a result of this task.
      *
      * @param taskContext Task execution context.
      * @param results Map from compute job ids to their results.
      * @return Final task result future.
      */
-    CompletableFuture<R> reduceAsync(TaskExecutionContext taskContext, Map<UUID, ?> results);
+    CompletableFuture<R> reduceAsync(TaskExecutionContext taskContext, Map<UUID, T> results);
 
 
     /**
@@ -59,8 +58,8 @@ public interface MapReduceTask<T, R> {
      *
      * @return Input marshaller.
      */
-    default Marshaler<T, byte[]> inputMarshaler() {
-        return ByteArrayMarshaler.create();
+    default Marshaler<I, byte[]> inputMarshaler() {
+        return null;
     }
 
     /**
@@ -69,6 +68,6 @@ public interface MapReduceTask<T, R> {
      * @return Result marshaller.
      */
     default Marshaler<R, byte[]> resultMarshaler() {
-        return ByteArrayMarshaler.create();
+        return null;
     }
 }

@@ -82,10 +82,10 @@ public class JobDescriptor<T, R> {
      *
      * @return Job descriptor builder.
      */
-    public static Builder builder(String jobClassName) {
+    public static <T, R> Builder<T, R> builder(String jobClassName) {
         Objects.requireNonNull(jobClassName);
 
-        return new Builder(jobClassName);
+        return new Builder<>(jobClassName);
     }
 
     /**
@@ -93,17 +93,17 @@ public class JobDescriptor<T, R> {
      *
      * @return Job descriptor builder.
      */
-    public static <T, R> Builder builder(Class<? extends ComputeJob<T, R>> jobClass) {
+    public static <T, R> Builder<T, R> builder(Class<? extends ComputeJob<T, R>> jobClass) {
         Objects.requireNonNull(jobClass);
 
-        return new Builder(jobClass.getName());
+        return new Builder<>(jobClass.getName());
     }
 
-    public Marshaler<R, byte[]> resultMarshaller() {
+    public @Nullable Marshaler<R, byte[]> resultMarshaller() {
         return resultMarshaller;
     }
 
-    public Marshaler<T, byte[]> argumentMarshaler() {
+    public @Nullable Marshaler<T, byte[]> argumentMarshaler() {
         return argumentMarshaler;
     }
 

@@ -110,10 +110,10 @@ public class ComputeExecutorImpl implements ComputeExecutor {
     }
 
     @Override
-    public <T, R> TaskExecutionInternal<T, R> executeTask(
-            JobSubmitter jobSubmitter,
-            Class<? extends MapReduceTask<T, R>> taskClass,
-            T input
+    public <I, M, T, R> TaskExecutionInternal<I, M, T, R> executeTask(
+            JobSubmitter<M, T> jobSubmitter,
+            Class<? extends MapReduceTask<I, M, T, R>> taskClass,
+            I input
     ) {
         assert executorService != null;
 

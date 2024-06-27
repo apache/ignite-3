@@ -106,7 +106,7 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
         List<DeploymentUnit> nonExistingUnits = List.of(new DeploymentUnit("non-existing", "1.0.0"));
         CompletableFuture<String> result = entryNode.compute().executeAsync(
                 JobTarget.node(entryNode.node()),
-                JobDescriptor.builder(concatJobClassName()).units(nonExistingUnits).build(),
+                JobDescriptor.<Object[], String>builder(concatJobClassName()).units(nonExistingUnits).build(),
                 new Object[]{"a", 42});
 
         CompletionException ex0 = assertThrows(CompletionException.class, result::join);

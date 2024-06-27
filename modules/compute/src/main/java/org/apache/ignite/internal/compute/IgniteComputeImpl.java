@@ -99,7 +99,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
     }
 
     @Override
-    public <T, R> JobExecution<R> submit(JobTarget target, JobDescriptor descriptor, T args) {
+    public <T, R> JobExecution<R> submit(JobTarget target, JobDescriptor<T, R> descriptor, T args) {
         Objects.requireNonNull(target);
         Objects.requireNonNull(descriptor);
 
@@ -160,7 +160,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
     }
 
     @Override
-    public <T, R> R execute(JobTarget target, JobDescriptor descriptor, T args) {
+    public <T, R> R execute(JobTarget target, JobDescriptor<T, R> descriptor, T args) {
         return sync(executeAsync(target, descriptor, args));
     }
 
@@ -303,7 +303,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
     @Override
     public <T, R> Map<ClusterNode, JobExecution<R>> submitBroadcast(
             Set<ClusterNode> nodes,
-            JobDescriptor descriptor,
+            JobDescriptor<T, R> descriptor,
             T args
     ) {
         Objects.requireNonNull(nodes);
@@ -337,7 +337,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
         return sync(executeMapReduceAsync(units, taskClassName, args));
     }
 
-    private JobExecution<Object> submitJob(MapReduceJob runner) {
+    private <M, T> JobExecution<T> submitJob(MapReduceJob<M, T> runner) {
         return submit(JobTarget.anyNode(runner.nodes()), runner.jobDescriptor(), runner.arg());
     }
 

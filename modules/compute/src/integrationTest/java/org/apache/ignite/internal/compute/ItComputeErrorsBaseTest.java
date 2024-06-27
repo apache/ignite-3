@@ -91,7 +91,7 @@ abstract class ItComputeErrorsBaseTest extends ClusterPerClassIntegrationTest {
         // And execute a job
         String workerNodeName = compute().execute(
                 JobTarget.anyNode(nodes),
-                JobDescriptor.builder(InteractiveJobs.globalJob().name()).build(),
+                JobDescriptor.<String, String>builder(InteractiveJobs.globalJob().name()).build(),
                 RETURN_WORKER_NAME.name());
 
         // Then existing node was a worker and executed the job.
@@ -140,6 +140,10 @@ abstract class ItComputeErrorsBaseTest extends ClusterPerClassIntegrationTest {
 
     private TestingJobExecution<String> executeGlobalInteractiveJob(Set<ClusterNode> nodes) {
         return new TestingJobExecution<>(
-                compute().submit(JobTarget.anyNode(nodes), JobDescriptor.builder(InteractiveJobs.globalJob().name()).build(), ""));
+                compute().submit(
+                        JobTarget.anyNode(nodes),
+                        JobDescriptor.<String, String>builder(InteractiveJobs.globalJob().name()).build(),
+                        "")
+        );
     }
 }

@@ -446,7 +446,7 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         Tuple t1 = Tuple.create().set("ID", 1L);
         Tuple t2 = Tuple.create().set("ID", 2L);
 
-        JobDescriptor job = JobDescriptor.builder("job").build();
+        JobDescriptor<Object, String> job = JobDescriptor.<Object, String>builder("job").build();
 
         assertThat(compute().executeAsync(JobTarget.colocated(table.name(), t1), job, null), willBe(nodeKey1));
         assertThat(compute().executeAsync(JobTarget.colocated(table.name(), t2), job, null), willBe(nodeKey2));
@@ -456,7 +456,7 @@ public class PartitionAwarenessTest extends AbstractClientTest {
     public void testExecuteColocatedObjectKeyRoutesRequestToPrimaryNode() {
         var mapper = Mapper.of(Long.class);
         Table table = defaultTable();
-        JobDescriptor job = JobDescriptor.builder("job").build();
+        JobDescriptor<Object, String> job = JobDescriptor.<Object, String>builder("job").build();
 
         assertThat(compute().executeAsync(JobTarget.colocated(table.name(), 1L, mapper), job, null), willBe(nodeKey1));
         assertThat(compute().executeAsync(JobTarget.colocated(table.name(), 2L, mapper), job, null), willBe(nodeKey2));

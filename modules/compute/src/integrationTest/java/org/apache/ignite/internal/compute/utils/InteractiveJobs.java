@@ -155,7 +155,7 @@ public final class InteractiveJobs {
     /**
      * Interactive job that communicates via {@link #GLOBAL_CHANNEL} and {@link #GLOBAL_SIGNALS}.
      */
-    private static class GlobalInteractiveJob implements ComputeJob<String, String> {
+    public static class GlobalInteractiveJob implements ComputeJob<String, String> {
         private static Signal listenSignal() {
             try {
                 return GLOBAL_SIGNALS.take();
@@ -198,7 +198,7 @@ public final class InteractiveJobs {
         /**
          * If any of the args are strings, convert them to signals and offer them to the job.
          *
-         * @param args Job args.
+         * @param arg Job args.
          */
         private static void offerArgsAsSignals(String arg) {
             if (arg == null) {
@@ -411,6 +411,10 @@ public final class InteractiveJobs {
          */
         public String name() {
             return GlobalInteractiveJob.class.getName();
+        }
+
+        public Class<GlobalInteractiveJob> jobClass() {
+            return GlobalInteractiveJob.class;
         }
     }
 }

@@ -33,12 +33,14 @@ import org.apache.ignite.compute.task.MapReduceTask;
 import org.apache.ignite.compute.task.TaskExecutionContext;
 
 /** Map reduce task which runs a {@link GetNodeNameJob} on each node and computes a sum of length of all node names. */
-public class MapReduce implements MapReduceTask<List<DeploymentUnit>, Integer> {
+public class MapReduce implements MapReduceTask<List<DeploymentUnit>, Void, String, Integer> {
     @Override
-    public CompletableFuture<List<MapReduceJob>> splitAsync(TaskExecutionContext taskContext, List<DeploymentUnit> deploymentUnits) {
+    public CompletableFuture<List<MapReduceJob<Void, String>>> splitAsync(
+            TaskExecutionContext taskContext, List<DeploymentUnit> deploymentUnits) {
         return taskContext.ignite().clusterNodesAsync().thenApply(nodes -> nodes.stream().map(node ->
-                MapReduceJob.builder()
-                        .jobDescriptor(JobDescriptor.builder(GetNodeNameJob.class)
+                MapReduceJob.<Void, String>builder()
+                        .jobDescriptor(
+                                JobDescriptor.builder(GetNodeNameJob.class)
                                 .units(deploymentUnits)
                                 .options(JobExecutionOptions.builder()
                                     .maxRetries(10)
@@ -51,7 +53,7 @@ public class MapReduce implements MapReduceTask<List<DeploymentUnit>, Integer> {
     }
 
     @Override
-    public CompletableFuture<Integer> reduceAsync(TaskExecutionContext taskContext, Map<UUID, ?> results) {
+    public CompletableFuture<Integer> reduceAsync(TaskExecutionContext taskContext, Map<UUID, String> results) {
         return completedFuture(results.values().stream()
                 .map(String.class::cast)
                 .map(String::length)

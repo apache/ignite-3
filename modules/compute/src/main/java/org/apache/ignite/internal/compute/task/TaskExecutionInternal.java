@@ -56,7 +56,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Internal map reduce task execution object. Runs the {@link MapReduceTask#splitAsync(TaskExecutionContext, Object...)} method of the task
+ * Internal map reduce task execution object. Runs the {@link MapReduceTask#splitAsync(TaskExecutionContext, Object)} method of the task
  * as a compute job, then submits the resulting list of jobs. Waits for completion of all compute jobs, then submits the
  * {@link MapReduceTask#reduceAsync(TaskExecutionContext, Map)} method as a compute job. The result of the task is the result of the split
  * method.
@@ -64,14 +64,14 @@ import org.jetbrains.annotations.Nullable;
  * @param <R> Task result type.
  */
 @SuppressWarnings("unchecked")
-public class TaskExecutionInternal<T, R> implements JobExecution<R> {
+public class TaskExecutionInternal<I, M, T, R> implements JobExecution<R> {
     private static final IgniteLogger LOG = Loggers.forClass(TaskExecutionInternal.class);
 
-    private final QueueExecution<SplitResult<T, R>> splitExecution;
+    private final QueueExecution<SplitResult<I, M, T, R>> splitExecution;
 
-    private final CompletableFuture<List<JobExecution<Object>>> executionsFuture;
+    private final CompletableFuture<List<JobExecution<T>>> executionsFuture;
 
-    private final CompletableFuture<Map<UUID, Object>> resultsFuture;
+    private final CompletableFuture<Map<UUID, T>> resultsFuture;
 
     private final CompletableFuture<QueueExecution<R>> reduceExecutionFuture;
 
@@ -92,16 +92,16 @@ public class TaskExecutionInternal<T, R> implements JobExecution<R> {
     public TaskExecutionInternal(
             PriorityQueueExecutor executorService,
             JobSubmitter jobSubmitter,
-            Class<? extends MapReduceTask<T, R>> taskClass,
+            Class<? extends MapReduceTask<I, M, T, R>> taskClass,
             TaskExecutionContext context,
             AtomicBoolean isCancelled,
-            T arg
+            I arg
     ) {
         this.isCancelled = isCancelled;
         LOG.debug("Executing task {}", taskClass.getName());
         splitExecution = executorService.submit(
                 () -> {
-                    MapReduceTask<T, R> task = instantiateTask(taskClass);
+                    MapReduceTask<I, M, T, R> task = instantiateTask(taskClass);
 
                     return task.splitAsync(context, arg)
                             .thenApply(jobs -> new SplitResult<>(task, jobs));
@@ -112,7 +112,7 @@ public class TaskExecutionInternal<T, R> implements JobExecution<R> {
         );
 
         executionsFuture = splitExecution.resultAsync().thenApply(splitResult -> {
-            List<MapReduceJob> runners = splitResult.runners();
+            List<MapReduceJob<M, T>> runners = splitResult.runners();
             LOG.debug("Submitting {} jobs for {}", runners.size(), taskClass.getName());
             return submit(runners, jobSubmitter);
         });
@@ -123,7 +123,7 @@ public class TaskExecutionInternal<T, R> implements JobExecution<R> {
             LOG.debug("Running reduce job for {}", taskClass.getName());
 
             // This future is already finished
-            MapReduceTask<T, R> task = splitExecution.resultAsync().thenApply(SplitResult::task).join();
+            MapReduceTask<I, M, T, R> task = splitExecution.resultAsync().thenApply(SplitResult::task).join();
 
             return executorService.submit(
                     () -> task.reduceAsync(context, results),
@@ -269,8 +269,8 @@ public class TaskExecutionInternal<T, R> implements JobExecution<R> {
 
     }
 
-    private static CompletableFuture<Map<UUID, Object>> resultsAsync(List<JobExecution<Object>> executions) {
-        CompletableFuture<?>[] resultFutures = executions.stream()
+    private static <T> CompletableFuture<Map<UUID, T>> resultsAsync(List<JobExecution<T>> executions) {
+        CompletableFuture<T>[] resultFutures = executions.stream()
                 .map(JobExecution::resultAsync)
                 .toArray(CompletableFuture[]::new);
 
@@ -279,7 +279,7 @@ public class TaskExecutionInternal<T, R> implements JobExecution<R> {
                 .toArray(CompletableFuture[]::new);
 
         return allOf(concat(resultFutures, idFutures)).thenApply(unused -> {
-            Map<UUID, Object> results = new HashMap<>();
+            Map<UUID, T> results = new HashMap<>();
 
             for (int i = 0; i < resultFutures.length; i++) {
                 results.put(idFutures[i].join(), resultFutures[i].join());
@@ -289,27 +289,27 @@ public class TaskExecutionInternal<T, R> implements JobExecution<R> {
         });
     }
 
-    private static <R> List<JobExecution<Object>> submit(List<MapReduceJob> runners, JobSubmitter jobSubmitter) {
+    private static <M, T> List<JobExecution<T>> submit(List<MapReduceJob<M, T>> runners, JobSubmitter<M, T> jobSubmitter) {
         return runners.stream()
                 .map(jobSubmitter::submit)
                 .collect(toList());
     }
 
-    private static class SplitResult<T, R> {
-        private final MapReduceTask<T, R> task;
+    private static class SplitResult<I, M, T, R> {
+        private final MapReduceTask<I, M, T, R> task;
 
-        private final List<MapReduceJob> runners;
+        private final List<MapReduceJob<M, T>> runners;
 
-        private SplitResult(MapReduceTask<T, R> task, List<MapReduceJob> runners) {
+        private SplitResult(MapReduceTask<I, M, T, R> task, List<MapReduceJob<M, T>> runners) {
             this.task = task;
             this.runners = runners;
         }
 
-        private List<MapReduceJob> runners() {
+        private List<MapReduceJob<M, T>> runners() {
             return runners;
         }
 
-        private MapReduceTask<T, R> task() {
+        private MapReduceTask<I, M, T, R> task() {
             return task;
         }
     }

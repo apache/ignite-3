@@ -28,10 +28,10 @@ import org.jetbrains.annotations.Nullable;
  *
  * @param <R> Result type.
  */
-public class DelegatingTaskExecution<R> implements TaskExecution<R> {
-    private final CompletableFuture<TaskExecutionInternal<?, R>> delegate;
+public class DelegatingTaskExecution<I, M, T, R> implements TaskExecution<R> {
+    private final CompletableFuture<TaskExecutionInternal<I, M, T, R>> delegate;
 
-    public DelegatingTaskExecution(CompletableFuture<TaskExecutionInternal<?, R>> delegate) {
+    public DelegatingTaskExecution(CompletableFuture<TaskExecutionInternal<I, M, T, R>> delegate) {
         this.delegate = delegate;
     }
 

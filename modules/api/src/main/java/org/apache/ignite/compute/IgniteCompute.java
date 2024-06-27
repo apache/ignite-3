@@ -51,7 +51,7 @@ public interface IgniteCompute {
      */
     <T, R> JobExecution<R> submit(
             JobTarget target,
-            JobDescriptor descriptor,
+            JobDescriptor<T, R> descriptor,
             @Nullable T arg
     );
 
@@ -68,10 +68,10 @@ public interface IgniteCompute {
      */
     default <T, R> CompletableFuture<R> executeAsync(
             JobTarget target,
-            JobDescriptor descriptor,
+            JobDescriptor<T, R> descriptor,
             @Nullable T arg
     ) {
-        return this.<T, R>submit(target, descriptor, arg).resultAsync();
+        return this.submit(target, descriptor, arg).resultAsync();
     }
 
     /**
@@ -87,7 +87,7 @@ public interface IgniteCompute {
      */
     <T, R> R execute(
             JobTarget target,
-            JobDescriptor descriptor,
+            JobDescriptor<T, R> descriptor,
             @Nullable T arg
     );
 
@@ -103,7 +103,7 @@ public interface IgniteCompute {
      */
     <T, R> Map<ClusterNode, JobExecution<R>> submitBroadcast(
             Set<ClusterNode> nodes,
-            JobDescriptor descriptor,
+            JobDescriptor<T, R> descriptor,
             @Nullable T arg
     );
 
@@ -119,7 +119,7 @@ public interface IgniteCompute {
      */
     default <T, R> CompletableFuture<Map<ClusterNode, R>> executeBroadcastAsync(
             Set<ClusterNode> nodes,
-            JobDescriptor descriptor,
+            JobDescriptor<T, R> descriptor,
             @Nullable T arg
     ) {
         Map<ClusterNode, CompletableFuture<R>> futures = nodes.stream()
@@ -151,7 +151,7 @@ public interface IgniteCompute {
      */
     default <T, R> Map<ClusterNode, R> executeBroadcast(
             Set<ClusterNode> nodes,
-            JobDescriptor descriptor,
+            JobDescriptor<T, R> descriptor,
             @Nullable T arg
     ) {
         Map<ClusterNode, R> map = new HashMap<>();

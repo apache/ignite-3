@@ -27,18 +27,18 @@ import org.apache.ignite.network.ClusterNode;
 
 /**
  * A description of the job to be submitted as a result of the split step of the {@link MapReduceTask}. Reflects the parameters of the
- * {@link org.apache.ignite.compute.IgniteCompute#submit(JobTarget, JobDescriptor, Object...)} method.
+ * {@link org.apache.ignite.compute.IgniteCompute#submit(JobTarget, JobDescriptor, Object)} method.
  */
-public class MapReduceJob<T> {
+public class MapReduceJob<T, R> {
     private final Set<ClusterNode> nodes;
 
-    private final JobDescriptor<T, ?> jobDescriptor;
+    private final JobDescriptor<T, R> jobDescriptor;
 
     private final T arg;
 
     private MapReduceJob(
             Set<ClusterNode> nodes,
-            JobDescriptor<T, ?> jobDescriptor,
+            JobDescriptor<T, R> jobDescriptor,
             T arg
     ) {
         this.nodes = Collections.unmodifiableSet(nodes);
@@ -60,7 +60,7 @@ public class MapReduceJob<T> {
      *
      * @return Job descriptor.
      */
-    public JobDescriptor<T, ?> jobDescriptor() {
+    public JobDescriptor<T, R> jobDescriptor() {
         return jobDescriptor;
     }
 
@@ -78,8 +78,8 @@ public class MapReduceJob<T> {
      *
      * @return New builder.
      */
-    public ComputeJobRunnerBuilder<T> toBuilder() {
-        return this.<T>builder().jobDescriptor(jobDescriptor).nodes(nodes).args(arg);
+    public ComputeJobRunnerBuilder<T, R> toBuilder() {
+        return this.<T, R>builder().jobDescriptor(jobDescriptor).nodes(nodes).args(arg);
     }
 
     /**
@@ -87,17 +87,17 @@ public class MapReduceJob<T> {
      *
      * @return New builder.
      */
-    public static <T> ComputeJobRunnerBuilder<T> builder() {
+    public static <T, R> ComputeJobRunnerBuilder<T, R> builder() {
         return new ComputeJobRunnerBuilder<>();
     }
 
     /**
      * Job submit parameters builder.
      */
-    public static class ComputeJobRunnerBuilder<T> {
+    public static class ComputeJobRunnerBuilder<T, R> {
         private final Set<ClusterNode> nodes = new HashSet<>();
 
-        private JobDescriptor<T, ?> jobDescriptor;
+        private JobDescriptor<T, R> jobDescriptor;
 
         private T args;
 
@@ -107,7 +107,7 @@ public class MapReduceJob<T> {
          * @param nodes A collection of candidate nodes.
          * @return Builder instance.
          */
-        public ComputeJobRunnerBuilder<T> nodes(Collection<ClusterNode> nodes) {
+        public ComputeJobRunnerBuilder<T, R> nodes(Collection<ClusterNode> nodes) {
             this.nodes.addAll(nodes);
             return this;
         }
@@ -118,7 +118,7 @@ public class MapReduceJob<T> {
          * @param node Candidate node.
          * @return Builder instance.
          */
-        public ComputeJobRunnerBuilder<T> node(ClusterNode node) {
+        public ComputeJobRunnerBuilder<T, R> node(ClusterNode node) {
             nodes.add(node);
             return this;
         }
@@ -129,7 +129,7 @@ public class MapReduceJob<T> {
          * @param jobDescriptor A job descriptor.
          * @return Builder instance.
          */
-        public ComputeJobRunnerBuilder<T> jobDescriptor(JobDescriptor<T, ?> jobDescriptor) {
+        public ComputeJobRunnerBuilder<T, R> jobDescriptor(JobDescriptor<T, R> jobDescriptor) {
             this.jobDescriptor = jobDescriptor;
             return this;
         }
@@ -140,7 +140,7 @@ public class MapReduceJob<T> {
          * @param args Arguments of the job.
          * @return Builder instance.
          */
-        public ComputeJobRunnerBuilder<T> args(T args) {
+        public ComputeJobRunnerBuilder<T, R> args(T args) {
             this.args = args;
             return this;
         }
@@ -150,12 +150,12 @@ public class MapReduceJob<T> {
          *
          * @return Description object.
          */
-        public MapReduceJob<T> build() {
+        public MapReduceJob<T, R> build() {
             if (nodes.isEmpty()) {
                 throw new IllegalArgumentException();
             }
 
-            return new MapReduceJob<T>(nodes, jobDescriptor, args);
+            return new MapReduceJob<>(nodes, jobDescriptor, args);
         }
     }
 }

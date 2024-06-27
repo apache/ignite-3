@@ -105,7 +105,7 @@ public class ComputeUtils {
      * @param <R> Map reduce task return type.
      * @return Map reduce task instance.
      */
-    public static <T, R> MapReduceTask<T, R> instantiateTask(Class<? extends MapReduceTask<T, R>> taskClass) {
+    public static <I, M, T, R> MapReduceTask<I, M, T, R> instantiateTask(Class<? extends MapReduceTask<I, M, T, R>> taskClass) {
         if (!(MapReduceTask.class.isAssignableFrom(taskClass))) {
             throw new ComputeException(
                     CLASS_INITIALIZATION_ERR,
@@ -114,7 +114,7 @@ public class ComputeUtils {
         }
 
         try {
-            Constructor<? extends MapReduceTask<T, R>> constructor = taskClass.getDeclaredConstructor();
+            Constructor<? extends MapReduceTask<I, M, T, R>> constructor = taskClass.getDeclaredConstructor();
 
             if (!constructor.canAccess(null)) {
                 constructor.setAccessible(true);
@@ -134,9 +134,9 @@ public class ComputeUtils {
      * @param <R> Map reduce task return type.
      * @return Map reduce task class.
      */
-    public static <T, R> Class<MapReduceTask<T, R>> taskClass(ClassLoader taskClassLoader, String taskClassName) {
+    public static <I, M, T, R> Class<MapReduceTask<I, M, T, R>> taskClass(ClassLoader taskClassLoader, String taskClassName) {
         try {
-            return (Class<MapReduceTask<T, R>>) Class.forName(taskClassName, true, taskClassLoader);
+            return (Class<MapReduceTask<I, M, T, R>>) Class.forName(taskClassName, true, taskClassLoader);
         } catch (ClassNotFoundException e) {
             throw new ComputeException(CLASS_INITIALIZATION_ERR, "Cannot load task class by name '" + taskClassName + "'", e);
         }

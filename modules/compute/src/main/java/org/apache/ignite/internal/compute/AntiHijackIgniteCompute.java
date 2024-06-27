@@ -50,19 +50,19 @@ public class AntiHijackIgniteCompute implements IgniteCompute, Wrapper {
     }
 
     @Override
-    public <T, R> JobExecution<R> submit(JobTarget target, JobDescriptor descriptor, T args) {
+    public <T, R> JobExecution<R> submit(JobTarget target, JobDescriptor<T, R> descriptor, T args) {
         return preventThreadHijack(compute.submit(target, descriptor, args));
     }
 
     @Override
-    public <T, R> R execute(JobTarget target, JobDescriptor descriptor, T args) {
+    public <T, R> R execute(JobTarget target, JobDescriptor<T, R> descriptor, T args) {
         return compute.execute(target, descriptor, args);
     }
 
     @Override
     public <T, R> Map<ClusterNode, JobExecution<R>> submitBroadcast(
             Set<ClusterNode> nodes,
-            JobDescriptor descriptor,
+            JobDescriptor<T, R> descriptor,
             T args
     ) {
         Map<ClusterNode, JobExecution<R>> results = compute.submitBroadcast(nodes, descriptor, args);
