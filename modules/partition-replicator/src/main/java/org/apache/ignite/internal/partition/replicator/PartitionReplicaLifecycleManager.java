@@ -726,6 +726,8 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
         // are excluded. It is calculated precisely as an intersection between forced assignments and (old) stable assignments.
         Assignments computedStableAssignments;
 
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-22600 remove the second condition
+        //  when we will have a proper handling of empty stable assignments
         if (stableAssignments == null || stableAssignments.nodes().isEmpty()) {
             // This condition can only pass if all stable nodes are dead, and we start new raft group from scratch.
             // In this case new initial configuration must match new forced assignments.
