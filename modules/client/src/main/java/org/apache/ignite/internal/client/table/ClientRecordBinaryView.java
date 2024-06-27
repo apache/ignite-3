@@ -33,7 +33,6 @@ import org.apache.ignite.client.RetryLimitPolicy;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
-import org.apache.ignite.marshaling.ByteArrayMarshaler;
 import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.ReceiverDescriptor;
@@ -445,7 +444,7 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
                 receiver.units(),
                 receiver.receiverClassName(),
                 receiverArgs,
-                ByteArrayMarshaler.create()
+                receiver.argumentsMarshaler()
         );
     }
 }

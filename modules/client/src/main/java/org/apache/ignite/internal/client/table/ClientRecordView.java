@@ -37,7 +37,6 @@ import org.apache.ignite.internal.marshaller.Marshaller;
 import org.apache.ignite.internal.marshaller.TupleReader;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.table.criteria.SqlRowProjection;
-import org.apache.ignite.marshaling.ByteArrayMarshaler;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.DataStreamerItem;
@@ -447,7 +446,7 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
                 receiver.units(),
                 receiver.receiverClassName(),
                 receiverArgs,
-                ByteArrayMarshaler.create()
+                receiver.argumentsMarshaler()
         );
     }
 

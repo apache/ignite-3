@@ -57,6 +57,7 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.TableNotFoundException;
+import org.apache.ignite.marshaling.ByteArrayMarshaler;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
@@ -464,7 +465,10 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
 
             Pojo resultPojo = client.compute().execute(
                     JobTarget.node(node(1).node()),
-                    JobDescriptor.builder(pojoJobClassName()).build(),
+                    JobDescriptor.builder(pojoJobClassName())
+                            .argumentMarshaller(ByteArrayMarshaler.create())
+                            .resultMarshaller(ByteArrayMarshaler.create())
+                            .build(),
                     argumentPojo
             );
 

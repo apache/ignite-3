@@ -20,6 +20,8 @@ package org.apache.ignite.internal.compute;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
+import org.apache.ignite.marshaling.ByteArrayMarshaler;
+import org.apache.ignite.marshaling.Marshaler;
 
 /**
  * Pojo job.
@@ -35,5 +37,15 @@ public class PojoJob implements ComputeJob<Pojo, Pojo> {
     @Override
     public CompletableFuture<Pojo> executeAsync(JobExecutionContext context, Pojo pojo) {
         return CompletableFuture.completedFuture(pojo);
+    }
+
+    @Override
+    public Marshaler<Pojo, byte[]> inputMarshaler() {
+        return ByteArrayMarshaler.create();
+    }
+
+    @Override
+    public Marshaler<Pojo, byte[]> resultMarshaler() {
+        return ByteArrayMarshaler.create();
     }
 }

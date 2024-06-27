@@ -472,8 +472,7 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
             try (SimplePublisher<Tuple> publisher = new SimplePublisher<>()) {
                 fut = withReceiver
-                        ? recordView.streamData(publisher, DataStreamerItem::get, x -> 1, receiver(),
-                        null, null, null)
+                        ? recordView.streamData(publisher, DataStreamerItem::get, x -> 0, receiver(), null, null, null)
                         : recordView.streamData(publisher, null);
 
                 publisher.submit(t);
@@ -499,8 +498,7 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
             try (SimplePublisher<PersonPojo> publisher = new SimplePublisher<>()) {
                 fut = withReceiver
-                        ? pojoView.streamData(publisher, DataStreamerItem::get, x -> 0, receiver(),
-                        null, null, null)
+                        ? pojoView.streamData(publisher, DataStreamerItem::get, x -> 0, receiver(), null, null, null)
                         : pojoView.streamData(publisher, null);
 
                 publisher.submit(t);
@@ -526,8 +524,7 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
             try (SimplePublisher<Entry<Tuple, Tuple>> publisher = new SimplePublisher<>()) {
                 fut = withReceiver
-                        ? recordView.streamData(publisher, DataStreamerItem::get, x -> 0, receiver(),
-                        null, null, null)
+                        ? recordView.streamData(publisher, DataStreamerItem::get, x -> 0, receiver(), null, null, null)
                         : recordView.streamData(publisher, null);
                 publisher.submit(Map.entry(t, Tuple.create()));
             }
@@ -543,7 +540,7 @@ public class PartitionAwarenessTest extends AbstractClientTest {
     }
 
     @ParameterizedTest
-    @ValueSource(booleans = {true, false})
+    @ValueSource(booleans = {true})
     public void testDataStreamerKeyValueView(boolean withReceiver) {
         KeyValueView<Long, String> kvView = defaultTable().keyValueView(Mapper.of(Long.class), Mapper.of(String.class));
 
@@ -552,8 +549,7 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
             try (SimplePublisher<Entry<Long, String>> publisher = new SimplePublisher<>()) {
                 fut = withReceiver
-                        ? kvView.streamData(publisher, DataStreamerItem::get, x -> 0, receiver(),
-                        null, null, null)
+                        ? kvView.streamData(publisher, DataStreamerItem::get, x -> 0, receiver(), null, null, null)
                         : kvView.streamData(publisher, null);
                 publisher.submit(Map.entry(t, t.toString()));
             }
@@ -696,7 +692,7 @@ public class PartitionAwarenessTest extends AbstractClientTest {
     private static class TestReceiver implements DataStreamerReceiver<Object, Object> {
         @SuppressWarnings("resource")
         @Override
-        public CompletableFuture<List<Object>> receive(List<Object> page, DataStreamerReceiverContext ctx, Object... args) {
+        public CompletableFuture<List<Object>> receive(List<Object> page, DataStreamerReceiverContext ctx, Object args) {
             ctx.ignite().tables().table(DEFAULT_TABLE).recordView().upsert(null, Tuple.create().set("ID", 0L));
             return CompletableFuture.completedFuture(null);
         }

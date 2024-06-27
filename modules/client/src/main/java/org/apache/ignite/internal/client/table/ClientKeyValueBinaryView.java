@@ -39,7 +39,6 @@ import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.table.criteria.SqlRowProjection;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.NullableValue;
-import org.apache.ignite.marshaling.ByteArrayMarshaler;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.DataStreamerItem;
@@ -514,7 +513,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
                 receiver.units(),
                 receiver.receiverClassName(),
                 receiverArgs,
-                ByteArrayMarshaler.create()
+                receiver.argumentsMarshaler()
         );
     }
 

@@ -39,28 +39,30 @@ public class StreamerReceiverSerializer {
      * @param receiverArgs Receiver arguments.
      * @param items Items.
      */
-    public static void serialize(ClientMessagePacker w, String receiverClassName, Object receiverArgs, Collection<?> items,
-            @Nullable Marshaler<Object, byte[]> marshaller) {
+    public static void serialize(ClientMessagePacker w, String receiverClassName, Object receiverArgs,
+            @Nullable Marshaler<Object, byte[]> receiverArgsMarshaler, Collection<?> items) {
         // className + args size + args + items size + item type + items.
-        int binaryTupleSize = 1 + 1 + 1 + 1 + 1 + items.size();
+        int binaryTupleSize = 1 + 1 + 3 + 1 + 1 + items.size();
         var builder = new BinaryTupleBuilder(binaryTupleSize);
         builder.appendString(receiverClassName);
 
-        ClientBinaryTupleUtils.appendObject(builder, receiverArgs, marshaller);
+        ClientBinaryTupleUtils.appendObject(builder, receiverArgs, receiverArgsMarshaler);
 
         ClientBinaryTupleUtils.appendCollectionToBinaryTuple(builder, items);
 
-        w.packObjectAsBinaryTuple(builder.build().array(), marshaller);
+        w.packInt(binaryTupleSize);
+        w.packBinaryTuple(builder);
     }
 
     /**
      * Deserializes streamer receiver info.
      *
      * @param bytes Bytes.
+     * @param elementCount Number of elements in the binary tuple.
      * @return Streamer receiver info.
      */
-    public static SteamerReceiverInfo deserialize(byte[] bytes) {
-        var reader = new BinaryTupleReader(bytes.length, bytes);
+    public static SteamerReceiverInfo deserialize(byte[] bytes, int elementCount) {
+        var reader = new BinaryTupleReader(elementCount, bytes);
 
         int readerIndex = 0;
         String receiverClassName = reader.stringValue(readerIndex++);
@@ -69,13 +71,7 @@ public class StreamerReceiverSerializer {
             throw new IgniteException(PROTOCOL_ERR, "Receiver class name is null");
         }
 
-        int receiverArgsCount = reader.intValue(readerIndex++);
-
-        Object[] receiverArgs = new Object[receiverArgsCount];
-        for (int i = 0; i < receiverArgsCount; i++) {
-            receiverArgs[i] = ClientBinaryTupleUtils.readObject(reader, readerIndex);
-            readerIndex += 3;
-        }
+        Object receiverArgs = ClientBinaryTupleUtils.readObject(reader, readerIndex);
 
         List<Object> items = ClientBinaryTupleUtils.readCollectionFromBinaryTuple(reader, readerIndex);
 
@@ -89,7 +85,7 @@ public class StreamerReceiverSerializer {
      * @param receiverResults Receiver results.
      */
     public static void serializeResults(ClientMessagePacker w, @Nullable List<Object> receiverResults) {
-        if (receiverResults == null || receiverResults.isEmpty()) {
+        if (receiverResults == null) {
             w.packNil();
             return;
         }
@@ -125,10 +121,10 @@ public class StreamerReceiverSerializer {
      */
     public static class SteamerReceiverInfo {
         private final String className;
-        private final Object[] args;
+        private final Object args;
         private final List<Object> items;
 
-        private SteamerReceiverInfo(String className, Object[] args, List<Object> items) {
+        private SteamerReceiverInfo(String className, Object args, List<Object> items) {
             this.className = className;
             this.args = args;
             this.items = items;
@@ -148,7 +144,7 @@ public class StreamerReceiverSerializer {
          *
          * @return Receiver args.
          */
-        public Object[] args() {
+        public Object args() {
             return args;
         }
 

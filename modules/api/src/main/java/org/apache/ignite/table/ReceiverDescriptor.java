@@ -20,6 +20,8 @@ package org.apache.ignite.table;
 import java.util.List;
 import java.util.Objects;
 import org.apache.ignite.compute.DeploymentUnit;
+import org.apache.ignite.marshaling.Marshaler;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Data streamer receiver descriptor.
@@ -29,12 +31,17 @@ public class ReceiverDescriptor {
 
     private final List<DeploymentUnit> units;
 
-    private ReceiverDescriptor(String receiverClassName, List<DeploymentUnit> units) {
+    private final @Nullable Marshaler<Object, byte[]> argumentsMarshaler;
+
+    private ReceiverDescriptor(
+            String receiverClassName, List<DeploymentUnit> units, @Nullable Marshaler<Object, byte[]> argumentsMarshaler
+    ) {
         Objects.requireNonNull(receiverClassName);
         Objects.requireNonNull(units);
 
         this.receiverClassName = receiverClassName;
         this.units = units;
+        this.argumentsMarshaler = argumentsMarshaler;
     }
 
     /**
@@ -77,12 +84,18 @@ public class ReceiverDescriptor {
         return new Builder(receiverClass.getName());
     }
 
+    public @Nullable Marshaler<Object, byte[]> argumentsMarshaler() {
+        return argumentsMarshaler;
+    }
+
     /**
      * Builder.
      */
     public static class Builder {
         private final String receiverClassName;
         private List<DeploymentUnit> units;
+        private @Nullable Marshaler<Object, byte[]> argumentsMarshaller;
+
 
         private Builder(String receiverClassName) {
             Objects.requireNonNull(receiverClassName);
@@ -112,6 +125,11 @@ public class ReceiverDescriptor {
             return this;
         }
 
+        public Builder argumentsMarshaler(@Nullable Marshaler<Object, byte[]> argumentsMarshaller) {
+            this.argumentsMarshaller = argumentsMarshaller;
+            return this;
+        }
+
         /**
          * Builds the receiver descriptor.
          *
@@ -120,7 +138,9 @@ public class ReceiverDescriptor {
         public ReceiverDescriptor build() {
             return new ReceiverDescriptor(
                     receiverClassName,
-                    units == null ? List.of() : units);
+                    units == null ? List.of() : units,
+                    argumentsMarshaller
+            );
         }
     }
 }

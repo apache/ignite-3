@@ -50,9 +50,9 @@ public class ClientStreamerWithReceiverBatchSendRequest {
     /**
      * Processes the request.
      *
-     * @param in        Unpacker.
-     * @param out       Packer.
-     * @param tables    Ignite tables.
+     * @param in Unpacker.
+     * @param out Packer.
+     * @param tables Ignite tables.
      * @return Future.
      */
     public static CompletableFuture<Void> process(
@@ -67,7 +67,17 @@ public class ClientStreamerWithReceiverBatchSendRequest {
             boolean returnResults = in.unpackBoolean();
 
             // Payload = binary tuple of (receiverClassName, receiverArgs, items). We pass it to the job without deserialization.
+            int payloadElementCount = in.unpackInt();
             byte[] payload = in.readBinary();
+
+            byte[] encodedPayload = new byte[payload.length + 4];
+            encodedPayload[0] = (byte) ((payloadElementCount >> 24) & 0xFF); // Most significant byte
+            encodedPayload[1] = (byte) ((payloadElementCount >> 16) & 0xFF);
+            encodedPayload[2] = (byte) ((payloadElementCount >> 8) & 0xFF);
+            encodedPayload[3] = (byte) (payloadElementCount & 0xFF); // Least significant byte
+
+            // Copy the payload into the remaining part of encodedPayload
+            System.arraycopy(payload, 0, encodedPayload, 4, payload.length);
 
             return table.partitionManager().primaryReplicaAsync(new HashPartition(partition)).thenCompose(primaryReplica -> {
                 // Use Compute to execute receiver on the target node with failover, class loading, scheduling.
@@ -76,7 +86,7 @@ public class ClientStreamerWithReceiverBatchSendRequest {
                         deploymentUnits,
                         ReceiverRunnerJob.class.getName(),
                         JobExecutionOptions.DEFAULT,
-                        payload);
+                        encodedPayload);
 
                 return jobExecution.resultAsync()
                         .handle((res, err) -> {
@@ -101,7 +111,15 @@ public class ClientStreamerWithReceiverBatchSendRequest {
     private static class ReceiverRunnerJob implements ComputeJob<byte[], List<Object>> {
         @Override
         public @Nullable CompletableFuture<List<Object>> executeAsync(JobExecutionContext context, byte[] payload) {
-            var receiverInfo = StreamerReceiverSerializer.deserialize(payload);
+            // Combine the first four bytes into an integer
+            int payloadElementCount = ((payload[0] & 0xFF) << 24) | ((payload[1] & 0xFF) << 16)
+                    | ((payload[2] & 0xFF) << 8) | (payload[3] & 0xFF);
+
+            byte[] remainingBytes = new byte[payload.length - 4];
+            // Copy the remaining bytes to the new array
+            System.arraycopy(payload, 4, remainingBytes, 0, remainingBytes.length);
+
+            var receiverInfo = StreamerReceiverSerializer.deserialize(remainingBytes, payloadElementCount);
 
             ClassLoader classLoader = ((JobExecutionContextImpl) context).classLoader();
             Class<DataStreamerReceiver<Object, Object>> receiverClass = ComputeUtils.receiverClass(classLoader, receiverInfo.className());

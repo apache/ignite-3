@@ -47,5 +47,5 @@ public interface DataStreamerReceiver<T, R> {
     @Nullable CompletableFuture<List<R>> receive(
             List<T> page,
             DataStreamerReceiverContext ctx,
-            Object... args);
+            Object args);
 }

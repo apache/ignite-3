@@ -75,7 +75,7 @@ class ClientDataStreamer {
             List<DeploymentUnit> deploymentUnits,
             String receiverClassName,
             Object receiverArgs,
-            @Nullable Marshaler<Object, byte[]> marshaller
+            @Nullable Marshaler<Object, byte[]> receiverArgsMarshaller
     ) {
         StreamerBatchSender<V, Integer, R> batchSender = (partitionId, items, deleted) ->
                 tbl.getPartitionAssignment().thenCompose(
@@ -90,7 +90,7 @@ class ClientDataStreamer {
                                     w.packDeploymentUnits(deploymentUnits);
                                     w.packBoolean(resultSubscriber != null); // receiveResults
 
-                                    StreamerReceiverSerializer.serialize(w, receiverClassName, receiverArgs, items, marshaller);
+                                    StreamerReceiverSerializer.serialize(w, receiverClassName, receiverArgs, receiverArgsMarshaller, items);
                                 },
                                 in -> resultSubscriber != null
                                         ? StreamerReceiverSerializer.deserializeResults(in.in())

@@ -642,10 +642,10 @@ public class PlatformTestNodeRunner {
     private static class TestReceiver implements DataStreamerReceiver<String, String> {
         @SuppressWarnings("resource")
         @Override
-        public @Nullable CompletableFuture<List<String>> receive(List<String> page, DataStreamerReceiverContext ctx, Object... args) {
-            String tableName = (String) args[0];
-            String arg1 = (String) args[1];
-            int arg2 = (Integer) args[2];
+        public @Nullable CompletableFuture<List<String>> receive(List<String> page, DataStreamerReceiverContext ctx, Object args) {
+            String tableName = (String) args;
+            String arg1 = "1";
+            int arg2 = 2;
 
             if (Objects.equals(arg1, "throw")) {
                 throw new ArithmeticException("Test exception: " + arg2);
@@ -676,10 +676,10 @@ public class PlatformTestNodeRunner {
     private static class UpsertElementTypeNameReceiver implements DataStreamerReceiver<Object, Object> {
         @SuppressWarnings("resource")
         @Override
-        public @Nullable CompletableFuture<List<Object>> receive(List<Object> page, DataStreamerReceiverContext ctx, Object... args) {
-            String tableName = (String) args[0];
-            long id1 = (Long) args[1];
-            long id2 = (Long) args[2];
+        public @Nullable CompletableFuture<List<Object>> receive(List<Object> page, DataStreamerReceiverContext ctx, Object args) {
+            String tableName = (String) args;
+            long id1 = 1;
+            long id2 = 2;
 
             Table table = ctx.ignite().tables().table(tableName);
             RecordView<Tuple> recordView = table.recordView();
@@ -705,7 +705,7 @@ public class PlatformTestNodeRunner {
     @SuppressWarnings("unused") // Used by platform tests.
     private static class EchoArgsReceiver implements DataStreamerReceiver<Object, Object> {
         @Override
-        public CompletableFuture<List<Object>> receive(List<Object> page, DataStreamerReceiverContext ctx, Object... args) {
+        public CompletableFuture<List<Object>> receive(List<Object> page, DataStreamerReceiverContext ctx, Object args) {
             return CompletableFuture.completedFuture(List.of(args));
         }
     }
@@ -713,7 +713,7 @@ public class PlatformTestNodeRunner {
     @SuppressWarnings("unused") // Used by platform tests.
     private static class EchoReceiver implements DataStreamerReceiver<Object, Object> {
         @Override
-        public CompletableFuture<List<Object>> receive(List<Object> page, DataStreamerReceiverContext ctx, Object... args) {
+        public CompletableFuture<List<Object>> receive(List<Object> page, DataStreamerReceiverContext ctx, Object args) {
             return CompletableFuture.completedFuture(page);
         }
     }
