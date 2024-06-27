@@ -30,19 +30,13 @@ import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTargetFactory
  * <p>See javadoc of {@link ExecutionTargetFactory#oneOf(List)} for details.
  */
 class OneOfTarget extends AbstractTarget {
-
     OneOfTarget(long nodes) {
         super(nodes);
     }
 
     @Override
-    boolean finalised() {
-        return isPow2(nodes);
-    }
-
-    @Override
     public ExecutionTarget finalise() {
-        if (finalised()) {
+        if (isPow2(nodes)) {
             return this;
         }
 

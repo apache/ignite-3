@@ -15,6 +15,9 @@
  * limitations under the License.
  */
 
+#define _USE_MATH_DEFINES
+#include <cmath>
+
 #include "binary_tuple_builder.h"
 #include "binary_tuple_parser.h"
 
@@ -317,7 +320,7 @@ TEST(tuple, AllTypesExtended) {
     static constexpr std::size_t COUNT = 1000;
 
     std::random_device rd;
-    std::uniform_int_distribution<char> dist;
+    std::uniform_int_distribution<short> dist;
 
     for (std::size_t i = 0; i < COUNT; i++) {
         int sign = (i % 2) ? -1 : 1;
@@ -336,7 +339,7 @@ TEST(tuple, AllTypesExtended) {
 
         std::string buffer;
         buffer.resize(i % 100 + 1);
-        std::generate(buffer.begin(), buffer.end(), [&]() { return dist(rd); });
+        std::generate(buffer.begin(), buffer.end(), [&]() { return char(dist(rd) % 128); });
 
         bool v1 = (i % 2 == 0);
         int8_t v2 = int8_t(i % std::numeric_limits<int8_t>::max()) * sign;

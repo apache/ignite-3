@@ -80,5 +80,15 @@ public class EmptyCacheFactory implements CacheFactory {
         public void removeIfValue(Predicate<? super V> valueFilter) {
             // NO-OP.
         }
+
+        @Override
+        public void invalidate(K key) {
+            // NO-OP.
+        }
+
+        @Override
+        public int size() {
+            return 0;
+        }
     }
 }

@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.metastorage.server.raft;
 
 import static java.util.Objects.requireNonNull;
+import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
+import static org.apache.ignite.internal.util.ByteUtils.toByteArrayList;
 
 import java.io.Serializable;
 import java.nio.file.Path;
@@ -90,16 +92,16 @@ public class MetaStorageListener implements RaftGroupListener, BeforeApplyHandle
                     GetCommand getCmd = (GetCommand) command;
 
                     Entry e = getCmd.revision() == MetaStorageManager.LATEST_REVISION
-                            ? storage.get(getCmd.key())
-                            : storage.get(getCmd.key(), getCmd.revision());
+                            ? storage.get(toByteArray(getCmd.key()))
+                            : storage.get(toByteArray(getCmd.key()), getCmd.revision());
 
                     clo.result(e);
                 } else if (command instanceof GetAllCommand) {
                     GetAllCommand getAllCmd = (GetAllCommand) command;
 
                     Collection<Entry> entries = getAllCmd.revision() == MetaStorageManager.LATEST_REVISION
-                            ? storage.getAll(getAllCmd.keys())
-                            : storage.getAll(getAllCmd.keys(), getAllCmd.revision());
+                            ? storage.getAll(toByteArrayList(getAllCmd.keys()))
+                            : storage.getAll(toByteArrayList(getAllCmd.keys()), getAllCmd.revision());
 
                     clo.result((Serializable) entries);
                 } else if (command instanceof GetRangeCommand) {
@@ -108,20 +110,22 @@ public class MetaStorageListener implements RaftGroupListener, BeforeApplyHandle
                     byte[] previousKey = rangeCmd.previousKey();
 
                     byte[] keyFrom = previousKey == null
-                            ? rangeCmd.keyFrom()
+                            ? toByteArray(rangeCmd.keyFrom())
                             : requireNonNull(storage.nextKey(previousKey));
 
-                    clo.result(handlePaginationCommand(keyFrom, rangeCmd.keyTo(), rangeCmd));
+                    byte @Nullable [] keyTo = rangeCmd.keyTo() == null ? null : toByteArray(rangeCmd.keyTo());
+
+                    clo.result(handlePaginationCommand(keyFrom, keyTo, rangeCmd));
                 } else if (command instanceof GetPrefixCommand) {
                     var prefixCmd = (GetPrefixCommand) command;
 
                     byte[] previousKey = prefixCmd.previousKey();
 
-                    byte[] keyFrom = previousKey == null
-                            ? prefixCmd.prefix()
-                            : requireNonNull(storage.nextKey(previousKey));
+                    byte[] prefix = toByteArray(prefixCmd.prefix());
 
-                    byte[] keyTo = storage.nextKey(prefixCmd.prefix());
+                    byte[] keyFrom = previousKey == null ? prefix : requireNonNull(storage.nextKey(previousKey));
+
+                    byte[] keyTo = storage.nextKey(prefix);
 
                     clo.result(handlePaginationCommand(keyFrom, keyTo, prefixCmd));
                 } else if (command instanceof GetCurrentRevisionCommand) {

@@ -59,7 +59,6 @@ public class FakeIgnite implements Ignite {
      * @param name Name.
      */
     public FakeIgnite(String name) {
-        super();
         this.name = name;
     }
 
@@ -108,12 +107,6 @@ public class FakeIgnite implements Ignite {
     @Override
     public IgniteCatalog catalog() {
         return new IgniteCatalogSqlImpl(sql(), tables);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void close() {
-        // No-op.
     }
 
     /** {@inheritDoc} */

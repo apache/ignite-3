@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.metastorage.command;
 
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -33,7 +34,7 @@ public interface GetAllCommand extends ReadCommand {
     /**
      * Returns the list of keys.
      */
-    List<byte[]> keys();
+    List<ByteBuffer> keys();
 
     /**
      * Returns the upper bound for entry revisions or {@link MetaStorageManager#LATEST_REVISION} for no revision bound.
@@ -48,10 +49,10 @@ public interface GetAllCommand extends ReadCommand {
      * @param revUpperBound The upper bound for entry revisions. Must be positive.
      */
     static GetAllCommand getAllCommand(MetaStorageCommandsFactory commandsFactory, Set<ByteArray> keys, long revUpperBound) {
-        List<byte[]> keysList = new ArrayList<>(keys.size());
+        var keysList = new ArrayList<ByteBuffer>(keys.size());
 
         for (ByteArray key : keys) {
-            keysList.add(key.bytes());
+            keysList.add(ByteBuffer.wrap(key.bytes()));
         }
 
         return commandsFactory.getAllCommand().keys(keysList).revision(revUpperBound).build();

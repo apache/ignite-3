@@ -23,6 +23,7 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import org.apache.ignite.internal.sql.engine.exec.NodeWithConsistencyToken;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationMappingException;
@@ -38,6 +39,8 @@ abstract class AbstractTarget implements ExecutionTarget {
     final long nodes;
 
     AbstractTarget(long nodes) {
+        assert nodes != 0 : "Empty target is not allowed";
+
         this.nodes = nodes;
     }
 
@@ -85,7 +88,16 @@ abstract class AbstractTarget implements ExecutionTarget {
         return result;
     }
 
-    abstract boolean finalised();
+    /**
+     * Finalises target by choosing exactly one node for targets with multiple options.
+     *
+     * <p>Some targets may have several options, so we have to pick one in order to get
+     * correct results. Call to this methods resolves this ambiguity by truncating all
+     * but one option. Which exactly option will be left is implementation defined.
+     *
+     * @return Finalised target.
+     */
+    abstract ExecutionTarget finalise();
 
     abstract ExecutionTarget colocate(AllOfTarget other) throws ColocationMappingException;
 
@@ -144,11 +156,24 @@ abstract class AbstractTarget implements ExecutionTarget {
             throw new ColocationMappingException("Targets are not colocated");
         }
 
-        if (!isPow2((partitioned.nodes))) {
-            throw new ColocationMappingException("Targets are not colocated");
+        if (isPow2((partitioned.nodes))) {
+            return partitioned; // All partitions on single node.
         }
 
-        return partitioned;
+        long colocatedNodes = oneOf.nodes;
+        for (int partNo = 0; partNo < partitioned.partitionsNodes.length; partNo++) {
+            colocatedNodes &= partitioned.partitionsNodes[partNo];
+
+            if (colocatedNodes == 0) {
+                throw new ColocationMappingException("Targets are not colocated");
+            }
+        }
+
+        boolean finalised = isPow2(colocatedNodes);
+        long[] newNodes = new long[partitioned.partitionsNodes.length];
+        Arrays.fill(newNodes, colocatedNodes);
+
+        return new PartitionedTarget(finalised, newNodes, partitioned.enlistmentConsistencyTokens);
     }
 
     static ExecutionTarget colocate(OneOfTarget oneOf, SomeOfTarget someOf) throws ColocationMappingException {
@@ -175,12 +200,13 @@ abstract class AbstractTarget implements ExecutionTarget {
                 throw new ColocationMappingException("Targets are not colocated");
             }
 
-            if (partitioned.enlistmentConsistencyTokens[partNo] != otherPartitioned.enlistmentConsistencyTokens[partNo]) {
-                throw new ColocationMappingException("Partitioned targets have different terms");
-            }
-
             newPartitionsNodes[partNo] = newNodes;
             finalised = finalised && isPow2(newNodes);
+        }
+
+
+        if (!Arrays.equals(partitioned.enlistmentConsistencyTokens, otherPartitioned.enlistmentConsistencyTokens)) {
+            throw new ColocationMappingException("Partitioned targets have different terms");
         }
 
         return new PartitionedTarget(finalised, newPartitionsNodes, partitioned.enlistmentConsistencyTokens);

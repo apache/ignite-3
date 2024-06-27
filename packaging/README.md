@@ -23,11 +23,11 @@ The layout of the packages is as follows:
     * contains jars under `lib` directory
 * ignite3-client:
   * DEB,RPM:
-    * installs headers under `/usr/include/ignite/*`
-    * installs library under `/usr/lib/libignite-client.so`
+    * installs headers under `/usr/include/ignite3/*`
+    * installs library under `/usr/lib/libignite3-client.so`
   * ZIP
     * contains headers under `include` direcotry
-    * contains library `libignite-client.so` under `lib`
+    * contains library `libignite3-client.so` under `lib`
 * ignite3-dotnet-client:
   * DEB,RPM:
     * installs library, symbols and definitions under `/usr/lib/ignite3-dotnet-client`

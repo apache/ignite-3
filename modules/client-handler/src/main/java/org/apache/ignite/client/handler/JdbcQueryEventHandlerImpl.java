@@ -142,7 +142,13 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
         }
 
         InternalTransaction tx = req.autoCommit() ? null : connectionContext.getOrStartTransaction();
-        SqlProperties properties = createProperties(req.getStmtType(), req.multiStatement(), connectionContext.timeZoneId());
+
+        JdbcStatementType reqStmtType = req.getStmtType();
+        boolean multiStatement = req.multiStatement();
+        ZoneId timeZoneId = connectionContext.timeZoneId();
+        long timeoutMillis = req.queryTimeoutMillis();
+
+        SqlProperties properties = createProperties(reqStmtType, multiStatement, timeZoneId, timeoutMillis);
 
         CompletableFuture<AsyncSqlCursor<InternalSqlRow>> result = processor.queryAsync(
                 properties,
@@ -156,7 +162,12 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
                 .exceptionally(t -> createErrorResult("Exception while executing query [query=" + req.sqlQuery() + "]", t, null));
     }
 
-    private static SqlProperties createProperties(JdbcStatementType stmtType, boolean multiStatement, ZoneId timeZoneId) {
+    private static SqlProperties createProperties(
+            JdbcStatementType stmtType, 
+            boolean multiStatement, 
+            ZoneId timeZoneId,
+            long queryTimeoutMillis
+    ) {
         Set<SqlQueryType> allowedTypes;
 
         switch (stmtType) {
@@ -176,6 +187,7 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
         return SqlPropertiesHelper.newBuilder()
                 .set(QueryProperty.ALLOWED_QUERY_TYPES, allowedTypes)
                 .set(QueryProperty.TIME_ZONE_ID, timeZoneId)
+                .set(QueryProperty.QUERY_TIMEOUT, queryTimeoutMillis)
                 .build();
     }
 
@@ -193,14 +205,19 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
         var queries = req.queries();
         var counters = new IntArrayList(req.queries().size());
         var tail = CompletableFuture.completedFuture(counters);
+        long queryTimeoutMillis = req.queryTimeoutMillis();
 
         for (String query : queries) {
-            tail = tail.thenCompose(list -> executeAndCollectUpdateCount(connectionContext, tx, query, OBJECT_EMPTY_ARRAY)
-                    .thenApply(cnt -> {
-                        list.add(cnt > Integer.MAX_VALUE ? Statement.SUCCESS_NO_INFO : cnt.intValue());
+            tail = tail.thenCompose(list -> executeAndCollectUpdateCount(
+                    connectionContext,
+                    tx, query,
+                    OBJECT_EMPTY_ARRAY,
+                    queryTimeoutMillis
+            ).thenApply(cnt -> {
+                list.add(cnt > Integer.MAX_VALUE ? Statement.SUCCESS_NO_INFO : cnt.intValue());
 
-                        return list;
-                    }));
+                return list;
+            }));
         }
 
         return tail.handle((ignored, t) -> {
@@ -226,9 +243,10 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
         var argList = req.getArgs();
         var counters = new IntArrayList(req.getArgs().size());
         var tail = CompletableFuture.completedFuture(counters);
+        long timeoutMillis = req.queryTimeoutMillis();
 
         for (Object[] args : argList) {
-            tail = tail.thenCompose(list -> executeAndCollectUpdateCount(connectionContext, tx, req.getQuery(), args)
+            tail = tail.thenCompose(list -> executeAndCollectUpdateCount(connectionContext, tx, req.getQuery(), args, timeoutMillis)
                     .thenApply(cnt -> {
                         list.add(cnt > Integer.MAX_VALUE ? Statement.SUCCESS_NO_INFO : cnt.intValue());
 
@@ -249,13 +267,14 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
             JdbcConnectionContext context,
             @Nullable InternalTransaction tx,
             String sql,
-            Object[] arg
-    ) {
+            Object[] arg,
+            long timeoutMillis) {
+
         if (!context.valid()) {
             return CompletableFuture.failedFuture(new IgniteInternalException(CONNECTION_ERR, "Connection is closed"));
         }
 
-        SqlProperties properties = createProperties(JdbcStatementType.UPDATE_STATEMENT_TYPE, false, context.timeZoneId());
+        SqlProperties properties = createProperties(JdbcStatementType.UPDATE_STATEMENT_TYPE, false, context.timeZoneId(), timeoutMillis);
 
         CompletableFuture<AsyncSqlCursor<InternalSqlRow>> result = processor.queryAsync(
                 properties,

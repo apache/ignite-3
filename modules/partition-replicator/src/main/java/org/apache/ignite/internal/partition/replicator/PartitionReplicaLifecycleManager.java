@@ -42,6 +42,7 @@ import static org.apache.ignite.internal.lang.IgniteSystemProperties.getBoolean;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.raft.PeersAndLearners.fromAssignments;
+import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
@@ -338,7 +339,7 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
                 partitionAssignments.add(op);
             }
 
-            Condition condition = notExists(new ByteArray(partitionAssignments.get(0).key()));
+            Condition condition = notExists(new ByteArray(toByteArray(partitionAssignments.get(0).key())));
 
             return metaStorageMgr
                     .invoke(condition, partitionAssignments, Collections.emptyList())

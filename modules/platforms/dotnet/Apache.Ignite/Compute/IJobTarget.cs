@@ -15,17 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal;
+namespace Apache.Ignite.Compute;
 
-import org.apache.ignite.internal.junit.StopAllIgnitesAfterTests;
-import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.junit.jupiter.api.extension.ExtendWith;
-
-/**
- * A test that starts some Ignite instances (and cleans them up later if they are forgotten).
- */
-// The order is important here.
-@ExtendWith({WorkDirectoryExtension.class, StopAllIgnitesAfterTests.class})
-public abstract class IgniteIntegrationTest extends BaseIgniteAbstractTest {
+/// <summary>
+/// Compute job target.
+/// </summary>
+/// <typeparam name="T">Underlying data type.</typeparam>
+public interface IJobTarget<out T>
+    where T : notnull
+{
+    /// <summary>
+    /// Gets the target data.
+    /// </summary>
+    T Data { get; }
 }
