@@ -144,7 +144,7 @@ public class Loza implements RaftManager {
 
     /**
      * Sets {@link AppendEntriesRequestInterceptor} to use. Should only be called from the same thread that is used
-     * to {@link #startAsync()} the component.
+     * to {@link #startAsync(ComponentContext)} the component.
      *
      * @param appendEntriesRequestInterceptor Interceptor to use.
      */
@@ -154,7 +154,7 @@ public class Loza implements RaftManager {
 
     /**
      * Sets {@link ActionRequestInterceptor} to use. Should only be called from the same thread that is used
-     * to {@link #startAsync()} the component.
+     * to {@link #startAsync(ComponentContext)} the component.
      *
      * @param actionRequestInterceptor Interceptor to use.
      */
@@ -290,11 +290,14 @@ public class Loza implements RaftManager {
             RaftNodeId nodeId,
             PeersAndLearners configuration,
             RaftGroupListener lsnr,
-            RaftGroupEventsListener eventsLsnr
+            RaftGroupEventsListener eventsLsnr,
+            RaftOptionsConfigurator storageConfigurator
     ) throws NodeStoppingException {
-        CompletableFuture<RaftGroupService> fut = startRaftGroupNode(nodeId, configuration, lsnr, eventsLsnr, RaftGroupOptions.defaults());
+        RaftGroupOptions raftOptions = RaftGroupOptions.defaults();
 
-        return fut;
+        storageConfigurator.configure(raftOptions);
+
+        return startRaftGroupNode(nodeId, configuration, lsnr, eventsLsnr, raftOptions);
     }
 
     @Override
@@ -303,9 +306,18 @@ public class Loza implements RaftManager {
             PeersAndLearners configuration,
             RaftGroupListener lsnr,
             RaftGroupEventsListener eventsLsnr,
-            RaftNodeDisruptorConfiguration disruptorConfiguration
+            RaftNodeDisruptorConfiguration disruptorConfiguration,
+            RaftOptionsConfigurator storageConfigurator
     ) throws NodeStoppingException {
-        return startRaftGroupNodeAndWaitNodeReadyFuture(nodeId, configuration, lsnr, eventsLsnr, disruptorConfiguration, null);
+        return startRaftGroupNodeAndWaitNodeReadyFuture(
+                nodeId,
+                configuration,
+                lsnr,
+                eventsLsnr,
+                disruptorConfiguration,
+                null,
+                storageConfigurator
+        );
     }
 
     @Override
@@ -315,25 +327,29 @@ public class Loza implements RaftManager {
             RaftGroupListener lsnr,
             RaftGroupEventsListener eventsLsnr,
             RaftNodeDisruptorConfiguration disruptorConfiguration,
-            @Nullable RaftServiceFactory<T> factory
+            @Nullable RaftServiceFactory<T> factory,
+            RaftOptionsConfigurator storageConfigurator
     ) throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
             throw new NodeStoppingException();
         }
 
         try {
-            CompletableFuture<T> startRaftServiceFuture = startRaftGroupNodeInternal(
+            RaftGroupOptions raftGroupOptions = RaftGroupOptions.defaults();
+
+            storageConfigurator.configure(raftGroupOptions);
+
+            raftGroupOptions.ownFsmCallerExecutorDisruptorConfig(disruptorConfiguration);
+
+            return startRaftGroupNodeInternal(
                     nodeId,
                     configuration,
                     lsnr,
                     eventsLsnr,
                     // Use default marshaller here, because this particular method is used in very specific circumstances.
-                    RaftGroupOptions.defaults()
-                            .ownFsmCallerExecutorDisruptorConfig(disruptorConfiguration),
+                    raftGroupOptions,
                     factory
             );
-
-            return startRaftServiceFuture;
         } finally {
             busyLock.leaveBusy();
         }

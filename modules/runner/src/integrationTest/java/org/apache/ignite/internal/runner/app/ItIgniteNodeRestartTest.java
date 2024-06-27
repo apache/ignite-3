@@ -149,6 +149,7 @@ import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftNodeId;
+import org.apache.ignite.internal.raft.RaftOptionsConfigurator;
 import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
@@ -380,7 +381,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 clusterManagementConfiguration,
                 new NodeAttributesCollector(nodeAttributes,
                         nodeCfgMgr.configurationRegistry().getConfiguration(StorageConfiguration.KEY)),
-                failureProcessor
+                failureProcessor,
+                RaftOptionsConfigurator.EMPTY
         );
 
         LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier

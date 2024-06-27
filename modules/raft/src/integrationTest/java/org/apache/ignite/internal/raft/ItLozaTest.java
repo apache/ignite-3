@@ -86,7 +86,13 @@ public class ItLozaTest extends BaseIgniteAbstractTest {
 
         var nodeId = new RaftNodeId(groupId, configuration.peer(node.name()));
 
-        return loza.startRaftGroupNodeAndWaitNodeReadyFuture(nodeId, configuration, raftGroupListener, RaftGroupEventsListener.noopLsnr)
+        return loza.startRaftGroupNodeAndWaitNodeReadyFuture(
+                        nodeId,
+                        configuration,
+                        raftGroupListener,
+                        RaftGroupEventsListener.noopLsnr,
+                        RaftOptionsConfigurator.EMPTY
+                )
                 .get(10, TimeUnit.SECONDS);
     }
 

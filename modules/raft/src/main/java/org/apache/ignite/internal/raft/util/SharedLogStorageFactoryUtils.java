@@ -30,27 +30,26 @@ import org.apache.ignite.raft.jraft.storage.logit.option.StoreOptions;
 /** Utility methods for creating {@link LogStorageFactory}is for the Shared Log. */
 public class SharedLogStorageFactoryUtils {
     /**
-     * Enables logit log storage. {@code false} by default.
-     * This is a temporary property, that should only be used for testing and comparing the two storages.
+     * Enables logit log storage. {@code false} by default. This is a temporary property, that should only be used for testing and comparing
+     * the two storages.
      */
     public static final String LOGIT_STORAGE_ENABLED_PROPERTY = "LOGIT_STORAGE_ENABLED";
 
     /** Creates a LogStorageFactory with the {@link DefaultLogStorageFactory} implementation. */
     public static LogStorageFactory create(String nodeName, Path workDir, RaftConfiguration raftConfiguration) {
-        return create(nodeName, workDir, raftConfiguration, DefaultLogStorageFactory::new);
+        Supplier<Path> logStoragePath = () -> raftConfiguration.logPath().value().isEmpty()
+                ? workDir.resolve("log")
+                : Path.of(raftConfiguration.logPath().value());
+
+        return create(nodeName, logStoragePath, DefaultLogStorageFactory::new);
     }
 
     /** Creates a LogStorageFactory with the provided factory or the {@link LogitLogStorageFactory} implementation. */
     public static LogStorageFactory create(
             String nodeName,
-            Path workDir,
-            RaftConfiguration raftConfiguration,
+            Supplier<Path> logStoragePath,
             BiFunction<String, Supplier<Path>, LogStorageFactory> baseFactory
     ) {
-        Supplier<Path> logStoragePath = () -> raftConfiguration.logPath().value().isEmpty()
-                ? workDir.resolve("log")
-                : Path.of(raftConfiguration.logPath().value());
-
         return IgniteSystemProperties.getBoolean(LOGIT_STORAGE_ENABLED_PROPERTY, false)
                 ? new LogitLogStorageFactory(nodeName, new StoreOptions(), logStoragePath)
                 : baseFactory.apply(nodeName, logStoragePath);

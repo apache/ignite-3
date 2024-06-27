@@ -79,6 +79,7 @@ import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.RaftNodeId;
+import org.apache.ignite.internal.raft.RaftOptionsConfigurator;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -148,6 +149,8 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
     /** Failure processor that is used to handle critical errors. */
     private final FailureProcessor failureProcessor;
 
+    private final RaftOptionsConfigurator raftOptionsConfigurator;
+
     /** Constructor. */
     public ClusterManagementGroupManager(
             VaultManager vault,
@@ -158,7 +161,8 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
             LogicalTopology logicalTopology,
             ClusterManagementConfiguration configuration,
             NodeAttributes nodeAttributes,
-            FailureProcessor failureProcessor
+            FailureProcessor failureProcessor,
+            RaftOptionsConfigurator raftOptionsConfigurator
     ) {
         this.clusterService = clusterService;
         this.clusterInitializer = clusterInitializer;
@@ -169,6 +173,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
         this.localStateStorage = new LocalStateStorage(vault);
         this.nodeAttributes = nodeAttributes;
         this.failureProcessor = failureProcessor;
+        this.raftOptionsConfigurator = raftOptionsConfigurator;
 
         scheduledExecutor = Executors.newSingleThreadScheduledExecutor(
                 NamedThreadFactory.create(clusterService.nodeName(), "cmg-manager", LOG)
@@ -635,7 +640,8 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                             new RaftNodeId(CmgGroupId.INSTANCE, serverPeer),
                             raftConfiguration,
                             new CmgRaftGroupListener(clusterStateStorage, logicalTopology, this::onLogicalTopologyChanged),
-                            this::onElectedAsLeader
+                            this::onElectedAsLeader,
+                            raftOptionsConfigurator
                     )
                     .thenApply(service -> new CmgRaftService(service, clusterService, logicalTopology));
         } catch (Exception e) {

@@ -74,6 +74,7 @@ import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.RaftOptionsConfigurator;
 import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
@@ -237,7 +238,8 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
                 mock(TopologyAwareRaftGroupServiceFactory.class),
                 new NoOpMetricManager(),
                 raftConfiguration.retryTimeout(),
-                completedFuture(() -> TEST_MAX_CLOCK_SKEW_MILLIS)
+                completedFuture(() -> TEST_MAX_CLOCK_SKEW_MILLIS),
+                RaftOptionsConfigurator.EMPTY
         );
 
         assertThat(metaStorageManager.stopAsync(new ComponentContext()), willCompleteSuccessfully());
