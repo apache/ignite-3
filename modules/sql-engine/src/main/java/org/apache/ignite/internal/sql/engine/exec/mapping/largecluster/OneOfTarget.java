@@ -15,10 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.exec.mapping.smallcluster;
+package org.apache.ignite.internal.sql.engine.exec.mapping.largecluster;
 
-import static org.apache.ignite.internal.util.IgniteUtils.isPow2;
-
+import java.util.BitSet;
 import java.util.List;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationMappingException;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTarget;
@@ -30,13 +29,13 @@ import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTargetFactory
  * <p>See javadoc of {@link ExecutionTargetFactory#oneOf(List)} for details.
  */
 class OneOfTarget extends AbstractTarget {
-    OneOfTarget(long nodes) {
+    OneOfTarget(BitSet nodes) {
         super(nodes);
     }
 
     @Override
     public ExecutionTarget finalise() {
-        if (isPow2(nodes)) {
+        if (nodes.cardinality() == 1) {
             return this;
         }
 
@@ -54,15 +53,20 @@ class OneOfTarget extends AbstractTarget {
     public ExecutionTarget trimTo(ExecutionTarget other) {
         assert other instanceof AbstractTarget : other == null ? "<null>" : other.getClass().getCanonicalName();
 
-        long otherNodes = ((AbstractTarget) other).nodes;
-
-        long newNodes = nodes & otherNodes;
-
-        if (newNodes == nodes || newNodes == 0) {
+        if (nodes.cardinality() == 1) {
             return this;
         }
 
-        return new OneOfTarget(newNodes);
+        BitSet otherNodes = ((AbstractTarget) other).nodes;
+
+        if (!nodes.equals(otherNodes) && nodes.intersects(otherNodes)) {
+            BitSet newNodes = (BitSet) nodes.clone();
+            newNodes.and(otherNodes);
+
+            return new OneOfTarget(newNodes);
+        }
+
+        return this;
     }
 
     @Override
