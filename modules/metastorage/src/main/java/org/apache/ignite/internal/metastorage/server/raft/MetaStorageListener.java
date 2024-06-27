@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.metastorage.server.raft;
 
 import static java.util.Objects.requireNonNull;
+import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
+import static org.apache.ignite.internal.util.ByteUtils.toByteArrayList;
 
 import java.io.Serializable;
 import java.nio.file.Path;
@@ -90,16 +92,16 @@ public class MetaStorageListener implements RaftGroupListener, BeforeApplyHandle
                     GetCommand getCmd = (GetCommand) command;
 
                     Entry e = getCmd.revision() == MetaStorageManager.LATEST_REVISION
-                            ? storage.get(getCmd.key())
-                            : storage.get(getCmd.key(), getCmd.revision());
+                            ? storage.get(toByteArray(getCmd.key()))
+                            : storage.get(toByteArray(getCmd.key()), getCmd.revision());
 
                     clo.result(e);
                 } else if (command instanceof GetAllCommand) {
                     GetAllCommand getAllCmd = (GetAllCommand) command;
 
                     Collection<Entry> entries = getAllCmd.revision() == MetaStorageManager.LATEST_REVISION
-                            ? storage.getAll(getAllCmd.keys())
-                            : storage.getAll(getAllCmd.keys(), getAllCmd.revision());
+                            ? storage.getAll(toByteArrayList(getAllCmd.keys()))
+                            : storage.getAll(toByteArrayList(getAllCmd.keys()), getAllCmd.revision());
 
                     clo.result((Serializable) entries);
                 } else if (command instanceof GetRangeCommand) {

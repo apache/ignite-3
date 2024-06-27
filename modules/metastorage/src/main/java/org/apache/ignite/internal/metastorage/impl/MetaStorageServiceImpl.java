@@ -109,7 +109,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
 
     @Override
     public CompletableFuture<Entry> get(ByteArray key, long revUpperBound) {
-        GetCommand getCommand = context.commandsFactory().getCommand().key(key.bytes()).revision(revUpperBound).build();
+        GetCommand getCommand = context.commandsFactory().getCommand().key(ByteBuffer.wrap(key.bytes())).revision(revUpperBound).build();
 
         return context.raftService().run(getCommand);
     }

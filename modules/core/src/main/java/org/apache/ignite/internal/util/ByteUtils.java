@@ -26,6 +26,8 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 
@@ -293,5 +295,20 @@ public class ByteUtils {
         buffer.get(bytes);
         buffer.flip();
         return bytes;
+    }
+
+    /**
+     * Converts a byte array list to a byte buffer list.
+     *
+     * @param byteBufferList List of byte buffers.
+     */
+    public static List<byte[]> toByteArrayList(List<ByteBuffer> byteBufferList) {
+        var result = new ArrayList<byte[]>(byteBufferList.size());
+
+        for (int i = 0; i < byteBufferList.size(); i++) {
+            result.add(toByteArray(byteBufferList.get(i)));
+        }
+
+        return result;
     }
 }

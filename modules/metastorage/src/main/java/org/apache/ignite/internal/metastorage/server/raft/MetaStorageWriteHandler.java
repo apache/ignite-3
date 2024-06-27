@@ -21,11 +21,11 @@ import static java.util.Arrays.copyOfRange;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.util.ByteUtils.byteToBoolean;
 import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
+import static org.apache.ignite.internal.util.ByteUtils.toByteArrayList;
 
 import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -456,15 +456,5 @@ public class MetaStorageWriteHandler {
 
             closure.result(res);
         }
-    }
-
-    private static List<byte[]> toByteArrayList(List<ByteBuffer> byteBufferList) {
-        var result = new ArrayList<byte[]>(byteBufferList.size());
-
-        for (int i = 0; i < byteBufferList.size(); i++) {
-             result.add(toByteArray(byteBufferList.get(i)));
-        }
-
-        return result;
     }
 }
