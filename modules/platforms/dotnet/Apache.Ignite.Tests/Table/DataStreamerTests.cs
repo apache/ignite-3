@@ -314,7 +314,7 @@ public class DataStreamerTests : IgniteTestsBase
 
         if (withReceiver)
         {
-            await table!.RecordBinaryView.StreamDataAsync<IIgniteTuple, string>(
+            await table!.RecordBinaryView.StreamDataAsync(
                 GetFakeServerData(count),
                 keySelector: t => t,
                 payloadSelector: t => t[0]!.ToString()!,
@@ -375,7 +375,7 @@ public class DataStreamerTests : IgniteTestsBase
     [Test]
     public async Task TestWithReceiverRecordBinaryView()
     {
-        await TupleView.StreamDataAsync<int, string>(
+        await TupleView.StreamDataAsync(
             Enumerable.Range(0, Count).ToAsyncEnumerable(),
             keySelector: x => GetTuple(x),
             payloadSelector: x => $"{x}-value{x * 10}",
@@ -423,7 +423,7 @@ public class DataStreamerTests : IgniteTestsBase
     [Test]
     public async Task TestWithReceiverRecordView()
     {
-        await PocoView.StreamDataAsync<int, string>(
+        await PocoView.StreamDataAsync(
             Enumerable.Range(0, Count).ToAsyncEnumerable(),
             keySelector: x => GetPoco(x),
             payloadSelector: x => $"{x}-value{x * 10}",
@@ -471,7 +471,7 @@ public class DataStreamerTests : IgniteTestsBase
     [Test]
     public async Task TestWithReceiverKeyValueBinaryView()
     {
-        await Table.KeyValueBinaryView.StreamDataAsync<int, string>(
+        await Table.KeyValueBinaryView.StreamDataAsync(
             Enumerable.Range(0, Count).ToAsyncEnumerable(),
             keySelector: x => new KeyValuePair<IIgniteTuple, IIgniteTuple>(GetTuple(x), new IgniteTuple()),
             payloadSelector: x => $"{x}-value{x * 10}",
@@ -517,7 +517,7 @@ public class DataStreamerTests : IgniteTestsBase
     [Test]
     public async Task TestWithReceiverKeyValueView()
     {
-        await Table.GetKeyValueView<long, Poco>().StreamDataAsync<int, string>(
+        await Table.GetKeyValueView<long, Poco>().StreamDataAsync(
             Enumerable.Range(0, Count).ToAsyncEnumerable(),
             keySelector: x => new KeyValuePair<long, Poco>(x, null!),
             payloadSelector: x => $"{x}-value{x * 10}",
@@ -536,7 +536,7 @@ public class DataStreamerTests : IgniteTestsBase
     [Test]
     public async Task TestWithReceiverResultsKeyValueView()
     {
-        IAsyncEnumerable<string> results = Table.GetKeyValueView<long, Poco>().StreamDataAsync<int, string, string>(
+        IAsyncEnumerable<string> results = Table.GetKeyValueView<long, Poco>().StreamDataAsync(
             Enumerable.Range(0, Count).ToAsyncEnumerable(),
             keySelector: x => new KeyValuePair<long, Poco>(x, null!),
             payloadSelector: x => $"{x}-value{x * 10}",
