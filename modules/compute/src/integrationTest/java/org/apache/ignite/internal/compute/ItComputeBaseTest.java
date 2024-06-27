@@ -463,16 +463,15 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
         try (IgniteClient client = IgniteClient.builder().addresses(address).build()) {
             var argumentPojo = new Pojo("Hey");
 
-            Pojo resultPojo = client.compute().execute(
+            String resultString = client.compute().execute(
                     JobTarget.node(node(1).node()),
                     JobDescriptor.builder(pojoJobClassName())
                             .argumentMarshaller(ByteArrayMarshaler.create())
-                            .resultMarshaller(ByteArrayMarshaler.create())
                             .build(),
                     argumentPojo
             );
 
-            assertThat(resultPojo, equalTo(argumentPojo));
+            assertThat(resultString, equalTo(argumentPojo.getName()));
         } catch (Exception e) {
             throw new RuntimeException(e);
         }

@@ -61,7 +61,6 @@ import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.TableNotFoundException;
-import org.apache.ignite.marshaling.ByteArrayMarshaler;
 import org.apache.ignite.marshaling.Marshaler;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
@@ -228,7 +227,7 @@ public class ClientCompute implements IgniteCompute {
         Objects.requireNonNull(units);
         Objects.requireNonNull(taskClassName);
 
-        return new ClientTaskExecution<>(ch, doExecuteMapReduceAsync(units, taskClassName, args, ByteArrayMarshaler.create()));
+        return new ClientTaskExecution<>(ch, doExecuteMapReduceAsync(units, taskClassName, args, null));
     }
 
     @Override

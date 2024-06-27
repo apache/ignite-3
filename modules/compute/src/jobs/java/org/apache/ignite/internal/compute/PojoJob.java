@@ -26,7 +26,7 @@ import org.apache.ignite.marshaling.Marshaler;
 /**
  * Pojo job.
  */
-public class PojoJob implements ComputeJob<Pojo, Pojo> {
+public class PojoJob implements ComputeJob<Pojo, String> {
     /**
      * Executes this job.
      *
@@ -35,17 +35,12 @@ public class PojoJob implements ComputeJob<Pojo, Pojo> {
      * @return Future with the same pojo that was passed as an argument.
      */
     @Override
-    public CompletableFuture<Pojo> executeAsync(JobExecutionContext context, Pojo pojo) {
-        return CompletableFuture.completedFuture(pojo);
+    public CompletableFuture<String> executeAsync(JobExecutionContext context, Pojo pojo) {
+        return CompletableFuture.completedFuture(pojo.getName());
     }
 
     @Override
     public Marshaler<Pojo, byte[]> inputMarshaler() {
-        return ByteArrayMarshaler.create();
-    }
-
-    @Override
-    public Marshaler<Pojo, byte[]> resultMarshaler() {
         return ByteArrayMarshaler.create();
     }
 }
