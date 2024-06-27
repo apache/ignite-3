@@ -35,24 +35,24 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
-import java.util.stream.Collectors;
-import org.apache.ignite.Ignite;
-import org.apache.ignite.IgnitionManager;
-import org.apache.ignite.internal.IgniteIntegrationTest;
+import org.apache.ignite.IgniteServer;
 import org.apache.ignite.internal.rest.api.Problem;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Base class for integration REST test.
  */
-public abstract class AbstractRestTestBase extends IgniteIntegrationTest {
+@ExtendWith(WorkDirectoryExtension.class)
+public abstract class AbstractRestTestBase extends BaseIgniteAbstractTest {
     /** Network ports of the test nodes. */
     static final int[] NETWORK_PORTS = {3344, 3345, 3346};
 
@@ -71,11 +71,8 @@ public abstract class AbstractRestTestBase extends IgniteIntegrationTest {
     /** Node names that is starting (before init) or started (after init). */
     protected final List<String> nodeNames = new ArrayList<>();
 
-    /** Collection of started nodes. */
-    final List<Ignite> startedNodes = new ArrayList<>();
-
     /** Collection of starting nodes. */
-    protected final List<CompletableFuture<Ignite>> startingNodes = new ArrayList<CompletableFuture<Ignite>>();
+    protected final List<IgniteServer> nodes = new ArrayList<>();
 
     protected ObjectMapper objectMapper;
 
@@ -174,23 +171,17 @@ public abstract class AbstractRestTestBase extends IgniteIntegrationTest {
      */
     @AfterEach
     void tearDown() throws Exception {
-        List<AutoCloseable> closeables = nodeNames.stream()
-                .map(name -> (AutoCloseable) () -> IgnitionManager.stop(name))
-                .collect(Collectors.toList());
-
-        IgniteUtils.closeAll(closeables);
+        IgniteUtils.closeAll(nodes.stream().map(node -> node::shutdown));
     }
 
-    void startNodeWithoutInit(String nodeName, Function<String, CompletableFuture<Ignite>> starter) {
+    void startNodeWithoutInit(String nodeName, Function<String, IgniteServer> starter) {
         nodeNames.add(nodeName);
 
-        CompletableFuture<Ignite> future = starter.apply(nodeName);
-
-        startingNodes.add(future);
+        nodes.add(starter.apply(nodeName));
     }
 
     void checkAllNodesStarted() {
-        startingNodes.forEach(future -> assertThat(future, willCompleteSuccessfully()));
+        nodes.forEach(node -> assertThat(node.waitForInitAsync(), willCompleteSuccessfully()));
     }
 
     protected HttpResponse<String> send(HttpRequest request) throws IOException, InterruptedException {

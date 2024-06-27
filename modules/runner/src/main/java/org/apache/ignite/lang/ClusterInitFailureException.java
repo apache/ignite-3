@@ -15,19 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metastorage.impl;
+package org.apache.ignite.lang;
 
-import java.nio.file.Path;
-import org.apache.ignite.internal.failure.NoOpFailureProcessor;
-import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
-import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
+import static org.apache.ignite.lang.ErrorGroups.Embedded.CLUSTER_INIT_FAILED_ERR;
 
-/**
- * {@link MetaStorageRangeTest} implementation using {@link RocksDbKeyValueStorage}.
- */
-public class MetaStorageRocksDbRangeTest extends MetaStorageRangeTest {
-    @Override
-    KeyValueStorage getStorage(Path path) {
-        return new RocksDbKeyValueStorage("test", path, new NoOpFailureProcessor());
+import java.util.UUID;
+import org.jetbrains.annotations.Nullable;
+
+/** Thrown when cluster initialization failed. */
+public class ClusterInitFailureException extends IgniteException {
+
+    public ClusterInitFailureException(String message) {
+        super(CLUSTER_INIT_FAILED_ERR, message);
+    }
+
+    public ClusterInitFailureException(String message, @Nullable Throwable cause) {
+        super(CLUSTER_INIT_FAILED_ERR, message, cause);
+    }
+
+    public ClusterInitFailureException(UUID traceId, int code, String message, @Nullable Throwable cause) {
+        super(traceId, code, message, cause);
     }
 }

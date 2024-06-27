@@ -50,7 +50,8 @@ enum class group : underlying_t {
     CATALOG = 0x11,
     PLACEMENTDRIVER = 0x12,
     WORKERS = 0x13,
-    RECOVERY = 0x14
+    RECOVERY = 0x14,
+    EMBEDDED = 0x15
 };
 
 inline group get_group_by_error_code(const underlying_t code) {
@@ -212,7 +213,13 @@ enum class code : underlying_t {
     ILLEGAL_PARTITION_ID = 0x140001,
     NODES_NOT_FOUND = 0x140002,
     PARTITION_STATE = 0x140003,
-    CLUSTER_NOT_IDLE = 0x140004
+    CLUSTER_NOT_IDLE = 0x140004,
+
+    // Embedded group. Group code: 21
+    CLUSTER_NOT_INITIALIZED = 0x150001,
+    CLUSTER_INIT_FAILED = 0x150002,
+    NODE_NOT_STARTED = 0x150003,
+    NODE_START = 0x150004
 };
 
 } // namespace error

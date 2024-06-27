@@ -65,7 +65,7 @@ public class ObservableTimestampPropagationTest extends BaseIgniteAbstractTest {
 
     @AfterAll
     public static void stopServer2() throws Exception {
-        closeAll(client, testServer, ignite);
+        closeAll(client, testServer);
     }
 
     @Test

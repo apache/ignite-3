@@ -15,17 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal;
+package org.apache.ignite.lang;
 
-import org.apache.ignite.internal.junit.StopAllIgnitesAfterTests;
-import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.junit.jupiter.api.extension.ExtendWith;
+import static org.apache.ignite.lang.ErrorGroups.Embedded.NODE_START_ERR;
 
-/**
- * A test that starts some Ignite instances (and cleans them up later if they are forgotten).
- */
-// The order is important here.
-@ExtendWith({WorkDirectoryExtension.class, StopAllIgnitesAfterTests.class})
-public abstract class IgniteIntegrationTest extends BaseIgniteAbstractTest {
+import java.util.UUID;
+import org.jetbrains.annotations.Nullable;
+
+/** Thrown when node failed to start. */
+public class NodeStartException extends IgniteException {
+
+    public NodeStartException(String message, @Nullable Throwable cause) {
+        super(NODE_START_ERR, message, cause);
+    }
+
+    public NodeStartException(String message) {
+        super(NODE_START_ERR, message);
+    }
+
+    public NodeStartException(UUID traceId, int code, String message, @Nullable Throwable cause) {
+        super(traceId, code, message, cause);
+    }
 }

@@ -15,19 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metastorage.impl;
+package org.apache.ignite.lang;
 
-import java.nio.file.Path;
-import org.apache.ignite.internal.failure.NoOpFailureProcessor;
-import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
-import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
+import static org.apache.ignite.lang.ErrorGroups.Embedded.NODE_NOT_STARTED_ERR;
 
-/**
- * {@link MetaStorageRangeTest} implementation using {@link RocksDbKeyValueStorage}.
- */
-public class MetaStorageRocksDbRangeTest extends MetaStorageRangeTest {
-    @Override
-    KeyValueStorage getStorage(Path path) {
-        return new RocksDbKeyValueStorage("test", path, new NoOpFailureProcessor());
+import java.util.UUID;
+import org.jetbrains.annotations.Nullable;
+
+/** Thrown when embedded node is not yet started or it's already stopped. */
+public class NodeNotStartedException extends IgniteException {
+
+    public NodeNotStartedException() {
+        super(NODE_NOT_STARTED_ERR, "Node is not started.");
+    }
+
+    public NodeNotStartedException(UUID traceId, int code, String message, @Nullable Throwable cause) {
+        super(traceId, code, message, cause);
     }
 }
