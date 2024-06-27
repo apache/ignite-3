@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -182,13 +183,13 @@ public class MetaStorageWriteHandler {
         if (command instanceof PutCommand) {
             PutCommand putCmd = (PutCommand) command;
 
-            storage.put(putCmd.key(), putCmd.value(), opTime);
+            storage.put(toByteArray(putCmd.key()), toByteArray(putCmd.value()), opTime);
 
             clo.result(null);
         } else if (command instanceof PutAllCommand) {
             PutAllCommand putAllCmd = (PutAllCommand) command;
 
-            storage.putAll(putAllCmd.keys(), putAllCmd.values(), opTime);
+            storage.putAll(toByteArrayList(putAllCmd.keys()), toByteArrayList(putAllCmd.values()), opTime);
 
             clo.result(null);
         } else if (command instanceof RemoveCommand) {
@@ -455,5 +456,15 @@ public class MetaStorageWriteHandler {
 
             closure.result(res);
         }
+    }
+
+    private static List<byte[]> toByteArrayList(List<ByteBuffer> byteBufferList) {
+        var result = new ArrayList<byte[]>(byteBufferList.size());
+
+        for (int i = 0; i < byteBufferList.size(); i++) {
+             result.add(toByteArray(byteBufferList.get(i)));
+        }
+
+        return result;
     }
 }

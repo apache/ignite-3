@@ -17,22 +17,22 @@
 
 package org.apache.ignite.internal.metastorage.command;
 
+import java.nio.ByteBuffer;
 import java.util.List;
 import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
  * Put all command for MetaStorageCommandListener that inserts or updates entries with given keys and given values.
  */
-// TODO: IGNITE-22583 тут
 @Transferable(MetastorageCommandsMessageGroup.PUT_ALL)
 public interface PutAllCommand extends MetaStorageWriteCommand {
     /**
      * Returns entries keys.
      */
-    List<byte[]> keys();
+    List<ByteBuffer> keys();
 
     /**
      * Returns entries values.
      */
-    List<byte[]> values();
+    List<ByteBuffer> values();
 }

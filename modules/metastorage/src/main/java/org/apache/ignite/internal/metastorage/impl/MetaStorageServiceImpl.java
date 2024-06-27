@@ -19,6 +19,7 @@ package org.apache.ignite.internal.metastorage.impl;
 
 import static org.apache.ignite.internal.metastorage.command.GetAllCommand.getAllCommand;
 
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -129,8 +130,8 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     @Override
     public CompletableFuture<Void> put(ByteArray key, byte[] value) {
         PutCommand putCommand = context.commandsFactory().putCommand()
-                .key(key.bytes())
-                .value(value)
+                .key(ByteBuffer.wrap(key.bytes()))
+                .value(ByteBuffer.wrap(value))
                 .initiatorTimeLong(clusterTime.nowLong())
                 .build();
 
@@ -294,21 +295,18 @@ public class MetaStorageServiceImpl implements MetaStorageService {
 
         int size = vals.size();
 
-        List<byte[]> keys = new ArrayList<>(size);
-
-        List<byte[]> values = new ArrayList<>(size);
+        var keys = new ArrayList<ByteBuffer>(size);
+        var values = new ArrayList<ByteBuffer>(size);
 
         for (Map.Entry<ByteArray, byte[]> e : vals.entrySet()) {
             byte[] key = e.getKey().bytes();
-
             byte[] val = e.getValue();
 
             assert key != null : "Key could not be null.";
             assert val != null : "Value could not be null.";
 
-            keys.add(key);
-
-            values.add(val);
+            keys.add(ByteBuffer.wrap(key));
+            values.add(ByteBuffer.wrap(val));
         }
 
         return commandsFactory.putAllCommand()
