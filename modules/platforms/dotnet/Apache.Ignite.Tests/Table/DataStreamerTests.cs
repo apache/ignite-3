@@ -54,7 +54,7 @@ public class DataStreamerTests : IgniteTestsBase
 
     private static readonly ReceiverDescriptor<string?, string> TestReceiver = new(TestReceiverClassName);
 
-    private static readonly ReceiverDescriptor TestReceiverNoResults = new(TestReceiverClassName);
+    private static readonly ReceiverDescriptor<object?> TestReceiverNoResults = new(TestReceiverClassName);
 
     private static readonly ReceiverDescriptor<object, object> EchoArgsReceiver = new(EchoArgsReceiverClassName);
 
@@ -166,12 +166,12 @@ public class DataStreamerTests : IgniteTestsBase
 
         if (withReceiver)
         {
-            _ = TupleView.StreamDataAsync<IIgniteTuple, string>(
+            _ = TupleView.StreamDataAsync(
                 GetTuplesWithDelay(cts.Token),
                 x => GetTuple((long)x[0]!),
                 x => $"{x[0]}-value",
                 TestReceiverNoResults,
-                receiverArgs: GetReceiverArg(Table.Name, "arg1", 22),
+                receiverArg: GetReceiverArg(Table.Name, "arg1", 22),
                 options: options);
         }
         else
@@ -231,7 +231,7 @@ public class DataStreamerTests : IgniteTestsBase
 
                         // Receiver without results.
                         case false:
-                            await Table.RecordBinaryView.StreamDataAsync<IIgniteTuple, string>(
+                            await Table.RecordBinaryView.StreamDataAsync(
                                 Array.Empty<IIgniteTuple>().ToAsyncEnumerable(),
                                 t => t,
                                 t => t.ToString()!,
@@ -284,11 +284,12 @@ public class DataStreamerTests : IgniteTestsBase
         var table = await client.Tables.GetTableAsync(FakeServer.ExistingTableName);
 
         var ex = Assert.ThrowsAsync<IgniteClientConnectionException>(
-            async () => await table!.RecordBinaryView.StreamDataAsync<IIgniteTuple, string>(
+            async () => await table!.RecordBinaryView.StreamDataAsync(
                 GetFakeServerData(10_000),
                 keySelector: t => t,
                 payloadSelector: t => t[0]!.ToString()!,
-                TestReceiverNoResults));
+                TestReceiverNoResults,
+                null));
 
         StringAssert.StartsWith("Operation StreamerWithReceiverBatchSend failed after 16 retries", ex!.Message);
     }
@@ -318,7 +319,8 @@ public class DataStreamerTests : IgniteTestsBase
                 GetFakeServerData(count),
                 keySelector: t => t,
                 payloadSelector: t => t[0]!.ToString()!,
-                TestReceiverNoResults);
+                TestReceiverNoResults,
+                null);
         }
         else
         {
@@ -568,7 +570,8 @@ public class DataStreamerTests : IgniteTestsBase
                 Enumerable.Range(0, 1).ToAsyncEnumerable(),
                 keySelector: x => GetTuple(x),
                 payloadSelector: _ => string.Empty,
-                new("_unknown_")));
+                new ReceiverDescriptor<object?>("_unknown_"),
+                null));
 
         Assert.AreEqual("Streamer receiver failed: Cannot load receiver class by name '_unknown_'", ex.Message);
     }
@@ -577,7 +580,7 @@ public class DataStreamerTests : IgniteTestsBase
     public void TestReceiverException()
     {
         var ex = Assert.ThrowsAsync<IgniteException>(async () =>
-            await PocoView.StreamDataAsync<int, string>(
+            await PocoView.StreamDataAsync(
                 Enumerable.Range(0, 1).ToAsyncEnumerable(),
                 keySelector: x => GetPoco(x),
                 payloadSelector: _ => string.Empty,
@@ -605,7 +608,7 @@ public class DataStreamerTests : IgniteTestsBase
     public void TestReceiverSelectorException([Values(true, false)] bool keySelector)
     {
         var ex = Assert.ThrowsAsync<DataException>(async () =>
-            await PocoView.StreamDataAsync<int, string>(
+            await PocoView.StreamDataAsync<int, object, object?>(
                 Enumerable.Range(0, 1).ToAsyncEnumerable(),
                 keySelector: x => keySelector ? throw new DataException("key") : GetPoco(x),
                 payloadSelector: _ => throw new DataException("payload"),
@@ -657,12 +660,12 @@ public class DataStreamerTests : IgniteTestsBase
     public void TestWithReceiverDifferentDataTypesThrows()
     {
         var ex = Assert.ThrowsAsync<InvalidOperationException>(async () =>
-            await PocoView.StreamDataAsync<object, object>(
+            await PocoView.StreamDataAsync(
                 new object[] { 1, "2" }.ToAsyncEnumerable(),
                 keySelector: _ => new Poco(),
                 payloadSelector: x => x,
                 receiver: TestReceiverNoResults,
-                receiverArgs: new object[] { TableName, "1", 2 }));
+                receiverArg: null));
 
         Assert.AreEqual(
             "All streamer items returned by payloadSelector must be of the same type. Expected: System.Int32, actual: System.String.",
@@ -673,12 +676,12 @@ public class DataStreamerTests : IgniteTestsBase
     public void TestWithReceiverNullItemThrows()
     {
         var ex = Assert.ThrowsAsync<ArgumentNullException>(async () =>
-            await PocoView.StreamDataAsync<object, object>(
+            await PocoView.StreamDataAsync(
                 new object[] { "2", null! }.ToAsyncEnumerable(),
                 keySelector: _ => new Poco(),
                 payloadSelector: x => x,
                 receiver: TestReceiverNoResults,
-                receiverArgs: new object[] { TableName, "1", 2 }));
+                receiverArg: null));
 
         Assert.AreEqual(
             "Value cannot be null. (Parameter 'payload')",
@@ -775,7 +778,7 @@ public class DataStreamerTests : IgniteTestsBase
         var key1 = 1L;
         var key2 = 2L;
 
-        await PocoView.StreamDataAsync<int, object>(
+        await PocoView.StreamDataAsync(
             Enumerable.Range(0, 1).ToAsyncEnumerable(),
             keySelector: x => GetPoco(x),
             payloadSelector: _ => value,
