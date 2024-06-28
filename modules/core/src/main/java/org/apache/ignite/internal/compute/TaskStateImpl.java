@@ -21,14 +21,15 @@ import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
 import org.apache.ignite.compute.JobState;
-import org.apache.ignite.compute.JobStatus;
+import org.apache.ignite.compute.TaskState;
+import org.apache.ignite.compute.TaskStatus;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Job state implementation.
+ * Task state implementation.
  */
-public class JobStateImpl implements JobState {
+public class TaskStateImpl implements TaskState {
     private static final long serialVersionUID = 8575969461073736006L;
 
     /**
@@ -39,7 +40,7 @@ public class JobStateImpl implements JobState {
     /**
      * Job status.
      */
-    private final JobStatus status;
+    private final TaskStatus status;
 
     /**
      * Job create time.
@@ -58,7 +59,7 @@ public class JobStateImpl implements JobState {
     @Nullable
     private final Instant finishTime;
 
-    private JobStateImpl(Builder builder) {
+    private TaskStateImpl(Builder builder) {
         this.id = Objects.requireNonNull(builder.id, "id");
         this.status = Objects.requireNonNull(builder.status, "status");
         this.createTime = Objects.requireNonNull(builder.createTime, "createTime");
@@ -91,7 +92,7 @@ public class JobStateImpl implements JobState {
      * @return Job status.
      */
     @Override
-    public JobStatus status() {
+    public TaskStatus status() {
         return status;
     }
 
@@ -128,12 +129,26 @@ public class JobStateImpl implements JobState {
     }
 
     /**
-     * Returns a new builder with the same property values as this JobStatus.
+     * Returns a new builder with the same property values as this TaskState.
+     *
+     * @return Builder.
+     */
+    public static Builder toBuilder(TaskState state) {
+        return new Builder(state);
+    }
+
+    /**
+     * Returns a new builder with the same property values as this JobState.
      *
      * @return Builder.
      */
     public static Builder toBuilder(JobState state) {
-        return new Builder(state);
+        return new Builder()
+                .id(state.id())
+                .createTime(state.createTime())
+                .finishTime(state.finishTime())
+                .startTime(state.startTime())
+                .status(JobTaskStatusMapper.toTaskStatus(state.status()));
     }
 
     @Override
@@ -146,7 +161,7 @@ public class JobStateImpl implements JobState {
      */
     public static class Builder {
         private UUID id;
-        private JobStatus status;
+        private TaskStatus status;
         private Instant createTime;
         @Nullable
         private Instant startTime;
@@ -164,7 +179,7 @@ public class JobStateImpl implements JobState {
          *
          * @param state Job state for copy.
          */
-        private Builder(JobState state) {
+        private Builder(TaskState state) {
             this.id = state.id();
             this.status = state.status();
             this.createTime = state.createTime();
@@ -189,7 +204,7 @@ public class JobStateImpl implements JobState {
          * @param status Job status.
          * @return This builder.
          */
-        public Builder status(JobStatus status) {
+        public Builder status(TaskStatus status) {
             this.status = status;
             return this;
         }
@@ -232,9 +247,8 @@ public class JobStateImpl implements JobState {
          *
          * @return JobState.
          */
-        public JobStateImpl build() {
-            return new JobStateImpl(this);
+        public TaskStateImpl build() {
+            return new TaskStateImpl(this);
         }
     }
 }
-

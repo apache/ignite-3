@@ -19,6 +19,7 @@ package org.apache.ignite.client.handler.requests.compute;
 
 import static org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteRequest.unpackArgs;
 import static org.apache.ignite.client.handler.requests.compute.ClientComputeGetStateRequest.packJobState;
+import static org.apache.ignite.client.handler.requests.compute.ClientComputeGetStateRequest.packTaskState;
 import static org.apache.ignite.internal.util.IgniteUtils.firstNotNull;
 
 import java.util.Collections;
@@ -84,7 +85,7 @@ public class ClientComputeExecuteMapReduceRequest {
                         execution.statesAsync().whenComplete((states, errStates) ->
                                 notificationSender.sendNotification(w -> {
                                     w.packObjectAsBinaryTuple(val);
-                                    packJobState(w, state);
+                                    packTaskState(w, state);
                                     packJobStates(w, states);
                                 }, firstNotNull(err, errState, errStates)))
                 ));

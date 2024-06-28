@@ -24,6 +24,7 @@ import static org.apache.ignite.compute.JobStatus.FAILED;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.JobStateMatcher.jobStateWithStatus;
+import static org.apache.ignite.internal.testframework.matchers.TaskStateMatcher.taskStateWithStatus;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.lang.ErrorGroups.Table.TABLE_NOT_FOUND_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -51,6 +52,7 @@ import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobTarget;
+import org.apache.ignite.compute.TaskStatus;
 import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.client.table.ClientTable;
@@ -248,7 +250,7 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
 
             assertThat(task.resultAsync(), willBe("s1"));
 
-            assertThat(task.stateAsync(), willBe(jobStateWithStatus(COMPLETED)));
+            assertThat(task.stateAsync(), willBe(taskStateWithStatus(TaskStatus.COMPLETED)));
             assertThat(task.statesAsync(), willBe(everyItem(jobStateWithStatus(COMPLETED))));
 
             assertThat("compute task and sub tasks ids must be different",
@@ -266,7 +268,7 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
             TaskExecution<Object> execution = client.compute().submitMapReduce(List.of(), "job");
 
             assertThat(execution.resultAsync(), willThrowFast(IgniteException.class));
-            assertThat(execution.stateAsync(), willBe(jobStateWithStatus(FAILED)));
+            assertThat(execution.stateAsync(), willBe(taskStateWithStatus(TaskStatus.FAILED)));
             assertThat(execution.statesAsync(), willBe(everyItem(jobStateWithStatus(FAILED))));
         }
     }

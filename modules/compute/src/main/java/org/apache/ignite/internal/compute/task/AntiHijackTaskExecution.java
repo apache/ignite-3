@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import org.apache.ignite.compute.JobState;
+import org.apache.ignite.compute.TaskState;
 import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.jetbrains.annotations.Nullable;
@@ -55,7 +56,7 @@ public class AntiHijackTaskExecution<R> implements TaskExecution<R> {
     }
 
     @Override
-    public CompletableFuture<@Nullable JobState> stateAsync() {
+    public CompletableFuture<@Nullable TaskState> stateAsync() {
         return preventThreadHijack(execution.stateAsync());
     }
 

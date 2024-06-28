@@ -23,6 +23,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobState;
+import org.apache.ignite.compute.TaskState;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -54,7 +55,7 @@ public interface TaskExecution<R> {
     /**
      * Returns task's execution result.
      *
-     * @return Job's execution result future.
+     * @return Task's execution result future.
      */
     CompletableFuture<R> resultAsync();
 
@@ -64,13 +65,13 @@ public interface TaskExecution<R> {
      *
      * @return The current state of the task, or {@code null} if the task state no longer exists due to exceeding the retention time limit.
      */
-    CompletableFuture<@Nullable JobState> stateAsync();
+    CompletableFuture<@Nullable TaskState> stateAsync();
 
     /**
      * Returns the id of the task. The task state may be deleted and thus return {@code null} if the time for retaining task state has been
      * exceeded.
      *
-     * @return The id of the task, or {@code null} if the job state no longer exists due to exceeding the retention time limit.
+     * @return The id of the task, or {@code null} if the task state no longer exists due to exceeding the retention time limit.
      */
     default CompletableFuture<@Nullable UUID> idAsync() {
         return stateAsync().thenApply(state -> state != null ? state.id() : null);
@@ -90,7 +91,7 @@ public interface TaskExecution<R> {
      *
      * @param newPriority new priority.
      * @return The future which will be completed with {@code true} when the priority is changed, {@code false} when the priority couldn't
-     *         be changed (if the job is already executing or completed), or {@code null} if the job no longer exists due to exceeding the
+     *         be changed (if the task is already executing or completed), or {@code null} if the task no longer exists due to exceeding the
      *         retention time limit.
      */
     CompletableFuture<@Nullable Boolean> changePriorityAsync(int newPriority);
