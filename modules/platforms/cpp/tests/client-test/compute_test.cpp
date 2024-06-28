@@ -75,13 +75,13 @@ protected:
         auto result = execution.get_result();
 
         ASSERT_TRUE(result.has_value());
-        EXPECT_EQ(result.value().template get<T>(), value);
+        EXPECT_EQ(result.value().get_primitive().template get<T>(), value);
 
         execution = m_client.get_compute().submit(cluster_nodes, m_to_string_job, {value});
         result = execution.get_result();
 
         ASSERT_TRUE(result.has_value());
-        EXPECT_EQ(result.value().template get<std::string>(), expected_str);
+        EXPECT_EQ(result.value().get_primitive().template get<std::string>(), expected_str);
     }
 
     /**
@@ -144,7 +144,7 @@ TEST_F(compute_test, execute_on_random_node) {
     auto result = execution.get_result();
 
     ASSERT_TRUE(result.has_value());
-    EXPECT_THAT(result.value().get<std::string>(), ::testing::StartsWith(PLATFORM_TEST_NODE_RUNNER));
+    EXPECT_THAT(result.value().get_primitive().get<std::string>(), ::testing::StartsWith(PLATFORM_TEST_NODE_RUNNER));
 }
 
 TEST_F(compute_test, execute_on_specific_node) {
@@ -157,8 +157,8 @@ TEST_F(compute_test, execute_on_specific_node) {
     ASSERT_TRUE(res1.has_value());
     ASSERT_TRUE(res2.has_value());
 
-    EXPECT_EQ(res1.value().get<std::string>(), PLATFORM_TEST_NODE_RUNNER + "-11");
-    EXPECT_EQ(res2.value().get<std::string>(), PLATFORM_TEST_NODE_RUNNER + "_242");
+    EXPECT_EQ(res1.value().get_primitive().get<std::string>(), PLATFORM_TEST_NODE_RUNNER + "-11");
+    EXPECT_EQ(res2.value().get_primitive().get<std::string>(), PLATFORM_TEST_NODE_RUNNER + "_242");
 }
 
 TEST_F(compute_test, execute_broadcast_one_node) {
@@ -169,7 +169,7 @@ TEST_F(compute_test, execute_broadcast_one_node) {
     EXPECT_EQ(res.begin()->first, get_node(1));
 
     ASSERT_TRUE(res.begin()->second.has_value());
-    EXPECT_EQ(res.begin()->second.value().get_result(), PLATFORM_TEST_NODE_RUNNER + "_242");
+    EXPECT_EQ(res.begin()->second.value().get_result()->get_primitive(), PLATFORM_TEST_NODE_RUNNER + "_242");
 }
 
 TEST_F(compute_test, execute_broadcast_all_nodes) {
@@ -177,10 +177,10 @@ TEST_F(compute_test, execute_broadcast_all_nodes) {
 
     ASSERT_EQ(res.size(), 4);
 
-    EXPECT_EQ(res[get_node(0)].value().get_result(), get_node(0).get_name() + "42");
-    EXPECT_EQ(res[get_node(1)].value().get_result(), get_node(1).get_name() + "42");
-    EXPECT_EQ(res[get_node(2)].value().get_result(), get_node(2).get_name() + "42");
-    EXPECT_EQ(res[get_node(3)].value().get_result(), get_node(3).get_name() + "42");
+    EXPECT_EQ(res[get_node(0)].value().get_result()->get_primitive(), get_node(0).get_name() + "42");
+    EXPECT_EQ(res[get_node(1)].value().get_result()->get_primitive(), get_node(1).get_name() + "42");
+    EXPECT_EQ(res[get_node(2)].value().get_result()->get_primitive(), get_node(2).get_name() + "42");
+    EXPECT_EQ(res[get_node(3)].value().get_result()->get_primitive(), get_node(3).get_name() + "42");
 }
 
 TEST_F(compute_test, job_error_propagates_to_client) {
@@ -291,7 +291,7 @@ TEST_F(compute_test, submit_colocated) {
         auto res_node_name = execution.get_result();
         auto expected_node_name = PLATFORM_TEST_NODE_RUNNER + var.second;
 
-        EXPECT_EQ(expected_node_name, res_node_name.value().get<std::string>());
+        EXPECT_EQ(expected_node_name, res_node_name.value().get_primitive().get<std::string>());
     }
 }
 
