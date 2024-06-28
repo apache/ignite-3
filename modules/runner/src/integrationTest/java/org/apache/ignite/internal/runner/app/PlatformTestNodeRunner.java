@@ -603,7 +603,7 @@ public class PlatformTestNodeRunner {
     private static class ColocationHashJob implements ComputeJob<byte[], Integer> {
         @Override
         public CompletableFuture<Integer> executeAsync(JobExecutionContext context, byte[] args) {
-            BinaryTupleReader argsReader = new BinaryTupleReader(2, args);
+            BinaryTupleReader argsReader = new BinaryTupleReader(4, args);
             var columnCount = argsReader.intValue(0);
             var timePrecision = argsReader.intValue(1);
             var timestampPrecision = argsReader.intValue(2);
