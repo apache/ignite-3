@@ -729,8 +729,8 @@ public class DataStreamerTest extends AbstractClientTableTest {
 
     private static class TestReceiver implements DataStreamerReceiver<Long, Object, String> {
         @Override
-        public CompletableFuture<List<String>> receive(List<Long> page, DataStreamerReceiverContext ctx, Object args) {
-            var parsedArgs = TestReceiverArs.from(args);
+        public CompletableFuture<List<String>> receive(List<Long> page, DataStreamerReceiverContext ctx, Object arg) {
+            var parsedArgs = TestReceiverArs.from(arg);
 
             // noinspection resource
             RecordView<Tuple> view = ctx.ignite().tables().table(DEFAULT_TABLE).recordView();
@@ -784,7 +784,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
     private static class TestUpsertReceiver implements DataStreamerReceiver<Long, Object, Void> {
         @Override
         @Nullable
-        public CompletableFuture<List<Void>> receive(List<Long> page, DataStreamerReceiverContext ctx, Object args) {
+        public CompletableFuture<List<Void>> receive(List<Long> page, DataStreamerReceiverContext ctx, Object arg) {
             // noinspection resource
             RecordView<Tuple> view = ctx.ignite().tables().table(DEFAULT_TABLE).recordView();
 
@@ -837,8 +837,8 @@ public class DataStreamerTest extends AbstractClientTableTest {
 
     private static class EchoArgsReceiver implements DataStreamerReceiver<Object, Object, Object> {
         @Override
-        public CompletableFuture<List<Object>> receive(List<Object> page, DataStreamerReceiverContext ctx, Object args) {
-            return CompletableFuture.completedFuture(List.of(args));
+        public CompletableFuture<List<Object>> receive(List<Object> page, DataStreamerReceiverContext ctx, Object arg) {
+            return CompletableFuture.completedFuture(List.of(arg));
         }
     }
 }

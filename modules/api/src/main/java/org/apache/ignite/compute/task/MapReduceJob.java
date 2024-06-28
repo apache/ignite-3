@@ -34,16 +34,16 @@ public class MapReduceJob<T, R> {
 
     private final JobDescriptor<T, R> jobDescriptor;
 
-    private final T arg;
+    private final T args;
 
     private MapReduceJob(
             Set<ClusterNode> nodes,
             JobDescriptor<T, R> jobDescriptor,
-            T arg
+            T args
     ) {
         this.nodes = Collections.unmodifiableSet(nodes);
         this.jobDescriptor = jobDescriptor;
-        this.arg = arg;
+        this.args = args;
     }
 
     /**
@@ -70,7 +70,7 @@ public class MapReduceJob<T, R> {
      * @return Arguments of the job.
      */
     public T arg() {
-        return arg;
+        return args;
     }
 
     /**
@@ -79,7 +79,7 @@ public class MapReduceJob<T, R> {
      * @return New builder.
      */
     public ComputeJobRunnerBuilder<T, R> toBuilder() {
-        return this.<T, R>builder().jobDescriptor(jobDescriptor).nodes(nodes).args(arg);
+        return MapReduceJob.<T, R>builder().jobDescriptor(jobDescriptor).nodes(nodes).args(args);
     }
 
     /**

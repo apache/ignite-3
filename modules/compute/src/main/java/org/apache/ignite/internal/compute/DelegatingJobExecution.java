@@ -29,20 +29,15 @@ import org.jetbrains.annotations.Nullable;
  * @param <R> Result type.
  */
 class DelegatingJobExecution<R> implements JobExecution<R> {
-    private final CompletableFuture<JobExecutionInternal> delegate;
+    private final CompletableFuture<JobExecutionInternal<R>> delegate;
 
-    DelegatingJobExecution(CompletableFuture<JobExecutionInternal> delegate) {
+    DelegatingJobExecution(CompletableFuture<JobExecutionInternal<R>> delegate) {
         this.delegate = delegate;
     }
 
     @Override
     public CompletableFuture<R> resultAsync() {
-        return delegate.thenCompose(d -> {
-            CompletableFuture<?> res = d.resultAsync();
-            return res.thenApply(r -> {
-                return (R) r;
-            });
-        });
+        return delegate.thenCompose(JobExecutionInternal::resultAsync);
     }
 
     @Override

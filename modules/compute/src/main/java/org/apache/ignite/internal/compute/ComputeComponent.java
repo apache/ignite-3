@@ -41,7 +41,7 @@ public interface ComputeComponent extends IgniteComponent {
      * @param options Job execution options.
      * @param units Deployment units which will be loaded for execution.
      * @param jobClassName Name of the job class.
-     * @param input Job args.
+     * @param arg Job args.
      * @param <R> Job result type.
      * @return Job execution object.
      */
@@ -49,7 +49,7 @@ public interface ComputeComponent extends IgniteComponent {
             ExecutionOptions options,
             List<DeploymentUnit> units,
             String jobClassName,
-            T input
+            T arg
     );
 
     /**
@@ -57,16 +57,16 @@ public interface ComputeComponent extends IgniteComponent {
      *
      * @param units Deployment units which will be loaded for execution.
      * @param jobClassName Name of the job class.
-     * @param input Job args.
+     * @param arg Job args.
      * @param <R> Job result type.
      * @return Job execution object.
      */
     default <T, R> JobExecution<R> executeLocally(
             List<DeploymentUnit> units,
             String jobClassName,
-            T input
+            T arg
     ) {
-        return executeLocally(ExecutionOptions.DEFAULT, units, jobClassName, input);
+        return executeLocally(ExecutionOptions.DEFAULT, units, jobClassName, arg);
     }
 
     /**
@@ -76,7 +76,7 @@ public interface ComputeComponent extends IgniteComponent {
      * @param remoteNode Remote node name.
      * @param units Deployment units which will be loaded for execution.
      * @param jobClassName Name of the job class.
-     * @param input Job args.
+     * @param arg Job args.
      * @param <R> Job result type.
      * @return Job execution object.
      */
@@ -85,7 +85,7 @@ public interface ComputeComponent extends IgniteComponent {
             ClusterNode remoteNode,
             List<DeploymentUnit> units,
             String jobClassName,
-            T input
+            T arg
     );
 
     /**
@@ -94,7 +94,7 @@ public interface ComputeComponent extends IgniteComponent {
      * @param remoteNode Remote node name.
      * @param units Deployment units which will be loaded for execution.
      * @param jobClassName Name of the job class.
-     * @param input Job args.
+     * @param arg Job args.
      * @param <R> Job result type.
      * @return Job execution object.
      */
@@ -102,9 +102,9 @@ public interface ComputeComponent extends IgniteComponent {
             ClusterNode remoteNode,
             List<DeploymentUnit> units,
             String jobClassName,
-            T input
+            T arg
     ) {
-        return executeRemotely(ExecutionOptions.DEFAULT, remoteNode, units, jobClassName, input);
+        return executeRemotely(ExecutionOptions.DEFAULT, remoteNode, units, jobClassName, arg);
     }
 
     /**
@@ -116,7 +116,7 @@ public interface ComputeComponent extends IgniteComponent {
      * @param options Job execution options.
      * @param units Deployment units which will be loaded for execution.
      * @param jobClassName Name of the job class.
-     * @param input Job args.
+     * @param arg Job args.
      * @param <R> Job result type.
      * @return Job execution object.
      */
@@ -126,7 +126,7 @@ public interface ComputeComponent extends IgniteComponent {
             List<DeploymentUnit> units,
             String jobClassName,
             ExecutionOptions options,
-            T input
+            T arg
     );
 
     /**
@@ -135,7 +135,7 @@ public interface ComputeComponent extends IgniteComponent {
      * @param jobSubmitter Function which submits a job with specified parameters for the execution.
      * @param units Deployment units which will be loaded for execution.
      * @param taskClassName Name of the task class.
-     * @param input Task args.
+     * @param arg Task args.
      * @param <R> Task result type.
      * @return Task execution object.
      */
@@ -143,7 +143,7 @@ public interface ComputeComponent extends IgniteComponent {
             JobSubmitter<M, T> jobSubmitter,
             List<DeploymentUnit> units,
             String taskClassName,
-            I input
+            I arg
     );
 
     /**

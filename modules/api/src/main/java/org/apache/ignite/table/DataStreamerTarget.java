@@ -49,7 +49,7 @@ public interface DataStreamerTarget<T> {
      *     NOTE: The result subscriber follows the pace of publisher and ignores backpressure
      *     from {@link Flow.Subscription#request(long)} calls.
      * @param options Options (can be null).
-     * @param receiverArgs Receiver arguments.
+     * @param receiverArg Receiver arguments.
      * @return Future that will be completed when the stream is finished.
      * @param <E> Producer item type.
      * @param <V> Payload type.
@@ -63,5 +63,5 @@ public interface DataStreamerTarget<T> {
             ReceiverDescriptor<A> receiver,
             @Nullable Flow.Subscriber<R> resultSubscriber,
             @Nullable DataStreamerOptions options,
-            A receiverArgs);
+            A receiverArg);
 }

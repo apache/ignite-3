@@ -65,7 +65,7 @@ abstract class PublicApiThreadingViewBase<T> implements DataStreamerTarget<T>, C
             ReceiverDescriptor<A> receiver,
             @Nullable Flow.Subscriber<R> resultSubscriber,
             @Nullable DataStreamerOptions options,
-            A receiverArgs) {
+            A receiverArg) {
         return executeAsyncOp(() -> streamerTarget.streamData(
                 publisher,
                 keyFunc,
@@ -73,7 +73,7 @@ abstract class PublicApiThreadingViewBase<T> implements DataStreamerTarget<T>, C
                 receiver,
                 resultSubscriber,
                 options,
-                receiverArgs));
+                receiverArg));
     }
 
     @Override

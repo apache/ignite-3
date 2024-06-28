@@ -25,6 +25,8 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Internal job execution object.
+ *
+ * @param <R> Job result type.
  */
 public class JobExecutionInternal<R> {
     private final QueueExecution<R> execution;

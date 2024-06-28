@@ -75,7 +75,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
     }
 
     @Override
-    public <T, R> JobExecutionInternal executeJob(
+    public <T, R> JobExecutionInternal<R> executeJob(
             ExecutionOptions options,
             Class<? extends ComputeJob<T, R>> jobClass,
             JobClassLoader classLoader,
@@ -94,7 +94,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
                 options.maxRetries()
         );
 
-        return new JobExecutionInternal(execution, isInterrupted);
+        return new JobExecutionInternal<>(execution, isInterrupted);
     }
 
     private static <T> @Nullable T unmarshallOrNotIfNull(@Nullable Marshaler<T, byte[]> marshaller, Object input) {

@@ -72,7 +72,7 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
 
     @Test
     void threadInterruption() {
-        JobExecutionInternal execution = computeExecutor.executeJob(
+        JobExecutionInternal<?> execution = computeExecutor.executeJob(
                 ExecutionOptions.DEFAULT,
                 InterruptingJob.class,
                 null,
@@ -102,7 +102,7 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
 
     @Test
     void cooperativeCancellation() {
-        JobExecutionInternal execution = computeExecutor.executeJob(
+        JobExecutionInternal<?> execution = computeExecutor.executeJob(
                 ExecutionOptions.DEFAULT,
                 CancellingJob.class,
                 null,
@@ -138,7 +138,7 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
 
         int maxRetries = 5;
 
-        JobExecutionInternal execution = computeExecutor.executeJob(
+        JobExecutionInternal<?> execution = computeExecutor.executeJob(
                 ExecutionOptions.builder().maxRetries(maxRetries).build(),
                 RetryJobFail.class,
                 null,
@@ -166,7 +166,7 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
 
         int maxRetries = 5;
 
-        JobExecutionInternal execution = computeExecutor.executeJob(
+        JobExecutionInternal<?> execution = computeExecutor.executeJob(
                 ExecutionOptions.builder().maxRetries(maxRetries).build(),
                 RetryJobSuccess.class,
                 null,
@@ -226,7 +226,7 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
 
     @Test
     void cancelCompletedJob() {
-        JobExecutionInternal execution = computeExecutor.executeJob(
+        JobExecutionInternal<?> execution = computeExecutor.executeJob(
                 ExecutionOptions.DEFAULT,
                 SimpleJob.class,
                 null,

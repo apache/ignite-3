@@ -495,7 +495,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
             ReceiverDescriptor<A> receiver,
             @Nullable Flow.Subscriber<R> resultSubscriber,
             @Nullable DataStreamerOptions options,
-            A receiverArgs) {
+            A receiverArg) {
         Objects.requireNonNull(publisher);
         Objects.requireNonNull(keyFunc);
         Objects.requireNonNull(payloadFunc);
@@ -512,7 +512,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
                 resultSubscriber,
                 receiver.units(),
                 receiver.receiverClassName(),
-                receiverArgs,
+                receiverArg,
                 receiver.argumentsMarshaler()
         );
     }

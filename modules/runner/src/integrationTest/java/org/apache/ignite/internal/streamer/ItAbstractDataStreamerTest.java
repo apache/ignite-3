@@ -549,7 +549,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
     @SuppressWarnings("resource")
     private static class NodeNameReceiver implements DataStreamerReceiver<Integer, Object, Void> {
         @Override
-        public @Nullable CompletableFuture<List<Void>> receive(List<Integer> page, DataStreamerReceiverContext ctx, Object args) {
+        public @Nullable CompletableFuture<List<Void>> receive(List<Integer> page, DataStreamerReceiverContext ctx, Object arg) {
             var nodeName = ctx.ignite().name();
             RecordView<Tuple> view = ctx.ignite().tables().table(TABLE_NAME).recordView();
 

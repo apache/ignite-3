@@ -97,7 +97,8 @@ public class ClientComputeExecuteRequest {
     }
 
     static CompletableFuture<Object> sendResultAndState(
-            JobExecution<Object> execution, NotificationSender notificationSender,
+            JobExecution<Object> execution,
+            NotificationSender notificationSender,
             Marshaler<Object, byte[]> marshaler
     ) {
         return execution.resultAsync().whenComplete((val, err) ->

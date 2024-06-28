@@ -426,7 +426,7 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
             ReceiverDescriptor<A> receiver,
             @Nullable Flow.Subscriber<R> resultSubscriber,
             @Nullable DataStreamerOptions options,
-            A receiverArgs) {
+            A receiverArg) {
         Objects.requireNonNull(publisher);
         Objects.requireNonNull(keyFunc);
         Objects.requireNonNull(payloadFunc);
@@ -443,7 +443,7 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
                 resultSubscriber,
                 receiver.units(),
                 receiver.receiverClassName(),
-                receiverArgs,
+                receiverArg,
                 receiver.argumentsMarshaler()
         );
     }

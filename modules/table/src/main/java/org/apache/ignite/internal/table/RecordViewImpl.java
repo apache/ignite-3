@@ -577,7 +577,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
             ReceiverDescriptor<A> receiver,
             @Nullable Flow.Subscriber<R1> resultSubscriber,
             @Nullable DataStreamerOptions options,
-            A receiverArgs) {
+            A receiverArg) {
         // TODO: IGNITE-22285 Embedded Data Streamer with Receiver
         throw new UnsupportedOperationException("Not implemented yet");
     }

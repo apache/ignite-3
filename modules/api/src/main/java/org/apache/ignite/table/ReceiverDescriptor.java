@@ -34,7 +34,9 @@ public class ReceiverDescriptor<A> {
     private final @Nullable Marshaler<A, byte[]> argumentsMarshaler;
 
     private ReceiverDescriptor(
-            String receiverClassName, List<DeploymentUnit> units, @Nullable Marshaler<A, byte[]> argumentsMarshaler
+            String receiverClassName,
+            List<DeploymentUnit> units,
+            @Nullable Marshaler<A, byte[]> argumentsMarshaler
     ) {
         Objects.requireNonNull(receiverClassName);
         Objects.requireNonNull(units);
@@ -67,10 +69,10 @@ public class ReceiverDescriptor<A> {
      *
      * @return Receiver descriptor builder.
      */
-    public static Builder builder(String receiverClassName) {
+    public static <A> Builder<A> builder(String receiverClassName) {
         Objects.requireNonNull(receiverClassName);
 
-        return new Builder(receiverClassName);
+        return new Builder<>(receiverClassName);
     }
 
     /**
@@ -81,7 +83,7 @@ public class ReceiverDescriptor<A> {
     public static <A> Builder<A> builder(Class<? extends DataStreamerReceiver<?, A, ?>> receiverClass) {
         Objects.requireNonNull(receiverClass);
 
-        return new Builder(receiverClass.getName());
+        return new Builder<>(receiverClass.getName());
     }
 
     public @Nullable Marshaler<A, byte[]> argumentsMarshaler() {

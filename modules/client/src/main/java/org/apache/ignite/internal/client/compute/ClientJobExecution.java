@@ -60,13 +60,9 @@ class ClientJobExecution<R> implements JobExecution<R> {
                 .thenApply(r -> {
                     // Notifications require explicit input close.
                     try (r) {
-                        if (marshaler == null) {
-                            R result = (R) r.in().unpackObjectFromBinaryTuple();
-                            stateFuture.complete(unpackJobState(r));
-                            return result;
-                        }
+                        Object o = r.in().unpackObjectFromBinaryTuple();
+                        R result = marshaler != null ? marshaler.unmarshal((byte[]) o) : (R) o;
 
-                        R result = marshaler.unmarshal((byte[]) r.in().unpackObjectFromBinaryTuple());
                         stateFuture.complete(unpackJobState(r));
                         return result;
                     }

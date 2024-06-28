@@ -691,7 +691,7 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
             ReceiverDescriptor<A> receiver,
             @Nullable Flow.Subscriber<R> resultSubscriber,
             @Nullable DataStreamerOptions options,
-            A receiverArgs) {
+            A receiverArg) {
         Objects.requireNonNull(publisher);
         Objects.requireNonNull(keyFunc);
         Objects.requireNonNull(payloadFunc);
@@ -708,7 +708,7 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
                 resultSubscriber,
                 receiver.units(),
                 receiver.receiverClassName(),
-                receiverArgs,
+                receiverArg,
                 receiver.argumentsMarshaler()
         );
     }

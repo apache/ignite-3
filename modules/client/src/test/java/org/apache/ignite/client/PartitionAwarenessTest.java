@@ -692,7 +692,7 @@ public class PartitionAwarenessTest extends AbstractClientTest {
     private static class TestReceiver implements DataStreamerReceiver<Object, Object, Object> {
         @SuppressWarnings("resource")
         @Override
-        public CompletableFuture<List<Object>> receive(List<Object> page, DataStreamerReceiverContext ctx, Object args) {
+        public CompletableFuture<List<Object>> receive(List<Object> page, DataStreamerReceiverContext ctx, Object arg) {
             ctx.ignite().tables().table(DEFAULT_TABLE).recordView().upsert(null, Tuple.create().set("ID", 0L));
             return CompletableFuture.completedFuture(null);
         }
