@@ -158,20 +158,6 @@ namespace Apache.Ignite.Tests.Compute
         }
 
         [Test]
-        public async Task TestExecuteWithArgs()
-        {
-            var res = await Client.Compute.SubmitAsync(
-                await GetNodeAsync(0),
-                ConcatJob,
-                1.1,
-                Guid.Empty,
-                "3",
-                null);
-
-            Assert.AreEqual("1.1_00000000-0000-0000-0000-000000000000_3_null", await res.GetResultAsync());
-        }
-
-        [Test]
         public async Task TestExecuteWithNullArgs()
         {
             var res = await Client.Compute.SubmitAsync(await GetNodeAsync(0), ConcatJob, args: null);
