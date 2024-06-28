@@ -15,10 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.compute;
+package org.apache.ignite.deployment;
 
 import java.util.Objects;
-import org.apache.ignite.compute.version.Version;
+import org.apache.ignite.deployment.version.Version;
 
 /**
  * Deployment unit.

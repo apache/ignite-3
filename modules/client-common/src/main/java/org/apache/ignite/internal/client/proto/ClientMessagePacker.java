@@ -27,7 +27,7 @@ import java.time.Instant;
 import java.util.BitSet;
 import java.util.List;
 import java.util.UUID;
-import org.apache.ignite.compute.DeploymentUnit;
+import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleParser;
 import org.apache.ignite.sql.BatchedArguments;
