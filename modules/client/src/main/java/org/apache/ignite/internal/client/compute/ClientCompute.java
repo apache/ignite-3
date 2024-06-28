@@ -92,7 +92,7 @@ public class ClientCompute implements IgniteCompute {
     }
 
     @Override
-    public <T, R> JobExecution<R> submit(JobTarget target, JobDescriptor<T, R> descriptor, T args) {
+    public <T, R> JobExecution<R> submit(JobTarget target, JobDescriptor<T, R> descriptor, T arg) {
         Objects.requireNonNull(target);
         Objects.requireNonNull(descriptor);
 
