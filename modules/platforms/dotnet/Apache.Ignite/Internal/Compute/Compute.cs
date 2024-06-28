@@ -312,7 +312,7 @@ namespace Apache.Ignite.Internal.Compute
                 w.Write(options.MaxRetries);
 
                 // TODO IGNITE-22602 .NET: Use single argument in Compute API
-                var singleArg = args?.Single();
+                var singleArg = args?.SingleOrDefault();
                 w.WriteObjectAsBinaryTuple(singleArg);
             }
         }
@@ -403,7 +403,7 @@ namespace Apache.Ignite.Internal.Compute
                 w.Write(options.MaxRetries);
 
                 // TODO IGNITE-22602 .NET: Use single argument in Compute API
-                var singleArg = args?.Single();
+                var singleArg = args?.SingleOrDefault();
                 w.WriteObjectAsBinaryTuple(singleArg);
 
                 return colocationHash;

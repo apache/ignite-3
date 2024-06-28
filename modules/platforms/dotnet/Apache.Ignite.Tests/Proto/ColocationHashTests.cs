@@ -336,12 +336,20 @@ public class ColocationHashTests : IgniteTestsBase
         IJobExecution<int> jobExecution = await Client.Compute.SubmitAsync(
             target,
             new JobDescriptor<int>(ColocationHashJob),
-            count,
-            bytes,
-            timePrecision,
-            timestampPrecision);
+            GetArg());
 
         return await jobExecution.GetResultAsync();
+
+        byte[] GetArg()
+        {
+            using var argBuilder = new BinaryTupleBuilder(4);
+            argBuilder.AppendInt(count);
+            argBuilder.AppendInt(timePrecision);
+            argBuilder.AppendInt(timestampPrecision);
+            argBuilder.AppendBytes(bytes);
+
+            return argBuilder.Build().ToArray();
+        }
     }
 
     private record TestIndexProvider(Func<int, int> ColumnOrderDelegate, int HashedColumnCount) : IHashedColumnIndexProvider
