@@ -234,21 +234,20 @@ private:
     std::shared_ptr<job_execution_impl> m_execution{};
 };
 
-void compute_impl::submit_to_nodes(const std::vector<cluster_node> &nodes, const std::vector<deployment_unit> &units,
-    std::string_view job_class_name, const std::vector<primitive> &args, const job_execution_options &options,
-    ignite_callback<job_execution> callback) {
+void compute_impl::submit_to_nodes(const std::vector<cluster_node> &nodes, std::shared_ptr<job_descriptor> descriptor,
+    const std::vector<primitive> &args, ignite_callback<job_execution> callback) {
 
-    auto writer_func = [&nodes, job_class_name, &units, args, options](protocol::writer &writer) {
+    auto writer_func = [&nodes, &descriptor, args](protocol::writer &writer) {
         auto nodes_num = std::int32_t(nodes.size());
         writer.write(nodes_num);
         for (const auto &node : nodes) {
             writer.write(node.get_name());
         }
-        write_units(writer, units);
-        writer.write(job_class_name);
+        write_units(writer, descriptor->get_deployment_units());
+        writer.write(descriptor->get_job_class_name());
 
-        writer.write(options.get_priority());
-        writer.write(options.get_max_retries());
+        writer.write(descriptor->get_execution_options().get_priority());
+        writer.write(descriptor->get_execution_options().get_max_retries());
 
         write_primitives_as_binary_tuple(writer, args);
     };
@@ -260,11 +259,11 @@ void compute_impl::submit_to_nodes(const std::vector<cluster_node> &nodes, const
 }
 
 void compute_impl::submit_colocated_async(const std::string &table_name, const ignite_tuple &key,
-    const std::vector<deployment_unit> &units, const std::string &job, const std::vector<primitive> &args,
-    const job_execution_options &options, ignite_callback<job_execution> callback) {
+    std::shared_ptr<job_descriptor> descriptor, const std::vector<primitive> &args,
+    ignite_callback<job_execution> callback) {
     auto self = shared_from_this();
     auto conn = m_connection;
-    auto on_table_get = [self, table_name, key, units, job, args, conn, options, callback](auto &&res) mutable {
+    auto on_table_get = [self, table_name, key, descriptor, args, conn, callback](auto &&res) mutable {
         if (res.has_error()) {
             callback({std::move(res.error())});
             return;
@@ -277,16 +276,16 @@ void compute_impl::submit_colocated_async(const std::string &table_name, const i
 
         auto table = table_impl::from_facade(*table_opt);
         table->template with_proper_schema_async<job_execution>(
-            callback, [self, table, key, units, job, args, conn, options](const schema &sch, auto callback) mutable {
-                auto writer_func = [&key, &units, &sch, &table, &job, &args, &options](protocol::writer &writer) {
+            callback, [self, table, key, descriptor, args, conn](const schema &sch, auto callback) mutable {
+                auto writer_func = [&key, &descriptor, &sch, &table, &args](protocol::writer &writer) {
                     writer.write(table->get_id());
                     writer.write(sch.version);
                     write_tuple(writer, sch, key, true);
-                    write_units(writer, units);
-                    writer.write(job);
+                    write_units(writer, descriptor->get_deployment_units());
+                    writer.write(descriptor->get_job_class_name());
 
-                    writer.write(options.get_priority());
-                    writer.write(options.get_max_retries());
+                    writer.write(descriptor->get_execution_options().get_priority());
+                    writer.write(descriptor->get_execution_options().get_max_retries());
 
                     write_primitives_as_binary_tuple(writer, args);
                 };

@@ -21,6 +21,8 @@
 #include "ignite/client/compute/job_execution_options.h"
 
 #include <string>
+#include <vector>
+#include <memory>
 
 namespace ignite {
 
@@ -42,32 +44,11 @@ public:
     [[nodiscard]] const std::string &get_job_class_name() const { return m_job_class_name; }
 
     /**
-     * Set job class name.
-     *
-     * @param job_class_name Job class name.
-     */
-    void set_job_class_name(const std::string &job_class_name) { m_job_class_name = job_class_name; }
-
-    /**
      * Get deployment units.
      *
      * @return Deployment units.
      */
     [[nodiscard]] const std::vector<deployment_unit> &get_deployment_units() const { return m_units; }
-
-    /**
-     * Get deployment units.
-     *
-     * @return Deployment units.
-     */
-    [[nodiscard]] std::vector<deployment_unit> &get_deployment_units() { return m_units; }
-
-    /**
-     * Set deployment units.
-     *
-     * @param units Deployment units to set.
-     */
-    void set_deployment_units(std::vector<deployment_unit> units) { m_units = std::move(units); }
 
     /**
      * Get execution options.
@@ -77,12 +58,50 @@ public:
     [[nodiscard]] const job_execution_options &get_execution_options() const { return m_options; }
 
     /**
-     * Set execution options.
-     *
-     * @param options Execution options.
+     * Builder.
      */
-    void set_execution_options(const job_execution_options &options) { m_options = options; }
+    class builder {
+    public:
+        /**
+         * Set job class name.
+         *
+         * @param job_class_name Job class name.
+         */
+        builder& set_job_class_name(const std::string &job_class_name) {
+            m_descriptor->m_job_class_name = job_class_name;
+            return *this;
+        }
 
+        /**
+         * Set deployment units.
+         *
+         * @param units Deployment units to set.
+         */
+        builder& set_deployment_units(std::vector<deployment_unit> units) {
+            m_descriptor->m_units = std::move(units);
+            return *this;
+        }
+
+        /**
+         * Set execution options.
+         *
+         * @param options Execution options.
+         */
+        builder& set_execution_options(const job_execution_options &options) {
+            m_descriptor->m_options = options;
+            return *this;
+        }
+
+        /**
+         * Build Job Descriptor.
+         *
+         * @return An instance of Job Descriptor.
+         */
+        std::shared_ptr<job_descriptor> build() { return std::move(m_descriptor); }
+    private:
+        /** Descriptor. */
+        std::shared_ptr<job_descriptor> m_descriptor{std::make_shared<job_descriptor>()};
+    };
 private:
     /** Job class name. */
     std::string m_job_class_name;
