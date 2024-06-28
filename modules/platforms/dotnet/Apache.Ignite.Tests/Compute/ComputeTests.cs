@@ -705,7 +705,7 @@ namespace Apache.Ignite.Tests.Compute
         [TestCase("1.123456789", 5)]
         public async Task TestBigDecimalPropagation(string number, int scale)
         {
-            var res = await Client.Compute.SubmitAsync(await GetNodeAsync(1), DecimalJob, number, scale);
+            var res = await Client.Compute.SubmitAsync(await GetNodeAsync(1), DecimalJob, $"{number},{scale}");
             var resVal = await res.GetResultAsync();
 
             var expected = decimal.Parse(number, NumberStyles.Float);
