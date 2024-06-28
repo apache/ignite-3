@@ -171,7 +171,7 @@ public class DataStreamerTests : IgniteTestsBase
                 x => GetTuple((long)x[0]!),
                 x => $"{x[0]}-value",
                 TestReceiverNoResults,
-                receiverArgs: new object[] { Table.Name, "arg1", 22 },
+                receiverArgs: GetReceiverArg(Table.Name, "arg1", 22),
                 options: options);
         }
         else
@@ -596,7 +596,7 @@ public class DataStreamerTests : IgniteTestsBase
                 keySelector: x => GetPoco(x),
                 payloadSelector: _ => string.Empty,
                 TestReceiver,
-                receiverArgs: new object[] { "throw", "throw", 1 }).ToListAsync());
+                receiverArgs: GetReceiverArg("throw", "throw", 1)).ToListAsync());
 
         Assert.AreEqual("Streamer receiver failed: Job execution failed: java.lang.ArithmeticException: Test exception: 1", ex.Message);
     }
@@ -610,7 +610,7 @@ public class DataStreamerTests : IgniteTestsBase
                 keySelector: x => keySelector ? throw new DataException("key") : GetPoco(x),
                 payloadSelector: _ => throw new DataException("payload"),
                 receiver: TestReceiverNoResults,
-                receiverArgs: new object[] { "throw", "throw", 1 }));
+                receiverArgs: GetReceiverArg("throw", "throw", 1)));
 
         Assert.AreEqual(keySelector ? "key" : "payload", ex.Message);
     }
@@ -732,7 +732,7 @@ public class DataStreamerTests : IgniteTestsBase
             keySelector: x => GetPoco(x),
             payloadSelector: x => $"{x}-value{x * 10}",
             TestReceiver,
-            receiverArgs: new object[] { Table.Name, "arg1", 22 },
+            receiverArgs: GetReceiverArg(Table.Name, "arg1", 22),
             options: DataStreamerOptions.Default with { PageSize = 1 });
 
         var cts = new CancellationTokenSource();
