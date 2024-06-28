@@ -575,7 +575,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             // Call to getAllowedSignatures throws NPE, if operandTypeChecker is null.
             if (operator.getOperandTypeChecker() != null) {
                 // If signatures are available, then return:
-                // Cannot apply 'AVG' to arguments of type 'F(<ARG_TYPE>)'. Supported form(s): 'F(<TYPE>)'
+                // Cannot apply 'F' to arguments of type 'F(<ARG_TYPE>)'. Supported form(s): 'F(<TYPE>)'
                 String allowedSignatures = operator.getAllowedSignatures();
                 throw newValidationError(call,
                         RESOURCE.canNotApplyOp2Type(name,
@@ -583,7 +583,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
                                 allowedSignatures));
             } else {
                 // Otherwise return an error w/o supported forms:
-                // Cannot apply 'AVG' to arguments of type 'F(<ARG_TYPE>)'
+                // Cannot apply 'F' to arguments of type 'F(<ARG_TYPE>)'
                 throw newValidationError(call, IgniteResource.INSTANCE.canNotApplyOp2Type(name,
                         call.getCallSignature(this, scope)));
             }

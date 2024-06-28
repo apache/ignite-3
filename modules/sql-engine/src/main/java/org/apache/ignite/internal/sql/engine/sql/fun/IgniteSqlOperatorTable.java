@@ -181,9 +181,14 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
             SqlStdOperatorTable.CAST,
             SqlStdOperatorTable.COALESCE,
             SqlStdOperatorTable.NULLIF,
+            TYPEOF,
             SqlStdOperatorTable.COUNT,
             SqlStdOperatorTable.MIN,
-            SqlStdOperatorTable.MAX
+            SqlStdOperatorTable.MAX,
+            SqlStdOperatorTable.ANY_VALUE,
+            SqlStdOperatorTable.SOME,
+            SqlStdOperatorTable.SINGLE_VALUE,
+            SqlStdOperatorTable.EVERY
     );
 
     /**
