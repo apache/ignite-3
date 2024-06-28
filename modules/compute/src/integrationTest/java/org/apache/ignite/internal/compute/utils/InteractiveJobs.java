@@ -155,7 +155,7 @@ public final class InteractiveJobs {
     /**
      * Interactive job that communicates via {@link #GLOBAL_CHANNEL} and {@link #GLOBAL_SIGNALS}.
      */
-    private static class GlobalInteractiveJob implements ComputeJob<String> {
+    public static class GlobalInteractiveJob implements ComputeJob<String, String> {
         private static Signal listenSignal() {
             try {
                 return GLOBAL_SIGNALS.take();
@@ -165,7 +165,7 @@ public final class InteractiveJobs {
         }
 
         @Override
-        public CompletableFuture<String> executeAsync(JobExecutionContext context, Object... args) {
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, String args) {
             RUNNING_INTERACTIVE_JOBS_CNT.incrementAndGet();
 
             offerArgsAsSignals(args);
@@ -198,18 +198,16 @@ public final class InteractiveJobs {
         /**
          * If any of the args are strings, convert them to signals and offer them to the job.
          *
-         * @param args Job args.
+         * @param arg Job args.
          */
-        private static void offerArgsAsSignals(Object[] args) {
-            for (Object arg : args) {
-                if (arg instanceof String) {
-                    String signal = (String) arg;
-                    try {
-                        GLOBAL_SIGNALS.offer(Signal.valueOf(signal));
-                    } catch (IllegalArgumentException ignored) {
-                        // Ignore non-signal strings
-                    }
-                }
+        private static void offerArgsAsSignals(String arg) {
+            if (arg == null) {
+                return;
+            }
+            try {
+                GLOBAL_SIGNALS.offer(Signal.valueOf(arg));
+            } catch (IllegalArgumentException ignored) {
+                // Ignore non-signal strings
             }
         }
     }
@@ -218,7 +216,7 @@ public final class InteractiveJobs {
      * Interactive job that communicates via {@link #NODE_CHANNELS} and {@link #NODE_SIGNALS}. Also, keeps track of how many times it was
      * executed via {@link #RUNNING_INTERACTIVE_JOBS_CNT}.
      */
-    private static class InteractiveJob implements ComputeJob<String> {
+    private static class InteractiveJob implements ComputeJob<Object[], String> {
         private static Signal listenSignal(BlockingQueue<Signal> channel) {
             try {
                 return channel.take();
@@ -413,6 +411,10 @@ public final class InteractiveJobs {
          */
         public String name() {
             return GlobalInteractiveJob.class.getName();
+        }
+
+        public Class<GlobalInteractiveJob> jobClass() {
+            return GlobalInteractiveJob.class;
         }
     }
 }

@@ -487,6 +487,17 @@ public class ClientMessageUnpacker implements AutoCloseable {
     }
 
     /**
+     * Reads a payload into the specified buffer.
+     *
+     * @param target Target buffer.
+     */
+    public void readPayload(ByteBuffer target) {
+        assert refCnt > 0 : "Unpacker is closed";
+
+        buf.readBytes(target);
+    }
+
+    /**
      * Reads a binary value.
      *
      * @return Payload bytes.

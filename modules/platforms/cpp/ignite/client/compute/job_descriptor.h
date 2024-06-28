@@ -21,6 +21,7 @@
 #include "ignite/client/compute/job_execution_options.h"
 
 #include <string>
+#include <utility>
 #include <vector>
 #include <memory>
 
@@ -63,12 +64,21 @@ public:
     class builder {
     public:
         /**
+         * Constructor.
+         *
+         * @param job_class_name Job class name.
+         */
+        explicit builder(std::string job_class_name) {
+            m_descriptor->m_job_class_name = std::move(job_class_name);
+        }
+
+        /**
          * Set job class name.
          *
          * @param job_class_name Job class name.
          */
-        builder& set_job_class_name(const std::string &job_class_name) {
-            m_descriptor->m_job_class_name = job_class_name;
+        builder& job_class_name(std::string job_class_name) {
+            m_descriptor->m_job_class_name = std::move(job_class_name);
             return *this;
         }
 
@@ -77,7 +87,7 @@ public:
          *
          * @param units Deployment units to set.
          */
-        builder& set_deployment_units(std::vector<deployment_unit> units) {
+        builder& deployment_units(std::vector<deployment_unit> units) {
             m_descriptor->m_units = std::move(units);
             return *this;
         }
@@ -87,8 +97,8 @@ public:
          *
          * @param options Execution options.
          */
-        builder& set_execution_options(const job_execution_options &options) {
-            m_descriptor->m_options = options;
+        builder& execution_options(job_execution_options options) {
+            m_descriptor->m_options = std::move(options); // NOLINT(*-move-const-arg)
             return *this;
         }
 

@@ -30,6 +30,7 @@ import java.util.UUID;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleParser;
+import org.apache.ignite.marshaling.Marshaler;
 import org.apache.ignite.sql.BatchedArguments;
 import org.jetbrains.annotations.Nullable;
 
@@ -598,7 +599,7 @@ public class ClientMessagePacker implements AutoCloseable {
      *
      * @param vals Object array.
      */
-    public void packObjectArrayAsBinaryTuple(Object @Nullable [] vals) {
+    public void packObjectArrayAsBinaryTuple(Object @Nullable [] vals, @Nullable Marshaler<Object, byte[]> marshaller) {
         assert !closed : "Packer is closed";
 
         if (vals == null) {
@@ -618,7 +619,7 @@ public class ClientMessagePacker implements AutoCloseable {
         var builder = new BinaryTupleBuilder(vals.length * 3);
 
         for (Object arg : vals) {
-            ClientBinaryTupleUtils.appendObject(builder, arg);
+            ClientBinaryTupleUtils.appendObject(builder, arg, marshaller);
         }
 
         packBinaryTuple(builder);
@@ -650,7 +651,7 @@ public class ClientMessagePacker implements AutoCloseable {
             var builder = new BinaryTupleBuilder(rowLen * 3);
 
             for (Object value : values) {
-                ClientBinaryTupleUtils.appendObject(builder, value);
+                ClientBinaryTupleUtils.appendObject(builder, value, null);
             }
 
             packBinaryTuple(builder);
@@ -662,7 +663,7 @@ public class ClientMessagePacker implements AutoCloseable {
      *
      * @param val Object array.
      */
-    public void packObjectAsBinaryTuple(Object val) {
+    public <T> void packObjectAsBinaryTuple(T val, @Nullable Marshaler<T, byte[]> marshaler) {
         assert !closed : "Packer is closed";
 
         if (val == null) {
@@ -673,8 +674,8 @@ public class ClientMessagePacker implements AutoCloseable {
 
         // Builder with inline schema.
         // Value is represented by 3 tuple elements: type, scale, value.
-        var builder = new BinaryTupleBuilder(3, 3);
-        ClientBinaryTupleUtils.appendObject(builder, val);
+        var builder = new BinaryTupleBuilder(3, 3, false);
+        ClientBinaryTupleUtils.appendObject(builder, val, marshaler);
 
         packBinaryTuple(builder);
     }

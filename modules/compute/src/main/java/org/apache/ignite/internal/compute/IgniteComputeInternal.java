@@ -46,7 +46,7 @@ public interface IgniteComputeInternal extends IgniteCompute {
      * @param units Deployment units. Can be empty.
      * @param jobClassName Name of the job class to execute.
      * @param options Job execution options.
-     * @param args Arguments of the job.
+     * @param payload Arguments of the job.
      * @return CompletableFuture Job result.
      */
     <R> JobExecution<R> executeAsyncWithFailover(
@@ -54,7 +54,7 @@ public interface IgniteComputeInternal extends IgniteCompute {
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            Object... args
+            Object payload
     );
 
     /**
@@ -66,7 +66,7 @@ public interface IgniteComputeInternal extends IgniteCompute {
      * @param units Deployment units. Can be empty.
      * @param jobClassName Name of the job class to execute.
      * @param options job execution options (priority, max retries).
-     * @param args Arguments of the job.
+     * @param payload Arguments of the job.
      * @param <R> Job result type.
      * @return Job execution object.
      */
@@ -76,7 +76,7 @@ public interface IgniteComputeInternal extends IgniteCompute {
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            Object[] args);
+            Object payload);
 
     /**
      * Wraps the given future into a job execution object.

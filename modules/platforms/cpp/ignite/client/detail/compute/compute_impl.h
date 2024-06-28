@@ -25,6 +25,7 @@
 #include "ignite/client/detail/table/tables_impl.h"
 #include "ignite/client/network/cluster_node.h"
 #include "ignite/client/table/ignite_tuple.h"
+#include "ignite/common/binary_object.h"
 #include "ignite/common/ignite_result.h"
 #include "ignite/common/primitive.h"
 
@@ -55,11 +56,11 @@ public:
      *
      * @param nodes Candidate node to use for the job execution.
      * @param descriptor Descriptor.
-     * @param args Job arguments.
+     * @param arg Job argument.
      * @param callback A callback called on operation completion with job execution result.
      */
     void submit_to_nodes(const std::vector<cluster_node> &nodes, std::shared_ptr<job_descriptor> descriptor,
-        const std::vector<primitive> &args, ignite_callback<job_execution> callback);
+        const binary_object &arg, ignite_callback<job_execution> callback);
 
     /**
      * Submits a compute job represented by the given class for an execution on one of the nodes where the given key is
@@ -68,11 +69,11 @@ public:
      * @param table_name Name of the table to be used with @c key to determine target node.
      * @param key Table key to be used to determine the target node for job execution.
      * @param descriptor Descriptor.
-     * @param args Job arguments.
+     * @param arg Job argument.
      * @param callback A callback called on operation completion with job execution result.
      */
     void submit_colocated_async(const std::string &table_name, const ignite_tuple &key,
-        std::shared_ptr<job_descriptor> descriptor, const std::vector<primitive> &args,
+        std::shared_ptr<job_descriptor> descriptor, const binary_object &arg,
         ignite_callback<job_execution> callback);
 
     /**

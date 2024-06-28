@@ -116,11 +116,11 @@ public class ComputeComponentImpl implements ComputeComponent {
 
     /** {@inheritDoc} */
     @Override
-    public <R> JobExecution<R> executeLocally(
+    public <I, R> JobExecution<R> executeLocally(
             ExecutionOptions options,
             List<DeploymentUnit> units,
             String jobClassName,
-            Object... args
+            I arg
     ) {
         if (!busyLock.enterBusy()) {
             return new DelegatingJobExecution<>(
@@ -132,7 +132,7 @@ public class ComputeComponentImpl implements ComputeComponent {
             CompletableFuture<JobExecutionInternal<R>> future =
                     mapClassLoaderExceptions(jobContextManager.acquireClassLoader(units), jobClassName)
                             .thenApply(context -> {
-                                JobExecutionInternal<R> execution = execJob(context, options, jobClassName, args);
+                                JobExecutionInternal<R> execution = execJob(context, options, jobClassName, arg);
                                 execution.resultAsync().whenComplete((result, e) -> context.close());
                                 inFlightFutures.registerFuture(execution.resultAsync());
                                 return execution;
@@ -149,11 +149,11 @@ public class ComputeComponentImpl implements ComputeComponent {
     }
 
     @Override
-    public <R> TaskExecution<R> executeTask(
-            JobSubmitter jobSubmitter,
+    public <I, M, T, R> TaskExecution<R> executeTask(
+            JobSubmitter<M, T> jobSubmitter,
             List<DeploymentUnit> units,
             String taskClassName,
-            Object... args
+            I input
     ) {
         if (!busyLock.enterBusy()) {
             return new DelegatingTaskExecution<>(
@@ -162,10 +162,10 @@ public class ComputeComponentImpl implements ComputeComponent {
         }
 
         try {
-            CompletableFuture<TaskExecutionInternal<R>> taskFuture =
+            CompletableFuture<TaskExecutionInternal<I, M, T, R>> taskFuture =
                     mapClassLoaderExceptions(jobContextManager.acquireClassLoader(units), taskClassName)
                             .thenApply(context -> {
-                                TaskExecutionInternal<R> execution = execTask(context, jobSubmitter, taskClassName, args);
+                                TaskExecutionInternal<I, M, T, R> execution = execTask(context, jobSubmitter, taskClassName, input);
                                 execution.resultAsync().whenComplete((r, e) -> context.close());
                                 inFlightFutures.registerFuture(execution.resultAsync());
                                 return execution;
@@ -173,7 +173,7 @@ public class ComputeComponentImpl implements ComputeComponent {
 
             inFlightFutures.registerFuture(taskFuture);
 
-            DelegatingTaskExecution<R> result = new DelegatingTaskExecution<>(taskFuture);
+            DelegatingTaskExecution<I, M, T, R> result = new DelegatingTaskExecution<>(taskFuture);
             result.idAsync().thenAccept(jobId -> executionManager.addExecution(jobId, new TaskToJobExecutionWrapper<>(result)));
             return result;
         } finally {
@@ -183,12 +183,12 @@ public class ComputeComponentImpl implements ComputeComponent {
 
     /** {@inheritDoc} */
     @Override
-    public <R> JobExecution<R> executeRemotely(
+    public <T, R> JobExecution<R> executeRemotely(
             ExecutionOptions options,
             ClusterNode remoteNode,
             List<DeploymentUnit> units,
             String jobClassName,
-            Object... args
+            T arg
     ) {
         if (!busyLock.enterBusy()) {
             return new DelegatingJobExecution<>(
@@ -197,7 +197,7 @@ public class ComputeComponentImpl implements ComputeComponent {
         }
 
         try {
-            CompletableFuture<UUID> jobIdFuture = messaging.remoteExecuteRequestAsync(options, remoteNode, units, jobClassName, args);
+            CompletableFuture<UUID> jobIdFuture = messaging.remoteExecuteRequestAsync(options, remoteNode, units, jobClassName, arg);
             CompletableFuture<R> resultFuture = jobIdFuture.thenCompose(jobId -> messaging.remoteJobResultRequestAsync(remoteNode, jobId));
 
             inFlightFutures.registerFuture(jobIdFuture);
@@ -212,18 +212,18 @@ public class ComputeComponentImpl implements ComputeComponent {
     }
 
     @Override
-    public <R> JobExecution<R> executeRemotelyWithFailover(
+    public <T, R> JobExecution<R> executeRemotelyWithFailover(
             ClusterNode remoteNode,
             NextWorkerSelector nextWorkerSelector,
             List<DeploymentUnit> units,
             String jobClassName,
             ExecutionOptions options,
-            Object... args
+            T arg
     ) {
         JobExecution<R> result = new ComputeJobFailover<R>(
                 this, logicalTopologyService, topologyService,
                 remoteNode, nextWorkerSelector, failoverExecutor, units,
-                jobClassName, options, args
+                jobClassName, options, arg
         ).failSafeExecute();
 
         result.idAsync().thenAccept(jobId -> executionManager.addExecution(jobId, result));
@@ -293,7 +293,8 @@ public class ComputeComponentImpl implements ComputeComponent {
         return nullCompletedFuture();
     }
 
-    private <R> JobExecutionInternal<R> execJob(JobContext context, ExecutionOptions options, String jobClassName, Object... args) {
+
+    private <T, R> JobExecutionInternal<R> execJob(JobContext context, ExecutionOptions options, String jobClassName, Object args) {
         try {
             return executor.executeJob(options, jobClass(context.classLoader(), jobClassName), context.classLoader(), args);
         } catch (Throwable e) {
@@ -302,14 +303,14 @@ public class ComputeComponentImpl implements ComputeComponent {
         }
     }
 
-    private <R> TaskExecutionInternal<R> execTask(
+    private <I, M, T, R> TaskExecutionInternal<I, M, T, R> execTask(
             JobContext context,
-            JobSubmitter jobSubmitter,
+            JobSubmitter<M, T> jobSubmitter,
             String taskClassName,
-            Object... args
+            I input
     ) {
         try {
-            return executor.executeTask(jobSubmitter, taskClass(context.classLoader(), taskClassName), args);
+            return executor.executeTask(jobSubmitter, taskClass(context.classLoader(), taskClassName), input);
         } catch (Throwable e) {
             context.close();
             throw e;
