@@ -93,21 +93,20 @@ public class SqlApiExample {
             try {
                 System.out.println("\nPopulating 'CITIES' table...");
 
-                try (Statement stmt = client.sql().createStatement("INSERT INTO CITIES (ID, NAME) VALUES (?, ?)")) {
-                    long rowsAdded = 0;
+                Statement stmt = client.sql().createStatement("INSERT INTO CITIES (ID, NAME) VALUES (?, ?)");
+                long rowsAdded = 0;
 
-                    try (ResultSet<?> rs = client.sql().execute(tx, stmt, 1, "Forest Hill")) {
-                        rowsAdded += rs.affectedRows();
-                    }
-                    try (ResultSet<?> rs = client.sql().execute(tx, stmt, 2, "Denver")) {
-                        rowsAdded += rs.affectedRows();
-                    }
-                    try (ResultSet<?> rs = client.sql().execute(tx, stmt, 3, "St. Petersburg")) {
-                        rowsAdded += rs.affectedRows();
-                    }
-
-                    System.out.println("\nAdded cities: " + rowsAdded);
+                try (ResultSet<?> rs = client.sql().execute(tx, stmt, 1, "Forest Hill")) {
+                    rowsAdded += rs.affectedRows();
                 }
+                try (ResultSet<?> rs = client.sql().execute(tx, stmt, 2, "Denver")) {
+                    rowsAdded += rs.affectedRows();
+                }
+                try (ResultSet<?> rs = client.sql().execute(tx, stmt, 3, "St. Petersburg")) {
+                    rowsAdded += rs.affectedRows();
+                }
+
+                System.out.println("\nAdded cities: " + rowsAdded);
 
                 //--------------------------------------------------------------------------------------
                 //
@@ -117,7 +116,7 @@ public class SqlApiExample {
 
                 System.out.println("\nPopulating 'ACCOUNTS' table...");
 
-                long rowsAdded = Arrays.stream(client.sql().executeBatch(tx,
+                rowsAdded = Arrays.stream(client.sql().executeBatch(tx,
                                 "INSERT INTO ACCOUNTS (ACCOUNT_ID, CITY_ID, FIRST_NAME, LAST_NAME, BALANCE) values (?, ?, ?, ?, ?)",
                                 BatchedArguments.of(1, 1, "John", "Doe", 1000.0d)
                                         .add(2, 1, "Jane", "Roe", 2000.0d)
@@ -220,8 +219,6 @@ public class SqlApiExample {
             client.sql().executeAsync(null, stmt)
                     .thenCompose(SqlApiExample::fetchAllRowsInto)
                     .get();
-
-            stmt.close();
 
             System.out.println("\nDropping the tables...");
 

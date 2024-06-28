@@ -20,10 +20,10 @@ package org.apache.ignite.internal.compute.task;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.compute.JobStatus.CANCELED;
 import static org.apache.ignite.compute.JobStatus.COMPLETED;
-import static org.apache.ignite.compute.JobStatus.EXECUTING;
-import static org.apache.ignite.compute.JobStatus.FAILED;
+import static org.apache.ignite.compute.TaskStatus.CANCELED;
+import static org.apache.ignite.compute.TaskStatus.EXECUTING;
+import static org.apache.ignite.compute.TaskStatus.FAILED;
 import static org.apache.ignite.internal.compute.ComputeUtils.instantiateTask;
 import static org.apache.ignite.internal.util.ArrayUtils.concat;
 import static org.apache.ignite.internal.util.CompletableFutures.allOfToList;
@@ -44,11 +44,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobState;
-import org.apache.ignite.compute.JobStatus;
+import org.apache.ignite.compute.TaskState;
+import org.apache.ignite.compute.TaskStatus;
 import org.apache.ignite.compute.task.MapReduceJob;
 import org.apache.ignite.compute.task.MapReduceTask;
+import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.compute.task.TaskExecutionContext;
-import org.apache.ignite.internal.compute.JobStateImpl;
+import org.apache.ignite.internal.compute.TaskStateImpl;
 import org.apache.ignite.internal.compute.queue.PriorityQueueExecutor;
 import org.apache.ignite.internal.compute.queue.QueueExecution;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -64,7 +66,7 @@ import org.jetbrains.annotations.Nullable;
  * @param <R> Task result type.
  */
 @SuppressWarnings("unchecked")
-public class TaskExecutionInternal<I, M, T, R> implements JobExecution<R> {
+public class TaskExecutionInternal<I, M, T, R> implements TaskExecution<R> {
     private static final IgniteLogger LOG = Loggers.forClass(TaskExecutionInternal.class);
 
     private final QueueExecution<SplitResult<I, M, T, R>> splitExecution;
@@ -75,7 +77,7 @@ public class TaskExecutionInternal<I, M, T, R> implements JobExecution<R> {
 
     private final CompletableFuture<QueueExecution<R>> reduceExecutionFuture;
 
-    private final AtomicReference<JobState> reduceFailedState = new AtomicReference<>();
+    private final AtomicReference<TaskState> reduceFailedState = new AtomicReference<>();
 
     private final AtomicBoolean isCancelled;
 
@@ -136,12 +138,12 @@ public class TaskExecutionInternal<I, M, T, R> implements JobExecution<R> {
     private void captureReduceFailure(QueueExecution<R> reduceExecution, Throwable throwable) {
         if (throwable != null) {
             // Capture the reduce execution failure reason and time.
-            JobStatus status = throwable instanceof CancellationException ? CANCELED : FAILED;
+            TaskStatus status = throwable instanceof CancellationException ? CANCELED : FAILED;
 
             JobState state = splitExecution.state();
             if (state != null) {
                 reduceFailedState.set(
-                        JobStateImpl.toBuilder(state)
+                        TaskStateImpl.toBuilder(state)
                                 .status(status)
                                 .finishTime(Instant.now())
                                 .build()
@@ -156,7 +158,7 @@ public class TaskExecutionInternal<I, M, T, R> implements JobExecution<R> {
     }
 
     @Override
-    public CompletableFuture<@Nullable JobState> stateAsync() {
+    public CompletableFuture<@Nullable TaskState> stateAsync() {
         JobState splitState = splitExecution.state();
         if (splitState == null) {
             // Return null even if the reduce execution can still be retained.
@@ -164,7 +166,7 @@ public class TaskExecutionInternal<I, M, T, R> implements JobExecution<R> {
         }
 
         if (splitState.status() != COMPLETED) {
-            return completedFuture(splitState);
+            return completedFuture(TaskStateImpl.toBuilder(splitState).build());
         }
 
         // This future is complete when reduce execution job is submitted, return status from it.
@@ -175,7 +177,7 @@ public class TaskExecutionInternal<I, M, T, R> implements JobExecution<R> {
                     if (reduceState == null) {
                         return null;
                     }
-                    return JobStateImpl.toBuilder(reduceState)
+                    return TaskStateImpl.toBuilder(reduceState)
                             .id(splitState.id())
                             .createTime(splitState.createTime())
                             .startTime(splitState.startTime())
@@ -186,7 +188,7 @@ public class TaskExecutionInternal<I, M, T, R> implements JobExecution<R> {
         }
 
         // At this point split is complete but reduce job is not submitted yet.
-        return completedFuture(JobStateImpl.toBuilder(splitState)
+        return completedFuture(TaskStateImpl.toBuilder(splitState)
                 .status(EXECUTING)
                 .finishTime(null)
                 .build());
@@ -258,7 +260,8 @@ public class TaskExecutionInternal<I, M, T, R> implements JobExecution<R> {
         });
     }
 
-    CompletableFuture<List<@Nullable JobState>> statesAsync() {
+    @Override
+    public CompletableFuture<List<@Nullable JobState>> statesAsync() {
         return executionsFuture.thenCompose(executions -> {
             CompletableFuture<JobState>[] stateFutures = executions.stream()
                     .map(JobExecution::stateAsync)

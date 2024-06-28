@@ -53,7 +53,7 @@ public enum JdbcStatementType {
     public static JdbcStatementType getStatement(byte id) {
         JdbcStatementType value = STATEMENT_TYPE_IDX.get(id);
 
-        Objects.requireNonNull(value, String.format("Unknown jdbcStatementType %s", id));
+        Objects.requireNonNull(value, () -> String.format("Unknown jdbcStatementType %s", id));
 
         return value;
     }
