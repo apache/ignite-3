@@ -61,7 +61,7 @@ public:
      * parallel.
      * @param callback Callback to be called when the operation is complete. Called with the job execution result.
      */
-    void get_result_async(ignite_callback<std::optional<primitive>> callback);
+    void get_result_async(ignite_callback<std::optional<binary_object>> callback);
 
     /**
      * Set result.
@@ -123,13 +123,13 @@ private:
     std::optional<job_state> m_final_state;
 
     /** Execution result. First optional to understand if the result is available. */
-    std::optional<std::optional<primitive>> m_result;
+    std::optional<std::optional<binary_object>> m_result;
 
     /** Error. */
     std::optional<ignite_error> m_error;
 
     /** Result callback. */
-    std::shared_ptr<ignite_callback<std::optional<primitive>>> m_result_callback;
+    std::shared_ptr<ignite_callback<std::optional<binary_object>>> m_result_callback;
 };
 
 } // namespace ignite::detail

@@ -97,7 +97,7 @@ public:
             auto client = ignite_client::start(cfg, std::chrono::seconds(30));
 
             auto nodes = client.get_cluster_nodes();
-            auto descriptor = job_descriptor::builder().set_job_class_name(ENABLE_AUTHN_JOB).build();
+            auto descriptor = job_descriptor::builder(ENABLE_AUTHN_JOB).build();
 
             client.get_compute().submit(nodes, descriptor, {enable ? 1 : 0}).get_result();
         } catch (const ignite_error &) {

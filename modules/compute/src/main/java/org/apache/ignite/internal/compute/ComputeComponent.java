@@ -37,18 +37,19 @@ public interface ComputeComponent extends IgniteComponent {
     /**
      * Executes a job of the given class on the current node.
      *
+     *
      * @param options Job execution options.
      * @param units Deployment units which will be loaded for execution.
      * @param jobClassName Name of the job class.
-     * @param args Job args.
+     * @param arg Job args.
      * @param <R> Job result type.
      * @return Job execution object.
      */
-    <R> JobExecution<R> executeLocally(
+    <T, R> JobExecution<R> executeLocally(
             ExecutionOptions options,
             List<DeploymentUnit> units,
             String jobClassName,
-            Object... args
+            T arg
     );
 
     /**
@@ -56,16 +57,16 @@ public interface ComputeComponent extends IgniteComponent {
      *
      * @param units Deployment units which will be loaded for execution.
      * @param jobClassName Name of the job class.
-     * @param args Job args.
+     * @param arg Job args.
      * @param <R> Job result type.
      * @return Job execution object.
      */
-    default <R> JobExecution<R> executeLocally(
+    default <T, R> JobExecution<R> executeLocally(
             List<DeploymentUnit> units,
             String jobClassName,
-            Object... args
+            T arg
     ) {
-        return executeLocally(ExecutionOptions.DEFAULT, units, jobClassName, args);
+        return executeLocally(ExecutionOptions.DEFAULT, units, jobClassName, arg);
     }
 
     /**
@@ -75,16 +76,16 @@ public interface ComputeComponent extends IgniteComponent {
      * @param remoteNode Remote node name.
      * @param units Deployment units which will be loaded for execution.
      * @param jobClassName Name of the job class.
-     * @param args Job args.
+     * @param arg Job args.
      * @param <R> Job result type.
      * @return Job execution object.
      */
-    <R> JobExecution<R> executeRemotely(
+    <T, R> JobExecution<R> executeRemotely(
             ExecutionOptions options,
             ClusterNode remoteNode,
             List<DeploymentUnit> units,
             String jobClassName,
-            Object... args
+            T arg
     );
 
     /**
@@ -93,17 +94,17 @@ public interface ComputeComponent extends IgniteComponent {
      * @param remoteNode Remote node name.
      * @param units Deployment units which will be loaded for execution.
      * @param jobClassName Name of the job class.
-     * @param args Job args.
+     * @param arg Job args.
      * @param <R> Job result type.
      * @return Job execution object.
      */
-    default <R> JobExecution<R> executeRemotely(
+    default <T, R> JobExecution<R> executeRemotely(
             ClusterNode remoteNode,
             List<DeploymentUnit> units,
             String jobClassName,
-            Object... args
+            T arg
     ) {
-        return executeRemotely(ExecutionOptions.DEFAULT, remoteNode, units, jobClassName, args);
+        return executeRemotely(ExecutionOptions.DEFAULT, remoteNode, units, jobClassName, arg);
     }
 
     /**
@@ -115,17 +116,17 @@ public interface ComputeComponent extends IgniteComponent {
      * @param options Job execution options.
      * @param units Deployment units which will be loaded for execution.
      * @param jobClassName Name of the job class.
-     * @param args Job args.
+     * @param arg Job args.
      * @param <R> Job result type.
      * @return Job execution object.
      */
-    <R> JobExecution<R> executeRemotelyWithFailover(
+    <T, R> JobExecution<R> executeRemotelyWithFailover(
             ClusterNode remoteNode,
             NextWorkerSelector nextWorkerSelector,
             List<DeploymentUnit> units,
             String jobClassName,
             ExecutionOptions options,
-            Object... args
+            T arg
     );
 
     /**
@@ -134,15 +135,15 @@ public interface ComputeComponent extends IgniteComponent {
      * @param jobSubmitter Function which submits a job with specified parameters for the execution.
      * @param units Deployment units which will be loaded for execution.
      * @param taskClassName Name of the task class.
-     * @param args Task args.
+     * @param arg Task args.
      * @param <R> Task result type.
      * @return Task execution object.
      */
-    <R> TaskExecution<R> executeTask(
-            JobSubmitter jobSubmitter,
+    <I, M, T, R> TaskExecution<R> executeTask(
+            JobSubmitter<M, T> jobSubmitter,
             List<DeploymentUnit> units,
             String taskClassName,
-            Object... args
+            I arg
     );
 
     /**

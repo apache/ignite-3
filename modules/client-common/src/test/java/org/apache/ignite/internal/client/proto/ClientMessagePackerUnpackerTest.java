@@ -162,9 +162,9 @@ public class ClientMessagePackerUnpackerTest {
     @Test
     public void testObjectArrayAsBinaryTuple() {
         try (var packer = new ClientMessagePacker(PooledByteBufAllocator.DEFAULT.directBuffer())) {
-            packer.packObjectArrayAsBinaryTuple(argsAllTypes);
-            packer.packObjectArrayAsBinaryTuple(null);
-            packer.packObjectArrayAsBinaryTuple(new Object[0]);
+            packer.packObjectArrayAsBinaryTuple(argsAllTypes, null);
+            packer.packObjectArrayAsBinaryTuple(null, null);
+            packer.packObjectArrayAsBinaryTuple(new Object[0], null);
 
             byte[] data = ByteBufUtil.getBytes(packer.getBuffer());
 
@@ -184,7 +184,7 @@ public class ClientMessagePackerUnpackerTest {
     public void testObjectAsBinaryTuple() {
         try (var packer = new ClientMessagePacker(PooledByteBufAllocator.DEFAULT.directBuffer())) {
             for (Object arg : argsAllTypes) {
-                packer.packObjectAsBinaryTuple(arg);
+                packer.packObjectAsBinaryTuple(arg, null);
             }
 
             byte[] data = ByteBufUtil.getBytes(packer.getBuffer());

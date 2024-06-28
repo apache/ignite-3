@@ -66,14 +66,14 @@ class JobClassLoaderFactoryTest extends BaseIgniteAbstractTest {
                 JobClassLoader classLoader2 = jobClassLoaderFactory.createClassLoader(units2)) {
             // then classes from the first unit are loaded from the first class loader
             Class<?> clazz1 = classLoader1.loadClass(UNIT_JOB_CLASS_NAME);
-            ComputeJob<Integer> job1 = (ComputeJob<Integer>) clazz1.getDeclaredConstructor().newInstance();
-            CompletableFuture<Integer> result1 = job1.executeAsync(null);
+            ComputeJob<Void, Integer> job1 = (ComputeJob<Void, Integer>) clazz1.getDeclaredConstructor().newInstance();
+            CompletableFuture<Integer> result1 = job1.executeAsync(null, null);
             assertThat(result1, willBe(1));
 
             // and classes from the second unit are loaded from the second class loader
             Class<?> clazz2 = classLoader2.loadClass(UNIT_JOB_CLASS_NAME);
-            ComputeJob<String> job2 = (ComputeJob<String>) clazz2.getDeclaredConstructor().newInstance();
-            CompletableFuture<String> result2 = job2.executeAsync(null);
+            ComputeJob<Void, String> job2 = (ComputeJob<Void, String>) clazz2.getDeclaredConstructor().newInstance();
+            CompletableFuture<String> result2 = job2.executeAsync(null, null);
             assertThat(result2, willBe("Hello World!"));
         }
     }
@@ -92,8 +92,8 @@ class JobClassLoaderFactoryTest extends BaseIgniteAbstractTest {
             assertNotNull(unitJobClass);
 
             // and classes are loaded in the aplhabetical order
-            ComputeJob<Integer> job1 = (ComputeJob<Integer>) unitJobClass.getDeclaredConstructor().newInstance();
-            CompletableFuture<Integer> result1 = job1.executeAsync(null);
+            ComputeJob<Void, Integer> job1 = (ComputeJob<Void, Integer>) unitJobClass.getDeclaredConstructor().newInstance();
+            CompletableFuture<Integer> result1 = job1.executeAsync(null, null);
             assertThat(result1, willBe(1));
 
             Class<?> job1UtilityClass = classLoader.loadClass(JOB1_UTILITY_CLASS_NAME);

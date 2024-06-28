@@ -117,7 +117,7 @@ namespace Apache.Ignite
         TupleContainsKey,
 
         /// <summary>
-        /// Compute (<see cref="ICompute.SubmitAsync{TTarget,TResult}"/>, <see cref="ICompute.SubmitBroadcast{T}"/>).
+        /// Compute (<see cref="ICompute.SubmitAsync{TTarget,TArg,TResult}"/>, <see cref="ICompute.SubmitBroadcast{TArg,TResult}"/>).
         /// </summary>
         ComputeExecute,
 

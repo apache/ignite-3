@@ -128,7 +128,8 @@ public class PartitionAwarenessTests
                 new[] { 1 }.ToAsyncEnumerable(),
                 keySelector: x => x,
                 payloadSelector: x => x.ToString(),
-                new("x")),
+                new ReceiverDescriptor<object?>("x"),
+                null),
             ClientOp.StreamerWithReceiverBatchSend);
 
     [Test]
@@ -142,8 +143,10 @@ public class PartitionAwarenessTests
 
         var options = new DataStreamerOptions { PageSize = 1 };
         var data = producer.Reader.ReadAllAsync();
+        var receiverDescriptor = new ReceiverDescriptor<object?>("x");
+
         var streamerTask = withReceiver
-            ? recordView.StreamDataAsync(data, x => x, x => x.ToString(), new("x"), null, options)
+            ? recordView.StreamDataAsync(data, x => x, x => x.ToString(), receiverDescriptor, null, options)
             : recordView.StreamDataAsync(data, options);
 
         Func<ITransaction?, Task> action = async _ =>
@@ -360,12 +363,12 @@ public class PartitionAwarenessTests
 
         // Warm up.
         var jobTarget = JobTarget.Colocated(FakeServer.ExistingTableName, key);
-        var jobDescriptor = new JobDescriptor<object?>("job");
+        var jobDescriptor = new JobDescriptor<object?, object?>("job");
 
-        await client.Compute.SubmitAsync(jobTarget, jobDescriptor);
+        await client.Compute.SubmitAsync(jobTarget, jobDescriptor, null);
 
         await AssertOpOnNode(
-            _ => client.Compute.SubmitAsync(jobTarget, jobDescriptor),
+            _ => client.Compute.SubmitAsync(jobTarget, jobDescriptor, null),
             ClientOp.ComputeExecuteColocated,
             expectedNode);
     }
@@ -379,13 +382,13 @@ public class PartitionAwarenessTests
         var key = new SimpleKey(keyId);
 
         var jobTarget = JobTarget.Colocated(FakeServer.ExistingTableName, key);
-        var jobDescriptor = new JobDescriptor<object?>("job");
+        var jobDescriptor = new JobDescriptor<object?, object?>("job");
 
         // Warm up.
-        await client.Compute.SubmitAsync(jobTarget, jobDescriptor);
+        await client.Compute.SubmitAsync(jobTarget, jobDescriptor, null);
 
         await AssertOpOnNode(
-            _ => client.Compute.SubmitAsync(jobTarget, jobDescriptor),
+            _ => client.Compute.SubmitAsync(jobTarget, jobDescriptor, null),
             ClientOp.ComputeExecuteColocated,
             expectedNode);
     }

@@ -366,7 +366,7 @@ namespace Apache.Ignite.Tests
                         reader.ReadBoolean(); // returnResults.
 
                         var payloadTupleSize = reader.ReadInt32();
-                        var payloadItemCount = payloadTupleSize - 4; // NOTE: Ignores args.
+                        var payloadItemCount = payloadTupleSize - 6; // NOTE: Ignores args.
                         StreamerRowCount += payloadItemCount;
 
                         if (MultiRowOperationDelayPerRow > TimeSpan.Zero)

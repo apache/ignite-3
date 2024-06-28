@@ -20,7 +20,7 @@
 
 namespace ignite::detail {
 
-void job_execution_impl::get_result_async(ignite_callback<std::optional<primitive>> callback) {
+void job_execution_impl::get_result_async(ignite_callback<std::optional<binary_object>> callback) {
     std::unique_lock<std::mutex> guard(m_mutex);
 
     if (m_result) {
@@ -37,21 +37,26 @@ void job_execution_impl::get_result_async(ignite_callback<std::optional<primitiv
         if (m_result_callback)
             throw ignite_error("A callback for this result was already submitted");
 
-        m_result_callback = std::make_shared<ignite_callback<std::optional<primitive>>>(std::move(callback));
+        m_result_callback = std::make_shared<ignite_callback<std::optional<binary_object>>>(std::move(callback));
     }
 }
 
 void job_execution_impl::set_result(std::optional<primitive> result) {
+    std::optional<binary_object> obj;
+    if (result) {
+        obj = binary_object{std::move(*result)};
+    }
+
     std::unique_lock<std::mutex> guard(m_mutex);
 
-    m_result = result;
+    m_result = obj;
     auto callback = std::move(m_result_callback);
     m_result_callback.reset();
 
     guard.unlock();
 
     if (callback) {
-        (*callback)({std::move(result)});
+        (*callback)({std::move(obj)});
     }
 }
 

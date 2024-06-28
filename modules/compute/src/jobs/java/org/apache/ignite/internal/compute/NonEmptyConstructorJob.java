@@ -24,13 +24,13 @@ import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
 
 /** A compute job without default constructor. */
-public class NonEmptyConstructorJob implements ComputeJob<String> {
+public class NonEmptyConstructorJob implements ComputeJob<Void, String> {
     private NonEmptyConstructorJob(String s) {
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<String> executeAsync(JobExecutionContext context, Object... args) {
+    public CompletableFuture<String> executeAsync(JobExecutionContext context, Void input) {
         return completedFuture("");
     }
 }

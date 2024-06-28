@@ -132,7 +132,7 @@ public class JdbcBatchPreparedStmntRequest implements ClientMessage {
         packer.packInt(args.size());
 
         for (Object[] arg : args) {
-            packer.packObjectArrayAsBinaryTuple(arg);
+            packer.packObjectArrayAsBinaryTuple(arg, null);
         }
 
         packer.packLong(queryTimeoutMillis);

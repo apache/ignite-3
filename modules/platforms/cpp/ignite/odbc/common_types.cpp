@@ -311,6 +311,11 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::NODE_NOT_STARTED:
         case error::code::NODE_START:
             return sql_state::SHY000_GENERAL_ERROR;
+
+        // Marshalling group. Group code: 22
+        case error::code::COMMON:
+        case error::code::UNSUPPORTED_OBJECT_TYPE:
+            return sql_state::SHY000_GENERAL_ERROR;
     }
 
     return sql_state::SHY000_GENERAL_ERROR;

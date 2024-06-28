@@ -44,25 +44,27 @@ namespace Apache.Ignite.Tests.Compute
 
         public const string ItThinClientComputeTest = "org.apache.ignite.internal.runner.app.client.ItThinClientComputeTest";
 
-        public static readonly JobDescriptor<string> NodeNameJob = new(ItThinClientComputeTest + "$NodeNameJob");
+        public static readonly JobDescriptor<object?, string> NodeNameJob = new(ItThinClientComputeTest + "$NodeNameJob");
 
-        public static readonly JobDescriptor<string> ConcatJob = new(ItThinClientComputeTest + "$ConcatJob");
+        public static readonly JobDescriptor<string?, string> ConcatJob = new(ItThinClientComputeTest + "$ConcatJob");
 
-        public static readonly JobDescriptor<string> ErrorJob = new(ItThinClientComputeTest + "$IgniteExceptionJob");
+        public static readonly JobDescriptor<string, string> ErrorJob = new(ItThinClientComputeTest + "$IgniteExceptionJob");
 
-        public static readonly JobDescriptor<object> EchoJob = new(ItThinClientComputeTest + "$EchoJob");
+        public static readonly JobDescriptor<object?, object> EchoJob = new(ItThinClientComputeTest + "$EchoJob");
 
-        public static readonly JobDescriptor<string> SleepJob = new(ItThinClientComputeTest + "$SleepJob");
+        public static readonly JobDescriptor<object, string> ToStringJob = new(ItThinClientComputeTest + "$ToStringJob");
 
-        public static readonly JobDescriptor<decimal> DecimalJob = new(ItThinClientComputeTest + "$DecimalJob");
+        public static readonly JobDescriptor<int, string> SleepJob = new(ItThinClientComputeTest + "$SleepJob");
 
-        public static readonly JobDescriptor<string> CreateTableJob = new(PlatformTestNodeRunner + "$CreateTableJob");
+        public static readonly JobDescriptor<string, decimal> DecimalJob = new(ItThinClientComputeTest + "$DecimalJob");
 
-        public static readonly JobDescriptor<string> DropTableJob = new(PlatformTestNodeRunner + "$DropTableJob");
+        public static readonly JobDescriptor<string, string> CreateTableJob = new(PlatformTestNodeRunner + "$CreateTableJob");
 
-        public static readonly JobDescriptor<object> ExceptionJob = new(PlatformTestNodeRunner + "$ExceptionJob");
+        public static readonly JobDescriptor<string, string> DropTableJob = new(PlatformTestNodeRunner + "$DropTableJob");
 
-        public static readonly JobDescriptor<object> CheckedExceptionJob = new(PlatformTestNodeRunner + "$CheckedExceptionJob");
+        public static readonly JobDescriptor<object, object> ExceptionJob = new(PlatformTestNodeRunner + "$ExceptionJob");
+
+        public static readonly JobDescriptor<string, object> CheckedExceptionJob = new(PlatformTestNodeRunner + "$CheckedExceptionJob");
 
         [Test]
         public async Task TestGetClusterNodes()
@@ -85,18 +87,18 @@ namespace Apache.Ignite.Tests.Compute
         [Test]
         public async Task TestExecuteOnSpecificNode()
         {
-            var res1 = await Client.Compute.SubmitAsync(await GetNodeAsync(0), NodeNameJob, "-", 11);
-            var res2 = await Client.Compute.SubmitAsync(await GetNodeAsync(1), NodeNameJob, ":", 22);
+            var res1 = await Client.Compute.SubmitAsync(await GetNodeAsync(0), NodeNameJob, "-11");
+            var res2 = await Client.Compute.SubmitAsync(await GetNodeAsync(1), NodeNameJob, 33);
 
-            Assert.AreEqual(PlatformTestNodeRunner + "-_11", await res1.GetResultAsync());
-            Assert.AreEqual(PlatformTestNodeRunner + "_2:_22", await res2.GetResultAsync());
+            Assert.AreEqual(PlatformTestNodeRunner + "-11", await res1.GetResultAsync());
+            Assert.AreEqual(PlatformTestNodeRunner + "_233", await res2.GetResultAsync());
         }
 
         [Test]
         public async Task TestExecuteOnRandomNode()
         {
             var jobTarget = JobTarget.AnyNode(await Client.GetClusterNodesAsync());
-            var jobExecution = await Client.Compute.SubmitAsync(jobTarget, NodeNameJob);
+            var jobExecution = await Client.Compute.SubmitAsync(jobTarget, NodeNameJob, null);
             var res = await jobExecution.GetResultAsync();
 
             var expectedNodeNames = Enumerable.Range(1, 4)
@@ -109,8 +111,8 @@ namespace Apache.Ignite.Tests.Compute
         [Test]
         public async Task TestExecuteResultTypeMismatchThrowsInvalidCastException()
         {
-            var jobDescriptor = new JobDescriptor<Guid>(NodeNameJob.JobClassName);
-            var jobExecution = await Client.Compute.SubmitAsync(await GetNodeAsync(0), jobDescriptor);
+            var jobDescriptor = new JobDescriptor<object?, Guid>(NodeNameJob.JobClassName);
+            var jobExecution = await Client.Compute.SubmitAsync(await GetNodeAsync(0), jobDescriptor, null);
             Assert.ThrowsAsync<InvalidCastException>(async () => await jobExecution.GetResultAsync());
         }
 
@@ -156,23 +158,9 @@ namespace Apache.Ignite.Tests.Compute
         }
 
         [Test]
-        public async Task TestExecuteWithArgs()
-        {
-            var res = await Client.Compute.SubmitAsync(
-                await GetNodeAsync(0),
-                ConcatJob,
-                1.1,
-                Guid.Empty,
-                "3",
-                null);
-
-            Assert.AreEqual("1.1_00000000-0000-0000-0000-000000000000_3_null", await res.GetResultAsync());
-        }
-
-        [Test]
         public async Task TestExecuteWithNullArgs()
         {
-            var res = await Client.Compute.SubmitAsync(await GetNodeAsync(0), ConcatJob, args: null);
+            var res = await Client.Compute.SubmitAsync(await GetNodeAsync(0), ConcatJob, null);
 
             Assert.IsNull(await res.GetResultAsync());
         }
@@ -242,7 +230,7 @@ namespace Apache.Ignite.Tests.Compute
             await Test(decimal.MinValue);
             await Test(decimal.MaxValue);
 
-            await Test(new byte[] { 1, 255 });
+            await Test(new byte[] { 1, 255 }, "[1, -1]");
             await Test("Ignite 🔥");
             await Test(new BitArray(new[] { byte.MaxValue }), "{0, 1, 2, 3, 4, 5, 6, 7}");
             await Test(LocalDate.MinIsoValue, "-9998-01-01");
@@ -263,11 +251,17 @@ namespace Apache.Ignite.Tests.Compute
             async Task Test(object val, string? expectedStr = null)
             {
                 var nodes = JobTarget.AnyNode(await Client.GetClusterNodesAsync());
-                var str = expectedStr ?? val.ToString()!.Replace("E+", "E");
-                IJobExecution<object> resExec = await Client.Compute.SubmitAsync(nodes, EchoJob, val, str);
+
+                IJobExecution<object> resExec = await Client.Compute.SubmitAsync(nodes, EchoJob, val);
                 object res = await resExec.GetResultAsync();
 
                 Assert.AreEqual(val, res);
+
+                var strExec = await Client.Compute.SubmitAsync(nodes, ToStringJob, val);
+                var str = await strExec.GetResultAsync();
+
+                var expectedStr0 = expectedStr ?? val.ToString()!.Replace("E+", "E");
+                Assert.AreEqual(expectedStr0, str);
             }
         }
 
@@ -289,15 +283,15 @@ namespace Apache.Ignite.Tests.Compute
             client.WaitForConnections(proxies.Count);
 
             var keyTuple = new IgniteTuple { [KeyCol] = key };
-            var resNodeName = await client.Compute.SubmitAsync(JobTarget.Colocated(TableName, keyTuple), NodeNameJob);
+            var resNodeName = await client.Compute.SubmitAsync(JobTarget.Colocated(TableName, keyTuple), NodeNameJob, null);
             var requestTargetNodeName = GetRequestTargetNodeName(proxies, ClientOp.ComputeExecuteColocated);
 
             var keyPoco = new Poco { Key = key };
-            var resNodeName2 = await client.Compute.SubmitAsync(JobTarget.Colocated(TableName, keyPoco), NodeNameJob);
+            var resNodeName2 = await client.Compute.SubmitAsync(JobTarget.Colocated(TableName, keyPoco), NodeNameJob, null);
             var requestTargetNodeName2 = GetRequestTargetNodeName(proxies, ClientOp.ComputeExecuteColocated);
 
             var keyPocoStruct = new PocoStruct(key, null);
-            var resNodeName3 = await client.Compute.SubmitAsync(JobTarget.Colocated(TableName, keyPocoStruct), NodeNameJob);
+            var resNodeName3 = await client.Compute.SubmitAsync(JobTarget.Colocated(TableName, keyPocoStruct), NodeNameJob, null);
             var requestTargetNodeName3 = GetRequestTargetNodeName(proxies, ClientOp.ComputeExecuteColocated);
 
             var nodeName = nodeIdx == 1 ? string.Empty : "_" + nodeIdx;
@@ -320,7 +314,7 @@ namespace Apache.Ignite.Tests.Compute
         public void TestExecuteColocatedThrowsWhenTableDoesNotExist()
         {
             var ex = Assert.ThrowsAsync<IgniteClientException>(async () =>
-                await Client.Compute.SubmitAsync(JobTarget.Colocated("unknownTable", new IgniteTuple()), EchoJob));
+                await Client.Compute.SubmitAsync(JobTarget.Colocated("unknownTable", new IgniteTuple()), EchoJob, null));
 
             Assert.AreEqual("Table 'unknownTable' does not exist.", ex!.Message);
         }
@@ -329,7 +323,7 @@ namespace Apache.Ignite.Tests.Compute
         public void TestExecuteColocatedThrowsWhenKeyColumnIsMissing()
         {
             var ex = Assert.ThrowsAsync<ArgumentException>(async () =>
-                await Client.Compute.SubmitAsync(JobTarget.Colocated(TableName, new IgniteTuple { ["VAL"] = "1" }), EchoJob));
+                await Client.Compute.SubmitAsync(JobTarget.Colocated(TableName, new IgniteTuple { ["VAL"] = "1" }), EchoJob, null));
 
             Assert.AreEqual(
                 "Can't map 'IgniteTuple { VAL = 1 }' to columns 'Int64 KEY, String VAL'. Matching fields not found.",
@@ -347,7 +341,7 @@ namespace Apache.Ignite.Tests.Compute
             try
             {
                 var keyTuple = new IgniteTuple { [KeyCol] = 1L };
-                var resNodeNameExec = await Client.Compute.SubmitAsync(JobTarget.Colocated(tableName, keyTuple), NodeNameJob);
+                var resNodeNameExec = await Client.Compute.SubmitAsync(JobTarget.Colocated(tableName, keyTuple), NodeNameJob, null);
                 var resNodeName = await resNodeNameExec.GetResultAsync();
 
                 // Drop table and create a new one with a different ID, then execute a computation again.
@@ -364,7 +358,7 @@ namespace Apache.Ignite.Tests.Compute
                     table.SetFieldValue("_partitionAssignment", null);
                 }
 
-                var resNodeName2Exec = await Client.Compute.SubmitAsync(JobTarget.Colocated(tableName, keyTuple), NodeNameJob);
+                var resNodeName2Exec = await Client.Compute.SubmitAsync(JobTarget.Colocated(tableName, keyTuple), NodeNameJob, null);
                 var resNodeName2 = await resNodeName2Exec.GetResultAsync();
 
                 Assert.AreEqual(resNodeName, resNodeName2);
@@ -386,8 +380,8 @@ namespace Apache.Ignite.Tests.Compute
             {
                 await Client.Sql.ExecuteAsync(null, $"CREATE TABLE {tableName} (KEY BIGINT PRIMARY KEY, VAL VARCHAR)");
 
-                var exec1 = await Client.Compute.SubmitAsync(JobTarget.Colocated(tableName, tupleKey), NodeNameJob);
-                var exec2 = await Client.Compute.SubmitAsync(JobTarget.Colocated(tableName, key), NodeNameJob);
+                var exec1 = await Client.Compute.SubmitAsync(JobTarget.Colocated(tableName, tupleKey), NodeNameJob, null);
+                var exec2 = await Client.Compute.SubmitAsync(JobTarget.Colocated(tableName, key), NodeNameJob, null);
 
                 var res1 = await exec1.GetResultAsync();
                 var res2 = await exec2.GetResultAsync();
@@ -442,14 +436,16 @@ namespace Apache.Ignite.Tests.Compute
 
             var res = await client.Compute.SubmitAsync(
                 await GetNodeAsync(1),
-                new JobDescriptor<string>(FakeServer.GetDetailsJob, units));
+                new JobDescriptor<object?, string>(FakeServer.GetDetailsJob, units),
+                null);
 
             StringAssert.Contains("Units = unit-latest|latest, unit1|1.0.0", await res.GetResultAsync());
 
             // Lazy enumerable.
             var res2 = await client.Compute.SubmitAsync(
                 await GetNodeAsync(1),
-                new JobDescriptor<string>(FakeServer.GetDetailsJob, units.Reverse()));
+                new JobDescriptor<object?, string>(FakeServer.GetDetailsJob, units.Reverse()),
+                null);
 
             StringAssert.Contains("Units = unit1|1.0.0, unit-latest|latest", await res2.GetResultAsync());
 
@@ -457,7 +453,8 @@ namespace Apache.Ignite.Tests.Compute
             var keyTuple = new IgniteTuple { ["ID"] = 1 };
             var res3 = await client.Compute.SubmitAsync(
                 JobTarget.Colocated(FakeServer.ExistingTableName, keyTuple),
-                new JobDescriptor<string>(FakeServer.GetDetailsJob, units));
+                new JobDescriptor<object?, string>(FakeServer.GetDetailsJob, units),
+                null);
 
             StringAssert.Contains("Units = unit-latest|latest, unit1|1.0.0", await res3.GetResultAsync());
         }
@@ -474,7 +471,7 @@ namespace Apache.Ignite.Tests.Compute
             };
 
             var ex = Assert.ThrowsAsync<IgniteException>(
-                async () => await Client.Compute.SubmitAsync(await GetNodeAsync(1), job));
+                async () => await Client.Compute.SubmitAsync(await GetNodeAsync(1), job, null));
 
             StringAssert.Contains("Deployment unit unit-latest:latest doesn't exist", ex!.Message);
         }
@@ -492,7 +489,7 @@ namespace Apache.Ignite.Tests.Compute
             };
 
             var ex = Assert.ThrowsAsync<IgniteException>(
-                async () => await Client.Compute.SubmitAsync(JobTarget.Colocated(TableName, keyTuple), job));
+                async () => await Client.Compute.SubmitAsync(JobTarget.Colocated(TableName, keyTuple), job, null));
 
             StringAssert.Contains("Deployment unit unit-latest:latest doesn't exist", ex!.Message);
         }
@@ -509,7 +506,7 @@ namespace Apache.Ignite.Tests.Compute
             };
 
             var ex = Assert.ThrowsAsync<ArgumentNullException>(
-                async () => await Client.Compute.SubmitAsync(await GetNodeAsync(1), job));
+                async () => await Client.Compute.SubmitAsync(await GetNodeAsync(1), job, null));
 
             Assert.AreEqual("Value cannot be null. (Parameter 'unit.Name')", ex!.Message);
         }
@@ -526,7 +523,7 @@ namespace Apache.Ignite.Tests.Compute
             };
 
             var ex = Assert.ThrowsAsync<ArgumentException>(
-                async () => await Client.Compute.SubmitAsync(await GetNodeAsync(1), job));
+                async () => await Client.Compute.SubmitAsync(await GetNodeAsync(1), job, null));
 
             Assert.AreEqual("The value cannot be an empty string. (Parameter 'unit.Name')", ex!.Message);
         }
@@ -543,7 +540,7 @@ namespace Apache.Ignite.Tests.Compute
             };
 
             var ex = Assert.ThrowsAsync<ArgumentNullException>(
-                async () => await Client.Compute.SubmitAsync(await GetNodeAsync(1), job));
+                async () => await Client.Compute.SubmitAsync(await GetNodeAsync(1), job, null));
 
             Assert.AreEqual("Value cannot be null. (Parameter 'unit.Version')", ex!.Message);
         }
@@ -560,7 +557,7 @@ namespace Apache.Ignite.Tests.Compute
             };
 
             var ex = Assert.ThrowsAsync<ArgumentException>(
-                async () => await Client.Compute.SubmitAsync(await GetNodeAsync(1), job));
+                async () => await Client.Compute.SubmitAsync(await GetNodeAsync(1), job, null));
 
             Assert.AreEqual("The value cannot be an empty string. (Parameter 'unit.Version')", ex!.Message);
         }
@@ -664,7 +661,7 @@ namespace Apache.Ignite.Tests.Compute
         public async Task TestJobExecutionOptionsPropagation()
         {
             // ReSharper disable once WithExpressionModifiesAllMembers
-            var job = new JobDescriptor<string>(FakeServer.GetDetailsJob)
+            var job = new JobDescriptor<object?, string>(FakeServer.GetDetailsJob)
             {
                 Options = JobExecutionOptions.Default with
                 {
@@ -677,15 +674,15 @@ namespace Apache.Ignite.Tests.Compute
             using var server = new FakeServer();
             using var client = await server.ConnectClientAsync();
 
-            var defaultRes = await client.Compute.SubmitAsync(await GetNodeAsync(1), job with { Options = default });
+            var defaultRes = await client.Compute.SubmitAsync(await GetNodeAsync(1), job with { Options = default }, null);
             StringAssert.Contains("priority = 0, maxRetries = 0", await defaultRes.GetResultAsync());
 
-            var res = await client.Compute.SubmitAsync(await GetNodeAsync(1), job);
+            var res = await client.Compute.SubmitAsync(await GetNodeAsync(1), job, null);
             StringAssert.Contains("priority = 999, maxRetries = 66", await res.GetResultAsync());
 
             // Colocated.
             var keyTuple = new IgniteTuple { ["ID"] = 1 };
-            var colocatedRes = await client.Compute.SubmitAsync(JobTarget.Colocated(FakeServer.ExistingTableName, keyTuple), job);
+            var colocatedRes = await client.Compute.SubmitAsync(JobTarget.Colocated(FakeServer.ExistingTableName, keyTuple), job, null);
 
             StringAssert.Contains("priority = 999, maxRetries = 66", await colocatedRes.GetResultAsync());
         }
@@ -697,7 +694,7 @@ namespace Apache.Ignite.Tests.Compute
         [TestCase("1.123456789", 5)]
         public async Task TestBigDecimalPropagation(string number, int scale)
         {
-            var res = await Client.Compute.SubmitAsync(await GetNodeAsync(1), DecimalJob, number, scale);
+            var res = await Client.Compute.SubmitAsync(await GetNodeAsync(1), DecimalJob, $"{number},{scale}");
             var resVal = await res.GetResultAsync();
 
             var expected = decimal.Parse(number, NumberStyles.Float);

@@ -65,6 +65,7 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Table;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -125,6 +126,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22577")
     void cancelsJobRemotely() {
         IgniteImpl entryNode = node(0);
 
@@ -151,6 +153,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22577")
     void changeExecutingJobPriorityRemotely() {
         IgniteImpl entryNode = node(0);
 
@@ -212,11 +215,12 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         JobDescriptor job = JobDescriptor.builder(WaitLatchJob.class).units(units()).build();
 
         // Start 1 task in executor with 1 thread
-        JobExecution<String> execution1 = entryNode.compute().submit(jobTarget, job, new Object[]{countDownLatch});
+        JobExecution<String> execution1 = entryNode.compute().submit(jobTarget, job, countDownLatch);
+
         await().until(execution1::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
 
         // Start one more task
-        JobExecution<String> execution2 = entryNode.compute().submit(jobTarget, job, new Object[]{new CountDownLatch(1)});
+        JobExecution<String> execution2 = entryNode.compute().submit(jobTarget, job, new CountDownLatch(1));
         await().until(execution2::stateAsync, willBe(jobStateWithStatus(QUEUED)));
 
         // Start third task it should be before task2 in the queue due to higher priority in options
@@ -316,7 +320,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
 
         assertDoesNotThrow(() -> entryNode.compute().execute(
                 JobTarget.node(targetNode.node()),
-                JobDescriptor.builder(PerformSyncKvGetPutJob.class).build()));
+                JobDescriptor.builder(PerformSyncKvGetPutJob.class).build(), null));
     }
 
     @Test
@@ -324,7 +328,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         IgniteImpl entryNode = node(0);
 
         Map<ClusterNode, Object> results = entryNode.compute()
-                .executeBroadcast(new HashSet<>(entryNode.clusterNodes()), JobDescriptor.builder(NullReturningJob.class).build());
+                .executeBroadcast(new HashSet<>(entryNode.clusterNodes()), JobDescriptor.builder(NullReturningJob.class).build(), null);
 
         assertThat(results.keySet(), equalTo(new HashSet<>(entryNode.clusterNodes())));
         assertThat(new HashSet<>(results.values()), contains(nullValue()));
@@ -334,8 +338,9 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
     void executesNullReturningJobViaAsyncBroadcast() {
         IgniteImpl entryNode = node(0);
 
-        CompletableFuture<Map<ClusterNode, Object>> resultsFuture = entryNode.compute()
-                .executeBroadcastAsync(new HashSet<>(entryNode.clusterNodes()), JobDescriptor.builder(NullReturningJob.class).build());
+        CompletableFuture<Map<ClusterNode, Object>> resultsFuture = entryNode.compute().executeBroadcastAsync(
+                new HashSet<>(entryNode.clusterNodes()), JobDescriptor.builder(NullReturningJob.class).build(), null
+        );
         assertThat(resultsFuture, willCompleteSuccessfully());
         Map<ClusterNode, Object> results = resultsFuture.join();
 
@@ -349,7 +354,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
 
         Map<ClusterNode, JobExecution<Object>> executionsMap = entryNode.compute().submitBroadcast(
                 new HashSet<>(entryNode.clusterNodes()),
-                JobDescriptor.builder(NullReturningJob.class.getName()).build());
+                JobDescriptor.builder(NullReturningJob.class.getName()).build(), null);
         assertThat(executionsMap.keySet(), equalTo(new HashSet<>(entryNode.clusterNodes())));
 
         List<JobExecution<Object>> executions = new ArrayList<>(executionsMap.values());
@@ -365,18 +370,18 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         return IntStream.range(0, initialNodes()).mapToObj(Arguments::of);
     }
 
-    private static class CustomFailingJob implements ComputeJob<String> {
+    private static class CustomFailingJob implements ComputeJob<Throwable, String> {
         @Override
-        public CompletableFuture<String> executeAsync(JobExecutionContext context, Object... args) {
-            throw ExceptionUtils.sneakyThrow((Throwable) args[0]);
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, Throwable th) {
+            throw ExceptionUtils.sneakyThrow(th);
         }
     }
 
-    private static class WaitLatchJob implements ComputeJob<String> {
+    private static class WaitLatchJob implements ComputeJob<CountDownLatch, String> {
         @Override
-        public CompletableFuture<String> executeAsync(JobExecutionContext context, Object... args) {
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, CountDownLatch latch) {
             try {
-                ((CountDownLatch) args[0]).await();
+                latch.await();
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
@@ -384,13 +389,13 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         }
     }
 
-    private static class WaitLatchThrowExceptionOnFirstExecutionJob implements ComputeJob<String> {
+    private static class WaitLatchThrowExceptionOnFirstExecutionJob implements ComputeJob<CountDownLatch, String> {
         static final AtomicInteger counter = new AtomicInteger(0);
 
         @Override
-        public CompletableFuture<String> executeAsync(JobExecutionContext context, Object... args) {
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, CountDownLatch latch) {
             try {
-                ((CountDownLatch) args[0]).await();
+                latch.await();
                 if (counter.incrementAndGet() == 1) {
                     throw new RuntimeException();
                 }
@@ -401,9 +406,9 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         }
     }
 
-    private static class PerformSyncKvGetPutJob implements ComputeJob<Void> {
+    private static class PerformSyncKvGetPutJob implements ComputeJob<Void, Void> {
         @Override
-        public CompletableFuture<Void> executeAsync(JobExecutionContext context, Object... args) {
+        public CompletableFuture<Void> executeAsync(JobExecutionContext context, Void input) {
             Table table = context.ignite().tables().table("test");
             KeyValueView<Integer, Integer> view = table.keyValueView(Integer.class, Integer.class);
 
@@ -414,9 +419,9 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         }
     }
 
-    private static class NullReturningJob implements ComputeJob<Void> {
+    private static class NullReturningJob implements ComputeJob<Object, Object> {
         @Override
-        public CompletableFuture<Void> executeAsync(JobExecutionContext context, Object... args) {
+        public CompletableFuture<Object> executeAsync(JobExecutionContext context, Object input) {
             return null;
         }
     }

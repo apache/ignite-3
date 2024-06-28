@@ -63,14 +63,15 @@ internal static class DataStreamerWithReceiver
     /// <param name="resultChannel">Channel for results from the receiver. Null when results are not expected.</param>
     /// <param name="units">Deployment units. Can be empty.</param>
     /// <param name="receiverClassName">Java class name of the streamer receiver to execute on the server.</param>
-    /// <param name="receiverArgs">Receiver args.</param>
+    /// <param name="receiverArg">Receiver arg.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <typeparam name="TSource">Source type.</typeparam>
     /// <typeparam name="TKey">Key type.</typeparam>
     /// <typeparam name="TPayload">Payload type.</typeparam>
+    /// <typeparam name="TArg">Arg type.</typeparam>
     /// <typeparam name="TResult">Result type.</typeparam>
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
-    internal static async Task StreamDataAsync<TSource, TKey, TPayload, TResult>(
+    internal static async Task StreamDataAsync<TSource, TKey, TPayload, TArg, TResult>(
         IAsyncEnumerable<TSource> data,
         Table table,
         Func<TSource, TKey> keySelector,
@@ -80,7 +81,7 @@ internal static class DataStreamerWithReceiver
         Channel<TResult>? resultChannel,
         IEnumerable<DeploymentUnit> units,
         string receiverClassName,
-        ICollection<object>? receiverArgs,
+        TArg receiverArg,
         CancellationToken cancellationToken)
         where TKey : notnull
         where TPayload : notnull
@@ -327,26 +328,21 @@ internal static class DataStreamerWithReceiver
 
             var expectResults = resultChannel != null;
             w.Write(expectResults);
-            WriteReceiverPayload(ref w, receiverClassName, receiverArgs ?? Array.Empty<object>(), items);
+            WriteReceiverPayload(ref w, receiverClassName, receiverArg, items);
         }
     }
 
-    private static void WriteReceiverPayload<T>(ref MsgPackWriter w, string className, ICollection<object> args, Span<T> items)
+    private static void WriteReceiverPayload<T>(ref MsgPackWriter w, string className, object? arg, Span<T> items)
     {
         Debug.Assert(items.Length > 0, "items.Length > 0");
         Debug.Assert(!items.IsEmpty, "!items.IsEmpty");
 
-        // className + args size + args + items size + item type + items.
-        int binaryTupleSize = 1 + 1 + args.Count * 3 + 1 + 1 + items.Length;
+        // className + arg + items size + item type + items.
+        int binaryTupleSize = 1 + 3 + 1 + 1 + items.Length;
         using var builder = new BinaryTupleBuilder(binaryTupleSize);
 
         builder.AppendString(className);
-        builder.AppendInt(args.Count);
-
-        foreach (var arg in args)
-        {
-            builder.AppendObjectWithType(arg);
-        }
+        builder.AppendObjectWithType(arg);
 
         builder.AppendObjectCollectionWithType(items);
 

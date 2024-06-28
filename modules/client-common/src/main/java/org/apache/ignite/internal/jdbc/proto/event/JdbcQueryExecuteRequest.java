@@ -79,10 +79,10 @@ public class JdbcQueryExecuteRequest implements ClientMessage {
             String schemaName,
             int pageSize,
             int maxRows,
-            String sqlQry, 
-            Object[] args, 
-            boolean autoCommit, 
-            boolean multiStatement, 
+            String sqlQry,
+            Object[] args,
+            boolean autoCommit,
+            boolean multiStatement,
             long queryTimeoutMillis
     ) {
         Objects.requireNonNull(stmtType);
@@ -188,7 +188,7 @@ public class JdbcQueryExecuteRequest implements ClientMessage {
         packer.packString(sqlQry);
         packer.packBoolean(multiStatement);
 
-        packer.packObjectArrayAsBinaryTuple(args);
+        packer.packObjectArrayAsBinaryTuple(args, null);
         packer.packLong(queryTimeoutMillis);
     }
 

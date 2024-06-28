@@ -60,5 +60,6 @@ public interface ExecuteRequest extends NetworkMessage {
      * @return arguments
      */
     @Marshallable
-    Object @Nullable [] args();
+    @Nullable
+    Object input();
 }

@@ -381,8 +381,8 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
                     ReceiverDescriptor.builder(TestReceiver.class).build(),
                     resultSubscriber,
                     DataStreamerOptions.builder().retryLimit(0).build(),
-                    "arg1",
-                    123);
+                    "arg1"
+            );
 
             // Same ID goes to the same partition.
             publisher.submit(tuple(1, "val1"));
@@ -394,7 +394,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
 
         if (returnResults) {
             assertEquals(1, resultSubscriber.items.size());
-            assertEquals("Received: 3 items, 2 args", resultSubscriber.items.iterator().next());
+            assertEquals("Received: 3 items, arg1 arg", resultSubscriber.items.iterator().next());
         }
     }
 
@@ -414,8 +414,8 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
                     t -> t,
                     t -> t.intValue(0),
                     ReceiverDescriptor.builder(NodeNameReceiver.class).build(),
-                    null,
-                    null);
+                    null, null, null
+            );
 
             for (int i = 0; i < count; i++) {
                 publisher.submit(tupleKey(i));
@@ -522,14 +522,14 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
     }
 
     @SuppressWarnings("resource")
-    private static class TestReceiver implements DataStreamerReceiver<String, String> {
+    private static class TestReceiver implements DataStreamerReceiver<String, Object, String> {
         @Override
-        public CompletableFuture<List<String>> receive(List<String> page, DataStreamerReceiverContext ctx, Object... args) {
-            if ("throw".equals(args[0])) {
+        public CompletableFuture<List<String>> receive(List<String> page, DataStreamerReceiverContext ctx, Object arg) {
+            if ("throw".equals(arg)) {
                 throw new ArithmeticException("test");
             }
 
-            if ("throw-async".equals(args[0])) {
+            if ("throw-async".equals(arg)) {
                 return CompletableFuture.failedFuture(new ArithmeticException("test"));
             }
 
@@ -540,18 +540,16 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
 
             assertNotNull(ctx.ignite().tables().table(TABLE_NAME));
 
-            assertEquals(2, args.length);
-            assertEquals("arg1", args[0]);
-            assertEquals(123, args[1]);
+            assertEquals("arg1", arg);
 
-            return CompletableFuture.completedFuture(List.of("Received: " + page.size() + " items, " + args.length + " args"));
+            return CompletableFuture.completedFuture(List.of("Received: " + page.size() + " items, " + arg + " arg"));
         }
     }
 
     @SuppressWarnings("resource")
-    private static class NodeNameReceiver implements DataStreamerReceiver<Integer, Void> {
+    private static class NodeNameReceiver implements DataStreamerReceiver<Integer, Object, Void> {
         @Override
-        public @Nullable CompletableFuture<List<Void>> receive(List<Integer> page, DataStreamerReceiverContext ctx, Object... args) {
+        public @Nullable CompletableFuture<List<Void>> receive(List<Integer> page, DataStreamerReceiverContext ctx, Object arg) {
             var nodeName = ctx.ignite().name();
             RecordView<Tuple> view = ctx.ignite().tables().table(TABLE_NAME).recordView();
 
