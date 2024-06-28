@@ -26,12 +26,20 @@ import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
+import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.sql.SqlException;
 
 /** Math operations with overflow checking. */
 public class IgniteMath {
     private static final BigDecimal UPPER_LONG = BigDecimal.valueOf(Long.MAX_VALUE);
     private static final BigDecimal LOWER_LONG = BigDecimal.valueOf(Long.MIN_VALUE);
+
+    private static final BigDecimal UPPER_LONG_BIG_DECIMAL = BigDecimal.valueOf(Long.MAX_VALUE).add(BigDecimal.ONE);
+    private static final BigDecimal LOWER_LONG_BIG_DECIMAL = BigDecimal.valueOf(Long.MIN_VALUE).subtract(BigDecimal.ONE);
+    private static final Double UPPER_LONG_DOUBLE = (double) Long.MAX_VALUE;
+    private static final Double LOWER_LONG_DOUBLE = (double) Long.MIN_VALUE;
+    private static final Float UPPER_LONG_FLOAT = (float) Long.MAX_VALUE;
+    private static final Float LOWER_LONG_FLOAT = (float) Long.MIN_VALUE;
 
     /** Returns the sum of its arguments, throwing an exception if the result overflows an {@code long}. */
     public static long addExact(long x, long y) {
@@ -314,6 +322,7 @@ public class IgniteMath {
 
     /** Cast value to {@code int}, throwing an exception if the result overflows an {@code int}. */
     public static int convertToIntExact(Number x) {
+        checkNumberLongBounds(INTEGER, x);
         return convertToIntExact(x.longValue());
     }
 
@@ -340,6 +349,7 @@ public class IgniteMath {
 
     /** Cast value to {@code short}, throwing an exception if the result overflows an {@code short}. */
     public static short convertToShortExact(Number x) {
+        checkNumberLongBounds(SMALLINT, x);
         return convertToShortExact(x.longValue());
     }
 
@@ -375,6 +385,7 @@ public class IgniteMath {
 
     /** Cast value to {@code byte}, throwing an exception if the result overflows an {@code byte}. */
     public static byte convertToByteExact(Number x) {
+        checkNumberLongBounds(TINYINT, x);
         return convertToByteExact(x.longValue());
     }
 
@@ -397,5 +408,25 @@ public class IgniteMath {
         } catch (NumberFormatException ex1) {
             throw new SqlException(RUNTIME_ERR, "Invalid input syntax for type " + TINYINT.getName() + ": \"" + x + "\"", ex1);
         }
+    }
+
+    private static void checkNumberLongBounds(SqlTypeName type, Number x) {
+        if (x instanceof BigDecimal) {
+            if ((((BigDecimal) x).compareTo(UPPER_LONG_BIG_DECIMAL) < 0 && ((BigDecimal) x).compareTo(LOWER_LONG_BIG_DECIMAL) > 0)) {
+                return;
+            }
+        } else if (x instanceof Double) {
+            if ((((Double) x).compareTo(UPPER_LONG_DOUBLE) <= 0 && ((Double) x).compareTo(LOWER_LONG_DOUBLE) >= 0)) {
+                return;
+            }
+        } else if (x instanceof Float) {
+            if ((((Float) x).compareTo(UPPER_LONG_FLOAT) <= 0 && ((Float) x).compareTo(LOWER_LONG_FLOAT) >= 0)) {
+                return;
+            }
+        } else {
+            return;
+        }
+
+        throw new ArithmeticException(type.getName() + " out of range");
     }
 }

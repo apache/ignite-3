@@ -488,9 +488,13 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
                 arguments(SqlTypeName.INTEGER, "SELECT -CAST(-2147483648 AS INTEGER)", EMPTY_PARAM),
                 arguments(SqlTypeName.INTEGER, "SELECT -(?)", -2147483648),
                 arguments(SqlTypeName.INTEGER, "SELECT -2147483648/-1", EMPTY_PARAM),
+                arguments(SqlTypeName.INTEGER, "select CAST(9223372036854775807.5 + 9223372036854775807.5 AS INTEGER)",
+                        EMPTY_PARAM),
 
                 // SMALLINT
                 arguments(SqlTypeName.SMALLINT, "SELECT 32000::SMALLINT + 1000::SMALLINT", EMPTY_PARAM),
+                arguments(SqlTypeName.SMALLINT, "select CAST(9223372036854775807.5 + 9223372036854775807.5 AS SMALLINT)",
+                        EMPTY_PARAM),
                 arguments(SqlTypeName.SMALLINT, "SELECT CAST(CAST(33000 AS BIGINT) AS SMALLINT)", EMPTY_PARAM),
                 arguments(SqlTypeName.SMALLINT, "SELECT CAST(CAST(33000 AS FLOAT) AS SMALLINT)", EMPTY_PARAM),
                 arguments(SqlTypeName.SMALLINT, "SELECT CAST(CAST(33000 + 1 AS FLOAT) AS SMALLINT)", EMPTY_PARAM),
@@ -503,6 +507,8 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
 
                 // TINYINT
                 arguments(SqlTypeName.TINYINT, "SELECT 2::TINYINT + 127::TINYINT", EMPTY_PARAM),
+                arguments(SqlTypeName.TINYINT, "select CAST(9223372036854775807.5 + 9223372036854775807.5 AS TINYINT)",
+                        EMPTY_PARAM),
                 arguments(SqlTypeName.TINYINT, "SELECT CAST(CAST(200 AS BIGINT) AS TINYINT)", EMPTY_PARAM),
                 arguments(SqlTypeName.TINYINT, "SELECT CAST(CAST(200 AS FLOAT) AS TINYINT)", EMPTY_PARAM),
                 arguments(SqlTypeName.TINYINT, "SELECT CAST(CAST(200 + 1 AS FLOAT) AS TINYINT)", EMPTY_PARAM),
