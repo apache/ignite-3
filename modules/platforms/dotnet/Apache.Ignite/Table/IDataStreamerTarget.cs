@@ -74,7 +74,7 @@ public interface IDataStreamerTarget<T>
     /// <param name="keySelector">Key selector.</param>
     /// <param name="payloadSelector">Payload selector.</param>
     /// <param name="receiver">Streamer receiver descriptor.</param>
-    /// <param name="receiverArgs">Receiver args.</param>
+    /// <param name="receiverArg">Receiver argument.</param>
     /// <param name="options">Streamer options.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>
@@ -85,13 +85,14 @@ public interface IDataStreamerTarget<T>
     /// </returns>
     /// <typeparam name="TSource">Source item type.</typeparam>
     /// <typeparam name="TPayload">Payload type.</typeparam>
+    /// <typeparam name="TArg">Argument type.</typeparam>
     /// <typeparam name="TResult">Result type.</typeparam>
-    IAsyncEnumerable<TResult> StreamDataAsync<TSource, TPayload, TResult>(
+    IAsyncEnumerable<TResult> StreamDataAsync<TSource, TPayload, TArg, TResult>(
         IAsyncEnumerable<TSource> data,
         Func<TSource, T> keySelector,
         Func<TSource, TPayload> payloadSelector,
-        ReceiverDescriptor<TResult> receiver,
-        ICollection<object>? receiverArgs = null,
+        ReceiverDescriptor<TArg, TResult> receiver,
+        TArg receiverArg,
         DataStreamerOptions? options = null,
         CancellationToken cancellationToken = default)
         where TPayload : notnull;

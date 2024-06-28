@@ -35,13 +35,8 @@ public sealed record ReceiverDescriptor(
 /// </summary>
 /// <param name="ReceiverClassName">Java class name of the streamer receiver to execute.</param>
 /// <param name="DeploymentUnits">Deployment units.</param>
+/// <typeparam name="TArg">Argument type.</typeparam>
 /// <typeparam name="TResult">Result type.</typeparam>
-public sealed record ReceiverDescriptor<TResult>(
+public sealed record ReceiverDescriptor<TArg, TResult>(
     string ReceiverClassName,
-    IEnumerable<DeploymentUnit>? DeploymentUnits = null)
-{
-    /// <summary>
-    /// Gets the result type.
-    /// </summary>
-    public Type ResultType => typeof(TResult);
-}
+    IEnumerable<DeploymentUnit>? DeploymentUnits = null);

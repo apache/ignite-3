@@ -17,7 +17,6 @@
 
 namespace Apache.Ignite.Compute;
 
-using System;
 using System.Collections.Generic;
 
 /// <summary>
@@ -31,15 +30,4 @@ using System.Collections.Generic;
 public sealed record JobDescriptor<TArg, TResult>(
     string JobClassName,
     IEnumerable<DeploymentUnit>? DeploymentUnits = null,
-    JobExecutionOptions? Options = null)
-{
-    /// <summary>
-    /// Gets the arg type of the job.
-    /// </summary>
-    public Type ArgType => typeof(TArg);
-
-    /// <summary>
-    /// Gets the result type of the job.
-    /// </summary>
-    public Type ResultType => typeof(TResult);
-}
+    JobExecutionOptions? Options = null);
