@@ -24,7 +24,7 @@ import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_OPERATION_
 import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_RECONNECT_INTERVAL;
 import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_RECONNECT_THROTTLING_PERIOD;
 import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_RECONNECT_THROTTLING_RETRIES;
-import static org.apache.ignite.internal.client.ClientUtils.sync;
+import static org.apache.ignite.internal.util.ViewUtils.sync;
 
 import java.util.List;
 import java.util.Objects;

@@ -82,6 +82,16 @@ public class PublicApiThreadingRecordView<R> extends PublicApiThreadingViewBase<
     }
 
     @Override
+    public boolean containsAll(@Nullable Transaction tx, Collection<R> keys) {
+        return executeSyncOp(() -> view.containsAll(tx, keys));
+    }
+
+    @Override
+    public CompletableFuture<Boolean> containsAllAsync(@Nullable Transaction tx, Collection<R> keys) {
+        return executeSyncOp(() -> view.containsAllAsync(tx, keys));
+    }
+
+    @Override
     public void upsert(@Nullable Transaction tx, R rec) {
         executeSyncOp(() -> view.upsert(tx, rec));
     }

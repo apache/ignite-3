@@ -21,6 +21,9 @@ import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.convertT
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.marshaller.ValidationUtils.validateNullableOperation;
 import static org.apache.ignite.internal.marshaller.ValidationUtils.validateNullableValue;
+import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
+import static org.apache.ignite.internal.util.ViewUtils.checkKeysForNulls;
+import static org.apache.ignite.internal.util.ViewUtils.sync;
 
 import java.util.ArrayList;
 import java.util.BitSet;
@@ -201,14 +204,6 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
         });
     }
 
-    private static <K> void checkKeysForNulls(Collection<K> keys) {
-        Objects.requireNonNull(keys, "keys");
-
-        for (K key : keys) {
-            Objects.requireNonNull(key, "key");
-        }
-    }
-
     /** {@inheritDoc} */
     @Override
     public boolean contains(@Nullable Transaction tx, K key) {
@@ -224,6 +219,28 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
             BinaryRowEx keyRow = marshal(key, schemaVersion);
 
             return tbl.get(keyRow, (InternalTransaction) tx).thenApply(Objects::nonNull);
+        });
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean containsAll(@Nullable Transaction tx, Collection<K> keys) {
+        return sync(containsAllAsync(tx, keys));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Boolean> containsAllAsync(@Nullable Transaction tx, Collection<K> keys) {
+        checkKeysForNulls(keys);
+
+        if (keys.isEmpty()) {
+            return trueCompletedFuture();
+        }
+
+        return doOperation(tx, (schemaVersion) -> {
+            Collection<BinaryRowEx> keyRows = marshal(keys, schemaVersion);
+
+            return tbl.getAll(keyRows, (InternalTransaction) tx).thenApply(rows -> rows.size() == keyRows.size());
         });
     }
 
