@@ -50,12 +50,14 @@ import org.apache.ignite.compute.JobState;
 import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.compute.TaskState;
+import org.apache.ignite.compute.TaskStatus;
 import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.compute.ComputeUtils;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.compute.JobExecutionContextImpl;
 import org.apache.ignite.internal.compute.JobStateImpl;
+import org.apache.ignite.internal.compute.TaskStateImpl;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.network.ClusterNode;
@@ -74,8 +76,6 @@ public class FakeCompute implements IgniteComputeInternal {
     public static volatile @Nullable RuntimeException err;
 
     private final Map<UUID, JobState> jobStates = new ConcurrentHashMap<>();
-
-    private final Map<UUID, TaskState> taskStates = new ConcurrentHashMap<>();
 
     public static volatile CountDownLatch latch = new CountDownLatch(0);
 
@@ -243,7 +243,7 @@ public class FakeCompute implements IgniteComputeInternal {
 
             @Override
             public CompletableFuture<@Nullable TaskState> stateAsync() {
-                return completedFuture(taskStates.get(jobId));
+                return completedFuture(TaskStateImpl.toBuilder(jobStates.get(jobId)).build());
             }
 
             @Override
