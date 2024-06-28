@@ -582,7 +582,7 @@ public class DataStreamerTests : IgniteTestsBase
                 keySelector: x => GetPoco(x),
                 payloadSelector: _ => string.Empty,
                 receiver: TestReceiverNoResults,
-                receiverArgs: new object[] { "throw", "throw", 1 }));
+                receiverArgs: GetReceiverArg("throw", "throw", 1)));
 
         Assert.AreEqual("Streamer receiver failed: Job execution failed: java.lang.ArithmeticException: Test exception: 1", ex.Message);
     }

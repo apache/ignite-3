@@ -801,7 +801,7 @@ public class PlatformTestNodeRunner {
                 recordView.upsert(null, rec);
             }
 
-            return CompletableFuture.completedFuture(res);
+            return completedFuture(res);
         }
     }
 
