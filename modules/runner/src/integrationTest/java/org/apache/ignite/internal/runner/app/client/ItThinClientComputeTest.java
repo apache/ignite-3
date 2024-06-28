@@ -42,6 +42,7 @@ import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.oneOf;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -761,11 +762,16 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     }
 
     private void testEchoArg(Object arg) {
-        Object res = client().compute().execute(
-                JobTarget.node(node(0)), JobDescriptor.builder(EchoJob.class).build(), arg
-        );
+        Object res = client().compute().execute(JobTarget.node(node(0)), JobDescriptor.builder(EchoJob.class).build(), arg);
 
-        assertEquals(arg.toString(), res);
+        if (arg instanceof byte[]) {
+            assertArrayEquals((byte[]) arg, (byte[]) res);
+        } else {
+            assertEquals(arg, res);
+        }
+
+        String str = client().compute().execute(JobTarget.node(node(0)), JobDescriptor.builder(ToStringJob.class).build(), arg);
+        assertEquals(arg.toString(), str);
     }
 
     private ClusterNode node(int idx) {
@@ -781,7 +787,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     private static class NodeNameJob implements ComputeJob<Object, String> {
         @Override
         public CompletableFuture<String> executeAsync(JobExecutionContext context, Object arg) {
-            return completedFuture(context.ignite().name() + arg);
+            return completedFuture(context.ignite().name() + (arg == null ? "" : arg.toString()));
         }
     }
 
@@ -808,8 +814,10 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     private static class ExceptionJob implements ComputeJob<Boolean, String> {
         @Override
-        public CompletableFuture<String> executeAsync(JobExecutionContext context, Boolean args) {
-            if (args != null && args) {
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, Boolean arg) {
+            boolean asyncJob = arg != null && arg;
+
+            if (asyncJob) {
                 return failedFuture(new ArithmeticException("math err"));
             } else {
                 throw new ArithmeticException("math err");
@@ -820,8 +828,14 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     private static class EchoJob implements ComputeJob<Object, Object> {
         @Override
         public CompletableFuture<Object> executeAsync(JobExecutionContext context, Object arg) {
-            var valueString = arg == null ? "null" : arg.toString();
-            return completedFuture(valueString);
+            return completedFuture(arg);
+        }
+    }
+
+    private static class ToStringJob implements ComputeJob<Object, String> {
+        @Override
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, Object arg) {
+            return completedFuture(arg.toString());
         }
     }
 
