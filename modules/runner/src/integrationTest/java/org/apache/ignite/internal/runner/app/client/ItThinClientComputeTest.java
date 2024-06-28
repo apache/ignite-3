@@ -803,9 +803,9 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         }
     }
 
-    private static class IgniteExceptionJob implements ComputeJob<Object[], String> {
+    private static class IgniteExceptionJob implements ComputeJob<Object, String> {
         @Override
-        public CompletableFuture<String> executeAsync(JobExecutionContext context, Object... args) {
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, Object args) {
             throw new CustomException(TRACE_ID, COLUMN_ALREADY_EXISTS_ERR, "Custom job error", null);
         }
     }
