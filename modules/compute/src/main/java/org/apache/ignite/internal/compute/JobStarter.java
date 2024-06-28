@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.compute;
 
 import java.util.List;
-import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobExecution;
+import org.apache.ignite.deployment.DeploymentUnit;
 
 /**
  * Compute job starter interface.

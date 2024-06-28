@@ -24,23 +24,16 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
-import java.util.stream.Collectors;
-import org.apache.ignite.internal.jdbc.JdbcConverterUtils;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryCursorHandler;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcColumnMeta;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcFetchQueryResultsRequest;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaColumnsResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryCloseRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryCloseResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryFetchResult;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryMetadataRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQuerySingleResult;
 import org.apache.ignite.internal.jdbc.proto.event.Response;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
-import org.apache.ignite.sql.ColumnMetadata;
-import org.apache.ignite.sql.ResultSetMetadata;
 
 /**
  * Jdbc query event handler implementation.
@@ -167,64 +160,6 @@ public class JdbcQueryCursorHandlerImpl extends JdbcHandlerBase implements JdbcQ
 
             return new JdbcQueryCloseResult();
         });
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<JdbcMetaColumnsResult> queryMetadataAsync(JdbcQueryMetadataRequest req) {
-        AsyncSqlCursor<List<Object>> asyncSqlCursor;
-        try {
-            asyncSqlCursor = resources.get(req.cursorId()).get(AsyncSqlCursor.class);
-        } catch (IgniteInternalCheckedException e) {
-            StringWriter sw = getWriterWithStackTrace(e);
-
-            return CompletableFuture.completedFuture(new JdbcMetaColumnsResult(Response.STATUS_FAILED,
-                    "Failed to find query cursor [curId=" + req.cursorId() + "]. Error message:" + sw));
-        }
-
-        ResultSetMetadata metadata = asyncSqlCursor.metadata();
-
-        if (metadata == null) {
-            return CompletableFuture.completedFuture(new JdbcMetaColumnsResult(Response.STATUS_FAILED,
-                    "Failed to get query metadata for cursor [curId=" + req.cursorId() + ']'));
-        }
-
-        List<JdbcColumnMeta> meta = metadata.columns().stream()
-                .map(this::createColumnMetadata)
-                .collect(Collectors.toList());
-
-        return CompletableFuture.completedFuture(new JdbcMetaColumnsResult(meta));
-    }
-
-    /**
-     * Create Jdbc representation of column metadata from given origin and RelDataTypeField field.
-     *
-     * @param fldMeta field metadata contains info about column.
-     * @return JdbcColumnMeta object.
-     */
-    private JdbcColumnMeta createColumnMetadata(ColumnMetadata fldMeta) {
-        ColumnMetadata.ColumnOrigin origin = fldMeta.origin();
-
-        String schemaName = null;
-        String tblName = null;
-        String colName = null;
-
-        if (origin != null) {
-            schemaName = origin.schemaName();
-            tblName = origin.tableName();
-            colName = origin.columnName();
-        }
-
-        return new JdbcColumnMeta(
-            fldMeta.name(),
-            schemaName,
-            tblName,
-            colName,
-            JdbcConverterUtils.columnTypeToJdbcClass(fldMeta.type()),
-            fldMeta.precision(),
-            fldMeta.scale(),
-            fldMeta.nullable()
-        );
     }
 
     /**

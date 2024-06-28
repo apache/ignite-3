@@ -59,7 +59,6 @@ import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcFinishTxRequest;
 import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcHasMoreRequest;
 import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcPreparedStmntBatchRequest;
 import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcPrimaryKeyMetadataRequest;
-import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcQueryMetadataRequest;
 import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcSchemasMetadataRequest;
 import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcTableMetadataRequest;
 import org.apache.ignite.client.handler.requests.jdbc.JdbcMetadataCatalog;
@@ -725,9 +724,6 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
             case ClientOp.JDBC_PK_META:
                 return ClientJdbcPrimaryKeyMetadataRequest.process(in, out, jdbcQueryEventHandler);
-
-            case ClientOp.JDBC_QUERY_META:
-                return ClientJdbcQueryMetadataRequest.process(in, out, jdbcQueryCursorHandler);
 
             case ClientOp.TX_BEGIN:
                 return ClientTransactionBeginRequest.process(in, out, igniteTransactions, resources, metrics);

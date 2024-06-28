@@ -24,7 +24,6 @@ import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -50,10 +49,7 @@ public class JdbcQuerySingleResult extends Response {
     private boolean hasMoreData;
 
     /** Ordered list of types of columns in serialized rows. Null only when result has no resultSet. */
-    private @Nullable List<ColumnType> columnTypes;
-
-    /** Decimal scales in appearance order. Can be empty in case no any decimal columns, or null when result has no resultSet. */
-    private int @Nullable [] decimalScales;
+    private @Nullable List<JdbcColumnMeta> meta;
 
     // === Attributes of response without result set ===
 
@@ -80,8 +76,7 @@ public class JdbcQuerySingleResult extends Response {
      *
      * @param cursorId Id of the cursor in case it was registered on server.
      * @param rowTuples Serialized SQL result rows.
-     * @param columnTypes Ordered list of types of columns in serialized rows.
-     * @param decimalScales Decimal scales in appearance order.
+     * @param meta List of columns-related metadata.
      * @param hasMoreData Flag indicates the query has un-fetched results.
      * @param hasNextResult Flag indicates that current result is part of multi-statement query, there is at least one more result.
      */
@@ -89,8 +84,7 @@ public class JdbcQuerySingleResult extends Response {
     public JdbcQuerySingleResult(
             @Nullable Long cursorId,
             List<BinaryTupleReader> rowTuples,
-            List<ColumnType> columnTypes,
-            int[] decimalScales,
+            List<JdbcColumnMeta> meta,
             boolean hasMoreData,
             boolean hasNextResult
     ) {
@@ -98,15 +92,12 @@ public class JdbcQuerySingleResult extends Response {
 
         this.cursorId = cursorId;
         this.rowTuples = rowTuples;
-        this.columnTypes = columnTypes;
-        this.decimalScales = decimalScales;
+        this.meta = meta;
 
         this.hasMoreData = hasMoreData;
         this.hasNextResult = hasNextResult;
 
         hasResultSet = true;
-
-        assert decimalScales != null;
     }
 
     /**
@@ -132,14 +123,8 @@ public class JdbcQuerySingleResult extends Response {
         return rowTuples;
     }
 
-    /** Return types of columns in serialized rows if result has result set, return null otherwise. */
-    public @Nullable List<ColumnType> columnTypes() {
-        return columnTypes;
-    }
-
-    /** Return decimal scales in appearance order in columns if result has result set, return null otherwise. */
-    public int @Nullable [] decimalScales() {
-        return decimalScales;
+    public @Nullable List<JdbcColumnMeta> meta() {
+        return meta;
     }
 
     /** Returns {@code true} if there is more data available in current result set. */
@@ -186,16 +171,14 @@ public class JdbcQuerySingleResult extends Response {
             return;
         }
 
-        assert decimalScales != null;
-        assert columnTypes != null;
         assert rowTuples != null;
+        assert meta != null;
 
         packer.packBoolean(hasMoreData);
-        packer.packIntArray(decimalScales);
 
-        packer.packInt(this.columnTypes.size());
-        for (ColumnType columnType : this.columnTypes) {
-            packer.packInt(columnType.id());
+        packer.packInt(meta.size());
+        for (JdbcColumnMeta columnMeta : meta) {
+            columnMeta.writeBinary(packer);
         }
 
         packer.packInt(rowTuples.size());
@@ -230,13 +213,16 @@ public class JdbcQuerySingleResult extends Response {
         }
 
         hasMoreData = unpacker.unpackBoolean();
-        decimalScales = unpacker.unpackIntArray();
 
         int count = unpacker.unpackInt();
-        columnTypes = new ArrayList<>(count);
+        meta = new ArrayList<>(count);
 
         for (int i = 0; i < count; i++) {
-            columnTypes.add(ColumnType.getById(unpacker.unpackInt()));
+            var columnMeta = new JdbcColumnMeta();
+
+            columnMeta.readBinary(unpacker);
+
+            meta.add(columnMeta);
         }
 
         int size = unpacker.unpackInt();

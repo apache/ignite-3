@@ -43,11 +43,11 @@ import org.apache.ignite.internal.jdbc.proto.JdbcStatementType;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchExecuteRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchExecuteResult;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcColumnMeta;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryExecuteRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQuerySingleResult;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.CollectionUtils;
-import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -160,15 +160,15 @@ public class JdbcStatement implements Statement {
 
         JdbcQueryCursorHandler handler = new JdbcClientQueryCursorHandler(res.getChannel());
 
-        List<ColumnType> columnTypes = executeResult.columnTypes();
-        columnTypes = columnTypes == null ? List.of() : columnTypes;
-        int[] decimalScales = executeResult.decimalScales();
+        List<JdbcColumnMeta> meta = executeResult.meta();
 
-        Function<BinaryTupleReader, List<Object>> transformer = createTransformer(columnTypes, decimalScales);
+        Function<BinaryTupleReader, List<Object>> transformer = meta != null ? createTransformer(meta) : null;
+
+        int colCount = meta != null ? meta.size() : 0;
 
         resSets.add(new JdbcResultSet(handler, this, executeResult.cursorId(), pageSize, !executeResult.hasMoreData(),
-                executeResult.items(), executeResult.hasResultSet(), executeResult.hasNextResult(),
-                executeResult.updateCount(), closeOnCompletion, columnTypes.size(), transformer));
+                executeResult.items(), meta, executeResult.hasResultSet(), executeResult.hasNextResult(),
+                executeResult.updateCount(), closeOnCompletion, colCount, transformer));
     }
 
     /** {@inheritDoc} */

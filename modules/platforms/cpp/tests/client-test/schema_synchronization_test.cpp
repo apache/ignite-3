@@ -98,8 +98,9 @@ TEST_F(schema_synchronization_test, upsert_add_column_compute) {
     tuple_view.upsert(nullptr, val1);
 
     m_client.get_sql().execute(nullptr, {"ALTER TABLE SCHEMA_SYN_TEST ADD COLUMN VAL2 INT"}, {});
+    auto descriptor = job_descriptor::builder().set_job_class_name(NODE_NAME_JOB).build();
 
-    m_client.get_compute().submit_colocated("SCHEMA_SYN_TEST", {key}, {}, NODE_NAME_JOB, {}, {}).get_result();
+    m_client.get_compute().submit_colocated("SCHEMA_SYN_TEST", {key}, descriptor, {}).get_result();
 }
 
 TEST_F(schema_synchronization_test, upsert_add_column_upsert_all) {
