@@ -806,13 +806,15 @@ public class PlatformTestNodeRunner {
     }
 
     @SuppressWarnings("unused") // Used by platform tests.
-    private static class UpsertElementTypeNameReceiver implements DataStreamerReceiver<Object, Object, Object> {
+    private static class UpsertElementTypeNameReceiver implements DataStreamerReceiver<Object, String, Object> {
         @SuppressWarnings("resource")
         @Override
-        public @Nullable CompletableFuture<List<Object>> receive(List<Object> page, DataStreamerReceiverContext ctx, Object args) {
-            String tableName = (String) args;
-            long id1 = 1;
-            long id2 = 2;
+        public @Nullable CompletableFuture<List<Object>> receive(List<Object> page, DataStreamerReceiverContext ctx, String arg) {
+            String[] args = arg.split(":", 3);
+
+            String tableName = args[0];
+            long id1 = Long.parseLong(args[1]);
+            long id2 = Long.parseLong(args[2]);
 
             Table table = ctx.ignite().tables().table(tableName);
             RecordView<Tuple> recordView = table.recordView();
