@@ -119,7 +119,6 @@ std::vector<odbc_column_meta> read_column_meta(protocol::reader &reader) {
         column.column = reader.read_string_nullable();
 
         column.data_type = ignite_type(reader.read_int32());
-        reader.skip(); // data_type_class
         column.nullable = reader.read_bool();
         column.precision = reader.read_int32();
         column.scale = reader.read_int32();

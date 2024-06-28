@@ -221,7 +221,7 @@ public class RetryPolicyTest extends BaseIgniteAbstractTest {
             }
         }
 
-        long expectedNullCount = 22;
+        long expectedNullCount = 21;
 
         String msg = nullOpFields.size()
                 + " operation codes do not have public equivalent. When adding new codes, update ClientOperationType too. Missing ops: "
