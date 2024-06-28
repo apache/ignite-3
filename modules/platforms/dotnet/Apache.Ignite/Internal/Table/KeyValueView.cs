@@ -164,12 +164,12 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
         await _recordView.StreamDataAsync(ToKv(data), options, cancellationToken).ConfigureAwait(false);
 
     /// <inheritdoc/>
-    public IAsyncEnumerable<TResult> StreamDataAsync<TSource, TPayload, TResult>(
+    public IAsyncEnumerable<TResult> StreamDataAsync<TSource, TPayload, TArg, TResult>(
         IAsyncEnumerable<TSource> data,
         Func<TSource, KeyValuePair<TK, TV>> keySelector,
         Func<TSource, TPayload> payloadSelector,
-        ReceiverDescriptor<TResult> receiver,
-        ICollection<object>? receiverArgs,
+        ReceiverDescriptor<TArg, TResult> receiver,
+        TArg receiverArg,
         DataStreamerOptions? options,
         CancellationToken cancellationToken = default)
         where TPayload : notnull =>
@@ -178,17 +178,17 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
             src => ToKv(keySelector(src)),
             payloadSelector,
             receiver,
-            receiverArgs,
+            receiverArg,
             options,
             cancellationToken);
 
     /// <inheritdoc/>
-    public Task StreamDataAsync<TSource, TPayload>(
+    public Task StreamDataAsync<TSource, TPayload, TArg>(
         IAsyncEnumerable<TSource> data,
         Func<TSource, KeyValuePair<TK, TV>> keySelector,
         Func<TSource, TPayload> payloadSelector,
-        ReceiverDescriptor receiver,
-        ICollection<object>? receiverArgs,
+        ReceiverDescriptor<TArg> receiver,
+        TArg receiverArg,
         DataStreamerOptions? options,
         CancellationToken cancellationToken = default)
         where TPayload : notnull =>
@@ -197,7 +197,7 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
             src => ToKv(keySelector(src)),
             payloadSelector,
             receiver,
-            receiverArgs,
+            receiverArg,
             options,
             cancellationToken);
 
