@@ -18,6 +18,7 @@
 #pragma once
 
 #include "ignite/client/compute/deployment_unit.h"
+#include "ignite/client/compute/job_descriptor.h"
 #include "ignite/client/compute/job_execution.h"
 #include "ignite/client/compute/job_execution_options.h"
 #include "ignite/client/network/cluster_node.h"
