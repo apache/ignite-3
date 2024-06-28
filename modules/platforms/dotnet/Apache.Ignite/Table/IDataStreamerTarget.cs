@@ -104,18 +104,19 @@ public interface IDataStreamerTarget<T>
     /// <param name="keySelector">Key selector.</param>
     /// <param name="payloadSelector">Payload selector.</param>
     /// <param name="receiver">Receiver descriptor.</param>
-    /// <param name="receiverArgs">Receiver args.</param>
+    /// <param name="receiverArg">Receiver arg.</param>
     /// <param name="options">Streamer options.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
     /// <typeparam name="TSource">Source item type.</typeparam>
     /// <typeparam name="TPayload">Payload type.</typeparam>
-    Task StreamDataAsync<TSource, TPayload>(
+    /// <typeparam name="TArg">Argument type.</typeparam>
+    Task StreamDataAsync<TSource, TPayload, TArg>(
         IAsyncEnumerable<TSource> data,
         Func<TSource, T> keySelector,
         Func<TSource, TPayload> payloadSelector,
-        ReceiverDescriptor receiver,
-        ICollection<object>? receiverArgs = null,
+        ReceiverDescriptor<TArg> receiver,
+        TArg receiverArg,
         DataStreamerOptions? options = null,
         CancellationToken cancellationToken = default)
         where TPayload : notnull;

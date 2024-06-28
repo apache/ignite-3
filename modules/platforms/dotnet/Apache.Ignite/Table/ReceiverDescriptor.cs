@@ -17,7 +17,6 @@
 
 namespace Apache.Ignite.Table;
 
-using System;
 using System.Collections.Generic;
 using Compute;
 
@@ -26,7 +25,8 @@ using Compute;
 /// </summary>
 /// <param name="ReceiverClassName">Java class name of the streamer receiver to execute.</param>
 /// <param name="DeploymentUnits">Deployment units.</param>
-public sealed record ReceiverDescriptor(
+/// <typeparam name="TArg">Argument type.</typeparam>
+public sealed record ReceiverDescriptor<TArg>(
     string ReceiverClassName,
     IEnumerable<DeploymentUnit>? DeploymentUnits = null);
 

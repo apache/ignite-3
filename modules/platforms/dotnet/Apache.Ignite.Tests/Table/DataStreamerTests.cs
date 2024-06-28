@@ -380,7 +380,7 @@ public class DataStreamerTests : IgniteTestsBase
             keySelector: x => GetTuple(x),
             payloadSelector: x => $"{x}-value{x * 10}",
             receiver: TestReceiverNoResults,
-            receiverArgs: GetReceiverArg(Table.Name, "arg1", 22),
+            receiverArg: GetReceiverArg(Table.Name, "arg1", 22),
             options: DataStreamerOptions.Default);
 
         for (int i = 0; i < Count; i++)
@@ -779,8 +779,8 @@ public class DataStreamerTests : IgniteTestsBase
             Enumerable.Range(0, 1).ToAsyncEnumerable(),
             keySelector: x => GetPoco(x),
             payloadSelector: _ => value,
-            receiver: new ReceiverDescriptor(UpsertElementTypeNameReceiverClassName),
-            receiverArgs: new object[] { $"{TableName}:{key1}:{key2}" });
+            receiver: new ReceiverDescriptor<string>(UpsertElementTypeNameReceiverClassName),
+            receiverArg: $"{TableName}:{key1}:{key2}");
 
         var className = (await TupleView.GetAsync(null, GetTuple(key1))).Value[1];
         var valueStr = (await TupleView.GetAsync(null, GetTuple(key2))).Value[1];
