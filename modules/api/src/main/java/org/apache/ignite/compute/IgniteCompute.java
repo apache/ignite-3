@@ -71,7 +71,7 @@ public interface IgniteCompute {
             JobDescriptor<T, R> descriptor,
             @Nullable T arg
     ) {
-        return this.submit(target, descriptor, arg).resultAsync();
+        return submit(target, descriptor, arg).resultAsync();
     }
 
     /**
