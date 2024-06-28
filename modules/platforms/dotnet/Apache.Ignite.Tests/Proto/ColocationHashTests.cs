@@ -187,7 +187,7 @@ public class ColocationHashTests : IgniteTestsBase
         var schema = schemas[1].GetAwaiter().GetResult();
         var clusterNodes = await Client.GetClusterNodesAsync();
         var jobTarget = JobTarget.AnyNode(clusterNodes);
-        var job = new JobDescriptor<int>(TableRowColocationHashJob);
+        var job = new JobDescriptor<object, int>(TableRowColocationHashJob);
 
         for (int i = 0; i < 100; i++)
         {
@@ -344,7 +344,7 @@ public class ColocationHashTests : IgniteTestsBase
 
         IJobExecution<int> jobExecution = await Client.Compute.SubmitAsync(
             target,
-            new JobDescriptor<int>(ColocationHashJob),
+            new JobDescriptor<object, int>(ColocationHashJob),
             GetArg());
 
         return await jobExecution.GetResultAsync();
