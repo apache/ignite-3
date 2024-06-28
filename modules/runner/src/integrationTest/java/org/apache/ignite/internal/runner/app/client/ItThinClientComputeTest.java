@@ -85,6 +85,7 @@ import org.apache.ignite.compute.task.MapReduceJob;
 import org.apache.ignite.compute.task.MapReduceTask;
 import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.compute.task.TaskExecutionContext;
+import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.compute.TaskToJobExecutionWrapper;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
