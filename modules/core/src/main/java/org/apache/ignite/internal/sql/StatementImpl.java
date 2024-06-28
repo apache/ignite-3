@@ -120,10 +120,4 @@ public class StatementImpl implements Statement {
                 .pageSize(pageSize)
                 .queryTimeout(queryTimeoutMs, TimeUnit.MILLISECONDS);
     }
-
-    /** {@inheritDoc} */
-    @Override
-    public void close() {
-        // No-op.
-    }
 }
