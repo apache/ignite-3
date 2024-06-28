@@ -107,7 +107,7 @@ public class ClientCompute implements IgniteCompute {
                             descriptor.jobClassName(),
                             descriptor.options(),
                             descriptor.argumentMarshaler(),
-                            args),
+                            arg),
                     descriptor.resultMarshaller()
             );
         }
@@ -127,7 +127,7 @@ public class ClientCompute implements IgniteCompute {
                         descriptor.jobClassName(),
                         descriptor.options(),
                         descriptor.argumentMarshaler(),
-                        args
+                        arg
                         ),
                         descriptor.resultMarshaller());
             } else {
@@ -140,7 +140,7 @@ public class ClientCompute implements IgniteCompute {
                                 descriptor.jobClassName(),
                                 descriptor.options(),
                                 descriptor.argumentMarshaler(),
-                                args
+                                arg
                         ),
                         descriptor.resultMarshaller()
                 );

@@ -201,7 +201,7 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
 
         int maxRetries = 5;
 
-        JobExecutionInternal execution = computeExecutor.executeJob(
+        JobExecutionInternal<?> execution = computeExecutor.executeJob(
                 ExecutionOptions.builder().maxRetries(maxRetries).build(),
                 JobSuccess.class,
                 null,

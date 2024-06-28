@@ -26,8 +26,8 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Internal job execution object.
  */
-public class JobExecutionInternal {
-    private final QueueExecution<?> execution;
+public class JobExecutionInternal<R> {
+    private final QueueExecution<R> execution;
 
     private final AtomicBoolean isInterrupted;
 
@@ -37,12 +37,12 @@ public class JobExecutionInternal {
      * @param execution Internal execution state.
      * @param isInterrupted Flag which is passed to the execution context so that the job can check it for cancellation request.
      */
-    JobExecutionInternal(QueueExecution<?> execution, AtomicBoolean isInterrupted) {
+    JobExecutionInternal(QueueExecution<R> execution, AtomicBoolean isInterrupted) {
         this.execution = execution;
         this.isInterrupted = isInterrupted;
     }
 
-    public CompletableFuture<?> resultAsync() {
+    public CompletableFuture<R> resultAsync() {
         return execution.resultAsync();
     }
 
