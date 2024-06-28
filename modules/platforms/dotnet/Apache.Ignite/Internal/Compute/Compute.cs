@@ -287,7 +287,7 @@ namespace Apache.Ignite.Internal.Compute
             IEnumerable<DeploymentUnit>? units,
             string jobClassName,
             JobExecutionOptions? options,
-            object? arg)
+            object?[]? args)
         {
             IClusterNode node = GetRandomNode(nodes);
             options ??= JobExecutionOptions.Default;
@@ -311,7 +311,9 @@ namespace Apache.Ignite.Internal.Compute
                 w.Write(options.Priority);
                 w.Write(options.MaxRetries);
 
-                w.WriteObjectAsBinaryTuple(arg);
+                // TODO IGNITE-22602 .NET: Use single argument in Compute API
+                var singleArg = args?.Single();
+                w.WriteObjectAsBinaryTuple(singleArg);
             }
         }
 
@@ -400,7 +402,9 @@ namespace Apache.Ignite.Internal.Compute
                 w.Write(options.Priority);
                 w.Write(options.MaxRetries);
 
-                w.WriteObjectCollectionAsBinaryTuple(args);
+                // TODO IGNITE-22602 .NET: Use single argument in Compute API
+                var singleArg = args?.Single();
+                w.WriteObjectAsBinaryTuple(singleArg);
 
                 return colocationHash;
             }
