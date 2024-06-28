@@ -34,7 +34,8 @@ public:
      *
      * @param value Primitive type value.
      */
-    binary_object(primitive value) {} // NOLINT(google-explicit-constructor)
+    binary_object(primitive value) // NOLINT(google-explicit-constructor)
+        : m_value(std::move(value)) {}
 
     /**
      * Get underlying primitive value.

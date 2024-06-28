@@ -20,7 +20,7 @@
 #include "ignite/client/compute/job_state.h"
 #include "ignite/common/detail/config.h"
 #include "ignite/common/ignite_result.h"
-#include "ignite/common/primitive.h"
+#include "ignite/common/binary_object.h"
 #include "ignite/common/uuid.h"
 
 #include <memory>
@@ -96,7 +96,7 @@ public:
      * parallel.
      * @param callback Callback to be called when the operation is complete. Called with the job execution result.
      */
-    IGNITE_API void get_result_async(ignite_callback<std::optional<primitive>> callback);
+    IGNITE_API void get_result_async(ignite_callback<std::optional<binary_object>> callback);
 
     /**
      * Gets the job execution result.
@@ -105,8 +105,9 @@ public:
      * multiple threads.
      * @return The job execution result.
      */
-    IGNITE_API std::optional<primitive> get_result() {
-        return sync<std::optional<primitive>>([this](auto callback) mutable { get_result_async(std::move(callback)); });
+    IGNITE_API std::optional<binary_object> get_result() {
+        return sync<std::optional<binary_object>>(
+            [this](auto callback) mutable { get_result_async(std::move(callback)); });
     }
 
     /**
