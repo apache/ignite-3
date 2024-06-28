@@ -835,6 +835,10 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     private static class ToStringJob implements ComputeJob<Object, String> {
         @Override
         public CompletableFuture<String> executeAsync(JobExecutionContext context, Object arg) {
+            if (arg instanceof byte[]) {
+                return completedFuture(Arrays.toString((byte[]) arg));
+            }
+
             return completedFuture(arg.toString());
         }
     }
