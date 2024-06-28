@@ -15,49 +15,55 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.compute.task;
+package org.apache.ignite.internal.compute;
 
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobState;
-import org.apache.ignite.compute.TaskState;
 import org.apache.ignite.compute.task.TaskExecution;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Delegates {@link TaskExecution} to the future of {@link TaskExecutionInternal}.
+ * Representation of {@link TaskExecution} as {@link JobExecution}.
  *
- * @param <R> Result type.
+ * @param <R> Job result type.
  */
-public class DelegatingTaskExecution<R> implements TaskExecution<R> {
-    private final CompletableFuture<TaskExecutionInternal<R>> delegate;
+public class TaskToJobExecutionWrapper<R> implements JobExecution<R> {
+    private final TaskExecution<R> taskExecution;
 
-    public DelegatingTaskExecution(CompletableFuture<TaskExecutionInternal<R>> delegate) {
-        this.delegate = delegate;
+    public TaskToJobExecutionWrapper(TaskExecution<R> taskExecution) {
+        this.taskExecution = taskExecution;
     }
 
     @Override
     public CompletableFuture<R> resultAsync() {
-        return delegate.thenCompose(TaskExecutionInternal::resultAsync);
+        return taskExecution.resultAsync();
     }
 
     @Override
-    public CompletableFuture<List<@Nullable JobState>> statesAsync() {
-        return delegate.thenCompose(TaskExecutionInternal::statesAsync);
+    public CompletableFuture<@Nullable JobState> stateAsync() {
+        return taskExecution.stateAsync().thenApply(state -> {
+            if (state == null) {
+                return null;
+
+            }
+            return JobStateImpl.builder()
+                    .id(state.id())
+                    .createTime(state.createTime())
+                    .startTime(state.startTime())
+                    .finishTime(state.finishTime())
+                    .status(JobTaskStatusMapper.toJobStatus(state.status()))
+                    .build();
+        });
     }
 
     @Override
     public CompletableFuture<@Nullable Boolean> cancelAsync() {
-        return delegate.thenCompose(TaskExecutionInternal::cancelAsync);
-    }
-
-    @Override
-    public CompletableFuture<@Nullable TaskState> stateAsync() {
-        return delegate.thenCompose(TaskExecutionInternal::stateAsync);
+        return taskExecution.cancelAsync();
     }
 
     @Override
     public CompletableFuture<@Nullable Boolean> changePriorityAsync(int newPriority) {
-        return delegate.thenCompose(execution -> execution.changePriorityAsync(newPriority));
+        return taskExecution.changePriorityAsync(newPriority);
     }
 }

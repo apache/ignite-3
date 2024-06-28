@@ -29,6 +29,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.will;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.JobStateMatcher.jobStateWithStatus;
+import static org.apache.ignite.internal.testframework.matchers.TaskStateMatcher.taskStateWithStatus;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Compute.COMPUTE_JOB_FAILED_ERR;
@@ -79,11 +80,13 @@ import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.JobTarget;
+import org.apache.ignite.compute.TaskStatus;
 import org.apache.ignite.compute.task.MapReduceJob;
 import org.apache.ignite.compute.task.MapReduceTask;
 import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.compute.task.TaskExecutionContext;
 import org.apache.ignite.deployment.DeploymentUnit;
+import org.apache.ignite.internal.compute.TaskToJobExecutionWrapper;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
@@ -708,7 +711,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
                 .collect(Collectors.toList());
         assertThat(execution.resultAsync(), willBe(allOf(nodeNames)));
 
-        assertThat(execution.stateAsync(), willBe(jobStateWithStatus(COMPLETED)));
+        assertThat(execution.stateAsync(), willBe(taskStateWithStatus(TaskStatus.COMPLETED)));
         assertThat(execution.statesAsync(), willBe(everyItem(jobStateWithStatus(COMPLETED))));
 
         assertThat("compute task and sub tasks ids must be different",
@@ -721,14 +724,14 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
                 .submitMapReduce(List.of(), MapReduceArgsTask.class.getName(), 1, "2", 3.3);
 
         assertThat(execution.resultAsync(), willBe(containsString("1_2_3.3")));
-        assertThat(execution.stateAsync(), willBe(jobStateWithStatus(COMPLETED)));
+        assertThat(execution.stateAsync(), willBe(taskStateWithStatus(TaskStatus.COMPLETED)));
     }
 
     @ParameterizedTest
     @ValueSource(classes = {MapReduceExceptionOnSplitTask.class, MapReduceExceptionOnReduceTask.class})
     void testExecuteMapReduceExceptionPropagation(Class<?> taskClass) {
-        IgniteException cause = getExceptionInJobExecutionAsync(
-                client().compute().submitMapReduce(List.of(), taskClass.getName())
+        IgniteException cause = getExceptionInJobExecutionAsync(new TaskToJobExecutionWrapper<>(
+                client().compute().submitMapReduce(List.of(), taskClass.getName()))
         );
 
         assertThat(cause.getMessage(), containsString("Custom job error"));
