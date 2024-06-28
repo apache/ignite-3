@@ -31,7 +31,7 @@ namespace ignite::detail {
  * @param arg Argument.
  */
 void write_object_as_binary_tuple(protocol::writer &writer, const binary_object &arg) {
-    binary_tuple_builder args_builder{1};
+    binary_tuple_builder args_builder{3};
 
     args_builder.start();
     protocol::claim_primitive_with_type(args_builder, arg.get_primitive());
