@@ -196,10 +196,19 @@ public class ColocationHashTests : IgniteTestsBase
             using var writer = ProtoCommon.GetMessageWriter();
             var (clientColocationHash, _) = ser.Write(writer, null, schema, key);
 
-            var serverColocationHashExec = await Client.Compute.SubmitAsync(jobTarget, job, tableName, i);
+            var serverColocationHashExec = await Client.Compute.SubmitAsync(jobTarget, job, GetArg(tableName, i));
             var serverColocationHash = await serverColocationHashExec.GetResultAsync();
 
             Assert.AreEqual(serverColocationHash, clientColocationHash, key.ToString());
+        }
+
+        static byte[] GetArg(string tableName, int i)
+        {
+            using var argBuilder = new BinaryTupleBuilder(2);
+            argBuilder.AppendString(tableName);
+            argBuilder.AppendInt(i);
+
+            return argBuilder.Build().ToArray();
         }
     }
 

@@ -780,8 +780,8 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     private static class NodeNameJob implements ComputeJob<Object, String> {
         @Override
-        public CompletableFuture<String> executeAsync(JobExecutionContext context, Object args) {
-            return completedFuture(context.ignite().name());
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, Object arg) {
+            return completedFuture(context.ignite().name() + arg);
         }
     }
 
