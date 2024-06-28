@@ -170,7 +170,7 @@ public interface IgniteCompute {
      * @param <R> Job (R)esult type.
      * @param units Deployment units.
      * @param taskClassName Map reduce task class name.
-     * @param arg Task arguments.
+     * @param arg Task argument.
      * @return Task execution interface.
      */
     <T, R> TaskExecution<R> submitMapReduce(List<DeploymentUnit> units, String taskClassName, @Nullable T arg);
