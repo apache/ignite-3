@@ -79,7 +79,6 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
-import org.apache.ignite.internal.component.RestAddressReporter;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.compute.AntiHijackIgniteCompute;
@@ -383,8 +382,6 @@ public class IgniteImpl implements Ignite {
 
     private final OutgoingSnapshotsManager outgoingSnapshotsManager;
 
-    private final RestAddressReporter restAddressReporter;
-
     private final CatalogManager catalogManager;
 
     private final AuthenticationManager authenticationManager;
@@ -667,8 +664,6 @@ public class IgniteImpl implements Ignite {
         );
 
         metricManager.configure(clusterConfigRegistry.getConfiguration(MetricConfiguration.KEY));
-
-        restAddressReporter = new RestAddressReporter(workDir);
 
         DataStorageModules dataStorageModules = new DataStorageModules(
                 ServiceLoader.load(DataStorageModule.class, serviceProviderClassLoader)
@@ -1085,7 +1080,6 @@ public class IgniteImpl implements Ignite {
                     clusterSvc.updateMetadata(
                             new NodeMetadata(restComponent.hostName(), restComponent.httpPort(), restComponent.httpsPort()));
 
-                    restAddressReporter.writeReport(restHttpAddress(), restHttpsAddress());
                 } catch (Throwable e) {
                     startupExecutor.shutdownNow();
 
@@ -1278,7 +1272,6 @@ public class IgniteImpl implements Ignite {
 
         // TODO https://issues.apache.org/jira/browse/IGNITE-22570
         return lifecycleManager.stopNode(new ComponentContext(lifecycleExecutor))
-                .whenCompleteAsync((unused, throwable) -> restAddressReporter.removeReport())
                 // Moving to the common pool on purpose to close the stop pool and proceed user's code in the common pool.
                 .whenCompleteAsync((res, ex) -> lifecycleExecutor.shutdownNow());
     }
