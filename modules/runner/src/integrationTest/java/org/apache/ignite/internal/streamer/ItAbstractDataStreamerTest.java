@@ -394,7 +394,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
 
         if (returnResults) {
             assertEquals(1, resultSubscriber.items.size());
-            assertEquals("Received: 3 items, 2 args", resultSubscriber.items.iterator().next());
+            assertEquals("Received: 3 items, arg1 arg", resultSubscriber.items.iterator().next());
         }
     }
 
@@ -524,12 +524,12 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
     @SuppressWarnings("resource")
     private static class TestReceiver implements DataStreamerReceiver<String, Object, String> {
         @Override
-        public CompletableFuture<List<String>> receive(List<String> page, DataStreamerReceiverContext ctx, Object args) {
-            if ("throw".equals(args)) {
+        public CompletableFuture<List<String>> receive(List<String> page, DataStreamerReceiverContext ctx, Object arg) {
+            if ("throw".equals(arg)) {
                 throw new ArithmeticException("test");
             }
 
-            if ("throw-async".equals(args)) {
+            if ("throw-async".equals(arg)) {
                 return CompletableFuture.failedFuture(new ArithmeticException("test"));
             }
 
@@ -540,11 +540,9 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
 
             assertNotNull(ctx.ignite().tables().table(TABLE_NAME));
 
-            assertEquals(2, args);
-            assertEquals("arg1", args);
-            assertEquals(123, args);
+            assertEquals("arg1", arg);
 
-            return CompletableFuture.completedFuture(List.of("Received: " + page.size() + " items, " + args + " args"));
+            return CompletableFuture.completedFuture(List.of("Received: " + page.size() + " items, " + arg + " arg"));
         }
     }
 
