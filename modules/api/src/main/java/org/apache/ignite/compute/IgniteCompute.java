@@ -81,7 +81,7 @@ public interface IgniteCompute {
      * @param <R> Job (R)esult type.
      * @param target Execution target.
      * @param descriptor Job descriptor.
-     * @param arg Arguments of the job.
+     * @param arg Argument of the job.
      * @return Job result.
      * @throws ComputeException If there is any problem executing the job.
      */
