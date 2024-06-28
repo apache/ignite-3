@@ -336,17 +336,12 @@ internal static class DataStreamerWithReceiver
         Debug.Assert(items.Length > 0, "items.Length > 0");
         Debug.Assert(!items.IsEmpty, "!items.IsEmpty");
 
-        // className + args size + args + items size + item type + items.
-        int binaryTupleSize = 1 + 1 + args.Count * 3 + 1 + 1 + items.Length;
+        // className + arg + items size + item type + items.
+        int binaryTupleSize = 1 + 3 + 1 + 1 + items.Length;
         using var builder = new BinaryTupleBuilder(binaryTupleSize);
 
         builder.AppendString(className);
-        builder.AppendInt(args.Count);
-
-        foreach (var arg in args)
-        {
-            builder.AppendObjectWithType(arg);
-        }
+        builder.AppendObjectWithType(args.SingleOrDefault());
 
         builder.AppendObjectCollectionWithType(items);
 
