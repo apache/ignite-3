@@ -18,6 +18,9 @@ INSERT INTO emp VALUES(3, 'Noah', 47, 1200)
 statement ok
 INSERT INTO emp VALUES(4, 'Dave', 42, 1700)
 
+skipif ignite3
+# https://issues.apache.org/jira/browse/IGNITE-22084: Sql. Add support for row data type.
+# Error ROW datatype is not supported
 query T
 SELECT empname FROM emp WHERE (empname, empage, salary) = ('Johnah', 47, 1200)
 ----
@@ -43,3 +46,15 @@ SELECT DISTINCT (empage, salary) FROM emp
 (42,1700)
 (47,1200)
 (47,2000)
+
+# https://issues.apache.org/jira/browse/IGNITE-22084: Sql. Add support for row data type.
+statement error: ROW datatype is not supported
+SELECT CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))
+
+# https://issues.apache.org/jira/browse/IGNITE-22084: Sql. Add support for row data type.
+statement error
+SELECT ROW(1, 2.0)
+
+# https://issues.apache.org/jira/browse/IGNITE-22084: Sql. Add support for row data type.
+statement error
+SELECT (1, 2.0)

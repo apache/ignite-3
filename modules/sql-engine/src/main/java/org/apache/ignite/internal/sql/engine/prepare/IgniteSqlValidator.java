@@ -627,6 +627,10 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             RelDataType firstType;
             RelDataType returnType = super.deriveType(scope, ret);
 
+            if (returnType.isStruct()) {
+                throw newValidationError(expr, IgniteResource.INSTANCE.dataTypeIsNotSupported(returnType.getSqlTypeName().getName()));
+            }
+
             if (first instanceof SqlDynamicParam) {
                 SqlDynamicParam dynamicParam = (SqlDynamicParam) first;
                 firstType = deriveDynamicParamType(dynamicParam);
