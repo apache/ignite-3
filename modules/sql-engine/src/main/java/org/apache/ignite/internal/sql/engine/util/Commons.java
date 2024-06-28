@@ -601,28 +601,6 @@ public final class Commons {
     }
 
     /**
-     * Provide mapping Native types to JDBC classes.
-     *
-     * @param type Native type
-     * @return JDBC corresponding class.
-     */
-    public static Class<?> nativeTypeToJdbcClass(NativeType type) {
-        assert type != null;
-
-        switch (type.spec()) {
-            case DATE:
-                return java.sql.Date.class;
-            case TIME:
-                return java.sql.Time.class;
-            case DATETIME:
-            case TIMESTAMP:
-                return java.sql.Timestamp.class;
-            default:
-                return nativeTypeToClass(type);
-        }
-    }
-
-    /**
      * Gets the precision of this type. Returns {@link ColumnMetadata#UNDEFINED_PRECISION} if
      * precision is not applicable for this type.
      *
