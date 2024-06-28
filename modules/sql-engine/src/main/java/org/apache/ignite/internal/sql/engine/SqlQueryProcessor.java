@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.lang.SqlExceptionMapperUtil.mapToPublicSqlException;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -28,6 +29,8 @@ import static org.apache.ignite.lang.ErrorGroups.Sql.EXECUTION_CANCELLED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -41,6 +44,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.LongSupplier;
 import org.apache.ignite.internal.catalog.Catalog;
@@ -133,10 +138,12 @@ public class SqlQueryProcessor implements QueryProcessor {
     /** Number of the schemas in cache. */
     private static final int SCHEMA_CACHE_SIZE = 128;
 
-    private static final SqlProperties DEFAULT_PROPERTIES = SqlPropertiesHelper.newBuilder()
+    /** Default properties. */
+    public static final SqlProperties DEFAULT_PROPERTIES = SqlPropertiesHelper.newBuilder()
             .set(QueryProperty.DEFAULT_SCHEMA, SqlCommon.DEFAULT_SCHEMA_NAME)
             .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.ALL)
             .set(QueryProperty.TIME_ZONE_ID, DEFAULT_TIME_ZONE_ID)
+            .set(QueryProperty.QUERY_TIMEOUT, 0L)
             .build();
 
     private static final CacheFactory CACHE_FACTORY = CaffeineCacheFactory.INSTANCE;
@@ -208,6 +215,8 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private final TransactionInflights transactionInflights;
 
+    private final ScheduledExecutorService commonScheduler;
+
     /** Constructor. */
     public SqlQueryProcessor(
             ClusterService clusterSrvc,
@@ -227,7 +236,8 @@ public class SqlQueryProcessor implements QueryProcessor {
             SqlDistributedConfiguration clusterCfg,
             SqlLocalConfiguration nodeCfg,
             TransactionInflights transactionInflights,
-            TxManager txManager
+            TxManager txManager,
+            ScheduledExecutorService commonScheduler
     ) {
         this.clusterSrvc = clusterSrvc;
         this.logicalTopologyService = logicalTopologyService;
@@ -247,6 +257,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         this.nodeCfg = nodeCfg;
         this.transactionInflights = transactionInflights;
         this.txManager = txManager;
+        this.commonScheduler = commonScheduler;
 
         sqlSchemaManager = new SqlSchemaManagerImpl(
                 catalogManager,
@@ -440,8 +451,12 @@ public class SqlQueryProcessor implements QueryProcessor {
     ) {
         SqlProperties properties0 = SqlPropertiesHelper.chain(properties, DEFAULT_PROPERTIES);
         String schemaName = properties0.get(QueryProperty.DEFAULT_SCHEMA);
+        Long queryTimeout = properties0.get(QueryProperty.QUERY_TIMEOUT);
 
         QueryCancel queryCancel = new QueryCancel();
+        if (queryTimeout != 0) {
+            queryCancel.setTimeout(commonScheduler, queryTimeout);
+        }
 
         ParsedResult parsedResult = queryToParsedResultCache.get(sql);
 
@@ -455,8 +470,20 @@ public class SqlQueryProcessor implements QueryProcessor {
 
             HybridTimestamp timestamp = explicitTransaction != null ? explicitTransaction.startTimestamp() : clockService.now();
 
-            return prepareParsedStatement(schemaName, result, timestamp, queryCancel, params)
+            CompletableFuture<QueryMetadata> f = prepareParsedStatement(schemaName, result, timestamp,
+                    queryCancel, params)
                     .thenApply(plan -> new QueryMetadata(plan.metadata(), plan.parameterMetadata()));
+
+            CompletableFuture<Void> timeoutFut = queryCancel.timeoutFuture();
+
+            if (timeoutFut != null) {
+                timeoutFut.thenAccept((r) -> {
+                    SqlException timeoutErr = new SqlException(EXECUTION_CANCELLED_ERR, QueryCancelledException.TIMEOUT_MSG);
+                    f.completeExceptionally(timeoutErr);
+                });
+            }
+
+            return f;
         });
     }
 
@@ -468,8 +495,13 @@ public class SqlQueryProcessor implements QueryProcessor {
     ) {
         String schemaName = properties.get(QueryProperty.DEFAULT_SCHEMA);
         ZoneId timeZoneId = properties.get(QueryProperty.TIME_ZONE_ID);
+        Long queryTimeout = properties.get(QueryProperty.QUERY_TIMEOUT);
 
         QueryCancel queryCancel = new QueryCancel();
+
+        if (queryTimeout != 0) {
+            queryCancel.setTimeout(commonScheduler, queryTimeout);
+        }
 
         ParsedResult parsedResult = queryToParsedResultCache.get(sql);
 
@@ -506,6 +538,14 @@ public class SqlQueryProcessor implements QueryProcessor {
     ) {
         String schemaName = properties.get(QueryProperty.DEFAULT_SCHEMA);
         ZoneId timeZoneId = properties.get(QueryProperty.TIME_ZONE_ID);
+        Long queryTimeout = properties.get(QueryProperty.QUERY_TIMEOUT);
+
+        Instant deadline;
+        if (queryTimeout != 0) {
+            deadline = Instant.now().plusMillis(queryTimeout);
+        } else {
+            deadline = null;
+        }
 
         CompletableFuture<?> start = new CompletableFuture<>();
 
@@ -513,7 +553,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                 .thenApply(ignored -> parserService.parseScript(sql))
                 .thenCompose(parsedResults -> {
                     MultiStatementHandler handler = new MultiStatementHandler(
-                            schemaName, txCtx, parsedResults, params, timeZoneId);
+                            schemaName, txCtx, parsedResults, params, timeZoneId, deadline);
 
                     return handler.processNext();
                 });
@@ -743,6 +783,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         private final String schemaName;
         private final Queue<ScriptStatement> statements;
         private final ScriptTransactionContext scriptTxContext;
+        private final @Nullable Instant deadline;
 
         /**
          * Collection is used to track SELECT statements to postpone following DML operation.
@@ -760,12 +801,14 @@ public class SqlQueryProcessor implements QueryProcessor {
                 QueryTransactionContext txContext,
                 List<ParsedResult> parsedResults,
                 Object[] params,
-                ZoneId timeZoneId
+                ZoneId timeZoneId,
+                @Nullable Instant deadline
         ) {
             this.timeZoneId = timeZoneId;
             this.schemaName = schemaName;
             this.statements = prepareStatementsQueue(parsedResults, params);
             this.scriptTxContext = new ScriptTransactionContext(txContext, transactionInflights);
+            this.deadline = deadline;
         }
 
         /**
@@ -834,14 +877,32 @@ public class SqlQueryProcessor implements QueryProcessor {
                                     new IteratorToDataCursorAdapter<>(Collections.emptyIterator()),
                                     nextCurFut
                             ));
+
+                    if (deadline != null) {
+                        long statementTimeoutMillis = Duration.between(Instant.now(), deadline).toMillis();
+
+                        ScheduledFuture<?> f = commonScheduler.schedule(() -> {
+                            SqlException err = new SqlException(EXECUTION_CANCELLED_ERR, QueryCancelledException.TIMEOUT_MSG);
+                            fut.completeExceptionally(err);
+                        }, statementTimeoutMillis, MILLISECONDS);
+
+                        fut.whenComplete((r, t) -> f.cancel(false));
+                    }
                 } else {
                     scriptTxContext.registerCursorFuture(parsedResult.queryType(), cursorFuture);
 
                     HybridTimestamp operationTime = deriveOperationTime(scriptTxContext);
 
+                    QueryCancel queryCancel = new QueryCancel();
+
+                    if (deadline != null) {
+                        long statementTimeoutMillis = Duration.between(Instant.now(), deadline).toMillis();
+                        queryCancel.setTimeout(commonScheduler, statementTimeoutMillis);
+                    }
+
                     SqlOperationContext operationContext = SqlOperationContext.builder()
                             .queryId(UUID.randomUUID())
-                            .cancel(new QueryCancel())
+                            .cancel(queryCancel)
                             .prefetchCallback(new PrefetchCallback())
                             .parameters(params)
                             .timeZoneId(timeZoneId)

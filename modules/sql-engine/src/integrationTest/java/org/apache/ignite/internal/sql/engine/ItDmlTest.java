@@ -910,7 +910,7 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
         }
 
         @Override
-        public boolean handle(String nodeName, FailureContext failureCtx) {
+        public boolean handle(FailureContext failureCtx) {
             interceptedFailsList.add(failureCtx);
 
             return false;

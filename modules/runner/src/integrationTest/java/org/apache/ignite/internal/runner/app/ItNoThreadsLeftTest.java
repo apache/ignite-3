@@ -26,10 +26,9 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -72,14 +71,13 @@ public class ItNoThreadsLeftTest extends IgniteAbstractTest {
     public void test(TestInfo testInfo) throws Exception {
         Set<Thread> threadsBefore = getCurrentThreads();
 
+        IgniteServer node = startNode(testInfo);
         try {
-            Ignite ignite = startNode(testInfo);
-
-            Table tbl = createTable(ignite, TABLE_NAME);
+            Table tbl = createTable(node.api(), TABLE_NAME);
 
             assertNotNull(tbl);
         } finally {
-            stopNode(testInfo);
+            node.shutdown();
         }
 
         boolean threadsKilled = waitForCondition(() -> getCurrentThreads().size() <= threadsBefore.size(), 10, 3_000);
@@ -94,27 +92,20 @@ public class ItNoThreadsLeftTest extends IgniteAbstractTest {
         }
     }
 
-    private Ignite startNode(TestInfo testInfo) {
+    private IgniteServer startNode(TestInfo testInfo) {
         String nodeName = IgniteTestUtils.testNodeName(testInfo, 0);
 
-        CompletableFuture<Ignite> future = TestIgnitionManager.start(nodeName, NODE_CONFIGURATION, workDir.resolve(nodeName));
+        IgniteServer node = TestIgnitionManager.start(nodeName, NODE_CONFIGURATION, workDir.resolve(nodeName));
 
         InitParameters initParameters = InitParameters.builder()
-                .destinationNodeName(nodeName)
-                .metaStorageNodeNames(List.of(nodeName))
+                .metaStorageNodes(node)
                 .clusterName("cluster")
                 .build();
-        IgnitionManager.init(initParameters);
+        node.initCluster(initParameters);
 
-        assertThat(future, willCompleteSuccessfully());
+        assertThat(node.waitForInitAsync(), willCompleteSuccessfully());
 
-        return future.join();
-    }
-
-    private static void stopNode(TestInfo testInfo) {
-        String nodeName = IgniteTestUtils.testNodeName(testInfo, 0);
-
-        IgnitionManager.stop(nodeName);
+        return node;
     }
 
     /**

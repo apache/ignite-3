@@ -43,6 +43,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
+import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.startsWith;
@@ -842,10 +843,12 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
             byte[] keyScaleDownBytes = zoneScaleDownChangeTriggerKeyPrefix().bytes();
             byte[] keyGlobalStateBytes = zonesRecoverableStateRevision().bytes();
 
-            boolean isScaleUpKey = iif1.andThen().update().operations().stream().anyMatch(op -> startsWith(op.key(), keyScaleUpBytes));
-            boolean isScaleDownKey = iif1.andThen().update().operations().stream().anyMatch(op -> startsWith(op.key(), keyScaleDownBytes));
+            boolean isScaleUpKey = iif1.andThen().update().operations().stream()
+                    .anyMatch(op -> startsWith(toByteArray(op.key()), keyScaleUpBytes));
+            boolean isScaleDownKey = iif1.andThen().update().operations().stream()
+                    .anyMatch(op -> startsWith(toByteArray(op.key()), keyScaleDownBytes));
             boolean isGlobalStateChangeKey = iif1.andThen().update().operations().stream()
-                    .anyMatch(op -> startsWith(op.key(), keyGlobalStateBytes));
+                    .anyMatch(op -> startsWith(toByteArray(op.key()), keyGlobalStateBytes));
 
             return isScaleUpKey && startScaleUpBlocking
                     || isScaleDownKey && startScaleDownBlocking

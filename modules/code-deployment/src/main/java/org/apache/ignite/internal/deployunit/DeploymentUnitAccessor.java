@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.deployunit;
 
 import java.util.function.Consumer;
-import org.apache.ignite.compute.DeploymentUnit;
+import org.apache.ignite.deployment.DeploymentUnit;
 
 /**
  * Interface for accessing deployment units.

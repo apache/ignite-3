@@ -54,7 +54,7 @@ public class ClusterConfigUpdateReplCommand extends BaseCommand implements Runna
         question.askQuestionIfNotConnected(clusterUrl.getClusterUrl())
                 .map(this::configUpdateCallInput)
                 .then(Flows.fromCall(call))
-                .exceptionHandler(new ClusterNotInitializedExceptionHandler("Cannot update cluster config", "cluster init"))
+                .exceptionHandler(ClusterNotInitializedExceptionHandler.createReplHandler("Cannot update cluster config"))
                 .verbose(verbose)
                 .print()
                 .start();

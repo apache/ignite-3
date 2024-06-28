@@ -233,6 +233,38 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
     }
 
     /**
+     * Tests executing the init command with incorrect node names.
+     */
+    @Test
+    void testInitInvalidNodesAsync() throws Exception {
+        startCluster(2);
+
+        ClusterManagementGroupManager clusterManager = cluster.get(0).clusterManager();
+
+        // non-existent node
+        assertThat(
+                clusterManager.initClusterAsync(List.of("wrong"), List.of(), "cluster"),
+                willThrow(InitException.class, "Node \"wrong\" is not present in the physical topology")
+        );
+
+        // successful init
+        assertThat(
+                clusterManager.initClusterAsync(List.of(cluster.get(0).name()), List.of(), "cluster"),
+                willCompleteSuccessfully()
+        );
+
+        for (MockNode node : cluster) {
+            assertThat(node.clusterManager().joinFuture(), willCompleteSuccessfully());
+        }
+
+        // different node
+        assertThat(
+                clusterManager.initClusterAsync(List.of(cluster.get(1).name()), List.of(), "cluster"),
+                willThrow(InitException.class, "Init CMG request denied, reason: CMG node names do not match.")
+        );
+    }
+
+    /**
      * Tests a scenario, when every node in a cluster gets restarted.
      */
     @Test

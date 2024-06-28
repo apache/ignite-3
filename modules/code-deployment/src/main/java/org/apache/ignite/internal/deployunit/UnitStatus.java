@@ -19,7 +19,7 @@ package org.apache.ignite.internal.deployunit;
 
 import java.util.Objects;
 import java.util.UUID;
-import org.apache.ignite.compute.version.Version;
+import org.apache.ignite.deployment.version.Version;
 
 /**
  * Unit meta data class.

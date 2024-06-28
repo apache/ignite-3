@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.util;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Collections.unmodifiableList;
+import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -26,6 +28,8 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 
@@ -281,5 +285,43 @@ public class ByteUtils {
      */
     public static @Nullable String stringFromBytes(byte @Nullable [] bytes) {
         return bytes == null ? null : new String(bytes, UTF_8);
+    }
+
+    /**
+     * Converts a byte buffer to a byte array.
+     *
+     * @param buffer Byte buffer to copy bytes from.
+     */
+    public static byte[] toByteArray(ByteBuffer buffer) {
+        int remaining = buffer.remaining();
+
+        if (remaining == 0) {
+            return BYTE_EMPTY_ARRAY;
+        }
+
+        var bytes = new byte[remaining];
+        buffer.get(bytes);
+        buffer.flip();
+        return bytes;
+    }
+
+    /**
+     * Converts a byte array list to a byte buffer list.
+     *
+     * @param byteBufferList List of byte buffers.
+     * @return Immutable list of byte arrays.
+     */
+    public static List<byte[]> toByteArrayList(List<ByteBuffer> byteBufferList) {
+        if (byteBufferList.isEmpty()) {
+            return List.of();
+        }
+
+        var result = new ArrayList<byte[]>(byteBufferList.size());
+
+        for (int i = 0; i < byteBufferList.size(); i++) {
+            result.add(toByteArray(byteBufferList.get(i)));
+        }
+
+        return unmodifiableList(result);
     }
 }

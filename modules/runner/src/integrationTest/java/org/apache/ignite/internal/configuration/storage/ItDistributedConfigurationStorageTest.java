@@ -152,7 +152,7 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
                     new TestConfigurationValidator()
             );
 
-            this.failureProcessor = new NoOpFailureProcessor(clusterService.nodeName());
+            this.failureProcessor = new NoOpFailureProcessor();
 
             cmgManager = new ClusterManagementGroupManager(
                     vaultManager,

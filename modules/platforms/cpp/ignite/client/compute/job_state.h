@@ -17,29 +17,32 @@
 
 #pragma once
 
+#include "ignite/client/compute/job_status.h"
+#include "ignite/common/ignite_timestamp.h"
+#include "ignite/common/uuid.h"
+
+#include <optional>
+
 namespace ignite {
 
 /**
  * Compute job state.
  */
-enum class job_state {
-    /// The job is submitted and waiting for an execution start.
-    QUEUED,
+struct job_state {
+    /// Job ID.
+    uuid id{};
 
-    /// The job is being executed.
-    EXECUTING,
+    /// Status.
+    job_status status{job_status::QUEUED};
 
-    /// The job was unexpectedly terminated during execution.
-    FAILED,
+    /// Create time.
+    ignite_timestamp create_time{};
 
-    /// The job was executed successfully and the execution result was returned.
-    COMPLETED,
+    /// Start time (@c std::nullopt when not yet started).
+    std::optional<ignite_timestamp> start_time{};
 
-    /// The job has received the cancel command, but is still running.
-    CANCELING,
-
-    /// The job was successfully cancelled.
-    CANCELED
+    /// Finish time (@c std::nullopt when not yet finished).
+    std::optional<ignite_timestamp> finish_time{};
 };
 
 } // namespace ignite

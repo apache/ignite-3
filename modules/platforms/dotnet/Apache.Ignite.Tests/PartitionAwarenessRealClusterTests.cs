@@ -20,6 +20,7 @@ namespace Apache.Ignite.Tests;
 using System;
 using System.Threading.Tasks;
 using Compute;
+using Ignite.Compute;
 using Ignite.Table;
 using Internal.Proto;
 using NUnit.Framework;
@@ -50,10 +51,10 @@ public class PartitionAwarenessRealClusterTests : IgniteTestsBase
         {
             var keyTuple = new IgniteTuple { ["KEY"] = key };
 
-            var primaryNodeNameExec = await client.Compute.SubmitColocatedAsync<string>(
-                TableName,
-                keyTuple,
-                new(ComputeTests.NodeNameJob));
+            var primaryNodeNameExec = await client.Compute.SubmitAsync(
+                JobTarget.Colocated(TableName, keyTuple),
+                ComputeTests.NodeNameJob,
+                null);
 
             var primaryNodeName = await primaryNodeNameExec.GetResultAsync();
 

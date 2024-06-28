@@ -26,7 +26,7 @@ import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Job status.
+ * Job state implementation.
  */
 public class JobStateImpl implements JobState {
     private static final long serialVersionUID = 8575969461073736006L;

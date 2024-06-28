@@ -32,10 +32,10 @@ import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
 import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.ComputeJob;
-import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobState;
 import org.apache.ignite.compute.task.MapReduceTask;
-import org.apache.ignite.compute.version.Version;
+import org.apache.ignite.deployment.DeploymentUnit;
+import org.apache.ignite.deployment.version.Version;
 import org.apache.ignite.internal.compute.message.DeploymentUnitMsg;
 import org.apache.ignite.internal.compute.message.ExecuteResponse;
 import org.apache.ignite.internal.compute.message.JobCancelResponse;
@@ -61,7 +61,7 @@ public class ComputeUtils {
      * @param <R> Compute job return type.
      * @return Compute job instance.
      */
-    public static <R> ComputeJob<R> instantiateJob(Class<? extends ComputeJob<R>> computeJobClass) {
+    public static <T, R> ComputeJob<T, R> instantiateJob(Class<? extends ComputeJob<T, R>> computeJobClass) {
         if (!(ComputeJob.class.isAssignableFrom(computeJobClass))) {
             throw new ComputeException(
                     CLASS_INITIALIZATION_ERR,
@@ -70,7 +70,7 @@ public class ComputeUtils {
         }
 
         try {
-            Constructor<? extends ComputeJob<R>> constructor = computeJobClass.getDeclaredConstructor();
+            Constructor<? extends ComputeJob<T, R>> constructor = computeJobClass.getDeclaredConstructor();
 
             if (!constructor.canAccess(null)) {
                 constructor.setAccessible(true);
@@ -90,9 +90,9 @@ public class ComputeUtils {
      * @param <R> Compute job return type.
      * @return Compute job class.
      */
-    public static <R> Class<ComputeJob<R>> jobClass(ClassLoader jobClassLoader, String jobClassName) {
+    public static <T, R> Class<ComputeJob<T, R>> jobClass(ClassLoader jobClassLoader, String jobClassName) {
         try {
-            return (Class<ComputeJob<R>>) Class.forName(jobClassName, true, jobClassLoader);
+            return (Class<ComputeJob<T, R>>) Class.forName(jobClassName, true, jobClassLoader);
         } catch (ClassNotFoundException e) {
             throw new ComputeException(CLASS_INITIALIZATION_ERR, "Cannot load job class by name '" + jobClassName + "'", e);
         }
@@ -105,7 +105,7 @@ public class ComputeUtils {
      * @param <R> Map reduce task return type.
      * @return Map reduce task instance.
      */
-    public static <R> MapReduceTask<R> instantiateTask(Class<? extends MapReduceTask<R>> taskClass) {
+    public static <I, M, T, R> MapReduceTask<I, M, T, R> instantiateTask(Class<? extends MapReduceTask<I, M, T, R>> taskClass) {
         if (!(MapReduceTask.class.isAssignableFrom(taskClass))) {
             throw new ComputeException(
                     CLASS_INITIALIZATION_ERR,
@@ -114,7 +114,7 @@ public class ComputeUtils {
         }
 
         try {
-            Constructor<? extends MapReduceTask<R>> constructor = taskClass.getDeclaredConstructor();
+            Constructor<? extends MapReduceTask<I, M, T, R>> constructor = taskClass.getDeclaredConstructor();
 
             if (!constructor.canAccess(null)) {
                 constructor.setAccessible(true);
@@ -134,9 +134,9 @@ public class ComputeUtils {
      * @param <R> Map reduce task return type.
      * @return Map reduce task class.
      */
-    public static <R> Class<MapReduceTask<R>> taskClass(ClassLoader taskClassLoader, String taskClassName) {
+    public static <I, M, T, R> Class<MapReduceTask<I, M, T, R>> taskClass(ClassLoader taskClassLoader, String taskClassName) {
         try {
-            return (Class<MapReduceTask<R>>) Class.forName(taskClassName, true, taskClassLoader);
+            return (Class<MapReduceTask<I, M, T, R>>) Class.forName(taskClassName, true, taskClassLoader);
         } catch (ClassNotFoundException e) {
             throw new ComputeException(CLASS_INITIALIZATION_ERR, "Cannot load task class by name '" + taskClassName + "'", e);
         }
@@ -150,7 +150,7 @@ public class ComputeUtils {
      * @param <R> Receiver return type.
      * @return Receiver instance.
      */
-    public static <T, R> DataStreamerReceiver<T, R> instantiateReceiver(Class<? extends DataStreamerReceiver<T, R>> recvClass) {
+    public static <T, R, A> DataStreamerReceiver<T, R, A> instantiateReceiver(Class<? extends DataStreamerReceiver<T, R, A>> recvClass) {
         if (!(DataStreamerReceiver.class.isAssignableFrom(recvClass))) {
             throw new ComputeException(
                     CLASS_INITIALIZATION_ERR,
@@ -159,7 +159,7 @@ public class ComputeUtils {
         }
 
         try {
-            Constructor<? extends DataStreamerReceiver<T, R>> constructor = recvClass.getDeclaredConstructor();
+            Constructor<? extends DataStreamerReceiver<T, R, A>> constructor = recvClass.getDeclaredConstructor();
 
             if (!constructor.canAccess(null)) {
                 constructor.setAccessible(true);
@@ -179,9 +179,9 @@ public class ComputeUtils {
      * @param <R> Return type.
      * @return Receiver class.
      */
-    public static <T, R> Class<DataStreamerReceiver<T, R>> receiverClass(ClassLoader classLoader, String className) {
+    public static <T, R, A> Class<DataStreamerReceiver<T, R, A>> receiverClass(ClassLoader classLoader, String className) {
         try {
-            return (Class<DataStreamerReceiver<T, R>>) Class.forName(className, true, classLoader);
+            return (Class<DataStreamerReceiver<T, R, A>>) Class.forName(className, true, classLoader);
         } catch (ClassNotFoundException e) {
             throw new ComputeException(CLASS_INITIALIZATION_ERR, "Cannot load receiver class by name '" + className + "'", e);
         }

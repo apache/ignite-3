@@ -19,6 +19,8 @@ package org.apache.ignite.jdbc;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.jdbc.util.JdbcTestUtils.assertThrowsSqlException;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -35,6 +37,8 @@ import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Statement;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
+import org.apache.ignite.internal.jdbc.JdbcStatement;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
@@ -836,5 +840,68 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
         stmt.getResultSet();
 
         assertTrue(waitForCondition(() -> openCursors() == 0, 5_000));
+    }
+
+    @Test
+    public void testTimeout() throws Exception {
+        JdbcStatement igniteStmt = stmt.unwrap(JdbcStatement.class);
+
+        // No timeout
+
+        {
+            igniteStmt.timeout(0);
+
+            try (ResultSet rs = igniteStmt.executeQuery("SELECT * FROM TABLE(SYSTEM_RANGE(1, 100))")) {
+                while (rs.next()) {
+                    rs.getLong(1);
+                }
+            }
+        }
+
+        // Rise timeout
+
+        {
+            int timeoutMillis = ThreadLocalRandom.current().nextInt(10, 200);
+            igniteStmt.timeout(timeoutMillis);
+
+            // Catch both execution and planning timeouts.
+            assertThrowsSqlException(SQLException.class,
+                    "timeout", () -> {
+                        try (ResultSet rs = igniteStmt.executeQuery("SELECT * FROM TABLE(SYSTEM_RANGE(1, 100000000))")) {
+                            while (rs.next()) {
+                                rs.getLong(1);
+                            }
+                        }
+                    });
+        }
+
+        {
+            // Disable timeout
+
+            igniteStmt.timeout(0);
+
+            try (ResultSet rs = igniteStmt.executeQuery("SELECT * FROM TABLE(SYSTEM_RANGE(1, 100))")) {
+                while (rs.next()) {
+                    rs.getLong(1);
+                }
+            }
+        }
+    }
+
+    @Test
+    public void testSetTimeoutValues() throws SQLException {
+        JdbcStatement igniteStmt = stmt.unwrap(JdbcStatement.class);
+
+        igniteStmt.timeout(1_234_000);
+        assertEquals(1_234, igniteStmt.getQueryTimeout());
+
+        igniteStmt.setQueryTimeout(Integer.MAX_VALUE);
+        assertEquals(Integer.MAX_VALUE, igniteStmt.getQueryTimeout());
+
+        igniteStmt.timeout(Integer.MAX_VALUE * 1000L);
+        assertEquals(Integer.MAX_VALUE, igniteStmt.getQueryTimeout());
+
+        SQLException err = assertThrows(SQLException.class, () -> igniteStmt.timeout(-1));
+        assertThat(err.getMessage(), containsString("Invalid timeout value"));
     }
 }

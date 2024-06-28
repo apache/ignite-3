@@ -17,17 +17,42 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
+import java.time.Duration;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.schema.PartitionCalculator;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 
 /** Stub implementation for {@link ExecutableTableRegistry}. */
 public final class NoOpExecutableTableRegistry implements ExecutableTableRegistry {
+
+    private static final IgniteLogger LOG = Loggers.forClass(NoOpExecutableTableRegistry.class);
+
+    private volatile Duration delay = Duration.ZERO;
+
+    /** Sets a delay for {@link #getTable(int, int)} operation. */
+    public void setGetTableDelay(Duration delay) {
+        this.delay = Objects.requireNonNull(delay, "delay");
+    }
+
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<ExecutableTable> getTable(int catalogVersion, int tableId) {
-        return CompletableFuture.completedFuture(new NoOpExecutableTable(tableId));
+        Duration delay = this.delay;
+
+        CompletableFuture<ExecutableTable> f = new CompletableFuture<>();
+
+        LOG.info("Requested tableId={} in catalogVersion={} with delay={}", tableId, catalogVersion, delay);
+
+        f.completeOnTimeout(new NoOpExecutableTable(tableId), delay.toMillis(), TimeUnit.MILLISECONDS).thenRun(() -> {
+            LOG.info("Return tableId={} in catalogVersion={} after delay={}", tableId, catalogVersion, delay);
+        });
+
+        return f;
     }
 
     private static final class NoOpExecutableTable implements ExecutableTable {

@@ -20,8 +20,8 @@ package org.apache.ignite.internal.compute;
 import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReference;
-import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobExecution;
+import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
@@ -42,9 +42,9 @@ import org.apache.ignite.network.ClusterNode;
  * then you should create an instance of this class with workerNode = node1, failoverCandidates = [node2, node3] as arguments and call
  * {@link #failSafeExecute()}.
  *
- * @param <T> the type of the result of the job.
+ * @param <R> the type of the result of the job.
  */
-class ComputeJobFailover<T> {
+class ComputeJobFailover<R> {
     private static final IgniteLogger LOG = Loggers.forClass(ComputeJobFailover.class);
 
     /**
@@ -82,7 +82,7 @@ class ComputeJobFailover<T> {
     /**
      * Context of the called job. Captures deployment units, jobClassName and arguments.
      */
-    private final RemoteExecutionContext<T> jobContext;
+    private final RemoteExecutionContext<?, R> jobContext;
 
     /**
      * Creates a per-job instance.
@@ -108,7 +108,7 @@ class ComputeJobFailover<T> {
             List<DeploymentUnit> units,
             String jobClassName,
             ExecutionOptions executionOptions,
-            Object... args
+            Object args
     ) {
         this.computeComponent = computeComponent;
         this.runningWorkerNode = new AtomicReference<>(workerNode);
@@ -124,8 +124,8 @@ class ComputeJobFailover<T> {
      *
      * @return JobExecution with the result of the job and the status of the job.
      */
-    JobExecution<T> failSafeExecute() {
-        JobExecution<T> jobExecution = launchJobOn(runningWorkerNode.get());
+    JobExecution<R> failSafeExecute() {
+        JobExecution<R> jobExecution = launchJobOn(runningWorkerNode.get());
         jobContext.initJobExecution(new FailSafeJobExecution<>(jobExecution));
 
         LogicalTopologyEventListener nodeLeftEventListener = new OnNodeLeft();
@@ -135,13 +135,14 @@ class ComputeJobFailover<T> {
         return jobContext.failSafeJobExecution();
     }
 
-    private JobExecution<T> launchJobOn(ClusterNode runningWorkerNode) {
+    private JobExecution<R> launchJobOn(ClusterNode runningWorkerNode) {
         if (runningWorkerNode.equals(topologyService.localMember())) {
-            return computeComponent.executeLocally(jobContext.executionOptions(), jobContext.units(), jobContext.jobClassName(),
-                    jobContext.args());
+            return computeComponent.executeLocally(
+                    jobContext.executionOptions(), jobContext.units(), jobContext.jobClassName(), jobContext.arg()
+            );
         } else {
             return computeComponent.executeRemotely(
-                    jobContext.executionOptions(), runningWorkerNode, jobContext.units(), jobContext.jobClassName(), jobContext.args()
+                    jobContext.executionOptions(), runningWorkerNode, jobContext.units(), jobContext.jobClassName(), jobContext.arg()
             );
         }
     }
@@ -180,7 +181,7 @@ class ComputeJobFailover<T> {
                         LOG.info("Restarting the job {} on node {}.", jobContext.jobClassName(), nextWorker.name());
 
                         runningWorkerNode.set(nextWorker);
-                        JobExecution<T> jobExecution = launchJobOn(runningWorkerNode.get());
+                        JobExecution<R> jobExecution = launchJobOn(runningWorkerNode.get());
                         jobContext.updateJobExecution(jobExecution);
                     });
         }

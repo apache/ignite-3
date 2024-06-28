@@ -20,15 +20,17 @@ package org.apache.ignite.client.handler.requests.table;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
 import static org.apache.ignite.lang.ErrorGroups.Compute.COMPUTE_JOB_FAILED_ERR;
 
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.ComputeJob;
-import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.JobExecutionOptions;
+import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.StreamerReceiverSerializer;
@@ -50,9 +52,9 @@ public class ClientStreamerWithReceiverBatchSendRequest {
     /**
      * Processes the request.
      *
-     * @param in        Unpacker.
-     * @param out       Packer.
-     * @param tables    Ignite tables.
+     * @param in Unpacker.
+     * @param out Packer.
+     * @param tables Ignite tables.
      * @return Future.
      */
     public static CompletableFuture<Void> process(
@@ -68,7 +70,13 @@ public class ClientStreamerWithReceiverBatchSendRequest {
 
             // Payload = binary tuple of (receiverClassName, receiverArgs, items). We pass it to the job without deserialization.
             int payloadElementCount = in.unpackInt();
-            byte[] payload = in.readBinary();
+            int payloadSize = in.unpackBinaryHeader();
+
+            byte[] payloadArr = new byte[payloadSize + 4];
+            var payloadBuf = ByteBuffer.wrap(payloadArr).order(ByteOrder.LITTLE_ENDIAN);
+
+            payloadBuf.putInt(payloadElementCount);
+            in.readPayload(payloadBuf);
 
             return table.partitionManager().primaryReplicaAsync(new HashPartition(partition)).thenCompose(primaryReplica -> {
                 // Use Compute to execute receiver on the target node with failover, class loading, scheduling.
@@ -77,8 +85,7 @@ public class ClientStreamerWithReceiverBatchSendRequest {
                         deploymentUnits,
                         ReceiverRunnerJob.class.getName(),
                         JobExecutionOptions.DEFAULT,
-                        payloadElementCount,
-                        payload);
+                        payloadArr);
 
                 return jobExecution.resultAsync()
                         .handle((res, err) -> {
@@ -100,17 +107,19 @@ public class ClientStreamerWithReceiverBatchSendRequest {
         });
     }
 
-    private static class ReceiverRunnerJob implements ComputeJob<List<Object>> {
+    private static class ReceiverRunnerJob implements ComputeJob<byte[], List<Object>> {
         @Override
-        public @Nullable CompletableFuture<List<Object>> executeAsync(JobExecutionContext context, Object... args) {
-            int payloadElementCount = (int) args[0];
-            byte[] payload = (byte[]) args[1];
+        public @Nullable CompletableFuture<List<Object>> executeAsync(JobExecutionContext context, byte[] payload) {
+            ByteBuffer buf = ByteBuffer.wrap(payload).order(ByteOrder.LITTLE_ENDIAN);
+            int payloadElementCount = buf.getInt();
 
-            var receiverInfo = StreamerReceiverSerializer.deserialize(payload, payloadElementCount);
+            var receiverInfo = StreamerReceiverSerializer.deserialize(buf.slice().order(ByteOrder.LITTLE_ENDIAN), payloadElementCount);
 
             ClassLoader classLoader = ((JobExecutionContextImpl) context).classLoader();
-            Class<DataStreamerReceiver<Object, Object>> receiverClass = ComputeUtils.receiverClass(classLoader, receiverInfo.className());
-            DataStreamerReceiver<Object, Object> receiver = ComputeUtils.instantiateReceiver(receiverClass);
+            Class<DataStreamerReceiver<Object, Object, Object>> receiverClass = ComputeUtils.receiverClass(
+                    classLoader, receiverInfo.className()
+            );
+            DataStreamerReceiver<Object, Object, Object> receiver = ComputeUtils.instantiateReceiver(receiverClass);
             DataStreamerReceiverContext receiverContext = context::ignite;
 
             return receiver.receive(receiverInfo.items(), receiverContext, receiverInfo.args());

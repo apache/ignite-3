@@ -59,7 +59,7 @@ public class CheckCatalogVersionOnAppendEntries implements AppendEntriesRequestI
 
         Node node = (Node) service;
 
-        ByteBuffer allData = request.data().asReadOnlyByteBuffer();
+        ByteBuffer allData = request.data().asReadOnlyBuffer();
         int offset = 0;
 
         for (RaftOutter.EntryMeta entry : request.entriesList()) {

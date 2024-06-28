@@ -1077,7 +1077,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     new TestConfigurationValidator()
             );
 
-            failureProcessor = new NoOpFailureProcessor(name);
+            failureProcessor = new NoOpFailureProcessor();
 
             cmgManager = new ClusterManagementGroupManager(
                     vaultManager,

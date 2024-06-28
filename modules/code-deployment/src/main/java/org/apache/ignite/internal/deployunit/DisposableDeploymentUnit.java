@@ -19,7 +19,7 @@ package org.apache.ignite.internal.deployunit;
 
 import java.nio.file.Path;
 import java.util.Objects;
-import org.apache.ignite.compute.DeploymentUnit;
+import org.apache.ignite.deployment.DeploymentUnit;
 
 /**
  * Disposable deployment unit. This class is used to track deployment units that are not needed any more.

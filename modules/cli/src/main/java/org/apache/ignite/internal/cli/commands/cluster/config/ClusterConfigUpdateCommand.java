@@ -52,9 +52,7 @@ public class ClusterConfigUpdateCommand extends BaseCommand implements Callable<
                 .inputProvider(this::buildCallInput)
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
-                .exceptionHandler(new ClusterNotInitializedExceptionHandler(
-                        "Cannot update cluster config", "ignite cluster init"
-                ))
+                .exceptionHandler(ClusterNotInitializedExceptionHandler.createHandler("Cannot update cluster config"))
                 .verbose(verbose)
                 .build()
                 .runPipeline();

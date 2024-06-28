@@ -133,9 +133,6 @@ public class ClientUtils {
             case ClientOp.JDBC_PK_META:
                 return null;
 
-            case ClientOp.JDBC_QUERY_META:
-                return null;
-
             case ClientOp.TX_BEGIN:
             case ClientOp.TX_COMMIT:
             case ClientOp.TX_ROLLBACK:
