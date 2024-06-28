@@ -52,6 +52,8 @@ namespace Apache.Ignite.Tests.Compute
 
         public static readonly JobDescriptor<object> EchoJob = new(ItThinClientComputeTest + "$EchoJob");
 
+        public static readonly JobDescriptor<string> ToStringJob = new(ItThinClientComputeTest + "$ToStringJob");
+
         public static readonly JobDescriptor<string> SleepJob = new(ItThinClientComputeTest + "$SleepJob");
 
         public static readonly JobDescriptor<decimal> DecimalJob = new(ItThinClientComputeTest + "$DecimalJob");
@@ -242,7 +244,7 @@ namespace Apache.Ignite.Tests.Compute
             await Test(decimal.MinValue);
             await Test(decimal.MaxValue);
 
-            await Test(new byte[] { 1, 255 });
+            await Test(new byte[] { 1, 255 }, "[1, -1]");
             await Test("Ignite 🔥");
             await Test(new BitArray(new[] { byte.MaxValue }), "{0, 1, 2, 3, 4, 5, 6, 7}");
             await Test(LocalDate.MinIsoValue, "-9998-01-01");
@@ -263,11 +265,17 @@ namespace Apache.Ignite.Tests.Compute
             async Task Test(object val, string? expectedStr = null)
             {
                 var nodes = JobTarget.AnyNode(await Client.GetClusterNodesAsync());
-                var str = expectedStr ?? val.ToString()!.Replace("E+", "E");
-                IJobExecution<object> resExec = await Client.Compute.SubmitAsync(nodes, EchoJob, val, str);
+
+                IJobExecution<object> resExec = await Client.Compute.SubmitAsync(nodes, EchoJob, val);
                 object res = await resExec.GetResultAsync();
 
                 Assert.AreEqual(val, res);
+
+                var strExec = await Client.Compute.SubmitAsync(nodes, ToStringJob, val);
+                var str = await strExec.GetResultAsync();
+
+                var expectedStr0 = expectedStr ?? val.ToString()!.Replace("E+", "E");
+                Assert.AreEqual(expectedStr0, str);
             }
         }
 
