@@ -771,13 +771,14 @@ public class PlatformTestNodeRunner {
     }
 
     @SuppressWarnings("unused") // Used by platform tests.
-    private static class TestReceiver implements DataStreamerReceiver<String, Object, String> {
+    private static class TestReceiver implements DataStreamerReceiver<String, String, String> {
         @SuppressWarnings("resource")
         @Override
-        public @Nullable CompletableFuture<List<String>> receive(List<String> page, DataStreamerReceiverContext ctx, Object args) {
-            String tableName = (String) args;
-            String arg1 = "1";
-            int arg2 = 2;
+        public @Nullable CompletableFuture<List<String>> receive(List<String> page, DataStreamerReceiverContext ctx, String arg) {
+            String[] args = arg.split(":", 3);
+            String tableName = args[0];
+            String arg1 = args[1];
+            int arg2 = Integer.parseInt(args[2]);
 
             if (Objects.equals(arg1, "throw")) {
                 throw new ArithmeticException("Test exception: " + arg2);
