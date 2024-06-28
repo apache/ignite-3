@@ -360,12 +360,12 @@ public class PartitionAwarenessTests
 
         // Warm up.
         var jobTarget = JobTarget.Colocated(FakeServer.ExistingTableName, key);
-        var jobDescriptor = new JobDescriptor<object?>("job");
+        var jobDescriptor = new JobDescriptor<object?, object?>("job");
 
-        await client.Compute.SubmitAsync(jobTarget, jobDescriptor);
+        await client.Compute.SubmitAsync(jobTarget, jobDescriptor, null);
 
         await AssertOpOnNode(
-            _ => client.Compute.SubmitAsync(jobTarget, jobDescriptor),
+            _ => client.Compute.SubmitAsync(jobTarget, jobDescriptor, null),
             ClientOp.ComputeExecuteColocated,
             expectedNode);
     }
@@ -379,13 +379,13 @@ public class PartitionAwarenessTests
         var key = new SimpleKey(keyId);
 
         var jobTarget = JobTarget.Colocated(FakeServer.ExistingTableName, key);
-        var jobDescriptor = new JobDescriptor<object?>("job");
+        var jobDescriptor = new JobDescriptor<object?, object?>("job");
 
         // Warm up.
-        await client.Compute.SubmitAsync(jobTarget, jobDescriptor);
+        await client.Compute.SubmitAsync(jobTarget, jobDescriptor, null);
 
         await AssertOpOnNode(
-            _ => client.Compute.SubmitAsync(jobTarget, jobDescriptor),
+            _ => client.Compute.SubmitAsync(jobTarget, jobDescriptor, null),
             ClientOp.ComputeExecuteColocated,
             expectedNode);
     }
