@@ -706,7 +706,7 @@ public class DataStreamerTests : IgniteTestsBase
             keySelector: x => GetPoco(x),
             payloadSelector: x => $"{x}-value{x * 10}",
             TestReceiver,
-            receiverArgs: new object[] { Table.Name, "arg1", 22 },
+            receiverArgs: GetReceiverArg(Table.Name, "arg1", 22),
             options: DataStreamerOptions.Default with { PageSize = 1 });
 
         // Read only part of the results.
@@ -766,6 +766,9 @@ public class DataStreamerTests : IgniteTestsBase
             await Task.Delay(15000, ct);
         }
     }
+
+    private static object[] GetReceiverArg(string tableName, string arg1, int arg2) =>
+        new object[] { $"{tableName}:{arg1}:{arg2}" };
 
     private async Task CheckReceiverValue(object value, string expectedClassName, string expectedValue)
     {

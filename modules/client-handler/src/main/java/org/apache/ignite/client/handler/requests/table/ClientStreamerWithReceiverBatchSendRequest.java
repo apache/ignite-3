@@ -21,6 +21,7 @@ import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.
 import static org.apache.ignite.lang.ErrorGroups.Compute.COMPUTE_JOB_FAILED_ERR;
 
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -69,16 +70,13 @@ public class ClientStreamerWithReceiverBatchSendRequest {
 
             // Payload = binary tuple of (receiverClassName, receiverArgs, items). We pass it to the job without deserialization.
             int payloadElementCount = in.unpackInt();
-            byte[] payload = in.readBinary();
+            int payloadSize = in.unpackBinaryHeader();
 
-            byte[] encodedPayload = new byte[payload.length + 4];
-            encodedPayload[0] = (byte) ((payloadElementCount >> 24) & 0xFF); // Most significant byte
-            encodedPayload[1] = (byte) ((payloadElementCount >> 16) & 0xFF);
-            encodedPayload[2] = (byte) ((payloadElementCount >> 8) & 0xFF);
-            encodedPayload[3] = (byte) (payloadElementCount & 0xFF); // Least significant byte
+            byte[] payloadArr = new byte[payloadSize + 4];
+            var payloadBuf = ByteBuffer.wrap(payloadArr).order(ByteOrder.LITTLE_ENDIAN);
 
-            // Copy the payload into the remaining part of encodedPayload
-            System.arraycopy(payload, 0, encodedPayload, 4, payload.length);
+            payloadBuf.putInt(payloadElementCount);
+            in.readPayload(payloadBuf);
 
             return table.partitionManager().primaryReplicaAsync(new HashPartition(partition)).thenCompose(primaryReplica -> {
                 // Use Compute to execute receiver on the target node with failover, class loading, scheduling.
@@ -87,7 +85,7 @@ public class ClientStreamerWithReceiverBatchSendRequest {
                         deploymentUnits,
                         ReceiverRunnerJob.class.getName(),
                         JobExecutionOptions.DEFAULT,
-                        encodedPayload);
+                        payloadArr);
 
                 return jobExecution.resultAsync()
                         .handle((res, err) -> {
@@ -112,12 +110,10 @@ public class ClientStreamerWithReceiverBatchSendRequest {
     private static class ReceiverRunnerJob implements ComputeJob<byte[], List<Object>> {
         @Override
         public @Nullable CompletableFuture<List<Object>> executeAsync(JobExecutionContext context, byte[] payload) {
-            // Combine the first four bytes into an integer
-            int payloadElementCount = ((payload[0] & 0xFF) << 24) | ((payload[1] & 0xFF) << 16)
-                    | ((payload[2] & 0xFF) << 8) | (payload[3] & 0xFF);
+            ByteBuffer buf = ByteBuffer.wrap(payload).order(ByteOrder.LITTLE_ENDIAN);
+            int payloadElementCount = buf.getInt();
 
-            ByteBuffer remainingBytes = ByteBuffer.wrap(payload, 4, payload.length - 4);
-            var receiverInfo = StreamerReceiverSerializer.deserialize(remainingBytes, payloadElementCount);
+            var receiverInfo = StreamerReceiverSerializer.deserialize(buf.slice().order(ByteOrder.LITTLE_ENDIAN), payloadElementCount);
 
             ClassLoader classLoader = ((JobExecutionContextImpl) context).classLoader();
             Class<DataStreamerReceiver<Object, Object, Object>> receiverClass = ComputeUtils.receiverClass(
