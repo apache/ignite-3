@@ -28,24 +28,15 @@ namespace ignite::detail {
  * Write a collection of primitives as a binary tuple.
  *
  * @param writer Writer to use.
- * @param args Arguments.
+ * @param arg Argument.
  */
-void write_primitives_as_binary_tuple(protocol::writer &writer, const std::vector<primitive> &args) {
-    auto args_num = std::int32_t(args.size());
-
-    writer.write(args_num);
-
-    binary_tuple_builder args_builder{args_num * 3};
+void write_object_as_binary_tuple(protocol::writer &writer, const binary_object &arg) {
+    binary_tuple_builder args_builder{1};
 
     args_builder.start();
-    for (const auto &arg : args) {
-        protocol::claim_primitive_with_type(args_builder, arg);
-    }
-
+    protocol::claim_primitive_with_type(args_builder, arg.get_primitive());
     args_builder.layout();
-    for (const auto &arg : args) {
-        protocol::append_primitive_with_type(args_builder, arg);
-    }
+    protocol::append_primitive_with_type(args_builder, arg.get_primitive());
 
     auto args_data = args_builder.build();
     writer.write_binary(args_data);
@@ -235,9 +226,9 @@ private:
 };
 
 void compute_impl::submit_to_nodes(const std::vector<cluster_node> &nodes, std::shared_ptr<job_descriptor> descriptor,
-    const std::vector<primitive> &args, ignite_callback<job_execution> callback) {
+    const binary_object &arg, ignite_callback<job_execution> callback) {
 
-    auto writer_func = [&nodes, &descriptor, args](protocol::writer &writer) {
+    auto writer_func = [&nodes, &descriptor, arg](protocol::writer &writer) {
         auto nodes_num = std::int32_t(nodes.size());
         writer.write(nodes_num);
         for (const auto &node : nodes) {
@@ -249,7 +240,7 @@ void compute_impl::submit_to_nodes(const std::vector<cluster_node> &nodes, std::
         writer.write(descriptor->get_execution_options().get_priority());
         writer.write(descriptor->get_execution_options().get_max_retries());
 
-        write_primitives_as_binary_tuple(writer, args);
+        write_object_as_binary_tuple(writer, arg);
     };
 
     auto handler = std::make_shared<response_handler_compute>(shared_from_this(), std::move(callback), false);
@@ -259,11 +250,11 @@ void compute_impl::submit_to_nodes(const std::vector<cluster_node> &nodes, std::
 }
 
 void compute_impl::submit_colocated_async(const std::string &table_name, const ignite_tuple &key,
-    std::shared_ptr<job_descriptor> descriptor, const std::vector<primitive> &args,
+    std::shared_ptr<job_descriptor> descriptor, const binary_object &arg,
     ignite_callback<job_execution> callback) {
     auto self = shared_from_this();
     auto conn = m_connection;
-    auto on_table_get = [self, table_name, key, descriptor, args, conn, callback](auto &&res) mutable {
+    auto on_table_get = [self, table_name, key, descriptor, arg, conn, callback](auto &&res) mutable {
         if (res.has_error()) {
             callback({std::move(res.error())});
             return;
@@ -276,8 +267,8 @@ void compute_impl::submit_colocated_async(const std::string &table_name, const i
 
         auto table = table_impl::from_facade(*table_opt);
         table->template with_proper_schema_async<job_execution>(
-            callback, [self, table, key, descriptor, args, conn](const schema &sch, auto callback) mutable {
-                auto writer_func = [&key, &descriptor, &sch, &table, &args](protocol::writer &writer) {
+            callback, [self, table, key, descriptor, arg, conn](const schema &sch, auto callback) mutable {
+                auto writer_func = [&key, &descriptor, &sch, &table, &arg](protocol::writer &writer) {
                     writer.write(table->get_id());
                     writer.write(sch.version);
                     write_tuple(writer, sch, key, true);
@@ -287,7 +278,7 @@ void compute_impl::submit_colocated_async(const std::string &table_name, const i
                     writer.write(descriptor->get_execution_options().get_priority());
                     writer.write(descriptor->get_execution_options().get_max_retries());
 
-                    write_primitives_as_binary_tuple(writer, args);
+                    write_object_as_binary_tuple(writer, arg);
                 };
 
                 auto handler = std::make_shared<response_handler_compute>(self, std::move(callback), true);

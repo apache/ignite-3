@@ -22,15 +22,15 @@
 namespace ignite {
 
 void compute::submit_async(const std::vector<cluster_node> &nodes, std::shared_ptr<job_descriptor> descriptor,
-    const std::vector<primitive> &args, ignite_callback<job_execution> callback) {
+    const binary_object &arg, ignite_callback<job_execution> callback) {
     detail::arg_check::container_non_empty(nodes, "Nodes container");
     detail::arg_check::container_non_empty(descriptor->get_job_class_name(), "Job class name");
 
-    m_impl->submit_to_nodes(nodes, descriptor, args, std::move(callback));
+    m_impl->submit_to_nodes(nodes, descriptor, arg, std::move(callback));
 }
 
 void compute::submit_broadcast_async(const std::set<cluster_node> &nodes, std::shared_ptr<job_descriptor> descriptor,
-    const std::vector<primitive> &args,
+    const binary_object &arg,
     ignite_callback<std::map<cluster_node, ignite_result<job_execution>>> callback) {
     typedef std::map<cluster_node, ignite_result<job_execution>> result_type;
 
@@ -52,7 +52,7 @@ void compute::submit_broadcast_async(const std::set<cluster_node> &nodes, std::s
 
     for (const auto &node : nodes) {
         std::vector<cluster_node> candidates = {node};
-        m_impl->submit_to_nodes(candidates, descriptor, args, [node, shared_res](auto &&res) {
+        m_impl->submit_to_nodes(candidates, descriptor, arg, [node, shared_res](auto &&res) {
             auto &val = *shared_res;
 
             std::lock_guard<std::mutex> lock(val.m_mutex);
@@ -65,14 +65,13 @@ void compute::submit_broadcast_async(const std::set<cluster_node> &nodes, std::s
 }
 
 void compute::submit_colocated_async(std::string_view table_name, const ignite_tuple &key,
-    std::shared_ptr<job_descriptor> descriptor, const std::vector<primitive> &args,
-    ignite_callback<job_execution> callback) {
+    std::shared_ptr<job_descriptor> descriptor, const binary_object &arg, ignite_callback<job_execution> callback) {
     detail::arg_check::container_non_empty(table_name, "Table name");
     detail::arg_check::tuple_non_empty(key, "Key tuple");
     detail::arg_check::container_non_empty(descriptor->get_job_class_name(), "Job class name");
 
     m_impl->submit_colocated_async(
-        std::string(table_name), key, descriptor, args, std::move(callback));
+        std::string(table_name), key, descriptor, arg, std::move(callback));
 }
 
 } // namespace ignite
