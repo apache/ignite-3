@@ -130,6 +130,7 @@ dependencies {
     integrationTestImplementation project(':ignite-raft-api')
     integrationTestImplementation project(':ignite-replicator')
     integrationTestImplementation project(':ignite-client')
+    integrationTestImplementation project(':ignite-compute')
     integrationTestImplementation project(':ignite-client-handler')
     integrationTestImplementation project(':ignite-storage-api')
     integrationTestImplementation project(':ignite-storage-api')

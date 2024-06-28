@@ -174,7 +174,7 @@ public class ComputeComponentImpl implements ComputeComponent {
             inFlightFutures.registerFuture(taskFuture);
 
             DelegatingTaskExecution<R> result = new DelegatingTaskExecution<>(taskFuture);
-            result.idAsync().thenAccept(jobId -> executionManager.addExecution(jobId, result));
+            result.idAsync().thenAccept(jobId -> executionManager.addExecution(jobId, new TaskToJobExecutionWrapper<>(result)));
             return result;
         } finally {
             busyLock.leaveBusy();

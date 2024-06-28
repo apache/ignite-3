@@ -17,49 +17,41 @@
 
 package org.apache.ignite.internal.compute;
 
-import static org.apache.ignite.internal.compute.ComputeUtils.convertToComputeFuture;
-import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.convertToPublicFuture;
-
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobState;
 import org.apache.ignite.compute.task.TaskExecution;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Wraps the {@link TaskExecution} converting exceptions thrown by the delegate to public.
+ * Representation of {@link TaskExecution} as {@link JobExecution}.
  *
- * @param <R> Result type.
+ * @param <R> Job result type.
  */
-class TaskExecutionWrapper<R> implements TaskExecution<R> {
-    private final TaskExecution<R> delegate;
+public class TaskToJobExecutionWrapper<R> implements JobExecution<R> {
+    private final TaskExecution<R> taskExecution;
 
-    TaskExecutionWrapper(TaskExecution<R> delegate) {
-        this.delegate = delegate;
-    }
-
-    @Override
-    public CompletableFuture<List<@Nullable JobState>> statesAsync() {
-        return convertToPublicFuture(delegate.statesAsync());
+    public TaskToJobExecutionWrapper(TaskExecution<R> taskExecution) {
+        this.taskExecution = taskExecution;
     }
 
     @Override
     public CompletableFuture<R> resultAsync() {
-        return convertToComputeFuture(delegate.resultAsync());
+        return taskExecution.resultAsync();
     }
 
     @Override
     public CompletableFuture<@Nullable JobState> stateAsync() {
-        return convertToPublicFuture(delegate.stateAsync());
+        return taskExecution.stateAsync();
     }
 
     @Override
     public CompletableFuture<@Nullable Boolean> cancelAsync() {
-        return convertToPublicFuture(delegate.cancelAsync());
+        return taskExecution.cancelAsync();
     }
 
     @Override
     public CompletableFuture<@Nullable Boolean> changePriorityAsync(int newPriority) {
-        return convertToPublicFuture(delegate.changePriorityAsync(newPriority));
+        return taskExecution.changePriorityAsync(newPriority);
     }
 }

@@ -84,6 +84,7 @@ import org.apache.ignite.compute.task.MapReduceJob;
 import org.apache.ignite.compute.task.MapReduceTask;
 import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.compute.task.TaskExecutionContext;
+import org.apache.ignite.internal.compute.TaskToJobExecutionWrapper;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
@@ -727,8 +728,8 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     @ParameterizedTest
     @ValueSource(classes = {MapReduceExceptionOnSplitTask.class, MapReduceExceptionOnReduceTask.class})
     void testExecuteMapReduceExceptionPropagation(Class<?> taskClass) {
-        IgniteException cause = getExceptionInJobExecutionAsync(
-                client().compute().submitMapReduce(List.of(), taskClass.getName())
+        IgniteException cause = getExceptionInJobExecutionAsync(new TaskToJobExecutionWrapper<>(
+                client().compute().submitMapReduce(List.of(), taskClass.getName()))
         );
 
         assertThat(cause.getMessage(), containsString("Custom job error"));

@@ -22,14 +22,16 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import org.apache.ignite.compute.JobState;
 import org.apache.ignite.compute.task.TaskExecution;
-import org.apache.ignite.internal.compute.AntiHijackJobExecution;
+import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Wrapper around {@link TaskExecution} that adds protection against thread hijacking by users.
  */
-public class AntiHijackTaskExecution<R> extends AntiHijackJobExecution<R> implements TaskExecution<R> {
+public class AntiHijackTaskExecution<R> implements TaskExecution<R> {
     private final TaskExecution<R> execution;
+
+    private final Executor asyncContinuationExecutor;
 
     /**
      * Constructor.
@@ -38,12 +40,36 @@ public class AntiHijackTaskExecution<R> extends AntiHijackJobExecution<R> implem
      * @param asyncContinuationExecutor Executor to which the execution will be resubmitted.
      */
     public AntiHijackTaskExecution(TaskExecution<R> execution, Executor asyncContinuationExecutor) {
-        super(execution, asyncContinuationExecutor);
         this.execution = execution;
+        this.asyncContinuationExecutor = asyncContinuationExecutor;
     }
 
     @Override
     public CompletableFuture<List<@Nullable JobState>> statesAsync() {
         return preventThreadHijack(execution.statesAsync());
+    }
+
+    @Override
+    public CompletableFuture<R> resultAsync() {
+        return preventThreadHijack(execution.resultAsync());
+    }
+
+    @Override
+    public CompletableFuture<@Nullable JobState> stateAsync() {
+        return preventThreadHijack(execution.stateAsync());
+    }
+
+    @Override
+    public CompletableFuture<@Nullable Boolean> cancelAsync() {
+        return preventThreadHijack(execution.cancelAsync());
+    }
+
+    @Override
+    public CompletableFuture<@Nullable Boolean> changePriorityAsync(int newPriority) {
+        return preventThreadHijack(execution.changePriorityAsync(newPriority));
+    }
+
+    private <T> CompletableFuture<T> preventThreadHijack(CompletableFuture<T> originalFuture) {
+        return PublicApiThreading.preventThreadHijack(originalFuture, asyncContinuationExecutor);
     }
 }

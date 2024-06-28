@@ -68,7 +68,7 @@ class ItMapReduceTest extends ClusterPerClassIntegrationTest {
 
         // Given running task.
         TaskExecution<List<String>> taskExecution = entryNode.compute().submitMapReduce(List.of(), InteractiveTasks.GlobalApi.name());
-        TestingJobExecution<List<String>> testExecution = new TestingJobExecution<>(taskExecution);
+        TestingJobExecution<List<String>> testExecution = new TestingJobExecution<>(new TaskToJobExecutionWrapper<>(taskExecution));
         testExecution.assertExecuting();
         InteractiveTasks.GlobalApi.assertAlive();
 
@@ -179,7 +179,7 @@ class ItMapReduceTest extends ClusterPerClassIntegrationTest {
 
         // Given running task.
         TaskExecution<List<String>> taskExecution = entryNode.compute().submitMapReduce(List.of(), InteractiveTasks.GlobalApi.name());
-        TestingJobExecution<List<String>> testExecution = new TestingJobExecution<>(taskExecution);
+        TestingJobExecution<List<String>> testExecution = new TestingJobExecution<>(new TaskToJobExecutionWrapper<>(taskExecution));
         testExecution.assertExecuting();
         InteractiveTasks.GlobalApi.assertAlive();
 
@@ -236,7 +236,7 @@ class ItMapReduceTest extends ClusterPerClassIntegrationTest {
         // Given running task.
         String arg = cooperativeCancel ? "NO_INTERRUPT" : "";
         TaskExecution<List<String>> taskExecution = entryNode.compute().submitMapReduce(List.of(), InteractiveTasks.GlobalApi.name(), arg);
-        TestingJobExecution<List<String>> testExecution = new TestingJobExecution<>(taskExecution);
+        TestingJobExecution<List<String>> testExecution = new TestingJobExecution<>(new TaskToJobExecutionWrapper<>(taskExecution));
         testExecution.assertExecuting();
         InteractiveTasks.GlobalApi.assertAlive();
 
@@ -267,7 +267,7 @@ class ItMapReduceTest extends ClusterPerClassIntegrationTest {
 
     private static TaskExecution<List<String>> startTask(IgniteImpl entryNode, Object... args) throws InterruptedException {
         TaskExecution<List<String>> taskExecution = entryNode.compute().submitMapReduce(List.of(), InteractiveTasks.GlobalApi.name(), args);
-        new TestingJobExecution<>(taskExecution).assertExecuting();
+        new TestingJobExecution<>(new TaskToJobExecutionWrapper<>(taskExecution)).assertExecuting();
         InteractiveTasks.GlobalApi.assertAlive();
         return taskExecution;
     }
