@@ -42,7 +42,7 @@ public class StreamerReceiverSerializer {
      */
     public static <A> void serialize(ClientMessagePacker w, String receiverClassName, A receiverArgs,
             @Nullable Marshaler<A, byte[]> receiverArgsMarshaler, Collection<?> items) {
-        // className + args size + args + items size + item type + items.
+        // className + arg + items size + item type + items.
         int binaryTupleSize = 1 + 3 + 1 + 1 + items.size();
         var builder = new BinaryTupleBuilder(binaryTupleSize);
         builder.appendString(receiverClassName);
