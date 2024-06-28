@@ -20,6 +20,7 @@ package org.apache.ignite.client.handler.requests.table;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
 import static org.apache.ignite.lang.ErrorGroups.Compute.COMPUTE_JOB_FAILED_ERR;
 
+import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -115,10 +116,7 @@ public class ClientStreamerWithReceiverBatchSendRequest {
             int payloadElementCount = ((payload[0] & 0xFF) << 24) | ((payload[1] & 0xFF) << 16)
                     | ((payload[2] & 0xFF) << 8) | (payload[3] & 0xFF);
 
-            byte[] remainingBytes = new byte[payload.length - 4];
-            // Copy the remaining bytes to the new array
-            System.arraycopy(payload, 4, remainingBytes, 0, remainingBytes.length);
-
+            ByteBuffer remainingBytes = ByteBuffer.wrap(payload, 4, payload.length - 4);
             var receiverInfo = StreamerReceiverSerializer.deserialize(remainingBytes, payloadElementCount);
 
             ClassLoader classLoader = ((JobExecutionContextImpl) context).classLoader();

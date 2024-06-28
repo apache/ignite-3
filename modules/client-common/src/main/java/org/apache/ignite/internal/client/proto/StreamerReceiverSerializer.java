@@ -19,6 +19,7 @@ package org.apache.ignite.internal.client.proto;
 
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
 
+import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.List;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
@@ -61,7 +62,7 @@ public class StreamerReceiverSerializer {
      * @param elementCount Number of elements in the binary tuple.
      * @return Streamer receiver info.
      */
-    public static SteamerReceiverInfo deserialize(byte[] bytes, int elementCount) {
+    public static SteamerReceiverInfo deserialize(ByteBuffer bytes, int elementCount) {
         var reader = new BinaryTupleReader(elementCount, bytes);
 
         int readerIndex = 0;
