@@ -780,7 +780,7 @@ public class DataStreamerTests : IgniteTestsBase
             keySelector: x => GetPoco(x),
             payloadSelector: _ => value,
             receiver: new ReceiverDescriptor(UpsertElementTypeNameReceiverClassName),
-            receiverArgs: new object[] { TableName, key1, key2 });
+            receiverArgs: new object[] { $"{TableName}:{key1}:{key2}" });
 
         var className = (await TupleView.GetAsync(null, GetTuple(key1))).Value[1];
         var valueStr = (await TupleView.GetAsync(null, GetTuple(key2))).Value[1];
