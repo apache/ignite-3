@@ -380,7 +380,7 @@ public class DataStreamerTests : IgniteTestsBase
             keySelector: x => GetTuple(x),
             payloadSelector: x => $"{x}-value{x * 10}",
             receiver: TestReceiverNoResults,
-            receiverArgs: new object[] { Table.Name, "arg1", 22 },
+            receiverArgs: GetReceiverArg(Table.Name, "arg1", 22),
             options: DataStreamerOptions.Default);
 
         for (int i = 0; i < Count; i++)
@@ -400,7 +400,7 @@ public class DataStreamerTests : IgniteTestsBase
             keySelector: x => GetTuple(x),
             payloadSelector: x => $"{x}-value{x * 10}",
             TestReceiver,
-            receiverArgs: new object[] { Table.Name, "arg1", 22 },
+            receiverArgs: GetReceiverArg(Table.Name, "arg1", 22),
             options: DataStreamerOptions.Default);
 
         var resultSet = await results.ToHashSetAsync();
@@ -428,7 +428,7 @@ public class DataStreamerTests : IgniteTestsBase
             keySelector: x => GetPoco(x),
             payloadSelector: x => $"{x}-value{x * 10}",
             receiver: TestReceiverNoResults,
-            receiverArgs: new object[] { Table.Name, "arg1", 22 },
+            receiverArgs: GetReceiverArg(Table.Name, "arg1", 22),
             options: DataStreamerOptions.Default);
 
         for (int i = 0; i < Count; i++)
@@ -448,7 +448,7 @@ public class DataStreamerTests : IgniteTestsBase
             keySelector: x => GetPoco(x),
             payloadSelector: x => $"{x}-value{x * 10}",
             TestReceiver,
-            receiverArgs: new object[] { Table.Name, "arg1", 22 },
+            receiverArgs: GetReceiverArg(Table.Name, "arg1", 22),
             options: DataStreamerOptions.Default);
 
         var resultSet = await results.ToHashSetAsync();
@@ -476,7 +476,7 @@ public class DataStreamerTests : IgniteTestsBase
             keySelector: x => new KeyValuePair<IIgniteTuple, IIgniteTuple>(GetTuple(x), new IgniteTuple()),
             payloadSelector: x => $"{x}-value{x * 10}",
             receiver: TestReceiverNoResults,
-            receiverArgs: new object[] { Table.Name, "arg1", 22 });
+            receiverArgs: GetReceiverArg(Table.Name, "arg1", 22));
 
         for (int i = 0; i < Count; i++)
         {
@@ -495,7 +495,7 @@ public class DataStreamerTests : IgniteTestsBase
             keySelector: x => new KeyValuePair<IIgniteTuple, IIgniteTuple>(GetTuple(x), new IgniteTuple()),
             payloadSelector: x => $"{x}-value{x * 10}",
             TestReceiver,
-            receiverArgs: new object[] { Table.Name, "arg1", 22 });
+            receiverArgs: GetReceiverArg(Table.Name, "arg1", 22));
 
         var resultSet = await results.ToHashSetAsync();
 
@@ -522,7 +522,7 @@ public class DataStreamerTests : IgniteTestsBase
             keySelector: x => new KeyValuePair<long, Poco>(x, null!),
             payloadSelector: x => $"{x}-value{x * 10}",
             receiver: TestReceiverNoResults,
-            receiverArgs: new object[] { Table.Name, "arg11", 55});
+            receiverArgs: GetReceiverArg(Table.Name, "arg11", 55));
 
         for (int i = 0; i < Count; i++)
         {
@@ -541,7 +541,7 @@ public class DataStreamerTests : IgniteTestsBase
             keySelector: x => new KeyValuePair<long, Poco>(x, null!),
             payloadSelector: x => $"{x}-value{x * 10}",
             TestReceiver,
-            receiverArgs: new object[] { Table.Name, "arg11", 55});
+            receiverArgs: GetReceiverArg(Table.Name, "arg11", 55));
 
         var resultSet = await results.ToHashSetAsync();
 
