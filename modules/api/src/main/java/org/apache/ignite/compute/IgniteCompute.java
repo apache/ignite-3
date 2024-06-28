@@ -114,7 +114,7 @@ public interface IgniteCompute {
      * @param <R> Job (R)esult type.
      * @param nodes Nodes to execute the job on.
      * @param descriptor Job descriptor.
-     * @param arg Arguments of the job.
+     * @param arg Argument of the job.
      * @return Map from node to job result.
      */
     default <T, R> CompletableFuture<Map<ClusterNode, R>> executeBroadcastAsync(
