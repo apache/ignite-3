@@ -32,12 +32,6 @@ if [ -z ${IGNITE_HOME+x} ]; then IGNITE_HOME=$(pwd); fi
 
 cd ${IGNITE_HOME} || exit
 
-# Check if JAVA_HOME is set
-if [ -z ${JAVA_HOME+x} ]; then
-    echo "Error: JAVA_HOME is not set. Please set the JAVA_HOME variable in your environment to match the location of your Java installation."
-    exit 1
-fi
-
 CMD="${JAVA_CMD_WITH_ARGS} ${APPLICATION_ARGS}"
 $CMD
 
