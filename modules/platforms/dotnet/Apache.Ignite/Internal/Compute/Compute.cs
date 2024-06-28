@@ -287,7 +287,7 @@ namespace Apache.Ignite.Internal.Compute
             IEnumerable<DeploymentUnit>? units,
             string jobClassName,
             JobExecutionOptions? options,
-            object?[]? args)
+            object? arg)
         {
             IClusterNode node = GetRandomNode(nodes);
             options ??= JobExecutionOptions.Default;
@@ -311,7 +311,7 @@ namespace Apache.Ignite.Internal.Compute
                 w.Write(options.Priority);
                 w.Write(options.MaxRetries);
 
-                w.WriteObjectCollectionAsBinaryTuple(args);
+                w.WriteObjectAsBinaryTuple(arg);
             }
         }
 
