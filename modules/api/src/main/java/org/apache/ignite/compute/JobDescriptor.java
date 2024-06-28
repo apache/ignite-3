@@ -19,6 +19,7 @@ package org.apache.ignite.compute;
 
 import java.util.List;
 import java.util.Objects;
+import org.apache.ignite.deployment.DeploymentUnit;
 
 /**
  * Compute job descriptor.
