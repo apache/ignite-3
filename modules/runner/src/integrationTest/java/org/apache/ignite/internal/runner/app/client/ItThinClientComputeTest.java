@@ -709,15 +709,13 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     @ParameterizedTest
     @CsvSource({"1E3,-3", "1.12E5,-5", "1.12E5,0", "1.123456789,10", "1.123456789,5"})
     void testBigDecimalPropagation(String number, int scale) {
-        BigDecimal given = new BigDecimal(number).setScale(scale, RoundingMode.HALF_UP);
-
         BigDecimal res = client().compute().execute(
                 JobTarget.node(node(0)),
                 JobDescriptor.builder(DecimalJob.class).build(),
-                given
-        );
+                number + "," + scale);
 
-        assertEquals(given, res);
+        var expected = new BigDecimal(number).setScale(scale, RoundingMode.HALF_UP);
+        assertEquals(expected, res);
     }
 
     @Test
@@ -869,10 +867,13 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         }
     }
 
-    private static class DecimalJob implements ComputeJob<BigDecimal, BigDecimal> {
+    private static class DecimalJob implements ComputeJob<String, BigDecimal> {
         @Override
-        public CompletableFuture<BigDecimal> executeAsync(JobExecutionContext context, BigDecimal arg) {
-            return completedFuture(arg);
+        public CompletableFuture<BigDecimal> executeAsync(JobExecutionContext context, String arg) {
+            @SuppressWarnings("DataFlowIssue")
+            var args = arg.split(",", 2);
+
+            return completedFuture(new BigDecimal(args[0]).setScale(Integer.parseInt(args[1]), RoundingMode.HALF_UP));
         }
     }
 
