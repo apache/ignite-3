@@ -15,20 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.client;
+package org.apache.ignite.internal.util;
 
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.anyOf;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasToString;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Arrays;
-import org.apache.ignite.internal.util.ViewUtils;
+import java.util.List;
 import org.apache.ignite.lang.IgniteCheckedException;
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
@@ -37,10 +38,17 @@ import org.junit.jupiter.api.Test;
 /**
  * Future utils test.
  */
-public class ClientUtilsTest {
+public class ViewUtilsTest {
+    @Test
+    public void testCheckKeysForNulls() {
+        assertThrows(NullPointerException.class, () -> ViewUtils.checkKeysForNulls(null));
+        assertThrows(NullPointerException.class, () -> ViewUtils.checkKeysForNulls(List.of("key1", null, "key3")));
+        assertDoesNotThrow(() -> ViewUtils.checkKeysForNulls(List.of("key")));
+    }
+
     @Test
     public void testEnsurePublicExceptionIgniteException() {
-        IgniteException ex = assertThrows(IgniteException.class, ClientUtilsTest::throwIgniteException);
+        IgniteException ex = assertThrows(IgniteException.class, ViewUtilsTest::throwIgniteException);
 
         Throwable resEx = checkableTestMethod(ex);
 
@@ -54,7 +62,7 @@ public class ClientUtilsTest {
 
     @Test
     public void testEnsurePublicExceptionIgniteCheckedException() {
-        IgniteCheckedException ex = assertThrows(IgniteCheckedException.class, ClientUtilsTest::throwIgniteCheckedException);
+        IgniteCheckedException ex = assertThrows(IgniteCheckedException.class, ViewUtilsTest::throwIgniteCheckedException);
 
         Throwable resEx = checkableTestMethod(ex);
 
@@ -68,7 +76,7 @@ public class ClientUtilsTest {
 
     @Test
     public void testEnsurePublicExceptionRuntimeException() {
-        RuntimeException ex = assertThrows(RuntimeException.class, ClientUtilsTest::throwRuntimeException);
+        RuntimeException ex = assertThrows(RuntimeException.class, ViewUtilsTest::throwRuntimeException);
 
         Throwable resEx = checkableTestMethod(ex);
 
@@ -83,7 +91,7 @@ public class ClientUtilsTest {
 
     @Test
     public void testEnsurePublicExceptionInvalidIgniteException() {
-        InvalidIgniteException ex = assertThrows(InvalidIgniteException.class, ClientUtilsTest::throwInvalidIgniteException);
+        InvalidIgniteException ex = assertThrows(InvalidIgniteException.class, ViewUtilsTest::throwInvalidIgniteException);
 
         Throwable resEx = checkableTestMethod(ex);
 
