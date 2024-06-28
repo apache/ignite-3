@@ -19,8 +19,8 @@ package org.apache.ignite.internal.compute;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
-import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobExecution;
+import org.apache.ignite.deployment.DeploymentUnit;
 
 /**
  * Captures the context of a remote job execution. Also provides methods to access the job execution object

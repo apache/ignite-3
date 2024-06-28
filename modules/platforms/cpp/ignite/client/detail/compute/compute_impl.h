@@ -18,6 +18,7 @@
 #pragma once
 
 #include "ignite/client/compute/deployment_unit.h"
+#include "ignite/client/compute/job_descriptor.h"
 #include "ignite/client/compute/job_execution.h"
 #include "ignite/client/compute/job_execution_options.h"
 #include "ignite/client/detail/cluster_connection.h"
@@ -53,15 +54,12 @@ public:
      * asynchronously. If the node leaves the cluster, it will be restarted on one of the candidate nodes.
      *
      * @param nodes Candidate node to use for the job execution.
-     * @param units Deployment units. Can be empty.
-     * @param job_class_name Java class name of the job to submit.
+     * @param descriptor Descriptor.
      * @param args Job arguments.
-     * @param options Job execution options.
      * @param callback A callback called on operation completion with job execution result.
      */
-    void submit_to_nodes(const std::vector<cluster_node> &nodes, const std::vector<deployment_unit> &units,
-        std::string_view job_class_name, const std::vector<primitive> &args, const job_execution_options &options,
-        ignite_callback<job_execution> callback);
+    void submit_to_nodes(const std::vector<cluster_node> &nodes, std::shared_ptr<job_descriptor> descriptor,
+        const std::vector<primitive> &args, ignite_callback<job_execution> callback);
 
     /**
      * Submits a compute job represented by the given class for an execution on one of the nodes where the given key is
@@ -69,26 +67,23 @@ public:
      *
      * @param table_name Name of the table to be used with @c key to determine target node.
      * @param key Table key to be used to determine the target node for job execution.
-     * @param units Deployment units. Can be empty.
-     * @param job_class_name Java class name of the job to submit.
+     * @param descriptor Descriptor.
      * @param args Job arguments.
-     * @param options Job execution options.
      * @param callback A callback called on operation completion with job execution result.
      */
     void submit_colocated_async(const std::string &table_name, const ignite_tuple &key,
-        const std::vector<deployment_unit> &units, const std::string &job_class_name,
-        const std::vector<primitive> &args, const job_execution_options &options,
+        std::shared_ptr<job_descriptor> descriptor, const std::vector<primitive> &args,
         ignite_callback<job_execution> callback);
 
     /**
-     * Gets the job execution status. Can be @c nullopt if the job status no longer exists due to exceeding the
+     * Gets the job execution state. Can be @c nullopt if the job state no longer exists due to exceeding the
      * retention time limit.
      *
      * @param id Job ID.
-     * @param callback Callback to be called when the operation is complete. Contains the job status. Can be @c nullopt
-     *  if the job status no longer exists due to exceeding the retention time limit.
+     * @param callback Callback to be called when the operation is complete. Contains the job state. Can be @c nullopt
+     *  if the job state no longer exists due to exceeding the retention time limit.
      */
-    void get_status_async(uuid id, ignite_callback<std::optional<job_status>> callback);
+    void get_state_async(uuid id, ignite_callback<std::optional<job_state>> callback);
 
     /**
      * Cancels the job execution.

@@ -19,7 +19,7 @@ package org.apache.ignite.table;
 
 import java.util.List;
 import java.util.Objects;
-import org.apache.ignite.compute.DeploymentUnit;
+import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.marshaling.Marshaler;
 import org.jetbrains.annotations.Nullable;
 

@@ -32,6 +32,8 @@ import org.apache.ignite.tx.TransactionOptions;
 
 /**
  * Examples of using SQL API.
+ *
+ * <p>Find instructions on how to run the example in the README.md file located in the "examples" directory root.
  */
 public class SqlApiExample {
     /**

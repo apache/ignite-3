@@ -97,7 +97,9 @@ public:
             auto client = ignite_client::start(cfg, std::chrono::seconds(30));
 
             auto nodes = client.get_cluster_nodes();
-            client.get_compute().submit(nodes, {}, ENABLE_AUTHN_JOB, {enable ? 1 : 0}, {}).get_result();
+            auto descriptor = job_descriptor::builder().set_job_class_name(ENABLE_AUTHN_JOB).build();
+
+            client.get_compute().submit(nodes, descriptor, {enable ? 1 : 0}).get_result();
         } catch (const ignite_error &) {
             // Ignore.
             // As a result of this call, the client may be disconnected from the server due to authn config change.
