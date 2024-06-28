@@ -91,8 +91,7 @@ std::vector<odbc_column_meta> read_column_meta(protocol::reader &reader) {
         column.column = reader.read_string_nullable();
 
         column.data_type = ignite_type(reader.read_int32());
-        column.data_type_name = reader.read_string();
-        reader.skip(); // data_type_class
+        column.data_type_name = type_name(column.data_type);
         column.nullable = reader.read_bool();
         column.precision = reader.read_int32();
         column.scale = reader.read_int32();
@@ -101,6 +100,29 @@ std::vector<odbc_column_meta> read_column_meta(protocol::reader &reader) {
     }
 
     return columns;
+}
+
+std::string type_name(ignite_type type) {
+    switch (type) {
+        case BOOLEAN: return "BOOLEAN";
+        case INT8: return "TINYINT";
+        case INT16: return "SMALLINT";
+        case INT32: return "INTEGER";
+        case INT64: return "BIGINT";
+        case FLOAT: return "REAL";
+        case DOUBLE: return "DOUBLE";
+        case STRING: return "VARCHAR";
+        case BYTE_ARRAY: return "VARBINARY";
+        case TIME: return "TIME";
+        case DATETIME: return "TIMESTAMP";
+        case TIMESTAMP: return "TIMESTAMP WITH LOCAL TIME ZONE";
+        case DATE: return "DATE";
+        case DECIMAL: return "DECIMAL";
+        case NIL: return "NULL";
+        case UUID: return "UUID";
+        default:
+            return "OTHER";
+    }
 }
 
 } // anonymous namespace
