@@ -87,11 +87,11 @@ namespace Apache.Ignite.Tests.Compute
         [Test]
         public async Task TestExecuteOnSpecificNode()
         {
-            var res1 = await Client.Compute.SubmitAsync(await GetNodeAsync(0), NodeNameJob, "-", 11);
-            var res2 = await Client.Compute.SubmitAsync(await GetNodeAsync(1), NodeNameJob, ":", 22);
+            var res1 = await Client.Compute.SubmitAsync(await GetNodeAsync(0), NodeNameJob, "-11");
+            var res2 = await Client.Compute.SubmitAsync(await GetNodeAsync(1), NodeNameJob, 33);
 
-            Assert.AreEqual(PlatformTestNodeRunner + "-_11", await res1.GetResultAsync());
-            Assert.AreEqual(PlatformTestNodeRunner + "_2:_22", await res2.GetResultAsync());
+            Assert.AreEqual(PlatformTestNodeRunner + "-11", await res1.GetResultAsync());
+            Assert.AreEqual(PlatformTestNodeRunner + "_233", await res2.GetResultAsync());
         }
 
         [Test]
