@@ -75,6 +75,10 @@ public interface Statement extends AutoCloseable {
      */
     StatementBuilder toBuilder();
 
+    /** {@inheritDoc} */
+    @Override
+    void close();
+
     /**
      * Statement builder provides methods for building a statement object, which represents a query and holds query-specific 
      * settings that overrides the session defaults.

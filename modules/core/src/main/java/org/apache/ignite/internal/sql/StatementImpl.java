@@ -123,7 +123,7 @@ public class StatementImpl implements Statement {
 
     /** {@inheritDoc} */
     @Override
-    public void close() throws Exception {
+    public void close() {
         // No-op.
     }
 }
