@@ -32,6 +32,7 @@ import it.unimi.dsi.fastutil.ints.IntSet;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.AbstractList;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumSet;
@@ -955,6 +956,83 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         return Commons.implicitPkEnabled() && Commons.IMPLICIT_PK_COL_NAME.equals(alias);
     }
 
+    // We use these scopes to filter out valid usages of a ROW operator.
+    private final ArrayDeque<CallScope> callScopes = new ArrayDeque<>();
+
+    /** {@inheritDoc} */
+    @Override
+    protected void validateValues(SqlCall node, RelDataType targetRowType, SqlValidatorScope scope) {
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-22084: Sql. Add support for row data type.
+        // ROW operator is used in VALUES (row), (row1)
+        callScopes.push(CallScope.VALUES);
+        try {
+            super.validateValues(node, targetRowType, scope);
+        } finally {
+            callScopes.pop();
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    protected void validateGroupClause(SqlSelect select) {
+        // Calcite uses the ROW operator in the GROUP BY clause in the following cases:
+        // - GROUP BY GROUPING SET ((a, b), (c, d))
+        // - GROUP BY (a, b) (but GROUP BY a, b does not use the ROW operator)
+        //
+        // We need to make sure that the validator won't reject such clauses.
+        SqlNodeList group = select.getGroup() == null ? SqlNodeList.EMPTY : select.getGroup();
+        boolean rowInGroupScope = false;
+
+        for (SqlNode node : group) {
+            if (node.getKind() == SqlKind.GROUPING_SETS || node.getKind() == SqlKind.ROW) {
+                rowInGroupScope = true;
+                break;
+            }
+        }
+
+        if (!rowInGroupScope) {
+            super.validateGroupClause(select);
+        } else {
+            callScopes.push(CallScope.GROUP);
+
+            try {
+                super.validateGroupClause(select);
+            } finally {
+                callScopes.pop();
+            }
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void validateCall(SqlCall call, SqlValidatorScope scope) {
+        CallScope callScope = callScopes.peek();
+        boolean validatingRowOperator = call.getOperator() == SqlStdOperatorTable.ROW;
+        boolean insideValues = callScope == CallScope.VALUES;
+        boolean insideGroupClause = callScope == CallScope.GROUP;
+        boolean valuesCall = call.getOperator() == SqlStdOperatorTable.VALUES;
+
+        if (validatingRowOperator && !(insideValues || insideGroupClause)) {
+            throw newValidationError(call, IgniteResource.INSTANCE.dataTypeIsNotSupported(call.getOperator().getName()));
+        }
+
+        if (valuesCall) {
+            // VALUES in the WHERE clause in VALUES operator, which is not validated via validateValues method.
+            callScopes.push(CallScope.VALUES);
+        } else if (insideGroupClause) {
+            // Allow GROUPING SET ( (a,b), (c, d) ) and GROUP BY (a, b)
+            callScopes.push(CallScope.GROUP);
+        } else {
+            callScopes.push(CallScope.OTHER);
+        }
+
+        try {
+            super.validateCall(call, scope);
+        } finally {
+            callScopes.pop();
+        }
+    }
+
     /** {@inheritDoc} */
     @Override
     protected void inferUnknownTypes(RelDataType inferredType, SqlValidatorScope scope, SqlNode node) {
@@ -1194,5 +1272,16 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             this.value = null;
             this.hasValue = false;
         }
+    }
+
+    /**
+     * Scope to distinguish between different usages of the ROW operator.
+     *
+     * TODO: https://issues.apache.org/jira/browse/IGNITE-22084: Sql. Add support for row data type. Remove after row type is supported.
+     */
+    private enum CallScope {
+        VALUES,
+        GROUP,
+        OTHER
     }
 }

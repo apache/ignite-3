@@ -131,16 +131,15 @@ public class DynamicParametersTest extends AbstractPlannerTest {
 
                 sql("SELECT ? IN ('1', 2)", 2)
                         .parameterTypes(nullable(NativeTypes.INT32))
-                        .project("OR(=(?0, 1), =(?0, 2))"),
-
-                sql("SELECT (?,?) IN ((1,2))", 1, 2)
-                        .parameterTypes(nullable(NativeTypes.INT32), nullable(NativeTypes.INT32))
-                        .project("AND(=(?0, 1), =(?1, 2))"),
-
-                sql("SELECT (?,?) IN ((1,2))", "1", "2").fails(requireExplicitCast),
-                sql("SELECT (?,?) IN (('1', 2))", 1, "2").fails(requireExplicitCast),
-                sql("SELECT (?,?) IN ((1, '2'))", "1", "2").fails(requireExplicitCast)
+                        .project("OR(=(?0, 1), =(?0, 2))")
         );
+        // sql("SELECT (?,?) IN ((1,2))", 1, 2)
+        //        .parameterTypes(nullable(NativeTypes.INT32), nullable(NativeTypes.INT32))
+        //        .project("AND(=(?0, 1), =(?1, 2))"),
+
+        // sql("SELECT (?,?) IN ((1,2))", "1", "2").fails(requireExplicitCast),
+        // sql("SELECT (?,?) IN (('1', 2))", 1, "2").fails(requireExplicitCast),
+        // sql("SELECT (?,?) IN ((1, '2'))", "1", "2").fails(requireExplicitCast)
     }
 
     /** CASE expression. */

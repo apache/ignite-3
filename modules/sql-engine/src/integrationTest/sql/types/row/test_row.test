@@ -26,6 +26,8 @@ SELECT empname FROM emp WHERE (empname, empage, salary) = ('Johnah', 47, 1200)
 ----
 Johnah
 
+skipif ignite3
+# https://issues.apache.org/jira/browse/IGNITE-22084: Sql. Add support for row data type.
 query T
 SELECT empname FROM emp WHERE ('Johnah', 47) IN ((empname, empage))
 ----
@@ -52,9 +54,37 @@ statement error: ROW datatype is not supported
 SELECT CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))
 
 # https://issues.apache.org/jira/browse/IGNITE-22084: Sql. Add support for row data type.
-statement error
+statement error: ROW datatype is not supported
 SELECT ROW(1, 2.0)
 
 # https://issues.apache.org/jira/browse/IGNITE-22084: Sql. Add support for row data type.
-statement error
+statement error: ROW datatype is not supported
 SELECT (1, 2.0)
+
+# (empage, salary) uses the ROW operator
+statement ok
+SELECT empage, salary FROM emp GROUP BY (empage, salary)
+
+statement error: ROW datatype is not supported
+SELECT (1, 2) IN ((1,2))
+
+statement ok
+SELECT * FROM emp WHERE empid = ANY (VALUES (CAST(2 as BIGINT)), (CAST(1 as SMALLINT)))
+
+statement ok
+SELECT (VALUES (CAST(2 as BIGINT)))
+
+statement ok
+SELECT (VALUES ROW(CAST(2 as BIGINT)))
+
+statement ok
+SELECT (VALUES ROW(2))
+
+skipif ignite3
+# https://issues.apache.org/jira/browse/IGNITE-22613: Sql. Scalar subquery that returns more than one column produces unexpected validation error
+statement error: Scalar subquery returns more than 1 column
+SELECT (VALUES ROW(2, 4))
+
+# https://issues.apache.org/jira/browse/IGNITE-22084: Sql. Add support for row data type.
+statement error: ROW datatype is not supported
+SELECT (VALUES ROW(ROW(2)))

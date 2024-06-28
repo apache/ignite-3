@@ -382,7 +382,7 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
         // register(SqlStdOperatorTable.NOT_SUBMULTISET_OF);
 
         // Other functions and operators.
-        //register(SqlStdOperatorTable.ROW);
+        register(SqlStdOperatorTable.ROW);
         register(SqlStdOperatorTable.CAST);
         register(SqlLibraryOperators.INFIX_CAST);
         register(SqlStdOperatorTable.COALESCE);
