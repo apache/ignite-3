@@ -25,6 +25,7 @@ import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
 import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.BUILDING;
 import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.REGISTERED;
 import static org.apache.ignite.internal.table.distributed.replicator.RemoteResourceIds.cursorId;
@@ -95,7 +96,6 @@ import org.apache.ignite.internal.partition.replicator.network.PartitionReplicat
 import org.apache.ignite.internal.partition.replicator.network.TimedBinaryRow;
 import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommandBuilder;
-import org.apache.ignite.internal.partition.replicator.network.command.TablePartitionIdMessage;
 import org.apache.ignite.internal.partition.replicator.network.command.TimedBinaryRowMessage;
 import org.apache.ignite.internal.partition.replicator.network.command.TimedBinaryRowMessageBuilder;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateAllCommand;
@@ -139,6 +139,7 @@ import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaSafeTimeSyncRequest;
 import org.apache.ignite.internal.replicator.message.SchemaVersionAwareReplicaRequest;
+import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowUpgrader;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -235,7 +236,8 @@ public class PartitionReplicaListener implements ReplicaListener {
     private static final IgniteLogger LOG = Loggers.forClass(PartitionReplicaListener.class);
 
     /** Factory to create RAFT command messages. */
-    private static final PartitionReplicationMessagesFactory MSG_FACTORY = new PartitionReplicationMessagesFactory();
+    private static final PartitionReplicationMessagesFactory PARTITION_REPLICATION_MESSAGES_FACTORY =
+            new PartitionReplicationMessagesFactory();
 
     /** Factory for creating replica command messages. */
     private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
@@ -1792,7 +1794,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             List<TablePartitionIdMessage> partitionIds
     ) {
         synchronized (commandProcessingLinearizationMutex) {
-            FinishTxCommandBuilder finishTxCmdBldr = MSG_FACTORY.finishTxCommand()
+            FinishTxCommandBuilder finishTxCmdBldr = PARTITION_REPLICATION_MESSAGES_FACTORY.finishTxCommand()
                     .txId(transactionId)
                     .commit(commit)
                     .safeTimeLong(clockService.nowLong())
@@ -1897,7 +1899,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             long commitTimestampLong,
             int catalogVersion
     ) {
-        WriteIntentSwitchCommand wiSwitchCmd = MSG_FACTORY.writeIntentSwitchCommand()
+        WriteIntentSwitchCommand wiSwitchCmd = PARTITION_REPLICATION_MESSAGES_FACTORY.writeIntentSwitchCommand()
                 .txId(transactionId)
                 .commit(commit)
                 .commitTimestampLong(commitTimestampLong)
@@ -2281,7 +2283,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         RowId lockedRowId = deleteExactLockFuts[i].join();
 
                         if (lockedRowId != null) {
-                            rowIdsToDelete.put(lockedRowId.uuid(), MSG_FACTORY.timedBinaryRowMessage()
+                            rowIdsToDelete.put(lockedRowId.uuid(), PARTITION_REPLICATION_MESSAGES_FACTORY.timedBinaryRowMessage()
                                     .timestamp(hybridTimestampToLong(lastCommitTimes.get(lockedRowId.uuid())))
                                     .build());
 
@@ -2357,7 +2359,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     Map<UUID, TimedBinaryRowMessage> convertedMap = rowsToInsert.entrySet().stream()
                             .collect(toMap(
                                     e -> e.getKey().uuid(),
-                                    e -> MSG_FACTORY.timedBinaryRowMessage()
+                                    e -> PARTITION_REPLICATION_MESSAGES_FACTORY.timedBinaryRowMessage()
                                             .binaryRowMessage(binaryRowMessage(e.getValue()))
                                             .build()
                             ));
@@ -2458,7 +2460,8 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                         RowId lockedRow = locks.get1();
 
-                        TimedBinaryRowMessageBuilder timedBinaryRowMessageBuilder = MSG_FACTORY.timedBinaryRowMessage()
+                        TimedBinaryRowMessageBuilder timedBinaryRowMessageBuilder = PARTITION_REPLICATION_MESSAGES_FACTORY
+                                .timedBinaryRowMessage()
                                 .timestamp(hybridTimestampToLong(lastCommitTimes.get(lockedRow.uuid())));
 
                         if (deleted == null || !deleted.get(i)) {
@@ -2581,7 +2584,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         RowId lockedRowId = lockFut.join();
 
                         if (lockedRowId != null) {
-                            rowIdsToDelete.put(lockedRowId.uuid(), MSG_FACTORY.timedBinaryRowMessage()
+                            rowIdsToDelete.put(lockedRowId.uuid(), PARTITION_REPLICATION_MESSAGES_FACTORY.timedBinaryRowMessage()
                                     .timestamp(hybridTimestampToLong(lastCommitTimes.get(lockedRowId.uuid())))
                                     .build());
 
@@ -3828,7 +3831,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             int catalogVersion,
             @Nullable Long leaseStartTime
     ) {
-        UpdateCommandBuilder bldr = MSG_FACTORY.updateCommand()
+        UpdateCommandBuilder bldr = PARTITION_REPLICATION_MESSAGES_FACTORY.updateCommand()
                 .tablePartitionId(tablePartitionId(tablePartId))
                 .rowUuid(rowUuid)
                 .txId(txId)
@@ -3839,7 +3842,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 .leaseStartTime(leaseStartTime);
 
         if (lastCommitTimestamp != null || row != null) {
-            TimedBinaryRowMessageBuilder rowMsgBldr = MSG_FACTORY.timedBinaryRowMessage();
+            TimedBinaryRowMessageBuilder rowMsgBldr = PARTITION_REPLICATION_MESSAGES_FACTORY.timedBinaryRowMessage();
 
             if (lastCommitTimestamp != null) {
                 rowMsgBldr.timestamp(lastCommitTimestamp.longValue());
@@ -3856,7 +3859,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     private static BinaryRowMessage binaryRowMessage(BinaryRow row) {
-        return MSG_FACTORY.binaryRowMessage()
+        return PARTITION_REPLICATION_MESSAGES_FACTORY.binaryRowMessage()
                 .binaryTuple(row.tupleSlice())
                 .schemaVersion(row.schemaVersion())
                 .build();
@@ -3872,7 +3875,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             int catalogVersion,
             @Nullable Long leaseStartTime
     ) {
-        return MSG_FACTORY.updateAllCommand()
+        return PARTITION_REPLICATION_MESSAGES_FACTORY.updateAllCommand()
                 .tablePartitionId(commitPartitionId)
                 .messageRowsToUpdate(rowsToUpdate)
                 .txId(transactionId)
@@ -3900,10 +3903,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return {@link TablePartitionIdMessage} object converted from argument.
      */
     public static TablePartitionIdMessage tablePartitionId(TablePartitionId tablePartId) {
-        return MSG_FACTORY.tablePartitionIdMessage()
-                .tableId(tablePartId.tableId())
-                .partitionId(tablePartId.partitionId())
-                .build();
+        return toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, tablePartId);
     }
 
     /**
@@ -3975,7 +3975,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     private static BuildIndexCommand toBuildIndexCommand(BuildIndexReplicaRequest request, MetaIndexStatusChange buildingChangeInfo) {
-        return MSG_FACTORY.buildIndexCommand()
+        return PARTITION_REPLICATION_MESSAGES_FACTORY.buildIndexCommand()
                 .indexId(request.indexId())
                 .rowIds(request.rowIds())
                 .finish(request.finish())

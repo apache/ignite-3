@@ -15,24 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.partition.replicator.network.command;
+package org.apache.ignite.internal.replicator.message;
 
 import java.io.Serializable;
-import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.Commands;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 
-/**
- * Network Message interface to transfer {@link TablePartitionId} as part of {@link NetworkMessage}.
- */
-@Transferable(Commands.TABLE_PARTITION_ID)
-public interface TablePartitionIdMessage extends NetworkMessage, Serializable {
+/** Message for transferring a {@link TablePartitionId}. */
+@Transferable(ReplicaMessageGroup.TABLE_PARTITION_ID_MESSAGE)
+public interface TablePartitionIdMessage extends ReplicationGroupIdMessage, Serializable {
+    /** Table ID. */
     int tableId();
 
+    /** Partition ID. */
     int partitionId();
 
+    /** Converts to {@link TablePartitionId}. */
     default TablePartitionId asTablePartitionId() {
         return new TablePartitionId(tableId(), partitionId());
+    }
+
+    @Override
+    default ReplicationGroupId asReplicationGroupId() {
+        return asTablePartitionId();
     }
 }

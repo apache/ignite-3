@@ -18,11 +18,12 @@
 package org.apache.ignite.internal.replicator.message;
 
 import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 
-/**
- * Replica request.
- */
-public interface ReplicaRequest extends NetworkMessage {
-    /** Gets a replication group id. */
-    ReplicationGroupIdMessage groupId();
+/** Message for transferring a {@link ReplicationGroupId}. */
+public interface ReplicationGroupIdMessage extends NetworkMessage {
+    /** Converts to {@link ReplicationGroupId}. */
+    default ReplicationGroupId asReplicationGroupId() {
+        throw new AssertionError("Must be implemented by heirs.");
+    }
 }

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.tx.impl;
 
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
 import static org.apache.ignite.internal.util.CompletableFutures.allOf;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
@@ -39,6 +40,7 @@ import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
+import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.message.VacuumTxStateReplicaRequest;
 import org.apache.ignite.network.ClusterNode;
@@ -51,6 +53,8 @@ public class PersistentTxStateVacuumizer {
     private static final IgniteLogger LOG = Loggers.forClass(PersistentTxStateVacuumizer.class);
 
     private static final TxMessagesFactory TX_MESSAGES_FACTORY = new TxMessagesFactory();
+
+    private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
 
     private final ReplicaService replicaService;
 
@@ -115,7 +119,7 @@ public class PersistentTxStateVacuumizer {
 
                             VacuumTxStateReplicaRequest request = TX_MESSAGES_FACTORY.vacuumTxStateReplicaRequest()
                                     .enlistmentConsistencyToken(replicaMeta.getStartTime().longValue())
-                                    .groupId(commitPartitionId)
+                                    .groupId(toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, commitPartitionId))
                                     .transactionIds(filteredTxIds)
                                     .build();
 

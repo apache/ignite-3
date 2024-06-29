@@ -377,7 +377,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             return;
         }
 
-        ReplicationGroupId groupId = groupIdConverter.apply(request.groupId());
+        ReplicationGroupId groupId = groupIdConverter.apply(request.groupId().asReplicationGroupId());
 
         String senderConsistentId = sender.name();
 
@@ -1135,7 +1135,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             Replica replica = replicaFuture.join();
 
             ReplicaSafeTimeSyncRequest req = REPLICA_MESSAGES_FACTORY.replicaSafeTimeSyncRequest()
-                    .groupId(replica.groupId())
+                    // TODO: IGNITE-22615 исправить
+                    // .groupId(replica.groupId())
                     .build();
 
             replica.processRequest(req, localNodeId);

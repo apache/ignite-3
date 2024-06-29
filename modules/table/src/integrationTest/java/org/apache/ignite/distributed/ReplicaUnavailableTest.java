@@ -20,6 +20,7 @@ package org.apache.ignite.distributed;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.distributed.ItTxTestCluster.NODE_PORT_BASE;
 import static org.apache.ignite.internal.replicator.ReplicatorConstants.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
+import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
 import static org.apache.ignite.internal.table.TxAbstractTest.startNode;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -63,7 +64,6 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
-import org.apache.ignite.internal.partition.replicator.network.command.TablePartitionIdMessage;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadWriteSingleRowReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.RequestType;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
@@ -87,6 +87,7 @@ import org.apache.ignite.internal.replicator.message.ReplicaMessageGroup;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaResponse;
+import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -264,7 +265,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
         BinaryRow binaryRow = createKeyValueRow(1L, 1L);
 
         return tableMessagesFactory.readWriteSingleRowReplicaRequest()
-                .groupId(tablePartitionId)
+                .groupId(toTablePartitionIdMessage(replicaMessageFactory, tablePartitionId))
                 .transactionId(TestTransactionIds.newTransactionId())
                 .commitPartitionId(tablePartitionId())
                 .timestampLong(clock.nowLong())
@@ -395,7 +396,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
     }
 
     private TablePartitionIdMessage tablePartitionId() {
-        return tableMessagesFactory.tablePartitionIdMessage()
+        return replicaMessageFactory.tablePartitionIdMessage()
                 .tableId(1)
                 .partitionId(1)
                 .build();
