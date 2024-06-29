@@ -34,10 +34,12 @@ import java.util.function.Consumer;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.index.message.IndexMessagesFactory;
 import org.apache.ignite.internal.index.message.IsNodeFinishedRwTransactionsStartedBeforeResponse;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.impl.schema.TestProfileConfigurationSchema;
@@ -228,7 +230,12 @@ public class ItIndexNodeFinishedRwTransactionsCheckerTest extends ClusterPerClas
             InternalTable table = tableImpl().internalTable();
 
             return IntStream.range(0, table.partitions())
-                    .mapToLong(partitionId -> table.storage().getMvPartition(partitionId).rowsCount())
+                    .mapToObj(table.storage()::getMvPartition)
+                    .mapToLong(partitionStorage -> {
+                        try (PartitionTimestampCursor cursor = partitionStorage.scan(HybridTimestamp.MAX_VALUE)) {
+                            return cursor.stream().count();
+                        }
+                    })
                     .toArray();
         });
     }

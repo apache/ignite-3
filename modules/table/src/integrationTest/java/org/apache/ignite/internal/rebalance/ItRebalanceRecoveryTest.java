@@ -27,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.test.WatchListenerInhibitor;
 import org.junit.jupiter.api.Test;
@@ -74,6 +75,6 @@ public class ItRebalanceRecoveryTest extends ClusterPerTestIntegrationTest {
                 .storage()
                 .getMvPartition(0);
 
-        return bypassingThreadAssertions(() -> storage.rowsCount() != 0);
+        return storage != null && bypassingThreadAssertions(() -> storage.closestRowId(RowId.lowestRowId(0))) != null;
     }
 }

@@ -40,6 +40,7 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.test.WatchListenerInhibitor;
 import org.junit.jupiter.api.Disabled;
@@ -248,6 +249,6 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
                 .storage()
                 .getMvPartition(0);
 
-        return storage != null && bypassingThreadAssertions(storage::rowsCount) != 0;
+        return storage != null && bypassingThreadAssertions(() -> storage.closestRowId(RowId.lowestRowId(0))) != null;
     }
 }
