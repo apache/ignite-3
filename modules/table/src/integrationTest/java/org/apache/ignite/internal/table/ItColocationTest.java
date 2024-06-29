@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toMap;
+import static org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageUtils.toTablePartitionIdMessage;
 import static org.apache.ignite.internal.replicator.ReplicatorConstants.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
 import static org.apache.ignite.internal.schema.SchemaTestUtils.specToType;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -257,27 +258,18 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                         );
 
                 return r.run(MSG_FACTORY.updateAllCommand()
-                                .tablePartitionId(MSG_FACTORY.tablePartitionIdMessage()
-                                        .tableId(commitPartId.tableId())
-                                        .partitionId(commitPartId.partitionId())
-                                        .build()
-                                )
-                            .messageRowsToUpdate(rows)
-                            .txId(UUID.randomUUID())
-                            .txCoordinatorId(node.id())
-                            .build());
+                        .tablePartitionId(toTablePartitionIdMessage(MSG_FACTORY, commitPartId))
+                        .messageRowsToUpdate(rows)
+                        .txId(UUID.randomUUID())
+                        .txCoordinatorId(node.id())
+                        .build());
             } else {
                 assertThat(request, is(instanceOf(ReadWriteSingleRowReplicaRequest.class)));
 
                 ReadWriteSingleRowReplicaRequest singleRowReplicaRequest = (ReadWriteSingleRowReplicaRequest) request;
 
                 return r.run(MSG_FACTORY.updateCommand()
-                        .tablePartitionId(
-                                MSG_FACTORY.tablePartitionIdMessage()
-                                        .tableId(commitPartId.tableId())
-                                        .partitionId(commitPartId.partitionId())
-                                        .build()
-                        )
+                        .tablePartitionId(toTablePartitionIdMessage(MSG_FACTORY, commitPartId))
                         .rowUuid(UUID.randomUUID())
                         .messageRowToUpdate(MSG_FACTORY.timedBinaryRowMessage()
                                 .binaryRowMessage(binaryRowMessage(singleRowReplicaRequest.binaryTuple(), singleRowReplicaRequest))

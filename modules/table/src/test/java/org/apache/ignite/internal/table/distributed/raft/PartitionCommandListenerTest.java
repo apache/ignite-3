@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table.distributed.raft;
 
 import static java.util.Collections.singletonMap;
+import static org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageUtils.toTablePartitionIdMessage;
 import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.BUILDING;
 import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.REGISTERED;
 import static org.apache.ignite.internal.util.ArrayUtils.asList;
@@ -803,11 +804,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
         HybridTimestamp commitTimestamp = hybridClock.now();
 
         invokeBatchedCommand(msgFactory.updateAllCommand()
-                .tablePartitionId(
-                        msgFactory.tablePartitionIdMessage()
-                                .tableId(commitPartId.tableId())
-                                .partitionId(commitPartId.partitionId())
-                                .build())
+                .tablePartitionId(toTablePartitionIdMessage(msgFactory, commitPartId))
                 .messageRowsToUpdate(rows)
                 .txId(txId)
                 .safeTimeLong(hybridClock.nowLong())
@@ -845,11 +842,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
         HybridTimestamp commitTimestamp = hybridClock.now();
 
         invokeBatchedCommand(msgFactory.updateAllCommand()
-                .tablePartitionId(
-                        msgFactory.tablePartitionIdMessage()
-                                .tableId(commitPartId.tableId())
-                                .partitionId(commitPartId.partitionId())
-                                .build())
+                .tablePartitionId(toTablePartitionIdMessage(msgFactory, commitPartId))
                 .messageRowsToUpdate(rows)
                 .txId(txId)
                 .safeTimeLong(hybridClock.nowLong())
@@ -882,11 +875,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
         HybridTimestamp commitTimestamp = hybridClock.now();
 
         invokeBatchedCommand(msgFactory.updateAllCommand()
-                .tablePartitionId(
-                        msgFactory.tablePartitionIdMessage()
-                                .tableId(commitPartId.tableId())
-                                .partitionId(commitPartId.partitionId())
-                                .build())
+                .tablePartitionId(toTablePartitionIdMessage(msgFactory, commitPartId))
                 .messageRowsToUpdate(keyRows)
                 .txId(txId)
                 .safeTimeLong(hybridClock.nowLong())
