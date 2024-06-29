@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing;
 
 import static java.util.Collections.emptyIterator;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
@@ -31,7 +32,6 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.internal.catalog.CatalogService;
@@ -100,13 +100,17 @@ class OutgoingSnapshotTxDataStreamingTest extends BaseIgniteAbstractTest {
 
         assertThat(response.txMeta(), hasSize(2));
 
-        assertThat(response.txMeta().get(0).txStateInt(), is(TxState.ABORTED));
-        assertThat(new ArrayList<>(response.txMeta().get(0).enlistedPartitions()), is(List.of(partition1Id)));
-        assertThat(response.txMeta().get(0).commitTimestamp(), is(meta1.commitTimestamp()));
+        TxMeta txMeta0 = response.txMeta().get(0).asTxMeta();
 
-        assertThat(response.txMeta().get(1).txStateInt(), is(TxState.COMMITTED));
-        assertThat(new ArrayList<>(response.txMeta().get(1).enlistedPartitions()), is(List.of(partition1Id, partition2Id)));
-        assertThat(response.txMeta().get(1).commitTimestamp(), is(meta2.commitTimestamp()));
+        assertThat(txMeta0.txState(), is(TxState.ABORTED));
+        assertThat(txMeta0.enlistedPartitions(), contains(partition1Id));
+        assertThat(txMeta0.commitTimestamp(), is(meta1.commitTimestamp()));
+
+        TxMeta txMeta1 = response.txMeta().get(1).asTxMeta();
+
+        assertThat(txMeta1.txState(), is(TxState.COMMITTED));
+        assertThat(txMeta1.enlistedPartitions(), contains(partition1Id, partition2Id));
+        assertThat(txMeta1.commitTimestamp(), is(meta2.commitTimestamp()));
     }
 
     private void configurePartitionAccessToHaveExactly(UUID txId1, TxMeta meta1, UUID txId2, TxMeta meta2) {
