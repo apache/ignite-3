@@ -41,6 +41,7 @@ public class ZonePartitionReplicaImpl implements Replica {
 
     private final ReplicaListener listener;
 
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-22624 await for the table replica listener if needed.
     private final Map<TablePartitionId, ReplicaListener> replicas = new ConcurrentHashMap<>();
 
     public ZonePartitionReplicaImpl(
@@ -64,6 +65,9 @@ public class ZonePartitionReplicaImpl implements Replica {
     @Override
     public CompletableFuture<ReplicaResult> processRequest(ReplicaRequest request, String senderId) {
         if (!(request instanceof TableAware)) {
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-22620 implement ReplicaSafeTimeSyncRequest processing.
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-22621 implement zone-based transaction storage
+            //  and txn messages processing
             LOG.info("Non table request is not supported by the zone partition yet " + request);
 
             return nullCompletedFuture();
