@@ -27,6 +27,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverReplicaMessage;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
+import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.TableAware;
 
@@ -38,12 +39,21 @@ public class ZonePartitionReplicaImpl implements Replica {
 
     private final ReplicationGroupId replicaGrpId;
 
-    private final Map<TablePartitionId, Replica> replicas = new ConcurrentHashMap<>();
+    private final ReplicaListener listener;
+
+    private final Map<TablePartitionId, ReplicaListener> replicas = new ConcurrentHashMap<>();
 
     public ZonePartitionReplicaImpl(
-            ReplicationGroupId replicaGrpId
+            ReplicationGroupId replicaGrpId,
+            ReplicaListener listener
     )  {
         this.replicaGrpId = replicaGrpId;
+        this.listener = listener;
+    }
+
+    @Override
+    public ReplicaListener listener() {
+        return listener;
     }
 
     @Override
@@ -73,7 +83,7 @@ public class ZonePartitionReplicaImpl implements Replica {
             }
 
             return replicas.get(new TablePartitionId(((TableAware) request).tableId(), partitionId))
-                    .processRequest(request, senderId);
+                    .invoke(request, senderId);
         }
     }
 
@@ -96,9 +106,9 @@ public class ZonePartitionReplicaImpl implements Replica {
      * Add table replica.
      *
      * @param partitionId Table partition id.
-     * @param replica Table replica.
+     * @param replicaListener Table replica listener.
      */
-    public void addReplica(TablePartitionId partitionId, Replica replica) {
-        replicas.put(partitionId, replica);
+    public void addTableReplicaListener(TablePartitionId partitionId, ReplicaListener replicaListener) {
+        replicas.put(partitionId, replicaListener);
     }
 }

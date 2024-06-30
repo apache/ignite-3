@@ -161,6 +161,7 @@ import org.apache.ignite.internal.replicator.ReplicaManager.WeakReplicaStopReaso
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionReplicaImpl;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaRegistry;
@@ -472,8 +473,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             RemotelyTriggeredResourceRegistry remotelyTriggeredResourceRegistry,
             LowWatermark lowWatermark,
             TransactionInflights transactionInflights,
-            IndexMetaStorage indexMetaStorage,
-            PartitionReplicaLifecycleManager partitionReplicaLifecycleManager
+            IndexMetaStorage indexMetaStorage
     ) {
         this.topologyService = topologyService;
         this.replicaMgr = replicaMgr;
@@ -500,7 +500,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         this.txCfg = txCfg;
         this.nodeName = nodeName;
         this.indexMetaStorage = indexMetaStorage;
-        this.partitionReplicaLifecycleManager = partitionReplicaLifecycleManager;
 
         this.executorInclinedSchemaSyncService = new ExecutorInclinedSchemaSyncService(schemaSyncService, partitionOperationsExecutor);
         this.executorInclinedPlacementDriver = new ExecutorInclinedPlacementDriver(placementDriver, partitionOperationsExecutor);
@@ -985,22 +984,25 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 Start table replica here must be removed,
                             // TODO: when the zone replica will be done.
                             return replicaMgr.startReplica(
-                                    raftGroupEventsListener,
-                                    raftGroupListener,
-                                    mvTableStorage.isVolatile(),
-                                    snapshotStorageFactory,
-                                    updateTableRaftService,
-                                    createListener,
-                                    storageIndexTracker,
-                                    replicaGrpId,
-                                    stablePeersAndLearners).thenCompose(r -> {
-                                return partitionReplicaLifecycleManager
-                                        .addTableReplica(
-                                                new ZonePartitionId(zoneId, partId),
-                                                new TablePartitionId(tableId, partId),
-                                                r)
-                                        .thenApply((ignored) -> true);
-                            });
+                                            raftGroupEventsListener,
+                                            raftGroupListener,
+                                            mvTableStorage.isVolatile(),
+                                            snapshotStorageFactory,
+                                            updateTableRaftService,
+                                            createListener,
+                                            storageIndexTracker,
+                                            replicaGrpId,
+                                            stablePeersAndLearners
+                                    ).thenApply(r -> {
+                                        if (PartitionReplicaLifecycleManager.ENABLED) {
+                                            replicaMgr.replica(new ZonePartitionId(zoneId, partId))
+                                                    .thenAccept(zoneReplica ->
+                                                            ((ZonePartitionReplicaImpl) zoneReplica).addTableReplicaListener(
+                                                                    new TablePartitionId(tableId, partId), r.listener()));
+                                        }
+
+                                        return true;
+                                    });
                         } catch (NodeStoppingException e) {
                             throw new AssertionError("Loza was stopped before Table manager", e);
                         }

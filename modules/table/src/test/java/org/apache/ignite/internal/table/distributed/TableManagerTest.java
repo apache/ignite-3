@@ -300,8 +300,6 @@ public class TableManagerTest extends IgniteAbstractTest {
             return stopOperation.get();
         });
 
-        when(partitionReplicaLifecycleManager.addTableReplica(any(), any(), any())).thenReturn(nullCompletedFuture());
-
         tblManagerFut = new CompletableFuture<>();
 
         mockMetastore();

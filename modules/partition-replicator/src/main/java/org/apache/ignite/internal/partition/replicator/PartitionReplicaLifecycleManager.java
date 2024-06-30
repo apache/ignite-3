@@ -71,12 +71,9 @@ import org.apache.ignite.internal.partition.replicator.snapshot.FailFastSnapshot
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
-import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
-import org.apache.ignite.internal.replicator.ZonePartitionReplicaImpl;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -203,6 +200,7 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
         try {
             return replicaMgr.startReplica(
                     replicaGrpId,
+                    new ZonePartitionReplicaListener(),
                     new FailFastSnapshotStorageFactory(),
                     realConfiguration,
                     raftGroupListener,
@@ -229,24 +227,6 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
         busyLock.block();
 
         cleanUpPartitionsResources(replicationGroupIds);
-    }
-
-    /**
-     * Add table replica to the aggregated zone replica.
-     *
-     * @param zonePartitionId Zone partition id.
-     * @param replicationGroupId Table partition id.
-     * @param replica Table replica
-     * @return Future, which will be completed when operation done
-     */
-    public CompletableFuture<Void> addTableReplica(ZonePartitionId zonePartitionId, TablePartitionId replicationGroupId, Replica replica) {
-        if (!ENABLED) {
-            return nullCompletedFuture();
-        }
-
-        return replicaMgr
-                .replica(zonePartitionId)
-                .thenAccept(r -> ((ZonePartitionReplicaImpl) r).addReplica(replicationGroupId, replica));
     }
 
     /**

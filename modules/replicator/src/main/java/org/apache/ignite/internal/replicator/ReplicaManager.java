@@ -656,6 +656,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      */
     public CompletableFuture<Replica> startReplica(
             ReplicationGroupId replicaGrpId,
+            ReplicaListener listener,
             SnapshotStorageFactory snapshotStorageFactory,
             PeersAndLearners newConfiguration,
             RaftGroupListener raftGroupListener,
@@ -678,7 +679,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         LOG.info("Replica is about to start [replicationGroupId={}].", replicaGrpId);
 
         Replica newReplica = new ZonePartitionReplicaImpl(
-                replicaGrpId
+                replicaGrpId,
+                listener
         );
 
         CompletableFuture<Replica> replicaFuture = replicas.compute(replicaGrpId, (k, existingReplicaFuture) -> {
