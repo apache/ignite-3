@@ -641,15 +641,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 resourcesRegistry,
                 lowWatermark,
                 transactionInflights,
-                indexMetaStorage,
-                new PartitionReplicaLifecycleManager(
-                        catalogManager,
-                        replicaMgr,
-                        distributionZoneManager,
-                        metaStorageMgr,
-                        clusterSvc.topologyService(),
-                        threadPoolsManager.tableIoExecutor()
-                )
+                indexMetaStorage
         );
 
         var indexManager = new IndexManager(

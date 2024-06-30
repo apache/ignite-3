@@ -439,7 +439,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param lowWatermark Low watermark.
      * @param transactionInflights Transaction inflights.
      * @param indexMetaStorage Index meta storage.
-     * @param partitionReplicaLifecycleManager Partition replica lifecycle manager
      */
     public TableManager(
             String nodeName,

@@ -1289,15 +1289,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     resourcesRegistry,
                     lowWatermark,
                     transactionInflights,
-                    indexMetaStorage,
-                    new PartitionReplicaLifecycleManager(
-                            catalogManager,
-                            replicaManager,
-                            distributionZoneManager,
-                            metaStorageManager,
-                            clusterService.topologyService(),
-                            threadPoolsManager.tableIoExecutor()
-                    )
+                    indexMetaStorage
             ) {
                 @Override
                 protected TxStateTableStorage createTxStateTableStorage(
