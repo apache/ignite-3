@@ -356,7 +356,8 @@ public class ItFunctionsTest extends BaseSqlIntegrationTest {
         assertQuery("SELECT TYPEOF('abcd' || COALESCE('efg', ?))").withParams("2").returns("VARCHAR").check();
 
         // An expression that produces an error
-        assertThrowsSqlException(Sql.STMT_PARSE_ERR, "", () -> sql("SELECT typeof(CAST('NONE' as INTEGER))"));
+        assertThrowsSqlException(Sql.RUNTIME_ERR, "Invalid input syntax for type INTEGER: \"NONE\"",
+                () -> sql("SELECT typeof(CAST('NONE' as INTEGER))"));
 
         assertThrowsWithCause(() -> sql("SELECT TYPEOF()"), SqlValidatorException.class, "Invalid number of arguments");
 

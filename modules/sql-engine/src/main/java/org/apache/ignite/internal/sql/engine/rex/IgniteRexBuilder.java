@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine.rex;
 
+import static org.apache.calcite.sql.type.SqlTypeName.BIGINT;
+
+import java.math.BigInteger;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rex.RexBuilder;
@@ -43,6 +46,16 @@ public class IgniteRexBuilder extends RexBuilder {
     /** {@inheritDoc} **/
     @Override
     public RexNode makeLiteral(@Nullable Object value, RelDataType type, boolean allowCast, boolean trim) {
+        if (value != null && type.getSqlTypeName() == BIGINT && value instanceof BigInteger) {
+            BigInteger bd = (BigInteger) value;
+
+            try {
+                bd.longValueExact();
+            } catch (ArithmeticException e) {
+                throw new ArithmeticException(BIGINT.getName() + " out of range");
+            }
+        }
+
         // We need to override this method because otherwise
         // default implementation will call RexBuilder::guessType(@Nullable Object value)
         // for a custom data type which will then raise the following assertion:
