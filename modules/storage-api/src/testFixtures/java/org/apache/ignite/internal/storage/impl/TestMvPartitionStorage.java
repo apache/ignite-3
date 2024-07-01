@@ -333,7 +333,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
-    public ReadResult read(RowId rowId, @Nullable HybridTimestamp timestamp) {
+    public ReadResult read(RowId rowId, HybridTimestamp timestamp) {
         checkStorageClosedOrInProcessOfRebalance();
 
         if (rowId.partitionId() != partitionId) {
@@ -618,13 +618,6 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         }
 
         return versionChainToRemove.row;
-    }
-
-    @Override
-    public long rowsCount() {
-        checkStorageClosedOrInProcessOfRebalance();
-
-        return map.size();
     }
 
     @Override
