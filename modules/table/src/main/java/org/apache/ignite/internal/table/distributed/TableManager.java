@@ -1872,10 +1872,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     assert replicaMgr.isReplicaStarted(replicaGrpId) : "The local node is outside of the replication group";
 
                     replicaMgr.resetPeers(replicaGrpId, fromAssignments(computedStableAssignments.nodes()));
+                } else if (pendingAssignmentsAreForced && localMemberAssignment == null) {
+                    assert !replicaMgr.isReplicaStarted(replicaGrpId)
+                            : "The local node is inside of the replication group";
                 }
-
-                assert localMemberAssignment == null && replicaMgr.isReplicaStarted(replicaGrpId)
-                        : "The local node is inside of the replication group";
             }, ioExecutor);
         }
 
