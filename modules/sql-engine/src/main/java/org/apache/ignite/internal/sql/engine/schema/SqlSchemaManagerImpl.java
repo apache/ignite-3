@@ -405,4 +405,9 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                 parititions
         );
     }
+
+    @Override
+    public boolean isActualSchemaVersion(int catalogVersion, long timestamp) {
+        return catalogManager.activeCatalogVersion(timestamp) == catalogVersion;
+    }
 }

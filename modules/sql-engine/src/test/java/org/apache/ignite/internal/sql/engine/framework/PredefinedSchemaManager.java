@@ -95,4 +95,9 @@ public class PredefinedSchemaManager implements SqlSchemaManager {
 
         return table;
     }
+
+    @Override
+    public boolean isActualSchemaVersion(int catalogVersion, long timestamp) {
+        return true;
+    }
 }

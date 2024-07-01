@@ -64,7 +64,6 @@ public class QueryRetryTest extends BaseIgniteAbstractTest {
         assertThrows(ConcurrentSchemaModificationException.class, () -> node.executePlan(plan), null);
     }
 
-
     @Test
     void testLookupQuery() throws Exception {
         TestNode node = cluster.node("N1");
@@ -78,5 +77,4 @@ public class QueryRetryTest extends BaseIgniteAbstractTest {
 
         assertThrows(ConcurrentSchemaModificationException.class, () -> node.executePlan(plan).requestNextAsync(10).get(), null);
     }
-
 }
