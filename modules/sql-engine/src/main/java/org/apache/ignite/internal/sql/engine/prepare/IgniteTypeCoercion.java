@@ -23,6 +23,7 @@ import static org.apache.calcite.sql.type.NonNullableAccessors.getCollation;
 import static org.apache.calcite.sql.type.SqlTypeName.CHAR_TYPES;
 import static org.apache.calcite.sql.type.SqlTypeName.VARCHAR;
 import static org.apache.calcite.util.Static.RESOURCE;
+import static org.apache.ignite.internal.sql.engine.prepare.IgniteSqlValidator.checkStringContainDigitsOnly;
 
 import java.nio.charset.Charset;
 import java.util.ArrayDeque;
@@ -37,6 +38,7 @@ import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeFactoryImpl;
 import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlCallBinding;
+import org.apache.calcite.sql.SqlCharStringLiteral;
 import org.apache.calcite.sql.SqlCollation;
 import org.apache.calcite.sql.SqlDataTypeSpec;
 import org.apache.calcite.sql.SqlDynamicParam;
@@ -44,8 +46,10 @@ import org.apache.calcite.sql.SqlFunction;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlInsert;
 import org.apache.calcite.sql.SqlKind;
+import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
+import org.apache.calcite.sql.SqlNumericLiteral;
 import org.apache.calcite.sql.SqlOperator;
 import org.apache.calcite.sql.SqlSelect;
 import org.apache.calcite.sql.SqlUpdate;
@@ -91,6 +95,40 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
         }
     }
 
+    /** Extracts literal from CAST or COMPARISON operations if applicable. */
+    static @Nullable SqlLiteral extractLiteral(SqlCall call, SqlValidator validator) {
+        if (call.getOperator().getKind() == SqlKind.CAST) {
+            return extractLiteralFromCast(call, validator);
+        }
+
+        if (SqlKind.BINARY_COMPARISON.contains(call.getOperator().getKind()) && call.getOperandList().size() == 2) {
+            for (SqlNode node : call.getOperandList()) {
+                if (node instanceof SqlCharStringLiteral) {
+                    return (SqlCharStringLiteral) node;
+                } else if (node.getKind() == SqlKind.CAST) {
+                    return extractLiteralFromCast((SqlCall) node, validator);
+                }
+            }
+        }
+
+        return null;
+    }
+
+    static @Nullable SqlLiteral extractLiteralFromCast(SqlCall call, SqlValidator validator) {
+        if (call.getOperator().getKind() == SqlKind.CAST) {
+            SqlNode lit = call.getOperandList().get(0);
+            SqlDataTypeSpec type = (SqlDataTypeSpec) call.getOperandList().get(1);
+            RelDataType derived = type.deriveType(validator);
+            if (lit instanceof SqlNumericLiteral && SqlTypeUtil.isCharacter(derived)) {
+                return (SqlNumericLiteral) lit;
+            } else {
+                return null;
+            }
+        }
+
+        return null;
+    }
+
     private boolean doBinaryComparisonCoercion(SqlCallBinding binding) {
         // Although it is not reflected in the docs, this method is also invoked for MAX, MIN (and other similar operators)
         // by ComparableOperandTypeChecker. When that is the case, fallback to default rules.
@@ -102,6 +140,17 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
         SqlValidatorScope scope = binding.getScope();
         RelDataType leftType = binding.getOperandType(0);
         RelDataType rightType = binding.getOperandType(1);
+
+        if (SqlTypeUtil.isIntType(leftType) && SqlTypeUtil.isCharacter(rightType)
+                || SqlTypeUtil.isIntType(rightType) && SqlTypeUtil.isCharacter(leftType)) {
+
+            SqlLiteral lit = extractLiteral(call, validator);
+
+            if (lit != null) {
+                String strVal = lit.toValue();
+                checkStringContainDigitsOnly(strVal, binding.getCall().getParserPosition());
+            }
+        }
 
         //
         // binaryComparisonCoercion that makes '1' > 1 work, may introduce some inconsistent results
