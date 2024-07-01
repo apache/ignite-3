@@ -48,6 +48,6 @@ public interface FinishTxCommand extends PartitionCommand {
         return nullableHybridTimestamp(commitTimestampLong());
     }
 
-    /** Returns an ordered replication groups IDs. */
+    /** Returns ordered replication groups IDs. */
     List<TablePartitionIdMessage> partitionIds();
 }

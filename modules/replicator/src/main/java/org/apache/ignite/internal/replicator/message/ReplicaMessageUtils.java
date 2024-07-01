@@ -26,7 +26,7 @@ public class ReplicaMessageUtils {
      * Converts to a network message.
      *
      * @param messagesFactory Messages factory.
-     * @param tablePartitionId Table replication group ID or a given partition.
+     * @param tablePartitionId Table replication group ID for a given partition.
      * @return New instance of network message.
      */
     public static TablePartitionIdMessage toTablePartitionIdMessage(
