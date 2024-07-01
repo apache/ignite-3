@@ -261,17 +261,6 @@ public interface MvPartitionStorage extends ManuallyCloseable {
     @Nullable BinaryRow vacuum(GcEntry entry);
 
     /**
-     * Returns rows count belongs to current storage.
-     *
-     * @return Rows count.
-     * @throws StorageException If failed to obtain size.
-     * @deprecated It's not yet defined what a "count" is. This value is not easily defined for multi-versioned storages.
-     *      TODO IGNITE-16769 Implement correct PartitionStorage rows count calculation.
-     */
-    @Deprecated
-    long rowsCount() throws StorageException;
-
-    /**
      * Updates the current lease start time in the storage.
      *
      * @param leaseStartTime Lease start time.

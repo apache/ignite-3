@@ -34,10 +34,12 @@ import java.util.function.Consumer;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.index.message.IndexMessagesFactory;
 import org.apache.ignite.internal.index.message.IsNodeFinishedRwTransactionsStartedBeforeResponse;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.impl.schema.TestProfileConfigurationSchema;
@@ -228,15 +230,22 @@ public class ItIndexNodeFinishedRwTransactionsCheckerTest extends ClusterPerClas
             InternalTable table = tableImpl().internalTable();
 
             return IntStream.range(0, table.partitions())
-                    .mapToLong(partitionId -> table.storage().getMvPartition(partitionId).rowsCount())
+                    .mapToObj(table.storage()::getMvPartition)
+                    .mapToLong(ItIndexNodeFinishedRwTransactionsCheckerTest::partitionSize)
                     .toArray();
         });
     }
 
-    private static int differences(long[] partitionSizes0, long[] partitionsSizes1) {
+    private static long partitionSize(MvPartitionStorage partitionStorage) {
+        try (PartitionTimestampCursor cursor = partitionStorage.scan(HybridTimestamp.MAX_VALUE)) {
+            return cursor.stream().count();
+        }
+    }
+
+    private static long differences(long[] partitionSizes0, long[] partitionsSizes1) {
         assertEquals(partitionSizes0.length, partitionsSizes1.length);
 
-        return (int) IntStream.range(0, partitionSizes0.length)
+        return IntStream.range(0, partitionSizes0.length)
                 .filter(i -> partitionSizes0[i] != partitionsSizes1[i])
                 .count();
     }

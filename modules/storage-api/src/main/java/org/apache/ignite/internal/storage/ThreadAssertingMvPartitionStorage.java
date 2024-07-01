@@ -155,13 +155,6 @@ public class ThreadAssertingMvPartitionStorage implements MvPartitionStorage, Wr
     }
 
     @Override
-    public long rowsCount() throws StorageException {
-        assertThreadAllowsToRead();
-
-        return partitionStorage.rowsCount();
-    }
-
-    @Override
     public void updateLease(long leaseStartTime) {
         assertThreadAllowsToWrite();
 
