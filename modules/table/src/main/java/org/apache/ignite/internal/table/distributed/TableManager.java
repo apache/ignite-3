@@ -413,8 +413,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private final IndexMetaStorage indexMetaStorage;
 
-    private PartitionReplicaLifecycleManager partitionReplicaLifecycleManager;
-
     /**
      * Creates a new table manager.
      *
