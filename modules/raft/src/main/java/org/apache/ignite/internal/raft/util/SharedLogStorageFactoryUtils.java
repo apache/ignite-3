@@ -38,6 +38,11 @@ public class SharedLogStorageFactoryUtils {
     public static final String LOGIT_STORAGE_ENABLED_PROPERTY = "LOGIT_STORAGE_ENABLED";
 
     /** Creates a LogStorageFactory with the {@link DefaultLogStorageFactory} implementation. */
+    public static LogStorageFactory create(String nodeName, Supplier<Path> logStoragePath) {
+        return create(nodeName, logStoragePath, DefaultLogStorageFactory::new);
+    }
+
+    /** Creates a LogStorageFactory with the {@link DefaultLogStorageFactory} implementation. */
     public static LogStorageFactory create(String nodeName, Path workDir, RaftConfiguration raftConfiguration) {
         Supplier<Path> logStoragePath = () ->
                 pathOrDefault(raftConfiguration.logPath(), () -> workDir.resolve("log"));

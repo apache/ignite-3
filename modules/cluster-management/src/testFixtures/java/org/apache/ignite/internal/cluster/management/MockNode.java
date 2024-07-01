@@ -102,7 +102,7 @@ public class MockNode {
 
         var raftManager = TestLozaFactory.create(clusterService, raftConfiguration, this.workDir, new HybridClockImpl());
 
-        var clusterStateStorage = new RocksDbClusterStateStorage(this.workDir.resolve("cmg"), clusterService.nodeName());
+        var clusterStateStorage = new RocksDbClusterStateStorage(() -> this.workDir.resolve("cmg"), clusterService.nodeName());
 
         FailureProcessor failureProcessor = new NoOpFailureProcessor();
 

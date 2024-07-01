@@ -34,6 +34,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -63,7 +64,7 @@ public class RocksDbClusterStateStorage implements ClusterStateStorage {
     private final ExecutorService snapshotExecutor;
 
     /** Path to the rocksdb database. */
-    private final Path dbPath;
+    private final Supplier<Path> dbPath;
 
     /** RockDB options. */
     private final Options options = new Options().setCreateIfMissing(true);
@@ -89,7 +90,7 @@ public class RocksDbClusterStateStorage implements ClusterStateStorage {
      * @param dbPath Path to the database.
      * @param nodeName Ignite node name.
      */
-    public RocksDbClusterStateStorage(Path dbPath, String nodeName) {
+    public RocksDbClusterStateStorage(Supplier<Path> dbPath, String nodeName) {
         this.dbPath = dbPath;
         this.snapshotExecutor = Executors.newSingleThreadExecutor(
                 NamedThreadFactory.create(nodeName, "cluster-state-snapshot-executor", LOG)
@@ -101,7 +102,7 @@ public class RocksDbClusterStateStorage implements ClusterStateStorage {
         return inBusyLockAsync(busyLock, () -> {
             try {
                 // Delete existing data, relying on log playback.
-                RocksDB.destroyDB(dbPath.toString(), options);
+                RocksDB.destroyDB(dbPath.get().toString(), options);
 
                 init();
 
@@ -114,7 +115,7 @@ public class RocksDbClusterStateStorage implements ClusterStateStorage {
 
     private void init() {
         try {
-            RocksDB db = RocksDB.open(options, dbPath.toString());
+            RocksDB db = RocksDB.open(options, dbPath.get().toString());
 
             ColumnFamily defaultCf = ColumnFamily.wrap(db, db.getDefaultColumnFamily());
 
@@ -232,7 +233,7 @@ public class RocksDbClusterStateStorage implements ClusterStateStorage {
                 db = null;
 
                 try {
-                    RocksDB.destroyDB(dbPath.toString(), options);
+                    RocksDB.destroyDB(dbPath.get().toString(), options);
                 } catch (RocksDBException e) {
                     throw new CmgStorageException("Unable to stop the RocksDB instance", e);
                 }

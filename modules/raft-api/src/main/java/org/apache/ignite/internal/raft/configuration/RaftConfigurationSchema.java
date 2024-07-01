@@ -94,13 +94,21 @@ public class RaftConfigurationSchema {
 
     /** Directory where CMG log is stored. By default "log" subfolder of CMG storage path is used. */
     @Value(hasDefault = true)
-    public String cmgLogPath = "log";
+    public String cmgLogPath = "";
 
-    /** Directory where Metastore data is stored. By default "metastore" subfolder of data storage path is used. */
+    /** Directory where CMG db is stored. By default "db" subfolder of CMG storage path is used. */
     @Value(hasDefault = true)
-    public String metastorePath = "metastore";
+    public String cmgDbPath = "";
 
-    /** Directory where log is stored. By default "log" subfolder of Metastore storage path is used. */
+    /** Directory where Metastorage data is stored. By default "metastorage" subfolder of data storage path is used. */
     @Value(hasDefault = true)
-    public String metastoreLogPath = "log";
+    public String metastoragePath = "metastorage";
+
+    /** Directory where Metastorage db is stored. By default "log" subfolder of Metastorage storage path is used. */
+    @Value(hasDefault = true)
+    public String metastorageDbPath = "";
+
+    /** Directory where Metastorage log is stored. By default "log" subfolder of Metastorage storage path is used. */
+    @Value(hasDefault = true)
+    public String metastorageLogPath = "log";
 }

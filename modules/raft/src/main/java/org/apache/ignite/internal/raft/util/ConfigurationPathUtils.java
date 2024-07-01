@@ -41,4 +41,8 @@ public class ConfigurationPathUtils {
     public static Path pathOrDefault(ConfigurationValue<String> value, Supplier<Path> defaultPathSupplier) {
         return pathOrDefault(value.value(), defaultPathSupplier);
     }
+
+    public static Supplier<Path> pathOrDefaultSupplier(ConfigurationValue<String> value, Supplier<Path> defaultPathSupplier) {
+        return () -> pathOrDefault(value, defaultPathSupplier);
+    }
 }

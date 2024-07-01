@@ -361,7 +361,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 raftGroupEventsClientListener
         );
 
-        var clusterStateStorage = new RocksDbClusterStateStorage(dir.resolve("cmg"), name);
+        var clusterStateStorage = new RocksDbClusterStateStorage(() -> dir.resolve("cmg"), name);
 
         var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 

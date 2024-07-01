@@ -65,6 +65,7 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.LongConsumer;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -160,7 +161,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     private final ExecutorService snapshotExecutor;
 
     /** Path to the rocksdb database. */
-    private final Path dbPath;
+    private final Supplier<Path> dbPath;
 
     /** RockDB options. */
     private volatile DBOptions options;
@@ -244,12 +245,22 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
      * @param nodeName Node name.
      * @param dbPath RocksDB path.
      */
-    public RocksDbKeyValueStorage(String nodeName, Path dbPath, FailureProcessor failureProcessor) {
+    public RocksDbKeyValueStorage(String nodeName, Supplier<Path> dbPath, FailureProcessor failureProcessor) {
         this.dbPath = dbPath;
 
         this.watchProcessor = new WatchProcessor(nodeName, this::get, failureProcessor);
 
         this.snapshotExecutor = Executors.newFixedThreadPool(2, NamedThreadFactory.create(nodeName, "metastorage-snapshot-executor", LOG));
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param nodeName Node name.
+     * @param dbPath RocksDB path.
+     */
+    public RocksDbKeyValueStorage(String nodeName, Path dbPath, FailureProcessor failureProcessor) {
+        this(nodeName, () -> dbPath, failureProcessor);
     }
 
     @Override
@@ -327,7 +338,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
         options = createDbOptions();
 
-        db = RocksDB.open(options, dbPath.toAbsolutePath().toString(), descriptors, handles);
+        db = RocksDB.open(options, dbPath.get().toAbsolutePath().toString(), descriptors, handles);
         rocksResources.add(db);
         rocksResources.addAll(handles);
 
@@ -369,9 +380,11 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
      */
     protected void destroyRocksDb() throws IOException {
         // For unknown reasons, RocksDB#destroyDB(String, Options) throws RocksDBException with ".../LOCK: No such file or directory".
-        IgniteUtils.deleteIfExists(dbPath);
+        Path path = dbPath.get();
 
-        Files.createDirectories(dbPath);
+        IgniteUtils.deleteIfExists(path);
+
+        Files.createDirectories(path);
     }
 
     @Override
@@ -1555,7 +1568,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
     @TestOnly
     public Path getDbPath() {
-        return dbPath;
+        return dbPath.get();
     }
 
     private static class UpdatedEntries {
