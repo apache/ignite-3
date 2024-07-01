@@ -17,13 +17,8 @@
 
 package org.apache.ignite.internal.partition.replicator.network;
 
-import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
-
-import java.util.ArrayList;
 import org.apache.ignite.internal.partition.replicator.network.command.TablePartitionIdMessage;
-import org.apache.ignite.internal.partition.replicator.network.raft.TxMetaMessage;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.tx.TxMeta;
 
 /** Class that can contain useful constants and methods for working with messages from {@link PartitionReplicationMessageGroup}. */
 public class PartitionReplicationMessageUtils {
@@ -41,30 +36,6 @@ public class PartitionReplicationMessageUtils {
         return messagesFactory.tablePartitionIdMessage()
                 .tableId(tablePartitionId.tableId())
                 .partitionId(tablePartitionId.partitionId())
-                .build();
-    }
-
-    /**
-     * Converts to a network message.
-     *
-     * @param messagesFactory Messages factory.
-     * @param txMeta Transaction meta.
-     * @return New instance of network message.
-     */
-    public static TxMetaMessage toTxMetaMessage(
-            PartitionReplicationMessagesFactory messagesFactory,
-            TxMeta txMeta
-    ) {
-        var enlistedPartitionMessages = new ArrayList<TablePartitionIdMessage>(txMeta.enlistedPartitions().size());
-
-        for (TablePartitionId enlistedPartition : txMeta.enlistedPartitions()) {
-            enlistedPartitionMessages.add(toTablePartitionIdMessage(messagesFactory, enlistedPartition));
-        }
-
-        return messagesFactory.txMetaMessage()
-                .txStateInt(txMeta.txState().ordinal())
-                .commitTimestampLong(hybridTimestampToLong(txMeta.commitTimestamp()))
-                .enlistedPartitions(enlistedPartitionMessages)
                 .build();
     }
 }

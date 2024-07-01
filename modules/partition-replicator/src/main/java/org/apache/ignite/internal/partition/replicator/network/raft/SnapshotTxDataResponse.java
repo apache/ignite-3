@@ -22,6 +22,7 @@ import java.util.UUID;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
+import org.apache.ignite.internal.tx.message.TxMetaMessage;
 
 /**
  * Snapshot TX state partition data response message.
