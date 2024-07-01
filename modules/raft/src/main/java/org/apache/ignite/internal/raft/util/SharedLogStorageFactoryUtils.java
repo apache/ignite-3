@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.raft.util;
 
+import static org.apache.ignite.internal.raft.util.ConfigurationPathUtils.pathOrDefault;
+
 import java.nio.file.Path;
 import java.util.function.BiFunction;
 import java.util.function.Supplier;
@@ -37,9 +39,8 @@ public class SharedLogStorageFactoryUtils {
 
     /** Creates a LogStorageFactory with the {@link DefaultLogStorageFactory} implementation. */
     public static LogStorageFactory create(String nodeName, Path workDir, RaftConfiguration raftConfiguration) {
-        Supplier<Path> logStoragePath = () -> raftConfiguration.logPath().value().isEmpty()
-                ? workDir.resolve("log")
-                : Path.of(raftConfiguration.logPath().value());
+        Supplier<Path> logStoragePath = () ->
+                pathOrDefault(raftConfiguration.logPath(), () -> workDir.resolve("log"));
 
         return create(nodeName, logStoragePath, DefaultLogStorageFactory::new);
     }

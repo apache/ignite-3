@@ -20,6 +20,7 @@ package org.apache.ignite.internal.app;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.REBALANCE_SCHEDULER_POOL_SIZE;
+import static org.apache.ignite.internal.raft.util.ConfigurationPathUtils.pathOrDefault;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -508,13 +509,16 @@ public class IgniteImpl implements Ignite {
         // TODO https://issues.apache.org/jira/browse/IGNITE-19051
         RaftGroupEventsClientListener raftGroupEventsClientListener = new RaftGroupEventsClientListener();
 
-        Path msRaftWorkDir = workDir.resolve("ms_raft");
+        // TODO: IGNITE-16841 - use common RocksDB instance to store cluster state as well.
+        Path cmgWorkDir = pathOrDefault(raftConfiguration.cmgPath(), () -> workDir.resolve(CMG_DB_PATH));
 
-        Path cmgRaftWorkDir = workDir.resolve("cmg_raft");
+        Path cmgRaftWorkDir = pathOrDefault(raftConfiguration.cmgLogPath(), () -> cmgWorkDir.resolve("log"));
 
-        Path nodeRaftWorkDir = workDir.resolve("node_raft");
+        Path metastoreWorkDir = pathOrDefault(raftConfiguration.metastorePath(), () -> cmgWorkDir.resolve("metastore"));
 
-        logStorageFactory = SharedLogStorageFactoryUtils.create(clusterSvc.nodeName(), nodeRaftWorkDir, raftConfiguration);
+        Path msRaftWorkDir = pathOrDefault(raftConfiguration.metastoreLogPath(), () -> cmgWorkDir.resolve("log"));
+
+        logStorageFactory = SharedLogStorageFactoryUtils.create(clusterSvc.nodeName(), workDir, raftConfiguration);
 
         mslogStorageFactory =
                 SharedLogStorageFactoryUtils.create(clusterSvc.nodeName(), msRaftWorkDir, raftConfiguration);
@@ -540,8 +544,7 @@ public class IgniteImpl implements Ignite {
                 message -> threadPoolsManager.partitionOperationsExecutor()
         );
 
-        // TODO: IGNITE-16841 - use common RocksDB instance to store cluster state as well.
-        clusterStateStorage = new RocksDbClusterStateStorage(workDir.resolve(CMG_DB_PATH), name);
+        clusterStateStorage = new RocksDbClusterStateStorage(cmgWorkDir, name);
 
         var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
@@ -577,7 +580,7 @@ public class IgniteImpl implements Ignite {
             RaftGroupOptions raftOptions = (RaftGroupOptions) options;
 
             raftOptions.setLogStorageFactory(cmgLogStorageFactory);
-            raftOptions.serverDataPath(cmgRaftWorkDir.resolve("path-cmg"));
+            raftOptions.serverDataPath(cmgWorkDir);
         };
 
         cmgMgr = new ClusterManagementGroupManager(
@@ -608,7 +611,7 @@ public class IgniteImpl implements Ignite {
             RaftGroupOptions raftOptions = (RaftGroupOptions) options;
 
             raftOptions.setLogStorageFactory(mslogStorageFactory);
-            raftOptions.serverDataPath(msRaftWorkDir.resolve("path-ms"));
+            raftOptions.serverDataPath(metastoreWorkDir);
         };
 
         metaStorageMgr = new MetaStorageManagerImpl(
