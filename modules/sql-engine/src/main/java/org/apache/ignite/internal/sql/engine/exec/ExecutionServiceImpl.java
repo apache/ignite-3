@@ -320,6 +320,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         QueryTransactionWrapper txWrapper = txContext.getOrStartImplicit(plan.type() != SqlQueryType.DML);
 
+        assert sqlSchemaManager.schema(plan.catalogVersion()) == sqlSchemaManager.schema(txWrapper.unwrap().startTimestamp().longValue());
+
         AsyncCursor<InternalSqlRow> dataCursor = queryManager.execute(txWrapper.unwrap(), plan);
 
         PrefetchCallback prefetchCallback = operationContext.prefetchCallback();

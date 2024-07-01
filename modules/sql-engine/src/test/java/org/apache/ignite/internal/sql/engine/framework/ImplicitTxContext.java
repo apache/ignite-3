@@ -48,7 +48,9 @@ public class ImplicitTxContext implements QueryTransactionContext {
 
     @Override
     public QueryTransactionWrapper getOrStartImplicit(boolean readOnly) {
-        return new QueryTransactionWrapperImpl(new NoOpTransaction("dummy"), true, TX_INFLIGHTS);
+        HybridTimestamp ts = observableTimeTracker.get();
+
+        return new QueryTransactionWrapperImpl(new NoOpTransaction("dummy", true, ts), true, TX_INFLIGHTS);
     }
 
     @Override

@@ -37,7 +37,7 @@ public final class NoOpTransaction implements InternalTransaction {
 
     private final UUID id = UUID.randomUUID();
 
-    private final HybridTimestamp hybridTimestamp = new HybridTimestamp(1, 1);
+    private final HybridTimestamp hybridTimestamp;
 
     private final IgniteBiTuple<ClusterNode, Long> tuple;
 
@@ -75,8 +75,19 @@ public final class NoOpTransaction implements InternalTransaction {
      * @param readOnly Read-only or not.
      */
     private NoOpTransaction(String name, boolean readOnly) {
+        this(name, readOnly,  new HybridTimestamp(1, 1));
+    }
+
+    /**
+     * Constructs a transaction.
+     *
+     * @param name Name of the node.
+     * @param readOnly Read-only or not.
+     */
+    NoOpTransaction(String name, boolean readOnly, HybridTimestamp timestamp) {
         var networkAddress = NetworkAddress.from(new InetSocketAddress("localhost", 1234));
         this.tuple = new IgniteBiTuple<>(new ClusterNodeImpl(name, name, networkAddress), 1L);
+        this.hybridTimestamp = timestamp;
         this.readOnly = readOnly;
     }
 
