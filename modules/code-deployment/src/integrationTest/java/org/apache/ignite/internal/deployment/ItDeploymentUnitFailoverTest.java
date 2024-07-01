@@ -24,7 +24,7 @@ import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.util.List;
-import org.apache.ignite.compute.version.Version;
+import org.apache.ignite.deployment.version.Version;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.deployunit.IgniteDeployment;

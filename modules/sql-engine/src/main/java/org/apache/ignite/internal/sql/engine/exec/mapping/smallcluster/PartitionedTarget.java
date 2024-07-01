@@ -42,12 +42,7 @@ class PartitionedTarget extends AbstractTarget {
     }
 
     @Override
-    boolean finalised() {
-        return finalised;
-    }
-
-    @Override
-    public ExecutionTarget finalise() {
+    ExecutionTarget finalise() {
         if (finalised) {
             return this;
         }

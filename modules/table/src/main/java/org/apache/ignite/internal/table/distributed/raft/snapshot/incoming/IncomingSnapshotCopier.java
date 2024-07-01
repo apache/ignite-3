@@ -413,7 +413,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
                     try {
                         partitionSnapshotStorage.partition().addTxMeta(
                                 snapshotTxDataResponse.txIds().get(i),
-                                snapshotTxDataResponse.txMeta().get(i)
+                                snapshotTxDataResponse.txMeta().get(i).asTxMeta()
                         );
                     } finally {
                         busyLock.leaveBusy();

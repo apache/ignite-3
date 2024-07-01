@@ -36,7 +36,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.table.TableViewInternal;
@@ -59,7 +59,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 /**
  * There is a test of table schema synchronization.
  */
-@ExtendWith({WorkDirectoryExtension.class})
+@ExtendWith(WorkDirectoryExtension.class)
 public class ItDataSchemaSyncTest extends IgniteAbstractTest {
     public static final String TABLE_NAME = "tbl1";
 
@@ -98,6 +98,8 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
                     + "}"
     );
 
+    private List<IgniteServer> nodes;
+
     private final List<Ignite> clusterNodes = new ArrayList<>();
 
     /**
@@ -105,15 +107,14 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
      */
     @BeforeEach
     void beforeEach() {
-        List<CompletableFuture<Ignite>> futures = nodesBootstrapCfg.entrySet().stream()
+        nodes = nodesBootstrapCfg.entrySet().stream()
                 .map(e -> TestIgnitionManager.start(e.getKey(), e.getValue(), workDir.resolve(e.getKey())))
                 .collect(toList());
 
-        String metaStorageNode = nodesBootstrapCfg.keySet().iterator().next();
+        IgniteServer metaStorageNode = nodes.get(0);
 
         InitParameters initParameters = InitParameters.builder()
-                .destinationNodeName(metaStorageNode)
-                .metaStorageNodeNames(List.of(metaStorageNode))
+                .metaStorageNodes(metaStorageNode)
                 .clusterName("cluster")
                 .clusterConfiguration("{\n"
                         + "  \"replication\": {\n"
@@ -123,12 +124,12 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
                 )
                 .build();
 
-        TestIgnitionManager.init(initParameters);
+        TestIgnitionManager.init(metaStorageNode, initParameters);
 
-        for (CompletableFuture<Ignite> future : futures) {
-            assertThat(future, willCompleteSuccessfully());
+        for (IgniteServer node : nodes) {
+            assertThat(node.waitForInitAsync(), willCompleteSuccessfully());
 
-            clusterNodes.add(future.join());
+            clusterNodes.add(node.api());
         }
     }
 
@@ -137,11 +138,7 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
      */
     @AfterEach
     void afterEach() throws Exception {
-        List<AutoCloseable> closeables = nodesBootstrapCfg.keySet().stream()
-                .map(name -> (AutoCloseable) () -> IgnitionManager.stop(name))
-                .collect(toList());
-
-        IgniteUtils.closeAll(closeables);
+        IgniteUtils.closeAll(nodes.stream().map(node -> node::shutdown));
     }
 
     /**
@@ -150,6 +147,7 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
     @Test
     public void checkSchemasCorrectUpdate() throws Exception {
         Ignite ignite0 = clusterNodes.get(0);
+        IgniteServer node1 = nodes.get(1);
         IgniteImpl ignite1 = (IgniteImpl) clusterNodes.get(1);
         IgniteImpl ignite2 = (IgniteImpl) clusterNodes.get(2);
 
@@ -173,20 +171,19 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
         // Should not receive the table because we are waiting for the synchronization of schemas.
         assertThat(ignite1.tables().tableAsync(TABLE_NAME), willTimeoutFast());
 
-        String nodeToStop = ignite1.name();
-
-        IgnitionManager.stop(nodeToStop);
+        node1.shutdown();
+        nodes.set(1, null);
 
         listenerInhibitor.stopInhibit();
 
-        CompletableFuture<Ignite> ignite1Fut = nodesBootstrapCfg.entrySet().stream()
-                .filter(k -> k.getKey().equals(nodeToStop))
+        node1 = nodesBootstrapCfg.entrySet().stream().skip(1).findFirst()
                 .map(e -> TestIgnitionManager.start(e.getKey(), e.getValue(), workDir.resolve(e.getKey())))
-                .findFirst().get();
+                .orElseThrow();
+        nodes.set(1, node1);
 
-        assertThat(ignite1Fut, willCompleteSuccessfully());
+        assertThat(node1.waitForInitAsync(), willCompleteSuccessfully());
 
-        ignite1 = (IgniteImpl) ignite1Fut.join();
+        ignite1 = (IgniteImpl) node1.api();
 
         table = tableView(ignite1, TABLE_NAME);
 
@@ -233,6 +230,7 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
      */
     @Test
     public void checkSchemasCorrectlyRestore() {
+        IgniteServer node1 = nodes.get(1);
         Ignite ignite1 = clusterNodes.get(1);
 
         sql(ignite1, "CREATE TABLE " + TABLE_NAME + "(key BIGINT PRIMARY KEY, valint1 INT, valint2 INT)");
@@ -247,18 +245,17 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
 
         sql(ignite1, "ALTER TABLE " + TABLE_NAME + " ADD COLUMN valint4 INT");
 
-        String nodeToStop = ignite1.name();
+        node1.shutdown();
 
-        IgnitionManager.stop(nodeToStop);
-
-        CompletableFuture<Ignite> ignite1Fut = nodesBootstrapCfg.entrySet().stream()
-                .filter(k -> k.getKey().equals(nodeToStop))
+        node1 = nodesBootstrapCfg.entrySet().stream().skip(1).findFirst()
                 .map(e -> TestIgnitionManager.start(e.getKey(), e.getValue(), workDir.resolve(e.getKey())))
-                .findFirst().get();
+                .orElseThrow();
 
-        assertThat(ignite1Fut, willCompleteSuccessfully());
+        nodes.set(1, node1);
 
-        ignite1 = ignite1Fut.join();
+        assertThat(node1.waitForInitAsync(), willCompleteSuccessfully());
+
+        ignite1 = node1.api();
 
         IgniteSql sql = ignite1.sql();
 

@@ -158,8 +158,6 @@ sql_state error_code_to_sql_state(error::code code) {
         // Sql group. Group code: 4
         case error::code::SCHEMA_NOT_FOUND:
             return sql_state::S3F000_INVALID_SCHEMA_NAME;
-        case error::code::PLANNING_TIMEOUT:
-            return sql_state::SHYT00_TIMEOUT_EXPIRED;
         case error::code::EXECUTION_CANCELLED:
             return sql_state::SHY008_OPERATION_CANCELED;
         case error::code::TX_CONTROL_INSIDE_EXTERNAL_TX:
@@ -305,6 +303,18 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::ILLEGAL_PARTITION_ID:
         case error::code::PARTITION_STATE:
         case error::code::CLUSTER_NOT_IDLE:
+            return sql_state::SHY000_GENERAL_ERROR;
+
+        // Embedded group. Group code: 21
+        case error::code::CLUSTER_NOT_INITIALIZED:
+        case error::code::CLUSTER_INIT_FAILED:
+        case error::code::NODE_NOT_STARTED:
+        case error::code::NODE_START:
+            return sql_state::SHY000_GENERAL_ERROR;
+
+        // Marshalling group. Group code: 22
+        case error::code::COMMON:
+        case error::code::UNSUPPORTED_OBJECT_TYPE:
             return sql_state::SHY000_GENERAL_ERROR;
     }
 

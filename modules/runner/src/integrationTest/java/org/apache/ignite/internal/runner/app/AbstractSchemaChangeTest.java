@@ -20,7 +20,7 @@ package org.apache.ignite.internal.runner.app;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
-import static org.apache.ignite.internal.util.CompletableFutures.allOfToList;
+import static org.apache.ignite.internal.util.CompletableFutures.allOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -28,24 +28,26 @@ import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
-import org.apache.ignite.internal.IgniteIntegrationTest;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.function.Executable;
 
 /**
  * Ignition interface tests.
  */
-abstract class AbstractSchemaChangeTest extends IgniteIntegrationTest {
+@ExtendWith(WorkDirectoryExtension.class)
+abstract class AbstractSchemaChangeTest extends BaseIgniteAbstractTest {
     /** Table name. */
     public static final String TABLE = "TBL1";
 
@@ -55,13 +57,12 @@ abstract class AbstractSchemaChangeTest extends IgniteIntegrationTest {
     /** Nodes bootstrap configuration. */
     private final Map<String, String> nodesBootstrapCfg = new LinkedHashMap<>();
 
+    private List<IgniteServer> nodes;
+
     /** Work directory. */
     @WorkDirectory
     private Path workDir;
 
-    /**
-     * Before each.
-     */
     @BeforeEach
     void setUp(TestInfo testInfo) {
         String node0Name = testNodeName(testInfo, PORTS[0]);
@@ -111,37 +112,33 @@ abstract class AbstractSchemaChangeTest extends IgniteIntegrationTest {
         );
     }
 
-    /**
-     * After each.
-     */
     @AfterEach
     void afterEach() throws Exception {
-        List<AutoCloseable> closeables = nodesBootstrapCfg.keySet().stream()
-                .map(nodeName -> (AutoCloseable) () -> IgnitionManager.stop(nodeName))
-                .collect(toList());
-
-        IgniteUtils.closeAll(closeables);
+        IgniteUtils.closeAll(nodes.stream().map(node -> node::shutdown));
     }
 
     /**
      * Returns grid nodes.
      */
     protected List<Ignite> startGrid() {
-        CompletableFuture<Ignite>[] futures = nodesBootstrapCfg.entrySet().stream()
+        nodes = nodesBootstrapCfg.entrySet().stream()
                 .map(e -> TestIgnitionManager.start(e.getKey(), e.getValue(), workDir.resolve(e.getKey())))
-                .toArray(CompletableFuture[]::new);
+                .collect(toList());
 
-        String metaStorageNode = nodesBootstrapCfg.keySet().iterator().next();
+        IgniteServer node = nodes.get(0);
 
         InitParameters initParameters = InitParameters.builder()
-                .destinationNodeName(metaStorageNode)
-                .metaStorageNodeNames(List.of(metaStorageNode))
+                .metaStorageNodes(node)
                 .clusterName("cluster")
                 .build();
 
-        TestIgnitionManager.init(initParameters);
+        TestIgnitionManager.init(node, initParameters);
 
-        return await(allOfToList(futures));
+        await(allOf(nodes.stream()
+                .map(IgniteServer::waitForInitAsync)
+                .collect(toList())));
+
+        return nodes.stream().map(IgniteServer::api).collect(toList());
     }
 
     /**

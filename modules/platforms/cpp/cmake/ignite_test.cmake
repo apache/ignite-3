@@ -23,6 +23,10 @@ function(ignite_test TEST_NAME)
         return()
     endif()
 
+    if (MSVC)
+        add_compile_options(/bigobj)
+    endif()
+
     set(OPTIONAL_ARGUMENT_TAGS DISCOVER)
     set(SINGLE_ARGUMENT_TAGS)
     set(MULTI_ARGUMENT_TAGS LIBS SOURCES)

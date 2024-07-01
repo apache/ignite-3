@@ -22,7 +22,6 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using Compute;
 using Internal.Common;
 
 /// <summary>
@@ -74,9 +73,8 @@ public interface IDataStreamerTarget<T>
     /// <param name="data">Data.</param>
     /// <param name="keySelector">Key selector.</param>
     /// <param name="payloadSelector">Payload selector.</param>
-    /// <param name="units">Deployment units. Can be empty.</param>
-    /// <param name="receiverClassName">Java class name of the streamer receiver to execute on the server.</param>
-    /// <param name="receiverArgs">Receiver args.</param>
+    /// <param name="receiver">Streamer receiver descriptor.</param>
+    /// <param name="receiverArg">Receiver argument.</param>
     /// <param name="options">Streamer options.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>
@@ -87,14 +85,14 @@ public interface IDataStreamerTarget<T>
     /// </returns>
     /// <typeparam name="TSource">Source item type.</typeparam>
     /// <typeparam name="TPayload">Payload type.</typeparam>
+    /// <typeparam name="TArg">Argument type.</typeparam>
     /// <typeparam name="TResult">Result type.</typeparam>
-    IAsyncEnumerable<TResult> StreamDataAsync<TSource, TPayload, TResult>(
+    IAsyncEnumerable<TResult> StreamDataAsync<TSource, TPayload, TArg, TResult>(
         IAsyncEnumerable<TSource> data,
         Func<TSource, T> keySelector,
         Func<TSource, TPayload> payloadSelector,
-        IEnumerable<DeploymentUnit> units,
-        string receiverClassName,
-        ICollection<object>? receiverArgs = null,
+        ReceiverDescriptor<TArg, TResult> receiver,
+        TArg receiverArg,
         DataStreamerOptions? options = null,
         CancellationToken cancellationToken = default)
         where TPayload : notnull;
@@ -105,21 +103,20 @@ public interface IDataStreamerTarget<T>
     /// <param name="data">Data.</param>
     /// <param name="keySelector">Key selector.</param>
     /// <param name="payloadSelector">Payload selector.</param>
-    /// <param name="units">Deployment units. Can be empty.</param>
-    /// <param name="receiverClassName">Java class name of the streamer receiver to execute on the server.</param>
-    /// <param name="receiverArgs">Receiver args.</param>
+    /// <param name="receiver">Receiver descriptor.</param>
+    /// <param name="receiverArg">Receiver arg.</param>
     /// <param name="options">Streamer options.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
     /// <typeparam name="TSource">Source item type.</typeparam>
     /// <typeparam name="TPayload">Payload type.</typeparam>
-    Task StreamDataAsync<TSource, TPayload>(
+    /// <typeparam name="TArg">Argument type.</typeparam>
+    Task StreamDataAsync<TSource, TPayload, TArg>(
         IAsyncEnumerable<TSource> data,
         Func<TSource, T> keySelector,
         Func<TSource, TPayload> payloadSelector,
-        IEnumerable<DeploymentUnit> units,
-        string receiverClassName,
-        ICollection<object>? receiverArgs = null,
+        ReceiverDescriptor<TArg> receiver,
+        TArg receiverArg,
         DataStreamerOptions? options = null,
         CancellationToken cancellationToken = default)
         where TPayload : notnull;

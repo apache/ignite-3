@@ -64,11 +64,13 @@ import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
+import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum;
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateMessage;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.DisasterRecoveryException;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.CollectionUtils;
+import org.jetbrains.annotations.Nullable;
 
 class ManualGroupUpdateRequest implements DisasterRecoveryRequest {
     /** Serial version UID. */
@@ -278,18 +280,23 @@ class ManualGroupUpdateRequest implements DisasterRecoveryRequest {
      */
     private static Set<Assignment> getAliveNodesWithData(
             Set<String> aliveNodesConsistentIds,
-            LocalPartitionStateMessageByNode localPartitionStateMessageByNode
+            @Nullable LocalPartitionStateMessageByNode localPartitionStateMessageByNode
     ) {
-        Set<Assignment> partAssignments = new HashSet<>();
-        if (localPartitionStateMessageByNode != null) {
-            for (Entry<String, LocalPartitionStateMessage> entry : localPartitionStateMessageByNode.entrySet()) {
-                if (aliveNodesConsistentIds.contains(entry.getKey())
-                        && (entry.getValue().state() == HEALTHY || entry.getValue().state() == CATCHING_UP)
-                ) {
-                    partAssignments.add(Assignment.forPeer(entry.getKey()));
-                }
+        if (localPartitionStateMessageByNode == null) {
+            return Set.of();
+        }
+
+        var partAssignments = new HashSet<Assignment>();
+
+        for (Entry<String, LocalPartitionStateMessage> entry : localPartitionStateMessageByNode.entrySet()) {
+            String nodeName = entry.getKey();
+            LocalPartitionStateEnum state = entry.getValue().state();
+
+            if (aliveNodesConsistentIds.contains(nodeName) && (state == HEALTHY || state == CATCHING_UP)) {
+                partAssignments.add(Assignment.forPeer(nodeName));
             }
         }
+
         return partAssignments;
     }
 

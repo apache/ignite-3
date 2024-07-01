@@ -18,6 +18,7 @@
 package org.apache.ignite.client.handler;
 
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
+import static org.apache.ignite.internal.util.IgniteUtils.firstNotNull;
 import static org.apache.ignite.lang.ErrorGroups.Client.HANDSHAKE_HEADER_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_COMPATIBILITY_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
@@ -58,7 +59,6 @@ import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcFinishTxRequest;
 import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcHasMoreRequest;
 import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcPreparedStmntBatchRequest;
 import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcPrimaryKeyMetadataRequest;
-import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcQueryMetadataRequest;
 import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcSchemasMetadataRequest;
 import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcTableMetadataRequest;
 import org.apache.ignite.client.handler.requests.jdbc.JdbcMetadataCatalog;
@@ -138,6 +138,7 @@ import org.apache.ignite.lang.TraceableException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.security.AuthenticationType;
 import org.apache.ignite.security.exception.UnsupportedAuthenticationTypeException;
+import org.apache.ignite.sql.SqlBatchException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -496,8 +497,14 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     }
 
     private void writeErrorCore(Throwable err, ClientMessagePacker packer) {
-        SchemaVersionMismatchException schemaVersionMismatchException = schemaVersionMismatchException(err);
-        err = schemaVersionMismatchException == null ? ExceptionUtils.unwrapCause(err) : schemaVersionMismatchException;
+        SchemaVersionMismatchException schemaVersionMismatchException = findException(err, SchemaVersionMismatchException.class);
+        SqlBatchException sqlBatchException = findException(err, SqlBatchException.class);
+
+        err = firstNotNull(
+                schemaVersionMismatchException,
+                sqlBatchException,
+                ExceptionUtils.unwrapCause(err)
+        );
 
         // Trace ID and error code.
         if (err instanceof TraceableException) {
@@ -510,7 +517,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         }
 
         // No need to send internal errors to client.
-        Throwable pubErr = IgniteExceptionMapperUtil.mapToPublicException(ExceptionUtils.unwrapCause(err));
+        assert err != null;
+        Throwable pubErr = IgniteExceptionMapperUtil.mapToPublicException(err);
 
         // Class name and message.
         packer.packString(pubErr.getClass().getName());
@@ -525,9 +533,13 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
         // Extensions.
         if (schemaVersionMismatchException != null) {
-            packer.packInt(1);
+            packer.packInt(1); // 1 extension.
             packer.packString(ErrorExtensions.EXPECTED_SCHEMA_VERSION);
             packer.packInt(schemaVersionMismatchException.expectedVersion());
+        } else if (sqlBatchException != null) {
+            packer.packInt(1); // 1 extension.
+            packer.packString(ErrorExtensions.SQL_UPDATE_COUNTERS);
+            packer.packLongArray(sqlBatchException.updateCounters());
         } else {
             packer.packNil(); // No extensions.
         }
@@ -713,9 +725,6 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             case ClientOp.JDBC_PK_META:
                 return ClientJdbcPrimaryKeyMetadataRequest.process(in, out, jdbcQueryEventHandler);
 
-            case ClientOp.JDBC_QUERY_META:
-                return ClientJdbcQueryMetadataRequest.process(in, out, jdbcQueryCursorHandler);
-
             case ClientOp.TX_BEGIN:
                 return ClientTransactionBeginRequest.process(in, out, igniteTransactions, resources, metrics);
 
@@ -861,10 +870,10 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         }
     }
 
-    private static @Nullable SchemaVersionMismatchException schemaVersionMismatchException(Throwable e) {
+    private static <T> @Nullable T findException(Throwable e, Class<T> cls) {
         while (e != null) {
-            if (e instanceof SchemaVersionMismatchException) {
-                return (SchemaVersionMismatchException) e;
+            if (cls.isInstance(e)) {
+                return (T) e;
             }
 
             e = e.getCause();

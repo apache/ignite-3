@@ -412,6 +412,9 @@ public class TestBuilders {
      * @see TestIndex
      */
     public interface SortedIndexBuilder extends SortedIndexBuilderBase<SortedIndexBuilder>, NestedBuilder<TableBuilder> {
+
+        /** Specifies whether this index is a primary key index or not. */
+        SortedIndexBuilder primaryKey(boolean value);
     }
 
     /**
@@ -420,6 +423,9 @@ public class TestBuilders {
      * @see TestIndex
      */
     public interface HashIndexBuilder extends HashIndexBuilderBase<HashIndexBuilder>, NestedBuilder<TableBuilder> {
+
+        /** Specifies whether this index is a primary key index or not. */
+        HashIndexBuilder primaryKey(boolean value);
     }
 
     /**
@@ -552,7 +558,8 @@ public class TestBuilders {
                     ArrayRowHandler.INSTANCE,
                     Commons.parametersMap(dynamicParams),
                     TxAttributes.fromTx(new NoOpTransaction(node.name())),
-                    SqlQueryProcessor.DEFAULT_TIME_ZONE_ID
+                    SqlQueryProcessor.DEFAULT_TIME_ZONE_ID,
+                    null
             );
         }
     }
@@ -1062,6 +1069,8 @@ public class TestBuilders {
             implements SortedIndexBuilder {
         private final TableBuilderImpl parent;
 
+        private boolean primary;
+
         private SortedIndexBuilderImpl(TableBuilderImpl parent) {
             this.parent = parent;
         }
@@ -1082,6 +1091,13 @@ public class TestBuilders {
 
         /** {@inheritDoc} */
         @Override
+        public SortedIndexBuilder primaryKey(boolean value) {
+            this.primary = value;
+            return self();
+        }
+
+        /** {@inheritDoc} */
+        @Override
         public TestIndex build(TableDescriptor desc) {
             if (name == null) {
                 throw new IllegalArgumentException("Name is not specified");
@@ -1095,12 +1111,14 @@ public class TestBuilders {
                 throw new IllegalArgumentException("Collation must be specified for each of columns.");
             }
 
-            return TestIndex.createSorted(name, columns, collations, desc);
+            return TestIndex.createSorted(name, columns, collations, desc, primary);
         }
     }
 
     private static class HashIndexBuilderImpl extends AbstractTableIndexBuilderImpl<HashIndexBuilder> implements HashIndexBuilder {
         private final TableBuilderImpl parent;
+
+        private boolean primary;
 
         private HashIndexBuilderImpl(TableBuilderImpl parent) {
             this.parent = parent;
@@ -1122,6 +1140,13 @@ public class TestBuilders {
 
         /** {@inheritDoc} */
         @Override
+        public HashIndexBuilder primaryKey(boolean value) {
+            this.primary = value;
+            return self();
+        }
+
+        /** {@inheritDoc} */
+        @Override
         public TestIndex build(TableDescriptor desc) {
             if (name == null) {
                 throw new IllegalArgumentException("Name is not specified");
@@ -1133,7 +1158,7 @@ public class TestBuilders {
 
             assert collations == null : "Collation is not supported.";
 
-            return TestIndex.createHash(name, columns, desc);
+            return TestIndex.createHash(name, columns, desc, primary);
         }
     }
 

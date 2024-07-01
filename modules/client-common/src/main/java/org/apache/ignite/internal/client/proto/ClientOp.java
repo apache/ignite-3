@@ -105,9 +105,6 @@ public class ClientOp {
     /** Get primary key metadata. */
     public static final int JDBC_PK_META = 41;
 
-    /** Get query metadata. */
-    public static final int JDBC_QUERY_META = 42;
-
     /** Begin transaction. */
     public static final int TX_BEGIN = 43;
 

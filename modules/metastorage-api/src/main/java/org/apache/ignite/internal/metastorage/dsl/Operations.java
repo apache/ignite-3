@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.metastorage.dsl;
 
-import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
+import static org.apache.ignite.internal.util.ArrayUtils.EMPTY_BYTE_BUFFER;
 
 import java.nio.ByteBuffer;
 import java.util.List;
@@ -57,7 +57,7 @@ public final class Operations {
      */
     public Update yield(boolean result) {
         StatementResult statementResult = MSG_FACTORY.statementResult()
-                .result(new byte[] {(byte) (result ? 1 : 0)})
+                .result(ByteBuffer.allocate(1).put((byte) (result ? 1 : 0)).flip())
                 .build();
 
         return MSG_FACTORY.update()
@@ -74,7 +74,7 @@ public final class Operations {
      */
     public Update yield(int result) {
         StatementResult statementResult = MSG_FACTORY.statementResult()
-                .result(ByteBuffer.allocate(Integer.BYTES).putInt(result).array())
+                .result(ByteBuffer.allocate(Integer.BYTES).putInt(result).flip())
                 .build();
 
         return MSG_FACTORY.update()
@@ -90,7 +90,7 @@ public final class Operations {
      */
     public Update yield() {
         StatementResult statementResult = MSG_FACTORY.statementResult()
-                .result(BYTE_EMPTY_ARRAY)
+                .result(EMPTY_BYTE_BUFFER)
                 .build();
 
         return MSG_FACTORY.update()
@@ -117,7 +117,7 @@ public final class Operations {
      */
     public static Operation remove(ByteArray key) {
         return MSG_FACTORY.operation()
-                .key(key.bytes())
+                .key(ByteBuffer.wrap(key.bytes()))
                 .operationType(OperationType.REMOVE.ordinal())
                 .build();
     }
@@ -125,13 +125,35 @@ public final class Operations {
     /**
      * Creates operation of type <i>put</i>. This type of operation inserts or updates value of entry.
      *
-     * @param key   Identifies an entry which operation will be applied to.
+     * @param key Identifies an entry which operation will be applied to.
      * @param value Value.
      * @return Operation of type <i>put</i>.
      */
     public static Operation put(ByteArray key, byte[] value) {
+        return put(ByteBuffer.wrap(key.bytes()), ByteBuffer.wrap(value));
+    }
+
+    /**
+     * Creates operation of type <i>put</i>. This type of operation inserts or updates value of entry.
+     *
+     * @param key Identifies an entry which operation will be applied to.
+     * @param value Value.
+     * @return Operation of type <i>put</i>.
+     */
+    public static Operation put(ByteArray key, ByteBuffer value) {
+        return put(ByteBuffer.wrap(key.bytes()), value);
+    }
+
+    /**
+     * Creates operation of type <i>put</i>. This type of operation inserts or updates value of entry.
+     *
+     * @param key Identifies an entry which operation will be applied to.
+     * @param value Value.
+     * @return Operation of type <i>put</i>.
+     */
+    public static Operation put(ByteBuffer key, ByteBuffer value) {
         return MSG_FACTORY.operation()
-                .key(key.bytes())
+                .key(key)
                 .value(value)
                 .operationType(OperationType.PUT.ordinal())
                 .build();

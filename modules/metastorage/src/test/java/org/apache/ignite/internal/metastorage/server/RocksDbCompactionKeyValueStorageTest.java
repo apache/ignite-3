@@ -32,6 +32,6 @@ public class RocksDbCompactionKeyValueStorageTest extends AbstractCompactionKeyV
 
     @Override
     public KeyValueStorage createStorage() {
-        return new RocksDbKeyValueStorage("test", workDir.resolve("storage"), new NoOpFailureProcessor("test"));
+        return new RocksDbKeyValueStorage("test", workDir.resolve("storage"), new NoOpFailureProcessor());
     }
 }

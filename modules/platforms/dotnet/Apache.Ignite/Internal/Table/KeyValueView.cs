@@ -24,7 +24,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Apache.Ignite.Transactions;
 using Common;
-using Ignite.Compute;
 using Ignite.Sql;
 using Ignite.Table;
 using Linq;
@@ -165,34 +164,12 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
         await _recordView.StreamDataAsync(ToKv(data), options, cancellationToken).ConfigureAwait(false);
 
     /// <inheritdoc/>
-    public IAsyncEnumerable<TResult> StreamDataAsync<TSource, TPayload, TResult>(
+    public IAsyncEnumerable<TResult> StreamDataAsync<TSource, TPayload, TArg, TResult>(
         IAsyncEnumerable<TSource> data,
         Func<TSource, KeyValuePair<TK, TV>> keySelector,
         Func<TSource, TPayload> payloadSelector,
-        IEnumerable<DeploymentUnit> units,
-        string receiverClassName,
-        ICollection<object>? receiverArgs,
-        DataStreamerOptions? options,
-        CancellationToken cancellationToken = default)
-        where TPayload : notnull =>
-        _recordView.StreamDataAsync<TSource, TPayload, TResult>(
-            data,
-            src => ToKv(keySelector(src)),
-            payloadSelector,
-            units,
-            receiverClassName,
-            receiverArgs,
-            options,
-            cancellationToken);
-
-    /// <inheritdoc/>
-    public Task StreamDataAsync<TSource, TPayload>(
-        IAsyncEnumerable<TSource> data,
-        Func<TSource, KeyValuePair<TK, TV>> keySelector,
-        Func<TSource, TPayload> payloadSelector,
-        IEnumerable<DeploymentUnit> units,
-        string receiverClassName,
-        ICollection<object>? receiverArgs,
+        ReceiverDescriptor<TArg, TResult> receiver,
+        TArg receiverArg,
         DataStreamerOptions? options,
         CancellationToken cancellationToken = default)
         where TPayload : notnull =>
@@ -200,9 +177,27 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
             data,
             src => ToKv(keySelector(src)),
             payloadSelector,
-            units,
-            receiverClassName,
-            receiverArgs,
+            receiver,
+            receiverArg,
+            options,
+            cancellationToken);
+
+    /// <inheritdoc/>
+    public Task StreamDataAsync<TSource, TPayload, TArg>(
+        IAsyncEnumerable<TSource> data,
+        Func<TSource, KeyValuePair<TK, TV>> keySelector,
+        Func<TSource, TPayload> payloadSelector,
+        ReceiverDescriptor<TArg> receiver,
+        TArg receiverArg,
+        DataStreamerOptions? options,
+        CancellationToken cancellationToken = default)
+        where TPayload : notnull =>
+        _recordView.StreamDataAsync(
+            data,
+            src => ToKv(keySelector(src)),
+            payloadSelector,
+            receiver,
+            receiverArg,
             options,
             cancellationToken);
 

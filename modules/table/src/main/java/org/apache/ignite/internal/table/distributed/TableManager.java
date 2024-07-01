@@ -57,6 +57,7 @@ import static org.apache.ignite.internal.table.distributed.TableUtils.droppedTab
 import static org.apache.ignite.internal.table.distributed.index.IndexUtils.registerIndexesToTable;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
+import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.apache.ignite.internal.util.CompletableFutures.allOfToList;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
@@ -625,7 +626,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         });
     }
 
-    private CompletableFuture<Boolean> onPrimaryReplicaExpired(PrimaryReplicaEventParameters parameters) {
+ e  private CompletableFuture<Boolean> onPrimaryReplicaExpired(PrimaryReplicaEventParameters parameters) {
         if (topologyService.localMember().id().equals(parameters.leaseholderId())) {
             TablePartitionId groupId = (TablePartitionId) parameters.groupId();
 
@@ -721,7 +722,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 partitionAssignments.add(op);
             }
 
-            Condition condition = notExists(new ByteArray(partitionAssignments.get(0).key()));
+            Condition condition = notExists(new ByteArray(toByteArray(partitionAssignments.get(0).key())));
 
             return metaStorageMgr
                     .invoke(condition, partitionAssignments, Collections.emptyList())

@@ -24,6 +24,22 @@ import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_BUILDING;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RO_GET;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RO_GET_ALL;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_DELETE;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_DELETE_ALL;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_DELETE_EXACT;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_DELETE_EXACT_ALL;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_GET_ALL;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_GET_AND_DELETE;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_GET_AND_REPLACE;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_GET_AND_UPSERT;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_INSERT;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_INSERT_ALL;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_REPLACE;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_SCAN;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_UPSERT;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_UPSERT_ALL;
 import static org.apache.ignite.internal.schema.BinaryRowMatcher.equalToRow;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.asserts.CompletableFutureAssert.assertWillThrowFast;
@@ -786,7 +802,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 .readTimestampLong(readTimestamp.longValue())
                 .schemaVersion(pk.schemaVersion())
                 .primaryKey(pk.tupleSlice())
-                .requestType(RequestType.RO_GET)
+                .requestTypeInt(RO_GET.ordinal())
                 .build();
 
         return partitionReplicaListener.invoke(request, localNode.id());
@@ -798,7 +814,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 .tableId(TABLE_ID)
                 .schemaVersion(pk.schemaVersion())
                 .primaryKey(pk.tupleSlice())
-                .requestType(RequestType.RO_GET)
+                .requestTypeInt(RO_GET.ordinal())
                 .enlistmentConsistencyToken(ANY_ENLISTMENT_CONSISTENCY_TOKEN)
                 .build();
 
@@ -1217,45 +1233,45 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         BinaryRow testRow = binaryRow(0);
         BinaryRow testRowPk = marshalQuietly(new TestKey(0, "k0"), kvMarshaller);
 
-        assertThat(doSingleRowRequest(txId, testRow, RequestType.RW_INSERT), willCompleteSuccessfully());
+        assertThat(doSingleRowRequest(txId, testRow, RW_INSERT), willCompleteSuccessfully());
 
         checkRowInMvStorage(testRow, true);
 
         BinaryRow br = binaryRow(new TestKey(0, "k0"), new TestValue(1, "v1"));
 
-        assertThat(doSingleRowRequest(txId, br, RequestType.RW_UPSERT), willCompleteSuccessfully());
+        assertThat(doSingleRowRequest(txId, br, RW_UPSERT), willCompleteSuccessfully());
 
         checkRowInMvStorage(br, true);
 
-        assertThat(doSingleRowPkRequest(txId, testRowPk, RequestType.RW_DELETE), willCompleteSuccessfully());
+        assertThat(doSingleRowPkRequest(txId, testRowPk, RW_DELETE), willCompleteSuccessfully());
 
         checkNoRowInIndex(testRow);
 
-        assertThat(doSingleRowRequest(txId, testRow, RequestType.RW_INSERT), willCompleteSuccessfully());
+        assertThat(doSingleRowRequest(txId, testRow, RW_INSERT), willCompleteSuccessfully());
 
         checkRowInMvStorage(testRow, true);
 
         br = binaryRow(new TestKey(0, "k0"), new TestValue(1, "v2"));
 
-        assertThat(doSingleRowRequest(txId, br, RequestType.RW_GET_AND_REPLACE), willCompleteSuccessfully());
+        assertThat(doSingleRowRequest(txId, br, RW_GET_AND_REPLACE), willCompleteSuccessfully());
 
         checkRowInMvStorage(br, true);
 
         br = binaryRow(new TestKey(0, "k0"), new TestValue(1, "v3"));
 
-        assertThat(doSingleRowRequest(txId, br, RequestType.RW_GET_AND_UPSERT), willCompleteSuccessfully());
+        assertThat(doSingleRowRequest(txId, br, RW_GET_AND_UPSERT), willCompleteSuccessfully());
 
         checkRowInMvStorage(br, true);
 
-        assertThat(doSingleRowPkRequest(txId, testRowPk, RequestType.RW_GET_AND_DELETE), willCompleteSuccessfully());
+        assertThat(doSingleRowPkRequest(txId, testRowPk, RW_GET_AND_DELETE), willCompleteSuccessfully());
 
         checkNoRowInIndex(br);
 
-        assertThat(doSingleRowRequest(txId, testRow, RequestType.RW_INSERT), willCompleteSuccessfully());
+        assertThat(doSingleRowRequest(txId, testRow, RW_INSERT), willCompleteSuccessfully());
 
         checkRowInMvStorage(testRow, true);
 
-        assertThat(doSingleRowRequest(txId, testRow, RequestType.RW_DELETE_EXACT), willCompleteSuccessfully());
+        assertThat(doSingleRowRequest(txId, testRow, RW_DELETE_EXACT), willCompleteSuccessfully());
 
         checkNoRowInIndex(testRow);
 
@@ -1273,7 +1289,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         BinaryRow row1 = binaryRow(1);
         Collection<BinaryRow> rows = asList(row0, row1);
 
-        assertThat(doMultiRowRequest(txId, rows, RequestType.RW_INSERT_ALL), willCompleteSuccessfully());
+        assertThat(doMultiRowRequest(txId, rows, RW_INSERT_ALL), willCompleteSuccessfully());
 
         checkRowInMvStorage(row0, true);
         checkRowInMvStorage(row1, true);
@@ -1282,7 +1298,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         BinaryRow newRow1 = binaryRow(new TestKey(1, "k1"), new TestValue(3, "v3"));
         Collection<BinaryRow> newRows = asList(newRow0, newRow1);
 
-        assertThat(doMultiRowRequest(txId, newRows, RequestType.RW_UPSERT_ALL), willCompleteSuccessfully());
+        assertThat(doMultiRowRequest(txId, newRows, RW_UPSERT_ALL), willCompleteSuccessfully());
 
         checkRowInMvStorage(row0, false);
         checkRowInMvStorage(row1, false);
@@ -1294,19 +1310,19 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 marshalQuietly(new TestKey(1, "k1"), kvMarshaller)
         );
 
-        assertThat(doMultiRowPkRequest(txId, newRowPks, RequestType.RW_DELETE_ALL), willCompleteSuccessfully());
+        assertThat(doMultiRowPkRequest(txId, newRowPks, RW_DELETE_ALL), willCompleteSuccessfully());
 
         checkNoRowInIndex(row0);
         checkNoRowInIndex(row1);
         checkNoRowInIndex(newRow0);
         checkNoRowInIndex(newRow1);
 
-        assertThat(doMultiRowRequest(txId, rows, RequestType.RW_INSERT_ALL), willCompleteSuccessfully());
+        assertThat(doMultiRowRequest(txId, rows, RW_INSERT_ALL), willCompleteSuccessfully());
 
         checkRowInMvStorage(row0, true);
         checkRowInMvStorage(row1, true);
 
-        assertThat(doMultiRowRequest(txId, rows, RequestType.RW_DELETE_EXACT_ALL), willCompleteSuccessfully());
+        assertThat(doMultiRowRequest(txId, rows, RW_DELETE_EXACT_ALL), willCompleteSuccessfully());
 
         checkNoRowInIndex(row0);
         checkNoRowInIndex(row1);
@@ -1323,7 +1339,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                         .groupId(grpId)
                         .tableId(TABLE_ID)
                         .transactionId(txId)
-                        .requestType(requestType)
+                        .requestTypeInt(requestType.ordinal())
                         .schemaVersion(binaryRow.schemaVersion())
                         .binaryTuple(binaryRow.tupleSlice())
                         .enlistmentConsistencyToken(ANY_ENLISTMENT_CONSISTENCY_TOKEN)
@@ -1344,7 +1360,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                         .groupId(grpId)
                         .tableId(TABLE_ID)
                         .transactionId(txId)
-                        .requestType(requestType)
+                        .requestTypeInt(requestType.ordinal())
                         .schemaVersion(binaryRow.schemaVersion())
                         .primaryKey(binaryRow.tupleSlice())
                         .enlistmentConsistencyToken(ANY_ENLISTMENT_CONSISTENCY_TOKEN)
@@ -1372,7 +1388,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                         .groupId(grpId)
                         .tableId(TABLE_ID)
                         .transactionId(txId)
-                        .requestType(requestType)
+                        .requestTypeInt(requestType.ordinal())
                         .schemaVersion(binaryRows.iterator().next().schemaVersion())
                         .binaryTuples(binaryRowsToBuffers(binaryRows))
                         .enlistmentConsistencyToken(ANY_ENLISTMENT_CONSISTENCY_TOKEN)
@@ -1397,7 +1413,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                         .groupId(grpId)
                         .tableId(TABLE_ID)
                         .transactionId(txId)
-                        .requestType(requestType)
+                        .requestTypeInt(requestType.ordinal())
                         .schemaVersion(binaryRows.iterator().next().schemaVersion())
                         .primaryKeys(binaryRowsToBuffers(binaryRows))
                         .enlistmentConsistencyToken(ANY_ENLISTMENT_CONSISTENCY_TOKEN)
@@ -1423,7 +1439,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                             .groupId(grpId)
                             .tableId(TABLE_ID)
                             .transactionId(txId)
-                            .requestType(RequestType.RW_INSERT)
+                            .requestTypeInt(RW_INSERT.ordinal())
                             .schemaVersion(binaryRow.schemaVersion())
                             .binaryTuple(binaryRow.tupleSlice())
                             .enlistmentConsistencyToken(ANY_ENLISTMENT_CONSISTENCY_TOKEN)
@@ -1453,7 +1469,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                             .groupId(grpId)
                             .tableId(TABLE_ID)
                             .transactionId(txId)
-                            .requestType(RequestType.RW_UPSERT_ALL)
+                            .requestTypeInt(RW_UPSERT_ALL.ordinal())
                             .schemaVersion(binaryRow0.schemaVersion())
                             .binaryTuples(asList(binaryRow0.tupleSlice(), binaryRow1.tupleSlice()))
                             .enlistmentConsistencyToken(ANY_ENLISTMENT_CONSISTENCY_TOKEN)
@@ -1905,7 +1921,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     @ParameterizedTest
     @MethodSource("multiRowsRequestTypes")
     public void failsWhenReadingMultiRowsFromFutureIncompatibleSchema(RequestType requestType) {
-        if (requestType == RequestType.RW_GET_ALL || requestType == RequestType.RW_DELETE_ALL) {
+        if (requestType == RW_GET_ALL || requestType == RW_DELETE_ALL) {
             testFailsWhenReadingFromFutureIncompatibleSchema(
                     (targetTxId, key) -> doMultiRowPkRequest(targetTxId, List.of(marshalKeyOrKeyValue(requestType, key)), requestType)
             );
@@ -1942,7 +1958,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                         .groupId(grpId)
                         .tableId(TABLE_ID)
                         .transactionId(targetTxId)
-                        .requestType(RequestType.RW_REPLACE)
+                        .requestTypeInt(RW_REPLACE.ordinal())
                         .schemaVersion(oldRow.schemaVersion())
                         .oldBinaryTuple(oldRow.tupleSlice())
                         .newBinaryTuple(newRow.tupleSlice())
@@ -2049,7 +2065,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     @ParameterizedTest
     @MethodSource("singleRowWriteRequestTypes")
     public void singleRowWritesAreSuppliedWithRequiredCatalogVersion(RequestType requestType) {
-        if (requestType == RequestType.RW_DELETE || requestType == RequestType.RW_GET_AND_DELETE) {
+        if (requestType == RW_DELETE || requestType == RW_GET_AND_DELETE) {
             testWritesAreSuppliedWithRequiredCatalogVersion(
                     requestType,
                     (targetTxId, key) -> doSingleRowPkRequest(targetTxId, marshalKeyOrKeyValue(requestType, key), requestType)
@@ -2134,11 +2150,11 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     @Test
     public void replaceRequestIsSuppliedWithRequiredCatalogVersion() {
-        testWritesAreSuppliedWithRequiredCatalogVersion(RequestType.RW_REPLACE, (targetTxId, key) -> {
+        testWritesAreSuppliedWithRequiredCatalogVersion(RW_REPLACE, (targetTxId, key) -> {
             return doReplaceRequest(
                     targetTxId,
-                    marshalKeyOrKeyValue(RequestType.RW_REPLACE, key),
-                    marshalKeyOrKeyValue(RequestType.RW_REPLACE, key)
+                    marshalKeyOrKeyValue(RW_REPLACE, key),
+                    marshalKeyOrKeyValue(RW_REPLACE, key)
             );
         });
     }
@@ -2146,7 +2162,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     @ParameterizedTest
     @MethodSource("multiRowsWriteRequestTypes")
     public void multiRowWritesAreSuppliedWithRequiredCatalogVersion(RequestType requestType) {
-        if (requestType == RequestType.RW_DELETE_ALL) {
+        if (requestType == RW_DELETE_ALL) {
             testWritesAreSuppliedWithRequiredCatalogVersion(
                     requestType,
                     (targetTxId, key) -> doMultiRowPkRequest(targetTxId, List.of(marshalKeyOrKeyValue(requestType, key)), requestType)
@@ -2290,11 +2306,11 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
             @Values(booleans = {false, true}) boolean onExistingRow,
             @Values(booleans = {false, true}) boolean full
     ) {
-        testRwOperationFailsIfTableWasAlteredAfterTxStart(RequestType.RW_REPLACE, onExistingRow, (targetTxId, key) -> {
+        testRwOperationFailsIfTableWasAlteredAfterTxStart(RW_REPLACE, onExistingRow, (targetTxId, key) -> {
             return doReplaceRequest(
                     targetTxId,
-                    marshalKeyOrKeyValue(RequestType.RW_REPLACE, key),
-                    marshalKeyOrKeyValue(RequestType.RW_REPLACE, key),
+                    marshalKeyOrKeyValue(RW_REPLACE, key),
+                    marshalKeyOrKeyValue(RW_REPLACE, key),
                     full
             );
         });
@@ -2302,7 +2318,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     @CartesianTest
     void rwScanRequestFailsIfTableAlteredAfterTxStart(@Values(booleans = {false, true}) boolean onExistingRow) {
-        testRwOperationFailsIfTableWasAlteredAfterTxStart(RequestType.RW_SCAN, onExistingRow, (targetTxId, key) -> {
+        testRwOperationFailsIfTableWasAlteredAfterTxStart(RW_SCAN, onExistingRow, (targetTxId, key) -> {
             return doRwScanRetrieveBatchRequest(targetTxId);
         });
     }
@@ -2393,8 +2409,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         testRwOperationFailsIfTableWasDropped(onExistingRow, (targetTxId, key) -> {
             return doReplaceRequest(
                     targetTxId,
-                    marshalKeyOrKeyValue(RequestType.RW_REPLACE, key),
-                    marshalKeyOrKeyValue(RequestType.RW_REPLACE, key),
+                    marshalKeyOrKeyValue(RW_REPLACE, key),
+                    marshalKeyOrKeyValue(RW_REPLACE, key),
                     full
             );
         });
@@ -2591,8 +2607,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         testRwOperationFailsIfSchemaVersionMismatchesTx(onExistingRow, (targetTxId, key) -> {
             return doReplaceRequest(
                     targetTxId,
-                    marshalKeyOrKeyValue(RequestType.RW_REPLACE, key),
-                    marshalKeyOrKeyValue(RequestType.RW_REPLACE, key),
+                    marshalKeyOrKeyValue(RW_REPLACE, key),
+                    marshalKeyOrKeyValue(RW_REPLACE, key),
                     full
             );
         });
@@ -2659,7 +2675,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         ReadWriteSingleRowReplicaRequest message = TABLE_MESSAGES_FACTORY.readWriteSingleRowReplicaRequest()
                 .groupId(grpId)
                 .tableId(TABLE_ID)
-                .requestType(RequestType.RW_UPSERT)
+                .requestTypeInt(RW_UPSERT.ordinal())
                 .transactionId(txId)
                 .schemaVersion(row.schemaVersion())
                 .binaryTuple(row.tupleSlice())
@@ -2676,7 +2692,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         ReadWriteSingleRowPkReplicaRequest message = TABLE_MESSAGES_FACTORY.readWriteSingleRowPkReplicaRequest()
                 .groupId(grpId)
                 .tableId(TABLE_ID)
-                .requestType(RequestType.RW_DELETE)
+                .requestTypeInt(RW_DELETE.ordinal())
                 .transactionId(txId)
                 .schemaVersion(row.schemaVersion())
                 .primaryKey(row.tupleSlice())
@@ -2700,7 +2716,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         ReadOnlySingleRowPkReplicaRequest message = TABLE_MESSAGES_FACTORY.readOnlySingleRowPkReplicaRequest()
                 .groupId(grpId)
                 .tableId(TABLE_ID)
-                .requestType(RequestType.RO_GET)
+                .requestTypeInt(RO_GET.ordinal())
                 .readTimestampLong(readTimestamp)
                 .schemaVersion(row.schemaVersion())
                 .primaryKey(row.tupleSlice())
@@ -2721,7 +2737,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         ReadOnlyMultiRowPkReplicaRequest request = TABLE_MESSAGES_FACTORY.readOnlyMultiRowPkReplicaRequest()
                 .groupId(grpId)
                 .tableId(TABLE_ID)
-                .requestType(RequestType.RO_GET_ALL)
+                .requestTypeInt(RO_GET_ALL.ordinal())
                 .readTimestampLong(readTimestamp.longValue())
                 .schemaVersion(rows.iterator().next().schemaVersion())
                 .primaryKeys(binaryRowsToBuffers(rows))
@@ -2734,7 +2750,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         ReadOnlyDirectMultiRowReplicaRequest request = TABLE_MESSAGES_FACTORY.readOnlyDirectMultiRowReplicaRequest()
                 .groupId(grpId)
                 .tableId(TABLE_ID)
-                .requestType(RequestType.RO_GET_ALL)
+                .requestTypeInt(RO_GET_ALL.ordinal())
                 .schemaVersion(rows.iterator().next().schemaVersion())
                 .primaryKeys(binaryRowsToBuffers(rows))
                 .enlistmentConsistencyToken(ANY_ENLISTMENT_CONSISTENCY_TOKEN)

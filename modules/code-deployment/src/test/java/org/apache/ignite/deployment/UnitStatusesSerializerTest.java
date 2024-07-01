@@ -25,7 +25,7 @@ import static org.junit.jupiter.params.provider.Arguments.arguments;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
-import org.apache.ignite.compute.version.Version;
+import org.apache.ignite.deployment.version.Version;
 import org.apache.ignite.internal.deployunit.DeploymentStatus;
 import org.apache.ignite.internal.deployunit.metastore.status.SerializeUtils;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitClusterStatus;

@@ -33,10 +33,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobTarget;
-import org.apache.ignite.compute.version.Version;
+import org.apache.ignite.deployment.DeploymentUnit;
+import org.apache.ignite.deployment.version.Version;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.deployunit.NodesToDeploy;
 import org.junit.jupiter.api.AfterEach;
@@ -106,8 +106,8 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
         List<DeploymentUnit> nonExistingUnits = List.of(new DeploymentUnit("non-existing", "1.0.0"));
         CompletableFuture<String> result = entryNode.compute().executeAsync(
                 JobTarget.node(entryNode.node()),
-                JobDescriptor.builder(concatJobClassName()).units(nonExistingUnits).build(),
-                "a", 42);
+                JobDescriptor.<Object[], String>builder(concatJobClassName()).units(nonExistingUnits).build(),
+                new Object[]{"a", 42});
 
         CompletionException ex0 = assertThrows(CompletionException.class, result::join);
 
@@ -128,13 +128,13 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
         deployJar(entryNode, firstVersion.name(), firstVersion.version(), "ignite-unit-test-job1-1.0-SNAPSHOT.jar");
 
         JobDescriptor job = JobDescriptor.builder("org.apache.ignite.internal.compute.UnitJob").units(jobUnits).build();
-        CompletableFuture<Integer> result1 = entryNode.compute().executeAsync(JobTarget.node(entryNode.node()), job);
+        CompletableFuture<Integer> result1 = entryNode.compute().executeAsync(JobTarget.node(entryNode.node()), job, null);
         assertThat(result1, willBe(1));
 
         DeploymentUnit secondVersion = new DeploymentUnit("latest-unit", Version.parseVersion("1.0.1"));
         deployJar(entryNode, secondVersion.name(), secondVersion.version(), "ignite-unit-test-job2-1.0-SNAPSHOT.jar");
 
-        CompletableFuture<String> result2 = entryNode.compute().executeAsync(JobTarget.node(entryNode.node()), job);
+        CompletableFuture<String> result2 = entryNode.compute().executeAsync(JobTarget.node(entryNode.node()), job, null);
         assertThat(result2, willBe("Hello World!"));
     }
 

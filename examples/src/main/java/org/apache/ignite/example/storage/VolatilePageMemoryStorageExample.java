@@ -20,31 +20,7 @@ package org.apache.ignite.example.storage;
 /**
  * This example demonstrates a usage of the PageMemory storage engine configured with an in-memory data region.
  *
- * <p>To run the example, do the following:
- * <ol>
- *     <li>Import the examples project into your IDE.</li>
- *     <li>
- *         Download and prepare artifacts for running an Ignite node using the CLI tool (if not done yet):<br>
- *         {@code ignite bootstrap}
- *     </li>
- *     <li>
- *         Start an Ignite node using the CLI tool:<br>
- *         {@code ignite node start --config=$IGNITE_HOME/examples/config/ignite-config.conf my-first-node}
- *     </li>
- *     <li>
- *         Cluster initialization using the CLI tool (if not done yet):<br>
- *         {@code ignite cluster init --name=ignite-cluster --node-endpoint=localhost:10300 --meta-storage-node=my-first-node}
- *     </li>
- *     <li>
- *         Add configuration for an in-memory data region of the PageMemory storage engine using the CLI tool (if not done yet):<br>
- *         {@code ignite cluster config update "aimem.regions.in-memory"}
- *     </li>
- *     <li>Run the example in the IDE.</li>
- *     <li>
- *         Stop the Ignite node using the CLI tool:<br>
- *         {@code ignite node stop my-first-node}
- *     </li>
- * </ol>
+ * <p>Find instructions on how to run the example in the README.md file located in the "examples" directory root.
  */
 public class VolatilePageMemoryStorageExample {
     /**

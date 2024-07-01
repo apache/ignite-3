@@ -64,6 +64,9 @@ public enum TxState {
             { false,  false,  true,  true,  true,  true }
     };
 
+    /** Cached array with all enum values. */
+    private static final TxState[] VALUES = values();
+
     /**
      * Checks whether the state is final, i.e. no transition from this state is allowed.
      *
@@ -88,5 +91,10 @@ public enum TxState {
         int afterOrd = after.ordinal() + 1;
 
         return TRANSITION_MATRIX[beforeOrd][afterOrd];
+    }
+
+    /** Returns the enumerated value from its ordinal, {@code null} if the ordinal is invalid. */
+    public static @Nullable TxState fromOrdinal(int ordinal) {
+        return ordinal < 0 || ordinal >= VALUES.length ? null : VALUES[ordinal];
     }
 }

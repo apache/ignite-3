@@ -19,6 +19,7 @@ package org.apache.ignite.internal.cli.commands.cluster.init;
 
 import static org.apache.ignite.internal.cli.commands.Options.Constants.CLUSTER_CONFIG_FILE_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.CLUSTER_CONFIG_FILE_OPTION_DESC;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.CLUSTER_CONFIG_FILE_PARAM_LABEL;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.CLUSTER_CONFIG_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.CLUSTER_CONFIG_OPTION_DESC;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.CLUSTER_NAME_OPTION;
@@ -30,6 +31,9 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.META_STO
 import static org.apache.ignite.internal.cli.commands.Options.Constants.META_STORAGE_NODE_NAME_OPTION_DESC;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.META_STORAGE_NODE_NAME_PARAM_LABEL;
 
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
+import com.typesafe.config.ConfigRenderOptions;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -84,8 +88,12 @@ public class ClusterInitOptions {
         @Option(names = CLUSTER_CONFIG_OPTION, description = CLUSTER_CONFIG_OPTION_DESC)
         private String config;
 
-        @Option(names = CLUSTER_CONFIG_FILE_OPTION, description = CLUSTER_CONFIG_FILE_OPTION_DESC)
-        private File file;
+        @Option(names = CLUSTER_CONFIG_FILE_OPTION,
+                description = CLUSTER_CONFIG_FILE_OPTION_DESC,
+                split = ",",
+                paramLabel = CLUSTER_CONFIG_FILE_PARAM_LABEL
+        )
+        private List<File> files;
     }
 
     /**
@@ -127,12 +135,20 @@ public class ClusterInitOptions {
             return null;
         } else if (clusterConfigOptions.config != null) {
             return clusterConfigOptions.config;
-        } else if (clusterConfigOptions.file != null) {
-            try {
-                return Files.readString(clusterConfigOptions.file.toPath());
-            } catch (IOException e) {
-                throw new IgniteCliException("Couldn't read cluster configuration file: " + clusterConfigOptions.file, e);
+        } else if (clusterConfigOptions.files != null) {
+            Config config = ConfigFactory.empty();
+
+            for (File file : clusterConfigOptions.files) {
+                try {
+                    String content = Files.readString(file.toPath());
+
+                    config = config.withFallback(ConfigFactory.parseString(content));
+                } catch (IOException e) {
+                    throw new IgniteCliException("Couldn't read cluster configuration file: " + clusterConfigOptions.files, e);
+                }
             }
+
+            return config.root().render(ConfigRenderOptions.concise().setFormatted(true).setJson(true));
         } else {
             return null;
         }

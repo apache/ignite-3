@@ -40,6 +40,8 @@ import org.apache.ignite.internal.compute.task.TaskExecutionInternal;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
+import org.apache.ignite.marshaling.Marshaler;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Base implementation of {@link ComputeExecutor}.
@@ -73,19 +75,21 @@ public class ComputeExecutorImpl implements ComputeExecutor {
     }
 
     @Override
-    public <R> JobExecutionInternal<R> executeJob(
+    public <T, R> JobExecutionInternal<R> executeJob(
             ExecutionOptions options,
-            Class<? extends ComputeJob<R>> jobClass,
+            Class<? extends ComputeJob<T, R>> jobClass,
             JobClassLoader classLoader,
-            Object[] args
+            T input
     ) {
         assert executorService != null;
 
         AtomicBoolean isInterrupted = new AtomicBoolean();
         JobExecutionContext context = new JobExecutionContextImpl(ignite, isInterrupted, classLoader);
+        ComputeJob<T, R> jobInstance = ComputeUtils.instantiateJob(jobClass);
+        Marshaler<T, byte[]> marshaller = jobInstance.inputMarshaler();
 
         QueueExecution<R> execution = executorService.submit(
-                () -> ComputeUtils.instantiateJob(jobClass).executeAsync(context, args),
+                () -> jobInstance.executeAsync(context, unmarshallOrNotIfNull(marshaller, input)),
                 options.priority(),
                 options.maxRetries()
         );
@@ -93,18 +97,30 @@ public class ComputeExecutorImpl implements ComputeExecutor {
         return new JobExecutionInternal<>(execution, isInterrupted);
     }
 
+    private static <T> @Nullable T unmarshallOrNotIfNull(@Nullable Marshaler<T, byte[]> marshaller, Object input) {
+        if (marshaller == null) {
+            return (T) input;
+        }
+
+        if (input instanceof byte[]) {
+            return marshaller.unmarshal((byte[]) input);
+        }
+
+        return (T) input;
+    }
+
     @Override
-    public <R> TaskExecutionInternal<R> executeTask(
-            JobSubmitter jobSubmitter,
-            Class<? extends MapReduceTask<R>> taskClass,
-            Object... args
+    public <I, M, T, R> TaskExecutionInternal<I, M, T, R> executeTask(
+            JobSubmitter<M, T> jobSubmitter,
+            Class<? extends MapReduceTask<I, M, T, R>> taskClass,
+            I input
     ) {
         assert executorService != null;
 
         AtomicBoolean isCancelled = new AtomicBoolean();
         TaskExecutionContext context = new TaskExecutionContextImpl(ignite, isCancelled);
 
-        return new TaskExecutionInternal<>(executorService, jobSubmitter, taskClass, context, isCancelled, args);
+        return new TaskExecutionInternal<>(executorService, jobSubmitter, taskClass, context, isCancelled, input);
     }
 
     @Override

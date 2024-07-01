@@ -135,9 +135,7 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
                             rs.getString("TABLE_SCHEM"),
                             rs.getString("TABLE_NAME"),
                             rs.getString("COLUMN_NAME"),
-                            rs.getInt("DATA_TYPE"),
-                            rs.getString("TYPE_NAME"),
-                            dataTypeToJavaCls(rs.getInt("DATA_TYPE"), rs.getString("TYPE_NAME")),
+                            dataTypeToColumnType(rs.getInt("DATA_TYPE"), rs.getString("TYPE_NAME")),
                             rs.getShort("COLUMN_SIZE"),
                             rs.getShort("DECIMAL_DIGITS"),
                             "YES".equals(rs.getString("IS_NULLABLE"))
@@ -153,61 +151,63 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
         }
     }
 
-    private String dataTypeToJavaCls(int dataType, String typeName) {
-        Class cls = null;
+    private ColumnType dataTypeToColumnType(int dataType, String typeName) {
+        ColumnType type = null;
 
         switch (dataType) {
             case Types.BOOLEAN:
-                cls = Boolean.class;
+                type = ColumnType.BOOLEAN;
                 break;
             case Types.TINYINT:
-                cls = Byte.class;
+                type = ColumnType.INT8;
                 break;
             case Types.SMALLINT:
-                cls = Short.class;
+                type = ColumnType.INT16;
                 break;
             case Types.INTEGER:
-                cls = Integer.class;
+                type = ColumnType.INT32;
                 break;
             case Types.BIGINT:
-                cls = Long.class;
+                type = ColumnType.INT64;
                 break;
             case Types.REAL:
-                cls = Float.class;
+                type = ColumnType.FLOAT;
                 break;
             case Types.DOUBLE:
-                cls = Double.class;
+                type = ColumnType.DOUBLE;
                 break;
             case Types.DECIMAL:
-                cls = BigDecimal.class;
+                type = ColumnType.DECIMAL;
                 break;
             case Types.DATE:
-                cls = java.sql.Date.class;
+                type = ColumnType.DATE;
                 break;
             case Types.TIME:
-                cls = java.sql.Time.class;
+                type = ColumnType.TIME;
                 break;
             case Types.TIMESTAMP:
-                cls = java.sql.Timestamp.class;
+                type = ColumnType.DATETIME;
                 break;
             case Types.OTHER:
                 if (typeName.equals("UUID")) {
-                    cls = UUID.class;
+                    type = ColumnType.UUID;
+                } else if (typeName.equals("TIMESTAMP WITH LOCAL TIME ZONE")) {
+                    type = ColumnType.TIMESTAMP;
                 }
                 break;
             case Types.VARCHAR:
-                cls = String.class;
+                type = ColumnType.STRING;
                 break;
             case Types.VARBINARY:
-                cls = byte[].class;
+                type = ColumnType.BYTE_ARRAY;
                 break;
             default:
                 break;
         }
 
-        assertNotNull(cls, "Not supported type " + dataType + " " + typeName);
+        assertNotNull(type, "Not supported type " + dataType + " " + typeName);
 
-        return cls.getName();
+        return type;
     }
 
     @Test

@@ -20,7 +20,9 @@ package org.apache.ignite.internal.client.compute;
 import static org.apache.ignite.internal.client.compute.ClientJobExecution.cancelJob;
 import static org.apache.ignite.internal.client.compute.ClientJobExecution.changePriority;
 import static org.apache.ignite.internal.client.compute.ClientJobExecution.getJobState;
+import static org.apache.ignite.internal.client.compute.ClientJobExecution.getTaskState;
 import static org.apache.ignite.internal.client.compute.ClientJobExecution.unpackJobState;
+import static org.apache.ignite.internal.client.compute.ClientJobExecution.unpackTaskState;
 import static org.apache.ignite.internal.util.CompletableFutures.allOfToList;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 
@@ -31,6 +33,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import org.apache.ignite.compute.JobState;
+import org.apache.ignite.compute.TaskState;
 import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.internal.client.PayloadInputChannel;
 import org.apache.ignite.internal.client.ReliableChannel;
@@ -51,7 +54,7 @@ class ClientTaskExecution<R> implements TaskExecution<R> {
     private final CompletableFuture<R> resultAsync;
 
     // Local state cache
-    private final CompletableFuture<@Nullable JobState> stateFuture = new CompletableFuture<>();
+    private final CompletableFuture<@Nullable TaskState> stateFuture = new CompletableFuture<>();
 
     // Local states cache
     private final CompletableFuture<List<@Nullable JobState>> statesFutures = new CompletableFuture<>();
@@ -68,7 +71,7 @@ class ClientTaskExecution<R> implements TaskExecution<R> {
                     // Notifications require explicit input close.
                     try (payloadInputChannel) {
                         R result = (R) payloadInputChannel.in().unpackObjectFromBinaryTuple();
-                        stateFuture.complete(unpackJobState(payloadInputChannel));
+                        stateFuture.complete(unpackTaskState(payloadInputChannel));
                         statesFutures.complete(unpackJobStates(payloadInputChannel));
                         return result;
                     }
@@ -81,11 +84,11 @@ class ClientTaskExecution<R> implements TaskExecution<R> {
     }
 
     @Override
-    public CompletableFuture<@Nullable JobState> stateAsync() {
+    public CompletableFuture<@Nullable TaskState> stateAsync() {
         if (stateFuture.isDone()) {
             return stateFuture;
         }
-        return jobIdFuture.thenCompose(jobId -> getJobState(ch, jobId));
+        return jobIdFuture.thenCompose(jobId -> getTaskState(ch, jobId));
     }
 
     @Override

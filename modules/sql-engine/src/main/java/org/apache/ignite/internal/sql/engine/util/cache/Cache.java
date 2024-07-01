@@ -79,4 +79,18 @@ public interface Cache<K, V> {
      * @param valueFilter A predicate which returns {@code true} for the values of entries to be removed.
      */
     void removeIfValue(Predicate<? super V> valueFilter);
+
+    /**
+     * Invalidates a cache entry for the given key.
+     *
+     * @param key Key.
+     */
+    void invalidate(K key);
+
+    /**
+     * Returns the number of entries in the cache.
+     *
+     * @return The number of entries in the cache.
+     */
+    int size();
 }
