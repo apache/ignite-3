@@ -17,25 +17,6 @@
 
 package org.apache.ignite.internal.partition.replicator.network;
 
-import org.apache.ignite.internal.partition.replicator.network.command.TablePartitionIdMessage;
-import org.apache.ignite.internal.replicator.TablePartitionId;
-
 /** Class that can contain useful constants and methods for working with messages from {@link PartitionReplicationMessageGroup}. */
 public class PartitionReplicationMessageUtils {
-    /**
-     * Converts to a network message.
-     *
-     * @param messagesFactory Messages factory.
-     * @param tablePartitionId Pair of table ID and partition ID.
-     * @return New instance of network message.
-     */
-    public static TablePartitionIdMessage toTablePartitionIdMessage(
-            PartitionReplicationMessagesFactory messagesFactory,
-            TablePartitionId tablePartitionId
-    ) {
-        return messagesFactory.tablePartitionIdMessage()
-                .tableId(tablePartitionId.tableId())
-                .partitionId(tablePartitionId.partitionId())
-                .build();
-    }
 }

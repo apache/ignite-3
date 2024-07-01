@@ -144,11 +144,11 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
 
     private static final PartitionReplicationMessagesFactory TABLE_MSG_FACTORY = new PartitionReplicationMessagesFactory();
 
+    private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
+
     private static final LowWatermarkMessagesFactory LWM_MSG_FACTORY = new LowWatermarkMessagesFactory();
 
     private static final TxMessagesFactory TX_MESSAGES_FACTORY = new TxMessagesFactory();
-
-    private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
 
     private final ExecutorService executorService = Executors.newSingleThreadExecutor();
 

@@ -68,9 +68,9 @@ public class OutgoingSnapshot {
     private static final PartitionReplicationMessagesFactory PARTITION_REPLICATION_MESSAGES_FACTORY =
             new PartitionReplicationMessagesFactory();
 
-    private static final TxMessagesFactory TX_MESSAGES_FACTORY = new TxMessagesFactory();
-
     private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
+
+    private static final TxMessagesFactory TX_MESSAGES_FACTORY = new TxMessagesFactory();
 
     private final UUID id;
 

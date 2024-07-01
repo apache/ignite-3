@@ -50,7 +50,7 @@ public class TxMessageSender {
     /** Tx messages factory. */
     private static final TxMessagesFactory TX_MESSAGES_FACTORY = new TxMessagesFactory();
 
-    /** Replica message factory. */
+    /** Replica messages factory. */
     private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
 
     /** Messaging service. */
@@ -103,7 +103,7 @@ public class TxMessageSender {
         return replicaService.invoke(
                 primaryConsistentId,
                 TX_MESSAGES_FACTORY.writeIntentSwitchReplicaRequest()
-                        .groupId(tablePartitionId)
+                        .groupId(toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, tablePartitionId))
                         .timestampLong(clockService.nowLong())
                         .txId(txId)
                         .commit(commit)
@@ -167,7 +167,7 @@ public class TxMessageSender {
                 TX_MESSAGES_FACTORY.txFinishReplicaRequest()
                         .txId(txId)
                         .timestampLong(clockService.nowLong())
-                        .groupId(commitPartition)
+                        .groupId(toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, commitPartition))
                         .groups(toTablePartitionIdMessages(replicationGroupIds))
                         .commit(commit)
                         .commitTimestampLong(hybridTimestampToLong(commitTimestamp))
@@ -193,7 +193,7 @@ public class TxMessageSender {
         return replicaService.invoke(
                 primaryConsistentId,
                 TX_MESSAGES_FACTORY.txStateCommitPartitionRequest()
-                        .groupId(commitGrpId)
+                        .groupId(toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, commitGrpId))
                         .txId(txId)
                         .enlistmentConsistencyToken(consistencyToken)
                         .build());
@@ -237,7 +237,7 @@ public class TxMessageSender {
         return replicaService.invoke(
                 primaryConsistentId,
                 TX_MESSAGES_FACTORY.txCleanupRecoveryRequest()
-                        .groupId(tablePartitionId)
+                        .groupId(toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, tablePartitionId))
                         .build()
         );
     }
