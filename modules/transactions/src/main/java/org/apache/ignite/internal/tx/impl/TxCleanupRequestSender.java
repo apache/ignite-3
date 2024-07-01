@@ -38,6 +38,7 @@ import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl.TransactionFailureHandler;
 import org.apache.ignite.internal.tx.message.CleanupReplicatedInfo;
+import org.apache.ignite.internal.tx.message.CleanupReplicatedInfoMessage;
 import org.apache.ignite.internal.tx.message.TxCleanupMessageErrorResponse;
 import org.apache.ignite.internal.tx.message.TxCleanupMessageResponse;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
@@ -87,11 +88,11 @@ public class TxCleanupRequestSender {
                 // The cleanup response is sent only in the success case, hence no error is expected.
                 assert !(msg instanceof TxCleanupMessageErrorResponse) : "Cleanup error response is not expected here.";
 
-                CleanupReplicatedInfo result = ((TxCleanupMessageResponse) msg).result();
+                CleanupReplicatedInfoMessage result = ((TxCleanupMessageResponse) msg).result();
 
                 assert result != null : "Result for the cleanup response cannot be null.";
 
-                onCleanupReplicated(result);
+                onCleanupReplicated(result.asCleanupReplicatedInfo());
             }
         });
     }

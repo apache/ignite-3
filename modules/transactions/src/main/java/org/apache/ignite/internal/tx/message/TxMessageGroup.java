@@ -105,4 +105,7 @@ public class TxMessageGroup {
 
     /** Message type for {@link TxStateMetaFinishingMessage}. */
     public static final short TX_STATE_META_FINISHING_MESSAGE = 17;
+
+    /** Message type for {@link CleanupReplicatedInfoMessage}. */
+    public static final short CLEANUP_REPLICATED_INFO_MESSAGE = 18;
 }

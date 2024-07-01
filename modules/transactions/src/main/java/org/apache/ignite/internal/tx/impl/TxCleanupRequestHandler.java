@@ -19,10 +19,13 @@ package org.apache.ignite.internal.tx.impl;
 
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -35,9 +38,12 @@ import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaResponse;
+import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.message.CleanupReplicatedInfo;
+import org.apache.ignite.internal.tx.message.CleanupReplicatedInfoMessage;
 import org.apache.ignite.internal.tx.message.TxCleanupMessage;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
@@ -50,7 +56,10 @@ import org.jetbrains.annotations.Nullable;
  */
 public class TxCleanupRequestHandler {
     /** Tx messages factory. */
-    private static final TxMessagesFactory FACTORY = new TxMessagesFactory();
+    private static final TxMessagesFactory TX_MESSAGES_FACTORY = new TxMessagesFactory();
+
+    /** Replica messages factory. */
+    private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
 
     /** Messaging service. */
     private final MessagingService messagingService;
@@ -164,22 +173,22 @@ public class TxCleanupRequestHandler {
     }
 
     private NetworkMessage prepareResponse() {
-        return FACTORY
+        return TX_MESSAGES_FACTORY
                 .txCleanupMessageResponse()
                 .timestampLong(clockService.nowLong())
                 .build();
     }
 
     private NetworkMessage prepareResponse(CleanupReplicatedInfo result) {
-        return FACTORY
+        return TX_MESSAGES_FACTORY
                 .txCleanupMessageResponse()
-                .result(result)
+                .result(toCleanupReplicatedInfoMessage(result))
                 .timestampLong(clockService.nowLong())
                 .build();
     }
 
     private NetworkMessage prepareErrorResponse(UUID txId, Throwable th) {
-        return FACTORY
+        return TX_MESSAGES_FACTORY
                 .txCleanupMessageErrorResponse()
                 .txId(txId)
                 .throwable(th)
@@ -265,5 +274,19 @@ public class TxCleanupRequestHandler {
             this.partitions = partitions;
             this.initialPartitions = initialPartitions;
         }
+    }
+
+    private static CleanupReplicatedInfoMessage toCleanupReplicatedInfoMessage(CleanupReplicatedInfo info) {
+        Collection<TablePartitionId> partitions = info.partitions();
+        List<TablePartitionIdMessage> partitionMessages = new ArrayList<>(partitions.size());
+
+        for (TablePartitionId partition : partitions) {
+            partitionMessages.add(toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, partition));
+        }
+
+        return TX_MESSAGES_FACTORY.cleanupReplicatedInfoMessage()
+                .txId(info.txId())
+                .partitions(partitionMessages)
+                .build();
     }
 }
