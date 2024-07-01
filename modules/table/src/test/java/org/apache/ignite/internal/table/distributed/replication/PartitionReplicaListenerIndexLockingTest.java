@@ -337,6 +337,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
             case RW_GET_AND_DELETE:
                 request = TABLE_MESSAGES_FACTORY.readWriteSingleRowPkReplicaRequest()
                         .groupId(PARTITION_ID)
+                        .tableId(TABLE_ID)
                         .enlistmentConsistencyToken(1L)
                         .commitPartitionId(tablePartitionId(PARTITION_ID))
                         .transactionId(TRANSACTION_ID)
@@ -356,6 +357,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
             case RW_GET_AND_UPSERT:
                 request = TABLE_MESSAGES_FACTORY.readWriteSingleRowReplicaRequest()
                         .groupId(PARTITION_ID)
+                        .tableId(TABLE_ID)
                         .enlistmentConsistencyToken(1L)
                         .commitPartitionId(tablePartitionId(PARTITION_ID))
                         .transactionId(TRANSACTION_ID)
@@ -423,6 +425,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
             case RW_DELETE_ALL:
                 request = TABLE_MESSAGES_FACTORY.readWriteMultiRowPkReplicaRequest()
                         .groupId(PARTITION_ID)
+                        .tableId(TABLE_ID)
                         .enlistmentConsistencyToken(1L)
                         .commitPartitionId(tablePartitionId(PARTITION_ID))
                         .transactionId(TRANSACTION_ID)
@@ -439,6 +442,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
             case RW_UPSERT_ALL:
                 request = TABLE_MESSAGES_FACTORY.readWriteMultiRowReplicaRequest()
                         .groupId(PARTITION_ID)
+                        .tableId(TABLE_ID)
                         .enlistmentConsistencyToken(1L)
                         .commitPartitionId(tablePartitionId(PARTITION_ID))
                         .transactionId(TRANSACTION_ID)

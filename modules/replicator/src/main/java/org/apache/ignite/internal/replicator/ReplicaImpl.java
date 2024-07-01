@@ -134,6 +134,11 @@ public class ReplicaImpl implements Replica {
     }
 
     @Override
+    public ReplicaListener listener() {
+        return listener;
+    }
+
+    @Override
     public final TopologyAwareRaftGroupService raftClient() {
         return (TopologyAwareRaftGroupService) listener.raftClient();
     }

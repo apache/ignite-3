@@ -21,6 +21,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverReplicaMessage;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
+import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 
 /**
@@ -35,6 +36,14 @@ public interface Replica {
     // TODO:https://issues.apache.org/jira/browse/IGNITE-22036 remove this method
     @Deprecated(forRemoval = true)
     TopologyAwareRaftGroupService raftClient();
+
+    /**
+     * Returns replica's listener.
+     *
+     * @return Replica's listener.
+     */
+    @Deprecated(forRemoval = true)
+    ReplicaListener listener();
 
     /**
      * Processes a replication request on the replica.

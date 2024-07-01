@@ -19,10 +19,11 @@ package org.apache.ignite.internal.partition.replicator.network.replication;
 
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
+import org.apache.ignite.internal.replicator.message.TableAware;
 
 /**
  * Read-write single-row replica request involving a table's Primary Key..
  */
 @Transferable(PartitionReplicationMessageGroup.RW_SINGLE_ROW_PK_REPLICA_REQUEST)
-public interface ReadWriteSingleRowPkReplicaRequest extends SingleRowPkReplicaRequest, ReadWriteReplicaRequest {
+public interface ReadWriteSingleRowPkReplicaRequest extends SingleRowPkReplicaRequest, ReadWriteReplicaRequest, TableAware {
 }

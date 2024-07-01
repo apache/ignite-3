@@ -298,7 +298,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testEmptyReplicaListener() throws NodeStoppingException {
+    public void testZoneReplicaListener() throws NodeStoppingException {
         Assignment replicaAssignment = (Assignment) AffinityUtils.calculateAssignmentForPartition(
                 nodes.stream().map(n -> n.name).collect(Collectors.toList()), 0, 1).toArray()[0];
 
@@ -309,17 +309,31 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
         createZone(node, "test_zone", 1, 1);
         int zoneId = DistributionZonesTestUtil.getZoneId(node.catalogManager, "test_zone", node.hybridClock.nowLong());
 
-        createTable(node, "test_zone", "test_table");
-        int tableId = TableTestUtils.getTableId(node.catalogManager, "test_table", node.hybridClock.nowLong());
+        {
+            createTable(node, "test_zone", "test_table");
+            int tableId = TableTestUtils.getTableId(node.catalogManager, "test_table", node.hybridClock.nowLong());
 
-        node.converter.put(new TablePartitionId(tableId, 0), new ZonePartitionId(zoneId, 0));
+            node.converter.put(new TablePartitionId(tableId, 0), new ZonePartitionId(zoneId, 0));
 
-        KeyValueView<Long, Integer> keyValueView = node.tableManager.table(tableId).keyValueView(Long.class, Integer.class);
+            KeyValueView<Long, Integer> keyValueView = node.tableManager.table(tableId).keyValueView(Long.class, Integer.class);
 
-        assertDoesNotThrow(() -> keyValueView.put(null, 1L, 1));
+            assertDoesNotThrow(() -> keyValueView.put(null, 1L, 100));
 
-        // Actually we are testing not the fair put value, but the hardcoded one from temporary noop replica listener
-        assertEquals(-1, keyValueView.get(null, 1L));
+            assertEquals(100, keyValueView.get(null, 1L));
+        }
+
+        {
+            createTable(node, "test_zone", "test_table1");
+            int tableId = TableTestUtils.getTableId(node.catalogManager, "test_table1", node.hybridClock.nowLong());
+
+            node.converter.put(new TablePartitionId(tableId, 0), new ZonePartitionId(zoneId, 0));
+
+            KeyValueView<Long, Integer> keyValueView = node.tableManager.table(tableId).keyValueView(Long.class, Integer.class);
+
+            assertDoesNotThrow(() -> keyValueView.put(null, 1L, 200));
+
+            assertEquals(200, keyValueView.get(null, 1L));
+        }
     }
 
     @Test
@@ -803,7 +817,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     clusterService.topologyService(),
                     clusterService.serializationRegistry(),
                     replicaManager,
-                    mock(LockManager.class),
+                    lockManager,
                     replicaSvc,
                     txManager,
                     dataStorageMgr,

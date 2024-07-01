@@ -143,6 +143,7 @@ import org.apache.ignite.internal.metastorage.dsl.SimpleCondition;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
+import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
@@ -160,6 +161,8 @@ import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaManager.WeakReplicaStopReason;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionReplicaImpl;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaRegistry;
@@ -623,7 +626,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         });
     }
 
-    private CompletableFuture<Boolean> onPrimaryReplicaExpired(PrimaryReplicaEventParameters parameters) {
+ e  private CompletableFuture<Boolean> onPrimaryReplicaExpired(PrimaryReplicaEventParameters parameters) {
         if (topologyService.localMember().id().equals(parameters.leaseholderId())) {
             TablePartitionId groupId = (TablePartitionId) parameters.groupId();
 
@@ -976,16 +979,28 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         MvTableStorage mvTableStorage = internalTbl.storage();
 
                         try {
+                            // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 Start table replica here must be removed,
+                            // TODO: when the zone replica will be done.
                             return replicaMgr.startReplica(
-                                    raftGroupEventsListener,
-                                    raftGroupListener,
-                                    mvTableStorage.isVolatile(),
-                                    snapshotStorageFactory,
-                                    updateTableRaftService,
-                                    createListener,
-                                    storageIndexTracker,
-                                    replicaGrpId,
-                                    stablePeersAndLearners);
+                                            raftGroupEventsListener,
+                                            raftGroupListener,
+                                            mvTableStorage.isVolatile(),
+                                            snapshotStorageFactory,
+                                            updateTableRaftService,
+                                            createListener,
+                                            storageIndexTracker,
+                                            replicaGrpId,
+                                            stablePeersAndLearners
+                                    ).thenApply(r -> {
+                                        if (PartitionReplicaLifecycleManager.ENABLED) {
+                                            replicaMgr.replica(new ZonePartitionId(zoneId, partId))
+                                                    .thenAccept(zoneReplica ->
+                                                            ((ZonePartitionReplicaImpl) zoneReplica).addTableReplicaListener(
+                                                                    new TablePartitionId(tableId, partId), r.listener()));
+                                        }
+
+                                        return true;
+                                    });
                         } catch (NodeStoppingException e) {
                             throw new AssertionError("Loza was stopped before Table manager", e);
                         }

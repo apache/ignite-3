@@ -20,13 +20,14 @@ package org.apache.ignite.internal.partition.replicator.network.replication;
 import java.util.BitSet;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
+import org.apache.ignite.internal.replicator.message.TableAware;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Read-write multi-row replica request.
  */
 @Transferable(PartitionReplicationMessageGroup.RW_MULTI_ROW_REPLICA_REQUEST)
-public interface ReadWriteMultiRowReplicaRequest extends MultipleRowReplicaRequest, ReadWriteReplicaRequest {
+public interface ReadWriteMultiRowReplicaRequest extends MultipleRowReplicaRequest, ReadWriteReplicaRequest, TableAware {
     /**
      * Disable delayed ack optimization.
      *
