@@ -25,6 +25,12 @@ import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RO_GET;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RO_GET_ALL;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_GET;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_GET_ALL;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_REPLACE;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_SCAN;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
 import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.BUILDING;
 import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.REGISTERED;
@@ -751,7 +757,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             var opId = new OperationId(senderId, req.timestampLong());
 
             // Implicit RW scan can be committed locally on a last batch or error.
-            return appendTxCommand(req.transactionId(), opId, RequestType.RW_SCAN, false, () -> processScanRetrieveBatchAction(req))
+            return appendTxCommand(req.transactionId(), opId, RW_SCAN, false, () -> processScanRetrieveBatchAction(req))
                     .thenCompose(rows -> {
                         if (allElementsAreNull(rows)) {
                             return completedFuture(rows);
@@ -1070,7 +1076,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         BinaryTuple primaryKey = resolvePk(request.primaryKey());
         HybridTimestamp readTimestamp = request.readTimestamp();
 
-        if (request.requestType() != RequestType.RO_GET) {
+        if (request.requestType() != RO_GET) {
             throw new IgniteInternalException(Replicator.REPLICA_COMMON_ERR,
                     format("Unknown single request [actionType={}]", request.requestType()));
         }
@@ -1106,7 +1112,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         List<BinaryTuple> primaryKeys = resolvePks(request.primaryKeys());
         HybridTimestamp readTimestamp = request.readTimestamp();
 
-        if (request.requestType() != RequestType.RO_GET_ALL) {
+        if (request.requestType() != RO_GET_ALL) {
             throw new IgniteInternalException(Replicator.REPLICA_COMMON_ERR,
                     format("Unknown single request [actionType={}]", request.requestType()));
         }
@@ -2223,7 +2229,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         List<BinaryTuple> primaryKeys = resolvePks(request.primaryKeys());
         HybridTimestamp readTimestamp = opStartTimestamp;
 
-        if (request.requestType() != RequestType.RO_GET_ALL) {
+        if (request.requestType() != RO_GET_ALL) {
             throw new IgniteInternalException(Replicator.REPLICA_COMMON_ERR,
                     format("Unknown single request [actionType={}]", request.requestType()));
         }
@@ -2521,7 +2527,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         TablePartitionId committedPartitionId = request.commitPartitionId().asTablePartitionId();
         List<BinaryTuple> primaryKeys = resolvePks(request.primaryKeys());
 
-        assert committedPartitionId != null || request.requestType() == RequestType.RW_GET_ALL
+        assert committedPartitionId != null || request.requestType() == RW_GET_ALL
                 : "Commit partition is null [type=" + request.requestType() + ']';
 
         switch (request.requestType()) {
@@ -2997,7 +3003,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         BinaryTuple primaryKey = resolvePk(request.primaryKey());
         HybridTimestamp readTimestamp = opStartTimestamp;
 
-        if (request.requestType() != RequestType.RO_GET) {
+        if (request.requestType() != RO_GET) {
             throw new IgniteInternalException(Replicator.REPLICA_COMMON_ERR,
                     format("Unknown single request [actionType={}]", request.requestType()));
         }
@@ -3216,7 +3222,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         BinaryTuple primaryKey = resolvePk(request.primaryKey());
         TablePartitionId commitPartitionId = request.commitPartitionId().asTablePartitionId();
 
-        assert commitPartitionId != null || request.requestType() == RequestType.RW_GET :
+        assert commitPartitionId != null || request.requestType() == RW_GET :
                 "Commit partition is null [type=" + request.requestType() + ']';
 
         switch (request.requestType()) {
@@ -3493,7 +3499,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         UUID txId = request.transactionId();
 
-        if (request.requestType() == RequestType.RW_REPLACE) {
+        if (request.requestType() == RW_REPLACE) {
             return resolveRowByPk(extractPk(newRow), txId, (rowId, row, lastCommitTime) -> {
                 if (rowId == null) {
                     return completedFuture(new ReplicaResult(false, null));

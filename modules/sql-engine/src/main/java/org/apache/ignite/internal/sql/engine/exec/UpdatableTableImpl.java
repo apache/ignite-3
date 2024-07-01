@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_DELETE_ALL;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_INSERT_ALL;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_UPSERT_ALL;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.rowSchemaFromRelTypes;
 import static org.apache.ignite.internal.table.distributed.storage.InternalTableImpl.collectRejectedRowsResponsesWithRestoreOrder;
@@ -39,7 +42,6 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadWriteMultiRowReplicaRequest;
-import org.apache.ignite.internal.partition.replicator.network.replication.RequestType;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
@@ -151,7 +153,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
                     .binaryTuples(binaryRowsToBuffers(partToRows.getValue()))
                     .transactionId(txAttributes.id())
                     .enlistmentConsistencyToken(nodeWithConsistencyToken.enlistmentConsistencyToken())
-                    .requestType(RequestType.RW_UPSERT_ALL)
+                    .requestTypeInt(RW_UPSERT_ALL.ordinal())
                     .timestampLong(clockService.nowLong())
                     .skipDelayedAck(true)
                     .coordinatorId(txAttributes.coordinatorId())
@@ -256,7 +258,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
                     .binaryTuples(binaryRowsToBuffers(rowBatch.requestedRows))
                     .transactionId(txAttributes.id())
                     .enlistmentConsistencyToken(nodeWithConsistencyToken.enlistmentConsistencyToken())
-                    .requestType(RequestType.RW_INSERT_ALL)
+                    .requestTypeInt(RW_INSERT_ALL.ordinal())
                     .timestampLong(clockService.nowLong())
                     .skipDelayedAck(true)
                     .coordinatorId(txAttributes.coordinatorId())
@@ -325,7 +327,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
                     .primaryKeys(serializePrimaryKeys(partToRows.getValue()))
                     .transactionId(txAttributes.id())
                     .enlistmentConsistencyToken(nodeWithConsistencyToken.enlistmentConsistencyToken())
-                    .requestType(RequestType.RW_DELETE_ALL)
+                    .requestTypeInt(RW_DELETE_ALL.ordinal())
                     .timestampLong(clockService.nowLong())
                     .skipDelayedAck(true)
                     .coordinatorId(txAttributes.coordinatorId())

@@ -570,7 +570,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
                     statesList.add(PARTITION_REPLICATION_MESSAGES_FACTORY.localPartitionStateMessage()
                             .partitionId(toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, tablePartitionId))
-                            .state(localPartitionStateWithLogIndex.state)
+                            .state(localPartitionStateWithLogIndex.state.ordinal())
                             .logIndex(localPartitionStateWithLogIndex.logIndex)
                             .build()
                     );
@@ -630,7 +630,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
         LocalPartitionStateEnum stateEnum = stateMsg.state();
 
-        if (stateMsg.state() == HEALTHY && maxLogIndex - stateMsg.logIndex() >= CATCH_UP_THRESHOLD) {
+        if (stateEnum == HEALTHY && maxLogIndex - stateMsg.logIndex() >= CATCH_UP_THRESHOLD) {
             stateEnum = CATCHING_UP;
         }
 
