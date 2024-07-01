@@ -96,6 +96,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.IntSupplier;
 import java.util.function.LongFunction;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -408,6 +409,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     private ScheduledExecutorService streamerFlushExecutor;
 
     private final IndexMetaStorage indexMetaStorage;
+
+    private final Predicate<Assignment> isLocalNodeAssignment = assignment -> assignment.consistentId().equals(localNode().name());
 
     /**
      * Creates a new table manager.
@@ -885,6 +888,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             int zoneId,
             boolean isRecovery
     ) {
+        if (localMemberAssignment == null) {
+            // (0) in case if node not in the assignments
+            return nullCompletedFuture();
+        }
+
         int tableId = table.tableId();
 
         var internalTbl = (InternalTableImpl) table.internalTable();
@@ -897,11 +905,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         Consumer<RaftGroupService> updateTableRaftService = raftClient -> internalTbl
                 .tableRaftService()
                 .updateInternalTableRaftGroupService(partId, raftClient);
-
-        if (localMemberAssignment == null) {
-            // (0) in case if node not in the assignments
-            return nullCompletedFuture();
-        }
 
         CompletableFuture<Boolean> shouldStartGroupFut = isRecovery
                 ? partitionReplicatorNodeRecovery.initiateGroupReentryIfNeeded(
@@ -1075,6 +1078,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private boolean isLocalPeer(Peer peer) {
         return peer.consistentId().equals(localNode().name());
+    }
+
+    private boolean isLocalNodeInAssignments(Collection<Assignment> assignments) {
+        return assignments.stream().anyMatch(isLocalNodeAssignment);
     }
 
     private PartitionDataStorage partitionDataStorage(MvPartitionStorage partitionStorage, InternalTable internalTbl, int partId) {
@@ -1757,7 +1764,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         }
 
                         return setTablesPartitionCountersForRebalance(replicaGrpId, revision, pendingAssignments.force())
-                                .thenCompose(r -> handleChangePendingAssignmentEvent(
+                                .thenCompose(v -> handleChangePendingAssignmentEvent(
                                         replicaGrpId,
                                         table,
                                         stableAssignments,
@@ -1765,7 +1772,15 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                         revision,
                                         isRecovery
                                 ))
-                                .thenCompose(v -> changePeersOnRebalance(table, replicaGrpId, pendingAssignments.nodes(), revision));
+                                .thenCompose(v -> {
+                                    if (!isLocalNodeInAssignments(union(stableAssignments.nodes(), pendingAssignments.nodes()))) {
+                                        return nullCompletedFuture();
+                                    }
+
+                                    assert replicaMgr.isReplicaStarted(replicaGrpId) : "The local node is outside of the replication group";
+
+                                    return changePeersOnRebalance(table, replicaGrpId, pendingAssignments.nodes(), revision);
+                                });
                     } finally {
                         busyLock.leaveBusy();
                     }
@@ -1848,16 +1863,21 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     }), ioExecutor);
         } else {
             localServicesStartFuture = runAsync(() -> {
-                if (pendingAssignmentsAreForced && replicaMgr.isReplicaStarted(replicaGrpId)) {
+                if (pendingAssignmentsAreForced && localMemberAssignment != null) {
+
+                    assert replicaMgr.isReplicaStarted(replicaGrpId) : "The local node is outside of the replication group";
+
                     replicaMgr.resetPeers(replicaGrpId, fromAssignments(computedStableAssignments.nodes()));
                 }
             }, ioExecutor);
         }
 
         return localServicesStartFuture.thenRunAsync(() -> {
-            if (!replicaMgr.isReplicaStarted(replicaGrpId)) {
+            if (localMemberAssignment == null) {
                 return;
             }
+
+            assert replicaMgr.isReplicaStarted(replicaGrpId) : "The local node is outside of the replication group";
 
             // For forced assignments, we exclude dead stable nodes, and all alive stable nodes are already in pending assignments.
             // Union is not required in such a case.
@@ -1924,15 +1944,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private CompletableFuture<Void> changePeersOnRebalance(
+            // TODO: remove excessive argument (used to get raft-client) https://issues.apache.org/jira/browse/IGNITE-22218
             TableImpl table,
             TablePartitionId replicaGrpId,
             Set<Assignment> pendingAssignments,
             long revision
     ) {
-        if (!replicaMgr.isReplicaStarted(replicaGrpId)) {
-            return nullCompletedFuture();
-        }
-
         int partId = replicaGrpId.partitionId();
 
         RaftGroupService partGrpSvc = table.internalTable().tableRaftService().partitionRaftGroupService(partId);
@@ -1961,7 +1978,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     // run update of raft configuration if this node is a leader
                     LOG.info("Current node={} is the leader of partition raft group={}. "
                                     + "Initiate rebalance process for partition={}, table={}",
-                            leaderWithTerm.leader(), replicaGrpId, partId, table.name());
+                            leaderWithTerm.leader(), replicaGrpId, partId, tables.get(replicaGrpId.tableId()).name());
 
                     return metaStorageMgr.get(pendingPartAssignmentsKey(replicaGrpId))
                             .thenCompose(latestPendingAssignmentsEntry -> {
@@ -1972,8 +1989,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                     return nullCompletedFuture();
                                 }
 
-                                PeersAndLearners newConfiguration =
-                                        fromAssignments(pendingAssignments);
+                                PeersAndLearners newConfiguration = fromAssignments(pendingAssignments);
 
                                 return partGrpSvc.changePeersAsync(newConfiguration, leaderWithTerm.term());
                             });
@@ -2209,9 +2225,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             Set<Assignment> stableAssignments,
             long revision
     ) {
-        if (!replicaMgr.isReplicaStarted(tablePartitionId)) {
+        if (isLocalNodeInAssignments(stableAssignments)) {
             return nullCompletedFuture();
         }
+
+        assert replicaMgr.isReplicaStarted(tablePartitionId) : "The local node is outside of the replication group";
 
         // Update raft client peers and learners according to the actual assignments.
         return tablesById(revision).thenAccept(t -> {
@@ -2238,7 +2256,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         ? pendingAssignments.nodes().stream()
                         : Stream.concat(stableAssignments.stream(), pendingAssignments.nodes().stream())
                 )
-                .noneMatch(assignment -> assignment.consistentId().equals(localNode().name()));
+                .noneMatch(isLocalNodeAssignment);
 
         if (shouldStopLocalServices) {
             return allOf(
