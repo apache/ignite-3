@@ -1773,6 +1773,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                         isRecovery
                                 ))
                                 .thenCompose(v -> {
+                                    // if (!replicaMgr.isReplicaStarted(replicaGrpId)) {
                                     if (!isLocalNodeInAssignments(union(stableAssignments.nodes(), pendingAssignments.nodes()))) {
                                         return nullCompletedFuture();
                                     }
@@ -1873,7 +1874,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         }
 
         return localServicesStartFuture.thenRunAsync(() -> {
-            if (localMemberAssignment == null) {
+            // if (localMemberAssignment == null) {
+            if (!replicaMgr.isReplicaStarted(replicaGrpId)) {
                 return;
             }
 
@@ -2225,7 +2227,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             Set<Assignment> stableAssignments,
             long revision
     ) {
-        if (isLocalNodeInAssignments(stableAssignments)) {
+        if (!isLocalNodeInAssignments(stableAssignments)) {
             return nullCompletedFuture();
         }
 
