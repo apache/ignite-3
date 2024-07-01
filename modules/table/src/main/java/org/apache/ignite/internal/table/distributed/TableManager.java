@@ -1775,6 +1775,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                 .thenCompose(v -> {
                                     // if (!replicaMgr.isReplicaStarted(replicaGrpId)) {
                                     if (!isLocalNodeInAssignments(pendingAssignments.nodes())) {
+                                        assert !replicaMgr.isReplicaStarted(replicaGrpId)
+                                                : "The local node is inside of the replication group";
+
                                         return nullCompletedFuture();
                                     }
 
@@ -1870,6 +1873,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                     replicaMgr.resetPeers(replicaGrpId, fromAssignments(computedStableAssignments.nodes()));
                 }
+
+                assert localMemberAssignment == null && replicaMgr.isReplicaStarted(replicaGrpId)
+                        : "The local node is inside of the replication group";
             }, ioExecutor);
         }
 
@@ -2228,6 +2234,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             long revision
     ) {
         if (!isLocalNodeInAssignments(stableAssignments)) {
+            assert !replicaMgr.isReplicaStarted(tablePartitionId) : "The local node is inside of the replication group";
+
             return nullCompletedFuture();
         }
 
