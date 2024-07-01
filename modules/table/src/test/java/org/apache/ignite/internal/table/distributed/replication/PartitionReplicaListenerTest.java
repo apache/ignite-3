@@ -21,6 +21,7 @@ import static java.util.Collections.singletonList;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_BUILDING;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
@@ -153,11 +154,8 @@ import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaResult;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
-import org.apache.ignite.internal.replicator.message.ReplicaMessageUtils;
-import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -2487,7 +2485,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     private void testCommitRequestIfTableWasDropped(
             TablePartitionId commitPartitionId,
-            Map<ReplicationGroupId, String> groups,
+            Map<TablePartitionId, String> groups,
             int tableToBeDroppedId
     ) {
         when(validationSchemasSource.tableSchemaVersionsBetween(anyInt(), any(), any(HybridTimestamp.class)))
@@ -2508,7 +2506,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         CompletableFuture<?> future = partitionReplicaListener.invoke(
                 TX_MESSAGES_FACTORY.txFinishReplicaRequest()
                         .groupId(tablePartitionIdMessage(commitPartitionId))
-                        .groups(groups)
+                        .groups(groups.entrySet().stream().collect(toMap(e -> tablePartitionIdMessage(e.getKey()), Map.Entry::getValue)))
                         .txId(txId)
                         .enlistmentConsistencyToken(ANY_ENLISTMENT_CONSISTENCY_TOKEN)
                         .commit(true)
