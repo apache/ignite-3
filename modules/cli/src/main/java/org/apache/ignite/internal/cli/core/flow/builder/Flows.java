@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.cli.core.flow.builder;
 
+import static org.apache.ignite.internal.cli.core.flow.Flowable.failure;
+import static org.apache.ignite.internal.cli.core.flow.Flowable.success;
+
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -49,7 +52,12 @@ public final class Flows {
      * @return new {@link Flow} will call action.
      */
     public static <I extends CallInput, T> Flow<I, T> fromCall(Call<I, T> call) {
-        return flowable -> fromOutput(call.execute(flowable.value()));
+        return flowable -> {
+            if (flowable.hasError()) {
+                return failure(flowable.errorCause());
+            }
+            return fromOutput(call.execute(flowable.value()));
+        };
     }
 
     /**
@@ -63,7 +71,12 @@ public final class Flows {
      * @return new {@link Flow} will call action.
      */
     public static <I, CIT extends CallInput, T> Flow<I, T> fromCall(Call<CIT, T> call, Function<I, CIT> mapper) {
-        return flowable -> fromOutput(call.execute(mapper.apply(flowable.value())));
+        return flowable -> {
+            if (flowable.hasError()) {
+                return failure(flowable.errorCause());
+            }
+            return fromOutput(call.execute(mapper.apply(flowable.value())));
+        };
     }
 
     /**
@@ -74,7 +87,7 @@ public final class Flows {
      * @return {@link FlowBuilder} which started from constant flow.
      */
     public static <T> FlowBuilder<Void, T> from(T value) {
-        return new FlowBuilderImpl<>(input -> Flowable.success(value));
+        return new FlowBuilderImpl<>(input -> success(value));
     }
 
     /**
@@ -98,7 +111,12 @@ public final class Flows {
      * @return new {@link Flow} with action {@param function}.
      */
     public static <I, O> Flow<I, O> mono(Function<I, O> function) {
-        return input -> Flowable.process(() -> function.apply(input.value()));
+        return input -> {
+            if (input.hasError()) {
+                return failure(input.errorCause());
+            }
+            return Flowable.process(() -> function.apply(input.value()));
+        };
     }
 
     private static <T> Flowable<T> fromOutput(CallOutput<T> output) {
@@ -163,7 +181,7 @@ public final class Flows {
      * @return new {@link Flow}.
      */
     public static <I, O> Flow<I, O> questionFlow(String question, List<QuestionAnswer<I, O>> answers) {
-        return input -> Flowable.success(QuestionAskerFactory
+        return input -> success(QuestionAskerFactory
                 .newQuestionAsker().askQuestion(question, input.value(), answers));
     }
 
@@ -189,6 +207,6 @@ public final class Flows {
      * Returns a {@link FlowBuilder} that always returns its input argument.
      */
     public static <I> FlowBuilder<I, I> identity() {
-        return new FlowBuilderImpl<>(input -> Flowable.success(input.value()));
+        return new FlowBuilderImpl<>(input -> success(input.value()));
     }
 }
