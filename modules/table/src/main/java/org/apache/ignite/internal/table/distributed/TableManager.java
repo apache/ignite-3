@@ -1773,8 +1773,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                         isRecovery
                                 ))
                                 .thenCompose(v -> {
-                                    // if (!replicaMgr.isReplicaStarted(replicaGrpId)) {
-                                    if (!isLocalNodeInAssignments(pendingAssignments.nodes())) {
+                                    // if (!isLocalNodeInAssignments(union(stableAssignments.nodes(), pendingAssignments.nodes()))) {
+                                    if (!replicaMgr.isReplicaStarted(replicaGrpId)) {
                                         assert !replicaMgr.isReplicaStarted(replicaGrpId)
                                                 : "The local node is inside of the replication group";
 
