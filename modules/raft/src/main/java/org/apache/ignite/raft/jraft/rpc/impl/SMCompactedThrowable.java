@@ -21,6 +21,9 @@ import java.io.Serializable;
 
 /**
  * Compacted version of throwable from client's state machine logic.
+ * <p>
+ * Note that this class does not preserve {@code traceId} and {@code code} from org.apache.ignite.lang.TraceableException,
+ * so {@link SMThrowable} should be used instead.
  */
 public class SMCompactedThrowable implements SMThrowable, Serializable {
     /** Throwable class name. */
