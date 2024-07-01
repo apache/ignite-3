@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing;
 
+import static org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageUtils.toTxMetaMessage;
 import static org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.SnapshotMetaUtils.collectNextRowIdToBuildIndexes;
 import static org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.SnapshotMetaUtils.snapshotMetaAt;
 
@@ -41,6 +42,7 @@ import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMvDa
 import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMvDataResponse.ResponseEntry;
 import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotTxDataRequest;
 import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotTxDataResponse;
+import org.apache.ignite.internal.partition.replicator.network.raft.TxMetaMessage;
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryRowMessage;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.ReadResult;
@@ -408,12 +410,12 @@ public class OutgoingSnapshot {
     }
 
     private static SnapshotTxDataResponse buildTxDataResponse(List<IgniteBiTuple<UUID, TxMeta>> rows, boolean finished) {
-        List<UUID> txIds = new ArrayList<>();
-        List<TxMeta> txMetas = new ArrayList<>();
+        var txIds = new ArrayList<UUID>(rows.size());
+        var txMetas = new ArrayList<TxMetaMessage>(rows.size());
 
         for (IgniteBiTuple<UUID, TxMeta> row : rows) {
             txIds.add(row.getKey());
-            txMetas.add(row.getValue());
+            txMetas.add(toTxMetaMessage(MESSAGES_FACTORY, row.getValue()));
         }
 
         return MESSAGES_FACTORY.snapshotTxDataResponse()

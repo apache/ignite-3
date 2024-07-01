@@ -15,25 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.partition.replicator.network.raft;
+package org.apache.ignite.internal.partition.replicator.network.disaster;
 
-import java.util.List;
-import java.util.UUID;
-import org.apache.ignite.internal.network.NetworkMessage;
-import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
-/**
- * Snapshot TX state partition data response message.
- */
-@Transferable(PartitionReplicationMessageGroup.SNAPSHOT_TX_DATA_RESPONSE)
-public interface SnapshotTxDataResponse extends NetworkMessage {
-    /** List of transaction ids in the response. */
-    List<UUID> txIds();
+import org.junit.jupiter.api.Test;
 
-    /** List of transaction metas in the response. */
-    List<TxMetaMessage> txMeta();
-
-    /** Flag that indicates whether this is the last response or not. */
-    boolean finish();
+/** For {@link LocalPartitionStateEnum} testing. */
+public class LocalPartitionStateEnumTest {
+    @Test
+    void testFromOrdinal() {
+        for (LocalPartitionStateEnum state : LocalPartitionStateEnum.values()) {
+            assertEquals(state, LocalPartitionStateEnum.fromOrdinal(state.ordinal()));
+        }
+    }
 }

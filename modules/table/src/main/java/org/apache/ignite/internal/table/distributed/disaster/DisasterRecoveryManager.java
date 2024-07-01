@@ -27,6 +27,7 @@ import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.TABLE_CREATE;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.TABLE_DROP;
 import static org.apache.ignite.internal.event.EventListener.fromConsumer;
+import static org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageUtils.toTablePartitionIdMessage;
 import static org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum.CATCHING_UP;
 import static org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum.HEALTHY;
 import static org.apache.ignite.internal.table.distributed.disaster.DisasterRecoverySystemViews.createGlobalPartitionStatesSystemView;
@@ -564,11 +565,8 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                             LocalPartitionStateEnumWithLogIndex.of(raftGroupService.getRaftNode());
 
                     statesList.add(MSG_FACTORY.localPartitionStateMessage()
-                            .partitionId(MSG_FACTORY.tablePartitionIdMessage()
-                                    .tableId(tablePartitionId.tableId())
-                                    .partitionId(tablePartitionId.partitionId())
-                                    .build())
-                            .state(localPartitionStateWithLogIndex.state)
+                            .partitionId(toTablePartitionIdMessage(MSG_FACTORY, tablePartitionId))
+                            .stateInt(localPartitionStateWithLogIndex.state.ordinal())
                             .logIndex(localPartitionStateWithLogIndex.logIndex)
                             .build()
                     );
@@ -626,7 +624,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
         LocalPartitionStateEnum stateEnum = stateMsg.state();
 
-        if (stateMsg.state() == HEALTHY && maxLogIndex - stateMsg.logIndex() >= CATCH_UP_THRESHOLD) {
+        if (stateEnum == HEALTHY && maxLogIndex - stateMsg.logIndex() >= CATCH_UP_THRESHOLD) {
             stateEnum = CATCHING_UP;
         }
 
