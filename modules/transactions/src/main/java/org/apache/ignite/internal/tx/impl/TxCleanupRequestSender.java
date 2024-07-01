@@ -238,9 +238,7 @@ public class TxCleanupRequestSender {
             String node,
             @Nullable Collection<TablePartitionId> partitions
     ) {
-        Collection<ReplicationGroupId> enlistedPartitions = (Collection<ReplicationGroupId>) (Collection<?>) partitions;
-
-        return txMessageSender.cleanup(node, enlistedPartitions, txId, commit, commitTimestamp)
+        return txMessageSender.cleanup(node, partitions, txId, commit, commitTimestamp)
                 .handle((networkMessage, throwable) -> {
                     if (throwable != null) {
                         if (TransactionFailureHandler.isRecoverable(throwable)) {

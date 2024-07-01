@@ -26,6 +26,7 @@ import org.apache.ignite.internal.network.annotations.Marshallable;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaRequest;
+import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
 import org.jetbrains.annotations.Nullable;
 
@@ -66,11 +67,6 @@ public interface TxFinishReplicaRequest extends PrimaryReplicaRequest, Timestamp
         return nullableHybridTimestamp(commitTimestampLong());
     }
 
-    /**
-     * Returns enlisted partition groups aggregated by expected primary replica nodes.
-     *
-     * @return Enlisted partition groups aggregated by expected primary replica nodes.
-     */
-    @Marshallable
-    Map<ReplicationGroupId, String> groups();
+    /** Enlisted partition groups aggregated by expected primary replica nodes. */
+    Map<TablePartitionIdMessage, String> groups();
 }
