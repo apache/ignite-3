@@ -15,17 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.tx.message;
+package org.apache.ignite.internal.replicator.message;
 
+import java.io.Serializable;
 import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.replicator.message.TimestampAware;
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 
-/**
- * Transaction state response.
- */
-@Transferable(TxMessageGroup.TX_STATE_RESPONSE)
-public interface TxStateResponse extends TimestampAware {
-    /** Transaction metadata. */
-    @Nullable TransactionMetaMessage txStateMeta();
+/** Message for transferring a {@link TablePartitionId}. */
+@Transferable(ReplicaMessageGroup.TABLE_PARTITION_ID_MESSAGE)
+public interface TablePartitionIdMessage extends ReplicationGroupIdMessage, Serializable {
+    /** Table ID. */
+    int tableId();
+
+    /** Partition ID. */
+    int partitionId();
+
+    /** Converts to {@link TablePartitionId}. */
+    default TablePartitionId asTablePartitionId() {
+        return new TablePartitionId(tableId(), partitionId());
+    }
+
+    @Override
+    default ReplicationGroupId asReplicationGroupId() {
+        return asTablePartitionId();
+    }
 }

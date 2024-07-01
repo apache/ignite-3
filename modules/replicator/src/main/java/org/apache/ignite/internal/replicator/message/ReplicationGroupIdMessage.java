@@ -15,17 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.tx.message;
+package org.apache.ignite.internal.replicator.message;
 
-import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.replicator.message.TimestampAware;
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 
-/**
- * Transaction state response.
- */
-@Transferable(TxMessageGroup.TX_STATE_RESPONSE)
-public interface TxStateResponse extends TimestampAware {
-    /** Transaction metadata. */
-    @Nullable TransactionMetaMessage txStateMeta();
+/** Message for transferring a {@link ReplicationGroupId}. */
+public interface ReplicationGroupIdMessage extends NetworkMessage {
+    /** Converts to {@link ReplicationGroupId}. */
+    default ReplicationGroupId asReplicationGroupId() {
+        throw new AssertionError("Must be implemented by heirs.");
+    }
 }

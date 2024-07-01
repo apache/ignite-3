@@ -18,14 +18,25 @@
 package org.apache.ignite.internal.tx.message;
 
 import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.replicator.message.TimestampAware;
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
+import org.apache.ignite.internal.tx.TransactionMeta;
+import org.apache.ignite.internal.tx.TxStateMetaFinishing;
 
-/**
- * Transaction state response.
- */
-@Transferable(TxMessageGroup.TX_STATE_RESPONSE)
-public interface TxStateResponse extends TimestampAware {
-    /** Transaction metadata. */
-    @Nullable TransactionMetaMessage txStateMeta();
+/** Message for transferring a {@link TxStateMetaFinishing}. */
+@Transferable(TxMessageGroup.TX_STATE_META_FINISHING_MESSAGE)
+public interface TxStateMetaFinishingMessage extends TxStateMetaMessage {
+    /** Converts to {@link TxStateMetaFinishing}. */
+    default TxStateMetaFinishing asTxStateMetaFinishing() {
+        TablePartitionIdMessage commitPartitionId = commitPartitionId();
+
+        return new TxStateMetaFinishing(
+                txCoordinatorId(),
+                commitPartitionId == null ? null : commitPartitionId.asTablePartitionId()
+        );
+    }
+
+    @Override
+    default TransactionMeta asTransactionMeta() {
+        return asTxStateMetaFinishing();
+    }
 }
