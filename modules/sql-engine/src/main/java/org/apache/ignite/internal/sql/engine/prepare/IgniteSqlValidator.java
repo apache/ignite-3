@@ -1276,9 +1276,8 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
 
     /**
      * Scope to distinguish between different usages of the ROW operator.
-     *
-     * TODO: https://issues.apache.org/jira/browse/IGNITE-22084: Sql. Add support for row data type. Remove after row type is supported.
      */
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-22084: Sql. Add support for row data type. Remove after row type is supported.
     private enum CallScope {
         VALUES,
         GROUP,
