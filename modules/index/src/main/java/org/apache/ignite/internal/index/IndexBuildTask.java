@@ -20,6 +20,7 @@ package org.apache.ignite.internal.index;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
@@ -38,6 +39,7 @@ import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
+import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.index.IndexStorage;
@@ -51,6 +53,8 @@ class IndexBuildTask {
 
     private static final PartitionReplicationMessagesFactory PARTITION_REPLICATION_MESSAGES_FACTORY =
             new PartitionReplicationMessagesFactory();
+
+    private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
 
     private final IndexBuildTaskId taskId;
 
@@ -215,8 +219,10 @@ class IndexBuildTask {
     private BuildIndexReplicaRequest createBuildIndexReplicaRequest(List<RowId> rowIds) {
         boolean finish = rowIds.size() < batchSize;
 
+        TablePartitionId tablePartitionId = new TablePartitionId(taskId.getTableId(), taskId.getPartitionId());
+
         return PARTITION_REPLICATION_MESSAGES_FACTORY.buildIndexReplicaRequest()
-                .groupId(new TablePartitionId(taskId.getTableId(), taskId.getPartitionId()))
+                .groupId(toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, tablePartitionId))
                 .indexId(taskId.getIndexId())
                 .rowIds(rowIds.stream().map(RowId::uuid).collect(toList()))
                 .finish(finish)

@@ -80,6 +80,7 @@ import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotTxDa
 import org.apache.ignite.internal.partition.replicator.network.raft.TxMetaMessage;
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryRowMessage;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -142,6 +143,8 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
     private static final HybridClock CLOCK = new HybridClockImpl();
 
     private static final PartitionReplicationMessagesFactory TABLE_MSG_FACTORY = new PartitionReplicationMessagesFactory();
+
+    private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
 
     private static final LowWatermarkMessagesFactory LWM_MSG_FACTORY = new LowWatermarkMessagesFactory();
 
@@ -282,7 +285,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
 
             List<TxMetaMessage> txMetas = txIds.stream()
                     .map(outgoingTxStatePartitionStorage::get)
-                    .map(txMeta -> toTxMetaMessage(TABLE_MSG_FACTORY, txMeta))
+                    .map(txMeta -> toTxMetaMessage(TABLE_MSG_FACTORY, REPLICA_MESSAGES_FACTORY, txMeta))
                     .collect(toList());
 
             return completedFuture(TABLE_MSG_FACTORY.snapshotTxDataResponse().txIds(txIds).txMeta(txMetas).finish(true).build());

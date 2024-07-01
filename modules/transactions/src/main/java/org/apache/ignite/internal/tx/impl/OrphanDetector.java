@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.tx.impl;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
 import static org.apache.ignite.internal.tx.TxState.ABANDONED;
 import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
@@ -35,6 +36,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.TxStateMetaAbandoned;
@@ -56,7 +58,10 @@ public class OrphanDetector {
     private static final IgniteLogger LOG = Loggers.forClass(OrphanDetector.class);
 
     /** Tx messages factory. */
-    private static final TxMessagesFactory FACTORY = new TxMessagesFactory();
+    private static final TxMessagesFactory TX_MESSAGES_FACTORY = new TxMessagesFactory();
+
+    /** Replica messages factory. */
+    private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
 
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -199,8 +204,8 @@ public class OrphanDetector {
                         return nullCompletedFuture();
                     }
 
-                    return replicaService.invoke(commitPartPrimaryNode, FACTORY.txRecoveryMessage()
-                            .groupId(cmpPartGrp)
+                    return replicaService.invoke(commitPartPrimaryNode, TX_MESSAGES_FACTORY.txRecoveryMessage()
+                            .groupId(toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, cmpPartGrp))
                             .enlistmentConsistencyToken(replicaMeta.getStartTime().longValue())
                             .txId(txId)
                             .build());

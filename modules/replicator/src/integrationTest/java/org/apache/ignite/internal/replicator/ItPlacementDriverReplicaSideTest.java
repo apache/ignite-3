@@ -22,6 +22,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.raft.PeersAndLearners.fromConsistentIds;
 import static org.apache.ignite.internal.replicator.ReplicatorConstants.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
+import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -115,7 +116,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
     private static final int BASE_PORT = 1234;
 
-    private static final TestReplicationGroupId GROUP_ID = new TestReplicationGroupId("group_1");
+    private static final TablePartitionId GROUP_ID = new TablePartitionId(10, 11);
 
     private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
 
@@ -330,7 +331,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
                 clusterService.topologyService().getByConsistentId(leaderNodeName),
                 TEST_REPLICA_MESSAGES_FACTORY.primaryReplicaTestRequest()
                         .enlistmentConsistencyToken(1L)
-                        .groupId(GROUP_ID)
+                        .groupId(toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, GROUP_ID))
                         .build()
         );
 
@@ -394,7 +395,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
                 clusterService.topologyService().getByConsistentId(leaderNodeName),
                 TEST_REPLICA_MESSAGES_FACTORY.primaryReplicaTestRequest()
                         .enlistmentConsistencyToken(1L)
-                        .groupId(GROUP_ID)
+                        .groupId(toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, GROUP_ID))
                         .build()
         );
 

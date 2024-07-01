@@ -20,7 +20,7 @@ package org.apache.ignite.internal.partition.replicator.network.disaster;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.DisasterRecoveryMessages;
-import org.apache.ignite.internal.partition.replicator.network.command.TablePartitionIdMessage;
+import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
 
 /**
  * Local partition state message, has partition ID, state and last committed log index.
