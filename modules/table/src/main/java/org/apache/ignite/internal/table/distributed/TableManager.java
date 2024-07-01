@@ -1774,7 +1774,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                 ))
                                 .thenCompose(v -> {
                                     // if (!replicaMgr.isReplicaStarted(replicaGrpId)) {
-                                    if (!isLocalNodeInAssignments(union(stableAssignments.nodes(), pendingAssignments.nodes()))) {
+                                    if (!isLocalNodeInAssignments(pendingAssignments.nodes())) {
                                         return nullCompletedFuture();
                                     }
 
