@@ -19,17 +19,15 @@ package org.apache.ignite.internal.tx;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.arrayContaining;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
-/**
- * Check {@link TxState} correctly validates transaction state changes.
- */
+/** For {@link TxState} testing. */
 public class TxStateTest {
-
     @Test
     void testStates() {
         assertThat(TxState.values(),
@@ -122,5 +120,12 @@ public class TxStateTest {
         assertTrue(TxState.checkTransitionCorrectness(TxState.ABANDONED, TxState.ABORTED));
         assertTrue(TxState.checkTransitionCorrectness(TxState.ABANDONED, TxState.COMMITTED));
         assertTrue(TxState.checkTransitionCorrectness(TxState.ABANDONED, TxState.ABANDONED));
+    }
+
+    @Test
+    void testFromOrdinal() {
+        for (TxState state : TxState.values()) {
+            assertEquals(state, TxState.fromOrdinal(state.ordinal()));
+        }
     }
 }
