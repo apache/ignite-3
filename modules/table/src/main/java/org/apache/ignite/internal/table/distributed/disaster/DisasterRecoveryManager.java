@@ -570,7 +570,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
                     statesList.add(PARTITION_REPLICATION_MESSAGES_FACTORY.localPartitionStateMessage()
                             .partitionId(toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, tablePartitionId))
-                            .state(localPartitionStateWithLogIndex.state.ordinal())
+                            .stateInt(localPartitionStateWithLogIndex.state.ordinal())
                             .logIndex(localPartitionStateWithLogIndex.logIndex)
                             .build()
                     );

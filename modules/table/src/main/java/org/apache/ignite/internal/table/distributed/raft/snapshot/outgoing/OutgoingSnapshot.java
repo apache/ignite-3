@@ -44,6 +44,7 @@ import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotTxDa
 import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotTxDataResponse;
 import org.apache.ignite.internal.partition.replicator.network.raft.TxMetaMessage;
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryRowMessage;
+import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
@@ -64,7 +65,10 @@ import org.jetbrains.annotations.Nullable;
 public class OutgoingSnapshot {
     private static final IgniteLogger LOG = Loggers.forClass(OutgoingSnapshot.class);
 
-    private static final PartitionReplicationMessagesFactory MESSAGES_FACTORY = new PartitionReplicationMessagesFactory();
+    private static final PartitionReplicationMessagesFactory PARTITION_REPLICATION_MESSAGES_FACTORY =
+            new PartitionReplicationMessagesFactory();
+
+    private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
 
     private final UUID id;
 
@@ -206,7 +210,7 @@ public class OutgoingSnapshot {
 
         assert meta != null : "No snapshot meta yet, probably the snapshot scope was not yet frozen";
 
-        return MESSAGES_FACTORY.snapshotMetaResponse().meta(meta).build();
+        return PARTITION_REPLICATION_MESSAGES_FACTORY.snapshotMetaResponse().meta(meta).build();
     }
 
     @Nullable
@@ -249,7 +253,7 @@ public class OutgoingSnapshot {
             }
         }
 
-        return MESSAGES_FACTORY.snapshotMvDataResponse()
+        return PARTITION_REPLICATION_MESSAGES_FACTORY.snapshotMvDataResponse()
                 .rows(batch)
                 .finish(finishedMvData())
                 .build();
@@ -348,7 +352,7 @@ public class OutgoingSnapshot {
 
             BinaryRowMessage rowMessage = row == null
                     ? null
-                    : MESSAGES_FACTORY.binaryRowMessage()
+                    : PARTITION_REPLICATION_MESSAGES_FACTORY.binaryRowMessage()
                             .binaryTuple(row.tupleSlice())
                             .schemaVersion(row.schemaVersion())
                             .build();
@@ -366,7 +370,7 @@ public class OutgoingSnapshot {
             }
         }
 
-        return MESSAGES_FACTORY.responseEntry()
+        return PARTITION_REPLICATION_MESSAGES_FACTORY.responseEntry()
                 .rowId(rowId.uuid())
                 .rowVersions(rowVersions)
                 .timestamps(commitTimestamps)
@@ -415,10 +419,10 @@ public class OutgoingSnapshot {
 
         for (IgniteBiTuple<UUID, TxMeta> row : rows) {
             txIds.add(row.getKey());
-            txMetas.add(toTxMetaMessage(MESSAGES_FACTORY, row.getValue()));
+            txMetas.add(toTxMetaMessage(PARTITION_REPLICATION_MESSAGES_FACTORY, REPLICA_MESSAGES_FACTORY, row.getValue()));
         }
 
-        return MESSAGES_FACTORY.snapshotTxDataResponse()
+        return PARTITION_REPLICATION_MESSAGES_FACTORY.snapshotTxDataResponse()
                 .txIds(txIds)
                 .txMeta(txMetas)
                 .finish(finished)
