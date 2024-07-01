@@ -50,6 +50,8 @@ import org.junit.jupiter.api.Test;
  * Tests for recovery of the rebalance procedure.
  */
 public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTest {
+    private static final int PARTITION_ID = 0;
+
     private static final String US_NODE_BOOTSTRAP_CFG_TEMPLATE = "{\n"
             + "  network: {\n"
             + "    port: {},\n"
@@ -110,7 +112,7 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
 
         // Check that metastore node schedule the rebalance procedure.
         assertTrue(waitForCondition(
-                (() -> getPartitionPendingClusterNodes(node(0), 0).equals(Set.of(
+                (() -> getPartitionPendingClusterNodes(node(0), PARTITION_ID).equals(Set.of(
                         Assignment.forPeer(node(2).name()),
                         Assignment.forPeer(node(1).name())))),
                 10_000));
@@ -119,7 +121,7 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
         Integer tableId = getTableId(node(0).catalogManager(), "TEST", new HybridClockImpl().nowLong());
         node(0)
                 .metaStorageManager()
-                .remove(pendingPartAssignmentsKey(new TablePartitionId(tableId, 0))).join();
+                .remove(pendingPartAssignmentsKey(new TablePartitionId(tableId, PARTITION_ID))).join();
 
         restartNode(1);
         restartNode(2);
@@ -155,7 +157,7 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
 
         // Check that metastore node schedule the rebalance procedure.
         assertTrue(waitForCondition(
-                (() -> getPartitionPendingClusterNodes(node(0), 0).equals(Set.of(
+                (() -> getPartitionPendingClusterNodes(node(0), PARTITION_ID).equals(Set.of(
                         Assignment.forPeer(node(2).name()),
                         Assignment.forPeer(node(1).name())))),
                 10_000));
@@ -164,7 +166,7 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
         Integer tableId = getTableId(node(0).catalogManager(), "TEST", new HybridClockImpl().nowLong());
         node(0)
                 .metaStorageManager()
-                .remove(pendingPartAssignmentsKey(new TablePartitionId(tableId, 0))).join();
+                .remove(pendingPartAssignmentsKey(new TablePartitionId(tableId, PARTITION_ID))).join();
 
         restartNode(1);
         restartNode(2);
@@ -200,7 +202,7 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
         // Check that new replica from 'global' zone received the data and rebalance really happened.
         assertTrue(waitForCondition(() -> containsPartition(cluster.node(2)), 10_000));
         assertTrue(waitForCondition(
-                (() -> getPartitionPendingClusterNodes(node(0), 0).equals(Set.of())),
+                (() -> getPartitionPendingClusterNodes(node(0), PARTITION_ID).equals(Set.of())),
                 10_000));
 
         TablePartitionId tablePartitionId =
@@ -208,7 +210,7 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
                         getTableId(node(0).catalogManager(),
                                 "TEST",
                                 new HybridClockImpl().nowLong()),
-                        0
+                        PARTITION_ID
                 );
         long pendingsKeysRevisionBeforeRecovery = node(0).metaStorageManager()
                 .get(pendingPartAssignmentsKey(tablePartitionId))
@@ -247,8 +249,8 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
         MvPartitionStorage storage = tableManager.tableView("TEST")
                 .internalTable()
                 .storage()
-                .getMvPartition(0);
+                .getMvPartition(PARTITION_ID);
 
-        return storage != null && bypassingThreadAssertions(() -> storage.closestRowId(RowId.lowestRowId(0))) != null;
+        return storage != null && bypassingThreadAssertions(() -> storage.closestRowId(RowId.lowestRowId(PARTITION_ID))) != null;
     }
 }

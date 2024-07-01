@@ -36,6 +36,8 @@ import org.junit.jupiter.api.Test;
  * Tests for recovery of the rebalance procedure.
  */
 public class ItRebalanceRecoveryTest extends ClusterPerTestIntegrationTest {
+    private static final int PARTITION_ID = 0;
+
     @Override
     protected int initialNodes() {
         return 2;
@@ -73,8 +75,8 @@ public class ItRebalanceRecoveryTest extends ClusterPerTestIntegrationTest {
         MvPartitionStorage storage = tableManager.tableView("TEST")
                 .internalTable()
                 .storage()
-                .getMvPartition(0);
+                .getMvPartition(PARTITION_ID);
 
-        return storage != null && bypassingThreadAssertions(() -> storage.closestRowId(RowId.lowestRowId(0))) != null;
+        return storage != null && bypassingThreadAssertions(() -> storage.closestRowId(RowId.lowestRowId(PARTITION_ID))) != null;
     }
 }

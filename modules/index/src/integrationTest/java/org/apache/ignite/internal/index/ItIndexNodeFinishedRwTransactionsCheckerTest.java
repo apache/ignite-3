@@ -231,19 +231,21 @@ public class ItIndexNodeFinishedRwTransactionsCheckerTest extends ClusterPerClas
 
             return IntStream.range(0, table.partitions())
                     .mapToObj(table.storage()::getMvPartition)
-                    .mapToLong(partitionStorage -> {
-                        try (PartitionTimestampCursor cursor = partitionStorage.scan(HybridTimestamp.MAX_VALUE)) {
-                            return cursor.stream().count();
-                        }
-                    })
+                    .mapToLong(ItIndexNodeFinishedRwTransactionsCheckerTest::partitionSize)
                     .toArray();
         });
     }
 
-    private static int differences(long[] partitionSizes0, long[] partitionsSizes1) {
+    private static long partitionSize(MvPartitionStorage partitionStorage) {
+        try (PartitionTimestampCursor cursor = partitionStorage.scan(HybridTimestamp.MAX_VALUE)) {
+            return cursor.stream().count();
+        }
+    }
+
+    private static long differences(long[] partitionSizes0, long[] partitionsSizes1) {
         assertEquals(partitionSizes0.length, partitionsSizes1.length);
 
-        return (int) IntStream.range(0, partitionSizes0.length)
+        return IntStream.range(0, partitionSizes0.length)
                 .filter(i -> partitionSizes0[i] != partitionsSizes1[i])
                 .count();
     }
