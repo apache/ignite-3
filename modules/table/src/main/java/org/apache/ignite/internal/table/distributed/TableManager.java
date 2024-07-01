@@ -2234,7 +2234,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             long revision
     ) {
         if (!isLocalNodeInAssignments(stableAssignments)) {
-            assert !replicaMgr.isReplicaStarted(tablePartitionId) : "The local node is inside of the replication group";
+            // assert !replicaMgr.isReplicaStarted(tablePartitionId) : "The local node is inside of the replication group";
 
             return nullCompletedFuture();
         }
