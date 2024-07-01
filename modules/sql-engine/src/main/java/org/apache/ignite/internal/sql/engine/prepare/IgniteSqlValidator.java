@@ -22,6 +22,7 @@ import static org.apache.calcite.sql.type.SqlTypeName.INTEGER;
 import static org.apache.calcite.sql.type.SqlTypeUtil.isNull;
 import static org.apache.calcite.util.Static.RESOURCE;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectArrayMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
@@ -39,6 +40,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.prepare.CalciteCatalogReader;
 import org.apache.calcite.prepare.Prepare;
@@ -50,6 +53,7 @@ import org.apache.calcite.sql.SqlAggFunction;
 import org.apache.calcite.sql.SqlBasicCall;
 import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlCallBinding;
+import org.apache.calcite.sql.SqlCharStringLiteral;
 import org.apache.calcite.sql.SqlDelete;
 import org.apache.calcite.sql.SqlDynamicParam;
 import org.apache.calcite.sql.SqlExplain;
@@ -91,6 +95,7 @@ import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.IgniteResource;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
 /** Validator. */
@@ -604,9 +609,44 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
                 });
     }
 
+    private void checkTypes(@Nullable String strVal) {
+        if (strVal == null) {
+            return;
+        }
+
+        Pattern digits = Pattern.compile("^\\d+$");
+        Matcher matcher = digits.matcher(strVal);
+        boolean ret = matcher.find();
+        if (!ret) {
+            throw new SqlException(STMT_VALIDATION_ERR, "Invalid character value for cast: \"" + strVal + "\"");
+            //throw new SqlException(STMT_VALIDATION_ERR, RESOURCE.invalidCharacterForCast(strVal).);
+            //throw SqlUtil.newContextException(expr.getParserPosition(), ex); !!!!
+        }
+    }
+
     /** Check appropriate type cast availability. */
     private void checkTypesInteroperability(SqlValidatorScope scope, SqlNode expr) {
         boolean castOp = expr.getKind() == SqlKind.CAST;
+
+        if (expr.getKind() == SqlKind.IN || expr.getKind() == SqlKind.NOT_IN) {
+            SqlBasicCall expr0 = (SqlBasicCall) expr;
+            SqlNode first = expr0.getOperandList().get(0);
+            RelDataType type1 = super.deriveType(scope, first);
+
+            if (SqlTypeUtil.isExactNumeric(type1)) {
+                SqlNodeList in = (SqlNodeList) expr0.getOperandList().get(1);
+
+                for (SqlNode node : in) {
+                    if (node instanceof SqlCharStringLiteral) {
+                        checkTypes(((SqlCharStringLiteral) node).toValue());
+                    }
+
+                    RelDataType returnType = super.deriveType(scope, node);
+                    //checkTypes
+                    System.err.println();
+                }
+            }
+        }
 
         if (castOp || SqlKind.BINARY_COMPARISON.contains(expr.getKind())) {
             SqlBasicCall expr0 = (SqlBasicCall) expr;

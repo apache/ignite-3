@@ -21,15 +21,21 @@ import static java.util.Objects.requireNonNull;
 import static org.apache.calcite.rel.type.RelDataType.PRECISION_NOT_SPECIFIED;
 import static org.apache.calcite.sql.type.NonNullableAccessors.getCollation;
 import static org.apache.calcite.sql.type.SqlTypeName.CHAR_TYPES;
+import static org.apache.calcite.sql.type.SqlTypeName.TINYINT;
 import static org.apache.calcite.sql.type.SqlTypeName.VARCHAR;
 import static org.apache.calcite.util.Static.RESOURCE;
+import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 
+import java.math.BigDecimal;
 import java.nio.charset.Charset;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.apache.calcite.adapter.java.JavaTypeFactory;
 import org.apache.calcite.rel.type.DynamicRecordType;
 import org.apache.calcite.rel.type.RelDataType;
@@ -37,6 +43,7 @@ import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeFactoryImpl;
 import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlCallBinding;
+import org.apache.calcite.sql.SqlCharStringLiteral;
 import org.apache.calcite.sql.SqlCollation;
 import org.apache.calcite.sql.SqlDataTypeSpec;
 import org.apache.calcite.sql.SqlDynamicParam;
@@ -64,6 +71,7 @@ import org.apache.ignite.internal.sql.engine.type.IgniteCustomTypeCoercionRules;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.IgniteResource;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
 /** Implicit type cast implementation. */
@@ -91,6 +99,17 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
         }
     }
 
+    private void checkTypes(String strVal) {
+        Pattern digits = Pattern.compile("^\\d+$");
+        Matcher matcher = digits.matcher(strVal);
+        boolean ret = matcher.find();
+        if (!ret) {
+            throw new SqlException(STMT_VALIDATION_ERR, "Invalid character value for cast: \"" + strVal + "\"");
+            //throw new SqlException(STMT_VALIDATION_ERR, RESOURCE.invalidCharacterForCast(strVal).);
+            //throw SqlUtil.newContextException(expr.getParserPosition(), ex); !!!!
+        }
+    }
+
     private boolean doBinaryComparisonCoercion(SqlCallBinding binding) {
         // Although it is not reflected in the docs, this method is also invoked for MAX, MIN (and other similar operators)
         // by ComparableOperandTypeChecker. When that is the case, fallback to default rules.
@@ -102,6 +121,12 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
         SqlValidatorScope scope = binding.getScope();
         RelDataType leftType = binding.getOperandType(0);
         RelDataType rightType = binding.getOperandType(1);
+
+        if (SqlTypeUtil.isExactNumeric(leftType) && SqlTypeUtil.isCharacter(rightType)) {
+            SqlCharStringLiteral lit = (SqlCharStringLiteral) call.getOperandList().get(1);
+            String strVal = lit.toValue();
+            checkTypes(strVal);
+        }
 
         //
         // binaryComparisonCoercion that makes '1' > 1 work, may introduce some inconsistent results
@@ -545,6 +570,11 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
     public @Nullable RelDataType commonTypeForBinaryComparison(@Nullable RelDataType type1, @Nullable RelDataType type2) {
         if (type1 == null || type2 == null) {
             return null;
+        }
+
+        if ((SqlTypeUtil.isExactNumeric(type1) && SqlTypeUtil.isCharacter(type2))
+                || (SqlTypeUtil.isExactNumeric(type2) && SqlTypeUtil.isCharacter(type1))) {
+            return SqlTypeUtil.getMaxPrecisionScaleDecimal(factory);
         }
 
         // IgniteCustomType: If one of the arguments is a custom data type,

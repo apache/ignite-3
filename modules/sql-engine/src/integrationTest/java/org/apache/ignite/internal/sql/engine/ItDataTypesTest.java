@@ -42,6 +42,7 @@ import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.AfterEach;
@@ -72,6 +73,64 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
         for (var table : igniteTables.tables()) {
             sql("DROP TABLE " + table.name());
         }
+    }
+
+    @Test
+    @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
+    public void test0() {
+        sql("create table tiny(v TINYINT);");
+        sql("insert into tiny values(127);");
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Invalid character value for cast",
+                () -> sql("SELECT * FROM tiny WHERE v < '300.1'"));
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Invalid character value for cast",
+                () -> sql("SELECT * FROM tiny WHERE v > '300.1'"));
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Invalid character value for cast",
+                () -> sql("SELECT * FROM tiny WHERE v <> '300.1'"));
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Invalid character value for cast",
+                () -> sql("SELECT * FROM tiny WHERE v != '300.1'"));
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Invalid character value for cast",
+                () -> sql("SELECT * FROM tiny WHERE v NOT IN ('200.1', '300.1')"));
+
+/*        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Invalid character value for cast",
+                () -> sql("SELECT * FROM tiny WHERE v NOT IN (?)", "'200.1'"));*/
+
+        assertQuery("SELECT * FROM tiny WHERE v IN ('126' + '1', '300')").returns((byte) 127).check();
+        assertQuery("SELECT * FROM tiny WHERE v IN ('126' + 1, '300')").returns((byte) 127).check();
+        //assertQuery("SELECT * FROM tiny WHERE v IN (? + 1, '300')").withParam("126").returns((byte) 127).check();
+        assertQuery("SELECT * FROM tiny WHERE v IN (? + 1, '300')").withParam(126).returns((byte) 127).check();
+
+        assertQuery("SELECT * FROM tiny WHERE v NOT IN ('125' + '1', '300')").returns((byte) 127).check();
+        //assertQuery("SELECT * FROM tiny WHERE v NOT IN (? + '1', '300')").withParam("125").returns((byte) 127).check();
+        assertQuery("SELECT * FROM tiny WHERE v NOT IN (? + '1', '300')").withParam(125).returns((byte) 127).check();
+
+        assertQuery("SELECT * FROM tiny WHERE v != 300.1").returns((byte) 127).check();
+        assertQuery("SELECT * FROM tiny WHERE 300.1 != v").returns((byte) 127).check();
+
+        assertQuery("SELECT * FROM tiny WHERE v < 300.1").returns((byte) 127).check();
+        assertQuery("SELECT * FROM tiny WHERE 300.1 > v").returns((byte) 127).check();
+
+        assertQuery("SELECT * FROM tiny WHERE v > 100.1").returns((byte) 127).check();
+        assertQuery("SELECT * FROM tiny WHERE 100.1 < v").returns((byte) 127).check();
+
+        assertQuery("SELECT * FROM tiny WHERE v > OCTET_LENGTH('TEST')").returns((byte) 127).check();
+        assertQuery("SELECT * FROM tiny WHERE v < OCTET_LENGTH('TEST') + 300").returns((byte) 127).check();
     }
 
     /** Tests correctness with unicode. */
