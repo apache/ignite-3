@@ -171,6 +171,9 @@ public class ClientUtils {
             case ClientOp.TUPLE_CONTAINS_KEY:
                 return ClientOperationType.TUPLE_CONTAINS_KEY;
 
+            case ClientOp.TUPLE_CONTAINS_ALL_KEYS:
+                return ClientOperationType.TUPLE_CONTAINS_ALL_KEYS;
+
             case ClientOp.JDBC_CONNECT:
                 return null;
 
