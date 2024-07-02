@@ -20,7 +20,13 @@ package org.apache.ignite.internal.sql.engine.exec;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.lang.ErrorGroups.Common;
 
-//TODO: javadoc
+/**
+ * Thrown when detected a query uses an outdated query plan in implicit transaction.
+ *
+ * <p>Because an implicit transaction starts after query has been planned, there is a chance the schema can be changed in between.
+ * This internal exception is not intended to be thrown up to the user, instead, it must be catched internally,
+ * and lead the query falling back to the planning phase.
+ */
 public class ConcurrentSchemaModificationException extends IgniteInternalException {
     public ConcurrentSchemaModificationException() {
         super(Common.INTERNAL_ERR);
