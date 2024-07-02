@@ -54,6 +54,6 @@ public interface TxStateMetaMessage extends TransactionMetaMessage {
 
     @Override
     default TransactionMeta asTransactionMeta() {
-        return TransactionMetaMessage.super.asTransactionMeta();
+        return asTxStateMeta();
     }
 }
