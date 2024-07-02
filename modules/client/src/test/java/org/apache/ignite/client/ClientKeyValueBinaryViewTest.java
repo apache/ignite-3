@@ -36,6 +36,7 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.table.mapper.Mapper;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -180,6 +181,34 @@ public class ClientKeyValueBinaryViewTest extends AbstractClientTableTest {
         var ex = assertThrows(IgniteException.class, () -> kvView.contains(null, Tuple.create()));
         assertTrue(ex.getMessage().contains("Missed key column: ID"), ex.getMessage());
         assertThat(Arrays.asList(ex.getStackTrace()), anyOf(hasToString(containsString("ClientKeyValueBinaryView"))));
+    }
+
+    @Test
+    public void testContainsAll() {
+        KeyValueView<Tuple, Tuple> kvView = defaultTable().keyValueView();
+
+        Tuple firstKeyTuple = tupleKey(101L);
+        Tuple secondKeyTuple = tupleKey(102L);
+        Tuple thirdKeyTuple = tupleKey(103L);
+
+        Map<Tuple, Tuple> kvs = Map.of(
+                firstKeyTuple, tupleVal("201"),
+                secondKeyTuple, tupleVal("202"),
+                thirdKeyTuple, tupleVal("203")
+        );
+
+        kvView.putAll(null, kvs);
+
+        assertThrows(NullPointerException.class, () -> kvView.containsAll(null, null));
+        assertThrows(NullPointerException.class, () -> kvView.containsAll(null, List.of(firstKeyTuple, null, thirdKeyTuple)));
+
+        assertTrue(kvView.containsAll(null, List.of()));
+        assertTrue(kvView.containsAll(null, List.of(firstKeyTuple)));
+        assertTrue(kvView.containsAll(null, List.of(firstKeyTuple, secondKeyTuple, thirdKeyTuple)));
+
+        Tuple zeroKeyTuple = tupleKey(0L);
+        assertFalse(kvView.containsAll(null, List.of(zeroKeyTuple)));
+        assertFalse(kvView.containsAll(null, List.of(firstKeyTuple, secondKeyTuple, zeroKeyTuple)));
     }
 
     @Test

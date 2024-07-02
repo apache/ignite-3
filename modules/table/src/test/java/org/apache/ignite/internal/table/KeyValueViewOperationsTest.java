@@ -74,6 +74,7 @@ import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.KeyValueView;
+import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.mapper.Mapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -290,6 +291,40 @@ public class KeyValueViewOperationsTest extends TableKvOperationsTestBase {
         // Delete key.
         tbl.remove(null, key2);
         assertFalse(tbl.contains(null, key2));
+    }
+
+    @Test
+    public void testContainsAll() {
+        KeyValueView<TestKeyObject, TestObjectWithAllTypes> kvView = kvView();
+
+        TestKeyObject firstKey = TestKeyObject.randomObject(rnd);
+        TestObjectWithAllTypes firstVal = TestObjectWithAllTypes.randomObject(rnd);
+
+        TestKeyObject secondKey = TestKeyObject.randomObject(rnd);
+        TestObjectWithAllTypes secondVal = TestObjectWithAllTypes.randomObject(rnd);
+
+        TestKeyObject thirdKey = TestKeyObject.randomObject(rnd);
+        TestObjectWithAllTypes thirdVal = TestObjectWithAllTypes.randomObject(rnd);
+
+        Map<TestKeyObject, TestObjectWithAllTypes> kvs = Map.of(
+                firstKey, firstVal,
+                secondKey, secondVal,
+                thirdKey, thirdVal
+        );
+
+        kvView.putAll(null, kvs);
+
+        assertThrows(NullPointerException.class, () -> kvView.containsAll(null, null));
+        assertThrows(NullPointerException.class, () -> kvView.containsAll(null, List.of(firstKey, null, thirdKey)));
+
+        assertTrue(kvView.containsAll(null, List.of()));
+        assertTrue(kvView.containsAll(null, List.of(firstKey)));
+        assertTrue(kvView.containsAll(null, List.of(firstKey, secondKey, thirdKey)));
+
+        TestKeyObject missedKey = TestKeyObject.randomObject(rnd);
+
+        assertFalse(kvView.containsAll(null, List.of(missedKey)));
+        assertFalse(kvView.containsAll(null, List.of(firstKey, secondKey, missedKey)));
     }
 
     @Test
