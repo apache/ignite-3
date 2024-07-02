@@ -40,6 +40,7 @@ import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUt
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionAssignmentsGetLocally;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.subtract;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.tableAssignmentsGetLocally;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.tablesCounterKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.union;
@@ -978,6 +979,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     MvTableStorage mvTableStorage = internalTbl.storage();
 
                     try {
+                        LOG.info("!!!! ["
+                                + "stable=" + stableAssignments
+                                + ", localName=" + localNode().name() + "]");
                         return replicaMgr.startReplica(
                                 raftGroupEventsListener,
                                 raftGroupListener,
@@ -1773,15 +1777,24 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                         isRecovery
                                 ))
                                 .thenCompose(v -> {
-                                    // if (!isLocalNodeInAssignments(union(stableAssignments.nodes(), pendingAssignments.nodes()))) {
-                                    if (!replicaMgr.isReplicaStarted(replicaGrpId)) {
-                                        assert !replicaMgr.isReplicaStarted(replicaGrpId)
-                                                : "The local node is inside of the replication group";
-
+                                    Entry reduceEntry  = metaStorageMgr.getLocally(RebalanceUtil.switchReduceKey(replicaGrpId), revision);
+                                    Assignments reduceAssignments = reduceEntry != null
+                                            ? Assignments.fromBytes(reduceEntry.value())
+                                            : null;
+                                    Set<Assignment> reducedStableAssignments = reduceAssignments != null
+                                            ? subtract(stableAssignments.nodes(), reduceAssignments.nodes())
+                                            : stableAssignments.nodes();
+                                    if (!isLocalNodeInAssignments(union(reducedStableAssignments, pendingAssignments.nodes()))) {
                                         return nullCompletedFuture();
                                     }
 
-                                    assert replicaMgr.isReplicaStarted(replicaGrpId) : "The local node is outside of the replication group";
+                                    assert replicaMgr.isReplicaTouched(replicaGrpId)
+                                            : "!! Touch The local node is outside of the replication group ["
+                                            + "stable=" + stableAssignments
+                                            + ", pending=" + pendingAssignments
+                                            + ", reduce=" + reduceAssignments;
+                                    assert replicaMgr.isReplicaStarted(replicaGrpId)
+                                            : "!! The local node is outside of the replication group";
 
                                     return changePeersOnRebalance(table, replicaGrpId, pendingAssignments.nodes(), revision);
                                 });
@@ -1800,6 +1813,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             long revision,
             boolean isRecovery
     ) {
+        LOG.info("!!! ["
+                + "stable=" + stableAssignments
+                + ", pending=" + pendingAssignments
+                + ", localName=" + localNode().name() + "]");
         boolean pendingAssignmentsAreForced = pendingAssignments.force();
         Set<Assignment> pendingAssignmentsNodes = pendingAssignments.nodes();
 
@@ -1880,12 +1897,27 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         }
 
         return localServicesStartFuture.thenRunAsync(() -> {
-            // if (localMemberAssignment == null) {
-            if (!replicaMgr.isReplicaStarted(replicaGrpId)) {
+            Entry oldStableEntry  = metaStorageMgr.getLocally(stablePartAssignmentsKey(replicaGrpId), revision - 1);
+            Assignments oldStableAssignments = oldStableEntry != null
+                    ? Assignments.fromBytes(oldStableEntry.value())
+                    : null;
+
+            Entry reduceEntry  = metaStorageMgr.getLocally(RebalanceUtil.switchReduceKey(replicaGrpId), revision);
+            Assignments reduceAssignments = reduceEntry != null
+                    ? Assignments.fromBytes(reduceEntry.value())
+                    : null;
+            Set<Assignment> reducedStableAssignments = reduceAssignments != null
+                    ? subtract(stableAssignments.nodes(), reduceAssignments.nodes())
+                    : stableAssignments.nodes();
+            if (!isLocalNodeInAssignments(union(reducedStableAssignments, pendingAssignmentsNodes))) {
+                // if (!replicaMgr.isReplicaStarted(replicaGrpId)) {
                 return;
             }
 
-            assert replicaMgr.isReplicaStarted(replicaGrpId) : "The local node is outside of the replication group";
+            assert replicaMgr.isReplicaStarted(replicaGrpId) : "The local node is outside of the replication group ["
+                    + "stable=" + stableAssignments
+                    + ", pending=" + pendingAssignments
+                    + ", localName=" + localNode().name() + "]";
 
             // For forced assignments, we exclude dead stable nodes, and all alive stable nodes are already in pending assignments.
             // Union is not required in such a case.
