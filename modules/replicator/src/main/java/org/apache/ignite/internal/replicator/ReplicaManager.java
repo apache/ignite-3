@@ -23,6 +23,8 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.raft.PeersAndLearners.fromAssignments;
 import static org.apache.ignite.internal.replicator.LocalReplicaEvent.AFTER_REPLICA_STARTED;
 import static org.apache.ignite.internal.replicator.LocalReplicaEvent.BEFORE_REPLICA_STOPPED;
+import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
+import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessage;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.thread.ThreadOperation.TX_STATE_STORAGE_ACCESS;
@@ -105,6 +107,7 @@ import org.apache.ignite.internal.replicator.message.ReplicaMessageGroup;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaSafeTimeSyncRequest;
+import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
 import org.apache.ignite.internal.thread.ExecutorChooser;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -377,7 +380,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             return;
         }
 
-        ReplicationGroupId groupId = groupIdConverter.apply(request.groupId());
+        ReplicationGroupId groupId = groupIdConverter.apply(request.groupId().asReplicationGroupId());
 
         String senderConsistentId = sender.name();
 
@@ -1135,7 +1138,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             Replica replica = replicaFuture.join();
 
             ReplicaSafeTimeSyncRequest req = REPLICA_MESSAGES_FACTORY.replicaSafeTimeSyncRequest()
-                    .groupId(replica.groupId())
+                    .groupId(toReplicationGroupIdMessage(replica.groupId()))
                     .build();
 
             replica.processRequest(req, localNodeId);
@@ -1620,5 +1623,16 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         /** Explicit manual replica restart for disaster recovery purposes. */
         RESTART
+    }
+
+    // TODO: IGNITE-22630 Fix serialization into message
+    private static ReplicationGroupIdMessage toReplicationGroupIdMessage(ReplicationGroupId replicationGroupId) {
+        if (replicationGroupId instanceof TablePartitionId) {
+            return toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, (TablePartitionId) replicationGroupId);
+        } else if (replicationGroupId instanceof ZonePartitionId) {
+            return toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, (ZonePartitionId) replicationGroupId);
+        }
+
+        throw new AssertionError("Not supported: " + replicationGroupId);
     }
 }

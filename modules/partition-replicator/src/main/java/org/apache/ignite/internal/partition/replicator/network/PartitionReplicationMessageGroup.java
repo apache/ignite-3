@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.partition.replicator.network.PartitionR
 import org.apache.ignite.internal.network.annotations.MessageGroup;
 import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommand;
-import org.apache.ignite.internal.partition.replicator.network.command.TablePartitionIdMessage;
 import org.apache.ignite.internal.partition.replicator.network.command.TimedBinaryRowMessage;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateAllCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommand;
@@ -39,6 +38,7 @@ import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMvDa
 import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMvDataResponse.ResponseEntry;
 import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotTxDataRequest;
 import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotTxDataResponse;
+import org.apache.ignite.internal.partition.replicator.network.raft.TxMetaMessage;
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryRowMessage;
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryTupleMessage;
 import org.apache.ignite.internal.partition.replicator.network.replication.BuildIndexReplicaRequest;
@@ -186,6 +186,9 @@ public interface PartitionReplicationMessageGroup {
      */
     short TIMED_BINARY_ROW_MESSAGE = 24;
 
+    /** Message type for {@link TxMetaMessage}. */
+    short TX_META_MESSAGE = 25;
+
     /**
      * Message types for partition replicator module RAFT commands.
      *
@@ -206,9 +209,6 @@ public interface PartitionReplicationMessageGroup {
 
         /** Message type for {@link BuildIndexCommand}. */
         short BUILD_INDEX = 44;
-
-        /** Message type for {@link TablePartitionIdMessage}. */
-        short TABLE_PARTITION_ID = 61;
     }
 
     /**

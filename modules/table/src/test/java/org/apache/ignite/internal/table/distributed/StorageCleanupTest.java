@@ -47,6 +47,7 @@ import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.storage.BaseMvStoragesTest;
+import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
@@ -86,9 +87,6 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
 
     private static final ColumnsExtractor USER_INDEX_BINARY_TUPLE_CONVERTER = new BinaryRowConverter(TUPLE_SCHEMA, USER_INDEX_SCHEMA);
 
-    private TestHashIndexStorage pkInnerStorage;
-    private TestSortedIndexStorage sortedInnerStorage;
-    private TestHashIndexStorage hashInnerStorage;
     private TestMvPartitionStorage storage;
     private StorageUpdateHandler storageUpdateHandler;
     private IndexUpdateHandler indexUpdateHandler;
@@ -103,7 +101,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
         int sortedIndexId = 3;
         int hashIndexId = 4;
 
-        pkInnerStorage = new TestHashIndexStorage(
+        var pkInnerStorage = new TestHashIndexStorage(
                 PARTITION_ID,
                 new StorageHashIndexDescriptor(
                         pkIndexId,
@@ -115,13 +113,13 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
                 )
         );
 
-        TableSchemaAwareIndexStorage pkStorage = new TableSchemaAwareIndexStorage(
+        var pkStorage = new TableSchemaAwareIndexStorage(
                 pkIndexId,
                 pkInnerStorage,
                 PK_INDEX_BINARY_TUPLE_CONVERTER
         );
 
-        sortedInnerStorage = new TestSortedIndexStorage(
+        var sortedInnerStorage = new TestSortedIndexStorage(
                 PARTITION_ID,
                 new StorageSortedIndexDescriptor(
                         sortedIndexId,
@@ -133,13 +131,13 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
                 )
         );
 
-        TableSchemaAwareIndexStorage sortedIndexStorage = new TableSchemaAwareIndexStorage(
+        var sortedIndexStorage = new TableSchemaAwareIndexStorage(
                 sortedIndexId,
                 sortedInnerStorage,
                 USER_INDEX_BINARY_TUPLE_CONVERTER
         );
 
-        hashInnerStorage = new TestHashIndexStorage(
+        var hashInnerStorage = new TestHashIndexStorage(
                 PARTITION_ID,
                 new StorageHashIndexDescriptor(
                         hashIndexId,
@@ -151,7 +149,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
                 )
         );
 
-        TableSchemaAwareIndexStorage hashIndexStorage = new TableSchemaAwareIndexStorage(
+        var hashIndexStorage = new TableSchemaAwareIndexStorage(
                 hashIndexId,
                 hashInnerStorage,
                 USER_INDEX_BINARY_TUPLE_CONVERTER
@@ -191,11 +189,17 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
         storageUpdateHandler.handleUpdate(txUuid, UUID.randomUUID(), partitionId, row2, true, null, null, null, null);
         storageUpdateHandler.handleUpdate(txUuid, UUID.randomUUID(), partitionId, row3, true, null, null, null, null);
 
-        assertEquals(3, storage.rowsCount());
+        assertEquals(3, storageSize());
 
         storageUpdateHandler.switchWriteIntents(txUuid, false, null, null);
 
-        assertEquals(0, storage.rowsCount());
+        assertEquals(0, storageSize());
+    }
+
+    private long storageSize() {
+        try (PartitionTimestampCursor cursor = storage.scan(HybridTimestamp.MAX_VALUE)) {
+            return cursor.stream().count();
+        }
     }
 
     @Test
@@ -214,13 +218,11 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
         storageUpdateHandler.handleUpdate(txUuid, UUID.randomUUID(), partitionId, row2, true, null, null, null, null);
         storageUpdateHandler.handleUpdate(txUuid, UUID.randomUUID(), partitionId, row3, true, null, null, null, null);
 
-        assertEquals(3, storage.rowsCount());
         // We have three writes to the storage.
         verify(storage, times(3)).addWrite(any(), any(), any(), anyInt(), anyInt());
 
         storageUpdateHandler.switchWriteIntents(txUuid, true, commitTs, null);
 
-        assertEquals(3, storage.rowsCount());
         // Those writes resulted in three commits.
         verify(storage, times(3)).commitWrite(any(), any());
 
@@ -230,7 +232,6 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
         // And run cleanup again for the same transaction.
         storageUpdateHandler.switchWriteIntents(txUuid, true, commitTs, null);
 
-        assertEquals(3, storage.rowsCount());
         // And no invocation after, meaning idempotence of the cleanup.
         verify(storage, never()).commitWrite(any(), any());
     }
@@ -262,13 +263,11 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
         );
         storageUpdateHandler.handleUpdateAll(txUuid, rowsToUpdate, partitionId, true, null, null, null);
 
-        assertEquals(3, storage.rowsCount());
         // We have three writes to the storage.
         verify(storage, times(3)).addWrite(any(), any(), any(), anyInt(), anyInt());
 
         storageUpdateHandler.switchWriteIntents(txUuid, true, commitTs, null);
 
-        assertEquals(3, storage.rowsCount());
         // Those writes resulted in three commits.
         verify(storage, times(3)).commitWrite(any(), any());
 
@@ -278,7 +277,6 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
         // And run cleanup again for the same transaction.
         storageUpdateHandler.switchWriteIntents(txUuid, true, commitTs, null);
 
-        assertEquals(3, storage.rowsCount());
         // And no invocation after, meaning idempotence of the cleanup.
         verify(storage, never()).commitWrite(any(), any());
 
@@ -337,8 +335,6 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
         storageUpdateHandler.handleUpdate(txUuid, row1Id, partitionId, row1, false, null, null, null, null);
         storageUpdateHandler.handleUpdate(txUuid, row2Id, partitionId, row2, false, null, null, null, null);
         storageUpdateHandler.handleUpdate(txUuid, row3Id, partitionId, row3, false, null, null, null, null);
-
-        assertEquals(3, storage.rowsCount());
 
         // Now run cleanup.
         storageUpdateHandler.switchWriteIntents(txUuid, true, commitTs, null);
@@ -406,8 +402,6 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
         );
         // Do not track write intents to simulate the loss of a volatile state.
         storageUpdateHandler.handleUpdateAll(txUuid, rowsToUpdate, partitionId, false, null, null, null);
-
-        assertEquals(3, storage.rowsCount());
 
         // Now run cleanup.
         storageUpdateHandler.switchWriteIntents(txUuid, true, commitTs, null);
@@ -489,8 +483,6 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
 
         storageUpdateHandler.switchWriteIntents(committedTx, true, commitTs, null);
 
-        assertEquals(1, storage.rowsCount());
-
         assertFalse(storage.read(new RowId(PARTITION_ID, rowId), HybridTimestamp.MAX_VALUE).isWriteIntent());
 
         // Now create a new write intent over the committed data. No cleanup should be triggered.
@@ -530,8 +522,6 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
 
         storageUpdateHandler.switchWriteIntents(committedTx, true, commitTs, null);
 
-        assertEquals(1, storage.rowsCount());
-
         assertFalse(storage.read(new RowId(PARTITION_ID, rowId), HybridTimestamp.MAX_VALUE).isWriteIntent());
 
         // Now create a new write intent over the committed data. No cleanup should be triggered.
@@ -568,8 +558,6 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
 
         storageUpdateHandler.handleUpdate(runningTx, rowId, partitionId, row1, true, null, null, null, null);
 
-        assertEquals(1, storage.rowsCount());
-
         assertTrue(storage.read(new RowId(PARTITION_ID, rowId), HybridTimestamp.MAX_VALUE).isWriteIntent());
 
         // Then create another one for the same row in the same transaction. The entry will be replaced.
@@ -579,8 +567,6 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
         clearInvocations(storage, indexUpdateHandler);
 
         storageUpdateHandler.handleUpdate(runningTx, rowId, partitionId, row2, true, null, null, commitTs, null);
-
-        assertEquals(1, storage.rowsCount());
 
         assertTrue(storage.read(new RowId(PARTITION_ID, rowId), HybridTimestamp.MAX_VALUE).isWriteIntent());
 
@@ -609,8 +595,6 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
 
         storageUpdateHandler.handleUpdateAll(runningTx, rowsToUpdate, partitionId, true, null, null, null);
 
-        assertEquals(1, storage.rowsCount());
-
         assertTrue(storage.read(new RowId(PARTITION_ID, rowId), HybridTimestamp.MAX_VALUE).isWriteIntent());
 
         // Then create another one for the same row in the same transaction. The entry will be replaced.
@@ -624,8 +608,6 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
         );
         // Do not track write intents to simulate the loss of a volatile state.
         storageUpdateHandler.handleUpdateAll(runningTx, rowsToUpdate2, partitionId, true, null, null, null);
-
-        assertEquals(1, storage.rowsCount());
 
         assertTrue(storage.read(new RowId(PARTITION_ID, rowId), HybridTimestamp.MAX_VALUE).isWriteIntent());
 
@@ -650,8 +632,6 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
 
         storageUpdateHandler.handleUpdate(runningTx, rowId, partitionId, row1, true, null, null, null, null);
 
-        assertEquals(1, storage.rowsCount());
-
         assertTrue(storage.read(new RowId(PARTITION_ID, rowId), HybridTimestamp.MAX_VALUE).isWriteIntent());
 
         // Create another one and pass `last commit time`. The previous value should be committed automatically.
@@ -664,8 +644,6 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
 
         // Previous value will be committed even though the cleanup was not called explicitly.
         storageUpdateHandler.handleUpdate(runningTx2, rowId, partitionId, row2, true, null, null, commitTs, null);
-
-        assertEquals(1, storage.rowsCount());
 
         assertTrue(storage.read(new RowId(PARTITION_ID, rowId), HybridTimestamp.MAX_VALUE).isWriteIntent());
 
@@ -694,8 +672,6 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
 
         storageUpdateHandler.handleUpdateAll(runningTx, rowsToUpdate, partitionId, true, null, null, null);
 
-        assertEquals(1, storage.rowsCount());
-
         assertTrue(storage.read(new RowId(PARTITION_ID, rowId), HybridTimestamp.MAX_VALUE).isWriteIntent());
 
         // Create another one and pass `last commit time`. The previous value should be committed automatically.
@@ -712,8 +688,6 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
         );
 
         storageUpdateHandler.handleUpdateAll(runningTx2, rowsToUpdate2, partitionId, true, null, null, null);
-
-        assertEquals(1, storage.rowsCount());
 
         assertTrue(storage.read(new RowId(PARTITION_ID, rowId), HybridTimestamp.MAX_VALUE).isWriteIntent());
 
@@ -740,8 +714,6 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
 
         storageUpdateHandler.switchWriteIntents(committed1, true, commitTs, null);
 
-        assertEquals(1, storage.rowsCount());
-
         assertFalse(storage.read(new RowId(PARTITION_ID, rowId), HybridTimestamp.MAX_VALUE).isWriteIntent());
 
         // Now add a new write intent.
@@ -764,8 +736,6 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
 
         // Last commit time equal to the time of the previously committed value => previous write intent will be reverted.
         storageUpdateHandler.handleUpdate(runningTx, rowId, partitionId, row3, true, null, null, commitTs, null);
-
-        assertEquals(1, storage.rowsCount());
 
         assertTrue(storage.read(new RowId(PARTITION_ID, rowId), HybridTimestamp.MAX_VALUE).isWriteIntent());
 
@@ -795,8 +765,6 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
         storageUpdateHandler.handleUpdateAll(committed1, rowsToUpdate, partitionId, true, null, null, null);
 
         storageUpdateHandler.switchWriteIntents(committed1, true, commitTs, null);
-
-        assertEquals(1, storage.rowsCount());
 
         assertFalse(storage.read(new RowId(PARTITION_ID, rowId), HybridTimestamp.MAX_VALUE).isWriteIntent());
 
@@ -829,8 +797,6 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
 
         storageUpdateHandler.handleUpdateAll(runningTx, rowsToUpdate3, partitionId, true, null, null, null);
 
-        assertEquals(1, storage.rowsCount());
-
         assertTrue(storage.read(new RowId(PARTITION_ID, rowId), HybridTimestamp.MAX_VALUE).isWriteIntent());
 
         verify(storage, never()).commitWrite(any(), any());
@@ -856,7 +822,6 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
 
         storageUpdateHandler.switchWriteIntents(committed1, true, commitTs, null);
 
-        assertEquals(1, storage.rowsCount());
 
         assertFalse(storage.read(new RowId(PARTITION_ID, rowId), HybridTimestamp.MAX_VALUE).isWriteIntent());
 
@@ -882,8 +847,6 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
 
         // Last commit time is after the time of the previously committed value => previous write intent will be committed.
         storageUpdateHandler.handleUpdate(runningTx, rowId, partitionId, row3, true, null, null, lastCommitTs, null);
-
-        assertEquals(1, storage.rowsCount());
 
         assertTrue(storage.read(new RowId(PARTITION_ID, rowId), HybridTimestamp.MAX_VALUE).isWriteIntent());
 
@@ -913,8 +876,6 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
         storageUpdateHandler.handleUpdateAll(committed1, rowsToUpdate, partitionId, true, null, null, null);
 
         storageUpdateHandler.switchWriteIntents(committed1, true, commitTs, null);
-
-        assertEquals(1, storage.rowsCount());
 
         assertFalse(storage.read(new RowId(PARTITION_ID, rowId), HybridTimestamp.MAX_VALUE).isWriteIntent());
 
@@ -949,8 +910,6 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
 
         storageUpdateHandler.handleUpdateAll(runningTx, rowsToUpdate3, partitionId, true, null, null, null);
 
-        assertEquals(1, storage.rowsCount());
-
         assertTrue(storage.read(new RowId(PARTITION_ID, rowId), HybridTimestamp.MAX_VALUE).isWriteIntent());
 
         verify(storage, times(1)).commitWrite(any(), any());
@@ -975,8 +934,6 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
         storageUpdateHandler.handleUpdate(committed1, rowId, partitionId, row1, true, null, null, null, null);
 
         storageUpdateHandler.switchWriteIntents(committed1, true, commitTs, null);
-
-        assertEquals(1, storage.rowsCount());
 
         assertFalse(storage.read(new RowId(PARTITION_ID, rowId), HybridTimestamp.MAX_VALUE).isWriteIntent());
 
@@ -1004,9 +961,6 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
         // Last commit time is before the time of the previously committed value => this should not happen.
         assertThrows(AssertionError.class, () ->
                 storageUpdateHandler.handleUpdate(runningTx, rowId, partitionId, row3, true, null, null, lastCommitTs, null));
-
-
-        assertEquals(1, storage.rowsCount());
 
         assertTrue(storage.read(new RowId(PARTITION_ID, rowId), HybridTimestamp.MAX_VALUE).isWriteIntent());
 

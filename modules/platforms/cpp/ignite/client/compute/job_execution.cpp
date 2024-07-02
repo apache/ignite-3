@@ -28,7 +28,7 @@ void job_execution::get_state_async(ignite_callback<std::optional<job_state>> ca
     m_impl->get_state_async(std::move(callback));
 }
 
-void job_execution::get_result_async(ignite_callback<std::optional<primitive>> callback) {
+void job_execution::get_result_async(ignite_callback<std::optional<binary_object>> callback) {
     m_impl->get_result_async(std::move(callback));
 }
 

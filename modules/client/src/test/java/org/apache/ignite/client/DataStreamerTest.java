@@ -252,8 +252,9 @@ public class DataStreamerTest extends AbstractClientTableTest {
                         DataStreamerItem::get,
                         t -> t.get().longValue("id"),
                         ReceiverDescriptor.builder(TestUpsertReceiver.class).build(),
-                        null,
-                        options)
+                    null,
+                        options,
+                    null)
                     : view.streamData(publisher, options);
 
             for (long i = 0; i < 1000; i++) {
@@ -373,7 +374,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
                     ReceiverDescriptor.builder(TestReceiver.class).build(),
                     null,
                     options,
-                    "arg");
+                    ":arg:");
 
             for (long i = 0; i < count; i++) {
                 publisher.submit(tuple(i));
@@ -405,8 +406,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
                     ReceiverDescriptor.builder(TestReceiver.class).build(),
                     resultSubscriber,
                     options,
-                    "arg",
-                    "returnResults");
+                    "returnResults:arg");
 
             for (long i = 0; i < count; i++) {
                 publisher.submit(tuple(i));
@@ -444,8 +444,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
                     ReceiverDescriptor.builder(TestReceiver.class).build(),
                     resultSubscriber,
                     null,
-                    "arg",
-                    withSubscriber ? "returnResults" : "noResults");
+                     (withSubscriber ? "returnResults" : "noResults") + ":arg");
 
             for (long i = 0; i < count; i++) {
                 publisher.submit(new PersonPojo(i));
@@ -486,8 +485,8 @@ public class DataStreamerTest extends AbstractClientTableTest {
                     ReceiverDescriptor.builder(TestReceiver.class).build(),
                     resultSubscriber,
                     null,
-                    "arg",
-                    withSubscriber ? "returnResults" : "noResults");
+                    (withSubscriber ? "returnResults" : "noResults") + ":arg"
+            );
 
             for (long i = 0; i < count; i++) {
                 publisher.submit(Map.entry(tupleKey(i), tupleVal("foo")));
@@ -528,8 +527,8 @@ public class DataStreamerTest extends AbstractClientTableTest {
                     ReceiverDescriptor.builder(TestReceiver.class).build(),
                     resultSubscriber,
                     null,
-                    "arg",
-                    withSubscriber ? "returnResults" : "noResults");
+                    (withSubscriber ? "returnResults" : "noResults") + ":arg"
+            );
 
             for (long i = 0; i < count; i++) {
                 publisher.submit(Map.entry(i, new PersonValPojo("foo")));
@@ -593,9 +592,8 @@ public class DataStreamerTest extends AbstractClientTableTest {
                     ReceiverDescriptor.builder(TestReceiver.class).build(),
                     resultSubscriber,
                     options,
-                    "arg",
-                    resultCount < 0 ? null : "returnResults",
-                    resultCount);
+                    (resultCount < 0 ? null : "returnResults") + ":arg:" + resultCount
+            );
 
             for (long i = 0; i < 3; i++) {
                 publisher.submit(tuple(i));
@@ -624,8 +622,8 @@ public class DataStreamerTest extends AbstractClientTableTest {
                     ReceiverDescriptor.builder(TestReceiver.class).build(),
                     resultSubscriber,
                     options,
-                    "arg",
-                    "returnResults");
+                    "returnResults:arg"
+            );
 
             for (long i = 0; i < 3; i++) {
                 publisher.submit(tuple(i));
@@ -651,8 +649,8 @@ public class DataStreamerTest extends AbstractClientTableTest {
                     ReceiverDescriptor.builder(TestReceiver.class).build(),
                     null,
                     options,
-                    "arg",
-                    "returnResults");
+                    "arg:returnResults"
+            );
 
             for (long i = 0; i < 3; i++) {
                 publisher.submit(tuple(i));
@@ -729,18 +727,19 @@ public class DataStreamerTest extends AbstractClientTableTest {
         return ignite2;
     }
 
-    private static class TestReceiver implements DataStreamerReceiver<Long, String> {
+    private static class TestReceiver implements DataStreamerReceiver<Long, Object, String> {
         @Override
-        public CompletableFuture<List<String>> receive(List<Long> page, DataStreamerReceiverContext ctx, Object... args) {
-            boolean returnResults = args.length > 1 && "returnResults".equals(args[1]);
-            int resultCount = args.length > 2 ? (int) args[2] : page.size();
+        public CompletableFuture<List<String>> receive(List<Long> page, DataStreamerReceiverContext ctx, Object arg) {
+            var parsedArgs = TestReceiverArs.from(arg);
 
             // noinspection resource
             RecordView<Tuple> view = ctx.ignite().tables().table(DEFAULT_TABLE).recordView();
             List<String> res = new ArrayList<>(page.size());
 
+            int resultCount = parsedArgs.resultCount < 0 ? page.size() : parsedArgs.resultCount;
+
             for (Long id : page) {
-                String name = "recv_" + args[0] + "_" + id;
+                String name = "recv_" + parsedArgs.arg + "_" + id;
                 view.upsert(null, tuple(id, name));
 
                 if (resultCount-- > 0) {
@@ -752,14 +751,40 @@ public class DataStreamerTest extends AbstractClientTableTest {
                 res.add("extra_" + resultCount);
             }
 
-            return CompletableFuture.completedFuture(returnResults ? res : null);
+            return CompletableFuture.completedFuture(parsedArgs.returnResults ? res : null);
+        }
+
+        static class TestReceiverArs {
+            final boolean returnResults;
+            final String arg;
+            final int resultCount;
+
+            TestReceiverArs(boolean returnResults, String arg, int resultCount) {
+                this.returnResults = returnResults;
+                this.arg = arg;
+                this.resultCount = resultCount;
+            }
+
+            static TestReceiverArs from(@Nullable Object str) {
+                if (str == null) {
+                    return new TestReceiverArs(false, null, -1);
+                }
+
+                String[] split = ((String) str).split(":");
+                boolean returnResults = "returnResults".equals(split[0]);
+                String arg = split[1];
+                int resultCount = split.length > 2 ? Integer.parseInt(split[2]) : -1;
+
+                return new TestReceiverArs(returnResults, arg, resultCount);
+            }
+
         }
     }
 
-    private static class TestUpsertReceiver implements DataStreamerReceiver<Long, Void> {
+    private static class TestUpsertReceiver implements DataStreamerReceiver<Long, Object, Void> {
         @Override
         @Nullable
-        public CompletableFuture<List<Void>> receive(List<Long> page, DataStreamerReceiverContext ctx, Object... args) {
+        public CompletableFuture<List<Void>> receive(List<Long> page, DataStreamerReceiverContext ctx, Object arg) {
             // noinspection resource
             RecordView<Tuple> view = ctx.ignite().tables().table(DEFAULT_TABLE).recordView();
 
@@ -810,10 +835,10 @@ public class DataStreamerTest extends AbstractClientTableTest {
         }
     }
 
-    private static class EchoArgsReceiver implements DataStreamerReceiver<Object, Object> {
+    private static class EchoArgsReceiver implements DataStreamerReceiver<Object, Object, Object> {
         @Override
-        public CompletableFuture<List<Object>> receive(List<Object> page, DataStreamerReceiverContext ctx, Object... args) {
-            return CompletableFuture.completedFuture(List.of(args));
+        public CompletableFuture<List<Object>> receive(List<Object> page, DataStreamerReceiverContext ctx, Object arg) {
+            return CompletableFuture.completedFuture(List.of(arg));
         }
     }
 }

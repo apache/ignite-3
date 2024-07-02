@@ -232,7 +232,7 @@ public class ClientSql implements IgniteSql {
 
             w.out().packString(statement.query());
 
-            w.out().packObjectArrayAsBinaryTuple(arguments);
+            w.out().packObjectArrayAsBinaryTuple(arguments, null);
 
             w.out().packLong(ch.observableTimestamp());
         };
@@ -309,7 +309,7 @@ public class ClientSql implements IgniteSql {
             packProperties(w, null);
 
             w.out().packString(query);
-            w.out().packObjectArrayAsBinaryTuple(arguments);
+            w.out().packObjectArrayAsBinaryTuple(arguments, null);
             w.out().packLong(ch.observableTimestamp());
         };
 
@@ -331,7 +331,7 @@ public class ClientSql implements IgniteSql {
         if (statementProps != null) {
             for (Entry<String, Object> entry : statementProps.entrySet()) {
                 builder.appendString(entry.getKey());
-                ClientBinaryTupleUtils.appendObject(builder, entry.getValue());
+                ClientBinaryTupleUtils.appendObject(builder, entry.getValue(), null);
             }
         }
 

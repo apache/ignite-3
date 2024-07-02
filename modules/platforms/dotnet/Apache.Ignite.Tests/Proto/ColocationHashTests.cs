@@ -187,7 +187,7 @@ public class ColocationHashTests : IgniteTestsBase
         var schema = schemas[1].GetAwaiter().GetResult();
         var clusterNodes = await Client.GetClusterNodesAsync();
         var jobTarget = JobTarget.AnyNode(clusterNodes);
-        var job = new JobDescriptor<int>(TableRowColocationHashJob);
+        var job = new JobDescriptor<object, int>(TableRowColocationHashJob);
 
         for (int i = 0; i < 100; i++)
         {
@@ -196,10 +196,19 @@ public class ColocationHashTests : IgniteTestsBase
             using var writer = ProtoCommon.GetMessageWriter();
             var (clientColocationHash, _) = ser.Write(writer, null, schema, key);
 
-            var serverColocationHashExec = await Client.Compute.SubmitAsync(jobTarget, job, tableName, i);
+            var serverColocationHashExec = await Client.Compute.SubmitAsync(jobTarget, job, GetArg(tableName, i));
             var serverColocationHash = await serverColocationHashExec.GetResultAsync();
 
             Assert.AreEqual(serverColocationHash, clientColocationHash, key.ToString());
+        }
+
+        static byte[] GetArg(string tableName, int i)
+        {
+            using var argBuilder = new BinaryTupleBuilder(2);
+            argBuilder.AppendString(tableName);
+            argBuilder.AppendInt(i);
+
+            return argBuilder.Build().ToArray();
         }
     }
 
@@ -335,13 +344,21 @@ public class ColocationHashTests : IgniteTestsBase
 
         IJobExecution<int> jobExecution = await Client.Compute.SubmitAsync(
             target,
-            new JobDescriptor<int>(ColocationHashJob),
-            count,
-            bytes,
-            timePrecision,
-            timestampPrecision);
+            new JobDescriptor<object, int>(ColocationHashJob),
+            GetArg());
 
         return await jobExecution.GetResultAsync();
+
+        byte[] GetArg()
+        {
+            using var argBuilder = new BinaryTupleBuilder(4);
+            argBuilder.AppendInt(count);
+            argBuilder.AppendInt(timePrecision);
+            argBuilder.AppendInt(timestampPrecision);
+            argBuilder.AppendBytes(bytes);
+
+            return argBuilder.Build().ToArray();
+        }
     }
 
     private record TestIndexProvider(Func<int, int> ColumnOrderDelegate, int HashedColumnCount) : IHashedColumnIndexProvider

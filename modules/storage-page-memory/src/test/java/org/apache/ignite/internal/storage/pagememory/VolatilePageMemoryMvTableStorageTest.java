@@ -48,6 +48,7 @@ import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -233,6 +234,18 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
 
             assertThat(mvTableStorage.destroy(), willCompleteSuccessfully());
         }
+    }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22616")
+    @Override
+    public void testEstimatedSizeAfterRebalance() {
+        super.testEstimatedSizeAfterRebalance();
+    }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22616")
+    @Override
+    public void testEstimatedSizeAfterAbortRebalance() {
+        super.testEstimatedSizeAfterAbortRebalance();
     }
 
     private VolatilePageMemoryDataRegion dataRegion() {

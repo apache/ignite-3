@@ -246,7 +246,8 @@ class ItExecutionsCleanerTest extends ClusterPerClassIntegrationTest {
 
     private static TestingJobExecution<Object> submit(Set<ClusterNode> nodes) {
         IgniteCompute igniteCompute = CLUSTER.node(0).compute();
-        return new TestingJobExecution<>(
-                igniteCompute.submit(JobTarget.anyNode(nodes), JobDescriptor.builder(InteractiveJobs.globalJob().name()).build()));
+        return new TestingJobExecution<>(igniteCompute.submit(
+                JobTarget.anyNode(nodes), JobDescriptor.builder(InteractiveJobs.globalJob().name()).build(), null
+        ));
     }
 }

@@ -15,24 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.partition.replicator.network.command;
+package org.apache.ignite.internal.cli.commands.cluster;
 
-import java.io.Serializable;
-import org.apache.ignite.internal.network.NetworkMessage;
-import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.Commands;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.cli.commands.cluster.init.ClusterInitReplCommand;
+import org.junit.jupiter.api.DisplayName;
 
-/**
- * Network Message interface to transfer {@link TablePartitionId} as part of {@link NetworkMessage}.
- */
-@Transferable(Commands.TABLE_PARTITION_ID)
-public interface TablePartitionIdMessage extends NetworkMessage, Serializable {
-    int tableId();
+/** Tests "cluster init" command in REPL mode. */
+@DisplayName("cluster init repl")
+public class ClusterInitReplTest extends ClusterInitTest {
+    @Override
+    protected Class<?> getCommandClass() {
+        return ClusterInitReplCommand.class;
+    }
 
-    int partitionId();
-
-    default TablePartitionId asTablePartitionId() {
-        return new TablePartitionId(tableId(), partitionId());
+    @Override
+    protected int errorExitCode() {
+        return 0;
     }
 }

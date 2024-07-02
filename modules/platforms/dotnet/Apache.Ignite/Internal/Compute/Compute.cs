@@ -60,10 +60,10 @@ namespace Apache.Ignite.Internal.Compute
         }
 
         /// <inheritdoc/>
-        public Task<IJobExecution<TResult>> SubmitAsync<TTarget, TResult>(
+        public Task<IJobExecution<TResult>> SubmitAsync<TTarget, TArg, TResult>(
             IJobTarget<TTarget> target,
-            JobDescriptor<TResult> jobDescriptor,
-            params object?[]? args)
+            JobDescriptor<TArg, TResult> jobDescriptor,
+            TArg arg)
             where TTarget : notnull
         {
             IgniteArgumentCheck.NotNull(target);
@@ -71,19 +71,19 @@ namespace Apache.Ignite.Internal.Compute
 
             return target switch
             {
-                JobTarget.SingleNodeTarget singleNode => SubmitAsync(new[] { singleNode.Data }, jobDescriptor, args),
-                JobTarget.AnyNodeTarget anyNode => SubmitAsync(anyNode.Data, jobDescriptor, args),
-                JobTarget.ColocatedTarget<TTarget> colocated => SubmitColocatedAsync(colocated, jobDescriptor, args),
+                JobTarget.SingleNodeTarget singleNode => SubmitAsync(new[] { singleNode.Data }, jobDescriptor, arg),
+                JobTarget.AnyNodeTarget anyNode => SubmitAsync(anyNode.Data, jobDescriptor, arg),
+                JobTarget.ColocatedTarget<TTarget> colocated => SubmitColocatedAsync(colocated, jobDescriptor, arg),
 
                 _ => throw new ArgumentException("Unsupported job target: " + target)
             };
         }
 
         /// <inheritdoc/>
-        public IDictionary<IClusterNode, Task<IJobExecution<T>>> SubmitBroadcast<T>(
+        public IDictionary<IClusterNode, Task<IJobExecution<TResult>>> SubmitBroadcast<TArg, TResult>(
             IEnumerable<IClusterNode> nodes,
-            JobDescriptor<T> jobDescriptor,
-            params object?[]? args)
+            JobDescriptor<TArg, TResult> jobDescriptor,
+            TArg arg)
         {
             IgniteArgumentCheck.NotNull(nodes);
             IgniteArgumentCheck.NotNull(jobDescriptor);
@@ -92,11 +92,12 @@ namespace Apache.Ignite.Internal.Compute
             var options = jobDescriptor.Options ?? JobExecutionOptions.Default;
             var units = GetUnitsCollection(jobDescriptor.DeploymentUnits);
 
-            var res = new Dictionary<IClusterNode, Task<IJobExecution<T>>>();
+            var res = new Dictionary<IClusterNode, Task<IJobExecution<TResult>>>();
 
             foreach (var node in nodes)
             {
-                Task<IJobExecution<T>> task = ExecuteOnNodes<T>(new[] { node }, units, jobDescriptor.JobClassName, options, args);
+                Task<IJobExecution<TResult>> task = ExecuteOnNodes<TArg, TResult>(
+                    new[] { node }, units, jobDescriptor.JobClassName, options, arg);
 
                 res[node] = task;
             }
@@ -282,12 +283,12 @@ namespace Apache.Ignite.Internal.Compute
             }
         }
 
-        private async Task<IJobExecution<T>> ExecuteOnNodes<T>(
+        private async Task<IJobExecution<TResult>> ExecuteOnNodes<TArg, TResult>(
             ICollection<IClusterNode> nodes,
             IEnumerable<DeploymentUnit>? units,
             string jobClassName,
             JobExecutionOptions? options,
-            object?[]? args)
+            TArg arg)
         {
             IClusterNode node = GetRandomNode(nodes);
             options ??= JobExecutionOptions.Default;
@@ -299,7 +300,7 @@ namespace Apache.Ignite.Internal.Compute
                     ClientOp.ComputeExecute, writer, PreferredNode.FromName(node.Name), expectNotifications: true)
                 .ConfigureAwait(false);
 
-            return GetJobExecution<T>(res, readSchema: false);
+            return GetJobExecution<TResult>(res, readSchema: false);
 
             void Write()
             {
@@ -311,7 +312,7 @@ namespace Apache.Ignite.Internal.Compute
                 w.Write(options.Priority);
                 w.Write(options.MaxRetries);
 
-                w.WriteObjectCollectionAsBinaryTuple(args);
+                w.WriteObjectAsBinaryTuple(arg);
             }
         }
 
@@ -336,12 +337,12 @@ namespace Apache.Ignite.Internal.Compute
         }
 
         [SuppressMessage("Maintainability", "CA1508:Avoid dead conditional code", Justification = "False positive")]
-        private async Task<IJobExecution<T>> ExecuteColocatedAsync<T, TKey>(
+        private async Task<IJobExecution<TResult>> ExecuteColocatedAsync<TArg, TResult, TKey>(
             string tableName,
             TKey key,
             Func<Table, IRecordSerializerHandler<TKey>> serializerHandlerFunc,
-            JobDescriptor<T> descriptor,
-            params object?[]? args)
+            JobDescriptor<TArg, TResult> descriptor,
+            TArg arg)
             where TKey : notnull
         {
             var options = descriptor.Options ?? JobExecutionOptions.Default;
@@ -364,7 +365,7 @@ namespace Apache.Ignite.Internal.Compute
                             ClientOp.ComputeExecuteColocated, bufferWriter, preferredNode, expectNotifications: true)
                         .ConfigureAwait(false);
 
-                    return GetJobExecution<T>(res, readSchema: true);
+                    return GetJobExecution<TResult>(res, readSchema: true);
                 }
                 catch (IgniteException e) when (e.Code == ErrorGroups.Client.TableIdNotFound)
                 {
@@ -400,16 +401,16 @@ namespace Apache.Ignite.Internal.Compute
                 w.Write(options.Priority);
                 w.Write(options.MaxRetries);
 
-                w.WriteObjectCollectionAsBinaryTuple(args);
+                w.WriteObjectAsBinaryTuple(arg);
 
                 return colocationHash;
             }
         }
 
-        private async Task<IJobExecution<T>> SubmitAsync<T>(
+        private async Task<IJobExecution<TResult>> SubmitAsync<TArg, TResult>(
             IEnumerable<IClusterNode> nodes,
-            JobDescriptor<T> jobDescriptor,
-            params object?[]? args)
+            JobDescriptor<TArg, TResult> jobDescriptor,
+            TArg arg)
         {
             IgniteArgumentCheck.NotNull(nodes);
             IgniteArgumentCheck.NotNull(jobDescriptor);
@@ -418,39 +419,39 @@ namespace Apache.Ignite.Internal.Compute
             var nodesCol = GetNodesCollection(nodes);
             IgniteArgumentCheck.Ensure(nodesCol.Count > 0, nameof(nodes), "Nodes can't be empty.");
 
-            return await ExecuteOnNodes<T>(
+            return await ExecuteOnNodes<TArg, TResult>(
                 nodesCol,
                 jobDescriptor.DeploymentUnits,
                 jobDescriptor.JobClassName,
                 jobDescriptor.Options,
-                args).ConfigureAwait(false);
+                arg).ConfigureAwait(false);
         }
 
-        private async Task<IJobExecution<T>> SubmitColocatedAsync<T, TKey>(
+        private async Task<IJobExecution<TResult>> SubmitColocatedAsync<TArg, TResult, TKey>(
             JobTarget.ColocatedTarget<TKey> target,
-            JobDescriptor<T> jobDescriptor,
-            params object?[]? args)
+            JobDescriptor<TArg, TResult> jobDescriptor,
+            TArg arg)
             where TKey : notnull
         {
             IgniteArgumentCheck.NotNull(jobDescriptor);
 
             if (target.Data is IIgniteTuple tuple)
             {
-                return await ExecuteColocatedAsync<T, IIgniteTuple>(
+                return await ExecuteColocatedAsync<TArg, TResult, IIgniteTuple>(
                         target.TableName,
                         tuple,
                         static _ => TupleSerializerHandler.Instance,
                         jobDescriptor,
-                        args)
+                        arg)
                     .ConfigureAwait(false);
             }
 
-            return await ExecuteColocatedAsync<T, TKey>(
+            return await ExecuteColocatedAsync<TArg, TResult, TKey>(
                     target.TableName,
                     target.Data,
                     static table => table.GetRecordViewInternal<TKey>().RecordSerializer.Handler,
                     jobDescriptor,
-                    args)
+                    arg)
                 .ConfigureAwait(false);
         }
     }

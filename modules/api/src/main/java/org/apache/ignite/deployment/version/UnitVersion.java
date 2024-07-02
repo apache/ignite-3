@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.compute.version;
+package org.apache.ignite.deployment.version;
 
 import java.util.Objects;
 

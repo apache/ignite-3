@@ -570,14 +570,14 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
     }
 
     @Override
-    public <E, V, R> CompletableFuture<Void> streamData(
+    public <E, V, R, A> CompletableFuture<Void> streamData(
             Publisher<E> publisher,
             Function<E, Entry<Tuple, Tuple>> keyFunc,
             Function<E, V> payloadFunc,
-            ReceiverDescriptor receiver,
+            ReceiverDescriptor<A> receiver,
             @Nullable Flow.Subscriber<R> resultSubscriber,
             @Nullable DataStreamerOptions options,
-            Object... receiverArgs) {
+            A receiverArg) {
         // TODO: IGNITE-22285 Embedded Data Streamer with Receiver.
         throw new UnsupportedOperationException("Not implemented yet");
     }

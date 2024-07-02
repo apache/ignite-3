@@ -977,26 +977,6 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
-    public long rowsCount() {
-        return busy(() -> {
-            throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
-
-            try (RocksIterator it = db.newIterator(helper.partCf, helper.scanReadOpts)) {
-                it.seek(helper.partitionStartPrefix());
-
-                long size = 0;
-
-                while (it.isValid()) {
-                    ++size;
-                    it.next();
-                }
-
-                return size;
-            }
-        });
-    }
-
-    @Override
     public void updateLease(long leaseStartTime) {
         busy(() -> {
             if (leaseStartTime <= this.leaseStartTime) {
@@ -1062,6 +1042,12 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         } catch (RocksDBException e) {
             throw new StorageException("Failed to collect garbage: " + createStorageInfo(), e);
         }
+    }
+
+    // TODO: Implement, see https://issues.apache.org/jira/browse/IGNITE-22617
+    @Override
+    public long estimatedSize() {
+        throw new UnsupportedOperationException();
     }
 
     @Override

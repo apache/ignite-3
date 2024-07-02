@@ -15,35 +15,32 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.compute.version;
+package org.apache.ignite.internal.compute;
+
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.compute.ComputeJob;
+import org.apache.ignite.compute.JobExecutionContext;
+import org.apache.ignite.marshaling.ByteArrayMarshaler;
+import org.apache.ignite.marshaling.Marshaler;
 
 /**
- * Throws when {@link Version} of deployment unit not parsable.
+ * Pojo job.
  */
-public class VersionParseException extends RuntimeException {
-    private final String rawVersion;
-
+public class PojoJob implements ComputeJob<Pojo, String> {
     /**
-     * Constructor.
+     * Executes this job.
      *
-     * @param cause Cause error.
+     * @param context The execution context.
+     * @param pojo Job arguments.
+     * @return Future with the same pojo that was passed as an argument.
      */
-    public VersionParseException(String rawVersion, Throwable cause) {
-        super(cause);
-        this.rawVersion = rawVersion;
+    @Override
+    public CompletableFuture<String> executeAsync(JobExecutionContext context, Pojo pojo) {
+        return CompletableFuture.completedFuture(pojo.getName());
     }
 
-    /**
-     * Constructor.
-     *
-     * @param message Error message.
-     */
-    public VersionParseException(String rawVersion, String message) {
-        super(message);
-        this.rawVersion = rawVersion;
-    }
-
-    public String getRawVersion() {
-        return rawVersion;
+    @Override
+    public Marshaler<Pojo, byte[]> inputMarshaler() {
+        return ByteArrayMarshaler.create();
     }
 }

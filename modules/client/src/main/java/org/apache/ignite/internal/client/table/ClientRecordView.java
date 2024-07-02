@@ -421,14 +421,14 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
     }
 
     @Override
-    public <E, V, R1> CompletableFuture<Void> streamData(
+    public <E, V, R1, A> CompletableFuture<Void> streamData(
             Publisher<E> publisher,
             Function<E, R> keyFunc,
             Function<E, V> payloadFunc,
-            ReceiverDescriptor receiver,
+            ReceiverDescriptor<A> receiver,
             @Nullable Flow.Subscriber<R1> resultSubscriber,
             @Nullable DataStreamerOptions options,
-            Object... receiverArgs) {
+            A receiverArg) {
         Objects.requireNonNull(publisher);
         Objects.requireNonNull(keyFunc);
         Objects.requireNonNull(payloadFunc);
@@ -445,7 +445,9 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
                 resultSubscriber,
                 receiver.units(),
                 receiver.receiverClassName(),
-                receiverArgs);
+                receiverArg,
+                receiver.argumentsMarshaler()
+        );
     }
 
     /** {@inheritDoc} */
