@@ -88,3 +88,7 @@ SELECT (VALUES ROW(2, 4))
 # https://issues.apache.org/jira/browse/IGNITE-22084: Sql. Add support for row data type.
 statement error: ROW datatype is not supported
 SELECT (VALUES ROW(ROW(2)))
+
+# https://issues.apache.org/jira/browse/IGNITE-22084: Sql. Add support for row data type.
+statement error: ROW datatype is not supported
+SELECT * FROM (SELECT (1, true) as a) as t(x)
