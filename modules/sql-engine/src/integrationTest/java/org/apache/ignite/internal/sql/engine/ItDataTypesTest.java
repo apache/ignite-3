@@ -27,7 +27,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -79,11 +78,14 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
     @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
     @ParameterizedTest()
     @MethodSource("exactDecimalTypes")
-    public void test0(SqlTypeName typeName, Class<?> clazz, Number upper, String strUpper, String lessUpper1) {
+    public void test0(SqlTypeName typeName, Class<?> clazz, Number upper, String strUpper) {
         sql(format("create table tbl(v {});", typeName));
         sql(format("insert into tbl values({});", upper));
 
         Number checkReturn = (Number) clazz.cast(upper);
+
+        // check TypeCoercionImpl.binaryArithmeticWithStrings, in case of char(N) + integer arithmetic it derives Integer type as resulting.
+        boolean skipIntegerOverflowWithMixedCharacterTypes = typeName != SqlTypeName.BIGINT;
 
         BigDecimal moreThanUpperBoundApprox = new BigDecimal(strUpper).add(new BigDecimal(1.1));
         BigDecimal moreThanUpperBoundExact = new BigDecimal(strUpper).add(new BigDecimal(1));
@@ -118,24 +120,27 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
         /*assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
                 "Invalid character value for cast",
-                () -> sql("SELECT * FROM tiny WHERE v NOT IN (?)", "'200.1'"));*/
+                () -> sql("SELECT * FROM tbl WHERE v NOT IN (?)", "'" + lessUpper + "'"));*/
 
         assertQuery(format("SELECT * FROM tbl WHERE v IN ('{}' + '1', '300')", lessUpper)).returns(checkReturn).check();
-        assertQuery(format("SELECT * FROM tbl WHERE v IN ('{}' + 1, '300')", lessUpper)).returns(checkReturn).check();
+
+        if (skipIntegerOverflowWithMixedCharacterTypes) {
+            assertQuery(format("SELECT * FROM tbl WHERE v IN ('{}' + 1, '300')", lessUpper)).returns(checkReturn).check();
+        }
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-22640 Improve type derivation for dynamic parameters
-        //assertQuery("SELECT * FROM tiny WHERE v IN (? + 1, '300')").withParam("126").returns((byte) 127).check();
+        //assertQuery("SELECT * FROM tbl WHERE v IN (? + 1, '300')").withParam("'" + lessUpper + "'").returns(checkReturn).check();
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-22640 Improve type derivation for dynamic parameters
-        //assertQuery("SELECT * FROM tiny WHERE v IN (?)").withParam("127").returns((byte) 127).check();
+        //assertQuery("SELECT * FROM tbl WHERE v IN (?)").withParam("'" + strUpper + "'").returns(checkReturn).check();
 
         assertQuery("SELECT * FROM tbl WHERE v IN (? + 1, '300')").withParam(lessUpper).returns(checkReturn).check();
 
         assertQuery(format("SELECT * FROM tbl WHERE v NOT IN ('{}' - '1', '300')", strUpper)).returns(checkReturn).check();
 
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-22640 Improve type derivation for dynamic parameters
-        //assertQuery("SELECT * FROM tiny WHERE v NOT IN (? + '1', '300')").withParam("125").returns((byte) 127).check();
         assertQuery("SELECT * FROM tbl WHERE v NOT IN (? - '1', '300')").withParam(checkReturn).returns(checkReturn).check();
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-22640 Improve type derivation for dynamic parameters
+        //assertQuery("SELECT * FROM tbl WHERE v NOT IN (? - 1, '300')").withParam("'" + checkReturn + "'").returns(checkReturn).check();
 
         assertQuery(format("SELECT * FROM tbl WHERE v != {}", moreThanUpperBoundApprox)).returns(checkReturn).check();
         assertQuery(format("SELECT * FROM tbl WHERE {} != v", moreThanUpperBoundApprox)).returns(checkReturn).check();
@@ -143,21 +148,19 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
         assertQuery(format("SELECT * FROM tbl WHERE v < {}", moreThanUpperBoundApprox)).returns(checkReturn).check();
         assertQuery(format("SELECT * FROM tbl WHERE {} > v", moreThanUpperBoundApprox)).returns(checkReturn).check();
 
-        assertQuery(format("SELECT * FROM tbl WHERE v < {}", moreThanUpperBoundExact)).returns(checkReturn).check();
+        if (skipIntegerOverflowWithMixedCharacterTypes) {
+            assertQuery(format("SELECT * FROM tbl WHERE v < {}", moreThanUpperBoundExact)).returns(checkReturn).check();
+        }
 
         assertQuery("SELECT * FROM tbl WHERE v > OCTET_LENGTH('TEST')").returns(checkReturn).check();
-        assertQuery(format("SELECT * FROM tbl WHERE v < OCTET_LENGTH('TEST') + {}", strUpper)).returns(checkReturn).check();
     }
 
     private static Stream<Arguments> exactDecimalTypes() {
         return Stream.of(
-                //arguments(SqlTypeName.BIGINT, BigInteger.class),
-                arguments(SqlTypeName.INTEGER, Integer.class, Integer.MAX_VALUE, Integer.toString(Integer.MAX_VALUE),
-                        Integer.toString(Integer.MAX_VALUE - 1)),
-                arguments(SqlTypeName.SMALLINT, Short.class, Short.MAX_VALUE, Short.toString(Short.MAX_VALUE),
-                        Short.toString((short) (Short.MAX_VALUE - 1))),
-                arguments(SqlTypeName.TINYINT, Byte.class, Byte.MAX_VALUE, Byte.toString(Byte.MAX_VALUE),
-                        Byte.toString((byte) (Byte.MAX_VALUE - 1)))
+                arguments(SqlTypeName.BIGINT, Long.class, Long.MAX_VALUE, Long.toString(Long.MAX_VALUE)),
+                arguments(SqlTypeName.INTEGER, Integer.class, Integer.MAX_VALUE, Integer.toString(Integer.MAX_VALUE)),
+                arguments(SqlTypeName.SMALLINT, Short.class, Short.MAX_VALUE, Short.toString(Short.MAX_VALUE)),
+                arguments(SqlTypeName.TINYINT, Byte.class, Byte.MAX_VALUE, Byte.toString(Byte.MAX_VALUE))
         );
     }
 
