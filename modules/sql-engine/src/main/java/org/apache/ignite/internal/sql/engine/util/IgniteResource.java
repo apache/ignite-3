@@ -24,6 +24,7 @@ import java.util.Arrays;
 import java.util.List;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.runtime.Resources;
+import org.apache.calcite.runtime.Resources.BaseMessage;
 import org.apache.calcite.runtime.Resources.ExInst;
 import org.apache.calcite.sql.SqlCallBinding;
 import org.apache.calcite.sql.SqlKind;
@@ -80,6 +81,9 @@ public interface IgniteResource {
 
     @Resources.BaseMessage("CHAR datatype is not supported in table")
     Resources.ExInst<SqlValidatorException> charDataTypeIsNotSupportedInTable();
+
+    @BaseMessage("{0} datatype is not supported'")
+    ExInst<SqlValidatorException> dataTypeIsNotSupported(String a0);
 
     @Resources.BaseMessage("Length for type {0} must be at least 1")
     Resources.ExInst<SqlValidatorException> invalidStringLength(String typeName);

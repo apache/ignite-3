@@ -84,7 +84,7 @@ b	2
 b	2
 
 skipif ignite3
-# https://issues.apache.org/jira/browse/IGNITE-22171
+# https://issues.apache.org/jira/browse/IGNITE-22084
 query II rowsort
 SELECT * FROM (VALUES ROW(CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DECIMAL(2, 1)))));
 ----
