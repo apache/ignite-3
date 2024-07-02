@@ -49,6 +49,8 @@ namespace Apache.Ignite
             PlacementDriver.GroupCode => PlacementDriver.GroupName,
             CriticalWorkers.GroupCode => CriticalWorkers.GroupName,
             DisasterRecovery.GroupCode => DisasterRecovery.GroupName,
+            Embedded.GroupCode => Embedded.GroupName,
+            Marshalling.GroupCode => Marshalling.GroupName,
 
             _ => UnknownGroupName
         };
@@ -596,6 +598,44 @@ namespace Apache.Ignite
 
             /// <summary> ClusterNotIdle error. </summary>
             public const int ClusterNotIdle = (GroupCode << 16) | (4 & 0xFFFF);
+        }
+
+        /// <summary> Embedded errors. </summary>
+        public static class Embedded
+        {
+            /// <summary> Embedded group code. </summary>
+            public const short GroupCode = 21;
+
+            /// <summary> Embedded group name. </summary>
+            public const String GroupName = "EMBEDDED";
+
+            /// <summary> ClusterNotInitialized error. </summary>
+            public const int ClusterNotInitialized = (GroupCode << 16) | (1 & 0xFFFF);
+
+            /// <summary> ClusterInitFailed error. </summary>
+            public const int ClusterInitFailed = (GroupCode << 16) | (2 & 0xFFFF);
+
+            /// <summary> NodeNotStarted error. </summary>
+            public const int NodeNotStarted = (GroupCode << 16) | (3 & 0xFFFF);
+
+            /// <summary> NodeStart error. </summary>
+            public const int NodeStart = (GroupCode << 16) | (4 & 0xFFFF);
+        }
+
+        /// <summary> Marshalling errors. </summary>
+        public static class Marshalling
+        {
+            /// <summary> Marshalling group code. </summary>
+            public const short GroupCode = 22;
+
+            /// <summary> Marshalling group name. </summary>
+            public const String GroupName = "MARSHALLING";
+
+            /// <summary> Common error. </summary>
+            public const int Common = (GroupCode << 16) | (1 & 0xFFFF);
+
+            /// <summary> UnsupportedObjectType error. </summary>
+            public const int UnsupportedObjectType = (GroupCode << 16) | (2 & 0xFFFF);
         }
     }
 }

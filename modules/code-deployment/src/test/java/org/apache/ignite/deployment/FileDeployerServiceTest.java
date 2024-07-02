@@ -17,7 +17,7 @@
 
 package org.apache.ignite.deployment;
 
-import static org.apache.ignite.compute.version.Version.parseVersion;
+import static org.apache.ignite.deployment.version.Version.parseVersion;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;

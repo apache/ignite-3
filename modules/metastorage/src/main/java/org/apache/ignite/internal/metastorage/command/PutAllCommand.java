@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.metastorage.command;
 
+import java.nio.ByteBuffer;
 import java.util.List;
 import org.apache.ignite.internal.network.annotations.Transferable;
 
@@ -28,10 +29,10 @@ public interface PutAllCommand extends MetaStorageWriteCommand {
     /**
      * Returns entries keys.
      */
-    List<byte[]> keys();
+    List<ByteBuffer> keys();
 
     /**
      * Returns entries values.
      */
-    List<byte[]> values();
+    List<ByteBuffer> values();
 }

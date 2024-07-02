@@ -20,7 +20,6 @@ package org.apache.ignite.internal.ssl;
 import static org.apache.ignite.client.ClientAuthenticationMode.REQUIRE;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.escapeWindowsPath;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.getResourcePath;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutIn;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.jdbc.util.JdbcTestUtils.assertThrowsSqlException;
@@ -34,17 +33,17 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.client.SslConfiguration;
 import org.apache.ignite.internal.Cluster;
-import org.apache.ignite.internal.IgniteIntegrationTest;
-import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -54,10 +53,12 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.TestInstance.Lifecycle;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /** SSL support integration test. */
+@ExtendWith(WorkDirectoryExtension.class)
 @TestInstance(Lifecycle.PER_CLASS)
-public class ItSslTest extends IgniteIntegrationTest {
+public class ItSslTest extends BaseIgniteAbstractTest {
 
     private static String password;
 
@@ -520,23 +521,20 @@ public class ItSslTest extends IgniteIntegrationTest {
             String sslEnabledWithCipher1BoostrapConfig = createBoostrapConfig("TLS_AES_256_GCM_SHA384");
             String sslEnabledWithCipher2BoostrapConfig = createBoostrapConfig("TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384");
 
-            CompletableFuture<IgniteImpl> node1 = incompatibleTestCluster.startNodeAsync(10, sslEnabledWithCipher1BoostrapConfig);
-
-            String metaStorageAndCmgNodeName = testNodeName(testInfo, 10);
+            IgniteServer node1 = incompatibleTestCluster.startEmbeddedNode(10, sslEnabledWithCipher1BoostrapConfig);
 
             InitParameters initParameters = InitParameters.builder()
-                    .destinationNodeName(metaStorageAndCmgNodeName)
-                    .metaStorageNodeNames(List.of(metaStorageAndCmgNodeName))
+                    .metaStorageNodes(node1)
                     .clusterName("cluster")
                     .build();
 
-            TestIgnitionManager.init(initParameters);
+            TestIgnitionManager.init(node1, initParameters);
 
             // First node will initialize the cluster with single node successfully since the second node can't connect to it.
-            assertThat(node1, willCompleteSuccessfully());
+            assertThat(node1.waitForInitAsync(), willCompleteSuccessfully());
 
-            CompletableFuture<IgniteImpl> node2 = incompatibleTestCluster.startNodeAsync(11, sslEnabledWithCipher2BoostrapConfig);
-            assertThat(node2, willTimeoutIn(1, TimeUnit.SECONDS));
+            IgniteServer node2 = incompatibleTestCluster.startEmbeddedNode(11, sslEnabledWithCipher2BoostrapConfig);
+            assertThat(node2.waitForInitAsync(), willTimeoutIn(1, TimeUnit.SECONDS));
         } finally {
             incompatibleTestCluster.shutdown();
         }

@@ -31,7 +31,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
-import org.apache.ignite.compute.version.Version;
+import org.apache.ignite.deployment.version.Version;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.deployunit.configuration.DeploymentConfiguration;

@@ -29,9 +29,8 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.app.IgniteImpl;
@@ -66,6 +65,7 @@ public abstract class ItAbstractThinClientTest extends BaseIgniteAbstractTest {
     private final List<Ignite> startedNodes = new ArrayList<>();
 
     private IgniteClient client;
+    private List<IgniteServer> nodes;
 
     /**
      * Before all.
@@ -99,23 +99,22 @@ public abstract class ItAbstractThinClientTest extends BaseIgniteAbstractTest {
                         + "}"
         );
 
-        List<CompletableFuture<Ignite>> futures = nodesBootstrapCfg.entrySet().stream()
+        nodes = nodesBootstrapCfg.entrySet().stream()
                 .map(e -> TestIgnitionManager.start(e.getKey(), e.getValue(), workDir.resolve(e.getKey())))
                 .collect(toList());
 
-        String metaStorageNode = nodesBootstrapCfg.keySet().iterator().next();
+        IgniteServer metaStorageNode = nodes.get(0);
 
         InitParameters initParameters = InitParameters.builder()
-                .destinationNodeName(metaStorageNode)
-                .metaStorageNodeNames(List.of(metaStorageNode))
+                .metaStorageNodes(metaStorageNode)
                 .clusterName("cluster")
                 .build();
-        TestIgnitionManager.init(initParameters);
+        TestIgnitionManager.init(metaStorageNode, initParameters);
 
-        for (CompletableFuture<Ignite> future : futures) {
-            assertThat(future, willCompleteSuccessfully());
+        for (IgniteServer node : nodes) {
+            assertThat(node.waitForInitAsync(), willCompleteSuccessfully());
 
-            startedNodes.add(future.join());
+            startedNodes.add(node.api());
         }
 
         IgniteSql sql = startedNodes.get(0).sql();
@@ -139,8 +138,8 @@ public abstract class ItAbstractThinClientTest extends BaseIgniteAbstractTest {
 
         closeables.add(client);
 
-        nodesBootstrapCfg.keySet().stream()
-                .map(name -> (AutoCloseable) () -> IgnitionManager.stop(name))
+        nodes.stream()
+                .map(node -> (AutoCloseable) node::shutdown)
                 .forEach(closeables::add);
 
         IgniteUtils.closeAll(closeables);

@@ -63,7 +63,7 @@ These commands let you manage your cluster.
 [cols="1,1,3",opts="header", stripes=none]
 |===
 | Command| Parameters | Description
-| `cluster init` | `[--cmg-node] [--meta-storage-node] <clusterName> or < --url> <cluster-config> or < --config-file>`| Initializes a cluster.
+| `cluster init` | `[--cmg-node] [--meta-storage-node] <clusterName> or < --url> <cluster-config> or < --config-files>`| Initializes a cluster.
 | `cluster status` | `[--url]` | Displays the detailed status of the specified cluster.
 | `cluster topology physical` | `[--plain] [--url]` | Shows physical topology of the specified cluster.
 | `cluster topology logical` | `[--plain] [--url]` | Shows logical topology of the specified cluster.

@@ -40,7 +40,7 @@ public class CliCommandTestNotInitializedIntegrationBase extends CliIntegrationT
         CLUSTER = new Cluster(testInfo, WORK_DIR, getNodeBootstrapConfigTemplate());
 
         for (int i = 0; i < initialNodes(); i++) {
-            CLUSTER.startNodeAsync(i);
+            CLUSTER.startEmbeddedNode(i);
         }
     }
 }

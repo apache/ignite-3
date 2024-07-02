@@ -354,10 +354,10 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
         }
     }
 
-    private List<TestValue> convert(PartitionTimestampCursor cursor) {
+    private static List<TestValue> convert(PartitionTimestampCursor cursor) {
         try (cursor) {
             return cursor.stream()
-                    .map((ReadResult rs) -> BaseMvStoragesTest.value(rs.binaryRow()))
+                    .map(rs -> value(rs.binaryRow()))
                     .sorted(Comparator.nullsFirst(Comparator.naturalOrder()))
                     .collect(toList());
         }
@@ -1376,13 +1376,120 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
         });
     }
 
+    @Test
+    public void estimatedSizeUsingWriteIntents() {
+        assertThat(storage.estimatedSize(), is(0L));
+
+        // Adding a Write Intent should not increase the size.
+        addWrite(ROW_ID, binaryRow, newTransactionId());
+
+        assertThat(storage.estimatedSize(), is(0L));
+
+        // Committing a row increases the size.
+        commitWrite(ROW_ID, clock.now());
+
+        assertThat(storage.estimatedSize(), is(1L));
+
+        // Adding a Write Intent with a tombstone does not decrease the size.
+        addWrite(ROW_ID, null, newTransactionId());
+
+        assertThat(storage.estimatedSize(), is(1L));
+
+        // Committing a tombstone decreases the size.
+        commitWrite(ROW_ID, clock.now());
+
+        assertThat(storage.estimatedSize(), is(0L));
+    }
+
+    @Test
+    public void estimatedSizeUsingCommittedWrites() {
+        assertThat(storage.estimatedSize(), is(0L));
+
+        addWriteCommitted(ROW_ID, binaryRow, clock.now());
+
+        assertThat(storage.estimatedSize(), is(1L));
+
+        addWriteCommitted(ROW_ID, null, clock.now());
+
+        assertThat(storage.estimatedSize(), is(0L));
+    }
+
+    @Test
+    public void estimatedSizeNeverFallsBelowZero() {
+        assertThat(storage.estimatedSize(), is(0L));
+
+        addWriteCommitted(ROW_ID, null, clock.now());
+
+        assertThat(storage.estimatedSize(), is(0L));
+
+        addWriteCommitted(ROW_ID, binaryRow, clock.now());
+
+        assertThat(storage.estimatedSize(), is(1L));
+
+        addWriteCommitted(ROW_ID, null, clock.now());
+
+        assertThat(storage.estimatedSize(), is(0L));
+
+        addWriteCommitted(ROW_ID, null, clock.now());
+
+        assertThat(storage.estimatedSize(), is(0L));
+    }
+
+    @Test
+    public void estimatedSizeShowsLatestRowsNumber() {
+        assertThat(storage.estimatedSize(), is(0L));
+
+        var rowId1 = new RowId(PARTITION_ID);
+        var rowId2 = new RowId(PARTITION_ID);
+
+        addWriteCommitted(rowId1, binaryRow, clock.now());
+        addWriteCommitted(rowId2, binaryRow, clock.now());
+
+        assertThat(storage.estimatedSize(), is(2L));
+
+        // Overwrite an existing row.
+        addWriteCommitted(rowId1, binaryRow, clock.now());
+
+        assertThat(storage.estimatedSize(), is(2L));
+    }
+
+    @Test
+    public void estimatedSizeIsNotAffectedByGarbageTombstones() {
+        assertThat(storage.estimatedSize(), is(0L));
+
+        var rowId1 = new RowId(PARTITION_ID);
+        var rowId2 = new RowId(PARTITION_ID);
+
+        addWriteCommitted(rowId1, binaryRow, clock.now());
+
+        assertThat(storage.estimatedSize(), is(1L));
+
+        // Remove a non-existing row.
+        addWriteCommitted(rowId2, null, clock.now());
+
+        assertThat(storage.estimatedSize(), is(1L));
+    }
+
+    @Test
+    public void estimatedSizeHandlesTransactionAborts() {
+        UUID transactionId = newTransactionId();
+
+        addWriteCommitted(ROW_ID, binaryRow, clock.now());
+
+        addWrite(ROW_ID, binaryRow, transactionId);
+
+        abortWrite(ROW_ID);
+
+        assertThat(storage.estimatedSize(), is(1L));
+    }
+
     /**
      * Returns row id that is lexicographically smaller (by the value of one) than the argument.
      *
      * @param value Row id.
      * @return Row id value minus 1.
      */
-    private RowId decrement(RowId value) {
+    private static RowId decrement(RowId value) {
         long msb = value.mostSignificantBits();
         long lsb = value.leastSignificantBits();
 

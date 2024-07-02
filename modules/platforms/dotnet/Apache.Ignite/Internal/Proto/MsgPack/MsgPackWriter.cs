@@ -357,6 +357,24 @@ internal readonly ref struct MsgPackWriter
     }
 
     /// <summary>
+    /// Writes an object with type code.
+    /// </summary>
+    /// <param name="obj">Object.</param>
+    public void WriteObjectAsBinaryTuple(object? obj)
+    {
+        if (obj == null)
+        {
+            WriteNil();
+
+            return;
+        }
+
+        using var builder = new BinaryTupleBuilder(3);
+        builder.AppendObjectWithType(obj);
+        Write(builder.Build().Span);
+    }
+
+    /// <summary>
     /// Writes an array of objects with type codes.
     /// </summary>
     /// <param name="col">Array.</param>

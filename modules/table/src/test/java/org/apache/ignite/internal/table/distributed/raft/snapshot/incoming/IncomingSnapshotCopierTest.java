@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
+import static org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageUtils.toTxMetaMessage;
 import static org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.SnapshotMetaUtils.snapshotMetaAt;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
@@ -76,8 +77,10 @@ import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMeta
 import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMvDataRequest;
 import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMvDataResponse.ResponseEntry;
 import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotTxDataRequest;
+import org.apache.ignite.internal.partition.replicator.network.raft.TxMetaMessage;
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryRowMessage;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -140,6 +143,8 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
     private static final HybridClock CLOCK = new HybridClockImpl();
 
     private static final PartitionReplicationMessagesFactory TABLE_MSG_FACTORY = new PartitionReplicationMessagesFactory();
+
+    private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
 
     private static final LowWatermarkMessagesFactory LWM_MSG_FACTORY = new LowWatermarkMessagesFactory();
 
@@ -278,7 +283,10 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
 
             assertEquals(snapshotId, snapshotTxDataRequest.id());
 
-            List<TxMeta> txMetas = txIds.stream().map(outgoingTxStatePartitionStorage::get).collect(toList());
+            List<TxMetaMessage> txMetas = txIds.stream()
+                    .map(outgoingTxStatePartitionStorage::get)
+                    .map(txMeta -> toTxMetaMessage(TABLE_MSG_FACTORY, REPLICA_MESSAGES_FACTORY, txMeta))
+                    .collect(toList());
 
             return completedFuture(TABLE_MSG_FACTORY.snapshotTxDataResponse().txIds(txIds).txMeta(txMetas).finish(true).build());
         });

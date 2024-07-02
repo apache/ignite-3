@@ -26,11 +26,12 @@ import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
 
 /** Compute job that concatenates the string representation of its arguments. */
-public class ConcatJob implements ComputeJob<String> {
+public class ConcatJob implements ComputeJob<Object[], String> {
     @Override
-    public CompletableFuture<String> executeAsync(JobExecutionContext context, Object... args) {
-        return completedFuture(Arrays.stream(args)
+    public CompletableFuture<String> executeAsync(JobExecutionContext context, Object... input) {
+        return completedFuture(Arrays.stream(input)
                 .map(Object::toString)
                 .collect(Collectors.joining()));
     }
 }
+

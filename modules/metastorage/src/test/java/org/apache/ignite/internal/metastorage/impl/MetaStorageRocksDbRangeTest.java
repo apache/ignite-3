@@ -28,6 +28,6 @@ import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValue
 public class MetaStorageRocksDbRangeTest extends MetaStorageRangeTest {
     @Override
     KeyValueStorage getStorage(Path path) {
-        return new RocksDbKeyValueStorage("test", path, new NoOpFailureProcessor("test"));
+        return new RocksDbKeyValueStorage("test", path, new NoOpFailureProcessor());
     }
 }

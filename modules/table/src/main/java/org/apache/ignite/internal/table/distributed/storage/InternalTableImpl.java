@@ -23,9 +23,24 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.function.Function.identity;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RO_GET;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RO_GET_ALL;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_DELETE;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_DELETE_ALL;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_DELETE_EXACT;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_DELETE_EXACT_ALL;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_GET;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_GET_ALL;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_GET_AND_DELETE;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_GET_AND_REPLACE;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_GET_AND_UPSERT;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_INSERT;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_INSERT_ALL;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_REPLACE;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_REPLACE_IF_EXIST;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_UPSERT;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_UPSERT_ALL;
+import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
 import static org.apache.ignite.internal.table.distributed.storage.RowBatch.allResultFutures;
 import static org.apache.ignite.internal.util.CompletableFutures.completedOrFailedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
@@ -72,7 +87,6 @@ import org.apache.ignite.internal.lang.IgnitePentaFunction;
 import org.apache.ignite.internal.lang.IgniteTriFunction;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
-import org.apache.ignite.internal.partition.replicator.network.command.TablePartitionIdMessage;
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryTupleMessage;
 import org.apache.ignite.internal.partition.replicator.network.replication.MultipleRowPkReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.MultipleRowReplicaRequest;
@@ -89,9 +103,10 @@ import org.apache.ignite.internal.partition.replicator.network.replication.SwapR
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -126,6 +141,12 @@ public class InternalTableImpl implements InternalTable {
     private static final ReadWriteInflightBatchRequestTracker READ_WRITE_INFLIGHT_BATCH_REQUEST_TRACKER =
             new ReadWriteInflightBatchRequestTracker();
 
+    /** Table messages factory. */
+    private static final PartitionReplicationMessagesFactory TABLE_MESSAGES_FACTORY = new PartitionReplicationMessagesFactory();
+
+    /** Replica messages factory. */
+    private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
+
     /** Partitions. */
     private final int partitions;
 
@@ -156,9 +177,6 @@ public class InternalTableImpl implements InternalTable {
 
     /** Mutex for the partition maps update. */
     private final Object updatePartitionMapsMux = new Object();
-
-    /** Table messages factory. */
-    private final PartitionReplicationMessagesFactory tableMessagesFactory;
 
     /** A hybrid logical clock. */
     private final HybridClock clock;
@@ -228,7 +246,6 @@ public class InternalTableImpl implements InternalTable {
         this.tableStorage = tableStorage;
         this.txStateStorage = txStateStorage;
         this.replicaSvc = replicaSvc;
-        this.tableMessagesFactory = new PartitionReplicationMessagesFactory();
         this.clock = clock;
         this.observableTimestampTracker = observableTimestampTracker;
         this.placementDriver = placementDriver;
@@ -287,7 +304,7 @@ public class InternalTableImpl implements InternalTable {
     private <R> CompletableFuture<R> enlistInTx(
             BinaryRowEx row,
             @Nullable InternalTransaction tx,
-            IgniteTriFunction<InternalTransaction, ReplicationGroupId, Long, ReplicaRequest> fac,
+            IgniteTriFunction<InternalTransaction, TablePartitionId, Long, ReplicaRequest> fac,
             BiPredicate<R, ReplicaRequest> noWriteChecker
     ) {
         return enlistInTx(row, tx, fac, noWriteChecker, null);
@@ -306,7 +323,7 @@ public class InternalTableImpl implements InternalTable {
     private <R> CompletableFuture<R> enlistInTx(
             BinaryRowEx row,
             @Nullable InternalTransaction tx,
-            IgniteTriFunction<InternalTransaction, ReplicationGroupId, Long, ReplicaRequest> fac,
+            IgniteTriFunction<InternalTransaction, TablePartitionId, Long, ReplicaRequest> fac,
             BiPredicate<R, ReplicaRequest> noWriteChecker,
             @Nullable Long txStartTs
     ) {
@@ -386,7 +403,7 @@ public class InternalTableImpl implements InternalTable {
             Collection<BinaryRowEx> keyRows,
             @Nullable InternalTransaction tx,
             IgnitePentaFunction<
-                    Collection<? extends BinaryRow>, InternalTransaction, ReplicationGroupId, Long, Boolean, ReplicaRequest
+                    Collection<? extends BinaryRow>, InternalTransaction, TablePartitionId, Long, Boolean, ReplicaRequest
                     > fac,
             Function<Collection<RowBatch>, CompletableFuture<T>> reducer,
             BiPredicate<T, ReplicaRequest> noOpChecker
@@ -409,7 +426,7 @@ public class InternalTableImpl implements InternalTable {
             Collection<BinaryRowEx> keyRows,
             @Nullable InternalTransaction tx,
             IgnitePentaFunction<
-                    Collection<? extends BinaryRow>, InternalTransaction, ReplicationGroupId, Long, Boolean, ReplicaRequest
+                    Collection<? extends BinaryRow>, InternalTransaction, TablePartitionId, Long, Boolean, ReplicaRequest
                     > fac,
             Function<Collection<RowBatch>, CompletableFuture<T>> reducer,
             BiPredicate<T, ReplicaRequest> noOpChecker,
@@ -530,8 +547,8 @@ public class InternalTableImpl implements InternalTable {
         CompletableFuture<Collection<BinaryRow>> fut;
 
         Function<Long, ReplicaRequest> mapFunc =
-                (enlistmentConsistencyToken) -> tableMessagesFactory.readWriteScanRetrieveBatchReplicaRequest()
-                        .groupId(partGroupId)
+                (enlistmentConsistencyToken) -> TABLE_MESSAGES_FACTORY.readWriteScanRetrieveBatchReplicaRequest()
+                        .groupId(serializeTablePartitionId(partGroupId))
                         .timestampLong(clock.nowLong())
                         .transactionId(tx.id())
                         .scanId(scanId)
@@ -562,7 +579,7 @@ public class InternalTableImpl implements InternalTable {
             return null;
         }
 
-        return tableMessagesFactory.binaryTupleMessage()
+        return TABLE_MESSAGES_FACTORY.binaryTupleMessage()
                 .tuple(binaryTuple.byteBuffer())
                 .elementCount(binaryTuple.elementCount())
                 .build();
@@ -737,7 +754,7 @@ public class InternalTableImpl implements InternalTable {
      */
     private <R> CompletableFuture<R> evaluateReadOnlyPrimaryNode(
             BinaryRowEx row,
-            BiFunction<ReplicationGroupId, Long, ReplicaRequest> op
+            BiFunction<TablePartitionId, Long, ReplicaRequest> op
     ) {
         InternalTransaction tx = txManager.begin(observableTimestampTracker, true);
 
@@ -783,7 +800,7 @@ public class InternalTableImpl implements InternalTable {
      */
     private <R> CompletableFuture<R> evaluateReadOnlyPrimaryNode(
             Collection<BinaryRowEx> rows,
-            BiFunction<ReplicationGroupId, Long, ReplicaRequest> op
+            BiFunction<TablePartitionId, Long, ReplicaRequest> op
     ) {
         InternalTransaction tx = txManager.begin(observableTimestampTracker, true);
 
@@ -851,12 +868,12 @@ public class InternalTableImpl implements InternalTable {
         if (tx == null) {
             return evaluateReadOnlyPrimaryNode(
                     keyRow,
-                    (groupId, consistencyToken) -> tableMessagesFactory.readOnlyDirectSingleRowReplicaRequest()
-                            .groupId(groupId)
+                    (groupId, consistencyToken) -> TABLE_MESSAGES_FACTORY.readOnlyDirectSingleRowReplicaRequest()
+                            .groupId(serializeTablePartitionId(groupId))
                             .enlistmentConsistencyToken(consistencyToken)
                             .schemaVersion(keyRow.schemaVersion())
                             .primaryKey(keyRow.tupleSlice())
-                            .requestType(RequestType.RO_GET)
+                            .requestTypeInt(RO_GET.ordinal())
                             .build()
             );
         }
@@ -869,14 +886,14 @@ public class InternalTableImpl implements InternalTable {
         return enlistInTx(
                 keyRow,
                 tx,
-                (txo, groupId, enlistmentConsistencyToken) -> tableMessagesFactory.readWriteSingleRowPkReplicaRequest()
-                        .groupId(groupId)
+                (txo, groupId, enlistmentConsistencyToken) -> TABLE_MESSAGES_FACTORY.readWriteSingleRowPkReplicaRequest()
+                        .groupId(serializeTablePartitionId(groupId))
                         .schemaVersion(keyRow.schemaVersion())
                         .primaryKey(keyRow.tupleSlice())
                         .commitPartitionId(serializeTablePartitionId(txo.commitPartition()))
                         .transactionId(txo.id())
                         .enlistmentConsistencyToken(enlistmentConsistencyToken)
-                        .requestType(RW_GET)
+                        .requestTypeInt(RW_GET.ordinal())
                         .timestampLong(clock.nowLong())
                         .full(false)
                         .coordinatorId(txo.coordinatorId())
@@ -894,11 +911,11 @@ public class InternalTableImpl implements InternalTable {
         int partId = partitionId(keyRow);
         TablePartitionId tablePartitionId = new TablePartitionId(tableId, partId);
 
-        return replicaSvc.invoke(recipientNode, tableMessagesFactory.readOnlySingleRowPkReplicaRequest()
-                .groupId(tablePartitionId)
+        return replicaSvc.invoke(recipientNode, TABLE_MESSAGES_FACTORY.readOnlySingleRowPkReplicaRequest()
+                .groupId(serializeTablePartitionId(tablePartitionId))
                 .schemaVersion(keyRow.schemaVersion())
                 .primaryKey(keyRow.tupleSlice())
-                .requestType(RequestType.RO_GET)
+                .requestTypeInt(RO_GET.ordinal())
                 .readTimestampLong(readTimestamp.longValue())
                 .build()
         );
@@ -936,12 +953,12 @@ public class InternalTableImpl implements InternalTable {
         if (tx == null && isSinglePartitionBatch(keyRows)) {
             return evaluateReadOnlyPrimaryNode(
                     keyRows,
-                    (groupId, consistencyToken) -> tableMessagesFactory.readOnlyDirectMultiRowReplicaRequest()
-                            .groupId(groupId)
+                    (groupId, consistencyToken) -> TABLE_MESSAGES_FACTORY.readOnlyDirectMultiRowReplicaRequest()
+                            .groupId(serializeTablePartitionId(groupId))
                             .enlistmentConsistencyToken(consistencyToken)
                             .schemaVersion(keyRows.iterator().next().schemaVersion())
                             .primaryKeys(serializeBinaryTuples(keyRows))
-                            .requestType(RequestType.RO_GET_ALL)
+                            .requestTypeInt(RO_GET_ALL.ordinal())
                             .build()
             );
         }
@@ -975,11 +992,11 @@ public class InternalTableImpl implements InternalTable {
         for (Int2ObjectMap.Entry<RowBatch> partitionRowBatch : rowBatchByPartitionId.int2ObjectEntrySet()) {
             TablePartitionId tablePartitionId = new TablePartitionId(tableId, partitionRowBatch.getIntKey());
 
-            ReadOnlyMultiRowPkReplicaRequest request = tableMessagesFactory.readOnlyMultiRowPkReplicaRequest()
-                    .groupId(tablePartitionId)
+            ReadOnlyMultiRowPkReplicaRequest request = TABLE_MESSAGES_FACTORY.readOnlyMultiRowPkReplicaRequest()
+                    .groupId(serializeTablePartitionId(tablePartitionId))
                     .schemaVersion(partitionRowBatch.getValue().requestedRows.get(0).schemaVersion())
                     .primaryKeys(serializeBinaryTuples(partitionRowBatch.getValue().requestedRows))
-                    .requestType(RequestType.RO_GET_ALL)
+                    .requestTypeInt(RO_GET_ALL.ordinal())
                     .readTimestampLong(readTimestamp.longValue())
                     .build();
 
@@ -993,20 +1010,20 @@ public class InternalTableImpl implements InternalTable {
             RequestType requestType,
             Collection<? extends BinaryRow> rows,
             InternalTransaction tx,
-            ReplicationGroupId groupId,
+            TablePartitionId groupId,
             Long enlistmentConsistencyToken,
             boolean full
     ) {
         assert allSchemaVersionsSame(rows) : "Different schema versions encountered: " + uniqueSchemaVersions(rows);
 
-        return tableMessagesFactory.readWriteMultiRowPkReplicaRequest()
-                .groupId(groupId)
+        return TABLE_MESSAGES_FACTORY.readWriteMultiRowPkReplicaRequest()
+                .groupId(serializeTablePartitionId(groupId))
                 .commitPartitionId(serializeTablePartitionId(tx.commitPartition()))
                 .schemaVersion(rows.iterator().next().schemaVersion())
                 .primaryKeys(serializeBinaryTuples(rows))
                 .transactionId(tx.id())
                 .enlistmentConsistencyToken(enlistmentConsistencyToken)
-                .requestType(requestType)
+                .requestTypeInt(requestType.ordinal())
                 .timestampLong(clock.nowLong())
                 .full(full)
                 .coordinatorId(tx.coordinatorId())
@@ -1058,10 +1075,7 @@ public class InternalTableImpl implements InternalTable {
     }
 
     private TablePartitionIdMessage serializeTablePartitionId(TablePartitionId id) {
-        return tableMessagesFactory.tablePartitionIdMessage()
-                .partitionId(id.partitionId())
-                .tableId(id.tableId())
-                .build();
+        return toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, id);
     }
 
     /** {@inheritDoc} */
@@ -1070,14 +1084,14 @@ public class InternalTableImpl implements InternalTable {
         return enlistInTx(
                 row,
                 tx,
-                (txo, groupId, enlistmentConsistencyToken) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
-                        .groupId(groupId)
+                (txo, groupId, enlistmentConsistencyToken) -> TABLE_MESSAGES_FACTORY.readWriteSingleRowReplicaRequest()
+                        .groupId(serializeTablePartitionId(groupId))
                         .commitPartitionId(serializeTablePartitionId(txo.commitPartition()))
                         .schemaVersion(row.schemaVersion())
                         .binaryTuple(row.tupleSlice())
                         .transactionId(txo.id())
                         .enlistmentConsistencyToken(enlistmentConsistencyToken)
-                        .requestType(RequestType.RW_UPSERT)
+                        .requestTypeInt(RW_UPSERT.ordinal())
                         .timestampLong(clock.nowLong())
                         .full(tx == null)
                         .coordinatorId(txo.coordinatorId())
@@ -1154,14 +1168,14 @@ public class InternalTableImpl implements InternalTable {
         return enlistInTx(
                 row,
                 tx,
-                (txo, groupId, enlistmentConsistencyToken) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
-                        .groupId(groupId)
+                (txo, groupId, enlistmentConsistencyToken) -> TABLE_MESSAGES_FACTORY.readWriteSingleRowReplicaRequest()
+                        .groupId(serializeTablePartitionId(groupId))
                         .commitPartitionId(serializeTablePartitionId(txo.commitPartition()))
                         .schemaVersion(row.schemaVersion())
                         .binaryTuple(row.tupleSlice())
                         .transactionId(txo.id())
                         .enlistmentConsistencyToken(enlistmentConsistencyToken)
-                        .requestType(RequestType.RW_GET_AND_UPSERT)
+                        .requestTypeInt(RW_GET_AND_UPSERT.ordinal())
                         .timestampLong(clock.nowLong())
                         .full(tx == null)
                         .coordinatorId(txo.coordinatorId())
@@ -1176,14 +1190,14 @@ public class InternalTableImpl implements InternalTable {
         return enlistInTx(
                 row,
                 tx,
-                (txo, groupId, enlistmentConsistencyToken) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
-                        .groupId(groupId)
+                (txo, groupId, enlistmentConsistencyToken) -> TABLE_MESSAGES_FACTORY.readWriteSingleRowReplicaRequest()
+                        .groupId(serializeTablePartitionId(groupId))
                         .commitPartitionId(serializeTablePartitionId(txo.commitPartition()))
                         .schemaVersion(row.schemaVersion())
                         .binaryTuple(row.tupleSlice())
                         .transactionId(txo.id())
                         .enlistmentConsistencyToken(enlistmentConsistencyToken)
-                        .requestType(RequestType.RW_INSERT)
+                        .requestTypeInt(RW_INSERT.ordinal())
                         .timestampLong(clock.nowLong())
                         .full(tx == null)
                         .coordinatorId(txo.coordinatorId())
@@ -1200,7 +1214,7 @@ public class InternalTableImpl implements InternalTable {
                 tx,
                 (keyRows, txo, groupId, enlistmentConsistencyToken, full) ->
                         readWriteMultiRowReplicaRequest(
-                                RequestType.RW_INSERT_ALL,
+                                RW_INSERT_ALL,
                                 keyRows,
                                 null,
                                 txo,
@@ -1226,21 +1240,21 @@ public class InternalTableImpl implements InternalTable {
             Collection<? extends BinaryRow> rows,
             @Nullable BitSet deleted,
             InternalTransaction tx,
-            ReplicationGroupId groupId,
+            TablePartitionId groupId,
             Long enlistmentConsistencyToken,
             boolean full
     ) {
         assert allSchemaVersionsSame(rows) : "Different schema versions encountered: " + uniqueSchemaVersions(rows);
 
-        return tableMessagesFactory.readWriteMultiRowReplicaRequest()
-                .groupId(groupId)
+        return TABLE_MESSAGES_FACTORY.readWriteMultiRowReplicaRequest()
+                .groupId(serializeTablePartitionId(groupId))
                 .commitPartitionId(serializeTablePartitionId(tx.commitPartition()))
                 .schemaVersion(rows.iterator().next().schemaVersion())
                 .binaryTuples(serializeBinaryTuples(rows))
                 .deleted(deleted)
                 .transactionId(tx.id())
                 .enlistmentConsistencyToken(enlistmentConsistencyToken)
-                .requestType(requestType)
+                .requestTypeInt(requestType.ordinal())
                 .timestampLong(clock.nowLong())
                 .full(full)
                 .coordinatorId(tx.coordinatorId())
@@ -1253,14 +1267,14 @@ public class InternalTableImpl implements InternalTable {
         return enlistInTx(
                 row,
                 tx,
-                (txo, groupId, enlistmentConsistencyToken) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
-                        .groupId(groupId)
+                (txo, groupId, enlistmentConsistencyToken) -> TABLE_MESSAGES_FACTORY.readWriteSingleRowReplicaRequest()
+                        .groupId(serializeTablePartitionId(groupId))
                         .commitPartitionId(serializeTablePartitionId(txo.commitPartition()))
                         .schemaVersion(row.schemaVersion())
                         .binaryTuple(row.tupleSlice())
                         .transactionId(txo.id())
                         .enlistmentConsistencyToken(enlistmentConsistencyToken)
-                        .requestType(RequestType.RW_REPLACE_IF_EXIST)
+                        .requestTypeInt(RW_REPLACE_IF_EXIST.ordinal())
                         .timestampLong(clock.nowLong())
                         .full(tx == null)
                         .coordinatorId(txo.coordinatorId())
@@ -1278,15 +1292,15 @@ public class InternalTableImpl implements InternalTable {
         return enlistInTx(
                 newRow,
                 tx,
-                (txo, groupId, enlistmentConsistencyToken) -> tableMessagesFactory.readWriteSwapRowReplicaRequest()
-                        .groupId(groupId)
+                (txo, groupId, enlistmentConsistencyToken) -> TABLE_MESSAGES_FACTORY.readWriteSwapRowReplicaRequest()
+                        .groupId(serializeTablePartitionId(groupId))
                         .commitPartitionId(serializeTablePartitionId(txo.commitPartition()))
                         .schemaVersion(oldRow.schemaVersion())
                         .oldBinaryTuple(oldRow.tupleSlice())
                         .newBinaryTuple(newRow.tupleSlice())
                         .transactionId(txo.id())
                         .enlistmentConsistencyToken(enlistmentConsistencyToken)
-                        .requestType(RequestType.RW_REPLACE)
+                        .requestTypeInt(RW_REPLACE.ordinal())
                         .timestampLong(clock.nowLong())
                         .full(tx == null)
                         .coordinatorId(txo.coordinatorId())
@@ -1301,14 +1315,14 @@ public class InternalTableImpl implements InternalTable {
         return enlistInTx(
                 row,
                 tx,
-                (txo, groupId, enlistmentConsistencyToken) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
-                        .groupId(groupId)
+                (txo, groupId, enlistmentConsistencyToken) -> TABLE_MESSAGES_FACTORY.readWriteSingleRowReplicaRequest()
+                        .groupId(serializeTablePartitionId(groupId))
                         .commitPartitionId(serializeTablePartitionId(txo.commitPartition()))
                         .schemaVersion(row.schemaVersion())
                         .binaryTuple(row.tupleSlice())
                         .transactionId(txo.id())
                         .enlistmentConsistencyToken(enlistmentConsistencyToken)
-                        .requestType(RequestType.RW_GET_AND_REPLACE)
+                        .requestTypeInt(RW_GET_AND_REPLACE.ordinal())
                         .timestampLong(clock.nowLong())
                         .full(tx == null)
                         .coordinatorId(txo.coordinatorId())
@@ -1323,14 +1337,14 @@ public class InternalTableImpl implements InternalTable {
         return enlistInTx(
                 keyRow,
                 tx,
-                (txo, groupId, enlistmentConsistencyToken) -> tableMessagesFactory.readWriteSingleRowPkReplicaRequest()
-                        .groupId(groupId)
+                (txo, groupId, enlistmentConsistencyToken) -> TABLE_MESSAGES_FACTORY.readWriteSingleRowPkReplicaRequest()
+                        .groupId(serializeTablePartitionId(groupId))
                         .commitPartitionId(serializeTablePartitionId(txo.commitPartition()))
                         .schemaVersion(keyRow.schemaVersion())
                         .primaryKey(keyRow.tupleSlice())
                         .transactionId(txo.id())
                         .enlistmentConsistencyToken(enlistmentConsistencyToken)
-                        .requestType(RequestType.RW_DELETE)
+                        .requestTypeInt(RW_DELETE.ordinal())
                         .timestampLong(clock.nowLong())
                         .full(tx == null)
                         .coordinatorId(txo.coordinatorId())
@@ -1345,14 +1359,14 @@ public class InternalTableImpl implements InternalTable {
         return enlistInTx(
                 oldRow,
                 tx,
-                (txo, groupId, enlistmentConsistencyToken) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
-                        .groupId(groupId)
+                (txo, groupId, enlistmentConsistencyToken) -> TABLE_MESSAGES_FACTORY.readWriteSingleRowReplicaRequest()
+                        .groupId(serializeTablePartitionId(groupId))
                         .commitPartitionId(serializeTablePartitionId(txo.commitPartition()))
                         .schemaVersion(oldRow.schemaVersion())
                         .binaryTuple(oldRow.tupleSlice())
                         .transactionId(txo.id())
                         .enlistmentConsistencyToken(enlistmentConsistencyToken)
-                        .requestType(RequestType.RW_DELETE_EXACT)
+                        .requestTypeInt(RW_DELETE_EXACT.ordinal())
                         .timestampLong(clock.nowLong())
                         .full(tx == null)
                         .coordinatorId(txo.coordinatorId())
@@ -1367,14 +1381,14 @@ public class InternalTableImpl implements InternalTable {
         return enlistInTx(
                 row,
                 tx,
-                (txo, groupId, enlistmentConsistencyToken) -> tableMessagesFactory.readWriteSingleRowPkReplicaRequest()
-                        .groupId(groupId)
+                (txo, groupId, enlistmentConsistencyToken) -> TABLE_MESSAGES_FACTORY.readWriteSingleRowPkReplicaRequest()
+                        .groupId(serializeTablePartitionId(groupId))
                         .commitPartitionId(serializeTablePartitionId(txo.commitPartition()))
                         .schemaVersion(row.schemaVersion())
                         .primaryKey(row.tupleSlice())
                         .transactionId(txo.id())
                         .enlistmentConsistencyToken(enlistmentConsistencyToken)
-                        .requestType(RequestType.RW_GET_AND_DELETE)
+                        .requestTypeInt(RW_GET_AND_DELETE.ordinal())
                         .timestampLong(clock.nowLong())
                         .full(tx == null)
                         .coordinatorId(txo.coordinatorId())
@@ -1416,7 +1430,7 @@ public class InternalTableImpl implements InternalTable {
                 tx,
                 (keyRows0, txo, groupId, enlistmentConsistencyToken, full) ->
                         readWriteMultiRowReplicaRequest(
-                                RequestType.RW_DELETE_EXACT_ALL,
+                                RW_DELETE_EXACT_ALL,
                                 keyRows0,
                                 null,
                                 txo,
@@ -1566,8 +1580,8 @@ public class InternalTableImpl implements InternalTable {
 
         return new PartitionScanPublisher(
                 (scanId, batchSize) -> {
-                    ReadOnlyScanRetrieveBatchReplicaRequest request = tableMessagesFactory.readOnlyScanRetrieveBatchReplicaRequest()
-                            .groupId(tablePartitionId)
+                    ReadOnlyScanRetrieveBatchReplicaRequest request = TABLE_MESSAGES_FACTORY.readOnlyScanRetrieveBatchReplicaRequest()
+                            .groupId(serializeTablePartitionId(tablePartitionId))
                             .readTimestampLong(readTimestamp.longValue())
                             .transactionId(txId)
                             .scanId(scanId)
@@ -1675,8 +1689,8 @@ public class InternalTableImpl implements InternalTable {
 
         return new PartitionScanPublisher(
                 (scanId, batchSize) -> {
-                    ReadWriteScanRetrieveBatchReplicaRequest request = tableMessagesFactory.readWriteScanRetrieveBatchReplicaRequest()
-                            .groupId(tablePartitionId)
+                    ReadWriteScanRetrieveBatchReplicaRequest request = TABLE_MESSAGES_FACTORY.readWriteScanRetrieveBatchReplicaRequest()
+                            .groupId(serializeTablePartitionId(tablePartitionId))
                             .timestampLong(clock.nowLong())
                             .transactionId(txId)
                             .scanId(scanId)
@@ -1713,7 +1727,7 @@ public class InternalTableImpl implements InternalTable {
      */
     private CompletableFuture<Void> completeScan(
             UUID txId,
-            ReplicationGroupId replicaGrpId,
+            TablePartitionId replicaGrpId,
             Long scanId,
             Throwable th,
             ClusterNode recipientNode,
@@ -1722,8 +1736,8 @@ public class InternalTableImpl implements InternalTable {
         CompletableFuture<Void> closeFut = nullCompletedFuture();
 
         if (explicitCloseCursor) {
-            ScanCloseReplicaRequest scanCloseReplicaRequest = tableMessagesFactory.scanCloseReplicaRequest()
-                    .groupId(replicaGrpId)
+            ScanCloseReplicaRequest scanCloseReplicaRequest = TABLE_MESSAGES_FACTORY.scanCloseReplicaRequest()
+                    .groupId(serializeTablePartitionId(replicaGrpId))
                     .transactionId(txId)
                     .scanId(scanId)
                     .build();
@@ -1911,11 +1925,11 @@ public class InternalTableImpl implements InternalTable {
     }
 
     @Override
-    public CompletableFuture<ClusterNode> partitionLocation(ReplicationGroupId tablePartitionId) {
+    public CompletableFuture<ClusterNode> partitionLocation(TablePartitionId tablePartitionId) {
         return partitionMeta(tablePartitionId).thenApply(meta -> getClusterNode(meta.getLeaseholder()));
     }
 
-    private CompletableFuture<ReplicaMeta> partitionMeta(ReplicationGroupId tablePartitionId) {
+    private CompletableFuture<ReplicaMeta> partitionMeta(TablePartitionId tablePartitionId) {
         HybridTimestamp now = clock.now();
 
         CompletableFuture<ReplicaMeta> primaryReplicaFuture = placementDriver.awaitPrimaryReplica(
@@ -2259,27 +2273,27 @@ public class InternalTableImpl implements InternalTable {
     private ReplicaRequest upsertAllInternal(
             Collection<? extends BinaryRow> keyRows0,
             InternalTransaction txo,
-            ReplicationGroupId groupId,
+            TablePartitionId groupId,
             Long enlistmentConsistencyToken,
             boolean full
     ) {
         assert serializeTablePartitionId(txo.commitPartition()) != null;
 
-        return readWriteMultiRowReplicaRequest(RequestType.RW_UPSERT_ALL, keyRows0, null, txo, groupId, enlistmentConsistencyToken, full);
+        return readWriteMultiRowReplicaRequest(RW_UPSERT_ALL, keyRows0, null, txo, groupId, enlistmentConsistencyToken, full);
     }
 
     private ReplicaRequest upsertAllInternal(
             Collection<? extends BinaryRow> keyRows0,
             @Nullable BitSet deleted,
             InternalTransaction txo,
-            ReplicationGroupId groupId,
+            TablePartitionId groupId,
             Long enlistmentConsistencyToken,
             boolean full
     ) {
         assert serializeTablePartitionId(txo.commitPartition()) != null;
 
         return readWriteMultiRowReplicaRequest(
-                RequestType.RW_UPSERT_ALL, keyRows0, deleted, txo, groupId, enlistmentConsistencyToken, full);
+                RW_UPSERT_ALL, keyRows0, deleted, txo, groupId, enlistmentConsistencyToken, full);
     }
 
     /**

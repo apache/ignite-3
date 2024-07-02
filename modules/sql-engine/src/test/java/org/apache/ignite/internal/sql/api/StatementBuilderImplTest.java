@@ -86,14 +86,14 @@ public class StatementBuilderImplTest {
     }
 
     @Test
-    public void checkDefaultParameters() throws Exception {
-        try (Statement statement = builder.query(QUERY).build()) {
-            assertThat(statement.defaultSchema(), is(SqlCommon.DEFAULT_SCHEMA_NAME));
-            assertThat(statement.query(), is(QUERY));
-            assertThat(statement.timeZoneId(), is(ZoneId.systemDefault()));
-            assertThat(statement.pageSize(), is(SqlCommon.DEFAULT_PAGE_SIZE));
-            assertThat(statement.queryTimeout(TimeUnit.NANOSECONDS), is(0L));
-        }
+    public void checkDefaultParameters() {
+        Statement statement = builder.query(QUERY).build();
+
+        assertThat(statement.defaultSchema(), is(SqlCommon.DEFAULT_SCHEMA_NAME));
+        assertThat(statement.query(), is(QUERY));
+        assertThat(statement.timeZoneId(), is(ZoneId.systemDefault()));
+        assertThat(statement.pageSize(), is(SqlCommon.DEFAULT_PAGE_SIZE));
+        assertThat(statement.queryTimeout(TimeUnit.NANOSECONDS), is(0L));
     }
 
     @Test

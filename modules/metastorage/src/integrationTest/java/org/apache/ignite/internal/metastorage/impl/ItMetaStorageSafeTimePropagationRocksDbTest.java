@@ -33,6 +33,6 @@ public class ItMetaStorageSafeTimePropagationRocksDbTest extends ItMetaStorageSa
 
     @Override
     public KeyValueStorage createStorage() {
-        return new RocksDbKeyValueStorage("test", workDir, new NoOpFailureProcessor("test"));
+        return new RocksDbKeyValueStorage("test", workDir, new NoOpFailureProcessor());
     }
 }

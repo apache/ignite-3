@@ -20,10 +20,10 @@ package org.apache.ignite.client.handler;
 import static org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode.UNSUPPORTED_OPERATION;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletionStage;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcColumnMeta;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQuerySingleResult;
 import org.apache.ignite.internal.jdbc.proto.event.Response;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
@@ -80,9 +80,8 @@ abstract class JdbcHandlerBase {
             switch (cur.queryType()) {
                 case EXPLAIN:
                 case QUERY: {
-                    if (cursorId == null) {
-                        // for queries with result set we still need to save cursor to resources, so later we can
-                        // derive result's metadata which is loaded on demand by driver
+                    if (cursorId == null && batch.hasMore()) {
+                        // more fetches are expected, so let's keep the cursor in resources
                         try {
                             cursorId = resources.put(new ClientResource(cur, cur::closeAsync));
                         } catch (IgniteInternalCheckedException e) {
@@ -129,19 +128,13 @@ abstract class JdbcHandlerBase {
             rows.add(item.asBinaryTuple());
         }
 
-        int[] decimalScales = new int[columns.size()];
-        List<ColumnType> schema = new ArrayList<>(columns.size());
+        List<JdbcColumnMeta> meta = new ArrayList<>(columns.size());
 
-        int countOfDecimal = 0;
         for (ColumnMetadata column : columns) {
-            schema.add(column.type());
-            if (column.type() == ColumnType.DECIMAL) {
-                decimalScales[countOfDecimal++] = column.scale();
-            }
+            meta.add(createColumnMetadata(column));
         }
-        decimalScales = Arrays.copyOf(decimalScales, countOfDecimal);
 
-        return new JdbcQuerySingleResult(cursorId, rows, schema, decimalScales, batch.hasMore(), hasNextResult);
+        return new JdbcQuerySingleResult(cursorId, rows, meta, batch.hasMore(), hasNextResult);
     }
 
     JdbcQuerySingleResult createErrorResult(String logMessage, Throwable origin, @Nullable String errMessagePrefix) {
@@ -188,5 +181,36 @@ abstract class JdbcHandlerBase {
     @Nullable static String getErrorMessage(Throwable t) {
         Throwable cause = ExceptionUtils.unwrapCause(t);
         return cause.getMessage();
+    }
+
+    /**
+     * Create Jdbc representation of column metadata from given origin and RelDataTypeField field.
+     *
+     * @param fldMeta field metadata contains info about column.
+     * @return JdbcColumnMeta object.
+     */
+    private static JdbcColumnMeta createColumnMetadata(ColumnMetadata fldMeta) {
+        ColumnMetadata.ColumnOrigin origin = fldMeta.origin();
+
+        String schemaName = null;
+        String tblName = null;
+        String colName = null;
+
+        if (origin != null) {
+            schemaName = origin.schemaName();
+            tblName = origin.tableName();
+            colName = origin.columnName();
+        }
+
+        return new JdbcColumnMeta(
+                fldMeta.name(),
+                schemaName,
+                tblName,
+                colName,
+                fldMeta.type(),
+                fldMeta.precision(),
+                fldMeta.scale(),
+                fldMeta.nullable()
+        );
     }
 }

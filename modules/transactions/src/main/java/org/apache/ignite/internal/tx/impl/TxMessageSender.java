@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.tx.impl;
 
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
+import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
 
 import java.util.Collection;
 import java.util.Map;
@@ -30,6 +31,7 @@ import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaResponse;
 import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TransactionResult;
@@ -43,7 +45,10 @@ import org.jetbrains.annotations.Nullable;
  */
 public class TxMessageSender {
     /** Tx messages factory. */
-    private static final TxMessagesFactory FACTORY = new TxMessagesFactory();
+    private static final TxMessagesFactory TX_MESSAGE_FACTORY = new TxMessagesFactory();
+
+    /** Replica messages factory. */
+    private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
 
     /** Messaging service. */
     private final MessagingService messagingService;
@@ -94,8 +99,8 @@ public class TxMessageSender {
     ) {
         return replicaService.invoke(
                 primaryConsistentId,
-                FACTORY.writeIntentSwitchReplicaRequest()
-                        .groupId(tablePartitionId)
+                TX_MESSAGE_FACTORY.writeIntentSwitchReplicaRequest()
+                        .groupId(toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, tablePartitionId))
                         .timestampLong(clockService.nowLong())
                         .txId(txId)
                         .commit(commit)
@@ -123,7 +128,7 @@ public class TxMessageSender {
     ) {
         return messagingService.invoke(
                 primaryConsistentId,
-                FACTORY.txCleanupMessage()
+                TX_MESSAGE_FACTORY.txCleanupMessage()
                         .txId(txId)
                         .commit(commit)
                         .commitTimestampLong(hybridTimestampToLong(commitTimestamp))
@@ -156,10 +161,10 @@ public class TxMessageSender {
     ) {
         return replicaService.invoke(
                 primaryConsistentId,
-                FACTORY.txFinishReplicaRequest()
+                TX_MESSAGE_FACTORY.txFinishReplicaRequest()
                         .txId(txId)
                         .timestampLong(clockService.nowLong())
-                        .groupId(commitPartition)
+                        .groupId(toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, commitPartition))
                         .groups(replicationGroupIds)
                         .commit(commit)
                         .commitTimestampLong(hybridTimestampToLong(commitTimestamp))
@@ -184,8 +189,8 @@ public class TxMessageSender {
     ) {
         return replicaService.invoke(
                 primaryConsistentId,
-                FACTORY.txStateCommitPartitionRequest()
-                        .groupId(commitGrpId)
+                TX_MESSAGE_FACTORY.txStateCommitPartitionRequest()
+                        .groupId(toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, commitGrpId))
                         .txId(txId)
                         .enlistmentConsistencyToken(consistencyToken)
                         .build());
@@ -206,7 +211,7 @@ public class TxMessageSender {
     ) {
         return messagingService.invoke(
                         primaryConsistentId,
-                        FACTORY.txStateCoordinatorRequest()
+                        TX_MESSAGE_FACTORY.txStateCoordinatorRequest()
                                 .readTimestampLong(timestamp.longValue())
                                 .txId(txId)
                                 .build(),
@@ -228,8 +233,8 @@ public class TxMessageSender {
     public CompletableFuture<ReplicaResponse> sendRecoveryCleanup(String primaryConsistentId, TablePartitionId tablePartitionId) {
         return replicaService.invoke(
                 primaryConsistentId,
-                FACTORY.txCleanupRecoveryRequest()
-                        .groupId(tablePartitionId)
+                TX_MESSAGE_FACTORY.txCleanupRecoveryRequest()
+                        .groupId(toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, tablePartitionId))
                         .build()
         );
     }

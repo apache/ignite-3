@@ -74,7 +74,7 @@ SELECT CAST(100.1::DOUBLE AS BIGINT);
 ----
 100
 
-statement error: Character x is neither a decimal digit number, decimal point, nor "e" notation exponential mark.
+statement error: Invalid input syntax for type BIGINT: "100x"
 SELECT CAST('100x' AS BIGINT);
 
 statement error: Cast function cannot convert value of type BINARY(1) to type BIGINT

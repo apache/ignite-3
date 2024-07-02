@@ -30,6 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.Serializable;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Iterator;
 import java.util.List;
@@ -163,8 +164,8 @@ public class IdempotentCommandCacheTest extends BaseIgniteAbstractTest {
         ByteArray testValue1 = new ByteArray("value".getBytes(StandardCharsets.UTF_8));
 
         PutCommand command0 = CMD_FACTORY.putCommand()
-                .key(testKey.bytes())
-                .value(testValue0.bytes())
+                .key(ByteBuffer.wrap(testKey.bytes()))
+                .value(ByteBuffer.wrap(testValue0.bytes()))
                 .safeTimeLong(clock.now().longValue())
                 .initiatorTimeLong(clock.now().longValue())
                 .build();
@@ -180,8 +181,8 @@ public class IdempotentCommandCacheTest extends BaseIgniteAbstractTest {
         checkValueInStorage(testKey.bytes(), testValue0.bytes());
 
         PutCommand command1 = CMD_FACTORY.putCommand()
-                .key(testKey.bytes())
-                .value(testValue1.bytes())
+                .key(ByteBuffer.wrap(testKey.bytes()))
+                .value(ByteBuffer.wrap(testValue1.bytes()))
                 .safeTimeLong(clock.now().longValue())
                 .initiatorTimeLong(clock.now().longValue())
                 .build();

@@ -47,7 +47,7 @@ import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
@@ -109,7 +109,7 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
             + "  }\n"
             + "}";
 
-    private static Ignite NODE;
+    private static IgniteServer NODE;
 
     @WorkDirectory
     private static Path WORK_DIR;
@@ -124,28 +124,22 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
 
         String config = IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG, BASE_PORT, connectNodeAddr);
 
-        CompletableFuture<Ignite> future = TestIgnitionManager.start(nodeName, config, WORK_DIR.resolve(nodeName));
-
-        String metaStorageNodeName = testNodeName(testInfo, nodes() - 1);
+        NODE = TestIgnitionManager.start(nodeName, config, WORK_DIR.resolve(nodeName));
 
         InitParameters initParameters = InitParameters.builder()
-                .destinationNodeName(metaStorageNodeName)
-                .metaStorageNodeNames(List.of(metaStorageNodeName))
+                .metaStorageNodes(NODE)
                 .clusterName("cluster")
                 .build();
 
-        TestIgnitionManager.init(initParameters);
+        TestIgnitionManager.init(NODE, initParameters);
 
-        assertThat(future, willCompleteSuccessfully());
-
-        NODE = future.join();
+        assertThat(NODE.waitForInitAsync(), willCompleteSuccessfully());
     }
 
     @AfterAll
     static void stopNode(TestInfo testInfo) throws Exception {
+        closeAll(() -> NODE.shutdown());
         NODE = null;
-
-        closeAll(() -> IgnitionManager.stop(testNodeName(testInfo, 0)));
     }
 
     @BeforeEach
@@ -733,6 +727,6 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
     }
 
     protected static IgniteImpl node() {
-        return (IgniteImpl) NODE;
+        return (IgniteImpl) NODE.api();
     }
 }

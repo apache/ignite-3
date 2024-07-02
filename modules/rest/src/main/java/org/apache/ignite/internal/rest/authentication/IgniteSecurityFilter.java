@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.rest.authentication;
 
 import io.micronaut.context.annotation.Replaces;
+import io.micronaut.context.annotation.Requires;
 import io.micronaut.http.HttpRequest;
 import io.micronaut.http.MutableHttpResponse;
 import io.micronaut.http.annotation.Filter;
@@ -36,6 +37,7 @@ import org.reactivestreams.Publisher;
  */
 @Replaces(SecurityFilter.class)
 @Filter(Filter.MATCH_ALL_PATTERN)
+@Requires(property = "micronaut.security.enabled", value = "true", defaultValue = "true")
 public class IgniteSecurityFilter implements HttpServerFilter, ResourceHolder {
     private final SecurityFilter securityFilter;
 

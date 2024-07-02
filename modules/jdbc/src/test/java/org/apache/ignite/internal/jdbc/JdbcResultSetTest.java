@@ -141,6 +141,6 @@ public class JdbcResultSetTest extends BaseIgniteAbstractTest {
             JdbcStatement statement,
             boolean hasNextResult
     ) {
-        return new JdbcResultSet(handler, statement, 1L, 1, true, List.of(), true, hasNextResult, 0, false, 1, r -> List.of());
+        return new JdbcResultSet(handler, statement, 1L, 1, true, List.of(), List.of(), true, hasNextResult, 0, false, 1, r -> List.of());
     }
 }

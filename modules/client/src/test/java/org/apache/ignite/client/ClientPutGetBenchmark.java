@@ -102,7 +102,6 @@ public class ClientPutGetBenchmark {
     public void tearDown() throws Exception {
         client.close();
         testServer.close();
-        ignite.close();
     }
 
     /**

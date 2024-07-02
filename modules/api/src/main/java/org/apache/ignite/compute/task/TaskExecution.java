@@ -23,6 +23,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobState;
+import org.apache.ignite.compute.TaskState;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -30,7 +31,7 @@ import org.jetbrains.annotations.Nullable;
  *
  * @param <R> Task result type.
  */
-public interface TaskExecution<R> extends JobExecution<R> {
+public interface TaskExecution<R> {
     /**
      * Returns a collection of states of the jobs which are executing under this task. The resulting future is completed only after the
      * jobs are submitted for execution. The list could contain {@code null} values if the time for retaining job state has been exceeded.
@@ -50,4 +51,48 @@ public interface TaskExecution<R> extends JobExecution<R> {
                 .map(state -> state != null ? state.id() : null)
                 .collect(Collectors.toList()));
     }
+
+    /**
+     * Returns task's execution result.
+     *
+     * @return Task's execution result future.
+     */
+    CompletableFuture<R> resultAsync();
+
+    /**
+     * Returns the current state of the task. The task state may be deleted and thus return {@code null} if the time for retaining task
+     * state has been exceeded.
+     *
+     * @return The current state of the task, or {@code null} if the task state no longer exists due to exceeding the retention time limit.
+     */
+    CompletableFuture<@Nullable TaskState> stateAsync();
+
+    /**
+     * Returns the id of the task. The task state may be deleted and thus return {@code null} if the time for retaining task state has been
+     * exceeded.
+     *
+     * @return The id of the task, or {@code null} if the task state no longer exists due to exceeding the retention time limit.
+     */
+    default CompletableFuture<@Nullable UUID> idAsync() {
+        return stateAsync().thenApply(state -> state != null ? state.id() : null);
+    }
+
+    /**
+     * Cancels the task.
+     *
+     * @return The future which will be completed with {@code true} when the task is cancelled, {@code false} when the task couldn't be
+     *         cancelled (if it's already completed or in the process of cancelling), or {@code null} if the task no longer exists due to
+     *         exceeding the retention time limit.
+     */
+    CompletableFuture<@Nullable Boolean> cancelAsync();
+
+    /**
+     * Changes task priority. After priority change task will be the last in the queue of tasks with the same priority.
+     *
+     * @param newPriority new priority.
+     * @return The future which will be completed with {@code true} when the priority is changed, {@code false} when the priority couldn't
+     *         be changed (if the task is already executing or completed), or {@code null} if the task no longer exists due to exceeding the
+     *         retention time limit.
+     */
+    CompletableFuture<@Nullable Boolean> changePriorityAsync(int newPriority);
 }

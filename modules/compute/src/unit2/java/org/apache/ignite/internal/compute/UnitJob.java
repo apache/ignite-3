@@ -24,9 +24,9 @@ import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
 
 /** Compute job. */
-public class UnitJob implements ComputeJob<String> {
+public class UnitJob implements ComputeJob<Void, String> {
     @Override
-    public CompletableFuture<String> executeAsync(JobExecutionContext context, Object... args) {
+    public CompletableFuture<String> executeAsync(JobExecutionContext context, Void input) {
         return completedFuture("Hello World!");
     }
 }
