@@ -44,6 +44,7 @@ import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.deployment.DeploymentUnit;
+import org.apache.ignite.internal.client.ClientUtils;
 import org.apache.ignite.internal.client.PayloadInputChannel;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
 import org.apache.ignite.internal.client.ReliableChannel;
@@ -58,7 +59,6 @@ import org.apache.ignite.internal.client.table.ClientTupleSerializer;
 import org.apache.ignite.internal.client.table.PartitionAwarenessProvider;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.util.ExceptionUtils;
-import org.apache.ignite.internal.util.ViewUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.marshaling.Marshaler;
@@ -471,7 +471,7 @@ public class ClientCompute implements IgniteCompute {
         try {
             return future.join();
         } catch (CompletionException e) {
-            throw ExceptionUtils.sneakyThrow(ViewUtils.ensurePublicException(e));
+            throw ExceptionUtils.sneakyThrow(ClientUtils.ensurePublicException(e));
         }
     }
 }

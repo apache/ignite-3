@@ -20,15 +20,17 @@ package org.apache.ignite.internal.table;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.function.Function.identity;
 import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.convertToPublicFuture;
-import static org.apache.ignite.internal.util.ViewUtils.sync;
 import static org.apache.ignite.internal.table.criteria.CriteriaExceptionMapperUtil.mapToPublicCriteriaException;
 import static org.apache.ignite.internal.util.ExceptionUtils.isOrCausedBy;
+import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.lang.IgniteExceptionMapperUtil;
@@ -96,6 +98,26 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
         this.marshallers = marshallers;
 
         this.rowConverter = new TableViewRowConverter(schemaReg);
+    }
+
+    /**
+     * Waits for operation completion.
+     *
+     * @param future Future to wait to.
+     * @param <T> Future result type.
+     * @return Future result.
+     */
+    protected static <T> T sync(CompletableFuture<T> future) {
+        try {
+            return future.get();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt(); // Restore interrupt flag.
+
+            throw sneakyThrow(IgniteExceptionMapperUtil.mapToPublicException(e));
+        } catch (ExecutionException e) {
+            Throwable cause = unwrapCause(e);
+            throw sneakyThrow(cause);
+        }
     }
 
     /**
@@ -271,5 +293,21 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
          * @return Action result.
          */
         CompletableFuture<R> act(int schemaVersion);
+    }
+
+
+    /**
+     * Checks that given keys collection isn't null and there is no a null-value key.
+     *
+     * @param keys Given keys collection.
+     * @param <K> Keys type.
+     * @throws NullPointerException In case if the collection null either any key is null.
+     */
+    protected static <K> void checkKeysForNulls(Collection<K> keys) {
+        Objects.requireNonNull(keys, "keys");
+
+        for (K key : keys) {
+            Objects.requireNonNull(key, "key");
+        }
     }
 }

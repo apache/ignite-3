@@ -18,9 +18,9 @@
 package org.apache.ignite.internal.client.table;
 
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.client.ClientUtils.sync;
 import static org.apache.ignite.internal.table.criteria.CriteriaExceptionMapperUtil.mapToPublicCriteriaException;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
-import static org.apache.ignite.internal.util.ViewUtils.sync;
 import static org.apache.ignite.lang.util.IgniteNameUtils.parseSimpleName;
 
 import java.util.Arrays;

@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.client.table;
 
-import static org.apache.ignite.internal.util.ViewUtils.sync;
+import static org.apache.ignite.internal.client.ClientUtils.sync;
 
 import java.util.ArrayList;
 import java.util.List;
