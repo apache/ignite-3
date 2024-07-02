@@ -246,6 +246,12 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         });
     }
 
+    // TODO: Implement, see https://issues.apache.org/jira/browse/IGNITE-22616
+    @Override
+    public long estimatedSize() {
+        throw new UnsupportedOperationException();
+    }
+
     private static boolean lookingForLatestVersion(HybridTimestamp timestamp) {
         return timestamp == HybridTimestamp.MAX_VALUE;
     }
@@ -386,7 +392,11 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         return ReadResult.empty(chain.rowId());
     }
 
-    private ReadResult writeIntentToResult(VersionChain chain, RowVersion rowVersion, @Nullable HybridTimestamp lastCommittedTimestamp) {
+    private static ReadResult writeIntentToResult(
+            VersionChain chain,
+            RowVersion rowVersion,
+            @Nullable HybridTimestamp lastCommittedTimestamp
+    ) {
         assert rowVersion.isUncommitted();
 
         UUID transactionId = chain.transactionId();

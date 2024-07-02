@@ -1044,6 +1044,12 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         }
     }
 
+    // TODO: Implement, see https://issues.apache.org/jira/browse/IGNITE-22617
+    @Override
+    public long estimatedSize() {
+        throw new UnsupportedOperationException();
+    }
+
     @Override
     public void close() {
         transitionToDestroyedOrClosedState(StorageState.CLOSED);

@@ -268,11 +268,27 @@ public interface MvPartitionStorage extends ManuallyCloseable {
     void updateLease(long leaseStartTime);
 
     /**
-     * Return the start time of the known lease for this replication group.
+     * Returns the start time of the known lease for this replication group.
      *
      * @return Lease start time.
      */
     long leaseStartTime();
+
+    /**
+     * Returns the <em>estimated size</em> of this partition.
+     *
+     * <p>It corresponds to the number of rows in this partition that satisfies the following restrictions:
+     *
+     * <ol>
+     *     <li>It is <b>eventually consistent</b> in relation to concurrent transactions, that is, it only shows the amount of committed
+     *     rows, regardless of the transaction context;</li>
+     *     <li>It only reflects the number of rows at the <b>most recent</b> point in time, that is, it does not reflect any historical
+     *     changes to the same rows.</li>
+     * </ol>
+     *
+     * @return Estimated size of this partition.
+     */
+    long estimatedSize();
 
     /**
      * Closes the storage.
