@@ -176,4 +176,7 @@ public class ClientOp {
 
     /** Send streamer batch with receiver. */
     public static final int STREAMER_WITH_RECEIVER_BATCH_SEND = 66;
+
+    /** Check if all tuples with the given keys collection exist. */
+    public static final int TUPLE_CONTAINS_ALL_KEYS = 67;
 }

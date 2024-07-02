@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table;
 
 import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.convertToPublicFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 
 import java.util.ArrayList;
 import java.util.BitSet;
@@ -162,14 +163,6 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
         });
     }
 
-    private static void checkKeysForNulls(Collection<Tuple> keys) {
-        Objects.requireNonNull(keys, "keys");
-
-        for (Tuple key : keys) {
-            Objects.requireNonNull(key, "key");
-        }
-    }
-
     /** {@inheritDoc} */
     @Override
     public boolean contains(@Nullable Transaction tx, Tuple key) {
@@ -180,6 +173,26 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
     @Override
     public CompletableFuture<Boolean> containsAsync(@Nullable Transaction tx, Tuple key) {
         return getAsync(tx, key).thenApply(Objects::nonNull);
+    }
+
+    @Override
+    public boolean containsAll(@Nullable Transaction tx, Collection<Tuple> keys) {
+        return sync(containsAllAsync(tx, keys));
+    }
+
+    @Override
+    public CompletableFuture<Boolean> containsAllAsync(@Nullable Transaction tx, Collection<Tuple> keys) {
+        checkKeysForNulls(keys);
+
+        if (keys.isEmpty()) {
+            return trueCompletedFuture();
+        }
+
+        return doOperation(tx, (schemaVersion) -> {
+            List<BinaryRowEx> keyRows = marshalKeys(keys, schemaVersion);
+
+            return tbl.getAll(keyRows, (InternalTransaction) tx).thenApply(rows -> rows.stream().noneMatch(Objects::isNull));
+        });
     }
 
     /** {@inheritDoc} */

@@ -74,6 +74,7 @@ import org.apache.ignite.client.handler.requests.table.ClientStreamerWithReceive
 import org.apache.ignite.client.handler.requests.table.ClientTableGetRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTablePartitionPrimaryReplicasGetRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTablesGetRequest;
+import org.apache.ignite.client.handler.requests.table.ClientTupleContainsAllKeysRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTupleContainsKeyRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTupleDeleteAllExactRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTupleDeleteAllRequest;
@@ -691,6 +692,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
             case ClientOp.TUPLE_CONTAINS_KEY:
                 return ClientTupleContainsKeyRequest.process(in, out, igniteTables, resources);
+
+            case ClientOp.TUPLE_CONTAINS_ALL_KEYS:
+                return ClientTupleContainsAllKeysRequest.process(in, out, igniteTables, resources);
 
             case ClientOp.JDBC_CONNECT:
                 return ClientJdbcConnectRequest.execute(in, out, jdbcQueryEventHandler);

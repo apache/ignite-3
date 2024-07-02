@@ -29,6 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
@@ -487,6 +488,34 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
 
         assertTrue(pojoView.contains(null, DEFAULT_ID));
         assertFalse(pojoView.contains(null, -1L));
+    }
+
+    @Test
+    public void testContainsAll() {
+        KeyValueView<Long, String> pojoView = defaultTable().keyValueView(Mapper.of(Long.class), Mapper.of(String.class));
+
+        long firstKey = 101L;
+        long secondKey = 102L;
+        long thirdKey = 103L;
+
+        Map<Long, String> pojos = Map.of(
+                firstKey, "201",
+                secondKey, "202",
+                thirdKey, "203"
+        );
+
+        pojoView.putAll(null, pojos);
+
+        assertThrows(NullPointerException.class, () -> pojoView.containsAll(null, null));
+        assertThrows(NullPointerException.class, () -> pojoView.containsAll(null, List.of(firstKey, null, thirdKey)));
+
+        assertTrue(pojoView.containsAll(null, List.of()));
+        assertTrue(pojoView.containsAll(null, List.of(firstKey)));
+        assertTrue(pojoView.containsAll(null, List.of(firstKey, secondKey, thirdKey)));
+
+        long zeroKey = 0L;
+        assertFalse(pojoView.containsAll(null, List.of(zeroKey)));
+        assertFalse(pojoView.containsAll(null, List.of(firstKey, secondKey, zeroKey)));
     }
 
     @Test

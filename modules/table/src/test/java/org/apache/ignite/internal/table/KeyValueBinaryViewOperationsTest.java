@@ -234,6 +234,46 @@ public class KeyValueBinaryViewOperationsTest extends TableKvOperationsTestBase 
         assertFalse(tbl.contains(null, Tuple.create().set("id", 2L)));
     }
 
+
+    @Test
+    public void testContainsAll() {
+        SchemaDescriptor schema = schemaDescriptor();
+
+        KeyValueView<Tuple, Tuple> kvView = createTable(schema).keyValueView();
+
+        long firstKey = 101L;
+        Tuple firstKeyTuple = Tuple.create().set("id", firstKey);
+        Tuple firstValTuple = Tuple.create().set("val", 201L);
+
+        long secondKey = 102L;
+        Tuple secondKeyTuple = Tuple.create().set("id", secondKey);
+        Tuple secondValTuple = Tuple.create().set("val", 202L);
+
+        long thirdKey = 103L;
+        Tuple thirdKeyTuple = Tuple.create().set("id", thirdKey);
+        Tuple thirdValTuple = Tuple.create().set("val", 203L);
+
+        Map<Tuple, Tuple> kvs = Map.of(
+                firstKeyTuple, firstValTuple,
+                secondKeyTuple, secondValTuple,
+                thirdKeyTuple, thirdValTuple
+        );
+
+        kvView.putAll(null, kvs);
+
+        assertThrows(NullPointerException.class, () -> kvView.containsAll(null, null));
+        assertThrows(NullPointerException.class, () -> kvView.containsAll(null, List.of(firstKeyTuple, null, thirdKeyTuple)));
+
+        assertTrue(kvView.containsAll(null, List.of()));
+        assertTrue(kvView.containsAll(null, List.of(firstKeyTuple)));
+        assertTrue(kvView.containsAll(null, List.of(firstKeyTuple, secondKeyTuple, thirdKeyTuple)));
+
+        Tuple missedKeyTuple = Tuple.create().set("id", 0L);
+
+        assertFalse(kvView.containsAll(null, List.of(missedKeyTuple)));
+        assertFalse(kvView.containsAll(null, List.of(firstKeyTuple, secondKeyTuple, missedKeyTuple)));
+    }
+
     @Test
     public void remove() {
         SchemaDescriptor schema = schemaDescriptor();

@@ -291,6 +291,47 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
     }
 
     @Test
+    public void testContainsAll() {
+        RecordView<PersonPojo> recordView = defaultTable().recordView(PersonPojo.class);
+
+        long firstKey = 101L;
+        PersonPojo firstPerson = new PersonPojo(firstKey, "201");
+
+        long secondKey = 102L;
+        PersonPojo secondPerson = new PersonPojo(secondKey, "202");
+
+        long thirdKey = 103L;
+        PersonPojo thirdPerson = new PersonPojo(thirdKey, "203");
+
+        List<PersonPojo> recs = List.of(firstPerson, secondPerson, thirdPerson);
+
+        recordView.insertAll(null, recs);
+
+        assertThrows(NullPointerException.class, () -> recordView.containsAll(null, null));
+        assertThrows(NullPointerException.class, () -> recordView.containsAll(null, List.of(firstPerson, null, thirdPerson)));
+
+        assertTrue(recordView.containsAll(null, List.of()));
+        assertTrue(recordView.containsAll(null, List.of(firstPerson)));
+        assertTrue(recordView.containsAll(null, List.of(firstPerson, secondPerson, thirdPerson)));
+        assertTrue(recordView.containsAll(null, List.of(
+                new PersonPojo(firstKey, " "),
+                new PersonPojo(secondKey, " "),
+                new PersonPojo(thirdKey, " ")
+        )));
+
+        long zeroKey = 0L;
+        PersonPojo missedPojo = new PersonPojo(zeroKey, DEFAULT_NAME);
+
+        assertFalse(recordView.containsAll(null, List.of(missedPojo)));
+        assertFalse(recordView.containsAll(null, List.of(firstPerson, secondPerson, missedPojo)));
+        assertFalse(recordView.containsAll(null, List.of(
+                new PersonPojo(firstKey, " "),
+                new PersonPojo(secondKey, " "),
+                new PersonPojo(zeroKey, " ")
+        )));
+    }    
+
+    @Test
     public void testUpsertAll() {
         RecordView<PersonPojo> pojoView = defaultTable().recordView(Mapper.of(PersonPojo.class));
 

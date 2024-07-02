@@ -93,6 +93,26 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
     CompletableFuture<Boolean> containsAsync(@Nullable Transaction tx, R keyRec);
 
     /**
+     * Determines whether a table contains entries for the given keys.
+     *
+     * @param tx Transaction or {@code null} to auto-commit.
+     * @param keys Keys whose presence is to be verified. The collection and it's values cannot be {@code null}.
+     * @return {@code True} if a value exists for the specified key, {@code false} otherwise.
+     * @throws MarshallerException if the key doesn't match the schema.
+     */
+    boolean containsAll(@Nullable Transaction tx, Collection<R> keys);
+
+    /**
+     * Determines whether a table contains entries for the given keys.
+     *
+     * @param tx Transaction or {@code null} to auto-commit.
+     * @param keys Keys whose presence is to be verified. The collection and it's values cannot be {@code null}.
+     * @return Future that represents the pending completion of the operation.
+     * @throws MarshallerException if the key doesn't match the schema.
+     */
+    CompletableFuture<Boolean> containsAllAsync(@Nullable Transaction tx, Collection<R> keys);
+
+    /**
      * Inserts a record into a table, if it does not exist, or replaces an existing one.
      *
      * @param tx  Transaction or {@code null} to auto-commit.

@@ -38,6 +38,7 @@ import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import static org.mockito.ArgumentMatchers.any;
@@ -362,6 +363,42 @@ public class RecordViewOperationsTest extends TableKvOperationsTestBase {
         assertTrue(tbl.contains(null, val));
         assertFalse(tbl.contains(null, wrongKey));
         assertFalse(tbl.contains(null, randomObject(rnd, wrongKey)));
+    }
+
+    @Test
+    public void testContainsAll() {
+        RecordView<TestObjectWithAllTypes> recordView = recordView();
+
+        TestObjectWithAllTypes firstKey = key(rnd);
+        TestObjectWithAllTypes firstVal = randomObject(rnd, firstKey);
+
+        TestObjectWithAllTypes secondKey = key(rnd);
+        TestObjectWithAllTypes secondVal = randomObject(rnd, secondKey);
+
+        TestObjectWithAllTypes thirdKey = key(rnd);
+        TestObjectWithAllTypes thirdVal = randomObject(rnd, thirdKey);
+
+        List<TestObjectWithAllTypes> recs = List.of(firstVal, secondVal, thirdVal);
+
+        recordView.insertAll(null, recs);
+
+        assertThrows(NullPointerException.class, () -> recordView.containsAll(null, null));
+        assertThrows(NullPointerException.class, () -> recordView.containsAll(null, List.of(firstKey, null, thirdKey)));
+        assertThrows(NullPointerException.class, () -> recordView.containsAll(null, List.of(firstVal, null, thirdVal)));
+
+        assertTrue(recordView.containsAll(null, List.of()));
+        assertTrue(recordView.containsAll(null, List.of(firstKey)));
+        assertTrue(recordView.containsAll(null, List.of(firstVal)));
+        assertTrue(recordView.containsAll(null, List.of(firstKey, secondKey, thirdKey)));
+        assertTrue(recordView.containsAll(null, List.of(firstVal, secondVal, thirdVal)));
+
+        TestObjectWithAllTypes missedKey = key(rnd);
+        TestObjectWithAllTypes missedVal = randomObject(rnd, missedKey);
+
+        assertFalse(recordView.containsAll(null, List.of(missedKey)));
+        assertFalse(recordView.containsAll(null, List.of(missedVal)));
+        assertFalse(recordView.containsAll(null, List.of(firstKey, secondKey, missedKey)));
+        assertFalse(recordView.containsAll(null, List.of(firstVal, secondVal, missedVal)));
     }
 
     @Test

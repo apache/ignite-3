@@ -158,6 +158,27 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>>, Cri
     CompletableFuture<Boolean> containsAsync(@Nullable Transaction tx, K key);
 
     /**
+     * Determines whether a table contains entries for the given keys.
+     *
+     * @param tx Transaction or {@code null} to auto-commit.
+     * @param keys Keys whose presence is to be verified. The collection and it's values cannot be {@code null}.
+     * @return {@code True} if a value exists for the specified key, {@code false} otherwise.
+     * @throws MarshallerException if the key doesn't match the schema.
+     */
+    boolean containsAll(@Nullable Transaction tx, Collection<K> keys);
+
+
+    /**
+     * Determines whether a table contains entries for the given keys.
+     *
+     * @param tx Transaction or {@code null} to auto-commit.
+     * @param keys Keys whose presence is to be verified. The collection and it's values cannot be {@code null}.
+     * @return Future that represents the pending completion of the operation.
+     * @throws MarshallerException if the key doesn't match the schema.
+     */
+    CompletableFuture<Boolean> containsAllAsync(@Nullable Transaction tx, Collection<K> keys);
+
+    /**
      * Puts into a table a value associated with the given key.
      *
      * @param tx Transaction or {@code null} to auto-commit.

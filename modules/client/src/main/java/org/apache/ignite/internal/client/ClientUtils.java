@@ -19,6 +19,7 @@ package org.apache.ignite.internal.client;
 
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
+import java.util.Collection;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -170,6 +171,9 @@ public class ClientUtils {
             case ClientOp.TUPLE_CONTAINS_KEY:
                 return ClientOperationType.TUPLE_CONTAINS_KEY;
 
+            case ClientOp.TUPLE_CONTAINS_ALL_KEYS:
+                return ClientOperationType.TUPLE_CONTAINS_ALL_KEYS;
+
             case ClientOp.JDBC_CONNECT:
                 return null;
 
@@ -280,5 +284,20 @@ public class ClientUtils {
         return loggerFactory == null
                 ? Loggers.voidLogger()
                 : Loggers.forClass(cls, loggerFactory);
+    }
+
+    /**
+     * Checks that given keys collection isn't null and there is no a null-value key.
+     *
+     * @param keys Given keys collection.
+     * @param <K> Keys type.
+     * @throws NullPointerException In case if the collection null either any key is null.
+     */
+    public static <K> void checkKeysForNulls(Collection<K> keys) {
+        Objects.requireNonNull(keys, "keys");
+
+        for (K key : keys) {
+            Objects.requireNonNull(key, "key");
+        }
     }
 }

@@ -293,6 +293,40 @@ public class KeyValueViewOperationsTest extends TableKvOperationsTestBase {
     }
 
     @Test
+    public void testContainsAll() {
+        KeyValueView<TestKeyObject, TestObjectWithAllTypes> kvView = kvView();
+
+        TestKeyObject firstKey = TestKeyObject.randomObject(rnd);
+        TestObjectWithAllTypes firstVal = TestObjectWithAllTypes.randomObject(rnd);
+
+        TestKeyObject secondKey = TestKeyObject.randomObject(rnd);
+        TestObjectWithAllTypes secondVal = TestObjectWithAllTypes.randomObject(rnd);
+
+        TestKeyObject thirdKey = TestKeyObject.randomObject(rnd);
+        TestObjectWithAllTypes thirdVal = TestObjectWithAllTypes.randomObject(rnd);
+
+        Map<TestKeyObject, TestObjectWithAllTypes> kvs = Map.of(
+                firstKey, firstVal,
+                secondKey, secondVal,
+                thirdKey, thirdVal
+        );
+
+        kvView.putAll(null, kvs);
+
+        assertThrows(NullPointerException.class, () -> kvView.containsAll(null, null));
+        assertThrows(NullPointerException.class, () -> kvView.containsAll(null, List.of(firstKey, null, thirdKey)));
+
+        assertTrue(kvView.containsAll(null, List.of()));
+        assertTrue(kvView.containsAll(null, List.of(firstKey)));
+        assertTrue(kvView.containsAll(null, List.of(firstKey, secondKey, thirdKey)));
+
+        TestKeyObject missedKey = TestKeyObject.randomObject(rnd);
+
+        assertFalse(kvView.containsAll(null, List.of(missedKey)));
+        assertFalse(kvView.containsAll(null, List.of(firstKey, secondKey, missedKey)));
+    }
+
+    @Test
     public void remove() {
         final TestKeyObject key = TestKeyObject.randomObject(rnd);
         final TestKeyObject key2 = TestKeyObject.randomObject(rnd);
