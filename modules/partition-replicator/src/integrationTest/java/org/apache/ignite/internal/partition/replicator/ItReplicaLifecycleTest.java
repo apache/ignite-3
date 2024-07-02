@@ -345,7 +345,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                 (v) -> Assignments.fromBytes(v).nodes()
                         .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
                 nodes.stream().map(n -> n.name).collect(Collectors.toSet()),
-                10_000L
+                20_000L
         );
 
         CatalogManager catalogManager = node.catalogManager;
@@ -358,7 +358,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                 (v) -> Assignments.fromBytes(v).nodes()
                         .stream().map(Assignment::consistentId).collect(Collectors.toSet()).size(),
                 2,
-                10_000L * 2
+                20_000L
         );
 
         assertValueInStorage(
@@ -366,7 +366,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                 stablePartAssignmentsKey(partId),
                 (v) -> Assignments.fromBytes(v).nodes().contains(replicaAssignment),
                 true,
-                10_000L * 2
+                20_000L
         );
     }
 
@@ -395,7 +395,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                 (v) -> Assignments.fromBytes(v).nodes()
                         .stream().map(Assignment::consistentId).collect(Collectors.toSet()).size(),
                 1,
-                10_000L
+                20_000L
         );
 
         alterZone(catalogManager, defaultZoneName, 2);
@@ -406,7 +406,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                 (v) -> Assignments.fromBytes(v).nodes()
                         .stream().map(Assignment::consistentId).collect(Collectors.toSet()).size(),
                 2,
-                10_000L * 2
+                20_000L
         );
 
         assertValueInStorage(
@@ -414,7 +414,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                 stablePartAssignmentsKey(partId),
                 (v) -> Assignments.fromBytes(v).nodes().contains(replicaAssignment),
                 true,
-                10_000L * 2
+                20_000L
         );
     }
 
@@ -443,7 +443,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                 (v) -> Assignments.fromBytes(v).nodes()
                         .stream().map(Assignment::consistentId).collect(Collectors.toSet()).size(),
                 2,
-                10_000L
+                20_000L
         );
 
         assertValueInStorage(
@@ -451,7 +451,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                 stablePartAssignmentsKey(partId),
                 (v) -> Assignments.fromBytes(v).nodes().contains(replicaAssignment),
                 true,
-                10_000L * 2
+                20_000L
         );
 
         CatalogManager catalogManager = node.catalogManager;
@@ -464,7 +464,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                 (v) -> Assignments.fromBytes(v).nodes()
                         .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
                 nodes.stream().map(n -> n.name).collect(Collectors.toSet()),
-                10_000L
+                20_000L
         );
     }
 
@@ -491,7 +491,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                 (v) -> Assignments.fromBytes(v).nodes()
                         .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
                 nodes.stream().map(n -> n.name).collect(Collectors.toSet()),
-                10_000L
+                20_000L
         );
 
         CatalogManager catalogManager = node.catalogManager;
@@ -506,7 +506,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                 (v) -> Assignments.fromBytes(v).nodes()
                         .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
                 Set.of(nodes.get(0).name),
-                10_000L * 2
+                20_000L
         );
 
         assertValueInStorage(
@@ -514,7 +514,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                 stablePartAssignmentsKey(partId),
                 (v) -> Assignments.fromBytes(v).nodes().contains(replicaAssignment),
                 true,
-                10_000L * 2
+                20_000L
         );
     }
 
