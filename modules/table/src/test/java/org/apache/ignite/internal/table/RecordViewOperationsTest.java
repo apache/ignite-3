@@ -368,16 +368,16 @@ public class RecordViewOperationsTest extends TableKvOperationsTestBase {
     @Test
     public void testContainsAll() {
         RecordView<TestObjectWithAllTypes> recordView = recordView();
-        
+
         TestObjectWithAllTypes firstKey = key(rnd);
         TestObjectWithAllTypes firstVal = randomObject(rnd, firstKey);
-        
+
         TestObjectWithAllTypes secondKey = key(rnd);
         TestObjectWithAllTypes secondVal = randomObject(rnd, secondKey);
-        
+
         TestObjectWithAllTypes thirdKey = key(rnd);
         TestObjectWithAllTypes thirdVal = randomObject(rnd, thirdKey);
-        
+
         List<TestObjectWithAllTypes> recs = List.of(firstVal, secondVal, thirdVal);
 
         recordView.insertAll(null, recs);

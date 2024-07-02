@@ -41,7 +41,6 @@ import static org.mockito.Mockito.verify;
 import java.util.Collection;
 import java.util.List;
 import org.apache.ignite.internal.marshaller.ReflectionMarshallersProvider;
-import org.apache.ignite.internal.marshaller.testobjects.TestObjectWithAllTypes;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.InvalidTypeException;
