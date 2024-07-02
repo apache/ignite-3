@@ -99,6 +99,11 @@ public class DistributionZoneRebalanceEngine {
     /** Executor for scheduling rebalances. */
     private final ScheduledExecutorService rebalanceScheduler;
 
+    /** Zone rebalance manager. */
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 this class will replace DistributionZoneRebalanceEngine
+    // TODO: after switching to zone-based replication
+    private final DistributionZoneRebalanceEngineV2 distributionZoneRebalanceEngineV2;
+
     /**
      * Constructor.
      *
@@ -122,6 +127,12 @@ public class DistributionZoneRebalanceEngine {
         this.dataNodesListener = createDistributionZonesDataNodesListener();
         this.partitionsCounterListener = createPartitionsCounterListener();
         this.rebalanceScheduler = rebalanceScheduler;
+        this.distributionZoneRebalanceEngineV2 = new DistributionZoneRebalanceEngineV2(
+                busyLock,
+                metaStorageManager,
+                distributionZoneManager,
+                catalogService
+        );
     }
 
     /**
@@ -148,7 +159,7 @@ public class DistributionZoneRebalanceEngine {
 
             long recoveryRevision = recoveryFinishFuture.join();
 
-            return rebalanceTriggersRecovery(recoveryRevision);
+            return rebalanceTriggersRecovery(recoveryRevision).thenCompose(v -> distributionZoneRebalanceEngineV2.start());
         });
     }
 

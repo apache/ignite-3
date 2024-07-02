@@ -23,10 +23,11 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.BaseIgniteRestartTest.createVault;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_TEST_PROFILE_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZoneIdOpt;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.alterZone;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertValueInStorage;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.REBALANCE_SCHEDULER_POOL_SIZE;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager.FEATURE_FLAG_NAME;
 import static org.apache.ignite.internal.sql.SqlCommon.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
@@ -167,7 +168,6 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.Timeout;
@@ -323,7 +323,6 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22410")
     void testAlterReplicaTrigger() throws Exception {
         Assignment replicaAssignment = (Assignment) AffinityUtils.calculateAssignmentForPartition(
                 nodes.stream().map(n -> n.name).collect(Collectors.toList()), 0, 1).toArray()[0];
@@ -332,11 +331,9 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
 
         placementDriver.setPrimary(node.clusterService.topologyService().localMember());
 
-        createZone(node, "test_zone", 2, 3);
+        createZone(node, "test_zone", 1, 3);
 
         int zoneId = DistributionZonesTestUtil.getZoneId(node.catalogManager, "test_zone", node.hybridClock.nowLong());
-
-        createTable(node, "test_zone", "test_table");
 
         MetaStorageManager metaStorageManager = node.metaStorageManager;
 
@@ -348,7 +345,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                 (v) -> Assignments.fromBytes(v).nodes()
                         .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
                 nodes.stream().map(n -> n.name).collect(Collectors.toSet()),
-                10_000L
+                20_000L
         );
 
         CatalogManager catalogManager = node.catalogManager;
@@ -361,7 +358,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                 (v) -> Assignments.fromBytes(v).nodes()
                         .stream().map(Assignment::consistentId).collect(Collectors.toSet()).size(),
                 2,
-                10_000L * 2
+                20_000L
         );
 
         assertValueInStorage(
@@ -369,12 +366,109 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                 stablePartAssignmentsKey(partId),
                 (v) -> Assignments.fromBytes(v).nodes().contains(replicaAssignment),
                 true,
-                10_000L * 2
+                20_000L
         );
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22410")
+    void testAlterReplicaTriggerDefaultZone() throws Exception {
+        Assignment replicaAssignment = (Assignment) AffinityUtils.calculateAssignmentForPartition(
+                nodes.stream().map(n -> n.name).collect(Collectors.toList()), 0, 1).toArray()[0];
+
+        Node node = getNode(replicaAssignment.consistentId());
+
+        placementDriver.setPrimary(node.clusterService.topologyService().localMember());
+
+        CatalogManager catalogManager = node.catalogManager;
+
+        int zoneId = defaultZoneIdOpt(catalogManager.catalog(catalogManager.latestCatalogVersion()));
+
+        String defaultZoneName = catalogManager.zone(zoneId, catalogManager.latestCatalogVersion()).name();
+
+        MetaStorageManager metaStorageManager = node.metaStorageManager;
+
+        ZonePartitionId partId = new ZonePartitionId(zoneId, 0);
+
+        assertValueInStorage(
+                metaStorageManager,
+                stablePartAssignmentsKey(partId),
+                (v) -> Assignments.fromBytes(v).nodes()
+                        .stream().map(Assignment::consistentId).collect(Collectors.toSet()).size(),
+                1,
+                20_000L
+        );
+
+        alterZone(catalogManager, defaultZoneName, 2);
+
+        assertValueInStorage(
+                metaStorageManager,
+                stablePartAssignmentsKey(partId),
+                (v) -> Assignments.fromBytes(v).nodes()
+                        .stream().map(Assignment::consistentId).collect(Collectors.toSet()).size(),
+                2,
+                20_000L
+        );
+
+        assertValueInStorage(
+                metaStorageManager,
+                stablePartAssignmentsKey(partId),
+                (v) -> Assignments.fromBytes(v).nodes().contains(replicaAssignment),
+                true,
+                20_000L
+        );
+    }
+
+    @Test
+    void testAlterReplicaExtensionTrigger() throws Exception {
+        Assignment replicaAssignment = (Assignment) AffinityUtils.calculateAssignmentForPartition(
+                nodes.stream().map(n -> n.name).collect(Collectors.toList()), 0, 1).toArray()[0];
+
+        Node node = getNode(replicaAssignment.consistentId());
+
+        placementDriver.setPrimary(node.clusterService.topologyService().localMember());
+
+        assertTrue(waitForCondition(() -> node.distributionZoneManager.logicalTopology().size() == 3, 10_000L));
+
+        createZone(node, "test_zone", 2, 2);
+
+        int zoneId = DistributionZonesTestUtil.getZoneId(node.catalogManager, "test_zone", node.hybridClock.nowLong());
+
+        MetaStorageManager metaStorageManager = node.metaStorageManager;
+
+        ZonePartitionId partId = new ZonePartitionId(zoneId, 0);
+
+        assertValueInStorage(
+                metaStorageManager,
+                stablePartAssignmentsKey(partId),
+                (v) -> Assignments.fromBytes(v).nodes()
+                        .stream().map(Assignment::consistentId).collect(Collectors.toSet()).size(),
+                2,
+                20_000L
+        );
+
+        assertValueInStorage(
+                metaStorageManager,
+                stablePartAssignmentsKey(partId),
+                (v) -> Assignments.fromBytes(v).nodes().contains(replicaAssignment),
+                true,
+                20_000L
+        );
+
+        CatalogManager catalogManager = node.catalogManager;
+
+        alterZone(catalogManager, "test_zone", 3);
+
+        assertValueInStorage(
+                metaStorageManager,
+                stablePartAssignmentsKey(partId),
+                (v) -> Assignments.fromBytes(v).nodes()
+                        .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
+                nodes.stream().map(n -> n.name).collect(Collectors.toSet()),
+                20_000L
+        );
+    }
+
+    @Test
     void testAlterFilterTrigger() throws Exception {
         Assignment replicaAssignment = (Assignment) AffinityUtils.calculateAssignmentForPartition(
                 nodes.stream().map(n -> n.name).collect(Collectors.toList()), 0, 1).toArray()[0];
@@ -387,8 +481,6 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
 
         int zoneId = DistributionZonesTestUtil.getZoneId(node.catalogManager, "test_zone", node.hybridClock.nowLong());
 
-        createTable(node, "test_zone", "test_table");
-
         MetaStorageManager metaStorageManager = node.metaStorageManager;
 
         ZonePartitionId partId = new ZonePartitionId(zoneId, 0);
@@ -399,7 +491,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                 (v) -> Assignments.fromBytes(v).nodes()
                         .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
                 nodes.stream().map(n -> n.name).collect(Collectors.toSet()),
-                10_000L
+                20_000L
         );
 
         CatalogManager catalogManager = node.catalogManager;
@@ -414,7 +506,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                 (v) -> Assignments.fromBytes(v).nodes()
                         .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
                 Set.of(nodes.get(0).name),
-                10_000L * 2
+                20_000L
         );
 
         assertValueInStorage(
@@ -422,7 +514,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                 stablePartAssignmentsKey(partId),
                 (v) -> Assignments.fromBytes(v).nodes().contains(replicaAssignment),
                 true,
-                10_000L * 2
+                20_000L
         );
     }
 
@@ -786,7 +878,8 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     distributionZoneManager,
                     metaStorageManager,
                     clusterService.topologyService(),
-                    threadPoolsManager.tableIoExecutor()
+                    threadPoolsManager.tableIoExecutor(),
+                    rebalanceScheduler
             );
 
             StorageUpdateConfiguration storageUpdateConfiguration = clusterConfigRegistry.getConfiguration(StorageUpdateConfiguration.KEY);
