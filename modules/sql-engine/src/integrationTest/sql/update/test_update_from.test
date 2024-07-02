@@ -1,7 +1,6 @@
 # name: test/sql/update/test_update_from.test
 # description: Test updates that use a from clause
 # group: [update]
-# Ignore https://issues.apache.org/jira/browse/IGNITE-15624
 
 # create a table
 statement ok
