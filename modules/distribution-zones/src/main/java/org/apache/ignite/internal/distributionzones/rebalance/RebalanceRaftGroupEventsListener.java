@@ -74,6 +74,8 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 /**
  * Listener for the raft group events, which must provide correct error handling of rebalance process
  * and start new rebalance after the current one finished.
+ * TODO: https://issues.apache.org/jira/browse/IGNITE-22522 remove this class and use {@link ZoneRebalanceRaftGroupEventsListener} instead
+ *  after switching to zone-based replication.
  */
 public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener {
     /** Ignite logger. */

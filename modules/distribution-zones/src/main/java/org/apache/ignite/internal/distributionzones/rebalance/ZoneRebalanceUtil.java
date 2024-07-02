@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.distributionzones.rebalance;
 
+import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.DISTRIBUTION_ZONE_DATA_NODES_VALUE_PREFIX;
@@ -46,6 +47,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
@@ -59,13 +61,13 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Util class for methods needed for the rebalance process.
  */
 public class ZoneRebalanceUtil {
-
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(ZoneRebalanceUtil.class);
 
@@ -267,7 +269,7 @@ public class ZoneRebalanceUtil {
      * @return Array of futures, one per partition of the zone; the futures complete when the described
      *     rebalance triggering completes.
      */
-    public static CompletableFuture<?>[] triggerZonePartitionsRebalance(
+    static CompletableFuture<Void> triggerZonePartitionsRebalance(
             CatalogZoneDescriptor zoneDescriptor,
             Set<String> dataNodes,
             long storageRevision,
@@ -280,14 +282,14 @@ public class ZoneRebalanceUtil {
                 zoneDescriptor.partitions()
         );
 
-        CompletableFuture<?>[] futures = new CompletableFuture[zoneDescriptor.partitions()];
+        CompletableFuture<?>[] partitionFutures = new CompletableFuture[zoneDescriptor.partitions()];
 
         for (int partId = 0; partId < zoneDescriptor.partitions(); partId++) {
             ZonePartitionId replicaGrpId = new ZonePartitionId(zoneDescriptor.id(), partId);
 
             int finalPartId = partId;
 
-            futures[partId] = zoneAssignmentsFut.thenCompose(zoneAssignments ->
+            partitionFutures[partId] = zoneAssignmentsFut.thenCompose(zoneAssignments ->
                     // TODO https://issues.apache.org/jira/browse/IGNITE-19763 We should distinguish empty stable assignments on
                     // TODO node recovery in case of interrupted table creation, and moving from empty assignments to non-empty.
                     zoneAssignments.isEmpty() ? nullCompletedFuture() : updatePendingAssignmentsKeys(
@@ -302,7 +304,42 @@ public class ZoneRebalanceUtil {
                     ));
         }
 
-        return futures;
+        // This set is used to deduplicate exceptions (if there is an exception from upstream, for instance,
+        // when reading from MetaStorage, it will be encountered by every partition future) to avoid noise
+        // in the logs.
+        Set<Throwable> unwrappedCauses = ConcurrentHashMap.newKeySet();
+
+        for (int partId = 0; partId < partitionFutures.length; partId++) {
+            int finalPartId = partId;
+
+            partitionFutures[partId].exceptionally(e -> {
+                Throwable cause = ExceptionUtils.unwrapCause(e);
+
+                if (unwrappedCauses.add(cause)) {
+                    // The exception is specific to this partition.
+                    LOG.error(
+                            "Exception on updating assignments for [zone={}, partition={}]",
+                            e,
+                            zoneInfo(zoneDescriptor), finalPartId
+                    );
+                } else {
+                    // The exception is from upstream and not specific for this partition, so don't log the partition index.
+                    LOG.error(
+                            "Exception on updating assignments for [zone={}]",
+                            e,
+                            zoneInfo(zoneDescriptor)
+                    );
+                }
+
+                return null;
+            });
+        }
+
+        return allOf(partitionFutures);
+    }
+
+    private static String zoneInfo(CatalogZoneDescriptor zoneDescriptor) {
+        return zoneDescriptor.id() + "/" + zoneDescriptor.name();
     }
 
     /** Key prefix for pending assignments. */
@@ -527,7 +564,7 @@ public class ZoneRebalanceUtil {
      * @param numberOfPartitions Number of partitions. Ignored if partition IDs are specified.
      * @return Future with zone assignments as a value.
      */
-    static CompletableFuture<Map<Integer, Assignments>> zoneAssignments(
+    private static CompletableFuture<Map<Integer, Assignments>> zoneAssignments(
             MetaStorageManager metaStorageManager,
             int zoneId,
             Set<Integer> partitionIds,

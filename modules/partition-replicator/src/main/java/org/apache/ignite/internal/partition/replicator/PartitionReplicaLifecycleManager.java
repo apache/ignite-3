@@ -233,14 +233,24 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
 
                 Assignment localMemberAssignment = localMemberAssignment(zoneAssignment);
 
-                partitionsStartFutures.add(createZonePartitionReplicationNodes(zoneId, partId, localMemberAssignment, zoneAssignment));
+                partitionsStartFutures.add(createZonePartitionReplicationNode(zoneId, partId, localMemberAssignment, zoneAssignment));
             }
 
             return allOf(partitionsStartFutures.toArray(new CompletableFuture<?>[0]));
         }));
     }
 
-    private CompletableFuture<Void> createZonePartitionReplicationNodes(
+    /**
+     * Start a replica for the corresponding {@code zoneId} and {@code partId} on the local node if {@code localMemberAssignment} is not
+     * null, meaning that the local node is part of the assignment.
+     *
+     * @param zoneId Zone id.
+     * @param partId Partition id.
+     * @param localMemberAssignment Assignment of the local member, or null if local member is not part of the assignment.
+     * @param stableAssignments Stable assignments.
+     * @return Future that completes when a replica is started.
+     */
+    private CompletableFuture<Void> createZonePartitionReplicationNode(
             int zoneId,
             int partId,
             @Nullable Assignment localMemberAssignment,
@@ -685,7 +695,7 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
             if (LOG.isInfoEnabled()) {
                 var stringKey = new String(pendingAssignmentsEntry.key(), UTF_8);
 
-                LOG.info("Received update on pending assignments. Check if new raft group should be started [key={}, "
+                LOG.info("Received update on pending assignments. Check if new replication node should be started [key={}, "
                                 + "partition={}, zoneId={}, localMemberAddress={}, pendingAssignments={}, revision={}]",
                         stringKey, partId, zoneId, localNode().address(), pendingAssignments, revision);
             }
@@ -749,7 +759,7 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
         CompletableFuture<Void> localServicesStartFuture;
 
         if (shouldStartLocalGroupNode) {
-            localServicesStartFuture = createZonePartitionReplicationNodes(
+            localServicesStartFuture = createZonePartitionReplicationNode(
                     zoneId,
                     partitionId,
                     localMemberAssignment,

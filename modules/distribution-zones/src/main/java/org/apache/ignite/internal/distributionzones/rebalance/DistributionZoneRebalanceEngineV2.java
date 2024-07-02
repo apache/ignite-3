@@ -17,20 +17,17 @@
 
 package org.apache.ignite.internal.distributionzones.rebalance;
 
-import static java.util.concurrent.CompletableFuture.allOf;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_ALTER;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.filterDataNodes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.parseDataNodes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.extractZoneIdDataNodes;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.triggerZonePartitionsRebalance;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
-import org.apache.ignite.internal.affinity.AffinityUtils;
-import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
@@ -43,13 +40,12 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
-import org.apache.ignite.internal.replicator.ZonePartitionId;
-import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 
 /**
- * Zone rebalance manager.
+ * Zone rebalance manager. It listens to the changes in the distribution zones data nodes and replicas and triggers rebalance
+ * for the corresponding partitions. By triggering rebalance, it updates the pending assignments in the metastore.
  * // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 this class will replace DistributionZoneRebalanceEngine
  * // TODO: after switching to zone-based replication
  */
@@ -98,7 +94,7 @@ public class DistributionZoneRebalanceEngineV2 {
     }
 
     /**
-     * Starts the rebalance engine by registering corresponding meta storage and configuration listeners.
+     * Starts the rebalance engine by registering corresponding meta storage and catalog listeners.
      */
     public CompletableFuture<Void> start() {
         return IgniteUtils.inBusyLockAsync(busyLock, () -> {
@@ -135,7 +131,7 @@ public class DistributionZoneRebalanceEngineV2 {
                     Set<Node> dataNodes = parseDataNodes(evt.entryEvent().newEntry().value());
 
                     if (dataNodes == null) {
-                        // The zone was removed so data nodes was removed too.
+                        // The zone was removed so data nodes were removed too.
                         return nullCompletedFuture();
                     }
 
@@ -161,10 +157,11 @@ public class DistributionZoneRebalanceEngineV2 {
                         return nullCompletedFuture();
                     }
 
-                    return triggerPartitionsRebalanceForZone(
-                            evt.entryEvent().newEntry().revision(),
+                    return triggerZonePartitionsRebalance(
                             zoneDescriptor,
-                            filteredDataNodes
+                            filteredDataNodes,
+                            evt.entryEvent().newEntry().revision(),
+                            metaStorageManager
                     );
                 });
             }
@@ -177,7 +174,7 @@ public class DistributionZoneRebalanceEngineV2 {
     }
 
     private CompletableFuture<Void> onUpdateReplicas(AlterZoneEventParameters parameters) {
-        return recalculateAssignmentsAndScheduleRebalance(
+        return recalculateAssignmentsAndTriggerZonePartitionsRebalance(
                 parameters.zoneDescriptor(),
                 parameters.causalityToken(),
                 parameters.catalogVersion()
@@ -185,103 +182,32 @@ public class DistributionZoneRebalanceEngineV2 {
     }
 
     /**
-     * Recalculate assignments for zone partitions and schedule rebalance (by update rebalance metastore keys).
+     * Calculate data nodes from the distribution zone for {@code zoneDescriptor} and {@code causalityToken} and trigger zones partitions
+     * rebalance. For more details see
+     * {@link ZoneRebalanceUtil#triggerZonePartitionsRebalance(CatalogZoneDescriptor, Set, long, MetaStorageManager)}
      *
      * @param zoneDescriptor Zone descriptor.
      * @param causalityToken Causality token.
      * @param catalogVersion Catalog version.
      * @return The future, which completes when the all metastore updates done.
      */
-    private CompletableFuture<Void> recalculateAssignmentsAndScheduleRebalance(
+    private CompletableFuture<Void> recalculateAssignmentsAndTriggerZonePartitionsRebalance(
             CatalogZoneDescriptor zoneDescriptor,
             long causalityToken,
             int catalogVersion
     ) {
         return distributionZoneManager.dataNodes(causalityToken, catalogVersion, zoneDescriptor.id())
-                .thenCompose(dataNodes -> {
+                .thenCompose(dataNodes -> IgniteUtils.inBusyLockAsync(busyLock, () -> {
                     if (dataNodes.isEmpty()) {
                         return nullCompletedFuture();
                     }
 
-                    return triggerPartitionsRebalanceForZone(
-                            causalityToken,
+                    return triggerZonePartitionsRebalance(
                             zoneDescriptor,
-                            dataNodes
+                            dataNodes,
+                            causalityToken,
+                            metaStorageManager
                     );
-                });
-    }
-
-    private CompletableFuture<Void> triggerPartitionsRebalanceForZone(
-            long revision,
-            CatalogZoneDescriptor zoneDescriptor,
-            Set<String> dataNodes
-    ) {
-        CompletableFuture<?>[] partitionFutures = ZoneRebalanceUtil.triggerZonePartitionsRebalance(
-                zoneDescriptor,
-                dataNodes,
-                revision,
-                metaStorageManager
-        );
-
-        // This set is used to deduplicate exceptions (if there is an exception from upstream, for instance,
-        // when reading from MetaStorage, it will be encountered by every partition future) to avoid noise
-        // in the logs.
-        Set<Throwable> unwrappedCauses = ConcurrentHashMap.newKeySet();
-
-        for (int partId = 0; partId < partitionFutures.length; partId++) {
-            int finalPartId = partId;
-
-            partitionFutures[partId].exceptionally(e -> {
-                Throwable cause = ExceptionUtils.unwrapCause(e);
-
-                if (unwrappedCauses.add(cause)) {
-                    // The exception is specific to this partition.
-                    LOG.error(
-                            "Exception on updating assignments for [zone={}, partition={}]",
-                            e,
-                            zoneInfo(zoneDescriptor), finalPartId
-                    );
-                } else {
-                    // The exception is from upstream and not specific for this partition, so don't log the partition index.
-                    LOG.error(
-                            "Exception on updating assignments for [zone={}]",
-                            e,
-                            zoneInfo(zoneDescriptor)
-                    );
-                }
-
-                return null;
-            });
-        }
-
-        return allOf(partitionFutures);
-    }
-
-    private static String zoneInfo(CatalogZoneDescriptor zoneDescriptor) {
-        return zoneDescriptor.id() + "/" + zoneDescriptor.name();
-    }
-
-    static CompletableFuture<Set<Assignment>> calculateZoneAssignments(
-            ZonePartitionId zonePartitionId,
-            CatalogService catalogService,
-            DistributionZoneManager distributionZoneManager
-    ) {
-        int catalogVersion = catalogService.latestCatalogVersion();
-
-        CatalogZoneDescriptor zoneDescriptor = catalogService.zone(zonePartitionId.zoneId(), catalogVersion);
-
-        int zoneId = zonePartitionId.zoneId();
-
-        return distributionZoneManager.dataNodes(
-                zoneDescriptor.updateToken(),
-                catalogVersion,
-                zoneId
-        ).thenApply(dataNodes ->
-                AffinityUtils.calculateAssignmentForPartition(
-                        dataNodes,
-                        zonePartitionId.partitionId(),
-                        zoneDescriptor.replicas()
-                )
-        );
+                }));
     }
 }

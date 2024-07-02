@@ -63,6 +63,8 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Util class for methods needed for the rebalance process.
+ * TODO: https://issues.apache.org/jira/browse/IGNITE-22522 remove this class and use {@link ZoneRebalanceUtil} instead
+ *  after switching to zone-based replication.
  */
 public class RebalanceUtil {
 
