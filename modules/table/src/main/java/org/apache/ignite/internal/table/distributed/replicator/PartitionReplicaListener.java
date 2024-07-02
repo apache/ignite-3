@@ -70,6 +70,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -1624,7 +1625,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      */
     private CompletableFuture<TransactionResult> processTxFinishAction(TxFinishReplicaRequest request) {
         // TODO: https://issues.apache.org/jira/browse/IGNITE-19170 Use ZonePartitionIdMessage and remove cast
-        Map<TablePartitionId, String> enlistedGroups = (Map<TablePartitionId, String>) (Map<?, ?>) request.groups();
+        Map<TablePartitionId, String> enlistedGroups = asTablePartitionIdStringMap(request.groups());
 
         UUID txId = request.txId();
 
@@ -4168,5 +4169,15 @@ public class PartitionReplicaListener implements ReplicaListener {
             result = 31 * result + (int) (ts ^ (ts >>> 32));
             return result;
         }
+    }
+
+    private static Map<TablePartitionId, String> asTablePartitionIdStringMap(Map<TablePartitionIdMessage, String> messages) {
+        var result = new HashMap<TablePartitionId, String>(messages.size());
+
+        for (Entry<TablePartitionIdMessage, String> e : messages.entrySet()) {
+            result.put(e.getKey().asTablePartitionId(), e.getValue());
+        }
+
+        return result;
     }
 }
