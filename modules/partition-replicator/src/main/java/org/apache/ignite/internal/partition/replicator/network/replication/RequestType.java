@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.partition.replicator.network.replication;
 
+import org.jetbrains.annotations.Nullable;
+
 /**
  * Transaction operation type.
  */
@@ -59,6 +61,9 @@ public enum RequestType {
 
     RO_SCAN;
 
+    /** Cached array with all enum values. */
+    private static final RequestType[] VALUES = values();
+
     /**
      * Returns {@code true} if the operation is an RW read.
      */
@@ -95,5 +100,10 @@ public enum RequestType {
             default:
                 return false;
         }
+    }
+
+    /** Returns the enumerated value from its ordinal, {@code null} if the ordinal is invalid. */
+    public static @Nullable RequestType fromOrdinal(int ordinal) {
+        return ordinal < 0 || ordinal >= VALUES.length ? null : VALUES[ordinal];
     }
 }

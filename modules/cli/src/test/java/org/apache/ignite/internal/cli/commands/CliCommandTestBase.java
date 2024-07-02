@@ -42,6 +42,8 @@ import java.util.List;
 import org.apache.ignite.internal.cli.core.call.Call;
 import org.apache.ignite.internal.cli.core.call.CallInput;
 import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
+import org.apache.ignite.internal.cli.core.exception.handler.PicocliExecutionExceptionHandler;
+import org.apache.ignite.internal.cli.core.repl.context.CommandLineContextProvider;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.hamcrest.Matcher;
 import org.hamcrest.Matchers;
@@ -77,17 +79,28 @@ public abstract class CliCommandTestBase extends BaseIgniteAbstractTest {
     protected void execute(String... args) {
         // Create command just before execution as some tests could register singletons which should be used by the command
         CommandLine cmd = new CommandLine(getCommandClass(), new MicronautFactory(context));
+        cmd.setExecutionExceptionHandler(new PicocliExecutionExceptionHandler());
 
         sout = new StringWriter();
         serr = new StringWriter();
         cmd.setOut(new PrintWriter(sout));
         cmd.setErr(new PrintWriter(serr));
+        CommandLineContextProvider.setCmd(cmd);
 
         exitCode = cmd.execute(args);
     }
 
     protected void assertExitCodeIs(int expectedExitCode) {
         assertThat("Unexpected exit code", exitCode, is(expectedExitCode));
+    }
+
+    protected void assertExitCodeIsError() {
+        assertExitCodeIs(errorExitCode());
+    }
+
+    // REPL mode has no exit code for error, override this method in tests for repl commands.
+    protected int errorExitCode() {
+        return 1;
     }
 
     protected void assertExitCodeIsZero() {

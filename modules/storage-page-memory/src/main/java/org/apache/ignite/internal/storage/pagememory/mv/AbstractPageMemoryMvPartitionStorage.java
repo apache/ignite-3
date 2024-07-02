@@ -574,19 +574,6 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     }
 
     @Override
-    public long rowsCount() {
-        return busy(() -> {
-            throwExceptionIfStorageNotInRunnableState();
-
-            try {
-                return renewableState.versionChainTree().size();
-            } catch (IgniteInternalCheckedException e) {
-                throw new StorageException("Error occurred while fetching the size.", e);
-            }
-        });
-    }
-
-    @Override
     public void close() {
         if (!transitionToTerminalState(StorageState.CLOSED)) {
             return;

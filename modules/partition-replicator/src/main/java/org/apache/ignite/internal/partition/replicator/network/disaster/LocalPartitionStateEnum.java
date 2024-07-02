@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.partition.replicator.network.disaster;
 
 import org.apache.ignite.raft.jraft.core.State;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Enum for states of local partitions.
@@ -40,6 +41,9 @@ public enum LocalPartitionStateEnum {
 
     /** Partition is in broken state, usually it means that its state machine thrown an exception. */
     BROKEN;
+
+    /** Cached array with all enum values. */
+    private static final LocalPartitionStateEnum[] VALUES = values();
 
     /** Converts internal raft node state into public local partition state. */
     public static LocalPartitionStateEnum convert(State raftNodeState) {
@@ -65,5 +69,10 @@ public enum LocalPartitionStateEnum {
                 // Unrecognized state, better safe than sorry.
                 return BROKEN;
         }
+    }
+
+    /** Returns the enumerated value from its ordinal, {@code null} if the ordinal is invalid. */
+    public static @Nullable LocalPartitionStateEnum fromOrdinal(int ordinal) {
+        return ordinal < 0 || ordinal >= VALUES.length ? null : VALUES[ordinal];
     }
 }

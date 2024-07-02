@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.partition.replicator.network.replicatio
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_GET;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_GET_ALL;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_SCAN;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -56,6 +57,13 @@ class RequestTypeTest {
             } else {
                 assertTrue(requestType.isWrite(), requestType + " must be a write");
             }
+        }
+    }
+
+    @Test
+    void testFromOrdinal() {
+        for (RequestType requestType : RequestType.values()) {
+            assertEquals(requestType, RequestType.fromOrdinal(requestType.ordinal()));
         }
     }
 }
