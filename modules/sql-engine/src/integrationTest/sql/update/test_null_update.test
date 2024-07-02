@@ -1,0 +1,29 @@
+# name: test/sql/update/test_null_update.test
+# description: Test standard update behavior with NULLs
+# group: [update]
+
+# create a table
+statement ok
+CREATE TABLE test (a INTEGER);
+
+statement ok
+INSERT INTO test VALUES (1), (2), (3), (NULL)
+
+query I
+SELECT * FROM test ORDER BY a
+----
+1
+2
+3
+NULL
+
+statement ok
+UPDATE test SET a=NULL WHERE a=2
+
+query I
+SELECT * FROM test ORDER BY a
+----
+1
+3
+NULL
+NULL
