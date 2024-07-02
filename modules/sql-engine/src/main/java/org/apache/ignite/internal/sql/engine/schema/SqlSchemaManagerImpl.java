@@ -50,6 +50,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.schema.DefaultValueGenerator;
+import org.apache.ignite.internal.sql.engine.exec.ConcurrentSchemaModificationException;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
@@ -407,7 +408,9 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
     }
 
     @Override
-    public boolean isActualSchemaVersion(int catalogVersion, long timestamp) {
-        return catalogManager.activeCatalogVersion(timestamp) == catalogVersion;
+    public void ensureActualSchemaVersion(int catalogVersion, long timestamp) throws ConcurrentSchemaModificationException {
+        if (catalogManager.activeCatalogVersion(timestamp) > catalogVersion) {
+            throw new ConcurrentSchemaModificationException();
+        }
     }
 }

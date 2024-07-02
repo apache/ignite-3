@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.Frameworks;
+import org.apache.ignite.internal.sql.engine.exec.ConcurrentSchemaModificationException;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
@@ -97,7 +98,7 @@ public class PredefinedSchemaManager implements SqlSchemaManager {
     }
 
     @Override
-    public boolean isActualSchemaVersion(int catalogVersion, long timestamp) {
-        return true;
+    public void ensureActualSchemaVersion(int catalogVersion, long timestamp) throws ConcurrentSchemaModificationException {
+        // No-op.
     }
 }

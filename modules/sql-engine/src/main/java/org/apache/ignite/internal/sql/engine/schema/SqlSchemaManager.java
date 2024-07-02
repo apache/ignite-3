@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.schema;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.calcite.schema.SchemaPlus;
+import org.apache.ignite.internal.sql.engine.exec.ConcurrentSchemaModificationException;
 
 /**
  * Sql schemas operations interface.
@@ -50,5 +51,12 @@ public interface SqlSchemaManager {
      */
     CompletableFuture<Void> schemaReadyFuture(int catalogVersion);
 
-    boolean isActualSchemaVersion(int catalogVersion, long timestamp);
+    /**
+     * Validates catalog version is an actual version at the given timestamp.
+     *
+     * @param catalogVersion Catalog version.
+     * @param timestamp Timestamp.
+     * @throws ConcurrentSchemaModificationException If the given catalog version is outdated.
+     */
+    void ensureActualSchemaVersion(int catalogVersion, long timestamp) throws ConcurrentSchemaModificationException;
 }

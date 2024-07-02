@@ -320,9 +320,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         QueryTransactionWrapper txWrapper = txContext.getOrStartImplicit(plan.type() != SqlQueryType.DML);
 
-        if (!sqlSchemaManager.isActualSchemaVersion(plan.catalogVersion(), txWrapper.unwrap().startTimestamp().longValue())) {
-            throw new ConcurrentSchemaModificationException();
-        }
+        sqlSchemaManager.ensureActualSchemaVersion(plan.catalogVersion(), txWrapper.unwrap().startTimestamp().longValue());
 
         AsyncCursor<InternalSqlRow> dataCursor = queryManager.execute(txWrapper.unwrap(), plan);
 
