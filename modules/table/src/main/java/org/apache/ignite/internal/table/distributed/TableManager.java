@@ -1897,6 +1897,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         }
 
         return localServicesStartFuture.thenRunAsync(() -> {
+            Entry oldEntry  = metaStorageMgr.getLocally(stablePartAssignmentsKey(replicaGrpId), revision - 1);
+            Assignments oldStableAssignments = oldEntry != null
+                    ? Assignments.fromBytes(oldEntry.value())
+                    : null;
             Entry reduceEntry  = metaStorageMgr.getLocally(RebalanceUtil.switchReduceKey(replicaGrpId), revision);
             Assignments reduceAssignments = reduceEntry != null
                     ? Assignments.fromBytes(reduceEntry.value())
@@ -1905,14 +1909,15 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     ? subtract(stableAssignments.nodes(), reduceAssignments.nodes())
                     : stableAssignments.nodes();
             if (!isLocalNodeInAssignments(union(reducedStableAssignments, pendingAssignmentsNodes))) {
-                // if (!replicaMgr.isReplicaStarted(replicaGrpId)) {
                 return;
             }
 
             assert replicaMgr.isReplicaStarted(replicaGrpId) : "The local node is outside of the replication group ["
-                    + "stable=" + stableAssignments
-                    + ", pending=" + pendingAssignments
-                    + ", localName=" + localNode().name() + "]";
+                    + "\n\toldStable=" + oldStableAssignments
+                    + ",\n\tstable=" + stableAssignments
+                    + ",\n\tpending=" + pendingAssignments
+                    + ",\n\treduce=" + reduceAssignments
+                    + ",\n\tlocalName=" + localNode().name() + "\n].";
 
             // For forced assignments, we exclude dead stable nodes, and all alive stable nodes are already in pending assignments.
             // Union is not required in such a case.
