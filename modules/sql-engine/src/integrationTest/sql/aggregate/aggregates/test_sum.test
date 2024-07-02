@@ -79,3 +79,12 @@ DECIMAL(32767, 0)
 # this is too big for a bigint
 statement error
 SELECT SUM(b)::BIGINT FROM bigints
+
+statement error: Cannot apply 'SUM' to arguments of type 'SUM(<DATE>)'. Supported form(s): 'SUM(<NUMERIC>)'
+SELECT SUM('2011-01-01'::DATE)
+
+statement error: Cannot apply 'SUM' to arguments of type 'SUM(<UUID>)'. Supported form(s): 'SUM(<NUMERIC>)'
+SELECT SUM('c4a0327c-44be-416d-ae90-75c05079789f'::UUID)
+
+statement error: Cannot apply 'SUM' to arguments of type 'SUM(<UUID>)'. Supported form(s): 'SUM(<NUMERIC>)'
+SELECT SUM(c) FROM (VALUES ('c4a0327c-44be-416d-ae90-75c05079789f'::UUID)) t(c)
