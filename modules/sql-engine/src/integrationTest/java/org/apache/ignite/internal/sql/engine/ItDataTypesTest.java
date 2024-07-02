@@ -27,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -75,62 +76,89 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
         }
     }
 
-    @Test
     @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
-    public void test0() {
-        sql("create table tiny(v TINYINT);");
-        sql("insert into tiny values(127);");
+    @ParameterizedTest()
+    @MethodSource("exactDecimalTypes")
+    public void test0(SqlTypeName typeName, Class<?> clazz, Number upper, String strUpper, String lessUpper1) {
+        sql(format("create table tbl(v {});", typeName));
+        sql(format("insert into tbl values({});", upper));
+
+        Number checkReturn = (Number) clazz.cast(upper);
+
+        BigDecimal moreThanUpperBoundApprox = new BigDecimal(strUpper).add(new BigDecimal(1.1));
+        BigDecimal moreThanUpperBoundExact = new BigDecimal(strUpper).add(new BigDecimal(1));
+        BigDecimal lessUpper = new BigDecimal(strUpper).add(new BigDecimal(-1));
 
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
                 "Invalid character value for cast",
-                () -> sql("SELECT * FROM tiny WHERE v < '300.1'"));
+                () -> sql(format("SELECT * FROM tbl WHERE v < '{}'", moreThanUpperBoundApprox)));
 
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
                 "Invalid character value for cast",
-                () -> sql("SELECT * FROM tiny WHERE v > '300.1'"));
+                () -> sql(format("SELECT * FROM tbl WHERE v > '{}'", moreThanUpperBoundApprox)));
 
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
                 "Invalid character value for cast",
-                () -> sql("SELECT * FROM tiny WHERE v <> '300.1'"));
+                () -> sql(format("SELECT * FROM tbl WHERE v <> '{}'", moreThanUpperBoundApprox)));
 
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
                 "Invalid character value for cast",
-                () -> sql("SELECT * FROM tiny WHERE v != '300.1'"));
+                () -> sql(format("SELECT * FROM tbl WHERE v != '{}'", moreThanUpperBoundApprox)));
 
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
                 "Invalid character value for cast",
-                () -> sql("SELECT * FROM tiny WHERE v NOT IN ('200.1', '300.1')"));
+                () -> sql(format("SELECT * FROM tbl WHERE v NOT IN ('200.1', '{}')", moreThanUpperBoundApprox)));
 
-/*        assertThrowsSqlException(
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-22640 Improve type derivation for dynamic parameters
+        /*assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
                 "Invalid character value for cast",
                 () -> sql("SELECT * FROM tiny WHERE v NOT IN (?)", "'200.1'"));*/
 
-        assertQuery("SELECT * FROM tiny WHERE v IN ('126' + '1', '300')").returns((byte) 127).check();
-        assertQuery("SELECT * FROM tiny WHERE v IN ('126' + 1, '300')").returns((byte) 127).check();
+        assertQuery(format("SELECT * FROM tbl WHERE v IN ('{}' + '1', '300')", lessUpper)).returns(checkReturn).check();
+        assertQuery(format("SELECT * FROM tbl WHERE v IN ('{}' + 1, '300')", lessUpper)).returns(checkReturn).check();
+
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-22640 Improve type derivation for dynamic parameters
         //assertQuery("SELECT * FROM tiny WHERE v IN (? + 1, '300')").withParam("126").returns((byte) 127).check();
-        assertQuery("SELECT * FROM tiny WHERE v IN (? + 1, '300')").withParam(126).returns((byte) 127).check();
 
-        assertQuery("SELECT * FROM tiny WHERE v NOT IN ('125' + '1', '300')").returns((byte) 127).check();
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-22640 Improve type derivation for dynamic parameters
+        //assertQuery("SELECT * FROM tiny WHERE v IN (?)").withParam("127").returns((byte) 127).check();
+
+        assertQuery("SELECT * FROM tbl WHERE v IN (? + 1, '300')").withParam(lessUpper).returns(checkReturn).check();
+
+        assertQuery(format("SELECT * FROM tbl WHERE v NOT IN ('{}' - '1', '300')", strUpper)).returns(checkReturn).check();
+
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-22640 Improve type derivation for dynamic parameters
         //assertQuery("SELECT * FROM tiny WHERE v NOT IN (? + '1', '300')").withParam("125").returns((byte) 127).check();
-        assertQuery("SELECT * FROM tiny WHERE v NOT IN (? + '1', '300')").withParam(125).returns((byte) 127).check();
+        assertQuery("SELECT * FROM tbl WHERE v NOT IN (? - '1', '300')").withParam(checkReturn).returns(checkReturn).check();
 
-        assertQuery("SELECT * FROM tiny WHERE v != 300.1").returns((byte) 127).check();
-        assertQuery("SELECT * FROM tiny WHERE 300.1 != v").returns((byte) 127).check();
+        assertQuery(format("SELECT * FROM tbl WHERE v != {}", moreThanUpperBoundApprox)).returns(checkReturn).check();
+        assertQuery(format("SELECT * FROM tbl WHERE {} != v", moreThanUpperBoundApprox)).returns(checkReturn).check();
 
-        assertQuery("SELECT * FROM tiny WHERE v < 300.1").returns((byte) 127).check();
-        assertQuery("SELECT * FROM tiny WHERE 300.1 > v").returns((byte) 127).check();
+        assertQuery(format("SELECT * FROM tbl WHERE v < {}", moreThanUpperBoundApprox)).returns(checkReturn).check();
+        assertQuery(format("SELECT * FROM tbl WHERE {} > v", moreThanUpperBoundApprox)).returns(checkReturn).check();
 
-        assertQuery("SELECT * FROM tiny WHERE v > 100.1").returns((byte) 127).check();
-        assertQuery("SELECT * FROM tiny WHERE 100.1 < v").returns((byte) 127).check();
+        assertQuery(format("SELECT * FROM tbl WHERE v < {}", moreThanUpperBoundExact)).returns(checkReturn).check();
 
-        assertQuery("SELECT * FROM tiny WHERE v > OCTET_LENGTH('TEST')").returns((byte) 127).check();
-        assertQuery("SELECT * FROM tiny WHERE v < OCTET_LENGTH('TEST') + 300").returns((byte) 127).check();
+        assertQuery("SELECT * FROM tbl WHERE v > OCTET_LENGTH('TEST')").returns(checkReturn).check();
+        assertQuery(format("SELECT * FROM tbl WHERE v < OCTET_LENGTH('TEST') + {}", strUpper)).returns(checkReturn).check();
+    }
+
+    private static Stream<Arguments> exactDecimalTypes() {
+        return Stream.of(
+                //arguments(SqlTypeName.BIGINT, BigInteger.class),
+                arguments(SqlTypeName.INTEGER, Integer.class, Integer.MAX_VALUE, Integer.toString(Integer.MAX_VALUE),
+                        Integer.toString(Integer.MAX_VALUE - 1)),
+                arguments(SqlTypeName.SMALLINT, Short.class, Short.MAX_VALUE, Short.toString(Short.MAX_VALUE),
+                        Short.toString((short) (Short.MAX_VALUE - 1))),
+                arguments(SqlTypeName.TINYINT, Byte.class, Byte.MAX_VALUE, Byte.toString(Byte.MAX_VALUE),
+                        Byte.toString((byte) (Byte.MAX_VALUE - 1)))
+        );
     }
 
     /** Tests correctness with unicode. */
