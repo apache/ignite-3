@@ -36,7 +36,6 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
-import org.apache.ignite.table.mapper.Mapper;
 import org.junit.jupiter.api.Test;
 
 /**
