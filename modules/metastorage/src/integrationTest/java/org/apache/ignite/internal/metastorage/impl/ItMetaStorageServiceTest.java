@@ -107,6 +107,7 @@ import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.RaftNodeId;
+import org.apache.ignite.internal.raft.RaftOptionsConfigurator;
 import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -250,7 +251,11 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
 
             try {
                 return raftManager.startRaftGroupNodeAndWaitNodeReadyFuture(
-                        raftNodeId, configuration, listener, RaftGroupEventsListener.noopLsnr
+                        raftNodeId,
+                        configuration,
+                        listener,
+                        RaftGroupEventsListener.noopLsnr,
+                        RaftOptionsConfigurator.EMPTY
                 );
             } catch (NodeStoppingException e) {
                 throw new IllegalStateException(e);

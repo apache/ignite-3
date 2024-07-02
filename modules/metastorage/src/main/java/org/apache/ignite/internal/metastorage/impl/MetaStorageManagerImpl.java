@@ -68,6 +68,7 @@ import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.RaftNodeDisruptorConfiguration;
 import org.apache.ignite.internal.raft.RaftNodeId;
+import org.apache.ignite.internal.raft.RaftOptionsConfigurator;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -147,6 +148,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     // TODO: https://issues.apache.org/jira/browse/IGNITE-19417 Remove, cache eviction should be triggered by MS GC instead.
     private final ScheduledExecutorService idempotentCacheVacumizer;
 
+    private final RaftOptionsConfigurator raftOptionsConfigurator;
+
     /**
      * The constructor.
      *
@@ -158,6 +161,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
      * @param clock A hybrid logical clock.
      * @param metricManager Metric manager.
      * @param maxClockSkewMillisFuture Future with maximum clock skew in milliseconds.
+     * @param raftOptionsConfigurator Configures MS RAFT options.
      */
     public MetaStorageManagerImpl(
             ClusterService clusterService,
@@ -169,7 +173,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
             TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory,
             MetricManager metricManager,
             ConfigurationValue<Long> idempotentCacheTtl,
-            CompletableFuture<LongSupplier> maxClockSkewMillisFuture
+            CompletableFuture<LongSupplier> maxClockSkewMillisFuture,
+            RaftOptionsConfigurator raftOptionsConfigurator
     ) {
         this.clusterService = clusterService;
         this.raftMgr = raftMgr;
@@ -184,6 +189,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         this.maxClockSkewMillisFuture = maxClockSkewMillisFuture;
         this.idempotentCacheVacumizer = Executors.newSingleThreadScheduledExecutor(
                 NamedThreadFactory.create(clusterService.nodeName(), "idempotent-cache-vacumizer", LOG));
+        this.raftOptionsConfigurator = raftOptionsConfigurator;
     }
 
     /**
@@ -213,7 +219,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
                 topologyAwareRaftGroupServiceFactory,
                 metricManager,
                 idempotentCacheTtl,
-                maxClockSkewMillisFuture
+                maxClockSkewMillisFuture,
+                RaftOptionsConfigurator.EMPTY
         );
 
         configure(configuration);
@@ -343,7 +350,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
                 followerListener,
                 RaftGroupEventsListener.noopLsnr,
                 disruptorConfig,
-                topologyAwareRaftGroupServiceFactory
+                topologyAwareRaftGroupServiceFactory,
+                raftOptionsConfigurator
         );
 
         raftServiceFuture
@@ -390,7 +398,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
                 configuration,
                 learnerListener,
                 RaftGroupEventsListener.noopLsnr,
-                disruptorConfig
+                disruptorConfig,
+                raftOptionsConfigurator
         );
     }
 

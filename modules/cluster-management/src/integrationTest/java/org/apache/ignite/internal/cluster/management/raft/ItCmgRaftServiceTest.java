@@ -66,6 +66,7 @@ import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.RaftNodeId;
+import org.apache.ignite.internal.raft.RaftOptionsConfigurator;
 import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -138,7 +139,8 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
                                     new LogicalTopologyImpl(raftStorage),
                                     term -> {}
                             ),
-                            RaftGroupEventsListener.noopLsnr
+                            RaftGroupEventsListener.noopLsnr,
+                            RaftOptionsConfigurator.EMPTY
                     );
                 }
 

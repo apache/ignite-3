@@ -157,6 +157,7 @@ import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.RaftNodeId;
+import org.apache.ignite.internal.raft.RaftOptionsConfigurator;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
@@ -1088,7 +1089,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     logicalTopology,
                     clusterManagementConfiguration,
                     new NodeAttributesCollector(nodeAttributes, storageConfiguration),
-                    failureProcessor
+                    failureProcessor,
+                    RaftOptionsConfigurator.EMPTY
             );
 
             LogicalTopologyServiceImpl logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);

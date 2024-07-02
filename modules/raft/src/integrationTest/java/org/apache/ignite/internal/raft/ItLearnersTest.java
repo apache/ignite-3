@@ -409,7 +409,8 @@ public class ItLearnersTest extends IgniteAbstractTest {
                     new RaftNodeId(RAFT_GROUP_ID, serverPeer),
                     memberConfiguration,
                     listener,
-                    RaftGroupEventsListener.noopLsnr
+                    RaftGroupEventsListener.noopLsnr,
+                    RaftOptionsConfigurator.EMPTY
             );
         } catch (NodeStoppingException e) {
             throw new RuntimeException(e);

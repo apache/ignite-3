@@ -158,8 +158,10 @@ import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.PlacementDriverManager;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Marshaller;
+import org.apache.ignite.internal.raft.RaftOptionsConfigurator;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageFactoryCreator;
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
@@ -252,16 +254,6 @@ public class IgniteImpl implements Ignite {
      * Path to the persistent storage used by the {@link VaultService} component.
      */
     private static final Path VAULT_DB_PATH = Paths.get("vault");
-
-    /**
-     * Path to the persistent storage used by the {@link MetaStorageManager} component.
-     */
-    private static final Path METASTORAGE_DB_PATH = Paths.get("metastorage");
-
-    /**
-     * Path to the persistent storage used by the {@link ClusterManagementGroupManager} component.
-     */
-    private static final Path CMG_DB_PATH = Paths.get("cmg");
 
     /**
      * Path for the partitions persistent storage.
@@ -409,6 +401,10 @@ public class IgniteImpl implements Ignite {
     /** Default log storage factory for raft. */
     private final LogStorageFactory logStorageFactory;
 
+    private final LogStorageFactory mslogStorageFactory;
+
+    private final LogStorageFactory cmgLogStorageFactory;
+
     private IndexMetaStorage indexMetaStorage;
 
     /**
@@ -523,7 +519,20 @@ public class IgniteImpl implements Ignite {
         );
 
         // TODO: IGNITE-16841 - use common RocksDB instance to store cluster state as well.
-        clusterStateStorage = new RocksDbClusterStateStorage(workDir.resolve(CMG_DB_PATH), name);
+        Supplier<Path> cmgWorkDir = IgnitePaths.cmgWorkDir(raftConfiguration, workDir);
+
+        cmgLogStorageFactory =
+                SharedLogStorageFactoryUtils.create(clusterSvc.nodeName(),
+                        IgnitePaths.cmgRaftLogDir(raftConfiguration, cmgWorkDir));
+
+        RaftOptionsConfigurator cmgRaftConfigurator = options -> {
+            RaftGroupOptions raftOptions = (RaftGroupOptions) options;
+
+            raftOptions.setLogStorageFactory(cmgLogStorageFactory);
+            raftOptions.serverDataPath(IgnitePaths.cmgDataDir(raftConfiguration, cmgWorkDir));
+        };
+
+        clusterStateStorage = new RocksDbClusterStateStorage(IgnitePaths.cmgDbDir(raftConfiguration, cmgWorkDir), name);
 
         var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
@@ -564,7 +573,8 @@ public class IgniteImpl implements Ignite {
                 logicalTopology,
                 nodeConfigRegistry.getConfiguration(ClusterManagementConfiguration.KEY),
                 nodeAttributesCollector,
-                failureProcessor
+                failureProcessor,
+                cmgRaftConfigurator
         );
 
         logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgMgr);
@@ -578,17 +588,35 @@ public class IgniteImpl implements Ignite {
 
         CompletableFuture<LongSupplier> maxClockSkewMillisFuture = new CompletableFuture<>();
 
+        // Configure metastorage paths.
+        Supplier<Path> metastorageWorkDir = IgnitePaths.metastorageWorkDir(raftConfiguration, workDir);
+
+        mslogStorageFactory =
+                SharedLogStorageFactoryUtils.create(clusterSvc.nodeName(),
+                        IgnitePaths.metastorageRaftLogDir(raftConfiguration, metastorageWorkDir));
+
+        RaftOptionsConfigurator msRaftConfigurator = options -> {
+            RaftGroupOptions raftOptions = (RaftGroupOptions) options;
+
+            raftOptions.setLogStorageFactory(mslogStorageFactory);
+            raftOptions.serverDataPath(IgnitePaths.metastorageDataDir(raftConfiguration, metastorageWorkDir));
+        };
+
+        RocksDbKeyValueStorage metastorageDb =
+                new RocksDbKeyValueStorage(name, IgnitePaths.metastorageDbDir(raftConfiguration, metastorageWorkDir), failureProcessor);
+
         metaStorageMgr = new MetaStorageManagerImpl(
                 clusterSvc,
                 cmgMgr,
                 logicalTopologyService,
                 raftMgr,
-                new RocksDbKeyValueStorage(name, workDir.resolve(METASTORAGE_DB_PATH), failureProcessor),
+                metastorageDb,
                 clock,
                 topologyAwareRaftGroupServiceFactory,
                 metricManager,
                 raftConfiguration.retryTimeout(),
-                maxClockSkewMillisFuture
+                maxClockSkewMillisFuture,
+                msRaftConfigurator
         );
 
         this.cfgStorage = new DistributedConfigurationStorage(name, metaStorageMgr);
@@ -1069,6 +1097,8 @@ public class IgniteImpl implements Ignite {
                     clusterSvc,
                     restComponent,
                     logStorageFactory,
+                    mslogStorageFactory,
+                    cmgLogStorageFactory,
                     raftMgr,
                     clusterStateStorage,
                     cmgMgr,

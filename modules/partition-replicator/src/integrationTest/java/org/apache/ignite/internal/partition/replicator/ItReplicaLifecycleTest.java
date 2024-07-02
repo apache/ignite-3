@@ -115,6 +115,7 @@ import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMe
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.partition.replicator.utils.TestPlacementDriver;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.RaftOptionsConfigurator;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
@@ -620,7 +621,8 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     logicalTopology,
                     clusterManagementConfiguration,
                     new NodeAttributesCollector(nodeAttributes, storageConfiguration),
-                    failureProcessor
+                    failureProcessor,
+                    RaftOptionsConfigurator.EMPTY
             );
 
             LogicalTopologyServiceImpl logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);

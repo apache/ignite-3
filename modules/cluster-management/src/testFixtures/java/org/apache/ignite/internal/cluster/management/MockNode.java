@@ -46,6 +46,7 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
+import org.apache.ignite.internal.raft.RaftOptionsConfigurator;
 import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
@@ -101,7 +102,7 @@ public class MockNode {
 
         var raftManager = TestLozaFactory.create(clusterService, raftConfiguration, this.workDir, new HybridClockImpl());
 
-        var clusterStateStorage = new RocksDbClusterStateStorage(this.workDir.resolve("cmg"), clusterService.nodeName());
+        var clusterStateStorage = new RocksDbClusterStateStorage(() -> this.workDir.resolve("cmg"), clusterService.nodeName());
 
         FailureProcessor failureProcessor = new NoOpFailureProcessor();
 
@@ -114,7 +115,8 @@ public class MockNode {
                 new LogicalTopologyImpl(clusterStateStorage),
                 cmgConfiguration,
                 new NodeAttributesCollector(nodeAttributes, storageProfilesConfiguration),
-                failureProcessor
+                failureProcessor,
+                RaftOptionsConfigurator.EMPTY
         );
 
         components = List.of(

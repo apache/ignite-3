@@ -15,14 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cluster.management.raft;
+package org.apache.ignite.internal.raft;
 
 /**
- * Tests for {@link RaftStorageManager} based on {@link RocksDbClusterStateStorage}.
+ * This interface allows to inject RAFT options configuration.
+ *
+ * <p>This is the example of using it:
+ * <pre>
+ *    RaftOptionsConfigurator raftOptionsConfigurator = options -> {
+ *        RaftGroupOptions raftOptions = (RaftGroupOptions) options;
+ *
+ *        raftOptions.setLogStorageFactory(logStorageFactory);
+ *        raftOptions.serverDataPath(dataPath);
+ *    };
+ * </pre>
  */
-public class RocksDbClusterStateStorageManagerTest extends AbstractClusterStateStorageManagerTest {
-    @Override
-    ClusterStateStorage clusterStateStorage(String nodeName) {
-        return new RocksDbClusterStateStorage(() -> workDir, nodeName);
-    }
+@FunctionalInterface
+public interface RaftOptionsConfigurator {
+
+    RaftOptionsConfigurator EMPTY = configuration -> {};
+
+    void configure(Object options);
 }
