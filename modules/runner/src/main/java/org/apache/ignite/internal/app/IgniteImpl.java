@@ -529,7 +529,7 @@ public class IgniteImpl implements Ignite {
             RaftGroupOptions raftOptions = (RaftGroupOptions) options;
 
             raftOptions.setLogStorageFactory(cmgLogStorageFactory);
-            raftOptions.serverDataPath(cmgWorkDir.get());
+            raftOptions.serverDataPath(IgnitePaths.cmgDataDir(raftConfiguration, cmgWorkDir));
         };
 
         clusterStateStorage = new RocksDbClusterStateStorage(IgnitePaths.cmgDbDir(raftConfiguration, cmgWorkDir), name);
@@ -599,7 +599,7 @@ public class IgniteImpl implements Ignite {
             RaftGroupOptions raftOptions = (RaftGroupOptions) options;
 
             raftOptions.setLogStorageFactory(mslogStorageFactory);
-            raftOptions.serverDataPath(metastorageWorkDir.get());
+            raftOptions.serverDataPath(IgnitePaths.metastorageDataDir(raftConfiguration, metastorageWorkDir));
         };
 
         RocksDbKeyValueStorage metastorageDb =

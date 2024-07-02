@@ -53,6 +53,10 @@ public class IgnitePaths {
         return pathOrDefaultSupplier(raftConfiguration.cmgDbPath(), () -> defaultPath.get().resolve("db"));
     }
 
+    public static Path cmgDataDir(RaftConfiguration raftConfiguration, Supplier<Path> defaultPath) {
+        return defaultPath.get().resolve("data");
+    }
+
     public static Supplier<Path> metastorageWorkDir(RaftConfiguration raftConfiguration, Path workDir) {
         return pathOrDefaultSupplier(raftConfiguration.metastoragePath(), () -> workDir.resolve(METASTORAGE_DB_PATH));
     }
@@ -63,5 +67,9 @@ public class IgnitePaths {
 
     public static Supplier<Path> metastorageDbDir(RaftConfiguration raftConfiguration, Supplier<Path> defaultPath) {
         return pathOrDefaultSupplier(raftConfiguration.metastorageDbPath(), () -> defaultPath.get().resolve("db"));
+    }
+
+    public static Path metastorageDataDir(RaftConfiguration raftConfiguration, Supplier<Path> defaultPath) {
+        return defaultPath.get().resolve("data");
     }
 }
