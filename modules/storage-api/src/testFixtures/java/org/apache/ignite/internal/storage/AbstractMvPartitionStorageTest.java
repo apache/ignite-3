@@ -1464,7 +1464,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
 
         assertThat(storage.estimatedSize(), is(1L));
 
-        // Remove an non-existing row.
+        // Remove a non-existing row.
         addWriteCommitted(rowId2, null, clock.now());
 
         assertThat(storage.estimatedSize(), is(1L));
