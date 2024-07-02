@@ -1690,7 +1690,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22521")
     public void testSequentialAsyncTableCreationThenAlterZoneThenRestartOnMsSnapshot() throws InterruptedException {
         IgniteImpl node0 = startNode(0);
         IgniteImpl node1 = startNode(1);
