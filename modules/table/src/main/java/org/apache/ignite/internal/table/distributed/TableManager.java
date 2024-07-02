@@ -1897,11 +1897,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         }
 
         return localServicesStartFuture.thenRunAsync(() -> {
-            Entry oldStableEntry  = metaStorageMgr.getLocally(stablePartAssignmentsKey(replicaGrpId), revision - 1);
-            Assignments oldStableAssignments = oldStableEntry != null
-                    ? Assignments.fromBytes(oldStableEntry.value())
-                    : null;
-
             Entry reduceEntry  = metaStorageMgr.getLocally(RebalanceUtil.switchReduceKey(replicaGrpId), revision);
             Assignments reduceAssignments = reduceEntry != null
                     ? Assignments.fromBytes(reduceEntry.value())
