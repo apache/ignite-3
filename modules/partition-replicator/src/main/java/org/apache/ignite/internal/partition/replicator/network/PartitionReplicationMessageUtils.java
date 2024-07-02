@@ -18,11 +18,13 @@
 package org.apache.ignite.internal.partition.replicator.network;
 
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
+import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
 
 import java.util.ArrayList;
-import org.apache.ignite.internal.partition.replicator.network.command.TablePartitionIdMessage;
 import org.apache.ignite.internal.partition.replicator.network.raft.TxMetaMessage;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
+import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
 import org.apache.ignite.internal.tx.TxMeta;
 
 /** Class that can contain useful constants and methods for working with messages from {@link PartitionReplicationMessageGroup}. */
@@ -30,38 +32,23 @@ public class PartitionReplicationMessageUtils {
     /**
      * Converts to a network message.
      *
-     * @param messagesFactory Messages factory.
-     * @param tablePartitionId Pair of table ID and partition ID.
-     * @return New instance of network message.
-     */
-    public static TablePartitionIdMessage toTablePartitionIdMessage(
-            PartitionReplicationMessagesFactory messagesFactory,
-            TablePartitionId tablePartitionId
-    ) {
-        return messagesFactory.tablePartitionIdMessage()
-                .tableId(tablePartitionId.tableId())
-                .partitionId(tablePartitionId.partitionId())
-                .build();
-    }
-
-    /**
-     * Converts to a network message.
-     *
-     * @param messagesFactory Messages factory.
+     * @param partitionReplicationMessagesFactory Partition replication messages factory.
+     * @param replicaMessagesFactory Replica messages factory.
      * @param txMeta Transaction meta.
      * @return New instance of network message.
      */
     public static TxMetaMessage toTxMetaMessage(
-            PartitionReplicationMessagesFactory messagesFactory,
+            PartitionReplicationMessagesFactory partitionReplicationMessagesFactory,
+            ReplicaMessagesFactory replicaMessagesFactory,
             TxMeta txMeta
     ) {
         var enlistedPartitionMessages = new ArrayList<TablePartitionIdMessage>(txMeta.enlistedPartitions().size());
 
         for (TablePartitionId enlistedPartition : txMeta.enlistedPartitions()) {
-            enlistedPartitionMessages.add(toTablePartitionIdMessage(messagesFactory, enlistedPartition));
+            enlistedPartitionMessages.add(toTablePartitionIdMessage(replicaMessagesFactory, enlistedPartition));
         }
 
-        return messagesFactory.txMetaMessage()
+        return partitionReplicationMessagesFactory.txMetaMessage()
                 .txStateInt(txMeta.txState().ordinal())
                 .commitTimestampLong(hybridTimestampToLong(txMeta.commitTimestamp()))
                 .enlistedPartitions(enlistedPartitionMessages)

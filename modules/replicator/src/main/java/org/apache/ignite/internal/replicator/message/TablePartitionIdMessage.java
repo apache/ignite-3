@@ -17,12 +17,27 @@
 
 package org.apache.ignite.internal.replicator.message;
 
-import org.apache.ignite.internal.network.NetworkMessage;
+import java.io.Serializable;
+import org.apache.ignite.internal.network.annotations.Transferable;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 
-/**
- * Replica request.
- */
-public interface ReplicaRequest extends NetworkMessage {
-    /** Gets a replication group id. */
-    ReplicationGroupIdMessage groupId();
+/** Message for transferring a {@link TablePartitionId}. */
+@Transferable(ReplicaMessageGroup.TABLE_PARTITION_ID_MESSAGE)
+public interface TablePartitionIdMessage extends ReplicationGroupIdMessage, Serializable {
+    /** Table ID. */
+    int tableId();
+
+    /** Partition ID. */
+    int partitionId();
+
+    /** Converts to {@link TablePartitionId}. */
+    default TablePartitionId asTablePartitionId() {
+        return new TablePartitionId(tableId(), partitionId());
+    }
+
+    @Override
+    default ReplicationGroupId asReplicationGroupId() {
+        return asTablePartitionId();
+    }
 }

@@ -184,7 +184,7 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
                     @Override
                     public void result(Serializable res) {
                         if (res instanceof Throwable) {
-                            sendSMError(rpcCtx, (Throwable)res, true);
+                            sendSMError(rpcCtx, (Throwable)res, false);
 
                             return;
                         }
@@ -222,7 +222,7 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
 
                                 @Override public void result(Serializable res) {
                                     if (res instanceof Throwable) {
-                                        sendSMError(rpcCtx, (Throwable)res, true);
+                                        sendSMError(rpcCtx, (Throwable)res, false);
 
                                         return;
                                     }
@@ -252,7 +252,7 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
 
                     @Override public void result(Serializable res) {
                         if (res instanceof Throwable) {
-                            sendSMError(rpcCtx, (Throwable)res, true);
+                            sendSMError(rpcCtx, (Throwable)res, false);
 
                             return;
                         }
@@ -307,7 +307,7 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
 
         ctx.sendResponse(resp);
 
-        LOG.info("Error occurred on a user's state machine", th);
+        LOG.warn("Error occurred on a user's state machine", th);
     }
 
     /**
