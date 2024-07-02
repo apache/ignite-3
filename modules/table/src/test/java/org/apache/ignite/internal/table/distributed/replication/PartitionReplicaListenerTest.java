@@ -3093,8 +3093,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     private static @Nullable TxStateResponse toTxStateResponse(@Nullable TransactionMeta transactionMeta) {
-        TransactionMetaMessage transactionMetaMessage = transactionMeta == null ?
-                null : transactionMeta.toTransactionMetaMessage(REPLICA_MESSAGES_FACTORY, TX_MESSAGES_FACTORY);
+        TransactionMetaMessage transactionMetaMessage =
+                transactionMeta == null ? null : transactionMeta.toTransactionMetaMessage(REPLICA_MESSAGES_FACTORY, TX_MESSAGES_FACTORY);
 
         return TX_MESSAGES_FACTORY.txStateResponse()
                 .txStateMeta(transactionMetaMessage)
