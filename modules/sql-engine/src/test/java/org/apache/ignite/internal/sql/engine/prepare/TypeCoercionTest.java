@@ -378,7 +378,7 @@ public class TypeCoercionTest extends AbstractPlannerTest {
 
                 SqlCall sqlBasicCall = (SqlCall) sqlSelect.getSelectList().get(0);
                 boolean coerced = !originalExpr.equals(sqlBasicCall.toString());
-                checkBinaryOpTypeCoercionResult(sqlBasicCall, rule.lhs, rule.rhs, rule.operator, coerced, rule.type, rule.intType);
+                checkBinaryOpTypeCoercionResult(sqlBasicCall, rule.lhs, rule.rhs, rule.operator, coerced, rule.type, rule.charTypePresent);
             });
         }
 
@@ -513,8 +513,9 @@ public class TypeCoercionTest extends AbstractPlannerTest {
 
     /** Type coercion between the given types behaves according the specified {@link TypeCoercionRuleType rule type}. **/
     private static TypeCoercionRule typeCoercionRule(RelDataType lhs, RelDataType rhs, TypeCoercionRuleType typeCoercion) {
-        return new TypeCoercionRule(lhs, rhs, SqlStdOperatorTable.EQUALS, typeCoercion, SqlTypeUtil.isIntType(lhs)
-                || SqlTypeUtil.isIntType(rhs));
+        return new TypeCoercionRule(lhs, rhs, SqlStdOperatorTable.EQUALS, typeCoercion,
+                (SqlTypeUtil.isCharacter(lhs) && SqlTypeUtil.isIntType(rhs))
+                        || (SqlTypeUtil.isCharacter(rhs) && SqlTypeUtil.isIntType(lhs)));
     }
 
     /** Type coercion between the given types is not supported and we must throw an exception. **/
@@ -531,14 +532,15 @@ public class TypeCoercionTest extends AbstractPlannerTest {
 
         final TypeCoercionRuleType type;
 
-        final boolean intType;
+        final boolean charTypePresent;
 
-        TypeCoercionRule(RelDataType type1, RelDataType type2, SqlOperator operator, @Nullable TypeCoercionRuleType type, boolean intType) {
+        TypeCoercionRule(RelDataType type1, RelDataType type2, SqlOperator operator, @Nullable TypeCoercionRuleType type,
+                boolean charTypePresent) {
             this.lhs = type1;
             this.rhs = type2;
             this.operator = operator;
             this.type = type;
-            this.intType = intType;
+            this.charTypePresent = charTypePresent;
         }
 
         @Override
