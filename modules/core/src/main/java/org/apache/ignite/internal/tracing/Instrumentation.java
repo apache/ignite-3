@@ -29,6 +29,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 import jdk.jfr.Event;
@@ -44,11 +45,18 @@ public class Instrumentation {
 
     private static volatile boolean jfr = false;
 
-    private static final Path file = Path.of("/opt/pubagent/poc/log/stats/dstat/trace.txt");
+    private static final Path file = Path.of("/temp/trace.txt");
 
     private static volatile ConcurrentLinkedQueue<Measurement> measurements = new ConcurrentLinkedQueue<>();
 
     private static volatile long startTime = System.nanoTime();
+
+    private static volatile boolean isStarted = false;
+
+    private static final AtomicInteger opCnt = new AtomicInteger();
+
+    private static final int rate = 1000;
+
 
     /**
      * Starts instrumentation.
@@ -56,6 +64,10 @@ public class Instrumentation {
      * @param jfr True to write in jfr, false in file.
      */
     public static void start(boolean jfr) {
+        if (isStarted) {
+            return;
+        }
+
         Instrumentation.jfr = jfr;
         if (firstRun && !jfr) {
             try {
@@ -66,13 +78,22 @@ public class Instrumentation {
             firstRun = false;
         }
 
-        startTime = System.nanoTime();
+        if (opCnt.incrementAndGet() % rate == 0) {
+            startTime = System.nanoTime();
+            isStarted = true;
+        }
     }
 
     /**
      * Ends instrumentation.
      */
     public static void end() {
+        if (!isStarted) {
+            return;
+        }
+
+        isStarted = false;
+
         if (jfr) {
             endJfr();
         } else {
@@ -121,10 +142,18 @@ public class Instrumentation {
     }
 
     public static void add(Measurement measurement) {
+        if (!isStarted) {
+            return;
+        }
+
         measurements.add(measurement);
     }
 
     public static void mark(String message) {
+        if (!isStarted) {
+            return;
+        }
+
         var measure = new Measurement(message);
         measure.start();
         measure.stop();
@@ -133,14 +162,22 @@ public class Instrumentation {
 
 
     public static <T> T measure(Action<T> block, String message) {
+        if (!isStarted) {
+            try {
+                return block.action();
+            } catch (Exception e) {
+                sneakyThrow(e);
+            }
+        }
+
         var measure = new Measurement(message);
         measure.start();
         T results = null;
         try {
             results = block.action();
-            measure.stop();
         } catch (Exception e) {
             sneakyThrow(e);
+        } finally {
             measure.stop();
         }
 
@@ -150,13 +187,21 @@ public class Instrumentation {
     }
 
     public static void measure(VoidAction block, String message) {
+        if (!isStarted) {
+            try {
+                block.action();
+            } catch (Exception e) {
+                sneakyThrow(e);
+            }
+        }
+
         var measure = new Measurement(message);
         measure.start();
         try {
             block.action();
-            measure.stop();
         } catch (Exception e) {
             sneakyThrow(e);
+        } finally {
             measure.stop();
         }
 
@@ -164,6 +209,10 @@ public class Instrumentation {
     }
 
     public static <T> CompletableFuture<T> measure(Supplier<CompletableFuture<T>> future, String message) {
+        if (!isStarted) {
+            return future.get();
+        }
+
         var measure = new Measurement(message);
         measure.start();
         return Optional.ofNullable(future.get()).orElse(CompletableFuture.completedFuture(null)).thenApply(v -> {
