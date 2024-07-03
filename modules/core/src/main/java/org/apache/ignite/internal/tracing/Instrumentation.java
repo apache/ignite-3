@@ -34,12 +34,15 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 import jdk.jfr.Event;
 import jdk.jfr.Label;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.jetbrains.annotations.NotNull;
 
 /**
  * Instrumentation class.
  */
 public class Instrumentation {
+    private static final IgniteLogger LOG = Loggers.forClass(Instrumentation.class);
 
     private static volatile boolean firstRun = true;
 
@@ -76,6 +79,8 @@ public class Instrumentation {
                 throw new RuntimeException(e);
             }
             firstRun = false;
+
+            LOG.info("Instrumentation was started.");
         }
 
         if (opCnt.incrementAndGet() % rate == 0) {
