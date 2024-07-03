@@ -194,12 +194,6 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
                 STMT_VALIDATION_ERR,
                 "Invalid character for cast",
                 () -> sql(format("SELECT * FROM tbl WHERE v IN ('1', (SELECT {}))", moreThanUpperBoundApprox)));
-
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-22640 Improve type derivation for dynamic parameters
-        /* assertThrowsSqlException(
-                STMT_VALIDATION_ERR,
-                "Invalid character for cast",
-                () -> sql("SELECT * FROM tbl WHERE v NOT IN (?)", "'" + lessUpper + "'"));*/
     }
 
     @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
@@ -259,11 +253,6 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
                 .returns(moreThanUpperBoundApprox).check();
         assertQuery(format("SELECT NULLIF(cast ((select {}) as varchar), 100)", moreThanUpperBoundApprox))
                 .returns(moreThanUpperBoundApprox.toString()).check();
-
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-22640 Improve type derivation for dynamic parameters
-        // assertQuery("SELECT * FROM tbl WHERE v IN (? + 1, '300')").withParam("'" + lessUpper + "'").returns(checkReturn).check();
-        // assertQuery("SELECT * FROM tbl WHERE v IN (?)").withParam("'" + strUpper + "'").returns(checkReturn).check();
-        // assertQuery("SELECT * FROM tbl WHERE v NOT IN (? - 1, '300')").withParam("'" + checkReturn + "'").returns(checkReturn).check();
     }
 
     private static Stream<Arguments> exactDecimalTypes() {

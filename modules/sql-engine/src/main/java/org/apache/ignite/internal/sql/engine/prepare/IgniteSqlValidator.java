@@ -664,7 +664,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
                                 }
                             }
                         } else if (node instanceof SqlCall) {
-                            lit = extractLiteral((SqlCall) node);
+                            lit = extractLiteral((SqlCall) node, this);
                         }
 
                         if (lit != null) {

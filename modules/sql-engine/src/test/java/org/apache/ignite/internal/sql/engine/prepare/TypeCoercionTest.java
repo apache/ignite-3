@@ -59,6 +59,7 @@ import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.parser.SqlParseException;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.calcite.sql.util.SqlShuttle;
 import org.apache.calcite.sql.validate.SqlValidator;
 import org.apache.calcite.util.ImmutableBitSet;
@@ -377,7 +378,7 @@ public class TypeCoercionTest extends AbstractPlannerTest {
 
                 SqlCall sqlBasicCall = (SqlCall) sqlSelect.getSelectList().get(0);
                 boolean coerced = !originalExpr.equals(sqlBasicCall.toString());
-                checkBinaryOpTypeCoercionResult(sqlBasicCall, rule.lhs, rule.rhs, rule.operator, coerced, rule.type);
+                checkBinaryOpTypeCoercionResult(sqlBasicCall, rule.lhs, rule.rhs, rule.operator, coerced, rule.type, rule.intType);
             });
         }
 
@@ -427,7 +428,7 @@ public class TypeCoercionTest extends AbstractPlannerTest {
     }
 
     private static void checkBinaryOpTypeCoercionResult(SqlCall sqlCall, RelDataType lhs, RelDataType rhs,
-            SqlOperator operator, boolean coerced, TypeCoercionRuleType ruleType) {
+            SqlOperator operator, boolean coerced, TypeCoercionRuleType ruleType, boolean intType) {
 
         String originalExpression = sqlCall.toString();
         RelDataType dataType = ruleType.coerceTypes(lhs, rhs);
@@ -442,11 +443,21 @@ public class TypeCoercionTest extends AbstractPlannerTest {
             String expectedExpr;
             if (newLhs != null && newRhs == null) {
                 // add cast to the left hand side of the expression
-                expectedExpr = String.format("CAST(`A`.`C1` AS %s) %s `A`.`C2`", newLhs, operator.getName());
+                if (intType) {
+                    expectedExpr = String.format("CAST(`A`.`C1` AS DECIMAL(32767, 16383)) %s CAST(`A`.`C2` AS DECIMAL(32767, 16383))",
+                            operator.getName());
+                } else {
+                    expectedExpr = String.format("CAST(`A`.`C1` AS %s) %s `A`.`C2`", newLhs, operator.getName());
+                }
                 assertTrue(coerced, "should have been coerced. Expr: " + sqlCall);
             } else if (newLhs == null) {
                 // add cast to the right hand side of the expression
-                expectedExpr = String.format("`A`.`C1` %s CAST(`A`.`C2` AS %s)", operator, newRhs);
+                if (intType) {
+                    expectedExpr = String.format("CAST(`A`.`C1` AS DECIMAL(32767, 16383)) %s CAST(`A`.`C2` AS DECIMAL(32767, 16383))",
+                            operator);
+                } else {
+                    expectedExpr = String.format("`A`.`C1` %s CAST(`A`.`C2` AS %s)", operator, newRhs);
+                }
                 assertTrue(coerced, "should have been coerced. Expr: " + sqlCall);
                 assertEquals(expectedExpr, sqlCall.toString());
             } else {
@@ -502,12 +513,13 @@ public class TypeCoercionTest extends AbstractPlannerTest {
 
     /** Type coercion between the given types behaves according the specified {@link TypeCoercionRuleType rule type}. **/
     private static TypeCoercionRule typeCoercionRule(RelDataType lhs, RelDataType rhs, TypeCoercionRuleType typeCoercion) {
-        return new TypeCoercionRule(lhs, rhs, SqlStdOperatorTable.EQUALS, typeCoercion);
+        return new TypeCoercionRule(lhs, rhs, SqlStdOperatorTable.EQUALS, typeCoercion, SqlTypeUtil.isIntType(lhs)
+                || SqlTypeUtil.isIntType(rhs));
     }
 
     /** Type coercion between the given types is not supported and we must throw an exception. **/
     private static TypeCoercionRule typeCoercionIsNotSupported(RelDataType lhs, RelDataType rhs) {
-        return new TypeCoercionRule(lhs, rhs, SqlStdOperatorTable.EQUALS, null);
+        return new TypeCoercionRule(lhs, rhs, SqlStdOperatorTable.EQUALS, null, SqlTypeUtil.isIntType(lhs));
     }
 
     private static final class TypeCoercionRule {
@@ -519,11 +531,14 @@ public class TypeCoercionTest extends AbstractPlannerTest {
 
         final TypeCoercionRuleType type;
 
-        TypeCoercionRule(RelDataType type1, RelDataType type2, SqlOperator operator, @Nullable TypeCoercionRuleType type) {
+        final boolean intType;
+
+        TypeCoercionRule(RelDataType type1, RelDataType type2, SqlOperator operator, @Nullable TypeCoercionRuleType type, boolean intType) {
             this.lhs = type1;
             this.rhs = type2;
             this.operator = operator;
             this.type = type;
+            this.intType = intType;
         }
 
         @Override

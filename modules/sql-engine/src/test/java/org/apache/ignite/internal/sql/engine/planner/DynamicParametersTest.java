@@ -109,7 +109,9 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                 "Values passed to IN operator must have compatible types. Dynamic parameter requires adding explicit type cast";
 
         return Stream.of(
-                sql("SELECT ? IN ('1', '2')", 1).parameterTypes(nullable(NativeTypes.INT32)).project("OR(=(?0, 1), =(?0, 2))"),
+                sql("SELECT ? IN (1 + '0', '2')", 1).parameterTypes(nullable(NativeTypes.INT32)).project(
+                        "OR(=(CAST(?0):DECIMAL(32767, 16383), "
+                                + "CAST(+(1, 0)):DECIMAL(32767, 16383) NOT NULL), =(CAST(?0):DECIMAL(32767, 16383), 2))"),
                 sql("SELECT ? IN (1, 2)", "1").fails(requireExplicitCast),
                 sql("SELECT ? IN (1, 2)", 1).parameterTypes(nullable(NativeTypes.INT32)).project("OR(=(?0, 1), =(?0, 2))"),
 
@@ -127,11 +129,11 @@ public class DynamicParametersTest extends AbstractPlannerTest {
 
                 sql("SELECT ? IN ('1')", 2)
                         .parameterTypes(nullable(NativeTypes.INT32))
-                        .project("=(?0, 1)"),
+                        .project("=(CAST(?0):DECIMAL(32767, 16383), 1)"),
 
-                sql("SELECT ? IN ('1', 2)", 2)
+                sql("SELECT ? IN (1 + '0', 2)", 2)
                         .parameterTypes(nullable(NativeTypes.INT32))
-                        .project("OR(=(?0, 1), =(?0, 2))")
+                        .project("OR(=(?0, +(1, 0)), =(?0, 2))")
         );
         // TODO https://issues.apache.org/jira/browse/IGNITE-22084: Sql. Add support for row data type.
         // sql("SELECT (?,?) IN ((1,2))", 1, 2)

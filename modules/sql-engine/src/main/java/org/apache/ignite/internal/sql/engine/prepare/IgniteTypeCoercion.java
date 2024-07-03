@@ -95,21 +95,27 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
         }
     }
 
-    static @Nullable SqlLiteral extractLiteral(SqlCall call) {
-        if (call.getKind() == SqlKind.CAST) {
+    static @Nullable SqlLiteral extractLiteral(SqlCall call, SqlValidator validator) {
+        if (call.getOperator().getKind() == SqlKind.CAST) {
             SqlNode lit = call.getOperandList().get(0);
-            if (lit instanceof SqlNumericLiteral) {
+            SqlDataTypeSpec type = (SqlDataTypeSpec) call.getOperandList().get(1);
+            RelDataType derived = type.deriveType(validator);
+            if (lit instanceof SqlNumericLiteral && SqlTypeUtil.isCharacter(derived)) {
                 return (SqlNumericLiteral) lit;
+            } else {
+                return null;
             }
         }
 
-        for (SqlNode node : call.getOperandList()) {
-            if (node instanceof SqlCharStringLiteral) {
-                return (SqlCharStringLiteral) node;
-            } else if (node.getKind() == SqlKind.CAST) {
-                SqlNode lit = ((SqlCall) node).getOperandList().get(0);
-                if (lit instanceof SqlNumericLiteral) {
-                    return (SqlNumericLiteral) lit;
+        if (SqlKind.BINARY_COMPARISON.contains(call.getOperator().getKind()) && call.getOperandList().size() == 2) {
+            for (SqlNode node : call.getOperandList()) {
+                if (node instanceof SqlCharStringLiteral) {
+                    return (SqlCharStringLiteral) node;
+                } else if (node.getKind() == SqlKind.CAST) {
+                    SqlNode lit = ((SqlCall) node).getOperandList().get(0);
+                    if (lit instanceof SqlNumericLiteral) {
+                        return (SqlNumericLiteral) lit;
+                    }
                 }
             }
         }
@@ -132,7 +138,7 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
         if (SqlTypeUtil.isIntType(leftType) && SqlTypeUtil.isCharacter(rightType)
                 || SqlTypeUtil.isIntType(rightType) && SqlTypeUtil.isCharacter(leftType)) {
 
-            SqlLiteral lit = extractLiteral(call);
+            SqlLiteral lit = extractLiteral(call, validator);
 
             if (lit != null) {
                 String strVal = lit.toValue();
