@@ -327,6 +327,9 @@ public class RebalanceUtil {
     /** Key prefix for counter of rebalances of tables from a zone that are associated with the specified partition. */
     private static final String TABLES_COUNTER_PREFIX = "tables.counter.";
 
+    /** Key prefix for catalog version of tables at the time of setting the counter. */
+    private static final String TABLE_CATALOG_PREFIX = "tables.catalog.version.";
+
     /** Key prefix for a raft configuration that was applied during rebalance of the specified partition form a table. */
     private static final String RAFT_CONF_APPLIED_PREFIX = "assignments.raft.conf.applied.";
 
@@ -416,6 +419,17 @@ public class RebalanceUtil {
      */
     public static ByteArray tablesCounterKey(int zoneId, int partId) {
         return new ByteArray(TABLES_COUNTER_PREFIX + zoneId + "_part_" + partId);
+    }
+
+    /**
+     * ByteArray key for catalog version of a table .
+     *
+     * @param zoneId Identifier of a zone.
+     * @param partId Unique identifier of a partition.
+     * @return Key for a partition.
+     */
+    public static ByteArray catalogVersionKey(int zoneId, int partId) {
+        return new ByteArray(TABLE_CATALOG_PREFIX + zoneId + "_part_" + partId);
     }
 
     /**

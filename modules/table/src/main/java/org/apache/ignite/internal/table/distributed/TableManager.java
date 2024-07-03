@@ -34,6 +34,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.ASSIGNMENTS_SWITCH_REDUCE_PREFIX;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.PENDING_ASSIGNMENTS_PREFIX;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.catalogVersionKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractPartitionNumber;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractTableId;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.intersect;
@@ -57,6 +58,7 @@ import static org.apache.ignite.internal.table.distributed.TableUtils.droppedTab
 import static org.apache.ignite.internal.table.distributed.index.IndexUtils.registerIndexesToTable;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
+import static org.apache.ignite.internal.util.ByteUtils.intToBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.apache.ignite.internal.util.CompletableFutures.allOfToList;
@@ -1787,6 +1789,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                     stringKey, partId, table.name(), localNode().address(), pendingAssignments, revision);
                         }
 
+                        // TODO: should come from the assignments. The version valid at the time of assignment creation.
                         int catalogVersion = catalogService.latestCatalogVersion();
 
                         return setTablesPartitionCountersForRebalance(replicaGrpId, revision, pendingAssignments.force(), catalogVersion)
@@ -1934,7 +1937,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         // Therefore, we need to store the `catalogVersion` alongside the counter to ensure we read the correct catalog version later.
         return metaStorageMgr.invoke(iif(
                 condition,
-                ops(put(tablesCounterKey(zoneId, partId), countersValue)).yield(true),
+                ops(
+                        put(tablesCounterKey(zoneId, partId), countersValue),
+                        put(catalogVersionKey(zoneId, partId), intToBytes(catalogVersion))
+                ).yield(true),
                 ops().yield(false)
         )).whenComplete((res, e) -> {
             if (e != null) {
@@ -2551,6 +2557,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                 assert stableAssignments != null : "tablePartitionId=" + tablePartitionId + ", revision=" + revision;
 
+                // TODO: Might not be the latest version.
                 int catalogVersion = catalogService.latestCatalogVersion();
 
                 int zoneId = getTableDescriptor(tablePartitionId.tableId(), catalogVersion).zoneId();

@@ -26,10 +26,12 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.parseDataNodes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceRaftGroupEventsListener.doStableKeySwitch;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.catalogVersionKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractPartitionNumber;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractZoneId;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.raftConfigurationAppliedKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.tablesCounterPrefixKey;
+import static org.apache.ignite.internal.util.ByteUtils.bytesToInt;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
@@ -274,18 +276,18 @@ public class DistributionZoneRebalanceEngine {
                         return nullCompletedFuture();
                     }
 
-                    int zoneId = RebalanceUtil.extractZoneIdFromTablesCounter(event.entryEvent().newEntry().key());
-
-                    // TODO: https://issues.apache.org/jira/browse/IGNITE-21254 tables here must be the same as they were on rebalance start
-                    // TODO: this should come from the event/ms or latest
-                    int catalogVersion = catalogService.latestCatalogVersion();
-
-                    List<CatalogTableDescriptor> tables = findTablesByZoneId(zoneId, catalogVersion, catalogService);
-
                     rebalanceScheduler.schedule(() -> {
                         if (!busyLock.enterBusy()) {
                             return;
                         }
+
+                        int zoneId = RebalanceUtil.extractZoneIdFromTablesCounter(event.entryEvent().newEntry().key());
+
+                        int partId = extractPartitionNumber(event.entryEvent().newEntry().key());
+
+                        int catalogVersion = getCatalogVersionForCounter(zoneId, partId, event.revision());
+
+                        List<CatalogTableDescriptor> tables = findTablesByZoneId(zoneId, catalogVersion, catalogService);
 
                         LOG.debug("Started to update stable keys for tables from the zone [zoneId = {}, tables = [{}]]",
                                 zoneId,
@@ -294,8 +296,6 @@ public class DistributionZoneRebalanceEngine {
 
                         try {
                             Map<ByteArray, TablePartitionId> partitionTablesKeys = new HashMap<>();
-
-                            int partId = extractPartitionNumber(event.entryEvent().newEntry().key());
 
                             for (CatalogTableDescriptor table : tables) {
                                 TablePartitionId replicaGrpId = new TablePartitionId(table.id(), partId);
@@ -335,6 +335,25 @@ public class DistributionZoneRebalanceEngine {
 
             }
         };
+    }
+
+    private int getCatalogVersionForCounter(int zoneId, int partId, long revision) {
+        try {
+            byte[] value = metaStorageManager.get(catalogVersionKey(zoneId, partId), revision).get().value();
+
+            if (value != null) {
+                int storedCatalogVersion = bytesToInt(value);
+
+                // TODO: avoid synchronous wait here.
+                catalogService.catalogReadyFuture(storedCatalogVersion).join();
+
+                return storedCatalogVersion;
+            }
+        } catch (Exception e) {
+            LOG.error("Failed to get catalog version for [zoneId={}, partitionId={}]", e, zoneId, partId);
+        }
+
+        return catalogService.latestCatalogVersion();
     }
 
     private CompletableFuture<Void> onUpdateReplicas(AlterZoneEventParameters parameters) {
