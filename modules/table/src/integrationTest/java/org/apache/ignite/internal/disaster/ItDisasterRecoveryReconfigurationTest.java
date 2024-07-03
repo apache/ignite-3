@@ -417,7 +417,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
                 SECONDS.toMillis(DEFAULT_IDLE_SAFE_TIME_PROP_DURATION) + node0.clockService().maxClockSkewMillis())
         );
 
-        // TODO https://issues.apache.org/jira/browse/IGNITE-21303
+        // TODO https://issues.apache.org/jira/browse/IGNITE-22657
         //  We need wait quite a bit before data is available. Log shows term mismatches, meaning that right now it only works due to some
         //  miracle. For future improvements we must specify "stable" forced sub-assignments explicitly, instead of calculating them as an
         //  intersection.
@@ -452,7 +452,11 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
                         ByteArray opKey = new ByteArray(toByteArray(operation.key()));
 
                         if (operation.type() == OperationType.PUT && opKey.equals(raftConfigurationAppliedKey)) {
-                            return blockedAssignments.equals(ByteUtils.fromBytes(toByteArray(operation.value())));
+                            boolean equals = blockedAssignments.equals(ByteUtils.fromBytes(toByteArray(operation.value())));
+                            if (equals) {
+                                System.out.println(Thread.currentThread().getName() + " <$> Blocking meta-storage command.");
+                            }
+                            return equals;
                         }
                     }
                 }
