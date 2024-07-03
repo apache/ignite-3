@@ -531,54 +531,6 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
 
     /** {@inheritDoc} */
     @Override
-    public void validateCall(
-            SqlCall call,
-            SqlValidatorScope scope
-    ) {
-        super.validateCall(call, scope);
-
-        SqlOperator operator = call.getOperator();
-
-        // IgniteCustomType:
-        // Since custom data types use ANY that is a catch all type for type checkers,
-        // if a function is called with custom data type argument does not belong to CUSTOM_TYPE_FUNCTIONS,
-        // then this should be considered a validation error.
-
-        if (call.getOperandList().isEmpty()
-                || !(operator instanceof SqlFunction)
-                || IgniteSqlOperatorTable.CUSTOM_TYPE_FUNCTIONS.contains(operator)) {
-            return;
-        }
-
-        for (SqlNode node : call.getOperandList()) {
-            RelDataType type = getValidatedNodeTypeIfKnown(node);
-            // Argument type is not known yet (alias) or it is not a custom data type.
-            if ((!(type instanceof IgniteCustomType))) {
-                continue;
-            }
-
-            String name = call.getOperator().getName();
-
-            // Call to getAllowedSignatures throws NPE, if operandTypeChecker is null.
-            if (operator.getOperandTypeChecker() != null) {
-                // If signatures are available, then return:
-                // Cannot apply 'F' to arguments of type 'F(<ARG_TYPE>)'. Supported form(s): 'F(<TYPE>)'
-                String allowedSignatures = operator.getAllowedSignatures();
-                throw newValidationError(call,
-                        RESOURCE.canNotApplyOp2Type(name,
-                                call.getCallSignature(this, scope),
-                                allowedSignatures));
-            } else {
-                // Otherwise return an error w/o supported forms:
-                // Cannot apply 'F' to arguments of type 'F(<ARG_TYPE>)'
-                throw newValidationError(call, IgniteResource.INSTANCE.canNotApplyOp2Type(name,
-                        call.getCallSignature(this, scope)));
-            }
-        }
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public RelDataType deriveType(SqlValidatorScope scope, SqlNode expr) {
         if (expr instanceof SqlDynamicParam) {
             return deriveDynamicParamType((SqlDynamicParam) expr);
@@ -1000,8 +952,51 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
 
         try {
             super.validateCall(call, scope);
+
+            checkCallsWithCustomTypes(call, scope);
         } finally {
             callScopes.pop();
+        }
+    }
+
+    private void checkCallsWithCustomTypes(SqlCall call, SqlValidatorScope scope) {
+        SqlOperator operator = call.getOperator();
+
+        // IgniteCustomType:
+        // Since custom data types use ANY that is a catch all type for type checkers,
+        // if a function is called with custom data type argument does not belong to CUSTOM_TYPE_FUNCTIONS,
+        // then this should be considered a validation error.
+
+        if (call.getOperandList().isEmpty()
+                || !(operator instanceof SqlFunction)
+                || IgniteSqlOperatorTable.CUSTOM_TYPE_FUNCTIONS.contains(operator)) {
+            return;
+        }
+
+        for (SqlNode node : call.getOperandList()) {
+            RelDataType type = getValidatedNodeTypeIfKnown(node);
+            // Argument type is not known yet (alias) or it is not a custom data type.
+            if ((!(type instanceof IgniteCustomType))) {
+                continue;
+            }
+
+            String name = call.getOperator().getName();
+
+            // Call to getAllowedSignatures throws NPE, if operandTypeChecker is null.
+            if (operator.getOperandTypeChecker() != null) {
+                // If signatures are available, then return:
+                // Cannot apply 'F' to arguments of type 'F(<ARG_TYPE>)'. Supported form(s): 'F(<TYPE>)'
+                String allowedSignatures = operator.getAllowedSignatures();
+                throw newValidationError(call,
+                        RESOURCE.canNotApplyOp2Type(name,
+                                call.getCallSignature(this, scope),
+                                allowedSignatures));
+            } else {
+                // Otherwise return an error w/o supported forms:
+                // Cannot apply 'F' to arguments of type 'F(<ARG_TYPE>)'
+                throw newValidationError(call, IgniteResource.INSTANCE.canNotApplyOp2Type(name,
+                        call.getCallSignature(this, scope)));
+            }
         }
     }
 
