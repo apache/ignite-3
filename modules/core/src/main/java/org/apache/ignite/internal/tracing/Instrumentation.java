@@ -190,6 +190,8 @@ public class Instrumentation {
         if (!isStarted) {
             try {
                 block.action();
+
+                return;
             } catch (Exception e) {
                 sneakyThrow(e);
             }

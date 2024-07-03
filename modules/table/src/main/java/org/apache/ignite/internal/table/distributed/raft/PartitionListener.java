@@ -555,22 +555,24 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
     @Override
     public boolean onBeforeApply(Command command) {
-        // This method is synchronized by replication group specific monitor, see ActionRequestProcessor#handleRequest.
-        if (command instanceof SafeTimePropagatingCommand) {
-            SafeTimePropagatingCommand cmd = (SafeTimePropagatingCommand) command;
-            long proposedSafeTime = cmd.safeTime().longValue();
+        return measure(() -> {
+            // This method is synchronized by replication group specific monitor, see ActionRequestProcessor#handleRequest.
+            if (command instanceof SafeTimePropagatingCommand) {
+                SafeTimePropagatingCommand cmd = (SafeTimePropagatingCommand) command;
+                long proposedSafeTime = cmd.safeTime().longValue();
 
-            // Because of clock.tick it's guaranteed that two different commands will have different safe timestamps.
-            // maxObservableSafeTime may match proposedSafeTime only if it is the command that was previously validated and then retried
-            // by raft client because of either TimeoutException or inner raft server recoverable exception.
-            if (proposedSafeTime >= maxObservableSafeTime) {
-                maxObservableSafeTime = proposedSafeTime;
-            } else {
-                throw new SafeTimeReorderException();
+                // Because of clock.tick it's guaranteed that two different commands will have different safe timestamps.
+                // maxObservableSafeTime may match proposedSafeTime only if it is the command that was previously validated and then retried
+                // by raft client because of either TimeoutException or inner raft server recoverable exception.
+                if (proposedSafeTime >= maxObservableSafeTime) {
+                    maxObservableSafeTime = proposedSafeTime;
+                } else {
+                    throw new SafeTimeReorderException();
+                }
             }
-        }
 
-        return false;
+            return false;
+        }, "onBeforeApplyCmd");
     }
 
     /**

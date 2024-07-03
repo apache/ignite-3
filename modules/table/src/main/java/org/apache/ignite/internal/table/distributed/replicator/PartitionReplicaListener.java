@@ -2703,9 +2703,13 @@ public class PartitionReplicaListener implements ReplicaListener {
                         }
                     }
 
-                    SafeTimePropagatingCommand clonedSafeTimePropagatingCommand =
-                            (SafeTimePropagatingCommand) safeTimePropagatingCommand.clone();
-                    clonedSafeTimePropagatingCommand.safeTimeLong(safeTimeForRetry.longValue());
+                    SafeTimePropagatingCommand clonedSafeTimePropagatingCommand = measure(() -> {
+                        SafeTimePropagatingCommand clonedCmd =
+                                (SafeTimePropagatingCommand) safeTimePropagatingCommand.clone();
+                        clonedCmd.safeTimeLong(safeTimeForRetry.longValue());
+
+                        return clonedCmd;
+                    }, "cloneCommand");
 
                     applyCmdWithRetryOnSafeTimeReorderException(clonedSafeTimePropagatingCommand, resultFuture);
                 } else {

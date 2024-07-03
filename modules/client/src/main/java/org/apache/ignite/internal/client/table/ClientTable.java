@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.client.table;
 
+import static org.apache.ignite.internal.tracing.Instrumentation.measure;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
@@ -446,28 +447,33 @@ public class ClientTable implements Table {
                 : getPartitionAssignment();
 
         // Wait for schema and partition assignment.
-        CompletableFuture.allOf(schemaFut, partitionsFut)
+        measure(() -> CompletableFuture.allOf(schemaFut, partitionsFut), "getSchemaAndAssignment")
                 .thenCompose(v -> {
                     ClientSchema schema = schemaFut.getNow(null);
                     String txPreferredNodeName = getPreferredNodeName(provider, partitionsFut.getNow(null), schema);
 
-                    return ClientLazyTransaction.ensureStarted(tx, ch, txPreferredNodeName).thenCompose(unused -> {
+                    CompletableFuture<ClientTransaction> ensureTxStateFut = measure(
+                            () -> ClientLazyTransaction.ensureStarted(tx, ch, txPreferredNodeName),
+                            "ensureStartedTxState"
+                    );
+
+                    return ensureTxStateFut.thenCompose(unused -> {
                                 // Update preferred node name after starting the transaction.
                                 // All operations for a given explicit transaction should go to the same node (tx coordinator).
                                 String opPreferredNodeName = getPreferredNodeName(provider, partitionsFut.getNow(null), schema);
 
-                                return ch.serviceAsync(opCode,
+                                return measure(() -> ch.serviceAsync(opCode,
                                         w -> writer.accept(schema, w),
                                         r -> readSchemaAndReadData(schema, r, reader, defaultValue, responseSchemaRequired),
                                         opPreferredNodeName,
                                         retryPolicyOverride,
-                                        expectNotifications);
+                                        expectNotifications), "serviceAsync");
                             }
                     );
                 })
 
                 // Read resulting schema and the rest of the response.
-                .thenCompose(t -> loadSchemaAndReadData(t, reader))
+                .thenCompose(t -> measure(() -> loadSchemaAndReadData(t, reader), "loadSchemaAndReadData"))
                 .whenComplete((res, err) -> {
                     if (err == null) {
                         fut.complete(res);
