@@ -53,6 +53,7 @@ import org.apache.calcite.sql.SqlCallBinding;
 import org.apache.calcite.sql.SqlDelete;
 import org.apache.calcite.sql.SqlDynamicParam;
 import org.apache.calcite.sql.SqlExplain;
+import org.apache.calcite.sql.SqlFunction;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlInsert;
 import org.apache.calcite.sql.SqlJoin;
@@ -82,6 +83,7 @@ import org.apache.calcite.sql.validate.SqlValidatorUtil;
 import org.apache.ignite.internal.sql.engine.schema.IgniteDataSource;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSystemView;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
+import org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomTypeCoercionRules;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
@@ -525,6 +527,54 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         validateAggregateFunction(aggCall, (SqlAggFunction) aggCall.getOperator());
 
         super.validateAggregateParams(aggCall, filter, null, orderList, scope);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void validateCall(
+            SqlCall call,
+            SqlValidatorScope scope
+    ) {
+        super.validateCall(call, scope);
+
+        SqlOperator operator = call.getOperator();
+
+        // IgniteCustomType:
+        // Since custom data types use ANY that is a catch all type for type checkers,
+        // if a function is called with custom data type argument does not belong to CUSTOM_TYPE_FUNCTIONS,
+        // then this should be considered a validation error.
+
+        if (call.getOperandList().isEmpty()
+                || !(operator instanceof SqlFunction)
+                || IgniteSqlOperatorTable.CUSTOM_TYPE_FUNCTIONS.contains(operator)) {
+            return;
+        }
+
+        for (SqlNode node : call.getOperandList()) {
+            RelDataType type = getValidatedNodeTypeIfKnown(node);
+            // Argument type is not known yet (alias) or it is not a custom data type.
+            if ((!(type instanceof IgniteCustomType))) {
+                continue;
+            }
+
+            String name = call.getOperator().getName();
+
+            // Call to getAllowedSignatures throws NPE, if operandTypeChecker is null.
+            if (operator.getOperandTypeChecker() != null) {
+                // If signatures are available, then return:
+                // Cannot apply 'F' to arguments of type 'F(<ARG_TYPE>)'. Supported form(s): 'F(<TYPE>)'
+                String allowedSignatures = operator.getAllowedSignatures();
+                throw newValidationError(call,
+                        RESOURCE.canNotApplyOp2Type(name,
+                                call.getCallSignature(this, scope),
+                                allowedSignatures));
+            } else {
+                // Otherwise return an error w/o supported forms:
+                // Cannot apply 'F' to arguments of type 'F(<ARG_TYPE>)'
+                throw newValidationError(call, IgniteResource.INSTANCE.canNotApplyOp2Type(name,
+                        call.getCallSignature(this, scope)));
+            }
+        }
     }
 
     /** {@inheritDoc} */

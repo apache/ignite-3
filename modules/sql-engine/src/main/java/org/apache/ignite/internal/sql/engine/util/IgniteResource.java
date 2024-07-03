@@ -92,6 +92,9 @@ public interface IgniteResource {
             + "has incompatible types in this context: ''{1}'' to ''{2}''")
     Resources.ExInst<SqlValidatorException> naturalOrUsingColumnNotCompatible(int num, String type1, String type2);
 
+    @BaseMessage("Cannot apply ''{0}'' to arguments of type {1}.")
+    ExInst<SqlValidatorException> canNotApplyOp2Type(String a0, String a1);
+
     /** Constructs a signature string to use in error messages. */
     static String makeSignature(SqlCallBinding binding, RelDataType... operandTypes) {
         return makeSignature(binding, Arrays.asList(operandTypes));

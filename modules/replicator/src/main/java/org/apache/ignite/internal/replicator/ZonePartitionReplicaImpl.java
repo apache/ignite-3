@@ -35,17 +35,28 @@ public class ZonePartitionReplicaImpl implements Replica {
 
     private final ReplicaListener listener;
 
+    TopologyAwareRaftGroupService raftClient;
+
+    /**
+     * Constructor.
+     *
+     * @param replicaGrpId  Replication group id.
+     * @param listener Listener for the replica.
+     * @param raftClient Raft client.
+     */
     public ZonePartitionReplicaImpl(
             ReplicationGroupId replicaGrpId,
-            ReplicaListener listener
+            ReplicaListener listener,
+            TopologyAwareRaftGroupService raftClient
     )  {
         this.replicaGrpId = replicaGrpId;
         this.listener = listener;
+        this.raftClient = raftClient;
     }
 
     @Override
     public TopologyAwareRaftGroupService raftClient() {
-        throw new UnsupportedOperationException("raftClient");
+        return raftClient;
     }
 
     @Override

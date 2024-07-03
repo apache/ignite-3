@@ -54,7 +54,7 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.MismatchingTransactionOutcomeException;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxStateMeta;
-import org.apache.ignite.internal.tx.message.CleanupReplicatedInfo;
+import org.apache.ignite.internal.tx.message.CleanupReplicatedInfoMessage;
 import org.apache.ignite.internal.tx.message.TxCleanupMessage;
 import org.apache.ignite.internal.tx.message.TxCleanupMessageErrorResponse;
 import org.apache.ignite.internal.tx.message.TxCleanupMessageResponse;
@@ -350,7 +350,7 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
                     return false;
                 }
 
-                CleanupReplicatedInfo result = message.result();
+                CleanupReplicatedInfoMessage result = message.result();
 
                 if (result != null) {
                     cleanupReplicatedFuture.complete(null);
