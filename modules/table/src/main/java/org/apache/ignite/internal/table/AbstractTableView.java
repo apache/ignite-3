@@ -25,7 +25,6 @@ import static org.apache.ignite.internal.util.ExceptionUtils.isOrCausedBy;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
-import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -276,7 +275,6 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
         });
     }
 
-
     /**
      * Action representing some KV operation. When executed, the action is supplied with schema version corresponding
      * to the operation timestamp (see {@link #doOperation(Transaction, KvAction)} for details).
@@ -293,21 +291,5 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
          * @return Action result.
          */
         CompletableFuture<R> act(int schemaVersion);
-    }
-
-
-    /**
-     * Checks that given keys collection isn't null and there is no a null-value key.
-     *
-     * @param keys Given keys collection.
-     * @param <K> Keys type.
-     * @throws NullPointerException In case if the collection null either any key is null.
-     */
-    protected static <K> void checkKeysForNulls(Collection<K> keys) {
-        Objects.requireNonNull(keys, "keys");
-
-        for (K key : keys) {
-            Objects.requireNonNull(key, "key");
-        }
     }
 }
