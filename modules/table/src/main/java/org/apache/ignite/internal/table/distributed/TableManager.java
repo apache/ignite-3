@@ -1787,14 +1787,17 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                     stringKey, partId, table.name(), localNode().address(), pendingAssignments, revision);
                         }
 
-                        return setTablesPartitionCountersForRebalance(replicaGrpId, revision, pendingAssignments.force())
+                        int catalogVersion = catalogService.latestCatalogVersion();
+
+                        return setTablesPartitionCountersForRebalance(replicaGrpId, revision, pendingAssignments.force(), catalogVersion)
                                 .thenCompose(r -> handleChangePendingAssignmentEvent(
                                         replicaGrpId,
                                         table,
                                         stableAssignments,
                                         pendingAssignments,
                                         revision,
-                                        isRecovery
+                                        isRecovery,
+                                        catalogVersion
                                 ))
                                 .thenCompose(v -> changePeersOnRebalance(table, replicaGrpId, pendingAssignments.nodes(), revision));
                     } finally {
@@ -1810,7 +1813,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             @Nullable Assignments stableAssignments,
             Assignments pendingAssignments,
             long revision,
-            boolean isRecovery
+            boolean isRecovery,
+            int catalogVersion
     ) {
         boolean pendingAssignmentsAreForced = pendingAssignments.force();
         Set<Assignment> pendingAssignmentsNodes = pendingAssignments.nodes();
@@ -1866,7 +1870,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             );
                         }
 
-                        int zoneId = getTableDescriptor(tbl.tableId(), catalogService.latestCatalogVersion()).zoneId();
+                        int zoneId = getTableDescriptor(tbl.tableId(), catalogVersion).zoneId();
 
                         return startPartitionAndStartClient(
                                 tbl,
@@ -1899,9 +1903,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         }, ioExecutor);
     }
 
-    private CompletableFuture<Void> setTablesPartitionCountersForRebalance(TablePartitionId replicaGrpId, long revision, boolean force) {
-        int catalogVersion = catalogService.latestCatalogVersion();
-
+    private CompletableFuture<Void> setTablesPartitionCountersForRebalance(
+            TablePartitionId replicaGrpId,
+            long revision,
+            boolean force,
+            int catalogVersion) {
         int tableId = replicaGrpId.tableId();
 
         CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(getTableDescriptor(tableId, catalogVersion), catalogVersion);
@@ -1924,6 +1930,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         byte[] countersValue = toBytes(tablesInZone);
 
+        // The collected tables are valid for the current catalog version but may be removed in future versions.
+        // Therefore, we need to store the `catalogVersion` alongside the counter to ensure we read the correct catalog version later.
         return metaStorageMgr.invoke(iif(
                 condition,
                 ops(put(tablesCounterKey(zoneId, partId), countersValue)).yield(true),
@@ -2543,7 +2551,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                 assert stableAssignments != null : "tablePartitionId=" + tablePartitionId + ", revision=" + revision;
 
-                int zoneId = getTableDescriptor(tablePartitionId.tableId(), catalogService.latestCatalogVersion()).zoneId();
+                int catalogVersion = catalogService.latestCatalogVersion();
+
+                int zoneId = getTableDescriptor(tablePartitionId.tableId(), catalogVersion).zoneId();
 
                 return startPartitionAndStartClient(
                         table,
