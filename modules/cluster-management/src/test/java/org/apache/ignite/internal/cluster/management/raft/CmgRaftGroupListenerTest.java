@@ -89,10 +89,10 @@ public class CmgRaftGroupListenerTest extends BaseIgniteAbstractTest {
     void setUp() {
         assertThat(storage.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
-        var raftStorage = new RaftStorageManager(storage);
-        var validationManager = new ValidationManager(raftStorage, logicalTopology);
+        var clusterStateStorageMgr = new ClusterStateStorageManager(storage);
+        var validationManager = new ValidationManager(clusterStateStorageMgr, logicalTopology);
 
-        listener = new CmgRaftGroupListener(raftStorage, logicalTopology, validationManager, onLogicalTopologyChanged);
+        listener = new CmgRaftGroupListener(clusterStateStorageMgr, logicalTopology, validationManager, onLogicalTopologyChanged);
     }
 
     @AfterEach
@@ -109,11 +109,11 @@ public class CmgRaftGroupListenerTest extends BaseIgniteAbstractTest {
 
         listener.onWrite(iterator(msgFactory.joinRequestCommand().node(node).version(state.version()).clusterTag(clusterTag).build()));
 
-        assertThat(listener.storage().getValidatedNodes(), contains(new LogicalNode(node.asClusterNode())));
+        assertThat(listener.storageManager().getValidatedNodes(), contains(new LogicalNode(node.asClusterNode())));
 
         listener.onWrite(iterator(msgFactory.joinReadyCommand().node(node).build()));
 
-        assertThat(listener.storage().getValidatedNodes(), is(empty()));
+        assertThat(listener.storageManager().getValidatedNodes(), is(empty()));
     }
 
     @Test
@@ -179,7 +179,7 @@ public class CmgRaftGroupListenerTest extends BaseIgniteAbstractTest {
                 .build();
 
         listener.onWrite(iterator(msgFactory.updateClusterStateCommand().clusterState(clusterStateToUpdate).build()));
-        ClusterState updatedClusterState = listener.storage().getClusterState();
+        ClusterState updatedClusterState = listener.storageManager().getClusterState();
         assertAll(
                 () -> assertNull(updatedClusterState.initialClusterConfiguration()),
                 () -> assertEquals(updatedClusterState.cmgNodes(), clusterState.cmgNodes()),

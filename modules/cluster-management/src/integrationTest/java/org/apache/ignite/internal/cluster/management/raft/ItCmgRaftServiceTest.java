@@ -130,15 +130,15 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
                 if (serverPeer == null) {
                     raftService = raftManager.startRaftGroupService(CmgGroupId.INSTANCE, configuration);
                 } else {
-                    var raftStorage = new RaftStorageManager(clusterStateStorage);
+                    var clusterStateStorageMgr = new ClusterStateStorageManager(clusterStateStorage);
 
                     raftService = raftManager.startRaftGroupNodeAndWaitNodeReadyFuture(
                             new RaftNodeId(CmgGroupId.INSTANCE, serverPeer),
                             configuration,
                             new CmgRaftGroupListener(
-                                    raftStorage,
+                                    clusterStateStorageMgr,
                                     new LogicalTopologyImpl(clusterStateStorage),
-                                    new ValidationManager(raftStorage, logicalTopology),
+                                    new ValidationManager(clusterStateStorageMgr, logicalTopology),
                                     term -> {}
                             ),
                             RaftGroupEventsListener.noopLsnr
