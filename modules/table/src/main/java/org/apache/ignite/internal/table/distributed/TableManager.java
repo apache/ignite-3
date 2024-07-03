@@ -1777,24 +1777,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                         isRecovery
                                 ))
                                 .thenCompose(v -> {
-                                    Entry reduceEntry  = metaStorageMgr.getLocally(RebalanceUtil.switchReduceKey(replicaGrpId), revision);
-                                    Assignments reduceAssignments = reduceEntry != null
-                                            ? Assignments.fromBytes(reduceEntry.value())
-                                            : null;
-                                    Set<Assignment> reducedStableAssignments = reduceAssignments != null
-                                            ? subtract(stableAssignments.nodes(), reduceAssignments.nodes())
-                                            : stableAssignments.nodes();
-                                    if (!isLocalNodeInAssignments(union(reducedStableAssignments, pendingAssignments.nodes()))) {
+                                    if (!isNodeInReducedStableAndPendingAssignmentsUnionSet(
+                                            replicaGrpId, stableAssignments, pendingAssignments, revision)) {
                                         return nullCompletedFuture();
                                     }
-
-                                    assert replicaMgr.isReplicaTouched(replicaGrpId)
-                                            : "!! Touch The local node is outside of the replication group ["
-                                            + "stable=" + stableAssignments
-                                            + ", pending=" + pendingAssignments
-                                            + ", reduce=" + reduceAssignments;
-                                    assert replicaMgr.isReplicaStarted(replicaGrpId)
-                                            : "!! The local node is outside of the replication group";
 
                                     return changePeersOnRebalance(table, replicaGrpId, pendingAssignments.nodes(), revision);
                                 });
@@ -1897,27 +1883,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         }
 
         return localServicesStartFuture.thenRunAsync(() -> {
-            Entry oldEntry  = metaStorageMgr.getLocally(stablePartAssignmentsKey(replicaGrpId), revision - 1);
-            Assignments oldStableAssignments = oldEntry != null
-                    ? Assignments.fromBytes(oldEntry.value())
-                    : null;
-            Entry reduceEntry  = metaStorageMgr.getLocally(RebalanceUtil.switchReduceKey(replicaGrpId), revision);
-            Assignments reduceAssignments = reduceEntry != null
-                    ? Assignments.fromBytes(reduceEntry.value())
-                    : null;
-            Set<Assignment> reducedStableAssignments = reduceAssignments != null
-                    ? subtract(stableAssignments.nodes(), reduceAssignments.nodes())
-                    : stableAssignments.nodes();
-            if (!isLocalNodeInAssignments(union(reducedStableAssignments, pendingAssignmentsNodes))) {
+            if (!isNodeInReducedStableAndPendingAssignmentsUnionSet(replicaGrpId, stableAssignments, pendingAssignments, revision)) {
                 return;
             }
-
-            assert replicaMgr.isReplicaStarted(replicaGrpId) : "The local node is outside of the replication group ["
-                    + "\n\toldStable=" + oldStableAssignments
-                    + ",\n\tstable=" + stableAssignments
-                    + ",\n\tpending=" + pendingAssignments
-                    + ",\n\treduce=" + reduceAssignments
-                    + ",\n\tlocalName=" + localNode().name() + "\n].";
 
             // For forced assignments, we exclude dead stable nodes, and all alive stable nodes are already in pending assignments.
             // Union is not required in such a case.
@@ -1930,6 +1898,37 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     .partitionRaftGroupService(partitionId)
                     .updateConfiguration(fromAssignments(newAssignments));
         }, ioExecutor);
+    }
+
+    private boolean isNodeInReducedStableAndPendingAssignmentsUnionSet(
+            TablePartitionId replicaGrpId,
+            @Nullable Assignments stableAssignments,
+            Assignments pendingAssignments,
+            long revision
+    ) {
+        Entry oldEntry  = metaStorageMgr.getLocally(stablePartAssignmentsKey(replicaGrpId), revision - 1);
+        Assignments oldStableAssignments = oldEntry != null
+                ? Assignments.fromBytes(oldEntry.value())
+                : null;
+        Entry reduceEntry  = metaStorageMgr.getLocally(RebalanceUtil.switchReduceKey(replicaGrpId), revision);
+        Assignments reduceAssignments = reduceEntry != null
+                ? Assignments.fromBytes(reduceEntry.value())
+                : null;
+        Set<Assignment> reducedStableAssignments = reduceAssignments != null
+                ? subtract(stableAssignments.nodes(), reduceAssignments.nodes())
+                : stableAssignments.nodes();
+        if (isLocalNodeInAssignments(union(reducedStableAssignments, pendingAssignments.nodes()))) {
+            return true;
+        }
+
+        assert replicaMgr.isReplicaStarted(replicaGrpId) : "The local node is outside of the replication group ["
+                + "\n\toldStable=" + oldStableAssignments
+                + ",\n\tstable=" + stableAssignments
+                + ",\n\tpending=" + pendingAssignments
+                + ",\n\treduce=" + reduceAssignments
+                + ",\n\tlocalName=" + localNode().name() + "\n].";
+
+        return false;
     }
 
     private CompletableFuture<Void> setTablesPartitionCountersForRebalance(TablePartitionId replicaGrpId, long revision, boolean force) {
