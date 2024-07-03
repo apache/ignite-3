@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.util;
 
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
-import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
 import java.util.Collection;
 import java.util.Objects;
@@ -45,8 +44,8 @@ public final class ViewUtils {
 
             throw sneakyThrow(IgniteExceptionMapperUtil.mapToPublicException(e));
         } catch (ExecutionException e) {
-            Throwable cause = unwrapCause(e);
-            throw sneakyThrow(cause);
+            // Throwable cause = unwrapCause(e);
+            throw sneakyThrow(e);
         }
     }
 
