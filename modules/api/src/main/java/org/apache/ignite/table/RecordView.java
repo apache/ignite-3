@@ -77,7 +77,7 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
      *
      * @param tx Transaction or {@code null} to auto-commit.
      * @param keyRec A record with key columns set. The key cannot be {@code null}.
-     * @return {@code True} if a value exists for the specified key, {@code false} otherwise.
+     * @return {@code True} if a value exists for every specified key, {@code false} otherwise.
      * @throws MarshallerException if the key doesn't match the schema.
      */
     boolean contains(@Nullable Transaction tx, R keyRec);
@@ -93,21 +93,22 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
     CompletableFuture<Boolean> containsAsync(@Nullable Transaction tx, R keyRec);
 
     /**
-     * Determines whether a table contains entries for the given keys.
+     * Determines whether a table contains entries for all given keys.
      *
      * @param tx Transaction or {@code null} to auto-commit.
      * @param keys Keys whose presence is to be verified. The collection and it's values cannot be {@code null}.
-     * @return {@code True} if a value exists for the specified key, {@code false} otherwise.
+     * @return {@code True} if a value exists for every specified key, {@code false} otherwise.
      * @throws MarshallerException if the key doesn't match the schema.
      */
     boolean containsAll(@Nullable Transaction tx, Collection<R> keys);
 
     /**
-     * Determines whether a table contains entries for the given keys.
+     * Determines whether a table contains entries for all given keys.
      *
      * @param tx Transaction or {@code null} to auto-commit.
      * @param keys Keys whose presence is to be verified. The collection and it's values cannot be {@code null}.
-     * @return Future that represents the pending completion of the operation.
+     * @return Future that represents the pending completion of the operation. The result of the future will be {@code true} if a value
+     *      exists for every specified key, {@code false} otherwise.
      * @throws MarshallerException if the key doesn't match the schema.
      */
     CompletableFuture<Boolean> containsAllAsync(@Nullable Transaction tx, Collection<R> keys);

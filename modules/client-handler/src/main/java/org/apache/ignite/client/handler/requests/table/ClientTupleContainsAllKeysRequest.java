@@ -51,11 +51,10 @@ public class ClientTupleContainsAllKeysRequest {
             var tx = readTx(in, out, resources);
             return readTuples(in, table, true).thenCompose(keyTuples -> table
                     .recordView()
-                    .getAllAsync(tx, keyTuples)
-                    .thenAccept(t -> {
-                        boolean noMissedKeys = t.stream().noneMatch(Objects::isNull);
+                    .containsAllAsync(tx, keyTuples)
+                    .thenAccept(containsAll -> {
                         out.packInt(table.schemaView().lastKnownSchemaVersion());
-                        out.packBoolean(noMissedKeys);
+                        out.packBoolean(containsAll);
                     })
             );
         });
