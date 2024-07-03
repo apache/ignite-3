@@ -45,7 +45,7 @@ public class Instrumentation {
 
     private static volatile boolean jfr = false;
 
-    private static final Path file = Path.of("/temp/trace.txt");
+    private static final Path file = Path.of("/opt/pubagent/poc/log/stats/dstat/trace.txt");
 
     private static volatile ConcurrentLinkedQueue<Measurement> measurements = new ConcurrentLinkedQueue<>();
 
