@@ -81,6 +81,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
@@ -144,6 +145,7 @@ import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
+import org.apache.ignite.internal.partition.replicator.snapshot.FailFastSnapshotStorageFactory;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
@@ -601,6 +603,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             metaStorageMgr.registerPrefixWatch(ByteArray.fromString(ASSIGNMENTS_SWITCH_REDUCE_PREFIX), assignmentsSwitchRebalanceListener);
 
             catalogService.listen(CatalogEvent.TABLE_CREATE, parameters -> onTableCreate((CreateTableEventParameters) parameters));
+            catalogService.listen(CatalogEvent.TABLE_CREATE, parameters -> onTableCreateZoneReplicaIntegration((CreateTableEventParameters) parameters));
             catalogService.listen(CatalogEvent.TABLE_DROP, fromConsumer(this::onTableDrop));
             catalogService.listen(CatalogEvent.TABLE_ALTER, parameters -> {
                 if (parameters instanceof RenameTableEventParameters) {
@@ -625,6 +628,206 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             return nullCompletedFuture();
         });
     }
+
+    private CompletableFuture<Boolean> onTableCreateZoneReplicaIntegration(CreateTableEventParameters parameters) {
+        if (!PartitionReplicaLifecycleManager.ENABLED) {
+            return completedFuture(false);
+        }
+
+        long causalityToken = parameters.causalityToken();
+        CatalogTableDescriptor tableDescriptor = parameters.tableDescriptor();
+        CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor, parameters.catalogVersion());
+
+        TableImpl table =  createTableImpl(causalityToken, tableDescriptor, zoneDescriptor);
+
+        // TODO: KKK It will not work in parallel with table code.
+        // table vv needed for the readiness of public table(id) method also
+        tablesVv.update(causalityToken, (ignore, e) -> inBusyLock(busyLock, () -> {
+            if (e != null) {
+                return failedFuture(e);
+            }
+
+            return schemaManager.schemaRegistry(causalityToken, parameters.tableId()).thenAccept(table::schemaView);
+        }));
+
+        // TODO: KKK we need to have the real assignments here
+        CompletableFuture<List<Assignments>> assignmentsFuture = nullCompletedFuture();
+
+        // TODO: KKK localPartitionsVv is needed for the partition cleaning operation
+        // NB: all vv.update() calls must be made from the synchronous part of the method (not in thenCompose()/etc!).
+        CompletableFuture<?> localPartsUpdateFuture = localPartitionsVv.update(causalityToken,
+                (ignore, throwable) -> inBusyLock(busyLock, () -> assignmentsFuture.thenComposeAsync(newAssignments -> {
+                    PartitionSet parts = new BitSetPartitionSet();
+
+                    // TODO: https://issues.apache.org/jira/browse/IGNITE-19713 Process assignments and set partitions only for
+                    // TODO assigned partitions.
+                    for (int i = 0; i < newAssignments.size(); i++) {
+                        parts.set(i);
+                    }
+
+                    return getOrCreatePartitionStorages(table, parts).thenAccept(u -> localPartsByTableId.put(parameters.tableId(), parts));
+                }, ioExecutor)));
+
+        CompletableFuture<?> tablesByIdFuture = tablesVv.get(causalityToken);
+
+        // TODO https://issues.apache.org/jira/browse/IGNITE-19170 Partitions should be started only on the assignments change
+        //  event triggered by zone create or alter.
+        // TODO: KKK assignmentsUpdatedVv is introduced for the optimise parallel tables start
+        CompletableFuture<?> createPartsFut = assignmentsUpdatedVv.update(causalityToken, (token, e) -> {
+            if (e != null) {
+                return failedFuture(e);
+            }
+
+            return allOf(localPartsUpdateFuture, tablesByIdFuture).thenComposeAsync(ignore -> inBusyLock(busyLock, () -> {
+                // TODO: KKK looks like recovery mechanism will be the same?
+
+//                        if (onNodeRecovery) {
+//                            SchemaRegistry schemaRegistry = table.schemaView();
+//                            PartitionSet partitionSet = localPartsByTableId.get(tableId);
+//                            // LWM starts updating only after the node is restored.
+//                            HybridTimestamp lwm = lowWatermark.getLowWatermark();
+//
+//                            registerIndexesToTable(table, catalogService, partitionSet, schemaRegistry, lwm);
+//                        }
+                        return startLocalPartitionsAndLoadToReplica(assignmentsFuture, table, zoneDescriptor.id());
+                    }
+            ), ioExecutor);
+        });
+
+        tables.put(parameters.tableId(), table);
+
+        // TODO should be reworked in IGNITE-16763
+
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-19913 Possible performance degradation.
+        return createPartsFut.thenAccept(ignore -> startedTables.put(parameters.tableId(), table))
+                .thenApply(unused -> false);
+
+    }
+
+    private CompletionStage<Void> startLocalPartitionsAndLoadToReplica(CompletableFuture<List<Assignments>> assignmentsFuture, TableImpl table, int zoneId) {
+        int tableId = table.tableId();
+
+        return assignmentsFuture.thenCompose(tableAssignments -> {
+            // Empty assignments might be a valid case if tables are created from within cluster init HOCON
+            // configuration, which is not supported now.
+            assert tableAssignments != null : IgniteStringFormatter.format("Table [id={}] has empty assignments.", tableId);
+
+            int partitions = tableAssignments.size();
+
+            var futures = new CompletableFuture<?>[partitions];
+
+            for (int i = 0; i < partitions; i++) {
+                int partId = i;
+
+                Assignments assignments = tableAssignments.get(i);
+
+                CompletableFuture<?> future = startPartitionAndLoadToReplica(
+                        table,
+                        partId,
+                        localMemberAssignment(assignments),
+                        zoneId
+                )
+                        .whenComplete((res, ex) -> {
+                            // TODO: KKK what can I dooooo
+                        });
+
+                futures[i] = future;
+            }
+
+            return allOf(futures);
+        });
+    }
+
+    private CompletableFuture<Void> startPartitionAndLoadToReplica(
+            TableImpl table,
+            int partId,
+            @Nullable Assignment localMemberAssignment,
+            int zoneId
+    ) {
+        int tableId = table.tableId();
+
+        var internalTbl = (InternalTableImpl) table.internalTable();
+
+        TablePartitionId replicaGrpId = new TablePartitionId(tableId, partId);
+
+        if (localMemberAssignment != null) {
+
+            // TODO: KKK Recovery must be supported here?
+//            CompletableFuture<Boolean> shouldStartGroupFut = isRecovery
+//                    ? partitionReplicatorNodeRecovery.initiateGroupReentryIfNeeded(
+//                    replicaGrpId,
+//                    internalTbl,
+//                    stablePeersAndLearners,
+//                    localMemberAssignment
+//            )
+//                    : trueCompletedFuture();
+
+            CompletableFuture<Boolean> shouldStartGroupFut = trueCompletedFuture();
+            return shouldStartGroupFut.thenComposeAsync(startGroup -> inBusyLock(busyLock, () -> {
+                // (1) if partitionReplicatorNodeRecovery#shouldStartGroup fails -> do start nothing
+                if (!startGroup) {
+                    return falseCompletedFuture();
+                }
+
+                // (2) Otherwise let's start replica manually
+                var safeTimeTracker = new PendingComparableValuesTracker<HybridTimestamp, Void>(HybridTimestamp.MIN_VALUE);
+
+                var storageIndexTracker = new PendingComparableValuesTracker<Long, Void>(0L);
+
+                PartitionStorages partitionStorages = getPartitionStorages(table, partId);
+
+                PartitionDataStorage partitionDataStorage = partitionDataStorage(partitionStorages.getMvPartitionStorage(),
+                        internalTbl, partId);
+
+                storageIndexTracker.update(partitionDataStorage.lastAppliedIndex(), null);
+
+                PartitionUpdateHandlers partitionUpdateHandlers = createPartitionUpdateHandlers(
+                        partId,
+                        partitionDataStorage,
+                        table,
+                        safeTimeTracker,
+                        storageUpdateConfig
+                );
+
+                internalTbl.updatePartitionTrackers(partId, safeTimeTracker, storageIndexTracker);
+
+                mvGc.addStorage(replicaGrpId, partitionUpdateHandlers.gcUpdateHandler);
+
+                // TODO: KKK It will be needed for the next PR
+                RaftGroupListener raftGroupListener = new PartitionListener(
+                        txManager,
+                        partitionDataStorage,
+                        partitionUpdateHandlers.storageUpdateHandler,
+                        partitionStorages.getTxStateStorage(),
+                        safeTimeTracker,
+                        storageIndexTracker,
+                        catalogService,
+                        table.schemaView(),
+                        clockService,
+                        indexMetaStorage
+                );
+
+                Function<RaftGroupService, ReplicaListener> createListener = (raftClient) -> createReplicaListener(
+                        replicaGrpId,
+                        table,
+                        safeTimeTracker,
+                        partitionStorages.getMvPartitionStorage(),
+                        partitionStorages.getTxStateStorage(),
+                        partitionUpdateHandlers,
+                        raftClient);
+
+                RaftGroupEventsListener raftGroupEventsListener = createRaftGroupEventsListener(zoneId, replicaGrpId);
+
+                replicaMgr.replica(new ZonePartitionId(zoneId, partId))
+                        .thenAccept(zoneReplica ->
+                                ((ZonePartitionReplicaImpl) zoneReplica).addTableReplicaListener(
+                                        new TablePartitionId(tableId, partId), createListener));
+            }), ioExecutor);
+        } else {
+            return nullCompletedFuture();
+        }
+    }
+
 
     private CompletableFuture<Boolean> onPrimaryReplicaExpired(PrimaryReplicaEventParameters parameters) {
         if (topologyService.localMember().id().equals(parameters.leaseholderId())) {
@@ -1267,25 +1470,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         });
     }
 
-    /**
-     * Creates local structures for a table.
-     *
-     * @param causalityToken Causality token.
-     * @param tableDescriptor Catalog table descriptor.
-     * @param zoneDescriptor Catalog distributed zone descriptor.
-     * @param assignmentsFuture Future with assignments.
-     * @param onNodeRecovery {@code true} when called during node recovery, {@code false} otherwise.
-     * @return Future that will be completed when local changes related to the table creation are applied.
-     */
-    private CompletableFuture<Void> createTableLocally(
+    private TableImpl createTableImpl(
             long causalityToken,
             CatalogTableDescriptor tableDescriptor,
-            CatalogZoneDescriptor zoneDescriptor,
-            CompletableFuture<List<Assignments>> assignmentsFuture,
-            boolean onNodeRecovery
+            CatalogZoneDescriptor zoneDescriptor
     ) {
         String tableName = tableDescriptor.name();
-        int tableId = tableDescriptor.id();
 
         LOG.trace("Creating local table: name={}, id={}, token={}", tableDescriptor.name(), tableDescriptor.id(), causalityToken);
 
@@ -1303,7 +1493,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         InternalTableImpl internalTable = new InternalTableImpl(
                 tableName,
-                tableId,
+                tableDescriptor.id(),
                 partitions,
                 topologyService,
                 txManager,
@@ -1320,7 +1510,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 this::streamerFlushExecutor
         );
 
-        var table = new TableImpl(
+        return new TableImpl(
                 internalTable,
                 lockMgr,
                 schemaVersions,
@@ -1328,6 +1518,27 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 sql.get(),
                 tableDescriptor.primaryKeyIndexId()
         );
+    }
+
+    /**
+     * Creates local structures for a table.
+     *
+     * @param causalityToken Causality token.
+     * @param tableDescriptor Catalog table descriptor.
+     * @param zoneDescriptor Catalog distributed zone descriptor.
+     * @param assignmentsFuture Future with assignments.
+     * @param onNodeRecovery {@code true} when called during node recovery, {@code false} otherwise.
+     * @return Future that will be completed when local changes related to the table creation are applied.
+     */
+    private CompletableFuture<Void> createTableLocally(
+            long causalityToken,
+            CatalogTableDescriptor tableDescriptor,
+            CatalogZoneDescriptor zoneDescriptor,
+            CompletableFuture<List<Assignments>> assignmentsFuture,
+            boolean onNodeRecovery
+    ) {
+        TableImpl table =  createTableImpl(causalityToken, tableDescriptor, zoneDescriptor);
+        int tableId = tableDescriptor.id();
 
         tablesVv.update(causalityToken, (ignore, e) -> inBusyLock(busyLock, () -> {
             if (e != null) {

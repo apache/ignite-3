@@ -22,11 +22,13 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverReplicaMessage;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
+import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.TableAware;
@@ -112,7 +114,7 @@ public class ZonePartitionReplicaImpl implements Replica {
      * @param partitionId Table partition id.
      * @param replicaListener Table replica listener.
      */
-    public void addTableReplicaListener(TablePartitionId partitionId, ReplicaListener replicaListener) {
-        replicas.put(partitionId, replicaListener);
+    public void addTableReplicaListener(TablePartitionId partitionId, Function<RaftGroupService, ReplicaListener> replicaListener) {
+        replicas.put(partitionId, replicaListener.apply(raftClient()));
     }
 }
