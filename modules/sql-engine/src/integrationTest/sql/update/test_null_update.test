@@ -27,3 +27,14 @@ SELECT * FROM test ORDER BY a
 3
 NULL
 NULL
+
+statement ok
+UPDATE test SET a=4 WHERE a IS NULL
+
+query I
+SELECT * FROM test ORDER BY a
+----
+1
+3
+4
+4
