@@ -185,6 +185,11 @@ class IndexBuildController implements ManuallyCloseable {
                 // metastore thread.
                 int catalogVersion = catalogService.latestCatalogVersion();
 
+                // TODO: IGNITE-22656 It is necessary not to generate an event for a destroyed table by LWM
+                if (catalogService.table(primaryReplicaId.tableId(), catalogVersion) == null) {
+                    return nullCompletedFuture();
+                }
+
                 return getMvTableStorageFuture(parameters.causalityToken(), primaryReplicaId)
                         .thenCompose(mvTableStorage -> awaitPrimaryReplica(primaryReplicaId, parameters.startTime())
                                 .thenAccept(replicaMeta -> tryScheduleBuildIndexesForNewPrimaryReplica(
