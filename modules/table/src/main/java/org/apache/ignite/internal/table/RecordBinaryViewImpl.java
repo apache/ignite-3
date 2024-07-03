@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.convertToPublicFuture;
+import static org.apache.ignite.internal.tracing.Instrumentation.measure;
 
 import java.util.ArrayList;
 import java.util.BitSet;
@@ -151,7 +152,7 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
         Objects.requireNonNull(rec);
 
         return doOperation(tx, (schemaVersion) -> {
-            Row row = marshal(rec, schemaVersion, false);
+            Row row = measure(() -> marshal(rec, schemaVersion, false), "marshal");
 
             return tbl.upsert(row, (InternalTransaction) tx);
         });

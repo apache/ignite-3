@@ -18,6 +18,9 @@
 package org.apache.ignite.internal.client.table;
 
 import static org.apache.ignite.internal.client.ClientUtils.sync;
+import static org.apache.ignite.internal.tracing.Instrumentation.end;
+import static org.apache.ignite.internal.tracing.Instrumentation.mark;
+import static org.apache.ignite.internal.tracing.Instrumentation.start;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyCollectionCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyMapCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -177,7 +180,13 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
     /** {@inheritDoc} */
     @Override
     public void put(@Nullable Transaction tx, Tuple key, @Nullable Tuple val) {
+        start(false);
+        mark("kvClientPutMark");
+
         sync(putAsync(tx, key, val));
+
+        mark("kvClientPutEndMark");
+        end();
     }
 
     /** {@inheritDoc} */
