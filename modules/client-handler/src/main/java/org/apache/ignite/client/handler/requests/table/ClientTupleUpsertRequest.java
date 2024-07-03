@@ -20,6 +20,7 @@ package org.apache.ignite.client.handler.requests.table;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTuple;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTx;
+import static org.apache.ignite.internal.tracing.Instrumentation.measure;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
@@ -46,10 +47,11 @@ public class ClientTupleUpsertRequest {
             IgniteTables tables,
             ClientResourceRegistry resources
     ) {
-        return readTableAsync(in, tables).thenCompose(table -> {
-            var tx = readTx(in, out, resources);
-            return readTuple(in, table, false).thenCompose(tuple -> {
-                return table.recordView().upsertAsync(tx, tuple).thenAccept(v -> out.packInt(table.schemaView().lastKnownSchemaVersion()));
+        return measure(() -> readTableAsync(in, tables), "readTableAsync").thenCompose(table -> {
+            var tx = measure(() -> readTx(in, out, resources), "readTx");
+            return measure(() -> readTuple(in, table, false), "readTuple").thenCompose(tuple -> {
+                return table.recordView().upsertAsync(tx, tuple).thenAccept(v ->
+                        measure(() -> out.packInt(table.schemaView().lastKnownSchemaVersion()), "writeSchemaId"));
             });
         });
     }

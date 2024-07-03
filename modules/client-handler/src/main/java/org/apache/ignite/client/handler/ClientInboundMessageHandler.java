@@ -17,7 +17,12 @@
 
 package org.apache.ignite.client.handler;
 
+import static org.apache.ignite.internal.tracing.Instrumentation.end;
+import static org.apache.ignite.internal.tracing.Instrumentation.mark;
+import static org.apache.ignite.internal.tracing.Instrumentation.measure;
+import static org.apache.ignite.internal.tracing.Instrumentation.start;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.firstNotNull;
 import static org.apache.ignite.lang.ErrorGroups.Client.HANDSHAKE_HEADER_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_COMPATIBILITY_ERR;
@@ -302,6 +307,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     /** {@inheritDoc} */
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) {
+        start(false);
+        mark("channelReadMark");
+
         ByteBuf byteBuf = (ByteBuf) msg;
 
         // Each inbound handler in a pipeline has to release the received messages.
@@ -309,13 +317,19 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         metrics.bytesReceivedAdd(byteBuf.readableBytes() + ClientMessageCommon.HEADER_SIZE);
 
         // Packer buffer is released by Netty on send, or by inner exception handlers below.
-        var packer = getPacker(ctx.alloc());
+        var packer = measure(() -> getPacker(ctx.alloc()), "getPacker");
 
         if (clientContext == null) {
             metrics.bytesReceivedAdd(ClientMessageCommon.MAGIC_BYTES.length);
             handshake(ctx, unpacker, packer);
+
+            mark("channelReadEndMark");
+            end();
         } else {
-            processOperation(ctx, unpacker, packer);
+            processOperation(ctx, unpacker, packer).thenRun(() -> {
+                mark("channelReadEndMark");
+                end();
+            });
         }
     }
 
@@ -554,14 +568,14 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         return new ClientMessageUnpacker(buf);
     }
 
-    private void processOperation(ChannelHandlerContext ctx, ClientMessageUnpacker in, ClientMessagePacker out) {
+    private CompletableFuture processOperation(ChannelHandlerContext ctx, ClientMessageUnpacker in, ClientMessagePacker out) {
         long requestId = -1;
         int opCode = -1;
         metrics.requestsActiveIncrement();
 
         try {
-            opCode = in.unpackInt();
-            requestId = in.unpackLong();
+            opCode = measure(() -> in.unpackInt(), "readOpId");
+            requestId = measure(() -> in.unpackLong(), "readReqId");
 
             if (LOG.isTraceEnabled()) {
                 LOG.trace("Client request started [id=" + requestId + ", op=" + opCode
@@ -589,22 +603,24 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
                 metrics.requestsProcessedIncrement();
                 metrics.requestsActiveDecrement();
+
+                return nullCompletedFuture();
             } else {
                 var reqId = requestId;
                 var op = opCode;
 
-                fut.whenComplete((Object res, Object err) -> {
-                    in.close();
+                return fut.whenComplete((Object res, Object err) -> {
+                    measure(() -> in.close(), "closeMsgIn");
                     metrics.requestsActiveDecrement();
 
                     if (err != null) {
                         out.close();
-                        writeError(reqId, op, (Throwable) err, ctx, false);
+                        measure(() -> writeError(reqId, op, (Throwable) err, ctx, false), "writeErr");
 
                         metrics.requestsFailedIncrement();
                     } else {
-                        out.setLong(observableTimestampIdx, observableTimestamp(out));
-                        write(out, ctx);
+                        measure(() -> out.setLong(observableTimestampIdx, observableTimestamp(out)), "writeObservableTimestamp");
+                        measure(() -> write(out, ctx), "writeCtx");
 
                         metrics.requestsProcessedIncrement();
 
@@ -616,12 +632,17 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                 });
             }
         } catch (Throwable t) {
-            in.close();
+            measure(() -> in.close(), "closeMsgIn");
             out.close();
 
-            writeError(requestId, opCode, t, ctx, false);
+            var finalRequestId = requestId;
+            var finalOpCode = opCode;
+
+            measure(() -> writeError(finalRequestId, finalOpCode, t, ctx, false), "writeErr");
 
             metrics.requestsFailedIncrement();
+
+            return nullCompletedFuture();
         }
     }
 

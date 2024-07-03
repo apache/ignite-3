@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.tracing;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 
 import java.io.IOException;
@@ -222,7 +223,7 @@ public class Instrumentation {
 
         var measure = new Measurement(message);
         measure.start();
-        return Optional.ofNullable(future.get()).orElse(CompletableFuture.completedFuture(null)).thenApply(v -> {
+        return Optional.ofNullable(future.get()).orElse(nullCompletedFuture()).thenApply(v -> {
             measure.stop();
             measurements.add(measure);
             return v;
