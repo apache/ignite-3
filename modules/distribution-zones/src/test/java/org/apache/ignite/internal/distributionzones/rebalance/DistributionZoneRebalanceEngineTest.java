@@ -189,9 +189,11 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         keyValueStorage = spy(new SimpleInMemoryKeyValueStorage(nodeName));
 
+        ClusterTimeImpl clusterTime = new ClusterTimeImpl("node", new IgniteSpinBusyLock(), clock);
+
         MetaStorageListener metaStorageListener = new MetaStorageListener(
                 keyValueStorage,
-                mock(ClusterTimeImpl.class),
+                clusterTime,
                 raftConfiguration.retryTimeout(),
                 completedFuture(() -> TEST_MAX_CLOCK_SKEW_MILLIS)
         );
@@ -249,7 +251,11 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
         lenient().doAnswer(invocationClose -> {
             Iif iif = invocationClose.getArgument(0);
 
-            MultiInvokeCommand multiInvokeCommand = commandsFactory.multiInvokeCommand().iif(iif).id(commandIdGenerator.newId()).build();
+            MultiInvokeCommand multiInvokeCommand = commandsFactory.multiInvokeCommand()
+                    .iif(iif)
+                    .id(commandIdGenerator.newId())
+                    .initiatorTimeLong(clusterTime.nowLong())
+                    .build();
 
             return metaStorageService.run(multiInvokeCommand);
         }).when(metaStorageManager).invoke(any());

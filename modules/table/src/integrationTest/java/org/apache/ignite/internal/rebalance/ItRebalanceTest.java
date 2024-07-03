@@ -33,6 +33,7 @@ import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -246,7 +247,7 @@ public class ItRebalanceTest extends BaseIgniteAbstractTest {
             lastAssignmentsHolderForLog[0] = assignments;
 
             return assignments.size() == expectedNodesNumber;
-        }, 30000), "Expected nodes: " + expectedNodesNumber + ", actual nodes size: " + lastAssignmentsHolderForLog[0].size());
+        }, 30000), "Expected nodes: " + expectedNodesNumber + ", actual nodes size: " + actualSize(lastAssignmentsHolderForLog));
     }
 
     private void waitForTablesCounterInMetastore(int expectedTablesNumber, int zoneId, int partitionNumber) throws InterruptedException {
@@ -259,7 +260,12 @@ public class ItRebalanceTest extends BaseIgniteAbstractTest {
 
             return tablesCounter != null && tablesCounter.size() == expectedTablesNumber;
 
-        }, 30000), "Expected tables number: " + expectedTablesNumber + ", actual tables number: " + lastAssignmentsHolderForLog[0].size());
+        }, 30000),
+                "Expected tables number: " + expectedTablesNumber + ", actual tables number: " + actualSize(lastAssignmentsHolderForLog));
+    }
+
+    private static String actualSize(Collection<?>[] collection) {
+        return collection[0] == null ? "null" : Integer.toString(collection[0].size());
     }
 
     private static CompletableFuture<Set<Integer>> tablesCounter(
