@@ -82,6 +82,9 @@ public interface IgniteResource {
     @Resources.BaseMessage("CHAR datatype is not supported in table")
     Resources.ExInst<SqlValidatorException> charDataTypeIsNotSupportedInTable();
 
+    @BaseMessage("{0} datatype is not supported'")
+    ExInst<SqlValidatorException> dataTypeIsNotSupported(String a0);
+
     @Resources.BaseMessage("Length for type {0} must be at least 1")
     Resources.ExInst<SqlValidatorException> invalidStringLength(String typeName);
 
