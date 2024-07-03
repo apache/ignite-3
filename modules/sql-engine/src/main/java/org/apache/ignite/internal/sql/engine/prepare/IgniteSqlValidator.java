@@ -641,7 +641,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             SqlNode first = expr0.getOperandList().get(0);
             RelDataType type1 = super.deriveType(scope, first);
 
-            if (SqlTypeUtil.isExactNumeric(type1)) {
+            if (SqlTypeUtil.isIntType(type1)) {
                 assert expr0.getOperandList().size() > 1;
                 if (expr0.getOperandList().get(1) instanceof SqlNodeList) {
                     SqlNodeList in = (SqlNodeList) expr0.getOperandList().get(1);

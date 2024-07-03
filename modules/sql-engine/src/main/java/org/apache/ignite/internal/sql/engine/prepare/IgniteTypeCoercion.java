@@ -129,8 +129,8 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
         RelDataType leftType = binding.getOperandType(0);
         RelDataType rightType = binding.getOperandType(1);
 
-        if (SqlTypeUtil.isExactNumeric(leftType) && SqlTypeUtil.isCharacter(rightType)
-                || SqlTypeUtil.isExactNumeric(rightType) && SqlTypeUtil.isCharacter(leftType)) {
+        if (SqlTypeUtil.isIntType(leftType) && SqlTypeUtil.isCharacter(rightType)
+                || SqlTypeUtil.isIntType(rightType) && SqlTypeUtil.isCharacter(leftType)) {
 
             SqlLiteral lit = extractLiteral(call);
 
