@@ -17,15 +17,15 @@
 
 package org.apache.ignite.internal.network.processor.messages;
 
-import static org.apache.ignite.internal.network.processor.messages.MessageGeneratorUtils.NULLABLE_ANNOTATION_SPEC;
-import static org.apache.ignite.internal.network.processor.messages.MessageGeneratorUtils.isMethodReturnNullableValue;
-import static org.apache.ignite.internal.network.processor.messages.MessageGeneratorUtils.isMethodReturnPrimitive;
-import static org.apache.ignite.internal.network.processor.messages.MessageImplGenerator.BYTE_ARRAY_TYPE;
-import static org.apache.ignite.internal.network.processor.messages.MessageImplGenerator.getByteArrayFieldName;
+import static org.apache.ignite.internal.network.processor.MessageGeneratorUtils.BYTE_ARRAY_TYPE;
+import static org.apache.ignite.internal.network.processor.MessageGeneratorUtils.NULLABLE_ANNOTATION_SPEC;
+import static org.apache.ignite.internal.network.processor.MessageGeneratorUtils.NULLABLE_BYTE_ARRAY_TYPE;
+import static org.apache.ignite.internal.network.processor.MessageGeneratorUtils.addByteArrayPostfix;
+import static org.apache.ignite.internal.network.processor.MessageGeneratorUtils.methodReturnsNullableValue;
+import static org.apache.ignite.internal.network.processor.MessageGeneratorUtils.methodReturnsPrimitive;
 
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.MethodSpec;
-import com.squareup.javapoet.ParameterSpec;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import java.util.ArrayList;
@@ -33,7 +33,6 @@ import java.util.List;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
-import javax.lang.model.type.TypeMirror;
 import javax.tools.Diagnostic;
 import org.apache.ignite.internal.network.annotations.Marshallable;
 import org.apache.ignite.internal.network.processor.MessageClass;
@@ -79,24 +78,23 @@ public class MessageBuilderGenerator {
 
         return TypeSpec.interfaceBuilder(builderName)
                 .addModifiers(Modifier.PUBLIC)
-                .addMethods(generateGettersAndSetters(message, message.getters()))
-                .addMethods(generateByteArrayGettersAndSetters(message, message.getters()))
+                .addMethods(generateGettersAndSetters(message))
+                .addMethods(generateByteArrayGettersAndSetters(message))
                 .addMethod(buildMethod)
                 .addOriginatingElement(message.element())
                 .addOriginatingElement(messageGroup.element())
                 .build();
     }
 
-    private List<MethodSpec> generateGettersAndSetters(MessageClass message, List<ExecutableElement> fields) {
-        List<MethodSpec> methods = new ArrayList<>();
+    private static List<MethodSpec> generateGettersAndSetters(MessageClass message) {
+        var methods = new ArrayList<MethodSpec>();
 
-        for (ExecutableElement field : fields) {
-            String fieldName = field.getSimpleName().toString();
+        for (ExecutableElement networkMessageGetter : message.getters()) {
+            String fieldName = networkMessageGetter.getSimpleName().toString();
 
-            TypeMirror returnTypeMirror = field.getReturnType();
-            TypeName returnTypeName = TypeName.get(returnTypeMirror);
+            TypeName returnTypeName = TypeName.get(networkMessageGetter.getReturnType());
 
-            if (!isMethodReturnPrimitive(field) && isMethodReturnNullableValue(field)) {
+            if (methodReturnsNotPrimitiveButNullableValue(networkMessageGetter)) {
                 // Allows us to generate (for example):
                 // TestMessageBuilder value(@Nullable String value);
                 // @Nullable String value();
@@ -108,7 +106,7 @@ public class MessageBuilderGenerator {
             // generate a setter for each getter in the original interface
             MethodSpec setterSpec = MethodSpec.methodBuilder(fieldName)
                     .addModifiers(Modifier.PUBLIC, Modifier.ABSTRACT)
-                    .addParameter(ParameterSpec.builder(returnTypeName, fieldName).build())
+                    .addParameter(returnTypeName, fieldName)
                     .returns(message.builderClassName())
                     .build();
 
@@ -125,22 +123,31 @@ public class MessageBuilderGenerator {
         return methods;
     }
 
-    private List<MethodSpec> generateByteArrayGettersAndSetters(MessageClass message, List<ExecutableElement> fields) {
-        List<MethodSpec> methods = new ArrayList<>();
+    private static List<MethodSpec> generateByteArrayGettersAndSetters(MessageClass message) {
+        var methods = new ArrayList<MethodSpec>();
 
-        for (ExecutableElement field : fields) {
-            if (field.getAnnotation(Marshallable.class) != null) {
-                String fieldName = field.getSimpleName().toString();
+        for (ExecutableElement networkMessageGetter : message.getters()) {
+            if (networkMessageGetter.getAnnotation(Marshallable.class) != null) {
+                String fieldName = networkMessageGetter.getSimpleName().toString();
 
-                MethodSpec baSetter = MethodSpec.methodBuilder(getByteArrayFieldName(fieldName))
+                TypeName getterAndSetterTypeName = BYTE_ARRAY_TYPE;
+
+                if (methodReturnsNotPrimitiveButNullableValue(networkMessageGetter)) {
+                    // Allows us to generate (for example):
+                    // TestMessageBuilder valueByteArray(byte @Nullable [] value);
+                    // byte @Nullable [] valueByteArray();
+                    getterAndSetterTypeName = NULLABLE_BYTE_ARRAY_TYPE;
+                }
+
+                MethodSpec baSetter = MethodSpec.methodBuilder(addByteArrayPostfix(fieldName))
                         .addModifiers(Modifier.PUBLIC, Modifier.ABSTRACT)
-                        .addParameter(BYTE_ARRAY_TYPE, getByteArrayFieldName(fieldName))
+                        .addParameter(getterAndSetterTypeName, addByteArrayPostfix(fieldName))
                         .returns(message.builderClassName())
                         .build();
 
-                MethodSpec baGetter = MethodSpec.methodBuilder(getByteArrayFieldName(fieldName))
+                MethodSpec baGetter = MethodSpec.methodBuilder(addByteArrayPostfix(fieldName))
                         .addModifiers(Modifier.PUBLIC, Modifier.ABSTRACT)
-                        .returns(BYTE_ARRAY_TYPE)
+                        .returns(getterAndSetterTypeName)
                         .build();
 
                 methods.add(baSetter);
@@ -149,5 +156,9 @@ public class MessageBuilderGenerator {
         }
 
         return methods;
+    }
+
+    private static boolean methodReturnsNotPrimitiveButNullableValue(ExecutableElement method) {
+        return !methodReturnsPrimitive(method) && methodReturnsNullableValue(method);
     }
 }

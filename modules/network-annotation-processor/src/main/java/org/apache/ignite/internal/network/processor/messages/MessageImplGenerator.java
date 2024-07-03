@@ -17,11 +17,12 @@
 
 package org.apache.ignite.internal.network.processor.messages;
 
-import static org.apache.ignite.internal.network.processor.messages.MessageGeneratorUtils.isMethodReturnNullableValue;
-import static org.apache.ignite.internal.network.processor.messages.MessageGeneratorUtils.isMethodReturnPrimitive;
+import static org.apache.ignite.internal.network.processor.MessageGeneratorUtils.BYTE_ARRAY_TYPE;
+import static org.apache.ignite.internal.network.processor.MessageGeneratorUtils.addByteArrayPostfix;
+import static org.apache.ignite.internal.network.processor.MessageGeneratorUtils.methodReturnsNullableValue;
+import static org.apache.ignite.internal.network.processor.MessageGeneratorUtils.methodReturnsPrimitive;
 
 import com.squareup.javapoet.AnnotationSpec;
-import com.squareup.javapoet.ArrayTypeName;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.FieldSpec;
@@ -68,9 +69,6 @@ import org.apache.ignite.internal.tostring.S;
  * MessageBuilderGenerator}.
  */
 public class MessageImplGenerator {
-    /** Type name of the {@code byte[]}. */
-    static final ArrayTypeName BYTE_ARRAY_TYPE = ArrayTypeName.of(TypeName.BYTE);
-
     /** Processing environment. */
     private final ProcessingEnvironment processingEnv;
 
@@ -165,7 +163,7 @@ public class MessageImplGenerator {
             if (isMarshallable) {
                 marshallableFieldNames.add(getterName);
 
-                String name = getByteArrayFieldName(getterName);
+                String name = addByteArrayPostfix(getterName);
                 FieldSpec marshallableFieldArray = FieldSpec.builder(BYTE_ARRAY_TYPE, name)
                         .addModifiers(Modifier.PRIVATE)
                         .build();
@@ -361,7 +359,7 @@ public class MessageImplGenerator {
             if (executableElement.getAnnotation(Marshallable.class) != null) {
                 isNeeded = true;
 
-                String baName = getByteArrayFieldName(objectName);
+                String baName = addByteArrayPostfix(objectName);
                 String moName = baName + "mo";
                 prepareMarshal.addStatement("$T $N = marshaller.marshal($N)", marshalledObjectClass, moName, objectName);
                 prepareMarshal.addStatement("usedDescriptors.addAll($N.usedDescriptorIds())", moName);
@@ -423,7 +421,7 @@ public class MessageImplGenerator {
             if (executableElement.getAnnotation(Marshallable.class) != null) {
                 isNeeded = true;
 
-                String baName = getByteArrayFieldName(objectName);
+                String baName = addByteArrayPostfix(objectName);
                 unmarshal.addStatement("$N = marshaller.unmarshal($N, descriptorsObj)", objectName, baName);
                 unmarshal.addStatement("$N = null", baName);
             } else {
@@ -671,7 +669,7 @@ public class MessageImplGenerator {
 
             if (notNullFieldNames.contains(fieldName) && marshallableFieldNames.contains(fieldName)) {
                 CodeBlock nullCheck = CodeBlock.builder()
-                        .beginControlFlow("if ($L == null && $L == null)", fieldName, getByteArrayFieldName(fieldName))
+                        .beginControlFlow("if ($L == null && $L == null)", fieldName, addByteArrayPostfix(fieldName))
                         .addStatement("throw new $T($S)", NullPointerException.class, fieldName + " is not marked @Nullable")
                         .endControlFlow()
                         .build();
@@ -738,7 +736,7 @@ public class MessageImplGenerator {
             getters.add(getter);
 
             if (isMarshallable) {
-                String name = getByteArrayFieldName(getterName);
+                String name = addByteArrayPostfix(getterName);
                 FieldSpec baField = FieldSpec.builder(BYTE_ARRAY_TYPE, name)
                         .addModifiers(Modifier.PRIVATE)
                         .build();
@@ -810,11 +808,7 @@ public class MessageImplGenerator {
     }
 
     private static boolean requiresNotNullCheck(ExecutableElement el) {
-        return !isMethodReturnPrimitive(el) && !isMethodReturnNullableValue(el);
-    }
-
-    public static String getByteArrayFieldName(String objectName) {
-        return objectName + "ByteArray";
+        return !methodReturnsPrimitive(el) && !methodReturnsNullableValue(el);
     }
 
     /** Types that may hold network message. */

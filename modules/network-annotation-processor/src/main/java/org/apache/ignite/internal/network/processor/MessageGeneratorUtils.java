@@ -15,9 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.processor.messages;
+package org.apache.ignite.internal.network.processor;
 
 import com.squareup.javapoet.AnnotationSpec;
+import com.squareup.javapoet.ArrayTypeName;
+import com.squareup.javapoet.TypeName;
 import java.util.List;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ExecutableElement;
@@ -28,11 +30,18 @@ import org.apache.ignite.internal.network.NetworkMessage;
 import org.jetbrains.annotations.Nullable;
 
 /** Сlass that contains useful constants and methods when generating classes for {@link NetworkMessage}. */
-class MessageGeneratorUtils {
-    static final AnnotationSpec NULLABLE_ANNOTATION_SPEC = AnnotationSpec.builder(Nullable.class).build();
+public class MessageGeneratorUtils {
+    /** {@link Nullable} spec. */
+    public static final AnnotationSpec NULLABLE_ANNOTATION_SPEC = AnnotationSpec.builder(Nullable.class).build();
+
+    /** Type name of the {@code byte[]}. */
+    public static final TypeName BYTE_ARRAY_TYPE = ArrayTypeName.of(TypeName.BYTE);
+
+    /** Type name of the {@code byte @Nullable []}. */
+    public static final TypeName NULLABLE_BYTE_ARRAY_TYPE = ArrayTypeName.of(TypeName.BYTE).annotated(NULLABLE_ANNOTATION_SPEC);
 
     /** Returns {@link true} if the method return value is marked with {@link Nullable}. */
-    static boolean isMethodReturnNullableValue(ExecutableElement el) {
+    public static boolean methodReturnsNullableValue(ExecutableElement el) {
         TypeMirror returnType = el.getReturnType();
 
         TypeKind kind = returnType.getKind();
@@ -55,7 +64,12 @@ class MessageGeneratorUtils {
     }
 
     /** Returns {@link true} if the method return primitive value. */
-    static boolean isMethodReturnPrimitive(ExecutableElement el) {
+    public static boolean methodReturnsPrimitive(ExecutableElement el) {
         return el.getReturnType().getKind().isPrimitive();
+    }
+
+    /** Adds postfix "ByteArray". */
+    public static String addByteArrayPostfix(String s) {
+        return s + "ByteArray";
     }
 }
