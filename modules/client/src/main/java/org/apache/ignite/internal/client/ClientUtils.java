@@ -20,8 +20,6 @@ package org.apache.ignite.internal.client;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.util.Objects;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import org.apache.ignite.client.ClientOperationType;
 import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.internal.client.proto.ClientOp;
@@ -77,25 +75,6 @@ public class ClientUtils {
 
         return new IgniteException(INTERNAL_ERR, "Public Ignite exception-derived class does not have required constructor: "
                 + e.getClass().getName(), e);
-    }
-
-    /**
-     * Waits for async operation completion.
-     *
-     * @param fut Future to wait to.
-     * @param <T> Future result type.
-     * @return Future result.
-     */
-    public static <T> T sync(CompletableFuture<T> fut) {
-        try {
-            return fut.get();
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt(); // Restore interrupt flag.
-
-            throw ExceptionUtils.sneakyThrow(ensurePublicException(e));
-        } catch (ExecutionException e) {
-            throw ExceptionUtils.sneakyThrow(ensurePublicException(e));
-        }
     }
 
     /**
