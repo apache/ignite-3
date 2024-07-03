@@ -17,11 +17,15 @@
 
 package org.apache.ignite.internal.network.processor.messages;
 
+import static org.apache.ignite.internal.network.processor.messages.MessageGeneratorUtils.NULLABLE_ANNOTATION_SPEC;
+import static org.apache.ignite.internal.network.processor.messages.MessageGeneratorUtils.isMethodReturnNullableValue;
+import static org.apache.ignite.internal.network.processor.messages.MessageGeneratorUtils.isMethodReturnPrimitive;
 import static org.apache.ignite.internal.network.processor.messages.MessageImplGenerator.BYTE_ARRAY_TYPE;
 import static org.apache.ignite.internal.network.processor.messages.MessageImplGenerator.getByteArrayFieldName;
 
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.MethodSpec;
+import com.squareup.javapoet.ParameterSpec;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import java.util.ArrayList;
@@ -89,19 +93,29 @@ public class MessageBuilderGenerator {
         for (ExecutableElement field : fields) {
             String fieldName = field.getSimpleName().toString();
 
-            TypeMirror type = field.getReturnType();
+            TypeMirror returnTypeMirror = field.getReturnType();
+            TypeName returnTypeName = TypeName.get(returnTypeMirror);
+
+            if (!isMethodReturnPrimitive(field) && isMethodReturnNullableValue(field)) {
+                // Allows us to generate (for example):
+                // TestMessageBuilder value(@Nullable String value);
+                // @Nullable String value();
+                // TestMessageBuilder values(String @Nullable [] value);
+                // String @Nullable [] values();
+                returnTypeName = returnTypeName.annotated(NULLABLE_ANNOTATION_SPEC);
+            }
 
             // generate a setter for each getter in the original interface
             MethodSpec setterSpec = MethodSpec.methodBuilder(fieldName)
                     .addModifiers(Modifier.PUBLIC, Modifier.ABSTRACT)
-                    .addParameter(TypeName.get(type), fieldName)
+                    .addParameter(ParameterSpec.builder(returnTypeName, fieldName).build())
                     .returns(message.builderClassName())
                     .build();
 
             // generate a getter for each getter in the original interface
             MethodSpec getterSpec = MethodSpec.methodBuilder(fieldName)
                     .addModifiers(Modifier.PUBLIC, Modifier.ABSTRACT)
-                    .returns(TypeName.get(type))
+                    .returns(returnTypeName)
                     .build();
 
             methods.add(setterSpec);
