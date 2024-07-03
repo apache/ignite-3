@@ -112,6 +112,7 @@ import org.apache.ignite.internal.partition.replicator.network.command.WriteInte
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryRowMessage;
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryTupleMessage;
 import org.apache.ignite.internal.partition.replicator.network.replication.BuildIndexReplicaRequest;
+import org.apache.ignite.internal.partition.replicator.network.replication.GetEstimatedSizeRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadOnlyDirectMultiRowReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadOnlyDirectSingleRowReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadOnlyMultiRowPkReplicaRequest;
@@ -508,6 +509,10 @@ public class PartitionReplicaListener implements ReplicaListener {
             return processCleanupRecoveryMessage((TxCleanupRecoveryRequest) request);
         }
 
+        if (request instanceof GetEstimatedSizeRequest) {
+            return processGetEstimatedSizeRequest();
+        }
+
         HybridTimestamp opTsIfDirectRo = (request instanceof ReadOnlyDirectReplicaRequest) ? clockService.now() : null;
 
         return validateTableExistence(request, opTsIfDirectRo)
@@ -515,6 +520,10 @@ public class PartitionReplicaListener implements ReplicaListener {
                 .thenCompose(unused -> waitForSchemasBeforeReading(request, opTsIfDirectRo))
                 .thenCompose(unused ->
                         processOperationRequestWithTxRwCounter(senderId, request, isPrimary, opTsIfDirectRo, leaseStartTime));
+    }
+
+    private CompletableFuture<Long> processGetEstimatedSizeRequest() {
+        return completedFuture(mvDataStorage.estimatedSize());
     }
 
     private CompletableFuture<Void> processCleanupRecoveryMessage(TxCleanupRecoveryRequest request) {

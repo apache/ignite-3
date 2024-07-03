@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table.distributed.storage;
 
 import static it.unimi.dsi.fastutil.ints.Int2ObjectMaps.emptyMap;
+import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -61,6 +62,7 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.HashSet;
@@ -574,7 +576,7 @@ public class InternalTableImpl implements InternalTable {
         return postEnlist(fut, false, tx, false);
     }
 
-    private @Nullable BinaryTupleMessage binaryTupleMessage(@Nullable BinaryTupleReader binaryTuple) {
+    private static @Nullable BinaryTupleMessage binaryTupleMessage(@Nullable BinaryTupleReader binaryTuple) {
         if (binaryTuple == null) {
             return null;
         }
@@ -1074,7 +1076,7 @@ public class InternalTableImpl implements InternalTable {
         return result;
     }
 
-    private TablePartitionIdMessage serializeTablePartitionId(TablePartitionId id) {
+    private static TablePartitionIdMessage serializeTablePartitionId(TablePartitionId id) {
         return toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, id);
     }
 
@@ -2077,9 +2079,8 @@ public class InternalTableImpl implements InternalTable {
              *
              * @param t An exception which was thrown when entries were retrieving from the cursor.
              * @param intentionallyClose True if the subscription is closed for the client side.
-             * @return Future to complete.
              */
-            private void cancel(Throwable t, boolean intentionallyClose) {
+            private void cancel(@Nullable Throwable t, boolean intentionallyClose) {
                 if (!canceled.compareAndSet(false, true)) {
                     return;
                 }
@@ -2231,6 +2232,27 @@ public class InternalTableImpl implements InternalTable {
         return streamerFlushExecutor.get();
     }
 
+    @Override
+    public CompletableFuture<Long> estimatedSize() {
+        var invokeFutures = new CompletableFuture<?>[partitions];
+
+        for (int partId = 0; partId < partitions; partId++) {
+            var replicaGroupId = new TablePartitionId(tableId, partId);
+
+            invokeFutures[partId] = partitionLocation(replicaGroupId)
+                    .thenCompose(node -> {
+                        ReplicaRequest request = TABLE_MESSAGES_FACTORY.getEstimatedSizeRequest()
+                                .groupId(serializeTablePartitionId(replicaGroupId))
+                                .build();
+
+                        return replicaSvc.invoke(node, request);
+                    });
+        }
+
+        return allOf(invokeFutures)
+                .thenApply(v -> Arrays.stream(invokeFutures).mapToLong(f -> (Long) f.join()).sum());
+    }
+
     /**
      * Updates the partition trackers, if there were previous ones, it closes them.
      *
@@ -2277,8 +2299,6 @@ public class InternalTableImpl implements InternalTable {
             Long enlistmentConsistencyToken,
             boolean full
     ) {
-        assert serializeTablePartitionId(txo.commitPartition()) != null;
-
         return readWriteMultiRowReplicaRequest(RW_UPSERT_ALL, keyRows0, null, txo, groupId, enlistmentConsistencyToken, full);
     }
 
@@ -2290,8 +2310,6 @@ public class InternalTableImpl implements InternalTable {
             Long enlistmentConsistencyToken,
             boolean full
     ) {
-        assert serializeTablePartitionId(txo.commitPartition()) != null;
-
         return readWriteMultiRowReplicaRequest(
                 RW_UPSERT_ALL, keyRows0, deleted, txo, groupId, enlistmentConsistencyToken, full);
     }
