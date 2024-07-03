@@ -584,8 +584,8 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
             return null;
         }
 
-        if ((SqlTypeUtil.isExactNumeric(type1) && SqlTypeUtil.isCharacter(type2))
-                || (SqlTypeUtil.isExactNumeric(type2) && SqlTypeUtil.isCharacter(type1))) {
+        if ((SqlTypeUtil.isIntType(type1) && SqlTypeUtil.isCharacter(type2))
+                || (SqlTypeUtil.isIntType(type2) && SqlTypeUtil.isCharacter(type1))) {
             return SqlTypeUtil.getMaxPrecisionScaleDecimal(factory);
         }
 

@@ -256,7 +256,7 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
 
         assertQuery("SELECT * FROM tbl WHERE v > OCTET_LENGTH('TEST')").returns(checkReturn).check();
         assertQuery(format("SELECT NULLIF((select {}), 100)", moreThanUpperBoundApprox))
-                .returns(moreThanUpperBoundApprox.toString()).check();
+                .returns(moreThanUpperBoundApprox).check();
         assertQuery(format("SELECT NULLIF(cast ((select {}) as varchar), 100)", moreThanUpperBoundApprox))
                 .returns(moreThanUpperBoundApprox.toString()).check();
 
