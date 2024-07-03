@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
+import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
@@ -75,95 +76,6 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
         }
     }
 
-    @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
-    @ParameterizedTest()
-    @MethodSource("exactDecimalTypes")
-    public void test0(SqlTypeName typeName, Class<?> clazz, Number upper, String strUpper) {
-        sql(format("create table tbl(v {});", typeName));
-        sql(format("insert into tbl values({});", upper));
-
-        Number checkReturn = (Number) clazz.cast(upper);
-
-        // check TypeCoercionImpl.binaryArithmeticWithStrings, in case of char(N) + integer arithmetic it derives Integer type as resulting.
-        boolean skipIntegerOverflowWithMixedCharacterTypes = typeName != SqlTypeName.BIGINT;
-
-        BigDecimal moreThanUpperBoundApprox = new BigDecimal(strUpper).add(new BigDecimal(1.1));
-        BigDecimal moreThanUpperBoundExact = new BigDecimal(strUpper).add(new BigDecimal(1));
-        BigDecimal lessUpper = new BigDecimal(strUpper).add(new BigDecimal(-1));
-
-        assertThrowsSqlException(
-                STMT_VALIDATION_ERR,
-                "Invalid character value for cast",
-                () -> sql(format("SELECT * FROM tbl WHERE v < '{}'", moreThanUpperBoundApprox)));
-
-        assertThrowsSqlException(
-                STMT_VALIDATION_ERR,
-                "Invalid character value for cast",
-                () -> sql(format("SELECT * FROM tbl WHERE v > '{}'", moreThanUpperBoundApprox)));
-
-        assertThrowsSqlException(
-                STMT_VALIDATION_ERR,
-                "Invalid character value for cast",
-                () -> sql(format("SELECT * FROM tbl WHERE v <> '{}'", moreThanUpperBoundApprox)));
-
-        assertThrowsSqlException(
-                STMT_VALIDATION_ERR,
-                "Invalid character value for cast",
-                () -> sql(format("SELECT * FROM tbl WHERE v != '{}'", moreThanUpperBoundApprox)));
-
-        assertThrowsSqlException(
-                STMT_VALIDATION_ERR,
-                "Invalid character value for cast",
-                () -> sql(format("SELECT * FROM tbl WHERE v NOT IN ('200.1', '{}')", moreThanUpperBoundApprox)));
-
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-22640 Improve type derivation for dynamic parameters
-        /*assertThrowsSqlException(
-                STMT_VALIDATION_ERR,
-                "Invalid character value for cast",
-                () -> sql("SELECT * FROM tbl WHERE v NOT IN (?)", "'" + lessUpper + "'"));*/
-
-        assertQuery(format("SELECT * FROM tbl WHERE v IN ('{}' + '1', '300')", lessUpper)).returns(checkReturn).check();
-
-        if (skipIntegerOverflowWithMixedCharacterTypes) {
-            assertQuery(format("SELECT * FROM tbl WHERE v IN ('{}' + 1, '300')", lessUpper)).returns(checkReturn).check();
-        }
-
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-22640 Improve type derivation for dynamic parameters
-        //assertQuery("SELECT * FROM tbl WHERE v IN (? + 1, '300')").withParam("'" + lessUpper + "'").returns(checkReturn).check();
-
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-22640 Improve type derivation for dynamic parameters
-        //assertQuery("SELECT * FROM tbl WHERE v IN (?)").withParam("'" + strUpper + "'").returns(checkReturn).check();
-
-        assertQuery("SELECT * FROM tbl WHERE v IN (? + 1, '300')").withParam(lessUpper).returns(checkReturn).check();
-
-        assertQuery(format("SELECT * FROM tbl WHERE v NOT IN ('{}' - '1', '300')", strUpper)).returns(checkReturn).check();
-
-        assertQuery("SELECT * FROM tbl WHERE v NOT IN (? - '1', '300')").withParam(checkReturn).returns(checkReturn).check();
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-22640 Improve type derivation for dynamic parameters
-        //assertQuery("SELECT * FROM tbl WHERE v NOT IN (? - 1, '300')").withParam("'" + checkReturn + "'").returns(checkReturn).check();
-
-        assertQuery(format("SELECT * FROM tbl WHERE v != {}", moreThanUpperBoundApprox)).returns(checkReturn).check();
-        assertQuery(format("SELECT * FROM tbl WHERE {} != v", moreThanUpperBoundApprox)).returns(checkReturn).check();
-
-        assertQuery(format("SELECT * FROM tbl WHERE v < {}", moreThanUpperBoundApprox)).returns(checkReturn).check();
-        assertQuery(format("SELECT * FROM tbl WHERE {} > v", moreThanUpperBoundApprox)).returns(checkReturn).check();
-
-        if (skipIntegerOverflowWithMixedCharacterTypes) {
-            assertQuery(format("SELECT * FROM tbl WHERE v < {}", moreThanUpperBoundExact)).returns(checkReturn).check();
-        }
-
-        assertQuery("SELECT * FROM tbl WHERE v > OCTET_LENGTH('TEST')").returns(checkReturn).check();
-    }
-
-    private static Stream<Arguments> exactDecimalTypes() {
-        return Stream.of(
-                arguments(SqlTypeName.BIGINT, Long.class, Long.MAX_VALUE, Long.toString(Long.MAX_VALUE)),
-                arguments(SqlTypeName.INTEGER, Integer.class, Integer.MAX_VALUE, Integer.toString(Integer.MAX_VALUE)),
-                arguments(SqlTypeName.SMALLINT, Short.class, Short.MAX_VALUE, Short.toString(Short.MAX_VALUE)),
-                arguments(SqlTypeName.TINYINT, Byte.class, Byte.MAX_VALUE, Byte.toString(Byte.MAX_VALUE))
-        );
-    }
-
     /** Tests correctness with unicode. */
     @Test
     public void testUnicodeStrings() {
@@ -204,6 +116,163 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
             assertEquals(1, rows.size());
             assertEquals(val.length(), rows.get(0).get(0));
         }
+    }
+
+    @Test
+    @SuppressWarnings("ThrowableNotThrown")
+    public void exactWithApproxComparison() {
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Invalid character for cast",
+                () -> sql("SELECT '1.1' > 2"));
+
+        assertThrowsSqlException(
+                RUNTIME_ERR,
+                "Invalid input syntax for type INTEGER",
+                () -> sql("SELECT '1.1'::INTEGER > 2"));
+
+        assertQuery("SELECT 1.1::INTEGER > 2").returns(false).check();
+        assertQuery("SELECT 2 < 1.1::INTEGER").returns(false).check();
+
+        assertQuery("SELECT 1.1::BIGINT > 2").returns(false).check();
+        assertQuery("SELECT 2 < 1.1::BIGINT").returns(false).check();
+
+        assertQuery("SELECT 1.1::float > 2").returns(false).check();
+        assertQuery("SELECT '1.1'::float > 2").returns(false).check();
+    }
+
+    @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
+    @ParameterizedTest()
+    @MethodSource("exactDecimalTypes")
+    public void testFilterTypeWiderThanColumnExprErr(SqlTypeName typeName, Class<?> clazz, Number upper, String strUpper) {
+        sql(format("create table tbl(v {});", typeName));
+        sql(format("insert into tbl values({});", upper));
+
+        BigDecimal moreThanUpperBoundApprox = new BigDecimal(strUpper).add(new BigDecimal(1.1));
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Invalid character for cast",
+                () -> sql(format("SELECT * FROM tbl WHERE v = '{}'", moreThanUpperBoundApprox)));
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Invalid character for cast",
+                () -> sql(format("SELECT * FROM tbl WHERE v = {}::VARCHAR", moreThanUpperBoundApprox)));
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Invalid character for cast",
+                () -> sql(format("SELECT * FROM tbl WHERE v < '{}'", moreThanUpperBoundApprox)));
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Invalid character for cast",
+                () -> sql(format("SELECT * FROM tbl WHERE v > '{}'", moreThanUpperBoundApprox)));
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Invalid character for cast",
+                () -> sql(format("SELECT * FROM tbl WHERE v <> '{}'", moreThanUpperBoundApprox)));
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Invalid character for cast",
+                () -> sql(format("SELECT * FROM tbl WHERE v != ' {} '", moreThanUpperBoundApprox)));
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Invalid character for cast",
+                () -> sql(format("SELECT * FROM tbl WHERE v NOT IN ('1', '{}')", moreThanUpperBoundApprox)));
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Invalid character for cast",
+                () -> sql(format("SELECT * FROM tbl WHERE v NOT IN ('1', {}::VARCHAR)", moreThanUpperBoundApprox)));
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Invalid character for cast",
+                () -> sql(format("SELECT * FROM tbl WHERE v IN ('1', (SELECT {}))", moreThanUpperBoundApprox)));
+
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-22640 Improve type derivation for dynamic parameters
+        /* assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Invalid character for cast",
+                () -> sql("SELECT * FROM tbl WHERE v NOT IN (?)", "'" + lessUpper + "'"));*/
+    }
+
+    @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
+    @ParameterizedTest()
+    @MethodSource("exactDecimalTypes")
+    public void testFilterTypeWiderThanColumn(SqlTypeName typeName, Class<?> clazz, Number upper, String strUpper) {
+        sql(format("create table tbl(v {});", typeName));
+        sql(format("insert into tbl values({});", upper));
+
+        Number checkReturn = (Number) clazz.cast(upper);
+
+        // check TypeCoercionImpl.binaryArithmeticWithStrings, in case of char(N) + integer arithmetic it derives Integer type as resulting.
+        boolean skipIntegerOverflowWithMixedCharacterTypes = typeName != SqlTypeName.BIGINT;
+
+        BigDecimal moreThanUpperBoundApprox = new BigDecimal(strUpper).add(new BigDecimal(1.1));
+        BigDecimal moreThanUpperBoundExact = new BigDecimal(strUpper).add(new BigDecimal(1));
+        BigDecimal lessUpper = new BigDecimal(strUpper).add(new BigDecimal(-1));
+
+        // -------------------------------------------------------- //
+
+        assertQuery(format("SELECT * FROM tbl WHERE v = {}", upper)).returns(checkReturn).check();
+        assertQuery(format("SELECT * FROM tbl WHERE {} = v", upper)).returns(checkReturn).check();
+
+        assertQuery(format("SELECT * FROM tbl WHERE v = '{}'", strUpper)).returns(checkReturn).check();
+        assertQuery(format("SELECT * FROM tbl WHERE '{}' = v", upper)).returns(checkReturn).check();
+
+        assertQuery(format("SELECT * FROM tbl WHERE v != {}", moreThanUpperBoundApprox)).returns(checkReturn).check();
+        assertQuery(format("SELECT * FROM tbl WHERE {} != v", moreThanUpperBoundApprox)).returns(checkReturn).check();
+
+        assertQuery(format("SELECT * FROM tbl WHERE v < {}", moreThanUpperBoundApprox)).returns(checkReturn).check();
+        assertQuery(format("SELECT * FROM tbl WHERE {} > v", moreThanUpperBoundApprox)).returns(checkReturn).check();
+
+        assertQuery(format("SELECT * FROM tbl WHERE v < (SELECT {})", moreThanUpperBoundApprox)).returns(checkReturn).check();
+        assertQuery(format("SELECT * FROM tbl WHERE v = (SELECT {})", strUpper)).returns(checkReturn).check();
+        assertQuery(format("SELECT * FROM tbl WHERE v = (SELECT {})::varchar", strUpper)).returns(checkReturn).check();
+        assertQuery(format("SELECT * FROM tbl WHERE v = ' {} '", strUpper)).returns(checkReturn).check();
+
+        assertQuery(format("SELECT * FROM tbl WHERE v IN (' {}' + '1', '0')", lessUpper)).returns(checkReturn).check();
+        assertQuery(format("SELECT * FROM tbl WHERE v IN ((SELECT v FROM tbl WHERE v = {}), '0')", strUpper))
+                .returns(checkReturn).check();
+
+        if (skipIntegerOverflowWithMixedCharacterTypes) {
+            assertQuery(format("SELECT * FROM tbl WHERE v IN ('{}' + 1, '0')", lessUpper)).returns(checkReturn).check();
+        }
+
+        assertQuery("SELECT * FROM tbl WHERE v IN (? + 1, '0')").withParam(lessUpper).returns(checkReturn).check();
+        assertQuery(format("SELECT * FROM tbl WHERE v NOT IN ('{}' - '1', '0')", strUpper)).returns(checkReturn).check();
+        assertQuery("SELECT * FROM tbl WHERE v NOT IN (? - '1', '0')").withParam(checkReturn).returns(checkReturn).check();
+
+
+        if (skipIntegerOverflowWithMixedCharacterTypes) {
+            assertQuery(format("SELECT * FROM tbl WHERE v < {}", moreThanUpperBoundExact)).returns(checkReturn).check();
+        }
+
+        assertQuery("SELECT * FROM tbl WHERE v > OCTET_LENGTH('TEST')").returns(checkReturn).check();
+        assertQuery(format("SELECT NULLIF((select {}), 100)", moreThanUpperBoundApprox))
+                .returns(moreThanUpperBoundApprox.toString()).check();
+        assertQuery(format("SELECT NULLIF(cast ((select {}) as varchar), 100)", moreThanUpperBoundApprox))
+                .returns(moreThanUpperBoundApprox.toString()).check();
+
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-22640 Improve type derivation for dynamic parameters
+        // assertQuery("SELECT * FROM tbl WHERE v IN (? + 1, '300')").withParam("'" + lessUpper + "'").returns(checkReturn).check();
+        // assertQuery("SELECT * FROM tbl WHERE v IN (?)").withParam("'" + strUpper + "'").returns(checkReturn).check();
+        // assertQuery("SELECT * FROM tbl WHERE v NOT IN (? - 1, '300')").withParam("'" + checkReturn + "'").returns(checkReturn).check();
+    }
+
+    private static Stream<Arguments> exactDecimalTypes() {
+        return Stream.of(
+                arguments(SqlTypeName.BIGINT, Long.class, Long.MAX_VALUE, Long.toString(Long.MAX_VALUE)),
+                arguments(SqlTypeName.INTEGER, Integer.class, Integer.MAX_VALUE, Integer.toString(Integer.MAX_VALUE)),
+                arguments(SqlTypeName.SMALLINT, Short.class, Short.MAX_VALUE, Short.toString(Short.MAX_VALUE)),
+                arguments(SqlTypeName.TINYINT, Byte.class, Byte.MAX_VALUE, Byte.toString(Byte.MAX_VALUE))
+        );
     }
 
     /** Tests NOT NULL and DEFAULT column constraints. */
@@ -551,9 +620,9 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
     @MethodSource("decimalOverflows")
     public void testCalcOpOverflow(SqlTypeName type, String expr, Object param) {
         if (param == EMPTY_PARAM) {
-            assertThrowsSqlException(Sql.RUNTIME_ERR, type.getName() + " out of range", () -> sql(expr));
+            assertThrowsSqlException(RUNTIME_ERR, type.getName() + " out of range", () -> sql(expr));
         } else {
-            assertThrowsSqlException(Sql.RUNTIME_ERR, type.getName() + " out of range", () -> sql(expr, param));
+            assertThrowsSqlException(RUNTIME_ERR, type.getName() + " out of range", () -> sql(expr, param));
         }
     }
 
@@ -616,7 +685,7 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
     @MethodSource("decimalOverflowsValidation")
     public void testCastDecimalOverflows(SqlTypeName type, String expr, Boolean withException) {
         if (withException) {
-            assertThrowsSqlException(Sql.RUNTIME_ERR, type + " out of range", () -> sql(expr));
+            assertThrowsSqlException(RUNTIME_ERR, type + " out of range", () -> sql(expr));
         } else {
             sql(expr);
         }

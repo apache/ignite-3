@@ -22,7 +22,7 @@ import static org.apache.calcite.sql.type.SqlTypeName.INTEGER;
 import static org.apache.calcite.sql.type.SqlTypeUtil.isNull;
 import static org.apache.calcite.util.Static.RESOURCE;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
+import static org.apache.ignite.internal.sql.engine.prepare.IgniteTypeCoercion.extractLiteral;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectArrayMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
@@ -47,6 +47,7 @@ import org.apache.calcite.prepare.CalciteCatalogReader;
 import org.apache.calcite.prepare.Prepare;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeField;
+import org.apache.calcite.runtime.CalciteException;
 import org.apache.calcite.schema.impl.ModifiableViewTable;
 import org.apache.calcite.sql.JoinConditionType;
 import org.apache.calcite.sql.SqlAggFunction;
@@ -95,7 +96,6 @@ import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.IgniteResource;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
-import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
 /** Validator. */
@@ -108,6 +108,8 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     private static final Set<SqlKind> HUMAN_READABLE_ALIASES_FOR;
 
     public static final String NUMERIC_FIELD_OVERFLOW_ERROR = "Numeric field overflow";
+
+    private static final Pattern DIGITS_REG = Pattern.compile("^\\s*\\d+\\s*$");
 
     static {
         EnumSet<SqlKind> kinds = EnumSet.noneOf(SqlKind.class);
@@ -609,18 +611,24 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
                 });
     }
 
-    private void checkTypes(@Nullable String strVal) {
+    /** Check string contain only digit characters.
+     *
+     * @param strVal String representation.
+     * @param pos Current validator position.
+     *
+     * @throws CalciteException if unexpected input string found.
+     **/
+    static void checkStringContainDigitsOnly(@Nullable String strVal, SqlParserPos pos) throws CalciteException {
         if (strVal == null) {
             return;
         }
 
-        Pattern digits = Pattern.compile("^\\d+$");
-        Matcher matcher = digits.matcher(strVal);
+        Matcher matcher = DIGITS_REG.matcher(strVal);
         boolean ret = matcher.find();
+
         if (!ret) {
-            throw new SqlException(STMT_VALIDATION_ERR, "Invalid character value for cast: \"" + strVal + "\"");
-            //throw new SqlException(STMT_VALIDATION_ERR, RESOURCE.invalidCharacterForCast(strVal).);
-            //throw SqlUtil.newContextException(expr.getParserPosition(), ex); !!!!
+            var ex = RESOURCE.invalidCharacterForCast(strVal);
+            throw SqlUtil.newContextException(pos, ex);
         }
     }
 
@@ -634,16 +642,36 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             RelDataType type1 = super.deriveType(scope, first);
 
             if (SqlTypeUtil.isExactNumeric(type1)) {
-                SqlNodeList in = (SqlNodeList) expr0.getOperandList().get(1);
+                assert expr0.getOperandList().size() > 1;
+                if (expr0.getOperandList().get(1) instanceof SqlNodeList) {
+                    SqlNodeList in = (SqlNodeList) expr0.getOperandList().get(1);
 
-                for (SqlNode node : in) {
-                    if (node instanceof SqlCharStringLiteral) {
-                        checkTypes(((SqlCharStringLiteral) node).toValue());
+                    for (SqlNode node : in) {
+                        SqlLiteral lit = null;
+                        if (node instanceof SqlCharStringLiteral) {
+                            lit = (SqlCharStringLiteral) node;
+                        } else if (node.getKind() == SqlKind.SCALAR_QUERY) {
+                            RelDataType type0 = super.deriveType(scope, ((SqlBasicCall) node).getOperandList().get(0));
+
+                            if (type0.isStruct() && !type0.getFieldList().isEmpty()) {
+                                for (RelDataTypeField fld : type0.getFieldList()) {
+                                    int scale = fld.getType().getScale();
+
+                                    if (scale != 0) {
+                                        var ex = RESOURCE.invalidCharacterForCast(node.toString());
+                                        throw SqlUtil.newContextException(expr.getParserPosition(), ex);
+                                    }
+                                }
+                            }
+                        } else if (node instanceof SqlCall) {
+                            lit = extractLiteral((SqlCall) node);
+                        }
+
+                        if (lit != null) {
+                            String strVal = lit.toValue();
+                            checkStringContainDigitsOnly(strVal, expr.getParserPosition());
+                        }
                     }
-
-                    RelDataType returnType = super.deriveType(scope, node);
-                    //checkTypes
-                    System.err.println();
                 }
             }
         }

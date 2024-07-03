@@ -21,21 +21,16 @@ import static java.util.Objects.requireNonNull;
 import static org.apache.calcite.rel.type.RelDataType.PRECISION_NOT_SPECIFIED;
 import static org.apache.calcite.sql.type.NonNullableAccessors.getCollation;
 import static org.apache.calcite.sql.type.SqlTypeName.CHAR_TYPES;
-import static org.apache.calcite.sql.type.SqlTypeName.TINYINT;
 import static org.apache.calcite.sql.type.SqlTypeName.VARCHAR;
 import static org.apache.calcite.util.Static.RESOURCE;
-import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
+import static org.apache.ignite.internal.sql.engine.prepare.IgniteSqlValidator.checkStringContainDigitsOnly;
 
-import java.math.BigDecimal;
 import java.nio.charset.Charset;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import org.apache.calcite.adapter.java.JavaTypeFactory;
 import org.apache.calcite.rel.type.DynamicRecordType;
 import org.apache.calcite.rel.type.RelDataType;
@@ -51,8 +46,10 @@ import org.apache.calcite.sql.SqlFunction;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlInsert;
 import org.apache.calcite.sql.SqlKind;
+import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
+import org.apache.calcite.sql.SqlNumericLiteral;
 import org.apache.calcite.sql.SqlOperator;
 import org.apache.calcite.sql.SqlSelect;
 import org.apache.calcite.sql.SqlUpdate;
@@ -71,7 +68,6 @@ import org.apache.ignite.internal.sql.engine.type.IgniteCustomTypeCoercionRules;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.IgniteResource;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
-import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
 /** Implicit type cast implementation. */
@@ -99,15 +95,26 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
         }
     }
 
-    private void checkTypes(String strVal) {
-        Pattern digits = Pattern.compile("^\\d+$");
-        Matcher matcher = digits.matcher(strVal);
-        boolean ret = matcher.find();
-        if (!ret) {
-            throw new SqlException(STMT_VALIDATION_ERR, "Invalid character value for cast: \"" + strVal + "\"");
-            //throw new SqlException(STMT_VALIDATION_ERR, RESOURCE.invalidCharacterForCast(strVal).);
-            //throw SqlUtil.newContextException(expr.getParserPosition(), ex); !!!!
+    static @Nullable SqlLiteral extractLiteral(SqlCall call) {
+        if (call.getKind() == SqlKind.CAST) {
+            SqlNode lit = call.getOperandList().get(0);
+            if (lit instanceof SqlNumericLiteral) {
+                return (SqlNumericLiteral) lit;
+            }
         }
+
+        for (SqlNode node : call.getOperandList()) {
+            if (node instanceof SqlCharStringLiteral) {
+                return (SqlCharStringLiteral) node;
+            } else if (node.getKind() == SqlKind.CAST) {
+                SqlNode lit = ((SqlCall) node).getOperandList().get(0);
+                if (lit instanceof SqlNumericLiteral) {
+                    return (SqlNumericLiteral) lit;
+                }
+            }
+        }
+
+        return null;
     }
 
     private boolean doBinaryComparisonCoercion(SqlCallBinding binding) {
@@ -122,10 +129,15 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
         RelDataType leftType = binding.getOperandType(0);
         RelDataType rightType = binding.getOperandType(1);
 
-        if (SqlTypeUtil.isExactNumeric(leftType) && SqlTypeUtil.isCharacter(rightType)) {
-            SqlCharStringLiteral lit = (SqlCharStringLiteral) call.getOperandList().get(1);
-            String strVal = lit.toValue();
-            checkTypes(strVal);
+        if (SqlTypeUtil.isExactNumeric(leftType) && SqlTypeUtil.isCharacter(rightType)
+                || SqlTypeUtil.isExactNumeric(rightType) && SqlTypeUtil.isCharacter(leftType)) {
+
+            SqlLiteral lit = extractLiteral(call);
+
+            if (lit != null) {
+                String strVal = lit.toValue();
+                checkStringContainDigitsOnly(strVal, binding.getCall().getParserPosition());
+            }
         }
 
         //
