@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.lang.ErrorGroups.Sql.CONSTRAINT_VIOLATION_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.instanceOf;
@@ -156,7 +157,7 @@ public class ItPkOnlyTableCrossApiTest extends BaseSqlIntegrationTest {
                 rwTx -> {
                     IgniteException ex = assertThrows(IgniteException.class,
                             () -> tab.keyValueView(KeyObject.class, Integer.class).put(rwTx, key, 1));
-                    assertThat(ex.getCause(), is(instanceOf(IllegalArgumentException.class)));
+                    assertThat(ex.getCause().getCause(), is(instanceOf(IllegalArgumentException.class)));
 
                     kvView.put(rwTx, key, null);
 
