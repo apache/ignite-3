@@ -450,11 +450,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
                         ByteArray opKey = new ByteArray(toByteArray(operation.key()));
 
                         if (operation.type() == OperationType.PUT && opKey.equals(raftConfigurationAppliedKey)) {
-                            boolean equals = blockedAssignments.equals(ByteUtils.fromBytes(toByteArray(operation.value())));
-                            if (equals) {
-                                System.out.println(Thread.currentThread().getName() + " <$> Blocking meta-storage command.");
-                            }
-                            return equals;
+                            return blockedAssignments.equals(ByteUtils.fromBytes(toByteArray(operation.value())));
                         }
                     }
                 }
