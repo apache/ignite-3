@@ -18,35 +18,82 @@
 package org.apache.ignite.internal.util;
 
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.util.Collection;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import org.apache.ignite.internal.lang.IgniteExceptionMapperUtil;
+import org.apache.ignite.lang.IgniteCheckedException;
+import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.TraceableException;
 
 /**
  * Table view utilities.
  */
 public final class ViewUtils {
     /**
-     * Waits for operation completion.
+     * Waits for async operation completion.
      *
-     * @param future Future to wait to.
+     * @param fut Future to wait to.
      * @param <T> Future result type.
      * @return Future result.
      */
-    public static <T> T sync(CompletableFuture<T> future) {
+    public static <T> T sync(CompletableFuture<T> fut) {
         try {
-            return future.get();
+            return fut.get();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt(); // Restore interrupt flag.
 
-            throw sneakyThrow(IgniteExceptionMapperUtil.mapToPublicException(e));
+            throw sneakyThrow(ensurePublicException(e));
         } catch (ExecutionException e) {
-            // Throwable cause = unwrapCause(e);
-            throw sneakyThrow(e);
+            Throwable cause = unwrapCause(e);
+
+            throw sneakyThrow(ensurePublicException(cause));
         }
+    }
+
+    /**
+     * Wraps an exception in an IgniteException, extracting trace identifier and error code when the specified exception or one of its
+     * causes is an IgniteException itself.
+     *
+     * @param e Internal exception.
+     * @return Public exception.
+     */
+    public static Throwable ensurePublicException(Throwable e) {
+        Objects.requireNonNull(e);
+
+        e = unwrapCause(e);
+
+        if (e instanceof IgniteException) {
+            return copyExceptionWithCauseIfPossible((IgniteException) e);
+        }
+
+        if (e instanceof IgniteCheckedException) {
+            return copyExceptionWithCauseIfPossible((IgniteCheckedException) e);
+        }
+
+        e = IgniteExceptionMapperUtil.mapToPublicException(e);
+
+        return new IgniteException(INTERNAL_ERR, e.getMessage(), e);
+    }
+
+    /**
+     * Try to copy exception using ExceptionUtils.copyExceptionWithCause and return new exception if it was not possible.
+     *
+     * @param e Exception.
+     * @return Properly copied exception or a new error, if exception can not be copied.
+     */
+    private static <T extends Throwable & TraceableException> Throwable copyExceptionWithCauseIfPossible(T e) {
+        Throwable copy = ExceptionUtils.copyExceptionWithCause(e.getClass(), e.traceId(), e.code(), e.getMessage(), e);
+        if (copy != null) {
+            return copy;
+        }
+
+        return new IgniteException(INTERNAL_ERR, "Public Ignite exception-derived class does not have required constructor: "
+                + e.getClass().getName(), e);
     }
 
     /**

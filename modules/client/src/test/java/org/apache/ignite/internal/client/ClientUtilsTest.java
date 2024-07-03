@@ -28,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Arrays;
+import org.apache.ignite.internal.util.ViewUtils;
 import org.apache.ignite.lang.IgniteCheckedException;
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
@@ -98,7 +99,7 @@ public class ClientUtilsTest {
      * Method that should present in resulting stack trace.
      */
     private static Throwable checkableTestMethod(Throwable ex) {
-        return ClientUtils.ensurePublicException(ex);
+        return ViewUtils.ensurePublicException(ex);
     }
 
     /**
