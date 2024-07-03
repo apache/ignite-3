@@ -32,7 +32,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * A wrapper around a {@link ClusterStateStorage} which provides convenient methods.
  */
-class RaftStorageManager {
+public class RaftStorageManager {
     /** Storage key for the CMG state. */
     private static final byte[] CMG_STATE_KEY = "cmg_state".getBytes(UTF_8);
 
@@ -41,7 +41,7 @@ class RaftStorageManager {
 
     private final ClusterStateStorage storage;
 
-    RaftStorageManager(ClusterStateStorage storage) {
+    public RaftStorageManager(ClusterStateStorage storage) {
         this.storage = storage;
     }
 

@@ -99,14 +99,14 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
 
         private final RaftManager raftManager;
 
-        private final ClusterStateStorage raftStorage = new TestClusterStateStorage();
+        private final ClusterStateStorage clusterStateStorage = new TestClusterStateStorage();
 
         private final LogicalTopology logicalTopology;
 
         Node(TestInfo testInfo, NetworkAddress addr, NodeFinder nodeFinder, Path workDir) {
             this.clusterService = clusterService(testInfo, addr.port(), nodeFinder);
             this.raftManager = TestLozaFactory.create(clusterService, raftConfiguration, workDir, new HybridClockImpl());
-            this.logicalTopology = new LogicalTopologyImpl(raftStorage);
+            this.logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
         }
 
         void start() {
@@ -117,7 +117,7 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
             try {
                 assertTrue(waitForCondition(() -> clusterService.topologyService().allMembers().size() == cluster.size(), 1000));
 
-                assertThat(raftStorage.startAsync(new ComponentContext()), willCompleteSuccessfully());
+                assertThat(clusterStateStorage.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
                 PeersAndLearners configuration = clusterService.topologyService().allMembers().stream()
                         .map(ClusterNode::name)
@@ -130,12 +130,15 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
                 if (serverPeer == null) {
                     raftService = raftManager.startRaftGroupService(CmgGroupId.INSTANCE, configuration);
                 } else {
+                    var raftStorage = new RaftStorageManager(clusterStateStorage);
+
                     raftService = raftManager.startRaftGroupNodeAndWaitNodeReadyFuture(
                             new RaftNodeId(CmgGroupId.INSTANCE, serverPeer),
                             configuration,
                             new CmgRaftGroupListener(
                                     raftStorage,
-                                    new LogicalTopologyImpl(raftStorage),
+                                    new LogicalTopologyImpl(clusterStateStorage),
+                                    new ValidationManager(raftStorage, logicalTopology),
                                     term -> {}
                             ),
                             RaftGroupEventsListener.noopLsnr
@@ -158,7 +161,7 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
         }
 
         void stop() {
-            assertThat(stopAsync(new ComponentContext(), raftManager, raftStorage, clusterService), willCompleteSuccessfully());
+            assertThat(stopAsync(new ComponentContext(), raftManager, clusterStateStorage, clusterService), willCompleteSuccessfully());
         }
 
         ClusterNode localMember() {

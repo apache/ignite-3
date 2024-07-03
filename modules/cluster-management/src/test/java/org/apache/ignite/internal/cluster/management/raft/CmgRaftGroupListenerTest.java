@@ -89,7 +89,10 @@ public class CmgRaftGroupListenerTest extends BaseIgniteAbstractTest {
     void setUp() {
         assertThat(storage.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
-        listener = new CmgRaftGroupListener(storage, logicalTopology, onLogicalTopologyChanged);
+        var raftStorage = new RaftStorageManager(storage);
+        var validationManager = new ValidationManager(raftStorage, logicalTopology);
+
+        listener = new CmgRaftGroupListener(raftStorage, logicalTopology, validationManager, onLogicalTopologyChanged);
     }
 
     @AfterEach

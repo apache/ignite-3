@@ -72,7 +72,9 @@ import org.apache.ignite.internal.cluster.management.NodeAttributesCollector;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
+import org.apache.ignite.internal.cluster.management.raft.RaftStorageManager;
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
+import org.apache.ignite.internal.cluster.management.raft.ValidationManager;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
@@ -555,13 +557,17 @@ public class IgniteImpl implements Ignite {
                         nodeConfigRegistry.getConfiguration(StorageConfiguration.KEY)
                 );
 
+        var raftStorage =  new RaftStorageManager(clusterStateStorage);
+        var validationManager = new ValidationManager(raftStorage, logicalTopology);
+
         cmgMgr = new ClusterManagementGroupManager(
                 vaultMgr,
                 clusterSvc,
                 clusterInitializer,
                 raftMgr,
-                clusterStateStorage,
+                raftStorage,
                 logicalTopology,
+                validationManager,
                 nodeConfigRegistry.getConfiguration(ClusterManagementConfiguration.KEY),
                 nodeAttributesCollector,
                 failureProcessor
