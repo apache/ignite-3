@@ -16,7 +16,7 @@
  */
 package org.apache.ignite.raft.jraft.storage.impl;
 
-import com.lmax.disruptor.EventHandler;
+import static org.apache.ignite.internal.tracing.Instrumentation.measure;import com.lmax.disruptor.EventHandler;
 import com.lmax.disruptor.EventTranslator;
 import com.lmax.disruptor.RingBuffer;
 import java.util.ArrayList;
@@ -30,7 +30,7 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.raft.jraft.FSMCaller;
+import org.apache.ignite.internal.tracing.Instrumentation;import org.apache.ignite.raft.jraft.FSMCaller;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.conf.ConfigurationEntry;
@@ -515,7 +515,7 @@ public class LogManagerImpl implements LogManager {
             event.reset();
 
             if (done.getEntries() != null && !done.getEntries().isEmpty()) {
-                this.ab.append(done);
+                measure(() -> this.ab.append(done), "appendLogEntry");
             }
             else {
                 this.lastId = this.ab.flush();
@@ -581,8 +581,12 @@ public class LogManagerImpl implements LogManager {
             }
 
             if (endOfBatch) {
-                this.lastId = this.ab.flush();
-                setDiskId(this.lastId);
+                measure(() -> {
+                    this.lastId = this.ab.flush();
+                    setDiskId(this.lastId);
+                },
+                "flushLog"
+                );
             }
         }
 

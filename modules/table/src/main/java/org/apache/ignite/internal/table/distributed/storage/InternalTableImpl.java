@@ -42,6 +42,7 @@ import static org.apache.ignite.internal.partition.replicator.network.replicatio
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_UPSERT_ALL;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
 import static org.apache.ignite.internal.table.distributed.storage.RowBatch.allResultFutures;
+import static org.apache.ignite.internal.tracing.Instrumentation.measure;
 import static org.apache.ignite.internal.util.CompletableFutures.completedOrFailedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -342,7 +343,7 @@ public class InternalTableImpl implements InternalTable {
         boolean implicit = tx == null;
         InternalTransaction actualTx = startImplicitRwTxIfNeeded(tx);
 
-        int partId = partitionId(row);
+        int partId = measure(()->partitionId(row), "determinePartition");
 
         TablePartitionId partGroupId = new TablePartitionId(tableId, partId);
 
@@ -509,7 +510,7 @@ public class InternalTableImpl implements InternalTable {
     }
 
     private InternalTransaction startImplicitRwTxIfNeeded(@Nullable InternalTransaction tx) {
-        return tx == null ? txManager.begin(observableTimestampTracker) : tx;
+        return tx == null ? measure(() -> txManager.begin(observableTimestampTracker), "startImplicitTx") : tx;
     }
 
     /**
@@ -630,7 +631,7 @@ public class InternalTableImpl implements InternalTable {
     ) {
         assert !tx.isReadOnly() : format("Tracking invoke is available only for read-write transactions [tx={}].", tx);
 
-        ReplicaRequest request = mapFunc.apply(primaryReplicaAndConsistencyToken.get2());
+        ReplicaRequest request = measure(() -> mapFunc.apply(primaryReplicaAndConsistencyToken.get2()), "prepareRequest");
 
         boolean write = request instanceof SingleRowReplicaRequest && ((SingleRowReplicaRequest) request).requestType() != RW_GET
                 || request instanceof MultipleRowReplicaRequest && ((MultipleRowReplicaRequest) request).requestType() != RW_GET_ALL
@@ -721,13 +722,16 @@ public class InternalTableImpl implements InternalTable {
 
         return fut.handle((BiFunction<T, Throwable, CompletableFuture<T>>) (r, e) -> {
             if (full) { // Full txn is already finished remotely. Just update local state.
-                txManager.finishFull(observableTimestampTracker, tx0.id(), e == null);
+                measure(() ->
+                                txManager.finishFull(observableTimestampTracker, tx0.id(), e == null),
+                        "finishFullTx"
+                );
 
                 return e != null ? failedFuture(e) : completedFuture(r);
             }
 
             if (e != null) {
-                return tx0.rollbackAsync().handle((ignored, err) -> {
+                return measure(() -> tx0.rollbackAsync(), "exceptionallyRollbackTx").handle((ignored, err) -> {
                     if (err != null) {
                         e.addSuppressed(err);
                     }
@@ -736,7 +740,7 @@ public class InternalTableImpl implements InternalTable {
                 }); // Preserve failed state.
             } else {
                 if (autoCommit) {
-                    return tx0.commitAsync().thenApply(ignored -> r);
+                    return measure(() -> tx0.commitAsync().thenApply(ignored -> r), "autoCommitTx");
                 } else {
                     return completedFuture(r);
                 }
@@ -1914,13 +1918,15 @@ public class InternalTableImpl implements InternalTable {
         TablePartitionId tablePartitionId = new TablePartitionId(tableId, partId);
         tx.assignCommitPartition(tablePartitionId);
 
-        return partitionMeta(tablePartitionId).thenApply(meta -> {
+        CompletableFuture<ReplicaMeta> primaryInfoFut = measure(() -> partitionMeta(tablePartitionId), "getPrimaryMeta");
+
+        return primaryInfoFut.thenApply(meta -> {
             TablePartitionId partGroupId = new TablePartitionId(tableId, partId);
 
-            return tx.enlist(partGroupId, new IgniteBiTuple<>(
-                    getClusterNode(meta.getLeaseholder()),
-                    meta.getStartTime().longValue())
-            );
+            return measure(() -> tx.enlist(
+                    partGroupId,
+                    new IgniteBiTuple<>(getClusterNode(meta.getLeaseholder()), meta.getStartTime().longValue())
+            ), "enlist");
         });
     }
 

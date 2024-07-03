@@ -38,6 +38,7 @@ import static org.apache.ignite.internal.table.distributed.replicator.RemoteReso
 import static org.apache.ignite.internal.table.distributed.replicator.ReplicatorUtils.beginRwTxTs;
 import static org.apache.ignite.internal.table.distributed.replicator.ReplicatorUtils.latestIndexDescriptorInBuildingStatus;
 import static org.apache.ignite.internal.table.distributed.replicator.ReplicatorUtils.rwTxActiveCatalogVersion;
+import static org.apache.ignite.internal.tracing.Instrumentation.measure;
 import static org.apache.ignite.internal.tx.TransactionIds.beginTimestamp;
 import static org.apache.ignite.internal.tx.TxState.ABANDONED;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
@@ -2743,7 +2744,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         assert leaseStartTime != null : format("Lease start time is null for UpdateCommand [txId={}].", txId);
 
         synchronized (commandProcessingLinearizationMutex) {
-            UpdateCommand cmd = updateCommand(
+            UpdateCommand cmd = measure(() -> updateCommand(
                     tablePartId,
                     rowUuid,
                     row,
@@ -2754,7 +2755,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     clockService.now(),
                     catalogVersion,
                     full ? leaseStartTime : null  // Lease start time check within the replication group is needed only for full txns.
-            );
+            ), "createUpdateCommand");
 
             if (!cmd.full()) {
                 // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Temporary code below
@@ -2796,7 +2797,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     synchronized (safeTime) {
                         if (cmd.safeTime().compareTo(safeTime.current()) > 0) {
                             // We don't need to take the partition snapshots read lock, see #INTERNAL_DOC_PLACEHOLDER why.
-                            storageUpdateHandler.handleUpdate(
+                            measure(() -> storageUpdateHandler.handleUpdate(
                                     cmd.txId(),
                                     cmd.rowUuid(),
                                     cmd.tablePartitionId().asTablePartitionId(),
@@ -2806,9 +2807,12 @@ public class PartitionReplicaListener implements ReplicaListener {
                                     cmd.safeTime(),
                                     null,
                                     indexIdsAtRwTxBeginTs(txId)
-                            );
+                            ), "applyUpdateLocally");
 
-                            updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
+                            measure(
+                                    () -> updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime()),
+                                    "updateSafeTime"
+                            );
                         }
                     }
 
@@ -3084,18 +3088,18 @@ public class PartitionReplicaListener implements ReplicaListener {
                 });
             }
             case RW_UPSERT: {
-                return resolveRowByPk(extractPk(searchRow), txId, (rowId, row, lastCommitTime) -> {
+                return resolveRowByPk(measure(() -> extractPk(searchRow), "extractPk"), txId, (rowId, row, lastCommitTime) -> {
                     boolean insert = rowId == null;
 
                     RowId rowId0 = insert ? new RowId(partId(), UUID.randomUUID()) : rowId;
 
                     CompletableFuture<IgniteBiTuple<RowId, Collection<Lock>>> lockFut = insert
-                            ? takeLocksForInsert(searchRow, rowId0, txId)
-                            : takeLocksForUpdate(searchRow, rowId0, txId);
+                            ? measure(() -> takeLocksForInsert(searchRow, rowId0, txId), "takeLocksForInsert")
+                            : measure(() -> takeLocksForUpdate(searchRow, rowId0, txId), "takeLocksForUpdate");
 
                     return lockFut
                             .thenCompose(rowIdLock -> validateWriteAgainstSchemaAfterTakingLocks(request.transactionId())
-                                    .thenCompose(catalogVersion -> awaitCleanup(rowId, catalogVersion))
+                                    .thenCompose(catalogVersion -> measure(() -> awaitCleanup(rowId, catalogVersion), "awaitCleanup"))
                                     .thenCompose(
                                             catalogVersion -> applyUpdateCommand(
                                                     request,
@@ -3219,7 +3223,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      */
     private CompletableFuture<ReplicaResult> processSingleEntryAction(ReadWriteSingleRowPkReplicaRequest request, Long leaseStartTime) {
         UUID txId = request.transactionId();
-        BinaryTuple primaryKey = resolvePk(request.primaryKey());
+        BinaryTuple primaryKey = measure(() -> resolvePk(request.primaryKey()), "resolvePk");
         TablePartitionId commitPartitionId = request.commitPartitionId().asTablePartitionId();
 
         assert commitPartitionId != null || request.requestType() == RW_GET :
