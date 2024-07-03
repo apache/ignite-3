@@ -36,7 +36,6 @@ import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUt
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractPartitionNumber;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractTableId;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.intersect;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionAssignmentsGetLocally;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
@@ -1835,9 +1834,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             // In case of forced assignments we need to remove nodes that are present in the stable set but are missing from the
             // pending set. Such operation removes dead stable nodes from the resulting stable set, which guarantees that we will
             // have a live majority.
-            Set<Assignment> intersection = intersect(stableAssignments.nodes(), pendingAssignmentsNodes);
-
-            computedStableAssignments = intersection.isEmpty() ? pendingAssignments : Assignments.forced(intersection);
+            computedStableAssignments = pendingAssignments;
         } else {
             computedStableAssignments = stableAssignments;
         }
@@ -1877,12 +1874,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                 isRecovery
                         );
                     }), ioExecutor);
-        } else {
+        } else if (pendingAssignmentsAreForced && localMemberAssignment != null) {
             localServicesStartFuture = runAsync(() -> {
-                if (pendingAssignmentsAreForced && replicaMgr.isReplicaStarted(replicaGrpId)) {
-                    replicaMgr.resetPeers(replicaGrpId, fromAssignments(computedStableAssignments.nodes()));
-                }
+                replicaMgr.resetPeers(replicaGrpId, fromAssignments(computedStableAssignments.nodes()));
             }, ioExecutor);
+        } else {
+            localServicesStartFuture = nullCompletedFuture();
         }
 
         return localServicesStartFuture.thenRunAsync(() -> {
