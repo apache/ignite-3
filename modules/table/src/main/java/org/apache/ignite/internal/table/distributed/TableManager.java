@@ -1917,8 +1917,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         Set<Assignment> reducedStableAssignments = reduceAssignments != null
                 ? subtract(stableAssignments.nodes(), reduceAssignments.nodes())
                 : stableAssignments.nodes();
-        if (isLocalNodeInAssignments(union(reducedStableAssignments, pendingAssignments.nodes()))) {
-            return true;
+        if (!isLocalNodeInAssignments(union(reducedStableAssignments, pendingAssignments.nodes()))) {
+            return false;
         }
 
         assert replicaMgr.isReplicaStarted(replicaGrpId) : "The local node is outside of the replication group ["
@@ -1928,7 +1928,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 + ",\n\treduce=" + reduceAssignments
                 + ",\n\tlocalName=" + localNode().name() + "\n].";
 
-        return false;
+        return true;
     }
 
     private CompletableFuture<Void> setTablesPartitionCountersForRebalance(TablePartitionId replicaGrpId, long revision, boolean force) {
