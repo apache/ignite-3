@@ -158,8 +158,15 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
         return doOperation(tx, (schemaVersion) -> {
             Collection<BinaryRowEx> keysRows = mapToBinary(keys, schemaVersion, true);
 
-            return tbl.getAll(keysRows, (InternalTransaction) tx)
-                    .thenApply(rows -> rows.stream().noneMatch(Objects::isNull));
+            return tbl.getAll(keysRows, (InternalTransaction) tx).thenApply(rows -> {
+                for (BinaryRow row : rows) {
+                    if (row == null) {
+                        return false;
+                    }
+                }
+
+                return true;
+            });
         });
     }
 

@@ -238,7 +238,15 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
         return doOperation(tx, (schemaVersion) -> {
             Collection<BinaryRowEx> keyRows = marshal(keys, schemaVersion);
 
-            return tbl.getAll(keyRows, (InternalTransaction) tx).thenApply(rows -> rows.stream().noneMatch(Objects::isNull));
+            return tbl.getAll(keyRows, (InternalTransaction) tx).thenApply(rows -> {
+                for (BinaryRow row : rows) {
+                    if (row == null) {
+                        return false;
+                    }
+                }
+
+                return true;
+            });
         });
     }
 
