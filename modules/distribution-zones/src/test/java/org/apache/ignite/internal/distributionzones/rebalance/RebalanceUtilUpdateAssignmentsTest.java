@@ -501,23 +501,23 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
         TablePartitionId tablePartitionId = new TablePartitionId(1, 1);
 
         if (currentStableAssignments != null) {
-            keyValueStorage.put(RebalanceUtil.stablePartAssignmentsKey(tablePartitionId).bytes(), toBytes(currentStableAssignments),
+            keyValueStorage.put(RebalanceUtil.stablePartAssignmentsKey(tablePartitionId).bytes(), toBytes(1, currentStableAssignments),
                     HybridTimestamp.MIN_VALUE);
         }
 
         if (currentPendingAssignments != null) {
-            keyValueStorage.put(RebalanceUtil.pendingPartAssignmentsKey(tablePartitionId).bytes(), toBytes(currentPendingAssignments),
+            keyValueStorage.put(RebalanceUtil.pendingPartAssignmentsKey(tablePartitionId).bytes(), toBytes(1, currentPendingAssignments),
                     HybridTimestamp.MIN_VALUE);
         }
 
         if (currentPlannedAssignments != null) {
-            keyValueStorage.put(RebalanceUtil.plannedPartAssignmentsKey(tablePartitionId).bytes(), toBytes(currentPlannedAssignments),
+            keyValueStorage.put(RebalanceUtil.plannedPartAssignmentsKey(tablePartitionId).bytes(), toBytes(1, currentPlannedAssignments),
                     HybridTimestamp.MIN_VALUE);
         }
 
         RebalanceUtil.updatePendingAssignmentsKeys(
                 tableDescriptor, tablePartitionId, nodesForNewAssignments,
-                replicas, 1, metaStorageManager, partNum, tableCfgAssignments
+                replicas, 1, metaStorageManager, partNum, tableCfgAssignments, 1
         );
 
         byte[] actualStableBytes = keyValueStorage.get(RebalanceUtil.stablePartAssignmentsKey(tablePartitionId).bytes()).value();

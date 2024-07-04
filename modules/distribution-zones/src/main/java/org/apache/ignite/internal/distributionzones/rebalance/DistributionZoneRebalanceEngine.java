@@ -248,7 +248,8 @@ public class DistributionZoneRebalanceEngine {
                             evt.entryEvent().newEntry().revision(),
                             zoneDescriptor,
                             filteredDataNodes,
-                            tableDescriptors
+                            tableDescriptors,
+                            catalogVersion
                     );
                 });
             }
@@ -418,7 +419,8 @@ public class DistributionZoneRebalanceEngine {
                             causalityToken,
                             zoneDescriptor,
                             dataNodes,
-                            tableDescriptors
+                            tableDescriptors,
+                            catalogVersion
                     );
                 });
     }
@@ -427,7 +429,8 @@ public class DistributionZoneRebalanceEngine {
             long revision,
             CatalogZoneDescriptor zoneDescriptor,
             Set<String> dataNodes,
-            List<CatalogTableDescriptor> tableDescriptors
+            List<CatalogTableDescriptor> tableDescriptors,
+            int catalogVersion
     ) {
         List<CompletableFuture<?>> tableFutures = new ArrayList<>(tableDescriptors.size());
 
@@ -437,7 +440,8 @@ public class DistributionZoneRebalanceEngine {
                     zoneDescriptor,
                     dataNodes,
                     revision,
-                    metaStorageManager
+                    metaStorageManager,
+                    catalogVersion
             );
 
             // This set is used to deduplicate exceptions (if there is an exception from upstream, for instance,

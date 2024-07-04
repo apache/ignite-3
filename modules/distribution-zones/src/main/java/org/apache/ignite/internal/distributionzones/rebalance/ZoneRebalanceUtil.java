@@ -140,7 +140,8 @@ public class ZoneRebalanceUtil {
             long revision,
             MetaStorageManager metaStorageMgr,
             int partNum,
-            Set<Assignment> zoneCfgPartAssignments
+            Set<Assignment> zoneCfgPartAssignments,
+            int catalogVersion
     ) {
         ByteArray partChangeTriggerKey = pendingChangeTriggerKey(zonePartitionId);
 
@@ -154,7 +155,7 @@ public class ZoneRebalanceUtil {
 
         boolean isNewAssignments = !zoneCfgPartAssignments.equals(partAssignments);
 
-        byte[] partAssignmentsBytes = Assignments.toBytes(partAssignments);
+        byte[] partAssignmentsBytes = Assignments.toBytes(catalogVersion, partAssignments);
 
         //    if empty(partition.change.trigger.revision) || partition.change.trigger.revision < event.revision:
         //        if empty(partition.assignments.pending)
@@ -273,7 +274,8 @@ public class ZoneRebalanceUtil {
             CatalogZoneDescriptor zoneDescriptor,
             Set<String> dataNodes,
             long storageRevision,
-            MetaStorageManager metaStorageManager
+            MetaStorageManager metaStorageManager,
+            int catalogVersion
     ) {
         CompletableFuture<Map<Integer, Assignments>> zoneAssignmentsFut = zoneAssignments(
                 metaStorageManager,
@@ -300,7 +302,8 @@ public class ZoneRebalanceUtil {
                             storageRevision,
                             metaStorageManager,
                             finalPartId,
-                            zoneAssignments.get(finalPartId).nodes()
+                            zoneAssignments.get(finalPartId).nodes(),
+                            catalogVersion
                     ));
         }
 

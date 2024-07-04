@@ -843,7 +843,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
 
         metastore.invoke(
                 Conditions.notExists(FAKE_KEY),
-                put(assignmentsKey, Assignments.toBytes(assignments)),
+                put(assignmentsKey, Assignments.toBytes(1, assignments)),
                 noop()
         );
 

@@ -40,7 +40,7 @@ public class Assignments implements Serializable {
     private static final long serialVersionUID = -59553172012153869L;
 
     /** Empty assignments. */
-    public static final Assignments EMPTY = new Assignments(Collections.emptySet(), false);
+    public static final Assignments EMPTY = new Assignments(Collections.emptySet(), false, 0);
 
     /** Set of nodes. */
     @IgniteToStringInclude
@@ -54,13 +54,19 @@ public class Assignments implements Serializable {
     private final boolean force;
 
     /**
+     * Version of Catalog that matches current assignments.
+     */
+    private final int catalogVersion;
+
+    /**
      * Constructor.
      */
-    private Assignments(Collection<Assignment> nodes, boolean force) {
+    private Assignments(Collection<Assignment> nodes, boolean force, int catalogVersion) {
         // A set of nodes must be a HashSet in order for serialization to produce stable results,
         // that could be compared as byte arrays.
         this.nodes = nodes instanceof HashSet ? ((HashSet<Assignment>) nodes) : new HashSet<>(nodes);
         this.force = force;
+        this.catalogVersion = catalogVersion;
     }
 
     /**
@@ -68,8 +74,8 @@ public class Assignments implements Serializable {
      *
      * @param nodes Set of nodes.
      */
-    public static Assignments of(Set<Assignment> nodes) {
-        return new Assignments(nodes, false);
+    public static Assignments of(int catalogVersion, Set<Assignment> nodes) {
+        return new Assignments(nodes, false, catalogVersion);
     }
 
     /**
@@ -77,8 +83,8 @@ public class Assignments implements Serializable {
      *
      * @param nodes Array of nodes.
      */
-    public static Assignments of(Assignment... nodes) {
-        return new Assignments(Arrays.asList(nodes), false);
+    public static Assignments of(int catalogVersion, Assignment... nodes) {
+        return new Assignments(Arrays.asList(nodes), false, catalogVersion);
     }
 
     /**
@@ -87,8 +93,8 @@ public class Assignments implements Serializable {
      * @param nodes Set of nodes.
      * @see #force()
      */
-    public static Assignments forced(Set<Assignment> nodes) {
-        return new Assignments(nodes, true);
+    public static Assignments forced(int catalogVersion, Set<Assignment> nodes) {
+        return new Assignments(nodes, true, catalogVersion);
     }
 
     /**
@@ -105,6 +111,13 @@ public class Assignments implements Serializable {
      */
     public boolean force() {
         return force;
+    }
+
+    /**
+     * Returns the version of catalog the assignments were created for.
+     */
+    public int catalogVersion() {
+        return catalogVersion;
     }
 
     /**
@@ -135,8 +148,8 @@ public class Assignments implements Serializable {
      *
      * @see #toBytes()
      */
-    public static byte[] toBytes(Set<Assignment> assignments) {
-        return new Assignments(assignments, false).toBytes();
+    public static byte[] toBytes(int catalogVersion, Set<Assignment> assignments) {
+        return new Assignments(assignments, false, catalogVersion).toBytes();
     }
 
     /**
@@ -163,12 +176,13 @@ public class Assignments implements Serializable {
         }
 
         Assignments that = (Assignments) o;
-        return force == that.force && nodes.equals(that.nodes);
+        return force == that.force && catalogVersion == that.catalogVersion && nodes.equals(that.nodes);
     }
 
     @Override
     public int hashCode() {
         int result = nodes.hashCode();
+        result = 31 * result + catalogVersion;
         result = 31 * result + Boolean.hashCode(force);
         return result;
     }

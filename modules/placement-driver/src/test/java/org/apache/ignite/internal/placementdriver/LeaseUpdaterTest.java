@@ -107,7 +107,7 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
     void setUp() {
         Entry entry = new EntryImpl(
                 stablePartAssignmentsKey(new TablePartitionId(1, 0)).bytes(),
-                Assignments.of(Assignment.forPeer(node.name())).toBytes(),
+                Assignments.of(1, Assignment.forPeer(node.name())).toBytes(),
                 1,
                 0
         );

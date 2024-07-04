@@ -905,12 +905,15 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         CompletableFuture<Boolean> startGroupFut;
 
         if (localMemberAssignment != null) {
+            int catalogVersion = stableAssignments.catalogVersion();
+
             CompletableFuture<Boolean> shouldStartGroupFut = isRecovery
                     ? partitionReplicatorNodeRecovery.initiateGroupReentryIfNeeded(
                             replicaGrpId,
                             internalTbl,
                             stablePeersAndLearners,
-                            localMemberAssignment
+                            localMemberAssignment,
+                    catalogVersion
                     )
                     : trueCompletedFuture();
 
@@ -1392,7 +1395,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             dataNodes,
                             zoneDescriptor.partitions(),
                             zoneDescriptor.replicas()
-                    ).stream().map(Assignments::of).collect(toList()));
+                    ).stream().map(assignments -> Assignments.of(catalogVersion, assignments)).collect(toList()));
 
             assignmentsFuture.thenAccept(assignmentsList -> LOG.info(
                     "Assignments calculated from data nodes [table={}, tableId={}, assignments={}, revision={}]",
@@ -1837,14 +1840,14 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         if (stableAssignments == null) {
             // This condition can only pass if all stable nodes are dead, and we start new raft group from scratch.
             // In this case new initial configuration must match new forced assignments.
-            computedStableAssignments = Assignments.forced(pendingAssignmentsNodes);
+            computedStableAssignments = Assignments.forced(catalogVersion, pendingAssignmentsNodes);
         } else if (pendingAssignmentsAreForced) {
             // In case of forced assignments we need to remove nodes that are present in the stable set but are missing from the
             // pending set. Such operation removes dead stable nodes from the resulting stable set, which guarantees that we will
             // have a live majority.
             Set<Assignment> intersection = intersect(stableAssignments.nodes(), pendingAssignmentsNodes);
 
-            computedStableAssignments = intersection.isEmpty() ? pendingAssignments : Assignments.forced(intersection);
+            computedStableAssignments = intersection.isEmpty() ? pendingAssignments : Assignments.forced(catalogVersion, intersection);
         } else {
             computedStableAssignments = stableAssignments;
         }
@@ -2102,7 +2105,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                                 dataNodes,
                                                 zoneDescriptor.replicas(),
                                                 replicaGrpId,
-                                                evt
+                                                evt,
+                                                catalogVersion
                                         ));
                             }));
                 });

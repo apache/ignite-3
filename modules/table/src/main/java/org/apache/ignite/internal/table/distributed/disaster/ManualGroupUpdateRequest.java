@@ -159,7 +159,8 @@ class ManualGroupUpdateRequest implements DisasterRecoveryRequest {
                     nodeConsistentIds,
                     msRevision,
                     disasterRecoveryManager.metaStorageManager,
-                    localStatesMap
+                    localStatesMap,
+                    catalogVersion
             );
 
             return allOf(futures);
@@ -187,7 +188,8 @@ class ManualGroupUpdateRequest implements DisasterRecoveryRequest {
             Set<String> aliveNodesConsistentIds,
             long revision,
             MetaStorageManager metaStorageManager,
-            Map<TablePartitionId, LocalPartitionStateMessageByNode> localStatesMap
+            Map<TablePartitionId, LocalPartitionStateMessageByNode> localStatesMap,
+            int catalogVersion
     ) {
         CompletableFuture<Map<Integer, Assignments>> tableAssignmentsFut = tableAssignments(
                 metaStorageManager,
@@ -216,7 +218,8 @@ class ManualGroupUpdateRequest implements DisasterRecoveryRequest {
                             revision,
                             metaStorageManager,
                             tableAssignments.get(replicaGrpId.partitionId()).nodes(),
-                            localStatesMap.get(replicaGrpId)
+                            localStatesMap.get(replicaGrpId),
+                            catalogVersion
                     )).thenAccept(res -> {
                         DisasterRecoveryManager.LOG.info(
                                 "Partition {} returned {} status on reset attempt", replicaGrpId, UpdateStatus.valueOf(res)
@@ -236,7 +239,8 @@ class ManualGroupUpdateRequest implements DisasterRecoveryRequest {
             long revision,
             MetaStorageManager metaStorageMgr,
             Set<Assignment> currentAssignments,
-            LocalPartitionStateMessageByNode localPartitionStateMessageByNode
+            LocalPartitionStateMessageByNode localPartitionStateMessageByNode,
+            int catalogVersion
     ) {
         // TODO https://issues.apache.org/jira/browse/IGNITE-21303
         //  This is a naive approach that doesn't exclude nodes in error state, if they exist.
@@ -250,7 +254,7 @@ class ManualGroupUpdateRequest implements DisasterRecoveryRequest {
 
         enrichAssignments(partId, aliveDataNodes, replicas, partAssignments);
 
-        byte[] partAssignmentsBytes = Assignments.forced(partAssignments).toBytes();
+        byte[] partAssignmentsBytes = Assignments.forced(catalogVersion, partAssignments).toBytes();
         byte[] revisionBytes = longToBytesKeepingOrder(revision);
 
         ByteArray partChangeTriggerKey = pendingChangeTriggerKey(partId);

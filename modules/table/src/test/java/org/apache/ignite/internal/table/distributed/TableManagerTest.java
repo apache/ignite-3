@@ -375,7 +375,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         TableViewInternal table = mockManagersAndCreateTable(DYNAMIC_TABLE_NAME, tblManagerFut);
         int tableId = table.tableId();
         TableManager tableManager = tblManagerFut.join();
-        List<Assignments> assignmentsList = List.of(Assignments.of(Assignment.forPeer(node.id())));
+        List<Assignments> assignmentsList = List.of(Assignments.of(1, Assignment.forPeer(node.id())));
 
         // the first case scenario
         CompletableFuture<List<Assignments>> assignmentsFuture = new CompletableFuture<>();

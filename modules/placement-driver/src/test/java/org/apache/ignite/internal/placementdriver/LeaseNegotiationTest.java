@@ -182,11 +182,11 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
             return createLeaseGrantedMessageResponse(true);
         };
 
-        metaStorageManager.put(stablePartAssignmentsKey(GROUP_ID), Assignments.toBytes(Set.of(forPeer(NODE_0_NAME))));
+        metaStorageManager.put(stablePartAssignmentsKey(GROUP_ID), Assignments.toBytes(1, Set.of(forPeer(NODE_0_NAME))));
 
         assertThat(lgmReceived, willCompleteSuccessfully());
 
-        metaStorageManager.put(stablePartAssignmentsKey(GROUP_ID), Assignments.toBytes(Set.of(forPeer(NODE_1_NAME))));
+        metaStorageManager.put(stablePartAssignmentsKey(GROUP_ID), Assignments.toBytes(1, Set.of(forPeer(NODE_1_NAME))));
 
         waitForAcceptedLease();
 
@@ -209,7 +209,7 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
             return createLeaseGrantedMessageResponse(true);
         };
 
-        metaStorageManager.put(stablePartAssignmentsKey(GROUP_ID), Assignments.toBytes(Set.of(forPeer(NODE_0_NAME))));
+        metaStorageManager.put(stablePartAssignmentsKey(GROUP_ID), Assignments.toBytes(1, Set.of(forPeer(NODE_0_NAME))));
 
         assertThat(lgmReceived, willCompleteSuccessfully());
 
@@ -233,7 +233,8 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
             return createLeaseGrantedMessageResponse(true);
         };
 
-        metaStorageManager.put(stablePartAssignmentsKey(GROUP_ID), Assignments.toBytes(Set.of(forPeer(NODE_0_NAME), forPeer(NODE_1_NAME))));
+        metaStorageManager.put(stablePartAssignmentsKey(GROUP_ID),
+                Assignments.toBytes(1, Set.of(forPeer(NODE_0_NAME), forPeer(NODE_1_NAME))));
 
         assertThat(lgmReceived, willCompleteSuccessfully());
 
@@ -260,7 +261,7 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
             return createLeaseGrantedMessageResponse(true);
         };
 
-        metaStorageManager.put(stablePartAssignmentsKey(GROUP_ID), Assignments.toBytes(Set.of(forPeer(NODE_0_NAME))));
+        metaStorageManager.put(stablePartAssignmentsKey(GROUP_ID), Assignments.toBytes(1, Set.of(forPeer(NODE_0_NAME))));
 
         assertThat(lgmReceived, willCompleteSuccessfully());
 

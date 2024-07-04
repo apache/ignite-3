@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.distributionzones.rebalance;
 
 import static org.apache.ignite.internal.distributionzones.rebalance.DistributionZoneRebalanceEngine.calculateAssignments;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.catalogVersionKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.plannedPartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.raftConfigurationAppliedKey;
@@ -36,6 +37,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
+import static org.apache.ignite.internal.util.ByteUtils.bytesToInt;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLongKeepingOrder;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytesKeepingOrder;
@@ -271,7 +273,13 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
 
             Condition condition = value(tablesCounterKey(zoneId, partId)).eq(counterEntry.value());
 
-            byte[] stableArray = Assignments.toBytes(stable);
+            Entry catalogVersionEntry = metaStorageMgr.get(catalogVersionKey(zoneId, partId)).get();
+
+            assert catalogVersionEntry.value() != null;
+
+            int catalogVersion = bytesToInt(catalogVersionEntry.value());
+
+            byte[] stableArray = Assignments.toBytes(catalogVersion, stable);
 
             counter.remove(tablePartitionId.tableId());
 
@@ -407,13 +415,6 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                     )
             ).get();
 
-            // TODO: IGNITE-22661 Potentially unsafe to use the latest catalog version, as the tables might not already present
-            //  in the catalog. Better to take the version from Assignments.
-            int catalogVersion = catalogService.latestCatalogVersion();
-
-            Set<Assignment> calculatedAssignments =
-                    calculateAssignments(tablePartitionId, catalogService, distributionZoneManager, catalogVersion).get();
-
             Entry stableEntry = values.get(stablePartAssignmentsKey);
             Entry pendingEntry = values.get(pendingPartAssignmentsKey);
             Entry plannedEntry = values.get(plannedPartAssignmentsKey);
@@ -424,13 +425,21 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             Set<Assignment> retrievedStable = readAssignments(stableEntry).nodes();
             Set<Assignment> retrievedSwitchReduce = readAssignments(switchReduceEntry).nodes();
             Set<Assignment> retrievedSwitchAppend = readAssignments(switchAppendEntry).nodes();
-            Set<Assignment> retrievedPending = readAssignments(pendingEntry).nodes();
+
+            Assignments pendingAssignments = readAssignments(pendingEntry);
+
+            Set<Assignment> retrievedPending = pendingAssignments.nodes();
             long stableChangeTriggerValue = stableChangeTriggerEntry.value() == null
                     ? 0L : bytesToLongKeepingOrder(stableChangeTriggerEntry.value());
 
             if (!retrievedPending.equals(stableFromRaft)) {
                 return;
             }
+
+            int catalogVersion = pendingAssignments.catalogVersion();
+
+            Set<Assignment> calculatedAssignments =
+                    calculateAssignments(tablePartitionId, catalogService, distributionZoneManager, catalogVersion).get();
 
             // Were reduced
             Set<Assignment> reducedNodes = difference(retrievedSwitchReduce, stableFromRaft);
@@ -473,11 +482,11 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             Update successCase;
             Update failCase;
 
-            byte[] stableFromRaftByteArray = Assignments.toBytes(stableFromRaft);
-            byte[] additionByteArray = Assignments.toBytes(calculatedPendingAddition);
-            byte[] reductionByteArray = Assignments.toBytes(calculatedPendingReduction);
-            byte[] switchReduceByteArray = Assignments.toBytes(calculatedSwitchReduce);
-            byte[] switchAppendByteArray = Assignments.toBytes(calculatedSwitchAppend);
+            byte[] stableFromRaftByteArray = Assignments.toBytes(catalogVersion, stableFromRaft);
+            byte[] additionByteArray = Assignments.toBytes(catalogVersion, calculatedPendingAddition);
+            byte[] reductionByteArray = Assignments.toBytes(catalogVersion, calculatedPendingReduction);
+            byte[] switchReduceByteArray = Assignments.toBytes(catalogVersion, calculatedSwitchReduce);
+            byte[] switchAppendByteArray = Assignments.toBytes(catalogVersion, calculatedSwitchAppend);
 
             if (!calculatedSwitchAppend.isEmpty()) {
                 successCase = ops(

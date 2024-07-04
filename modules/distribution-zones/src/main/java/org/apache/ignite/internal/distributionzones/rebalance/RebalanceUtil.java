@@ -143,7 +143,8 @@ public class RebalanceUtil {
             long revision,
             MetaStorageManager metaStorageMgr,
             int partNum,
-            Set<Assignment> tableCfgPartAssignments
+            Set<Assignment> tableCfgPartAssignments,
+            int catalogVersion
     ) {
         ByteArray partChangeTriggerKey = pendingChangeTriggerKey(partId);
 
@@ -157,7 +158,7 @@ public class RebalanceUtil {
 
         boolean isNewAssignments = !tableCfgPartAssignments.equals(partAssignments);
 
-        byte[] partAssignmentsBytes = Assignments.toBytes(partAssignments);
+        byte[] partAssignmentsBytes = Assignments.toBytes(catalogVersion, partAssignments);
 
         //    if empty(partition.change.trigger.revision) || partition.change.trigger.revision < event.revision:
         //        if empty(partition.assignments.pending)
@@ -278,7 +279,8 @@ public class RebalanceUtil {
             CatalogZoneDescriptor zoneDescriptor,
             Set<String> dataNodes,
             long storageRevision,
-            MetaStorageManager metaStorageManager
+            MetaStorageManager metaStorageManager,
+            int catalogVersion
     ) {
         CompletableFuture<Map<Integer, Assignments>> tableAssignmentsFut = tableAssignments(
                 metaStorageManager,
@@ -305,7 +307,8 @@ public class RebalanceUtil {
                             storageRevision,
                             metaStorageManager,
                             finalPartId,
-                            tableAssignments.get(finalPartId).nodes()
+                            tableAssignments.get(finalPartId).nodes(),
+                            catalogVersion
                     ));
         }
 
