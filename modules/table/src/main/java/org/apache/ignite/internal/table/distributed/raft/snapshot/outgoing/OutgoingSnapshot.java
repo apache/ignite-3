@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing;
 
-import static org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageUtils.toTxMetaMessage;
 import static org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.SnapshotMetaUtils.collectNextRowIdToBuildIndexes;
 import static org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.SnapshotMetaUtils.snapshotMetaAt;
 
@@ -42,7 +41,6 @@ import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMvDa
 import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMvDataResponse.ResponseEntry;
 import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotTxDataRequest;
 import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotTxDataResponse;
-import org.apache.ignite.internal.partition.replicator.network.raft.TxMetaMessage;
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryRowMessage;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -52,6 +50,8 @@ import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionAccess;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionKey;
 import org.apache.ignite.internal.tx.TxMeta;
+import org.apache.ignite.internal.tx.message.TxMessagesFactory;
+import org.apache.ignite.internal.tx.message.TxMetaMessage;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentHashSet;
@@ -69,6 +69,8 @@ public class OutgoingSnapshot {
             new PartitionReplicationMessagesFactory();
 
     private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
+
+    private static final TxMessagesFactory TX_MESSAGES_FACTORY = new TxMessagesFactory();
 
     private final UUID id;
 
@@ -419,7 +421,7 @@ public class OutgoingSnapshot {
 
         for (IgniteBiTuple<UUID, TxMeta> row : rows) {
             txIds.add(row.getKey());
-            txMetas.add(toTxMetaMessage(PARTITION_REPLICATION_MESSAGES_FACTORY, REPLICA_MESSAGES_FACTORY, row.getValue()));
+            txMetas.add(row.getValue().toTransactionMetaMessage(REPLICA_MESSAGES_FACTORY, TX_MESSAGES_FACTORY));
         }
 
         return PARTITION_REPLICATION_MESSAGES_FACTORY.snapshotTxDataResponse()

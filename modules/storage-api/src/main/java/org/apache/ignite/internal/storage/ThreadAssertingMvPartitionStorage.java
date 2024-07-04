@@ -167,6 +167,11 @@ public class ThreadAssertingMvPartitionStorage implements MvPartitionStorage, Wr
     }
 
     @Override
+    public long estimatedSize() {
+        return partitionStorage.estimatedSize();
+    }
+
+    @Override
     public void close() {
         partitionStorage.close();
     }
