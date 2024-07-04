@@ -52,6 +52,7 @@ abstract class BaseTypeCoercionTest extends AbstractPlannerTest {
     static Stream<Arguments> allNumericPairs() {
         return Arrays.stream(NumericPair.values()).map(Arguments::of);
     }
+
     static void checkIncludesAllTypePairs(Stream<Arguments> args) {
         EnumSet<NumericPair> remainingPairs = EnumSet.allOf(NumericPair.class);
 

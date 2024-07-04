@@ -37,7 +37,6 @@ import org.apache.ignite.internal.type.NativeTypes;
 import org.hamcrest.BaseMatcher;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -53,10 +52,10 @@ public class UpdateSourcesCoercionTest extends BaseTypeCoercionTest {
     @ParameterizedTest
     @MethodSource("args1")
     public void update1(
-            @NotNull TypePair pair,
+            TypePair pair,
             Matcher<RexNode> operandMatcher
     ) throws Exception {
-        //ToDo: remove during implement IGNITE-22283
+        // ToDo: remove during implement IGNITE-22283
         if (pair.first().spec() == NativeTypeSpec.NUMBER || pair.second().spec() == NativeTypeSpec.NUMBER) {
             return;
         }
@@ -71,10 +70,10 @@ public class UpdateSourcesCoercionTest extends BaseTypeCoercionTest {
     @ParameterizedTest
     @MethodSource("argsDyn")
     public void updateDynamicParameters(
-            @NotNull TypePair pair,
+            TypePair pair,
             Matcher<RexNode> operandMatcher
     ) throws Exception {
-        //ToDo: remove during implement IGNITE-22283
+        // ToDo: remove during implement IGNITE-22283
         if (pair.first().spec() == NativeTypeSpec.NUMBER || pair.second().spec() == NativeTypeSpec.NUMBER) {
             return;
         }
@@ -89,10 +88,10 @@ public class UpdateSourcesCoercionTest extends BaseTypeCoercionTest {
     @ParameterizedTest
     @MethodSource("args2")
     public void update2(
-            @NotNull TypePair pair,
+            TypePair pair,
             Matcher<RexNode> operandMatcher
     ) throws Exception {
-        //ToDo: remove during implement IGNITE-22283
+        // ToDo: remove during implement IGNITE-22283
         if (pair.first().spec() == NativeTypeSpec.NUMBER || pair.second().spec() == NativeTypeSpec.NUMBER) {
             return;
         }

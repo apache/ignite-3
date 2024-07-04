@@ -220,13 +220,13 @@ public class SqlTestUtils {
             case INT8:
                 return (byte) base;
             case INT16:
-                return (short)(Short.MAX_VALUE - (byte) base);
+                return (short) (Short.MAX_VALUE - (byte) base);
             case INT32:
                 return Integer.MAX_VALUE - (short) base;
             case INT64:
                 return Long.MAX_VALUE - base;
             case FLOAT:
-                return Float.MAX_VALUE - (short)base + ((float) base / 1000);
+                return Float.MAX_VALUE - (short) base + ((float) base / 1000);
             case DOUBLE:
                 return Double.MAX_VALUE - base + ((double) base / 1000);
             case STRING:
@@ -351,6 +351,52 @@ public class SqlTestUtils {
                 throw new IllegalArgumentException("Not supported: " + type);
             default:
                 throw new IllegalArgumentException("Unexpected type: " + type);
+        }
+    }
+
+    /** Convert {@link ColumnType} to {@link SqlTypeName}. */
+    public static SqlTypeName columnType2SqlTypeName(ColumnType columnType) {
+        switch (columnType) {
+            case NULL:
+                return SqlTypeName.NULL;
+            case BOOLEAN:
+                return SqlTypeName.BOOLEAN;
+            case INT8:
+                return SqlTypeName.TINYINT;
+            case INT16:
+                return SqlTypeName.SMALLINT;
+            case INT32:
+                return SqlTypeName.INTEGER;
+            case INT64:
+                return SqlTypeName.BIGINT;
+            case FLOAT:
+                return SqlTypeName.REAL;
+            case DOUBLE:
+                return SqlTypeName.DOUBLE;
+            case DECIMAL:
+            case NUMBER:
+                return SqlTypeName.DECIMAL;
+            case DATE:
+                return SqlTypeName.DATE;
+            case TIME:
+                return SqlTypeName.TIME;
+            case DATETIME:
+                return SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE;
+            case TIMESTAMP:
+                return SqlTypeName.TIMESTAMP;
+            case UUID:
+            case BITMASK:
+                return SqlTypeName.OTHER;
+            case STRING:
+                return SqlTypeName.VARCHAR;
+            case BYTE_ARRAY:
+                return SqlTypeName.VARBINARY;
+            case PERIOD:
+                return SqlTypeName.INTERVAL_YEAR_MONTH;
+            case DURATION:
+                return SqlTypeName.INTERVAL_SECOND;
+            default:
+                throw new IllegalArgumentException("Unknown type " + columnType);
         }
     }
 }
