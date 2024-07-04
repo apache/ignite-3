@@ -212,21 +212,23 @@ public class SqlTestUtils {
      * @return Generated value for given SQL type.
      */
     public static Object generateValueByType(int base, ColumnType type) {
+        base = Math.abs(base);
+
         switch (type) {
             case BOOLEAN:
                 return base % 2 == 0;
             case INT8:
                 return (byte) base;
             case INT16:
-                return (short) base;
+                return (short)(Short.MAX_VALUE - (byte) base);
             case INT32:
-                return base;
+                return Integer.MAX_VALUE - (short) base;
             case INT64:
-                return (long) base;
+                return Long.MAX_VALUE - base;
             case FLOAT:
-                return base + ((float) base / 1000);
+                return Float.MAX_VALUE - (short)base + ((float) base / 1000);
             case DOUBLE:
-                return base + ((double) base / 1000);
+                return Double.MAX_VALUE - base + ((double) base / 1000);
             case STRING:
                 return "str_" + base;
             case BYTE_ARRAY:
@@ -234,9 +236,9 @@ public class SqlTestUtils {
             case NULL:
                 return null;
             case DECIMAL:
-                return BigDecimal.valueOf(base + ((double) base / 1000));
+                return BigDecimal.valueOf(base + ((double) base / 1000)).add(BigDecimal.valueOf(Long.MAX_VALUE));
             case NUMBER:
-                return BigInteger.valueOf(base);
+                return BigInteger.valueOf(base).add(BigInteger.valueOf(Long.MAX_VALUE));
             case UUID:
                 return new UUID(base, base);
             case BITMASK:

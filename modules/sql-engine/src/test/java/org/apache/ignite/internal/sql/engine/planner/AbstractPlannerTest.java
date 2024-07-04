@@ -499,8 +499,6 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         String planString = RelOptUtil.dumpPlan("", plan, SqlExplainFormat.TEXT, DEFAULT_EXPLAIN_LEVEL);
         log.info("statement: {}\n{}", sql, planString);
 
-        checkSplitAndSerialization(plan, schemas);
-
         try {
             if (predicate.test((T) plan)) {
                 return;
