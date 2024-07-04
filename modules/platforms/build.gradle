@@ -185,11 +185,18 @@ artifacts {
         cppClient(file("$buildDir/cpp/lib/libignite3-client.so")) {
             builtBy cmakeBuildClient
         }
-        odbc(file("$buildDir/cpp/lib/libignite3-odbc.so")) {
-            builtBy cmakeBuildOdbc
-        }
-        odbc(file("$buildDir/cpp/lib/libignite3-odbc.so.3")) {
-            builtBy cmakeBuildOdbc
+
+        if (System.getProperty("os.name").toLowerCase().contains("windows")) {
+            odbc(file("$buildDir/cpp/Release/bin/ignite3-odbc.dll")) {
+                builtBy cmakeBuildOdbc
+            }
+        } else {
+            odbc(file("$buildDir/cpp/lib/libignite3-odbc.so")) {
+                builtBy cmakeBuildOdbc
+            }
+            odbc(file("$buildDir/cpp/lib/libignite3-odbc.so.3")) {
+                builtBy cmakeBuildOdbc
+            }
         }
     }
 }
