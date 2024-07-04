@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.cli.commands.flow;
 
+import static org.apache.ignite.internal.cli.core.call.DefaultCallOutput.success;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.emptyString;
@@ -31,6 +32,7 @@ import java.io.StringWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.function.Function;
 import org.apache.ignite.internal.cli.core.call.StringCallInput;
 import org.apache.ignite.internal.cli.core.call.ThrowingStrCall;
 import org.apache.ignite.internal.cli.core.exception.TestExceptionHandler;
@@ -322,6 +324,57 @@ class FlowTest {
                 .then(input -> Flowable.failure(exception))
                 .onFailure(ex -> assertThat(ex, equalTo(exception)))
                 .start();
+    }
+
+    @Test
+    void failurePropagationMap() {
+        Function<String, String> throwingFunction = input -> {
+            throw new RuntimeException("Ooops!");
+        };
+
+        Flows.from(throwingFunction)
+                .map(it -> it + "1")
+                .exceptionHandler(new TestExceptionHandler())
+                .print()
+                .start();
+
+        // Then error output equals to the message from exception
+        assertThat(out.toString(), emptyString());
+        assertThat(errOut.toString(), equalTo("Ooops!" + System.lineSeparator()));
+    }
+
+    @Test
+    void failurePropagationFromCall() {
+        Function<String, StringCallInput> throwingFunction = input -> {
+            throw new RuntimeException("Ooops!");
+        };
+
+        Flows.from(throwingFunction)
+                .then(Flows.fromCall(it -> success(it.getString() + "1")))
+                .exceptionHandler(new TestExceptionHandler())
+                .print()
+                .start();
+
+        // Then error output equals to the message from exception
+        assertThat(out.toString(), emptyString());
+        assertThat(errOut.toString(), equalTo("Ooops!" + System.lineSeparator()));
+    }
+
+    @Test
+    void failurePropagationFromCallWithMapper() {
+        Function<String, StringCallInput> throwingFunction = input -> {
+            throw new RuntimeException("Ooops!");
+        };
+
+        Flows.from(throwingFunction)
+                .then(Flows.fromCall(it -> success(it.getString() + "1"), Function.identity()))
+                .exceptionHandler(new TestExceptionHandler())
+                .print()
+                .start();
+
+        // Then error output equals to the message from exception
+        assertThat(out.toString(), emptyString());
+        assertThat(errOut.toString(), equalTo("Ooops!" + System.lineSeparator()));
     }
 
     private void bindAnswers(String... answers) throws IOException {

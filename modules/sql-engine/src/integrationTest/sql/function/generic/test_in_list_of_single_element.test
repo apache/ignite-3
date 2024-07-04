@@ -178,31 +178,37 @@ SELECT NULL IN (SELECT 1)
 ----
 null
 
+# https://issues.apache.org/jira/browse/IGNITE-22084: Sql. Add support for row data type.
 # Row value constructions
+skipif ignite3
 query T
 SELECT (1, 'hello', TIMESTAMP '2022-02-01 10:30:28') IN ((1, 'hello', TIMESTAMP '2022-02-01 10:30:28'));
 ----
 true
 
+# https://issues.apache.org/jira/browse/IGNITE-22084: Sql. Add support for row data type.
+skipif ignite3
 query T
 SELECT (1, 'hello') IN ((1, 'world'));
 ----
 false
 
 skipif ignite3
-# Ignored: https://issues.apache.org/jira/browse/IGNITE-22014
+# https://issues.apache.org/jira/browse/IGNITE-22084: Sql. Add support for row data type.
 query T
 SELECT (1, 'hello') IN ((1, NULL));
 ----
 NULL
 
+skipif ignite3
+# https://issues.apache.org/jira/browse/IGNITE-22084: Sql. Add support for row data type.
 query T
 SELECT (1, 'hello') NOT IN ((1, 'hello'));
 ----
 false
 
 skipif ignite3
-# Ignored: https://issues.apache.org/jira/browse/IGNITE-22014
+# https://issues.apache.org/jira/browse/IGNITE-22084: Sql. Add support for row data type.
 query T
 SELECT (1, NULL) IN ((1, NULL));
 ----

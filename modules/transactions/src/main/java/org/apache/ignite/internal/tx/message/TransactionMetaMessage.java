@@ -15,33 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.partition.replicator.network.raft;
+package org.apache.ignite.internal.tx.message;
 
 import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
 
-import java.util.ArrayList;
-import java.util.List;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.NetworkMessage;
-import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
-import org.apache.ignite.internal.partition.replicator.network.command.TablePartitionIdMessage;
-import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.tx.TxMeta;
+import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.jetbrains.annotations.Nullable;
 
-/** Message for transferring a {@link TxMeta}. */
-@Transferable(PartitionReplicationMessageGroup.TX_META_MESSAGE)
-public interface TxMetaMessage extends NetworkMessage {
+/** Message for transferring a {@link TransactionMeta}. */
+public interface TransactionMetaMessage extends NetworkMessage {
     /** Ordinal of {@link TxState} value. */
     int txStateInt();
 
     /** Commit timestamp in primitive representation, {@link HybridTimestamp#NULL_HYBRID_TIMESTAMP} as {@code null}. */
     long commitTimestampLong();
-
-    /** List of enlisted partition groups. */
-    List<TablePartitionIdMessage> enlistedPartitions();
 
     /** Transaction state. */
     default TxState txState() {
@@ -57,15 +47,8 @@ public interface TxMetaMessage extends NetworkMessage {
         return nullableHybridTimestamp(commitTimestampLong());
     }
 
-    /** Converts to {@link TxMeta}. */
-    default TxMeta asTxMeta() {
-        List<TablePartitionIdMessage> enlistedPartitionMessages = enlistedPartitions();
-        var enlistedPartitions = new ArrayList<TablePartitionId>(enlistedPartitionMessages.size());
-
-        for (int i = 0; i < enlistedPartitionMessages.size(); i++) {
-            enlistedPartitions.add(enlistedPartitionMessages.get(i).asTablePartitionId());
-        }
-
-        return new TxMeta(txState(), enlistedPartitions, commitTimestamp());
+    /** Converts to {@link TransactionMeta}. */
+    default TransactionMeta asTransactionMeta() {
+        throw new AssertionError("Must be implemented by heirs.");
     }
 }

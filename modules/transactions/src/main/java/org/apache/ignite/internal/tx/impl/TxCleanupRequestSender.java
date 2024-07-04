@@ -32,12 +32,12 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl.TransactionFailureHandler;
 import org.apache.ignite.internal.tx.message.CleanupReplicatedInfo;
+import org.apache.ignite.internal.tx.message.CleanupReplicatedInfoMessage;
 import org.apache.ignite.internal.tx.message.TxCleanupMessageErrorResponse;
 import org.apache.ignite.internal.tx.message.TxCleanupMessageResponse;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
@@ -87,11 +87,11 @@ public class TxCleanupRequestSender {
                 // The cleanup response is sent only in the success case, hence no error is expected.
                 assert !(msg instanceof TxCleanupMessageErrorResponse) : "Cleanup error response is not expected here.";
 
-                CleanupReplicatedInfo result = ((TxCleanupMessageResponse) msg).result();
+                CleanupReplicatedInfoMessage result = ((TxCleanupMessageResponse) msg).result();
 
                 assert result != null : "Result for the cleanup response cannot be null.";
 
-                onCleanupReplicated(result);
+                onCleanupReplicated(result.asCleanupReplicatedInfo());
             }
         });
     }
@@ -237,9 +237,7 @@ public class TxCleanupRequestSender {
             String node,
             @Nullable Collection<TablePartitionId> partitions
     ) {
-        Collection<ReplicationGroupId> enlistedPartitions = (Collection<ReplicationGroupId>) (Collection<?>) partitions;
-
-        return txMessageSender.cleanup(node, enlistedPartitions, txId, commit, commitTimestamp)
+        return txMessageSender.cleanup(node, partitions, txId, commit, commitTimestamp)
                 .handle((networkMessage, throwable) -> {
                     if (throwable != null) {
                         if (TransactionFailureHandler.isRecoverable(throwable)) {

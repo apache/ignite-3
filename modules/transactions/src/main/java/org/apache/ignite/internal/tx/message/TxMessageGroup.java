@@ -94,4 +94,18 @@ public class TxMessageGroup {
      */
     public static final short VACUUM_TX_STATE_COMMAND = 13;
 
+    /** Message type for {@link TxMetaMessage}. */
+    public static final short TX_META_MESSAGE = 14;
+
+    /** Message type for {@link TxStateMetaMessage}. */
+    public static final short TX_STATE_META_MESSAGE = 15;
+
+    /** Message type for {@link TxStateMetaAbandonedMessage}. */
+    public static final short TX_STATE_META_ABANDONED_MESSAGE = 16;
+
+    /** Message type for {@link TxStateMetaFinishingMessage}. */
+    public static final short TX_STATE_META_FINISHING_MESSAGE = 17;
+
+    /** Message type for {@link CleanupReplicatedInfoMessage}. */
+    public static final short CLEANUP_REPLICATED_INFO_MESSAGE = 18;
 }

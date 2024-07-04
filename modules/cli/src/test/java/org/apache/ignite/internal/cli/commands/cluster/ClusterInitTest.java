@@ -33,6 +33,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.regex.Pattern;
 import org.apache.ignite.internal.cli.commands.IgniteCliInterfaceTestBase;
+import org.apache.ignite.internal.cli.commands.cluster.init.ClusterInitCommand;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockserver.model.MediaType;
@@ -42,10 +43,14 @@ import org.mockserver.model.MediaType;
 class ClusterInitTest extends IgniteCliInterfaceTestBase {
     private static final Pattern PATTERN = Pattern.compile("\"");
 
+    @Override
+    protected Class<?> getCommandClass() {
+        return ClusterInitCommand.class;
+    }
+
     @Test
     void duplicatedOption() {
         execute(
-                "cluster", "init",
                 "--url", mockUrl,
                 "--metastorage-group", "node1ConsistentId",
                 "--metastorage-group", "node2ConsistentId", // we do not allow repeating options
@@ -55,6 +60,18 @@ class ClusterInitTest extends IgniteCliInterfaceTestBase {
         );
 
         assertErrOutputContains("Unmatched arguments");
+    }
+
+    @Test
+    void wrongConfigFilePath() {
+        execute(
+                "--url", mockUrl,
+                "--metastorage-group", "node1ConsistentId",
+                "--name", "cluster",
+                "--config-files", "wrong-path"
+        );
+
+        assertErrOutputIs("Couldn't read cluster configuration file: [wrong-path]");
     }
 
     @Test
@@ -75,7 +92,6 @@ class ClusterInitTest extends IgniteCliInterfaceTestBase {
                 .respond(response(null));
 
         execute(
-                "cluster", "init",
                 "--url", mockUrl,
                 "--metastorage-group", "node1ConsistentId, node2ConsistentId",
                 "--cluster-management-group", "node2ConsistentId,node3ConsistentId",
@@ -117,7 +133,6 @@ class ClusterInitTest extends IgniteCliInterfaceTestBase {
                 .respond(response(null));
 
         execute(
-                "cluster", "init",
                 "--url", mockUrl,
                 "--metastorage-group", "node1ConsistentId,node2ConsistentId",
                 "--cluster-management-group", " node2ConsistentId , node3ConsistentId",
@@ -141,7 +156,6 @@ class ClusterInitTest extends IgniteCliInterfaceTestBase {
                 );
 
         execute(
-                "cluster", "init",
                 "--url", mockUrl,
                 "--metastorage-group", "node1ConsistentId, node2ConsistentId",
                 "--cluster-management-group", "node2ConsistentId, node3ConsistentId",
@@ -149,7 +163,7 @@ class ClusterInitTest extends IgniteCliInterfaceTestBase {
         );
 
         assertAll(
-                () -> assertExitCodeIs(1),
+                this::assertExitCodeIsError,
                 this::assertOutputIsEmpty,
                 () -> assertErrOutputIs("Oops")
         );
@@ -159,7 +173,6 @@ class ClusterInitTest extends IgniteCliInterfaceTestBase {
     @DisplayName("--url http://localhost:10300 --cluster-management-group node2ConsistentId, node3ConsistentId")
     void metastorageNodesAreMandatoryForInit() {
         execute(
-                "cluster", "init",
                 "--url", mockUrl,
                 "--cluster-management-group", "node2ConsistentId, node3ConsistentId",
                 "--name", "cluster"
@@ -183,7 +196,6 @@ class ClusterInitTest extends IgniteCliInterfaceTestBase {
                 .respond(response().withStatusCode(OK_200.code()));
 
         execute(
-                "cluster", "init",
                 "--url", mockUrl,
                 "--metastorage-group", "node1ConsistentId, node2ConsistentId",
                 "--name", "cluster"
@@ -196,7 +208,6 @@ class ClusterInitTest extends IgniteCliInterfaceTestBase {
     @DisplayName("--url http://localhost:10300 --metastorage-group node1ConsistentId --cluster-management-group node2ConsistentId")
     void clusterNameIsMandatoryForInit() {
         execute(
-                "cluster", "init",
                 "--url", mockUrl,
                 "--metastorage-group", "node1ConsistentId",
                 "--cluster-management-group", "node2ConsistentId"
@@ -258,7 +269,6 @@ class ClusterInitTest extends IgniteCliInterfaceTestBase {
                 .respond(response(null));
 
         execute(
-                "cluster", "init",
                 "--url", mockUrl,
                 "--metastorage-group", "node1ConsistentId",
                 "--cluster-management-group", "node2ConsistentId",

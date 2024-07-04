@@ -17,10 +17,15 @@
 
 package org.apache.ignite.internal.tx;
 
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
+import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
 import static org.apache.ignite.internal.tx.TxState.ABANDONED;
 
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.tx.message.TxMessagesFactory;
+import org.apache.ignite.internal.tx.message.TxStateMetaAbandonedMessage;
 import org.apache.ignite.internal.util.FastTimestamps;
 
 /**
@@ -36,9 +41,9 @@ public class TxStateMetaAbandoned extends TxStateMeta {
      * Constructor.
      *
      * @param txCoordinatorId Transaction coordinator id.
-     * @param commitPartitionId Commit partition replication group id.
+     * @param commitPartitionId Commit partition replication group ID.
      */
-    TxStateMetaAbandoned(
+    public TxStateMetaAbandoned(
             String txCoordinatorId,
             TablePartitionId commitPartitionId
     ) {
@@ -54,6 +59,24 @@ public class TxStateMetaAbandoned extends TxStateMeta {
      */
     public long lastAbandonedMarkerTs() {
         return lastAbandonedMarkerTs;
+    }
+
+    @Override
+    public TxStateMetaAbandonedMessage toTransactionMetaMessage(
+            ReplicaMessagesFactory replicaMessagesFactory,
+            TxMessagesFactory txMessagesFactory
+    ) {
+        TablePartitionId tablePartitionId = commitPartitionId();
+
+        return txMessagesFactory.txStateMetaAbandonedMessage()
+                .txStateInt(txState().ordinal())
+                .txCoordinatorId(txCoordinatorId())
+                .commitPartitionId(tablePartitionId == null ? null : toTablePartitionIdMessage(replicaMessagesFactory, tablePartitionId))
+                .commitTimestampLong(hybridTimestampToLong(commitTimestamp()))
+                .initialVacuumObservationTimestamp(initialVacuumObservationTimestamp())
+                .cleanupCompletionTimestamp(cleanupCompletionTimestamp())
+                .lastAbandonedMarkerTs(lastAbandonedMarkerTs)
+                .build();
     }
 
     @Override

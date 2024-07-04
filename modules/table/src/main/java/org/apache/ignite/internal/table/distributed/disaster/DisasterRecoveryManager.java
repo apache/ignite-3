@@ -27,9 +27,9 @@ import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.TABLE_CREATE;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.TABLE_DROP;
 import static org.apache.ignite.internal.event.EventListener.fromConsumer;
-import static org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageUtils.toTablePartitionIdMessage;
 import static org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum.CATCHING_UP;
 import static org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum.HEALTHY;
+import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
 import static org.apache.ignite.internal.table.distributed.disaster.DisasterRecoverySystemViews.createGlobalPartitionStatesSystemView;
 import static org.apache.ignite.internal.table.distributed.disaster.DisasterRecoverySystemViews.createLocalPartitionStatesSystemView;
 import static org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionStateEnum.AVAILABLE;
@@ -83,6 +83,7 @@ import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPar
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStatesResponse;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.systemview.api.SystemView;
 import org.apache.ignite.internal.systemview.api.SystemViewProvider;
 import org.apache.ignite.internal.table.distributed.TableManager;
@@ -109,7 +110,10 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
     /** Single key for writing disaster recovery requests into meta-storage. */
     static final ByteArray RECOVERY_TRIGGER_KEY = new ByteArray("disaster.recovery.trigger");
 
-    private static final PartitionReplicationMessagesFactory MSG_FACTORY = new PartitionReplicationMessagesFactory();
+    private static final PartitionReplicationMessagesFactory PARTITION_REPLICATION_MESSAGES_FACTORY =
+            new PartitionReplicationMessagesFactory();
+
+    private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
 
     /** Disaster recovery operations timeout in seconds. */
     private static final int TIMEOUT_SECONDS = 30;
@@ -353,7 +357,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
         Set<Integer> zoneIds = zones.stream().map(CatalogObjectDescriptor::id).collect(toSet());
 
-        LocalPartitionStatesRequest localPartitionStatesRequest = MSG_FACTORY.localPartitionStatesRequest()
+        LocalPartitionStatesRequest localPartitionStatesRequest = PARTITION_REPLICATION_MESSAGES_FACTORY.localPartitionStatesRequest()
                 .zoneIds(zoneIds)
                 .partitionIds(partitionIds)
                 .catalogVersion(catalog.version())
@@ -564,8 +568,8 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                     LocalPartitionStateEnumWithLogIndex localPartitionStateWithLogIndex =
                             LocalPartitionStateEnumWithLogIndex.of(raftGroupService.getRaftNode());
 
-                    statesList.add(MSG_FACTORY.localPartitionStateMessage()
-                            .partitionId(toTablePartitionIdMessage(MSG_FACTORY, tablePartitionId))
+                    statesList.add(PARTITION_REPLICATION_MESSAGES_FACTORY.localPartitionStateMessage()
+                            .partitionId(toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, tablePartitionId))
                             .stateInt(localPartitionStateWithLogIndex.state.ordinal())
                             .logIndex(localPartitionStateWithLogIndex.logIndex)
                             .build()
@@ -573,7 +577,9 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                 }
             });
 
-            LocalPartitionStatesResponse response = MSG_FACTORY.localPartitionStatesResponse().states(statesList).build();
+            LocalPartitionStatesResponse response = PARTITION_REPLICATION_MESSAGES_FACTORY.localPartitionStatesResponse()
+                    .states(statesList)
+                    .build();
 
             messagingService.respond(sender, response, correlationId);
         }, threadPool);
