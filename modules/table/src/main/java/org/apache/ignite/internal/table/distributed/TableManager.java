@@ -159,6 +159,7 @@ import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaManager.WeakReplicaStopReason;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.schema.SchemaManager;
@@ -2258,17 +2259,24 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         }, ioExecutor).thenCompose(identity());
     }
 
+    private CompletableFuture<Boolean> isLocalNodeLeaseholder(ReplicationGroupId replicationGroupId) {
+        HybridTimestamp previousMetastoreSafeTime = metaStorageMgr.clusterTime()
+                .currentSafeTime()
+                .addPhysicalTime(-clockService.maxClockSkewMillis());
+
+        return executorInclinedPlacementDriver.getPrimaryReplica(replicationGroupId, previousMetastoreSafeTime)
+                .thenApply(replicaMeta -> replicaMeta != null
+                    && replicaMeta.getLeaseholderId() != null
+                    && replicaMeta.getLeaseholderId().equals(localNode().name()));
+    }
+
     private CompletableFuture<Void> updatePartitionClients(
             TablePartitionId tablePartitionId,
             Set<Assignment> stableAssignments,
             long revision
     ) {
-        return executorInclinedPlacementDriver.getPrimaryReplica(tablePartitionId, clockService.now()).thenCompose(replicaMeta -> {
-            boolean isLocalNodePrimary = replicaMeta != null
-                    && replicaMeta.getLeaseholderId() != null
-                    && replicaMeta.getLeaseholderId().equals(localNode().name());
-
-            if (!isLocalNodeInAssignments(stableAssignments) && !isLocalNodePrimary) {
+        return isLocalNodeLeaseholder(tablePartitionId).thenCompose(isLeaseholder -> {
+            if (!isLocalNodeInAssignments(stableAssignments) && !isLeaseholder) {
                 return nullCompletedFuture();
             }
 
@@ -2282,7 +2290,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     .updateConfiguration(fromAssignments(stableAssignments))
             );
         });
-
     }
 
     private CompletableFuture<Void> stopAndDestroyPartitionAndUpdateClients(
