@@ -1904,6 +1904,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         return;
                     }
 
+                    assert isLocalNodeInStableOrPending || isLeaseholder
+                            : "The local node is outside of the replication group [inStableOrPending=" + isLocalNodeInStableOrPending
+                            + ", isLeaseholder=" + isLeaseholder + "].";
+
                     // For forced assignments, we exclude dead stable nodes, and all alive stable nodes are already in pending assignments.
                     // Union is not required in such a case.
                     Set<Assignment> newAssignments = pendingAssignmentsAreForced || stableAssignments == null
@@ -2291,11 +2295,15 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             long revision
     ) {
         return isLocalNodeLeaseholder(tablePartitionId).thenCompose(isLeaseholder -> {
-            if (!isLocalNodeInAssignments(stableAssignments) && !isLeaseholder) {
+            boolean isLocalInStable = isLocalNodeInAssignments(stableAssignments);
+
+            if (!isLocalInStable && !isLeaseholder) {
                 return nullCompletedFuture();
             }
 
-            assert replicaMgr.isReplicaStarted(tablePartitionId) : "The local node is outside of the replication group";
+            assert replicaMgr.isReplicaStarted(tablePartitionId)
+                    : "The local node is outside of the replication group [inStable=" + isLocalInStable
+                            + ", isLeaseholder=" + isLeaseholder + "].";
 
             // Update raft client peers and learners according to the actual assignments.
             return tablesById(revision).thenAccept(t -> t.get(tablePartitionId.tableId())
