@@ -1882,7 +1882,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             }, ioExecutor);
         }
 
-        return localServicesStartFuture.thenRunAsync(() -> {
+        return localServicesStartFuture.thenRunAsync(() -> inBusyLock(busyLock, () -> {
             if (!isNodeInReducedStableAndPendingAssignmentsUnionSet(replicaGrpId, stableAssignments, pendingAssignments, revision)) {
                 return;
             }
@@ -1897,7 +1897,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     .tableRaftService()
                     .partitionRaftGroupService(partitionId)
                     .updateConfiguration(fromAssignments(newAssignments));
-        }, ioExecutor);
+        }), ioExecutor);
     }
 
     private boolean isNodeInReducedStableAndPendingAssignmentsUnionSet(
@@ -1906,27 +1906,25 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             Assignments pendingAssignments,
             long revision
     ) {
-        Entry oldEntry  = metaStorageMgr.getLocally(stablePartAssignmentsKey(replicaGrpId), revision - 1);
-        Assignments oldStableAssignments = oldEntry != null
-                ? Assignments.fromBytes(oldEntry.value())
-                : null;
         Entry reduceEntry  = metaStorageMgr.getLocally(RebalanceUtil.switchReduceKey(replicaGrpId), revision);
+
         Assignments reduceAssignments = reduceEntry != null
                 ? Assignments.fromBytes(reduceEntry.value())
                 : null;
+
         Set<Assignment> reducedStableAssignments = reduceAssignments != null
                 ? subtract(stableAssignments.nodes(), reduceAssignments.nodes())
                 : stableAssignments.nodes();
+
         if (!isLocalNodeInAssignments(union(reducedStableAssignments, pendingAssignments.nodes()))) {
             return false;
         }
 
         assert replicaMgr.isReplicaStarted(replicaGrpId) : "The local node is outside of the replication group ["
-                + "\n\toldStable=" + oldStableAssignments
-                + ",\n\tstable=" + stableAssignments
-                + ",\n\tpending=" + pendingAssignments
-                + ",\n\treduce=" + reduceAssignments
-                + ",\n\tlocalName=" + localNode().name() + "\n].";
+                + ", stable=" + stableAssignments
+                + ", pending=" + pendingAssignments
+                + ", reduce=" + reduceAssignments
+                + ", localName=" + localNode().name() + "].";
 
         return true;
     }
