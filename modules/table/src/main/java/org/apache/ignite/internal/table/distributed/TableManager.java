@@ -1779,8 +1779,14 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                         isRecovery
                                 ))
                                 .thenCompose(v -> {
-                                    if (!isNodeInReducedStableAndPendingAssignmentsUnionSet(
-                                            replicaGrpId, stableAssignments, pendingAssignments, revision)) {
+                                    boolean isLocalNodeInStableOrPending = isNodeInReducedStableOrPendingAssignments(
+                                            replicaGrpId,
+                                            stableAssignments,
+                                            pendingAssignments,
+                                            revision
+                                    );
+
+                                    if (!isLocalNodeInStableOrPending) {
                                         return nullCompletedFuture();
                                     }
 
@@ -1884,25 +1890,34 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             }, ioExecutor);
         }
 
-        return localServicesStartFuture.thenRunAsync(() -> inBusyLock(busyLock, () -> {
-            if (!isNodeInReducedStableAndPendingAssignmentsUnionSet(replicaGrpId, stableAssignments, pendingAssignments, revision)) {
-                return;
-            }
+        return localServicesStartFuture
+                .thenComposeAsync(v -> inBusyLock(busyLock, () -> isLocalNodeLeaseholder(replicaGrpId)), ioExecutor)
+                .thenAcceptAsync(isLeaseholder -> inBusyLock(busyLock, () -> {
+                    boolean isLocalNodeInStableOrPending = isNodeInReducedStableOrPendingAssignments(
+                            replicaGrpId,
+                            stableAssignments,
+                            pendingAssignments,
+                            revision
+                    );
 
-            // For forced assignments, we exclude dead stable nodes, and all alive stable nodes are already in pending assignments.
-            // Union is not required in such a case.
-            Set<Assignment> newAssignments = pendingAssignmentsAreForced || stableAssignments == null
-                    ? pendingAssignmentsNodes
-                    : union(pendingAssignmentsNodes, stableAssignments.nodes());
+                    if (!isLocalNodeInStableOrPending && !isLeaseholder) {
+                        return;
+                    }
 
-            tbl.internalTable()
-                    .tableRaftService()
-                    .partitionRaftGroupService(partitionId)
-                    .updateConfiguration(fromAssignments(newAssignments));
-        }), ioExecutor);
+                    // For forced assignments, we exclude dead stable nodes, and all alive stable nodes are already in pending assignments.
+                    // Union is not required in such a case.
+                    Set<Assignment> newAssignments = pendingAssignmentsAreForced || stableAssignments == null
+                            ? pendingAssignmentsNodes
+                            : union(pendingAssignmentsNodes, stableAssignments.nodes());
+
+                    tbl.internalTable()
+                            .tableRaftService()
+                            .partitionRaftGroupService(partitionId)
+                            .updateConfiguration(fromAssignments(newAssignments));
+                }), ioExecutor);
     }
 
-    private boolean isNodeInReducedStableAndPendingAssignmentsUnionSet(
+    private boolean isNodeInReducedStableOrPendingAssignments(
             TablePartitionId replicaGrpId,
             @Nullable Assignments stableAssignments,
             Assignments pendingAssignments,
