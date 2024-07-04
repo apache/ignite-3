@@ -22,6 +22,8 @@ import org.apache.ignite.network.ClusterNode;
 /**
  * Describes an object which has interest in change of the leader.
  *
+ * <p>Listener will be notified on the same thread that notifies meta storage itself, thus must not contain any heavy computations.
+ *
  * <p>Note: this is not part of meta storage api, but rather part of particular implementation. May be changed or removed with new
  * implementation of meta storage, if any. Use on your own risk.
  */

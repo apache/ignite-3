@@ -128,7 +128,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     /**
      * Node that is considered to be a coordinator of compaction process.
      *
-     * <p>May be not set. Node should act as coordinator only in case this field is set and value is equals to name of the local node.
+     * <p>May be not set. Node should act as coordinator only in case this field is set and value is equal to name of the local node.
      */
     private volatile @Nullable String compactionCoordinatorNodeName;
 

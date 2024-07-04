@@ -40,7 +40,7 @@ class ItCatalogCompactionCoordinatorChoosingTest extends ClusterPerClassIntegrat
     private static final int CLUSTER_SIZE = 5;
     private static final int MINORITY_SIZE = (CLUSTER_SIZE - 1) / 2;
 
-    // test is sensible to count of nodes in custer
+    // test is sensible to count of nodes in cluster
     @Override
     protected int initialNodes() {
         return CLUSTER_SIZE;
