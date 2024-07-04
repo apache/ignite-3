@@ -647,7 +647,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         startVv.update(recoveryRevision, (v, e) -> handleAssignmentsOnRecovery(
                 stableAssignmentsPrefix,
                 recoveryRevision,
-                (entry, rev) -> handleChangeStableAssignmentEvent(entry, rev, true),
+                (entry, rev) ->  handleChangeStableAssignmentEvent(entry, rev, true),
                 "stable"
         ));
         startVv.update(recoveryRevision, (v, e) -> handleAssignmentsOnRecovery(
@@ -2294,7 +2294,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             Set<Assignment> stableAssignments,
             long revision
     ) {
-        return isLocalNodeLeaseholder(tablePartitionId).thenCompose(isLeaseholder -> {
+        return isLocalNodeLeaseholder(tablePartitionId).thenCompose(isLeaseholder -> inBusyLock(busyLock, () -> {
             boolean isLocalInStable = isLocalNodeInAssignments(stableAssignments);
 
             if (!isLocalInStable && !isLeaseholder) {
@@ -2312,7 +2312,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     .partitionRaftGroupService(tablePartitionId.partitionId())
                     .updateConfiguration(fromAssignments(stableAssignments))
             );
-        });
+        }));
     }
 
     private CompletableFuture<Void> stopAndDestroyPartitionAndUpdateClients(
