@@ -331,10 +331,14 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
                     )
             ).get();
 
+            // Safe to get the latest version until lwm mechanism is implemented for zone lifecycle.
+            int catalogVersion = catalogService.latestCatalogVersion();
+
             Set<Assignment> calculatedAssignments = calculateZoneAssignments(
                     zonePartitionId,
                     catalogService,
-                    distributionZoneManager
+                    distributionZoneManager,
+                    catalogVersion
             ).get();
 
             Entry stableEntry = values.get(stablePartAssignmentsKey);
@@ -616,10 +620,9 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
     private static CompletableFuture<Set<Assignment>> calculateZoneAssignments(
             ZonePartitionId zonePartitionId,
             CatalogService catalogService,
-            DistributionZoneManager distributionZoneManager
+            DistributionZoneManager distributionZoneManager,
+            int catalogVersion
     ) {
-        int catalogVersion = catalogService.latestCatalogVersion();
-
         CatalogZoneDescriptor zoneDescriptor = catalogService.zone(zonePartitionId.zoneId(), catalogVersion);
 
         int zoneId = zonePartitionId.zoneId();

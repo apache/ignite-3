@@ -269,9 +269,13 @@ public class DistributionZoneManager implements IgniteComponent {
 
             restoreGlobalStateFromLocalMetastorage(recoveryRevision);
 
+            // It is safe to get the latest version of the catalog as we are in the starting process.
+            // Safe to get the latest version until lwm mechanism is implemented for zone lifecycle
+            int catalogVersion = catalogManager.latestCatalogVersion();
+
             return allOf(
-                    createOrRestoreZonesStates(recoveryRevision),
-                    restoreLogicalTopologyChangeEventAndStartTimers(recoveryRevision)
+                    createOrRestoreZonesStates(recoveryRevision, catalogVersion),
+                    restoreLogicalTopologyChangeEventAndStartTimers(recoveryRevision, catalogVersion)
             ).thenComposeAsync((notUsed) -> rebalanceEngine.start(), componentContext.executor());
         });
     }
@@ -1400,9 +1404,7 @@ public class DistributionZoneManager implements IgniteComponent {
         catalogManager.listen(ZONE_ALTER, new ManagerCatalogAlterZoneEventListener());
     }
 
-    private CompletableFuture<Void> createOrRestoreZonesStates(long recoveryRevision) {
-        int catalogVersion = catalogManager.latestCatalogVersion();
-
+    private CompletableFuture<Void> createOrRestoreZonesStates(long recoveryRevision, int catalogVersion) {
         List<CompletableFuture<Void>> futures = new ArrayList<>();
 
         // TODO: IGNITE-20287 Clean up abandoned resources for dropped tables from vault and metastore
@@ -1420,16 +1422,13 @@ public class DistributionZoneManager implements IgniteComponent {
      * @param recoveryRevision Revision of the Meta Storage after its recovery.
      * @return Future that represents the pending completion of the operations.
      */
-    private CompletableFuture<Void> restoreLogicalTopologyChangeEventAndStartTimers(long recoveryRevision) {
+    private CompletableFuture<Void> restoreLogicalTopologyChangeEventAndStartTimers(long recoveryRevision, int catalogVersion) {
         Entry topologyEntry = metaStorageManager.getLocally(zonesLogicalTopologyKey(), recoveryRevision);
 
         if (topologyEntry.value() != null) {
             Set<NodeWithAttributes> newLogicalTopology = fromBytes(topologyEntry.value());
 
             long topologyRevision = topologyEntry.revision();
-
-            // It is safe to get the latest version of the catalog as we are in the starting process.
-            int catalogVersion = catalogManager.latestCatalogVersion();
 
             Entry lastUpdateRevisionEntry = metaStorageManager.getLocally(zonesRecoverableStateRevision(), recoveryRevision);
 

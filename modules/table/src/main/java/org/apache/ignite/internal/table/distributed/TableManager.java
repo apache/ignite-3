@@ -2084,6 +2084,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     TablePartitionId replicaGrpId = new TablePartitionId(tableId, partitionId);
 
                     // It is safe to get the latest version of the catalog as we are in the metastore thread.
+                    // TODO: IGNITE-22661 Potentially unsafe to use the latest catalog version, as the tables might not already present
+                    //  in the catalog. Better to take the version from Assignments.
                     int catalogVersion = catalogService.latestCatalogVersion();
 
                     return tablesById(evt.revision())
@@ -2557,7 +2559,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                 assert stableAssignments != null : "tablePartitionId=" + tablePartitionId + ", revision=" + revision;
 
-                // TODO: Might not be the latest version.
+                // TODO: IGNITE-22661 Potentially unsafe to use the latest catalog version, as the tables might not already present
+                //  in the catalog. Better to store this version in ManualGroupRestartRequest.
                 int catalogVersion = catalogService.latestCatalogVersion();
 
                 int zoneId = getTableDescriptor(tablePartitionId.tableId(), catalogVersion).zoneId();

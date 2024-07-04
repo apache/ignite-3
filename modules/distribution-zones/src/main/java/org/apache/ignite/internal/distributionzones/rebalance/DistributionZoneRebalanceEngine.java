@@ -175,13 +175,16 @@ public class DistributionZoneRebalanceEngine {
     // TODO: And then run the remote invoke, only if needed.
     private CompletableFuture<Void> rebalanceTriggersRecovery(long recoveryRevision) {
         if (recoveryRevision > 0) {
-            List<CompletableFuture<Void>> zonesRecoveryFutures = catalogService.zones(catalogService.latestCatalogVersion())
+            // Safe to get the latest version until lwm mechanism is implemented for zone lifecycle.
+            int catalogVersion = catalogService.latestCatalogVersion();
+
+            List<CompletableFuture<Void>> zonesRecoveryFutures = catalogService.zones(catalogVersion)
                     .stream()
                     .map(zoneDesc ->
                             recalculateAssignmentsAndScheduleRebalance(
                                     zoneDesc,
                                     recoveryRevision,
-                                    catalogService.latestCatalogVersion()
+                                    catalogVersion
                             )
                     )
                     .collect(Collectors.toUnmodifiableList());
@@ -218,6 +221,8 @@ public class DistributionZoneRebalanceEngine {
                     int zoneId = extractZoneId(evt.entryEvent().newEntry().key(), DISTRIBUTION_ZONE_DATA_NODES_VALUE_PREFIX);
 
                     // It is safe to get the latest version of the catalog as we are in the metastore thread.
+                    // TODO: IGNITE-22661 Potentially unsafe to use the latest catalog version, as the tables might not already present
+                    //  in the catalog. Better to store this version when writing datanodes.
                     int catalogVersion = catalogService.latestCatalogVersion();
 
                     CatalogZoneDescriptor zoneDescriptor = catalogService.zone(zoneId, catalogVersion);
@@ -339,20 +344,20 @@ public class DistributionZoneRebalanceEngine {
 
     private int getCatalogVersionForCounter(int zoneId, int partId, long revision) {
         try {
-            byte[] value = metaStorageManager.get(catalogVersionKey(zoneId, partId), revision).get().value();
+            return metaStorageManager.get(catalogVersionKey(zoneId, partId), revision)
+                    .thenApply(entry -> {
+                        assert entry.value() != null : "Failed to find catalog version for table counters.";
 
-            if (value != null) {
-                int storedCatalogVersion = bytesToInt(value);
-
-                // TODO: avoid synchronous wait here.
-                catalogService.catalogReadyFuture(storedCatalogVersion).join();
-
-                return storedCatalogVersion;
-            }
+                        return bytesToInt(entry.value());
+                    })
+                    .thenCompose(storedCatalogVersion ->
+                            catalogService.catalogReadyFuture(storedCatalogVersion).thenApply(unused -> storedCatalogVersion)
+                    ).get();
         } catch (Exception e) {
             LOG.error("Failed to get catalog version for [zoneId={}, partitionId={}]", e, zoneId, partId);
         }
 
+        // Fallback to the latest catalog version.
         return catalogService.latestCatalogVersion();
     }
 
@@ -367,10 +372,9 @@ public class DistributionZoneRebalanceEngine {
     static CompletableFuture<Set<Assignment>> calculateAssignments(
             TablePartitionId tablePartitionId,
             CatalogService catalogService,
-            DistributionZoneManager distributionZoneManager
+            DistributionZoneManager distributionZoneManager,
+            int catalogVersion
     ) {
-        int catalogVersion = catalogService.latestCatalogVersion();
-
         CatalogTableDescriptor tableDescriptor = catalogService.table(tablePartitionId.tableId(), catalogVersion);
 
         CatalogZoneDescriptor zoneDescriptor = catalogService.zone(tableDescriptor.zoneId(), catalogVersion);
