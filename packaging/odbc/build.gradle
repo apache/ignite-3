@@ -46,8 +46,7 @@ def tokens = [
 ]
 
 def tokensWin = [
-        // If more files will be added to the package, we will need to look for a specific file.
-        DLL_SRC : configurations.odbc.singleFile.path
+        DLL_SRC : configurations.odbc.files.find { it.name == "ignite3-odbc.dll"}
 ]
 
 tasks.register('replacePackageScriptVars', Copy) {
