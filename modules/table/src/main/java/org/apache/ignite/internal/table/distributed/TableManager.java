@@ -2263,21 +2263,26 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             Set<Assignment> stableAssignments,
             long revision
     ) {
-        if (!isLocalNodeInAssignments(stableAssignments)) {
-            // assert !replicaMgr.isReplicaStarted(tablePartitionId) : "The local node is inside of the replication group";
+        return executorInclinedPlacementDriver.getPrimaryReplica(tablePartitionId, clockService.now()).thenCompose(replicaMeta -> {
+            boolean isLocalNodePrimary = replicaMeta != null
+                    && replicaMeta.getLeaseholderId() != null
+                    && replicaMeta.getLeaseholderId().equals(localNode().name());
 
-            return nullCompletedFuture();
-        }
+            if (!isLocalNodeInAssignments(stableAssignments) && !isLocalNodePrimary) {
+                return nullCompletedFuture();
+            }
 
-        assert replicaMgr.isReplicaStarted(tablePartitionId) : "The local node is outside of the replication group";
+            assert replicaMgr.isReplicaStarted(tablePartitionId) : "The local node is outside of the replication group";
 
-        // Update raft client peers and learners according to the actual assignments.
-        return tablesById(revision).thenAccept(t -> {
-            t.get(tablePartitionId.tableId()).internalTable()
+            // Update raft client peers and learners according to the actual assignments.
+            return tablesById(revision).thenAccept(t -> t.get(tablePartitionId.tableId())
+                    .internalTable()
                     .tableRaftService()
                     .partitionRaftGroupService(tablePartitionId.partitionId())
-                    .updateConfiguration(fromAssignments(stableAssignments));
+                    .updateConfiguration(fromAssignments(stableAssignments))
+            );
         });
+
     }
 
     private CompletableFuture<Void> stopAndDestroyPartitionAndUpdateClients(
