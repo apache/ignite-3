@@ -554,6 +554,7 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
 
     /**
      * Resolves primary replica node for given replication group.
+     *
      * @param replicationGroupId Desired replication group ID.
      * @return Primary replica {@link ClusterNode} for the group.
      */

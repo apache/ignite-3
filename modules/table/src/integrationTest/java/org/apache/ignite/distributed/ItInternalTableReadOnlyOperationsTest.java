@@ -126,7 +126,14 @@ public class ItInternalTableReadOnlyOperationsTest extends IgniteAbstractTest {
     public void setUp(TestInfo testInfo) {
         placementDriver = new TestPlacementDriver(DummyInternalTableImpl.LOCAL_NODE);
 
-        internalTbl = new DummyInternalTableImpl(replicaService, placementDriver, mockStorage, SCHEMA, txConfiguration, storageUpdateConfiguration);
+        internalTbl = new DummyInternalTableImpl(
+                replicaService,
+                placementDriver,
+                mockStorage,
+                SCHEMA,
+                txConfiguration,
+                storageUpdateConfiguration
+        );
 
         lenient().when(readOnlyTx.isReadOnly()).thenReturn(true);
         lenient().when(readOnlyTx.readTimestamp()).thenReturn(CLOCK.now());
