@@ -666,7 +666,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             SnapshotStorageFactory snapshotStorageFactory,
             PeersAndLearners newConfiguration,
             RaftGroupListener raftGroupListener,
-            RaftGroupEventsListener raftGroupEventsListener
+            RaftGroupEventsListener raftGroupEventsListener,
+            IgniteSpinBusyLock busyLock
     ) throws NodeStoppingException {
         RaftGroupOptions groupOptions = groupOptionsForPartition(
                 false,

@@ -172,7 +172,8 @@ public class DistributionZoneRebalanceEngineV2 {
                             zoneDescriptor,
                             filteredDataNodes,
                             evt.entryEvent().newEntry().revision(),
-                            metaStorageManager
+                            metaStorageManager,
+                            busyLock
                     );
                 });
             }
@@ -217,7 +218,8 @@ public class DistributionZoneRebalanceEngineV2 {
                             zoneDescriptor,
                             dataNodes,
                             causalityToken,
-                            metaStorageManager
+                            metaStorageManager,
+                            busyLock
                     );
                 }));
     }

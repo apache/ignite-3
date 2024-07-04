@@ -403,7 +403,8 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
                     new FailFastSnapshotStorageFactory(),
                     stablePeersAndLearners,
                     raftGroupListener,
-                    raftGroupEventsListener
+                    raftGroupEventsListener,
+                    busyLock
             ).thenApply(ignored -> null);
         } catch (NodeStoppingException e) {
             return failedFuture(e);
@@ -891,7 +892,7 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
             }, ioExecutor);
         }
 
-        return localServicesStartFuture.thenRunAsync(() -> {
+        return localServicesStartFuture.thenRunAsync(() -> inBusyLock(busyLock, () -> {
             if (!replicaMgr.isReplicaStarted(replicaGrpId)) {
                 return;
             }
@@ -903,7 +904,7 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
                     : RebalanceUtil.union(pendingAssignmentsNodes, stableAssignments.nodes());
 
             replicaMgr.getReplica(replicaGrpId).join().raftClient().updateConfiguration(fromAssignments(newAssignments));
-        }, ioExecutor);
+        }), ioExecutor);
     }
 
     private CompletableFuture<Void> changePeersOnRebalance(

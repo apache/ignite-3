@@ -545,7 +545,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
 
         Node node2 = startNode(testInfo, 2);
 
-        assertTrue(node2.replicaManager.isReplicaStarted(partId));
+        assertTrue(waitForCondition(() -> node2.replicaManager.isReplicaStarted(partId), 10_000L));
     }
 
     @Test
@@ -603,7 +603,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                 20_000L
         );
 
-        assertTrue(node0.replicaManager.isReplicaStarted(partId));
+        assertTrue(waitForCondition(() -> getNode(0).replicaManager.isReplicaStarted(partId), 10_000L));
     }
 
     @Test
@@ -677,7 +677,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                 20_000L
         );
 
-        assertTrue(node0.replicaManager.isReplicaStarted(partId));
+        assertTrue(waitForCondition(() -> getNode(0).replicaManager.isReplicaStarted(partId), 10_000L));
     }
 
     private Node getNode(int nodeIndex) {
