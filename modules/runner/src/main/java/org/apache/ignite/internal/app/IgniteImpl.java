@@ -740,6 +740,7 @@ public class IgniteImpl implements Ignite {
                 distributionZoneManager,
                 metaStorageMgr,
                 clusterSvc.topologyService(),
+                lowWatermark,
                 threadPoolsManager.tableIoExecutor(),
                 rebalanceScheduler
         );

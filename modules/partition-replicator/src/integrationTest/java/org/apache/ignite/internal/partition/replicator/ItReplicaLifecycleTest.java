@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZo
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.alterZone;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertValueInStorage;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.REBALANCE_SCHEDULER_POOL_SIZE;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager.FEATURE_FLAG_NAME;
 import static org.apache.ignite.internal.sql.SqlCommon.DEFAULT_SCHEMA_NAME;
@@ -35,6 +36,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 import static org.apache.ignite.internal.testframework.TestIgnitionManager.DEFAULT_MAX_CLOCK_SKEW_MS;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
+import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
 import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.apache.ignite.sql.ColumnType.INT64;
@@ -44,18 +46,23 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
 import java.util.function.LongSupplier;
@@ -103,6 +110,8 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
+import org.apache.ignite.internal.metastorage.dsl.Condition;
+import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
@@ -219,10 +228,21 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
     @InjectConfiguration("mock.profiles = {" + DEFAULT_STORAGE_PROFILE + ".engine = \"aipersist\", test.engine=\"test\"}")
     private static StorageConfiguration storageConfiguration;
 
+    private final List<NetworkAddress> nodeAddresses = new ArrayList<>();
+
+    private final List<NodeAttributesConfiguration> nodeAttributesConfigurations = new ArrayList<>(
+            List.of(nodeAttributes1, nodeAttributes2, nodeAttributes3)
+    );
+
+    /**
+     * Interceptor of {@link MetaStorageManager#invoke(Condition, Collection, Collection)}.
+     */
+    private final Map<Integer, InvokeInterceptor> metaStorageInvokeInterceptorByNode = new ConcurrentHashMap<>();
+
     @WorkDirectory
     private Path workDir;
 
-    private List<Node> nodes;
+    private Map<Integer, Node> nodes;
 
     private TestPlacementDriver placementDriver;
 
@@ -243,28 +263,29 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
     }
 
     @BeforeEach
-    void before(TestInfo testInfo) throws Exception {
-        nodes = new ArrayList<>();
+    void before(TestInfo testInfo) {
+        nodes = new HashMap<>();
 
         placementDriver = new TestPlacementDriver();
-
-        List<NetworkAddress> nodeAddresses = new ArrayList<>();
-
-        List<NodeAttributesConfiguration> nodeAttributesConfigurations = new ArrayList<>();
-        nodeAttributesConfigurations.addAll(List.of(nodeAttributes1, nodeAttributes2, nodeAttributes3));
 
         for (int i = 0; i < NODE_COUNT; i++) {
             nodeAddresses.add(new NetworkAddress(HOST, BASE_PORT + i));
         }
 
         finder = new StaticNodeFinder(nodeAddresses);
+    }
 
-        int i = 0;
+    @AfterEach
+    void after() {
+        metaStorageInvokeInterceptorByNode.clear();
+        nodes.values().forEach(Node::stop);
+    }
 
-        for (NetworkAddress addr : nodeAddresses) {
-            var node = new Node(testInfo, addr, nodeAttributesConfigurations.get(i++));
+    private void startNodes(TestInfo testInfo, int amount) throws NodeStoppingException, InterruptedException {
+        for (int i = 0; i < amount; i++) {
+            var node = new Node(testInfo, i);
 
-            nodes.add(node);
+            nodes.put(i, node);
 
             node.start();
         }
@@ -273,10 +294,10 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
 
         node0.cmgManager.initCluster(List.of(node0.name), List.of(node0.name), "cluster");
 
-        nodes.forEach(Node::waitWatches);
+        nodes.values().forEach(Node::waitWatches);
 
         assertThat(
-                allOf(nodes.stream().map(n -> n.cmgManager.onJoinReady()).toArray(CompletableFuture[]::new)),
+                allOf(nodes.values().stream().map(n -> n.cmgManager.onJoinReady()).toArray(CompletableFuture[]::new)),
                 willCompleteSuccessfully()
         );
 
@@ -286,21 +307,40 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
 
                     assertThat(logicalTopologyFuture, willCompleteSuccessfully());
 
-                    return logicalTopologyFuture.join().nodes().size() == NODE_COUNT;
+                    return logicalTopologyFuture.join().nodes().size() == amount;
                 },
                 AWAIT_TIMEOUT_MILLIS
         ));
     }
 
-    @AfterEach
-    void after() {
-        nodes.forEach(Node::stop);
+    private Node startNode(TestInfo testInfo, int idx) {
+        var node = new Node(testInfo, idx);
+
+        nodes.put(idx, node);
+
+        node.start();
+
+        node.waitWatches();
+
+        assertThat(node.cmgManager.onJoinReady(), willCompleteSuccessfully());
+
+        return node;
+    }
+
+    private void stopNode(int idx) {
+        Node node = getNode(idx);
+
+        node.stop();
+
+        nodes.remove(idx);
     }
 
     @Test
-    public void testEmptyReplicaListener() throws NodeStoppingException {
+    public void testEmptyReplicaListener(TestInfo testInfo) throws Exception {
+        startNodes(testInfo, 3);
+
         Assignment replicaAssignment = (Assignment) AffinityUtils.calculateAssignmentForPartition(
-                nodes.stream().map(n -> n.name).collect(Collectors.toList()), 0, 1).toArray()[0];
+                nodes.values().stream().map(n -> n.name).collect(Collectors.toList()), 0, 1).toArray()[0];
 
         Node node = getNode(replicaAssignment.consistentId());
 
@@ -323,13 +363,10 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void testAlterReplicaTrigger() throws Exception {
-        Assignment replicaAssignment = (Assignment) AffinityUtils.calculateAssignmentForPartition(
-                nodes.stream().map(n -> n.name).collect(Collectors.toList()), 0, 1).toArray()[0];
+    void testAlterReplicaTrigger(TestInfo testInfo) throws Exception {
+        startNodes(testInfo, 3);
 
-        Node node = getNode(replicaAssignment.consistentId());
-
-        placementDriver.setPrimary(node.clusterService.topologyService().localMember());
+        Node node = getNode(0);
 
         createZone(node, "test_zone", 1, 3);
 
@@ -344,7 +381,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                 stablePartAssignmentsKey(partId),
                 (v) -> Assignments.fromBytes(v).nodes()
                         .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
-                nodes.stream().map(n -> n.name).collect(Collectors.toSet()),
+                nodes.values().stream().map(n -> n.name).collect(Collectors.toSet()),
                 20_000L
         );
 
@@ -360,24 +397,13 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                 2,
                 20_000L
         );
-
-        assertValueInStorage(
-                metaStorageManager,
-                stablePartAssignmentsKey(partId),
-                (v) -> Assignments.fromBytes(v).nodes().contains(replicaAssignment),
-                true,
-                20_000L
-        );
     }
 
     @Test
-    void testAlterReplicaTriggerDefaultZone() throws Exception {
-        Assignment replicaAssignment = (Assignment) AffinityUtils.calculateAssignmentForPartition(
-                nodes.stream().map(n -> n.name).collect(Collectors.toList()), 0, 1).toArray()[0];
+    void testAlterReplicaTriggerDefaultZone(TestInfo testInfo) throws Exception {
+        startNodes(testInfo, 3);
 
-        Node node = getNode(replicaAssignment.consistentId());
-
-        placementDriver.setPrimary(node.clusterService.topologyService().localMember());
+        Node node = getNode(0);
 
         CatalogManager catalogManager = node.catalogManager;
 
@@ -408,22 +434,13 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                 2,
                 20_000L
         );
-
-        assertValueInStorage(
-                metaStorageManager,
-                stablePartAssignmentsKey(partId),
-                (v) -> Assignments.fromBytes(v).nodes().contains(replicaAssignment),
-                true,
-                20_000L
-        );
     }
 
     @Test
-    void testAlterReplicaExtensionTrigger() throws Exception {
-        Assignment replicaAssignment = (Assignment) AffinityUtils.calculateAssignmentForPartition(
-                nodes.stream().map(n -> n.name).collect(Collectors.toList()), 0, 1).toArray()[0];
+    void testAlterReplicaExtensionTrigger(TestInfo testInfo) throws Exception {
+        startNodes(testInfo, 3);
 
-        Node node = getNode(replicaAssignment.consistentId());
+        Node node = getNode(0);
 
         placementDriver.setPrimary(node.clusterService.topologyService().localMember());
 
@@ -446,14 +463,6 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                 20_000L
         );
 
-        assertValueInStorage(
-                metaStorageManager,
-                stablePartAssignmentsKey(partId),
-                (v) -> Assignments.fromBytes(v).nodes().contains(replicaAssignment),
-                true,
-                20_000L
-        );
-
         CatalogManager catalogManager = node.catalogManager;
 
         alterZone(catalogManager, "test_zone", 3);
@@ -463,17 +472,16 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                 stablePartAssignmentsKey(partId),
                 (v) -> Assignments.fromBytes(v).nodes()
                         .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
-                nodes.stream().map(n -> n.name).collect(Collectors.toSet()),
+                nodes.values().stream().map(n -> n.name).collect(Collectors.toSet()),
                 20_000L
         );
     }
 
     @Test
-    void testAlterFilterTrigger() throws Exception {
-        Assignment replicaAssignment = (Assignment) AffinityUtils.calculateAssignmentForPartition(
-                nodes.stream().map(n -> n.name).collect(Collectors.toList()), 0, 1).toArray()[0];
+    void testAlterFilterTrigger(TestInfo testInfo) throws Exception {
+        startNodes(testInfo, 3);
 
-        Node node = getNode(replicaAssignment.consistentId());
+        Node node = getNode(0);
 
         placementDriver.setPrimary(node.clusterService.topologyService().localMember());
 
@@ -490,7 +498,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                 stablePartAssignmentsKey(partId),
                 (v) -> Assignments.fromBytes(v).nodes()
                         .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
-                nodes.stream().map(n -> n.name).collect(Collectors.toSet()),
+                nodes.values().stream().map(n -> n.name).collect(Collectors.toSet()),
                 20_000L
         );
 
@@ -508,14 +516,168 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                 Set.of(nodes.get(0).name),
                 20_000L
         );
+    }
+
+    @Test
+    void testReplicaIsStartedOnNodeStart(TestInfo testInfo) throws Exception {
+        startNodes(testInfo, 3);
+
+        Node node0 = getNode(0);
+
+        createZone(node0, "test_zone", 2, 3);
+
+        int zoneId = DistributionZonesTestUtil.getZoneId(node0.catalogManager, "test_zone", node0.hybridClock.nowLong());
+
+        MetaStorageManager metaStorageManager = node0.metaStorageManager;
+
+        ZonePartitionId partId = new ZonePartitionId(zoneId, 0);
 
         assertValueInStorage(
                 metaStorageManager,
                 stablePartAssignmentsKey(partId),
-                (v) -> Assignments.fromBytes(v).nodes().contains(replicaAssignment),
-                true,
+                (v) -> Assignments.fromBytes(v).nodes()
+                        .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
+                nodes.values().stream().map(n -> n.name).collect(Collectors.toSet()),
                 20_000L
         );
+
+        stopNode(2);
+
+        Node node2 = startNode(testInfo, 2);
+
+        assertTrue(node2.replicaManager.isReplicaStarted(partId));
+    }
+
+    @Test
+    void testStableAreWrittenAfterRestart(TestInfo testInfo) throws Exception {
+        startNodes(testInfo, 1);
+
+        Node node0 = getNode(0);
+
+        AtomicBoolean reached = new AtomicBoolean();
+
+        metaStorageInvokeInterceptorByNode.put(0, (condition, success, failure) -> {
+            if (skipMetaStorageInvoke(success, STABLE_ASSIGNMENTS_PREFIX)) {
+                reached.set(true);
+
+                return true;
+            }
+
+            return null;
+        });
+
+        createZone(node0, "test_zone", 2, 3);
+
+        int zoneId = DistributionZonesTestUtil.getZoneId(node0.catalogManager, "test_zone", node0.hybridClock.nowLong());
+
+        MetaStorageManager metaStorageManager = node0.metaStorageManager;
+
+        ZonePartitionId partId = new ZonePartitionId(zoneId, 0);
+
+        assertTrue(reached.get());
+
+        assertValueInStorage(
+                metaStorageManager,
+                stablePartAssignmentsKey(partId),
+                Assignments::fromBytes,
+                null,
+                20_000L
+        );
+
+        stopNode(0);
+
+        metaStorageInvokeInterceptorByNode.clear();
+
+        startNodes(testInfo, 1);
+
+        node0 = getNode(0);
+
+        metaStorageManager = node0.metaStorageManager;
+
+        assertValueInStorage(
+                metaStorageManager,
+                stablePartAssignmentsKey(partId),
+                (v) -> Assignments.fromBytes(v).nodes()
+                        .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
+                nodes.values().stream().map(n -> n.name).collect(Collectors.toSet()),
+                20_000L
+        );
+
+        assertTrue(node0.replicaManager.isReplicaStarted(partId));
+    }
+
+    @Test
+    void testStableAreWrittenAfterRestartAndConcurrentStableUpdate(TestInfo testInfo) throws Exception {
+        startNodes(testInfo, 1);
+
+        Node node0 = getNode(0);
+
+        AtomicBoolean reached = new AtomicBoolean();
+
+        metaStorageInvokeInterceptorByNode.put(0, (condition, success, failure) -> {
+            if (skipMetaStorageInvoke(success, STABLE_ASSIGNMENTS_PREFIX)) {
+                reached.set(true);
+
+                return true;
+            }
+
+            return null;
+        });
+
+        createZone(node0, "test_zone", 1, 3);
+
+        int zoneId = DistributionZonesTestUtil.getZoneId(node0.catalogManager, "test_zone", node0.hybridClock.nowLong());
+
+        MetaStorageManager metaStorageManager = node0.metaStorageManager;
+
+        ZonePartitionId partId = new ZonePartitionId(zoneId, 0);
+
+        assertTrue(reached.get());
+
+        reached.set(false);
+
+        assertValueInStorage(
+                metaStorageManager,
+                stablePartAssignmentsKey(partId),
+                Assignments::fromBytes,
+                null,
+                20_000L
+        );
+
+        stopNode(0);
+
+        CountDownLatch latch = new CountDownLatch(1);
+
+        metaStorageInvokeInterceptorByNode.put(0, (condition, success, failure) -> {
+            if (skipMetaStorageInvoke(success, stablePartAssignmentsKey(partId).toString())) {
+                reached.set(true);
+
+                Node node = nodes.get(0);
+
+                node.metaStorageManager.put(stablePartAssignmentsKey(partId), Assignments.of(Assignment.forPeer(node.name)).toBytes());
+            }
+
+            return null;
+        });
+
+        startNodes(testInfo, 1);
+
+        node0 = getNode(0);
+
+        metaStorageManager = node0.metaStorageManager;
+
+        assertTrue(reached.get());
+
+        assertValueInStorage(
+                metaStorageManager,
+                stablePartAssignmentsKey(partId),
+                (v) -> Assignments.fromBytes(v).nodes()
+                        .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
+                nodes.values().stream().map(n -> n.name).collect(Collectors.toSet()),
+                20_000L
+        );
+
+        assertTrue(node0.replicaManager.isReplicaStarted(partId));
     }
 
     private Node getNode(int nodeIndex) {
@@ -523,7 +685,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
     }
 
     private Node getNode(String nodeName) {
-        return nodes.stream().filter(n -> n.name.equals(nodeName)).findFirst().get();
+        return nodes.values().stream().filter(n -> n.name.equals(nodeName)).findFirst().get();
     }
 
     private static void createZone(Node node, String zoneName, int partitions, int replicas) {
@@ -635,10 +797,10 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
         /**
          * Constructor that simply creates a subset of components of this node.
          */
-        Node(TestInfo testInfo, NetworkAddress addr, NodeAttributesConfiguration nodeAttributes) {
-            networkAddress = addr;
+        Node(TestInfo testInfo, int idx) {
+            networkAddress = nodeAddresses.get(idx);
 
-            name = testNodeName(testInfo, addr.port());
+            name = testNodeName(testInfo, networkAddress.port());
 
             Path dir = workDir.resolve(name);
 
@@ -672,7 +834,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
 
             clusterService = ClusterServiceTestUtils.clusterService(
                     testInfo,
-                    addr.port(),
+                    networkAddress.port(),
                     finder
             );
 
@@ -711,7 +873,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     clusterStateStorage,
                     logicalTopology,
                     clusterManagementConfiguration,
-                    new NodeAttributesCollector(nodeAttributes, storageConfiguration),
+                    new NodeAttributesCollector(nodeAttributesConfigurations.get(idx), storageConfiguration),
                     failureProcessor
             );
 
@@ -738,7 +900,26 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     metaStorageConfiguration,
                     raftConfiguration.retryTimeout(),
                     completedFuture(() -> DEFAULT_MAX_CLOCK_SKEW_MS)
-            );
+            ) {
+                @Override
+                public CompletableFuture<Boolean> invoke(
+                        Condition condition,
+                        Collection<Operation> success,
+                        Collection<Operation> failure
+                ) {
+                    InvokeInterceptor invokeInterceptor = metaStorageInvokeInterceptorByNode.get(idx);
+
+                    if (invokeInterceptor != null) {
+                        var res = invokeInterceptor.invoke(condition, success, failure);
+
+                        if (res != null) {
+                            return completedFuture(res);
+                        }
+                    }
+
+                    return super.invoke(condition, success, failure);
+                }
+            };
 
             threadPoolsManager = new ThreadPoolsManager(name);
 
@@ -818,7 +999,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     replicaSvc,
                     lockManager,
                     clockService,
-                    new TransactionIdGenerator(addr.port()),
+                    new TransactionIdGenerator(networkAddress.port()),
                     placementDriver,
                     partitionIdleSafeTimePropagationPeriodMsSupplier,
                     new TestLocalRwTxCounter(),
@@ -878,6 +1059,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     distributionZoneManager,
                     metaStorageManager,
                     clusterService.topologyService(),
+                    lowWatermark,
                     threadPoolsManager.tableIoExecutor(),
                     rebalanceScheduler
             );
@@ -1025,5 +1207,14 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
             nodeCfgGenerator.close();
             clusterCfgGenerator.close();
         }
+    }
+
+    @FunctionalInterface
+    private interface InvokeInterceptor {
+        Boolean invoke(Condition condition, Collection<Operation> success, Collection<Operation> failure);
+    }
+
+    private static boolean skipMetaStorageInvoke(Collection<Operation> ops, String prefix) {
+        return ops.stream().anyMatch(op -> new String(toByteArray(op.key()), StandardCharsets.UTF_8).startsWith(prefix));
     }
 }

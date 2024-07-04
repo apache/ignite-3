@@ -596,7 +596,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 updateTableRaftService,
                 createListener,
                 storageIndexTracker,
-                newRaftClientFut);
+                newRaftClientFut
+        );
     }
 
     /**
