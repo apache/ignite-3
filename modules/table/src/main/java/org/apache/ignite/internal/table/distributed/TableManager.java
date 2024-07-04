@@ -1119,6 +1119,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     @Override
     public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
+        // NB: busy lock had already gotten in {@link beforeNodeStop}
         assert beforeStopGuard.get() : "'stop' called before 'beforeNodeStop'";
 
         if (!stopGuard.compareAndSet(false, true)) {
