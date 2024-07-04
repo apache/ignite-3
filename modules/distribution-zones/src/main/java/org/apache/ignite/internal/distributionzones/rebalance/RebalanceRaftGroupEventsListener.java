@@ -259,11 +259,11 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
 
             Set<Integer> counter = fromBytes(counterEntry.value());
 
-            assert !counter.isEmpty();
-
             if (!counter.contains(tablePartitionId.tableId())) {
                 // Count down for this table has already been processed, just skip.
                 // For example, this can happen when leader re-election happened during the rebalance process.
+                LOG.info("Counter count down skipped, because the counter doesn't contain the tableId=" + tablePartitionId.tableId());
+
                 return;
             }
 
@@ -310,6 +310,11 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
         } catch (InterruptedException | ExecutionException e) {
             // TODO: IGNITE-14693
             LOG.warn("Unable to count down partitions counter in metastore: " + tablePartitionId, e);
+        } catch (Throwable e) {
+            // TODO: IGNITE-14693
+            LOG.error("Unable to count down partitions counter in metastore: " + tablePartitionId, e);
+
+            throw e;
         }
     }
 
