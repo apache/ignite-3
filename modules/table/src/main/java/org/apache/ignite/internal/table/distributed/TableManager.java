@@ -2553,7 +2553,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param revision Metastore revision.
      * @return Operation future.
      */
-    public CompletableFuture<Void> restartPartition(TablePartitionId tablePartitionId, long revision) {
+    public CompletableFuture<Void> restartPartition(TablePartitionId tablePartitionId, long revision, int catalogVersion) {
         return inBusyLockAsync(busyLock, () -> tablesVv.get(revision).thenComposeAsync(unused -> inBusyLockAsync(busyLock, () -> {
             TableImpl table = tables.get(tablePartitionId.tableId());
 
@@ -2561,10 +2561,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 Assignments stableAssignments = stableAssignments(tablePartitionId, revision);
 
                 assert stableAssignments != null : "tablePartitionId=" + tablePartitionId + ", revision=" + revision;
-
-                // TODO: IGNITE-22661 Potentially unsafe to use the latest catalog version, as the tables might not already present
-                //  in the catalog. Better to store this version in ManualGroupRestartRequest.
-                int catalogVersion = catalogService.latestCatalogVersion();
 
                 int zoneId = getTableDescriptor(tablePartitionId.tableId(), catalogVersion).zoneId();
 
