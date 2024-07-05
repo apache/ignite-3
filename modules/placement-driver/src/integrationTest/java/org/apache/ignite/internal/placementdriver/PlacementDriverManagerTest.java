@@ -320,7 +320,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
 
         Set<Assignment> assignments = Set.of();
 
-        metaStorageManager.put(fromString(STABLE_ASSIGNMENTS_PREFIX + grpPart0), Assignments.toBytes(assignments));
+        metaStorageManager.put(fromString(STABLE_ASSIGNMENTS_PREFIX + grpPart0), Assignments.toBytes(1, assignments));
 
         assertTrue(waitForCondition(() -> {
             var fut = metaStorageManager.get(PLACEMENTDRIVER_LEASES_KEY);
@@ -333,7 +333,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
 
         assignments = calculateAssignmentForPartition(Collections.singleton(nodeName), 1, 1);
 
-        metaStorageManager.put(fromString(STABLE_ASSIGNMENTS_PREFIX + grpPart0), Assignments.toBytes(assignments));
+        metaStorageManager.put(fromString(STABLE_ASSIGNMENTS_PREFIX + grpPart0), Assignments.toBytes(1, assignments));
 
         assertTrue(waitForCondition(() -> {
             var fut = metaStorageManager.get(PLACEMENTDRIVER_LEASES_KEY);
@@ -346,7 +346,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
 
     @Test
     public void testPrimaryReplicaEvents() throws Exception {
-        TablePartitionId grpPart0 = createTableAssignment(metaStorageManager, nextTableId.incrementAndGet(), List.of(nodeName));
+        TablePartitionId grpPart0 = createTableAssignment(metaStorageManager, nextTableId.incrementAndGet(), List.of(nodeName), 1);
 
         Lease lease1 = checkLeaseCreated(grpPart0, true);
 
@@ -371,7 +371,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
 
         Set<Assignment> assignments = calculateAssignmentForPartition(Collections.singleton(anotherNodeName), 1, 1);
 
-        metaStorageManager.put(fromString(STABLE_ASSIGNMENTS_PREFIX + grpPart0), Assignments.toBytes(assignments));
+        metaStorageManager.put(fromString(STABLE_ASSIGNMENTS_PREFIX + grpPart0), Assignments.toBytes(1, assignments));
 
         assertTrue(waitForCondition(() -> {
             CompletableFuture<ReplicaMeta> fut = placementDriverManager.placementDriver()
@@ -466,8 +466,8 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
     @Test
     public void testLeaseRemovedAfterExpirationAndAssignmetnsRemoval() throws Exception {
         List<TablePartitionId> groupIds = List.of(
-                createTableAssignment(metaStorageManager, nextTableId.incrementAndGet(), List.of(nodeName)),
-                createTableAssignment(metaStorageManager, nextTableId.incrementAndGet(), List.of(nodeName))
+                createTableAssignment(metaStorageManager, nextTableId.incrementAndGet(), List.of(nodeName), 1),
+                createTableAssignment(metaStorageManager, nextTableId.incrementAndGet(), List.of(nodeName), 1)
         );
 
         Map<TablePartitionId, AtomicBoolean> leaseExpirationMap =
@@ -642,7 +642,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
      * @return Replication group id.
      */
     private TablePartitionId createTableAssignment() {
-        return createTableAssignment(metaStorageManager, nextTableId.incrementAndGet(), List.of(nodeName, anotherNodeName));
+        return createTableAssignment(metaStorageManager, nextTableId.incrementAndGet(), List.of(nodeName, anotherNodeName), 1);
     }
 
     /**

@@ -688,7 +688,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             ByteArray partAssignmentsPendingKey = pendingPartAssignmentsKey(partId);
 
-            byte[] bytesPendingAssignments = Assignments.toBytes(newAssignment);
+            byte[] bytesPendingAssignments = Assignments.toBytes(node.catalogManager.latestCatalogVersion(), newAssignment);
 
             node.metaStorageManager
                     .put(partAssignmentsPendingKey, bytesPendingAssignments)
@@ -751,7 +751,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         ByteArray partAssignmentsPendingKey = pendingPartAssignmentsKey(partId);
 
-        byte[] bytesPendingAssignments = Assignments.toBytes(newAssignment);
+        byte[] bytesPendingAssignments = Assignments.toBytes(node.catalogManager.latestCatalogVersion(), newAssignment);
 
         AtomicBoolean dropMessages = new AtomicBoolean(true);
 
@@ -809,10 +809,12 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         Set<Assignment> pendingAssignments = AffinityUtils.calculateAssignmentForPartition(dataNodes, 0, 2);
         Set<Assignment> plannedAssignments = AffinityUtils.calculateAssignmentForPartition(dataNodes, 0, 3);
 
-        byte[] bytesPendingAssignments = Assignments.toBytes(pendingAssignments);
-        byte[] bytesPlannedAssignments = Assignments.toBytes(plannedAssignments);
-
         Node node0 = getNode(0);
+
+        int catalogVersion = node0.catalogManager.latestCatalogVersion();
+
+        byte[] bytesPendingAssignments = Assignments.toBytes(catalogVersion, pendingAssignments);
+        byte[] bytesPlannedAssignments = Assignments.toBytes(catalogVersion, plannedAssignments);
 
         TablePartitionId partId = new TablePartitionId(getTableId(node0, TABLE_NAME), 0);
 

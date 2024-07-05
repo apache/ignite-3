@@ -95,7 +95,8 @@ public class ItReplicaStateManagerTest extends BaseIgniteRestartTest {
         log.info("Test: Excluding the current primary from assignments. The replica should stay alive.");
 
         // Excluding the current primary from assignments. The replica should stay alive.
-        node0.metaStorageManager().put(pendingAssignmentsKey, Assignments.toBytes(newPendingAssignments));
+        node0.metaStorageManager().put(pendingAssignmentsKey,
+                Assignments.toBytes(node0.catalogManager().latestCatalogVersion(), newPendingAssignments));
 
         ByteArray stableAssignmentsKey = stablePartAssignmentsKey(partId);
 
@@ -110,7 +111,8 @@ public class ItReplicaStateManagerTest extends BaseIgniteRestartTest {
                 .map(n -> Assignment.forPeer(n.name()))
                 .collect(toSet());
 
-        node0.metaStorageManager().put(pendingAssignmentsKey, Assignments.toBytes(pendingAssignmentsAllNodes));
+        node0.metaStorageManager().put(pendingAssignmentsKey,
+                Assignments.toBytes(node0.catalogManager().latestCatalogVersion(), pendingAssignmentsAllNodes));
 
         waitForStableAssignments(node0.metaStorageManager(), stableAssignmentsKey.bytes(), nodesCount);
 
@@ -119,7 +121,8 @@ public class ItReplicaStateManagerTest extends BaseIgniteRestartTest {
         log.info("Test: Excluding again.");
 
         // Excluding again.
-        node0.metaStorageManager().put(pendingAssignmentsKey, Assignments.toBytes(newPendingAssignments));
+        node0.metaStorageManager().put(pendingAssignmentsKey,
+                Assignments.toBytes(node0.catalogManager().latestCatalogVersion(), newPendingAssignments));
 
         waitForStableAssignments(node0.metaStorageManager(), stableAssignmentsKey.bytes(), nodesCount - 1);
 
