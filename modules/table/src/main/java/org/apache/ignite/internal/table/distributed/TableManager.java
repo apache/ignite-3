@@ -2086,10 +2086,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                     TablePartitionId replicaGrpId = new TablePartitionId(tableId, partitionId);
 
-                    // It is safe to get the latest version of the catalog as we are in the metastore thread.
-                    // TODO: IGNITE-22661 Potentially unsafe to use the latest catalog version, as the tables might not already present
-                    //  in the catalog. Better to take the version from Assignments.
-                    int catalogVersion = catalogService.latestCatalogVersion();
+                    Assignments assignments = Assignments.fromBytes(evt.entryEvent().newEntry().value());
+
+                    int catalogVersion = assignments.catalogVersion();
 
                     return tablesById(evt.revision())
                             .thenCompose(tables -> inBusyLockAsync(busyLock, () -> {
