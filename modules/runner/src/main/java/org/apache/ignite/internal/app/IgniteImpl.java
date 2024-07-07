@@ -740,7 +740,8 @@ public class IgniteImpl implements Ignite {
                 distributionZoneManager,
                 metaStorageMgr,
                 clusterSvc.topologyService(),
-                threadPoolsManager.tableIoExecutor()
+                threadPoolsManager.tableIoExecutor(),
+                rebalanceScheduler
         );
 
         TransactionConfiguration txConfig = clusterConfigRegistry.getConfiguration(TransactionConfiguration.KEY);

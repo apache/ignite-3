@@ -43,15 +43,26 @@ public class ZonePartitionReplicaImpl implements Replica {
 
     private final ReplicaListener listener;
 
+    private final TopologyAwareRaftGroupService raftClient;
+
     // TODO: https://issues.apache.org/jira/browse/IGNITE-22624 await for the table replica listener if needed.
     private final Map<TablePartitionId, ReplicaListener> replicas = new ConcurrentHashMap<>();
 
+    /**
+     * Constructor.
+     *
+     * @param replicaGrpId  Replication group id.
+     * @param listener Listener for the replica.
+     * @param raftClient Raft client.
+     */
     public ZonePartitionReplicaImpl(
             ReplicationGroupId replicaGrpId,
-            ReplicaListener listener
+            ReplicaListener listener,
+            TopologyAwareRaftGroupService raftClient
     )  {
         this.replicaGrpId = replicaGrpId;
         this.listener = listener;
+        this.raftClient = raftClient;
     }
 
     @Override
@@ -61,7 +72,7 @@ public class ZonePartitionReplicaImpl implements Replica {
 
     @Override
     public TopologyAwareRaftGroupService raftClient() {
-        throw new UnsupportedOperationException("raftClient");
+        return raftClient;
     }
 
     @Override
@@ -76,7 +87,7 @@ public class ZonePartitionReplicaImpl implements Replica {
         } else {
             int partitionId;
 
-            ReplicationGroupId replicationGroupId = request.groupId();
+            ReplicationGroupId replicationGroupId = request.groupId().asReplicationGroupId();
 
             // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 Refine this code when the zone based replication will done.
             if (replicationGroupId instanceof  TablePartitionId) {

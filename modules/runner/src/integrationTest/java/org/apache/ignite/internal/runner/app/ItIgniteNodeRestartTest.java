@@ -650,7 +650,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                         distributionZoneManager,
                         metaStorageMgr,
                         clusterSvc.topologyService(),
-                        threadPoolsManager.tableIoExecutor()
+                        threadPoolsManager.tableIoExecutor(),
+                        rebalanceScheduler
                 )
 
         );

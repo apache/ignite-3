@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
-import static org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageUtils.toTablePartitionIdMessage;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_DELETE_ALL;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_INSERT_ALL;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_UPSERT_ALL;
+import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.rowSchemaFromRelTypes;
 import static org.apache.ignite.internal.table.distributed.storage.InternalTableImpl.collectRejectedRowsResponsesWithRestoreOrder;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
@@ -41,11 +41,12 @@ import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
-import org.apache.ignite.internal.partition.replicator.network.command.TablePartitionIdMessage;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadWriteMultiRowReplicaRequest;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
@@ -68,7 +69,10 @@ public final class UpdatableTableImpl implements UpdatableTable {
 
     private static final IgniteLogger LOG = Loggers.forClass(UpdatableTableImpl.class);
 
-    private static final PartitionReplicationMessagesFactory MESSAGES_FACTORY = new PartitionReplicationMessagesFactory();
+    private static final PartitionReplicationMessagesFactory PARTITION_REPLICATION_MESSAGES_FACTORY =
+            new PartitionReplicationMessagesFactory();
+
+    private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
 
     private final int tableId;
 
@@ -142,8 +146,8 @@ public final class UpdatableTableImpl implements UpdatableTable {
 
             NodeWithConsistencyToken nodeWithConsistencyToken = colocationGroup.assignments().get(partToRows.getIntKey());
 
-            ReplicaRequest request = MESSAGES_FACTORY.readWriteMultiRowReplicaRequest()
-                    .groupId(partGroupId)
+            ReplicaRequest request = PARTITION_REPLICATION_MESSAGES_FACTORY.readWriteMultiRowReplicaRequest()
+                    .groupId(serializeTablePartitionId(partGroupId))
                     .tableId(tableId)
                     .commitPartitionId(serializeTablePartitionId(commitPartitionId))
                     .schemaVersion(partToRows.getValue().get(0).schemaVersion())
@@ -183,7 +187,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
     }
 
     private static TablePartitionIdMessage serializeTablePartitionId(TablePartitionId id) {
-        return toTablePartitionIdMessage(MESSAGES_FACTORY, id);
+        return toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, id);
     }
 
     @Override
@@ -248,8 +252,8 @@ public final class UpdatableTableImpl implements UpdatableTable {
 
             NodeWithConsistencyToken nodeWithConsistencyToken = colocationGroup.assignments().get(partitionId);
 
-            ReadWriteMultiRowReplicaRequest request = MESSAGES_FACTORY.readWriteMultiRowReplicaRequest()
-                    .groupId(partGroupId)
+            ReadWriteMultiRowReplicaRequest request = PARTITION_REPLICATION_MESSAGES_FACTORY.readWriteMultiRowReplicaRequest()
+                    .groupId(serializeTablePartitionId(partGroupId))
                     .tableId(tableId)
                     .commitPartitionId(serializeTablePartitionId(commitPartitionId))
                     .schemaVersion(rowBatch.requestedRows.get(0).schemaVersion())
@@ -318,8 +322,8 @@ public final class UpdatableTableImpl implements UpdatableTable {
 
             NodeWithConsistencyToken nodeWithConsistencyToken = colocationGroup.assignments().get(partToRows.getIntKey());
 
-            ReplicaRequest request = MESSAGES_FACTORY.readWriteMultiRowPkReplicaRequest()
-                    .groupId(partGroupId)
+            ReplicaRequest request = PARTITION_REPLICATION_MESSAGES_FACTORY.readWriteMultiRowPkReplicaRequest()
+                    .groupId(serializeTablePartitionId(partGroupId))
                     .tableId(tableId)
                     .commitPartitionId(serializeTablePartitionId(commitPartitionId))
                     .schemaVersion(partToRows.getValue().get(0).schemaVersion())

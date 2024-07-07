@@ -31,6 +31,7 @@ public class RetryReadPolicy extends RetryLimitPolicy {
         switch (context.operation()) {
             case TABLES_GET:
             case TUPLE_CONTAINS_KEY:
+            case TUPLE_CONTAINS_ALL_KEYS:
             case TUPLE_GET_ALL:
             case TUPLE_GET:
             case TABLE_GET:

@@ -23,6 +23,7 @@ plugins {
     id 'signing'
     alias(libs.plugins.nebula)
     alias(libs.plugins.checksum)
+    alias(libs.plugins.setupbuilder)
 }
 
 java {
@@ -44,16 +45,31 @@ def tokens = [
         TMP_DIR : "/tmp/ignite3-odbc"
 ]
 
-task replacePackageScriptVars(type: Copy) {
+def tokensWin = [
+        DLL_SRC : configurations.odbc.files.find { it.name == "ignite3-odbc.dll"}
+]
+
+tasks.register('replacePackageScriptVars', Copy) {
     onlyIf {
         project.hasProperty('platforms.enable')
     }
 
-    from "$rootDir/packaging/odbc/ignite3-odbc.ini"
+    from 'ignite3-odbc.ini'
 
-    from "$rootDir/packaging/odbc/scripts"
+    from 'scripts'
 
     filter(ReplaceTokens, tokens: tokens)
+    into "$buildDir/scripts/"
+}
+
+tasks.register('replacePackageScriptVarsWin', Copy) {
+    onlyIf {
+        project.hasProperty('platforms.enable')
+    }
+
+    from 'template.wxs'
+
+    filter(ReplaceTokens, tokens: tokensWin)
     into "$buildDir/scripts/"
 }
 
@@ -129,5 +145,28 @@ ospackage {
 
     into("${tokens.TMP_DIR}/${project.version}") {
         from "$buildDir/scripts/ignite3-odbc.ini"
+    }
+}
+
+setupBuilder {
+    vendor = "Apache Software Foundation"
+    application = "Apache Ignite ODBC driver"
+    description = "Apache Ignite is a distributed database for high-performance computing with in-memory speed"
+    appIdentifier = "ignite3-odbc"
+
+    // '-SNAPSHOT' is not valid in Windows versions
+    version = project.version.toString().replace("-SNAPSHOT", "")
+
+    licenseFile = "$rootDir/LICENSE"
+
+    msi {
+        dependsOn replacePackageScriptVarsWin
+
+        languages = ["en-US"]
+        wxsTemplate = "$buildDir/scripts/template.wxs"
+    }
+
+    into('bin') {
+        from configurations.odbc
     }
 }

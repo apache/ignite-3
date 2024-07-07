@@ -30,6 +30,7 @@ import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLongFieldUpdater;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -55,6 +56,9 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     /** Preserved {@link LocalLocker} instance to allow nested calls of {@link #runConsistently(WriteClosure)}. */
     private static final ThreadLocal<LocalLocker> THREAD_LOCAL_LOCKER = new ThreadLocal<>();
 
+    private static final AtomicLongFieldUpdater<TestMvPartitionStorage> ESTIMATED_SIZE_UPDATER =
+            AtomicLongFieldUpdater.newUpdater(TestMvPartitionStorage.class, "estimatedSize");
+
     private final ConcurrentNavigableMap<RowId, VersionChain> map = new ConcurrentSkipListMap<>();
 
     private final NavigableSet<VersionChain> gcQueue = new ConcurrentSkipListSet<>(
@@ -68,11 +72,14 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     private volatile long leaseStartTime = HybridTimestamp.MIN_VALUE.longValue();
 
+    private volatile long estimatedSize;
+
     private volatile byte @Nullable [] groupConfig;
 
     final int partitionId;
 
     private volatile boolean closed;
+
     private volatile boolean destroyed;
 
     private volatile boolean rebalance;
@@ -314,9 +321,13 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         VersionChain nextChain = committedVersionChain.next;
 
         if (nextChain != null) {
-            // Avoid creating tombstones for tombstones.
-            if (committedVersionChain.row == null && nextChain.row == null) {
-                return nextChain;
+            if (committedVersionChain.row == null) {
+                if (nextChain.row == null) {
+                    // Avoid creating tombstones for tombstones.
+                    return nextChain;
+                }
+
+                ESTIMATED_SIZE_UPDATER.decrementAndGet(this);
             }
 
             // Calling it from the compute is fine. Concurrent writes of the same row are impossible, and if we call the compute closure
@@ -327,6 +338,8 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
                 // If there is only one version, and it is a tombstone, then remove the chain.
                 return null;
             }
+
+            ESTIMATED_SIZE_UPDATER.incrementAndGet(this);
         }
 
         return committedVersionChain;
@@ -621,7 +634,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
-    public void updateLease(long leaseStartTime) {
+    public synchronized void updateLease(long leaseStartTime) {
         checkStorageClosed();
 
         if (leaseStartTime <= this.leaseStartTime) {
@@ -636,6 +649,13 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         checkStorageClosed();
 
         return leaseStartTime;
+    }
+
+    @Override
+    public long estimatedSize() {
+        checkStorageClosed();
+
+        return estimatedSize;
     }
 
     @Override
@@ -668,6 +688,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
         lastAppliedIndex = 0;
         lastAppliedTerm = 0;
+        estimatedSize = 0;
         groupConfig = null;
 
         leaseStartTime = HybridTimestamp.MIN_VALUE.longValue();
@@ -708,7 +729,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
         lastAppliedIndex = REBALANCE_IN_PROGRESS;
         lastAppliedTerm = REBALANCE_IN_PROGRESS;
-
+        estimatedSize = 0;
         groupConfig = null;
     }
 
@@ -722,11 +743,6 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         rebalance = false;
 
         clear0();
-
-        lastAppliedIndex = 0;
-        lastAppliedTerm = 0;
-
-        groupConfig = null;
     }
 
     void finishRebalance(long lastAppliedIndex, long lastAppliedTerm, byte[] groupConfig) {

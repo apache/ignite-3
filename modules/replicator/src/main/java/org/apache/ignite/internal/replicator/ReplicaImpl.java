@@ -145,7 +145,7 @@ public class ReplicaImpl implements Replica {
 
     @Override
     public CompletableFuture<ReplicaResult> processRequest(ReplicaRequest request, String senderId) {
-        assert replicaGrpId.equals(request.groupId()) : IgniteStringFormatter.format(
+        assert replicaGrpId.equals(request.groupId().asReplicationGroupId()) : IgniteStringFormatter.format(
                 "Partition mismatch: request does not match the replica [reqReplicaGrpId={}, replicaGrpId={}]",
                 request.groupId(),
                 replicaGrpId);

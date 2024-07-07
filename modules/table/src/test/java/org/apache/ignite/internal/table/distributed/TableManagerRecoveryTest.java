@@ -355,7 +355,8 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                         distributionZoneManager,
                         metaStorageManager,
                         topologyService,
-                        ForkJoinPool.commonPool()
+                        ForkJoinPool.commonPool(),
+                        mock(ScheduledExecutorService.class)
                 )
         ) {
 

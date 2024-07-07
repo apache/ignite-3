@@ -15,27 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.partition.replicator.network;
+package org.apache.ignite.internal.replicator.message;
 
-import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
-
-import java.util.ArrayList;
-import org.apache.ignite.internal.partition.replicator.network.command.TablePartitionIdMessage;
-import org.apache.ignite.internal.partition.replicator.network.raft.TxMetaMessage;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.tx.TxMeta;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 
-/** Class that can contain useful constants and methods for working with messages from {@link PartitionReplicationMessageGroup}. */
-public class PartitionReplicationMessageUtils {
+/** A class with auxiliary constants and methods for the {@link ReplicaMessageGroup}. */
+public class ReplicaMessageUtils {
     /**
      * Converts to a network message.
      *
      * @param messagesFactory Messages factory.
-     * @param tablePartitionId Pair of table ID and partition ID.
+     * @param tablePartitionId Table replication group ID for a given partition.
      * @return New instance of network message.
      */
     public static TablePartitionIdMessage toTablePartitionIdMessage(
-            PartitionReplicationMessagesFactory messagesFactory,
+            ReplicaMessagesFactory messagesFactory,
             TablePartitionId tablePartitionId
     ) {
         return messagesFactory.tablePartitionIdMessage()
@@ -48,23 +43,17 @@ public class PartitionReplicationMessageUtils {
      * Converts to a network message.
      *
      * @param messagesFactory Messages factory.
-     * @param txMeta Transaction meta.
+     * @param zonePartitionId Zone replication group ID for a given partition.
      * @return New instance of network message.
      */
-    public static TxMetaMessage toTxMetaMessage(
-            PartitionReplicationMessagesFactory messagesFactory,
-            TxMeta txMeta
+    public static ZonePartitionIdMessage toZonePartitionIdMessage(
+            ReplicaMessagesFactory messagesFactory,
+            ZonePartitionId zonePartitionId
     ) {
-        var enlistedPartitionMessages = new ArrayList<TablePartitionIdMessage>(txMeta.enlistedPartitions().size());
-
-        for (TablePartitionId enlistedPartition : txMeta.enlistedPartitions()) {
-            enlistedPartitionMessages.add(toTablePartitionIdMessage(messagesFactory, enlistedPartition));
-        }
-
-        return messagesFactory.txMetaMessage()
-                .txStateInt(txMeta.txState().ordinal())
-                .commitTimestampLong(hybridTimestampToLong(txMeta.commitTimestamp()))
-                .enlistedPartitions(enlistedPartitionMessages)
+        return messagesFactory.zonePartitionIdMessage()
+                .zoneId(zonePartitionId.zoneId())
+                .tableId(zonePartitionId.tableId())
+                .partitionId(zonePartitionId.partitionId())
                 .build();
     }
 }

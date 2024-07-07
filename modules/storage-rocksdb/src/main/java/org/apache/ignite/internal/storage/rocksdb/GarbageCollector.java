@@ -187,7 +187,7 @@ class GarbageCollector {
 
 
     /**
-     * Polls an element for vacuum. See {@link org.apache.ignite.internal.storage.MvPartitionStorage#vacuum(GcEntry)} (HybridTimestamp)}.
+     * Polls an element for vacuum. See {@link org.apache.ignite.internal.storage.MvPartitionStorage#vacuum(GcEntry)}.
      *
      * @param batch Write batch.
      * @param entry Entry, previously returned by {@link #peek(HybridTimestamp)}.
