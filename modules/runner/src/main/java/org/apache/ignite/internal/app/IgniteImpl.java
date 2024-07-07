@@ -817,7 +817,8 @@ public class IgniteImpl implements Ignite {
                 resourcesRegistry,
                 lowWatermark,
                 transactionInflights,
-                indexMetaStorage
+                indexMetaStorage,
+                partitionReplicaLifecycleManager
         );
 
         disasterRecoveryManager = new DisasterRecoveryManager(

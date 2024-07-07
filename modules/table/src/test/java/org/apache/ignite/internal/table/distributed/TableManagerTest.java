@@ -103,6 +103,7 @@ import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
+import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
@@ -254,6 +255,10 @@ public class TableManagerTest extends IgniteAbstractTest {
     private ExecutorService partitionOperationsExecutor;
 
     private TestLowWatermark lowWatermark;
+
+    /** Partition replica lifecycle manager. */
+    @Mock
+    private PartitionReplicaLifecycleManager partitionReplicaLifecycleManager;
 
     @BeforeEach
     void before() throws NodeStoppingException {
@@ -818,7 +823,8 @@ public class TableManagerTest extends IgniteAbstractTest {
                 new RemotelyTriggeredResourceRegistry(),
                 lowWatermark,
                 mock(TransactionInflights.class),
-                mock(IndexMetaStorage.class)
+                mock(IndexMetaStorage.class),
+                partitionReplicaLifecycleManager
         ) {
 
             @Override

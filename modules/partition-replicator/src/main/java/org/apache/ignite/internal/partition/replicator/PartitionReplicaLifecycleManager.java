@@ -56,6 +56,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.CreateZoneEventParameters;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
+import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -86,7 +87,8 @@ import org.apache.ignite.network.ClusterNode;
  * - Stop the same nodes on the zone removing.
  * - Support the rebalance mechanism and start the new replication nodes when the rebalance triggers occurred.
  */
-public class PartitionReplicaLifecycleManager implements IgniteComponent {
+public class PartitionReplicaLifecycleManager extends
+        AbstractEventProducer<PartitionReplicaLifecycleEvent, PartitionReplicaLifecycleEventParameters> implements IgniteComponent {
     public static final String FEATURE_FLAG_NAME = "IGNITE_ZONE_BASED_REPLICATION";
     /* Feature flag for zone based collocation track */
     // TODO IGNITE-22115 remove it
@@ -206,7 +208,13 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
                     realConfiguration,
                     raftGroupListener,
                     RaftGroupEventsListener.noopLsnr
-            ).thenRun(() -> replicationGroupIds.add(replicaGrpId));
+            ).thenCompose(unused ->
+                            fireEvent(
+                                    PartitionReplicaLifecycleEvent.REPLICA_STARTED,
+                                    new PartitionReplicaLifecycleEventParameters()
+                            )
+                    )
+                    .thenRun(() -> replicationGroupIds.add(replicaGrpId));
         } catch (NodeStoppingException e) {
             return failedFuture(e);
         }
@@ -358,6 +366,11 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
         }
 
         return assignmentsFuture;
+    }
+
+    public boolean hasLocalPartition(ZonePartitionId zonePartitionId) {
+        // TODO: we must have await mechanism here
+        return replicationGroupIds.contains(zonePartitionId);
     }
 
     @Override

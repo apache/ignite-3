@@ -839,7 +839,8 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     resourcesRegistry,
                     lowWatermark,
                     transactionInflights,
-                    indexMetaStorage
+                    indexMetaStorage,
+                    partitionReplicaLifecycleManager
             );
 
             indexManager = new IndexManager(

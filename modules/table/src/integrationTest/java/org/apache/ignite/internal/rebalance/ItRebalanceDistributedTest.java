@@ -152,6 +152,7 @@ import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfigurationSchema;
 import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileConfigurationSchema;
+import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.Loza;
@@ -620,19 +621,15 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     }
 
     /**
-     * Test checks rebances from [A,B,C] to [A,B] and then again to [A,B,C].
-     * In this case the raft group node and {@link Replica} are started only once on each node.
+     * Test checks rebances from [A,B,C] to [A,B] and then again to [A,B,C]. In this case the raft group node and {@link Replica} are
+     * started only once on each node.
      *
      * <p>1. We have an in-progress rebalance and current metastore keys:
-     * ms.stable = a,b,c. ms.pending = a,b. ms.planned = a,b,c
-     * so, the current active peers is the a,b,c.
-     * 2. When the rebalance done, keys wil be updated:
-     * ms.stable = a,b. ms.pending = a,b,c. ms.planned = empty
-     * 3. Pending event handler receives the entry {old.pending = a,b; new.pending = a,b,c} and:
-     * - it will receive the current stable a,b with the revision of current pending event
-     * - compare it with new pending a,b,c and want to start node c
-     * - but this node is still alive, because the stable handler is not stopped it yet (and we don't want to stop actually)
-     * - so we don't need to start it again
+     * ms.stable = a,b,c. ms.pending = a,b. ms.planned = a,b,c so, the current active peers is the a,b,c. 2. When the rebalance done, keys
+     * wil be updated: ms.stable = a,b. ms.pending = a,b,c. ms.planned = empty 3. Pending event handler receives the entry {old.pending =
+     * a,b; new.pending = a,b,c} and: - it will receive the current stable a,b with the revision of current pending event - compare it with
+     * new pending a,b,c and want to start node c - but this node is still alive, because the stable handler is not stopped it yet (and we
+     * don't want to stop actually) - so we don't need to start it again
      *
      * @throws Exception If failed.
      */
@@ -1288,7 +1285,15 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     resourcesRegistry,
                     lowWatermark,
                     transactionInflights,
-                    indexMetaStorage
+                    indexMetaStorage,
+                    new PartitionReplicaLifecycleManager(
+                            catalogManager,
+                            replicaManager,
+                            distributionZoneManager,
+                            metaStorageManager,
+                            clusterService.topologyService(),
+                            threadPoolsManager.tableIoExecutor()
+                    )
             ) {
                 @Override
                 protected TxStateTableStorage createTxStateTableStorage(
