@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.client.tx;
 
-import static org.apache.ignite.internal.client.ClientUtils.sync;
+import static org.apache.ignite.internal.util.ViewUtils.sync;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.PayloadInputChannel;

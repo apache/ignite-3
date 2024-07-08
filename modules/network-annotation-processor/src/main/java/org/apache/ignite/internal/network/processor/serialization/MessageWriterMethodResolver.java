@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.network.processor.serialization;
 
-import static org.apache.ignite.internal.network.processor.messages.MessageImplGenerator.getByteArrayFieldName;
+import static org.apache.ignite.internal.network.processor.MessageGeneratorUtils.addByteArrayPostfix;
 
 import com.squareup.javapoet.CodeBlock;
 import java.util.Collection;
@@ -75,7 +75,7 @@ class MessageWriterMethodResolver {
         String parameterName = getter.getSimpleName().toString();
 
         if (getter.getAnnotation(Marshallable.class) != null) {
-            parameterName = getByteArrayFieldName(parameterName);
+            parameterName = addByteArrayPostfix(parameterName);
             return CodeBlock.builder()
                     .add("writeByteArray($S, message.$L())", parameterName, parameterName)
                     .build();

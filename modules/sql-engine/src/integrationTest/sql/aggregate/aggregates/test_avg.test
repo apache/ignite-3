@@ -62,7 +62,8 @@ SELECT AVG('100')
 statement error: Cannot apply 'AVG' to arguments of type 'AVG(<DATE>)'. Supported form(s): 'AVG(<NUMERIC>)'
 SELECT AVG('2011-01-01'::DATE)
 
-# TODO https://issues.apache.org/jira/browse/IGNITE-22448 incorrect error message
-# Update error message the issue is fixed. Current error: Unable to optimize plan due to internal error
-statement error
+statement error: Cannot apply 'AVG' to arguments of type 'AVG(<UUID>)'. Supported form(s): 'AVG(<NUMERIC>)'
 SELECT AVG('c4a0327c-44be-416d-ae90-75c05079789f'::UUID)
+
+statement error: Cannot apply 'AVG' to arguments of type 'AVG(<UUID>)'. Supported form(s): 'AVG(<NUMERIC>)'
+SELECT AVG(c) FROM (VALUES ('c4a0327c-44be-416d-ae90-75c05079789f'::UUID)) t(c)
