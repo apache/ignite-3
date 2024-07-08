@@ -22,14 +22,13 @@ import static java.util.function.Function.identity;
 import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.convertToPublicFuture;
 import static org.apache.ignite.internal.table.criteria.CriteriaExceptionMapperUtil.mapToPublicCriteriaException;
 import static org.apache.ignite.internal.util.ExceptionUtils.isOrCausedBy;
-import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
+import static org.apache.ignite.internal.util.ViewUtils.sync;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.lang.IgniteExceptionMapperUtil;
@@ -97,26 +96,6 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
         this.marshallers = marshallers;
 
         this.rowConverter = new TableViewRowConverter(schemaReg);
-    }
-
-    /**
-     * Waits for operation completion.
-     *
-     * @param future Future to wait to.
-     * @param <T> Future result type.
-     * @return Future result.
-     */
-    protected static <T> T sync(CompletableFuture<T> future) {
-        try {
-            return future.get();
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt(); // Restore interrupt flag.
-
-            throw sneakyThrow(IgniteExceptionMapperUtil.mapToPublicException(e));
-        } catch (ExecutionException e) {
-            Throwable cause = unwrapCause(e);
-            throw sneakyThrow(cause);
-        }
     }
 
     /**
@@ -274,7 +253,6 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
             throw new CompletionException(mapToPublicCriteriaException(unwrapCause(th)));
         });
     }
-
 
     /**
      * Action representing some KV operation. When executed, the action is supplied with schema version corresponding
