@@ -387,7 +387,7 @@ public class LeaseUpdater {
                         }
 
                         // New lease is granted.
-                        writeNewLease(grpId, candidate, renewedLeases);
+                        writeNewLease(grpId, candidate, renewedLeases, "1");
 
                         boolean force = Objects.equals(lease.getLeaseholder(), candidate.name());
 
@@ -416,7 +416,7 @@ public class LeaseUpdater {
                     // leaseholders at all.
                     if (isLeaseOutdated(lease)) {
                         // New lease is granted.
-                        writeNewLease(grpId, candidate, renewedLeases);
+                        writeNewLease(grpId, candidate, renewedLeases, "2");
 
                         boolean force = !lease.isProlongable() && lease.proposedCandidate() != null;
 
@@ -479,7 +479,8 @@ public class LeaseUpdater {
         private void writeNewLease(
                 ReplicationGroupId grpId,
                 ClusterNode candidate,
-                Map<ReplicationGroupId, Lease> renewedLeases
+                Map<ReplicationGroupId, Lease> renewedLeases,
+                String cmnt
         ) {
             HybridTimestamp startTs = clockService.now();
 
@@ -489,7 +490,7 @@ public class LeaseUpdater {
 
             renewedLeases.put(grpId, renewedLease);
 
-            LOG.info("Writing new lease [groupId={}, startTime={}, leaseholderId={}]", grpId, renewedLease.getStartTime(), renewedLease.getLeaseholderId());
+            LOG.info("Writing new lease {} [groupId={}, startTime={}, leaseholderId={}, lease=]", cmnt, grpId, renewedLease.getStartTime(), renewedLease.getLeaseholderId(), renewedLease);
 
             leaseUpdateStatistics.onLeaseCreate();
         }
