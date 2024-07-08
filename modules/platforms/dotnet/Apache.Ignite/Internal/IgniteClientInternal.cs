@@ -88,7 +88,7 @@ namespace Apache.Ignite.Internal
 
                 for (var i = 0; i < count; i++)
                 {
-                    res.Add(ClusterNode.Read(r));
+                    res.Add(ClusterNode.Read(ref r));
                 }
 
                 return res;

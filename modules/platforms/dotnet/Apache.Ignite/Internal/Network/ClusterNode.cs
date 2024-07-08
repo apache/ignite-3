@@ -82,7 +82,7 @@ namespace Apache.Ignite.Internal.Network
         /// </summary>
         /// <param name="r">Reader.</param>
         /// <returns>Cluster node.</returns>
-        internal static ClusterNode Read(MsgPackReader r)
+        internal static ClusterNode Read(ref MsgPackReader r)
         {
             var fieldCount = r.ReadInt32();
             Debug.Assert(fieldCount == 4, "fieldCount == 4");

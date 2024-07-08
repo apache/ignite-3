@@ -77,7 +77,7 @@ internal sealed class PartitionManager : IPartitionManager
                 for (var i = 0; i < count; i++)
                 {
                     var id = r.ReadInt32();
-                    var node = ClusterNode.Read(r);
+                    var node = ClusterNode.Read(ref r);
 
                     res.Add(parts[id], node);
                     primaryReplicas[id] = node;
