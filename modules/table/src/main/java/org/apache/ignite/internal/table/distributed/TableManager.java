@@ -1789,7 +1789,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                     stringKey, partId, table.name(), localNode().address(), pendingAssignments, revision);
                         }
 
-                        // TODO: should come from the assignments. The version valid at the time of assignment creation.
+                        // TODO: IGNITE-22661 should come from the assignments. The version valid at the time of assignment creation.
                         int catalogVersion = catalogService.latestCatalogVersion();
 
                         return setTablesPartitionCountersForRebalance(replicaGrpId, revision, pendingAssignments.force(), catalogVersion)
@@ -1910,7 +1910,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             TablePartitionId replicaGrpId,
             long revision,
             boolean force,
-            int catalogVersion) {
+            int catalogVersion
+    ) {
         int tableId = replicaGrpId.tableId();
 
         CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(getTableDescriptor(tableId, catalogVersion), catalogVersion);
