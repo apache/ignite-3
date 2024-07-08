@@ -48,6 +48,7 @@ import org.apache.calcite.linq4j.tree.Expression;
 import org.apache.calcite.linq4j.tree.Expressions;
 import org.apache.calcite.linq4j.tree.MethodDeclaration;
 import org.apache.calcite.linq4j.tree.ParameterExpression;
+import org.apache.calcite.linq4j.tree.Primitive;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelFieldCollation;
@@ -289,8 +290,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
             literalValues.add((RexLiteral) values.get(i));
         }
 
-        return new ConstantValuesImpl(literalValues, typeList, ctx.rowHandler().factory(rowSchema));
-//        return new ValuesImpl(scalar(values, null), ctx.rowHandler().factory(rowSchema));
+        return new ValuesImpl(scalar(values, null), ctx.rowHandler().factory(rowSchema));
     }
 
     /** {@inheritDoc} */
@@ -359,7 +359,11 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
                 return null;
             }
 
-            return convertNumericLiteral(dataType, value);
+            Object val = convertNumericLiteral(dataType, value, type);
+
+            System.err.println("LIT " + literal + " " + literal.getTypeName() + " " + dataType + " " + type + " val: " + val + " " + val.getClass());
+
+            return val;
         } else {
             Object val = literal.getValueAs(type);
 
@@ -1224,10 +1228,13 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         }
     }
 
-    private static Object convertNumericLiteral(RelDataType dataType, BigDecimal value) {
+    private static Object convertNumericLiteral(RelDataType dataType, BigDecimal value, Class<?> type) {
         switch (dataType.getSqlTypeName()) {
             case TINYINT:
-                return IgniteMath.convertToByteExact(value);
+                byte b = IgniteMath.convertToByteExact(value);
+
+
+                return Primitive.BYTE.numberValue(value);
             case SMALLINT:
                 return IgniteMath.convertToShortExact(value);
             case INTEGER:
@@ -1240,9 +1247,10 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
             case DOUBLE:
                 return IgniteMath.convertToDoubleExact(value);
             case DECIMAL:
-                // Precision/scale of decimal literals is checked in rexBuilder::makeLiteral,
-                // so they won't overflow
-                return value;
+                // perform overflow checks and discard the result, because it can perform unnecessary precision/scale conversions
+                BigDecimal rs = IgniteSqlFunctions.toBigDecimal(value, dataType.getPrecision(), dataType.getScale());
+                assert rs != null;
+                return rs;
             default:
                 throw new IllegalStateException("Unexpected numeric type: " + dataType);
         }
