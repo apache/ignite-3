@@ -29,7 +29,7 @@ import org.apache.ignite.internal.network.annotations.Transferable;
 @Transferable(MetaStorageMessageGroup.STATEMENT_RESULT)
 public interface StatementResult extends NetworkMessage, Serializable {
     /** Result data. */
-    byte[] result();
+    ByteBuffer result();
 
     /**
      * Returns result value as a boolean.
@@ -38,11 +38,11 @@ public interface StatementResult extends NetworkMessage, Serializable {
      * @throws IllegalStateException if boolean conversion is not possible, or can have ambiguous behaviour.
      */
     default boolean getAsBoolean() {
-        if (result().length != 1) {
+        if (result().capacity() != 1) {
             throw new IllegalStateException("Result can't be interpreted as boolean");
         }
 
-        return result()[0] != 0;
+        return result().rewind().get() != 0;
 
     }
 
@@ -53,10 +53,10 @@ public interface StatementResult extends NetworkMessage, Serializable {
      * @throws IllegalStateException if int conversion is not possible, or can have ambiguous behaviour.
      */
     default int getAsInt() {
-        if (result().length != 4) {
+        if (result().capacity() != 4) {
             throw new IllegalStateException("Result can't be interpreted as int");
         }
 
-        return ByteBuffer.wrap(result()).getInt();
+        return result().rewind().getInt();
     }
 }

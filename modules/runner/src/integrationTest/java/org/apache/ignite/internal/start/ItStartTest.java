@@ -31,21 +31,25 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
+import org.apache.ignite.IgniteServer;
 import org.apache.ignite.internal.Cluster;
-import org.apache.ignite.internal.IgniteIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.index.IndexManager;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.testframework.log4j2.LogInspector;
 import org.apache.ignite.internal.testframework.log4j2.LogInspector.Handler;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.function.Executable;
 
-class ItStartTest extends IgniteIntegrationTest {
+@ExtendWith(WorkDirectoryExtension.class)
+class ItStartTest extends BaseIgniteAbstractTest {
     private Cluster cluster;
 
     @WorkDirectory
@@ -97,7 +101,7 @@ class ItStartTest extends IgniteIntegrationTest {
                         .<Executable>map(probe -> () -> assertThat(
                                 "Wrong thread for " + probe.expectation.name,
                                 probe.threadNameRef.get(),
-                                startsWith(startThreadNamePrefix())
+                                startsWith(joinThreadNamePrefix())
                         ))
                         .collect(toList())
         );
@@ -105,6 +109,10 @@ class ItStartTest extends IgniteIntegrationTest {
 
     private String startThreadNamePrefix() {
         return "%" + IgniteTestUtils.testNodeName(testInfo, 0) + "%start-";
+    }
+
+    private String joinThreadNamePrefix() {
+        return "%" + IgniteTestUtils.testNodeName(testInfo, 0) + "%join-";
     }
 
     private static LoggingProbe installProbe(Expectation expectation, Map<String, LogInspector> inspectors) {
@@ -122,12 +130,13 @@ class ItStartTest extends IgniteIntegrationTest {
     }
 
     @Test
-    void startFutureCompletesInCommonPool() {
+    void waitForInitFutureCompletesInCommonPool() {
         cluster.startAndInit(1);
 
         AtomicReference<String> threadNameRef = new AtomicReference<>();
 
-        CompletableFuture<IgniteImpl> future = cluster.startNodeAsync(1).whenComplete((res, ex) -> {
+        IgniteServer node = cluster.startEmbeddedNode(1);
+        CompletableFuture<Void> future = node.waitForInitAsync().whenComplete((res, ex) -> {
             threadNameRef.set(Thread.currentThread().getName());
         });
 
@@ -137,14 +146,15 @@ class ItStartTest extends IgniteIntegrationTest {
 
         cluster.shutdown();
 
-        assertThatStartThreadsAreStopped();
+        assertThatThreadsAreStopped(startThreadNamePrefix());
+        assertThatThreadsAreStopped(joinThreadNamePrefix());
     }
 
-    private void assertThatStartThreadsAreStopped() {
+    private static void assertThatThreadsAreStopped(String threadNamePrefix) {
         List<String> aliveStartThreads = Thread.getAllStackTraces().keySet().stream()
                 .filter(Thread::isAlive)
                 .map(Thread::getName)
-                .filter(name -> name.startsWith(startThreadNamePrefix()))
+                .filter(name -> name.startsWith(threadNamePrefix))
                 .collect(toList());
 
         assertThat(aliveStartThreads, is(empty()));

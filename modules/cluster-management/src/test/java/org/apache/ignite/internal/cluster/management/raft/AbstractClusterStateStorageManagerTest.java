@@ -44,10 +44,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
 /**
- * Tests for {@link RaftStorageManager}.
+ * Tests for {@link ClusterStateStorageManager}.
  */
 public abstract class AbstractClusterStateStorageManagerTest extends IgniteAbstractTest {
-    private RaftStorageManager storageManager;
+    private ClusterStateStorageManager storageManager;
 
     private ClusterStateStorage storage;
 
@@ -61,7 +61,7 @@ public abstract class AbstractClusterStateStorageManagerTest extends IgniteAbstr
 
         assertThat(storage.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
-        storageManager = new RaftStorageManager(storage);
+        storageManager = new ClusterStateStorageManager(storage);
     }
 
     @AfterEach

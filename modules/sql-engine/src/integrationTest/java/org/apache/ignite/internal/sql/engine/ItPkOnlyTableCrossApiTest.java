@@ -156,7 +156,7 @@ public class ItPkOnlyTableCrossApiTest extends BaseSqlIntegrationTest {
                 rwTx -> {
                     IgniteException ex = assertThrows(IgniteException.class,
                             () -> tab.keyValueView(KeyObject.class, Integer.class).put(rwTx, key, 1));
-                    assertThat(ex.getCause(), is(instanceOf(IllegalArgumentException.class)));
+                    assertThat(ex.getCause().getCause(), is(instanceOf(IllegalArgumentException.class)));
 
                     kvView.put(rwTx, key, null);
 

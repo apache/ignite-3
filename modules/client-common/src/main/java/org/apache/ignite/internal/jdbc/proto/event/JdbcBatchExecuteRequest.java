@@ -38,6 +38,9 @@ public class JdbcBatchExecuteRequest implements ClientMessage {
     /** Flag indicating whether auto-commit mode is enabled. */
     private boolean autoCommit;
 
+    /** Query timeout in milliseconds. */
+    private long queryTimeoutMillis;
+
     /**
      * Default constructor.
      */
@@ -50,13 +53,20 @@ public class JdbcBatchExecuteRequest implements ClientMessage {
      * @param schemaName Schema name.
      * @param queries    Queries.
      * @param autoCommit Flag indicating whether auto-commit mode is enabled.
+     * @param queryTimeoutMillis Query timeout in millseconds.
      */
-    public JdbcBatchExecuteRequest(String schemaName, List<String> queries, boolean autoCommit) {
+    public JdbcBatchExecuteRequest(
+            String schemaName, 
+            List<String> queries, 
+            boolean autoCommit,
+            long queryTimeoutMillis
+    ) {
         assert !CollectionUtils.nullOrEmpty(queries);
 
         this.schemaName = schemaName;
         this.queries = queries;
         this.autoCommit = autoCommit;
+        this.queryTimeoutMillis = queryTimeoutMillis;
     }
 
     /**
@@ -86,6 +96,15 @@ public class JdbcBatchExecuteRequest implements ClientMessage {
         return autoCommit;
     }
 
+    /**
+     * Returns the timeout in milliseconds.
+     *
+     * @return Timeout in milliseconds.
+     */
+    public long queryTimeoutMillis() {
+        return queryTimeoutMillis;
+    }
+
     /** {@inheritDoc} */
     @Override
     public void writeBinary(ClientMessagePacker packer) {
@@ -97,6 +116,8 @@ public class JdbcBatchExecuteRequest implements ClientMessage {
         for (String q : queries) {
             packer.packString(q);
         }
+
+        packer.packLong(queryTimeoutMillis);
     }
 
     /** {@inheritDoc} */
@@ -112,6 +133,8 @@ public class JdbcBatchExecuteRequest implements ClientMessage {
         for (int i = 0; i < n; ++i) {
             queries.add(unpacker.unpackString());
         }
+
+        queryTimeoutMillis = unpacker.unpackLong();
     }
 
     /** {@inheritDoc} */

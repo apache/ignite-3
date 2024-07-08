@@ -20,10 +20,9 @@ package org.apache.ignite.internal.partition.replicator.network.raft;
 import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.internal.network.NetworkMessage;
-import org.apache.ignite.internal.network.annotations.Marshallable;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
-import org.apache.ignite.internal.tx.TxMeta;
+import org.apache.ignite.internal.tx.message.TxMetaMessage;
 
 /**
  * Snapshot TX state partition data response message.
@@ -34,8 +33,7 @@ public interface SnapshotTxDataResponse extends NetworkMessage {
     List<UUID> txIds();
 
     /** List of transaction metas in the response. */
-    @Marshallable
-    List<TxMeta> txMeta();
+    List<TxMetaMessage> txMeta();
 
     /** Flag that indicates whether this is the last response or not. */
     boolean finish();

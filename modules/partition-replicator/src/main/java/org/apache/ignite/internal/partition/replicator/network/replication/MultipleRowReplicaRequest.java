@@ -20,7 +20,6 @@ package org.apache.ignite.internal.partition.replicator.network.replication;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
-import org.apache.ignite.internal.network.annotations.Marshallable;
 import org.apache.ignite.internal.replicator.message.SchemaVersionAwareReplicaRequest;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowImpl;
@@ -45,6 +44,15 @@ public interface MultipleRowReplicaRequest extends SchemaVersionAwareReplicaRequ
         return rows;
     }
 
-    @Marshallable
-    RequestType requestType();
+    /** Ordinal of {@link RequestType} value. */
+    int requestTypeInt();
+
+    /** Transaction operation type. */
+    default RequestType requestType() {
+        RequestType requestType = RequestType.fromOrdinal(requestTypeInt());
+
+        assert requestType != null : requestTypeInt();
+
+        return requestType;
+    }
 }

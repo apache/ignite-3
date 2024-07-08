@@ -20,6 +20,7 @@ package org.apache.ignite.internal.table;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.replicator.ReplicatorConstants.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
+import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
 import static org.apache.ignite.internal.schema.SchemaTestUtils.specToType;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -84,6 +85,7 @@ import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.SchemaVersionAwareReplicaRequest;
 import org.apache.ignite.internal.schema.BinaryRowEx;
@@ -147,7 +149,11 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
     private static final Int2ObjectMap<Set<Command>> CMDS_MAP = new Int2ObjectOpenHashMap<>();
 
     /** Message factory to create messages - RAFT commands.  */
-    private static final PartitionReplicationMessagesFactory MSG_FACTORY = new PartitionReplicationMessagesFactory();
+    private static final PartitionReplicationMessagesFactory PARTITION_REPLICATION_MESSAGES_FACTORY =
+            new PartitionReplicationMessagesFactory();
+
+    /** Replica messages factory. */
+    private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
 
     @InjectConfiguration
     private static TransactionConfiguration txConfiguration;
@@ -243,7 +249,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
             ReplicaRequest request = invocation.getArgument(1);
             var commitPartId = new TablePartitionId(2, 0);
 
-            RaftGroupService r = groupRafts.get(request.groupId());
+            RaftGroupService r = groupRafts.get(request.groupId().asReplicationGroupId());
 
             if (request instanceof ReadWriteMultiRowReplicaRequest) {
                 ReadWriteMultiRowReplicaRequest multiRowReplicaRequest = (ReadWriteMultiRowReplicaRequest) request;
@@ -251,35 +257,26 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 Map<UUID, TimedBinaryRowMessage> rows = multiRowReplicaRequest.binaryTuples().stream()
                         .collect(
                                 toMap(tupleBuffer -> TestTransactionIds.newTransactionId(),
-                                        tupleBuffer -> MSG_FACTORY.timedBinaryRowMessage()
+                                        tupleBuffer -> PARTITION_REPLICATION_MESSAGES_FACTORY.timedBinaryRowMessage()
                                                 .binaryRowMessage(binaryRowMessage(tupleBuffer, multiRowReplicaRequest))
                                                 .build())
                         );
 
-                return r.run(MSG_FACTORY.updateAllCommand()
-                                .tablePartitionId(MSG_FACTORY.tablePartitionIdMessage()
-                                        .tableId(commitPartId.tableId())
-                                        .partitionId(commitPartId.partitionId())
-                                        .build()
-                                )
-                            .messageRowsToUpdate(rows)
-                            .txId(UUID.randomUUID())
-                            .txCoordinatorId(node.id())
-                            .build());
+                return r.run(PARTITION_REPLICATION_MESSAGES_FACTORY.updateAllCommand()
+                        .tablePartitionId(toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, commitPartId))
+                        .messageRowsToUpdate(rows)
+                        .txId(UUID.randomUUID())
+                        .txCoordinatorId(node.id())
+                        .build());
             } else {
                 assertThat(request, is(instanceOf(ReadWriteSingleRowReplicaRequest.class)));
 
                 ReadWriteSingleRowReplicaRequest singleRowReplicaRequest = (ReadWriteSingleRowReplicaRequest) request;
 
-                return r.run(MSG_FACTORY.updateCommand()
-                        .tablePartitionId(
-                                MSG_FACTORY.tablePartitionIdMessage()
-                                        .tableId(commitPartId.tableId())
-                                        .partitionId(commitPartId.partitionId())
-                                        .build()
-                        )
+                return r.run(PARTITION_REPLICATION_MESSAGES_FACTORY.updateCommand()
+                        .tablePartitionId(toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, commitPartId))
                         .rowUuid(UUID.randomUUID())
-                        .messageRowToUpdate(MSG_FACTORY.timedBinaryRowMessage()
+                        .messageRowToUpdate(PARTITION_REPLICATION_MESSAGES_FACTORY.timedBinaryRowMessage()
                                 .binaryRowMessage(binaryRowMessage(singleRowReplicaRequest.binaryTuple(), singleRowReplicaRequest))
                                 .build())
                         .txId(TestTransactionIds.newTransactionId())
@@ -309,7 +306,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
     }
 
     private static BinaryRowMessage binaryRowMessage(ByteBuffer tupleBuffer, SchemaVersionAwareReplicaRequest request) {
-        return MSG_FACTORY.binaryRowMessage()
+        return PARTITION_REPLICATION_MESSAGES_FACTORY.binaryRowMessage()
                 .schemaVersion(request.schemaVersion())
                 .binaryTuple(tupleBuffer)
                 .build();

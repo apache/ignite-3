@@ -103,7 +103,7 @@ public class MockNode {
 
         var clusterStateStorage = new RocksDbClusterStateStorage(this.workDir.resolve("cmg"), clusterService.nodeName());
 
-        FailureProcessor failureProcessor = new NoOpFailureProcessor(nodeName);
+        FailureProcessor failureProcessor = new NoOpFailureProcessor();
 
         this.clusterManager = new ClusterManagementGroupManager(
                 vaultManager,

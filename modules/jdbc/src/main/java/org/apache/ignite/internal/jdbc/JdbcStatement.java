@@ -43,11 +43,11 @@ import org.apache.ignite.internal.jdbc.proto.JdbcStatementType;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchExecuteRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchExecuteResult;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcColumnMeta;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryExecuteRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQuerySingleResult;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.CollectionUtils;
-import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -70,7 +70,7 @@ public class JdbcStatement implements Statement {
     private volatile boolean closed;
 
     /** Query timeout. */
-    private int timeout;
+    protected long queryTimeoutMillis;
 
     /** Rows limit. */
     private int maxRows;
@@ -137,7 +137,7 @@ public class JdbcStatement implements Statement {
         }
 
         JdbcQueryExecuteRequest req = new JdbcQueryExecuteRequest(stmtType, schema, pageSize, maxRows, sql, args,
-                conn.getAutoCommit(), multiStatement);
+                conn.getAutoCommit(), multiStatement, queryTimeoutMillis);
 
         JdbcQueryExecuteResponse res;
         try {
@@ -160,15 +160,15 @@ public class JdbcStatement implements Statement {
 
         JdbcQueryCursorHandler handler = new JdbcClientQueryCursorHandler(res.getChannel());
 
-        List<ColumnType> columnTypes = executeResult.columnTypes();
-        columnTypes = columnTypes == null ? List.of() : columnTypes;
-        int[] decimalScales = executeResult.decimalScales();
+        List<JdbcColumnMeta> meta = executeResult.meta();
 
-        Function<BinaryTupleReader, List<Object>> transformer = createTransformer(columnTypes, decimalScales);
+        Function<BinaryTupleReader, List<Object>> transformer = meta != null ? createTransformer(meta) : null;
+
+        int colCount = meta != null ? meta.size() : 0;
 
         resSets.add(new JdbcResultSet(handler, this, executeResult.cursorId(), pageSize, !executeResult.hasMoreData(),
-                executeResult.items(), executeResult.hasResultSet(), executeResult.hasNextResult(),
-                executeResult.updateCount(), closeOnCompletion, columnTypes.size(), transformer));
+                executeResult.items(), meta, executeResult.hasResultSet(), executeResult.hasNextResult(),
+                executeResult.updateCount(), closeOnCompletion, colCount, transformer));
     }
 
     /** {@inheritDoc} */
@@ -286,21 +286,18 @@ public class JdbcStatement implements Statement {
     public int getQueryTimeout() throws SQLException {
         ensureNotClosed();
 
-        return timeout / 1000;
+        long seconds = queryTimeoutMillis / 1000;
+        if (seconds >= Integer.MAX_VALUE) {
+            return Integer.MAX_VALUE;
+        }
+
+        return (int) seconds;
     }
 
     /** {@inheritDoc} */
     @Override
     public void setQueryTimeout(int timeout) throws SQLException {
-        ensureNotClosed();
-
-        if (timeout < 0) {
-            throw new SQLException("Invalid timeout value.");
-        }
-
-        // The timeout value of 0 will be converted to Integer.MAX_VALUE timeout to avoid further checks to 0.
-        // This is because zero means there is no timeout limit.
-        timeout(timeout * 1000 > timeout ? timeout * 1000 : Integer.MAX_VALUE);
+        timeout(timeout * 1000L);
     }
 
     /** {@inheritDoc} */
@@ -568,7 +565,7 @@ public class JdbcStatement implements Statement {
             return INT_EMPTY_ARRAY;
         }
 
-        JdbcBatchExecuteRequest req = new JdbcBatchExecuteRequest(conn.getSchema(), batch, conn.getAutoCommit());
+        JdbcBatchExecuteRequest req = new JdbcBatchExecuteRequest(conn.getSchema(), batch, conn.getAutoCommit(), queryTimeoutMillis);
 
         try {
             JdbcBatchExecuteResult res = conn.handler().batchAsync(conn.connectionId(), req).get();
@@ -763,14 +760,16 @@ public class JdbcStatement implements Statement {
      * <p>For test purposes.
      *
      * @param timeout Timeout.
-     * @throws SQLException If timeout condition is not satisfied.
+     * @throws SQLException If timeout value is invalid.
      */
-    public final void timeout(int timeout) throws SQLException {
+    public final void timeout(long timeout) throws SQLException {
+        ensureNotClosed();
+
         if (timeout < 0) {
-            throw new SQLException("Condition timeout >= 0 is not satisfied.");
+            throw new SQLException("Invalid timeout value.");
         }
 
-        this.timeout = timeout;
+        this.queryTimeoutMillis = timeout;
     }
 
     private static SQLException toSqlException(ExecutionException e) {

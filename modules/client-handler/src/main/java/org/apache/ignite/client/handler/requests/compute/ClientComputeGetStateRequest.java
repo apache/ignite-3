@@ -20,6 +20,7 @@ package org.apache.ignite.client.handler.requests.compute;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.JobState;
+import org.apache.ignite.compute.TaskState;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
@@ -53,6 +54,18 @@ public class ClientComputeGetStateRequest {
      * @param state Job state.
      */
     static void packJobState(ClientMessagePacker out, @Nullable JobState state) {
+        if (state == null) {
+            out.packNil();
+        } else {
+            out.packUuid(state.id());
+            out.packInt(state.status().ordinal());
+            out.packInstant(state.createTime());
+            out.packInstant(state.startTime());
+            out.packInstant(state.finishTime());
+        }
+    }
+
+    static void packTaskState(ClientMessagePacker out, @Nullable TaskState state) {
         if (state == null) {
             out.packNil();
         } else {

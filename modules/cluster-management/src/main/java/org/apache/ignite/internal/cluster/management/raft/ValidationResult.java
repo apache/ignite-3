@@ -22,7 +22,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Result of validating a node by the {@link ValidationManager}.
  */
-class ValidationResult {
+public class ValidationResult {
     @Nullable
     private final String errorDescription;
 
@@ -33,14 +33,14 @@ class ValidationResult {
     /**
      * Creates a successful validation result.
      */
-    static ValidationResult successfulResult() {
+    public static ValidationResult successfulResult() {
         return new ValidationResult(null);
     }
 
     /**
      * Creates a failed validation result.
      */
-    static ValidationResult errorResult(String errorDescription) {
+    public static ValidationResult errorResult(String errorDescription) {
         return new ValidationResult(errorDescription);
     }
 

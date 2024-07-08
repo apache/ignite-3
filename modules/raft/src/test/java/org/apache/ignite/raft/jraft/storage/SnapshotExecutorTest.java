@@ -16,6 +16,7 @@
  */
 package org.apache.ignite.raft.jraft.storage;
 
+import static org.apache.ignite.raft.jraft.util.BytesUtil.toByteArray;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -67,7 +68,6 @@ import org.apache.ignite.raft.jraft.storage.snapshot.local.LocalSnapshotStorage;
 import org.apache.ignite.raft.jraft.storage.snapshot.local.LocalSnapshotWriter;
 import org.apache.ignite.raft.jraft.test.MockAsyncContext;
 import org.apache.ignite.raft.jraft.test.TestUtils;
-import org.apache.ignite.raft.jraft.util.ByteString;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.junit.jupiter.api.AfterEach;
@@ -221,7 +221,7 @@ public class SnapshotExecutorTest extends BaseStorageTest {
         RpcResponseClosure<RpcRequests.GetFileResponse> closure = argument.getValue();
         final ByteBuffer metaBuf = this.table.saveToByteBufferAsRemote();
         closure.setResponse(raftOptions.getRaftMessagesFactory().getFileResponse().readSize(metaBuf.remaining()).eof(true)
-            .data(new ByteString(metaBuf).copy()).build());
+            .data(ByteBuffer.wrap(toByteArray(metaBuf))).build());
 
         //mock get file
         argument = ArgumentCaptor.forClass(RpcResponseClosure.class);
@@ -235,7 +235,7 @@ public class SnapshotExecutorTest extends BaseStorageTest {
         Thread.sleep(500);
         closure = argument.getValue();
         closure.setResponse(raftOptions.getRaftMessagesFactory().getFileResponse().readSize(100).eof(true)
-            .data(new ByteString(new byte[100]).copy()).build());
+            .data(ByteBuffer.wrap(new byte[100])).build());
 
         final ArgumentCaptor<LoadSnapshotClosure> loadSnapshotArg = ArgumentCaptor.forClass(LoadSnapshotClosure.class);
         Mockito.when(this.fSMCaller.onSnapshotLoad(loadSnapshotArg.capture())).thenReturn(true);
@@ -293,7 +293,7 @@ public class SnapshotExecutorTest extends BaseStorageTest {
         RpcResponseClosure<RpcRequests.GetFileResponse> closure = argument.getValue();
         final ByteBuffer metaBuf = table.saveToByteBufferAsRemote();
         closure.setResponse(msgFactory.getFileResponse().readSize(metaBuf.remaining()).eof(true)
-            .data(new ByteString(metaBuf)).build());
+            .data(metaBuf).build());
 
         // Mock get file
         argument = ArgumentCaptor.forClass(RpcResponseClosure.class);
@@ -309,7 +309,7 @@ public class SnapshotExecutorTest extends BaseStorageTest {
         closure = argument.getValue();
 
         closure.setResponse(msgFactory.getFileResponse().readSize(100).eof(true)
-            .data(new ByteString(new byte[100])).build());
+            .data(ByteBuffer.wrap(new byte[100])).build());
 
         ArgumentCaptor<LoadSnapshotClosure> loadSnapshotArg = ArgumentCaptor.forClass(LoadSnapshotClosure.class);
         Mockito.when(fSMCaller.onSnapshotLoad(loadSnapshotArg.capture())).thenReturn(true);

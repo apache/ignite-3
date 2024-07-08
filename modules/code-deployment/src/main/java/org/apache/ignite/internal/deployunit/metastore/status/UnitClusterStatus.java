@@ -27,7 +27,7 @@ import static org.apache.ignite.internal.deployunit.metastore.status.SerializeUt
 import java.util.Collections;
 import java.util.Set;
 import java.util.UUID;
-import org.apache.ignite.compute.version.Version;
+import org.apache.ignite.deployment.version.Version;
 import org.apache.ignite.internal.deployunit.DeploymentStatus;
 import org.apache.ignite.internal.deployunit.UnitStatus;
 import org.jetbrains.annotations.Nullable;

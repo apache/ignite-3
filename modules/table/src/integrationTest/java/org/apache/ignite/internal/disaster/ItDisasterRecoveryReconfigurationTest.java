@@ -33,6 +33,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
+import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.anEmptyMap;
@@ -448,10 +449,10 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
                     ByteArray raftConfigurationAppliedKey = raftConfigurationAppliedKey(new TablePartitionId(tableId, partId));
 
                     for (Operation operation : operations) {
-                        ByteArray opKey = new ByteArray(operation.key());
+                        ByteArray opKey = new ByteArray(toByteArray(operation.key()));
 
                         if (operation.type() == OperationType.PUT && opKey.equals(raftConfigurationAppliedKey)) {
-                            return blockedAssignments.equals(ByteUtils.fromBytes(operation.value()));
+                            return blockedAssignments.equals(ByteUtils.fromBytes(toByteArray(operation.value())));
                         }
                     }
                 }

@@ -28,13 +28,17 @@ import org.apache.ignite.internal.compute.task.TaskExecutionInternal;
  * Executor of Compute jobs.
  */
 public interface ComputeExecutor {
-    <R> JobExecutionInternal<R> executeJob(
+    <T, R> JobExecutionInternal<R> executeJob(
             ExecutionOptions options,
-            Class<? extends ComputeJob<R>> jobClass,
+            Class<? extends ComputeJob<T, R>> jobClass,
             JobClassLoader classLoader,
-            Object... args);
+            T input);
 
-    <R> TaskExecutionInternal<R> executeTask(JobSubmitter jobSubmitter, Class<? extends MapReduceTask<R>> taskClass, Object... args);
+    <I, M, T, R> TaskExecutionInternal<I, M, T, R> executeTask(
+            JobSubmitter<M, T> jobSubmitter,
+            Class<? extends MapReduceTask<I, M, T, R>> taskClass,
+            I input
+    );
 
     void start();
 

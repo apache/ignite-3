@@ -28,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.util.Collection;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.hamcrest.Matcher;
@@ -219,6 +220,44 @@ public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPa
 
             assertThat(rows, empty());
         }
+    }
+
+    @Test
+    public void testConcurrentAddAndRemoveEstimatedSize() {
+        var queue = new LinkedBlockingQueue<RowId>();
+
+        int firstBatch = REPEATS / 2;
+        int secondBatch = REPEATS - firstBatch;
+
+        runRace(
+                () -> {
+                    for (int i = 0; i < firstBatch; i++) {
+                        var rowId = new RowId(PARTITION_ID);
+
+                        addWriteCommitted(rowId, TABLE_ROW, clock.now());
+
+                        queue.add(rowId);
+                    }
+                },
+                () -> {
+                    for (int i = 0; i < secondBatch; i++) {
+                        var rowId = new RowId(PARTITION_ID);
+
+                        addWriteCommitted(rowId, TABLE_ROW, clock.now());
+
+                        queue.add(rowId);
+                    }
+                },
+                () -> {
+                    for (int i = 0; i < REPEATS; i++) {
+                        RowId rowId = queue.take();
+
+                        addWriteCommitted(rowId, null, clock.now());
+                    }
+                }
+        );
+
+        assertThat(storage.estimatedSize(), is(0L));
     }
 
     private static void assertRemoveRow(@Nullable BinaryRow rowBytes, Collection<BinaryRow> rows) {

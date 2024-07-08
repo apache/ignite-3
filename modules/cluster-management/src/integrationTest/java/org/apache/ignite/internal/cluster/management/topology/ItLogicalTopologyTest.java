@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.cluster.management.topology;
 
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.hasItems;
@@ -38,7 +37,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.IgniteServer;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
@@ -328,7 +327,7 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
             }
         });
 
-        cluster.startNodeAsync(1);
+        IgniteServer node = cluster.startEmbeddedNode(1);
 
         try {
             Event event = events.poll(10, TimeUnit.SECONDS);
@@ -344,7 +343,7 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
             assertThat(event.node.name(), is(not(entryNode.name())));
         } finally {
             // Stop the second node manually, because it couldn't start successfully.
-            IgnitionManager.stop(testNodeName(testInfo, 1));
+            node.shutdown();
         }
     }
 

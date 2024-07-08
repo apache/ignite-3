@@ -804,10 +804,8 @@ class FragmentMapper {
 
         @Override
         public List<ColocationGroup> createColocationGroups() {
-            ExecutionTarget finalised = target.finalise();
-
-            List<String> nodes = context.targetFactory().resolveNodes(finalised);
-            Int2ObjectMap<NodeWithConsistencyToken> assignments = context.targetFactory().resolveAssignments(finalised);
+            List<String> nodes = context.targetFactory().resolveNodes(target);
+            Int2ObjectMap<NodeWithConsistencyToken> assignments = context.targetFactory().resolveAssignments(target);
 
             return List.of(
                     new ColocationGroup(

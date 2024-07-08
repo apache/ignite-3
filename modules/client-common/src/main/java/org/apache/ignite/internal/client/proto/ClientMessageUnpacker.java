@@ -28,7 +28,7 @@ import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.List;
 import java.util.UUID;
-import org.apache.ignite.compute.DeploymentUnit;
+import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.sql.BatchedArguments;
@@ -484,6 +484,17 @@ public class ClientMessageUnpacker implements AutoCloseable {
         buf.readBytes(res);
 
         return res;
+    }
+
+    /**
+     * Reads a payload into the specified buffer.
+     *
+     * @param target Target buffer.
+     */
+    public void readPayload(ByteBuffer target) {
+        assert refCnt > 0 : "Unpacker is closed";
+
+        buf.readBytes(target);
     }
 
     /**

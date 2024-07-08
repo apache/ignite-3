@@ -18,10 +18,9 @@
 package org.apache.ignite.internal.partition.replicator.network.disaster;
 
 import org.apache.ignite.internal.network.NetworkMessage;
-import org.apache.ignite.internal.network.annotations.Marshallable;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.DisasterRecoveryMessages;
-import org.apache.ignite.internal.partition.replicator.network.command.TablePartitionIdMessage;
+import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
 
 /**
  * Local partition state message, has partition ID, state and last committed log index.
@@ -31,10 +30,18 @@ public interface LocalPartitionStateMessage extends NetworkMessage {
     /** Partition ID. */
     TablePartitionIdMessage partitionId();
 
-    /** Calculated state of the partition. */
-    @Marshallable
-    LocalPartitionStateEnum state();
+    /** Ordinal of {@link LocalPartitionStateEnum} value. */
+    int stateInt();
 
     /** Index of the last received log entry for this partition. */
     long logIndex();
+
+    /** Calculated state of the partition. */
+    default LocalPartitionStateEnum state() {
+        LocalPartitionStateEnum state = LocalPartitionStateEnum.fromOrdinal(stateInt());
+
+        assert state != null : stateInt();
+
+        return state;
+    }
 }

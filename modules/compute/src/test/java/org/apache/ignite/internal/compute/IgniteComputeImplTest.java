@@ -24,7 +24,6 @@ import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFu
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.aMapWithSize;
 import static org.hamcrest.Matchers.contains;
-import static org.mockito.AdditionalMatchers.aryEq;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
@@ -38,12 +37,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.compute.JobState;
 import org.apache.ignite.compute.JobTarget;
+import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
@@ -114,11 +113,11 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
                 compute.executeAsync(
                         JobTarget.node(localNode),
                         JobDescriptor.builder(JOB_CLASS_NAME).units(testDeploymentUnits).build(),
-                        "a", 42),
+                        "a"),
                 willBe("jobResponse")
         );
 
-        verify(computeComponent).executeLocally(ExecutionOptions.DEFAULT, testDeploymentUnits, JOB_CLASS_NAME, "a", 42);
+        verify(computeComponent).executeLocally(ExecutionOptions.DEFAULT, testDeploymentUnits, JOB_CLASS_NAME, "a");
     }
 
     @Test
@@ -129,7 +128,7 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
                 compute.executeAsync(
                         JobTarget.node(remoteNode),
                         JobDescriptor.builder(JOB_CLASS_NAME).units(testDeploymentUnits).build(),
-                        "a", 42),
+                        "a"),
                 willBe("remoteResponse")
         );
 
@@ -146,11 +145,11 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
                 compute.executeAsync(
                         JobTarget.node(localNode),
                         JobDescriptor.builder(JOB_CLASS_NAME).units(testDeploymentUnits).options(options).build(),
-                        "a", 42),
+                        "a"),
                 willBe("jobResponse")
         );
 
-        verify(computeComponent).executeLocally(expectedOptions, testDeploymentUnits, JOB_CLASS_NAME, "a", 42);
+        verify(computeComponent).executeLocally(expectedOptions, testDeploymentUnits, JOB_CLASS_NAME, "a");
     }
 
     @Test
@@ -164,7 +163,7 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
                 compute.executeAsync(
                         JobTarget.node(remoteNode),
                         JobDescriptor.builder(JOB_CLASS_NAME).units(testDeploymentUnits).options(options).build(),
-                        "a", 42),
+                        "a"),
                 willBe("remoteResponse")
         );
 
@@ -180,7 +179,7 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
                 compute.executeAsync(
                         JobTarget.colocated("test", Tuple.create(Map.of("k", 1))),
                         JobDescriptor.builder(JOB_CLASS_NAME).units(testDeploymentUnits).build(),
-                        "a", 42),
+                        "a"),
                 willBe("remoteResponse")
         );
     }
@@ -194,7 +193,7 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
                 compute.executeAsync(
                         JobTarget.colocated("test", 1, Mapper.of(Integer.class)),
                         JobDescriptor.builder(JOB_CLASS_NAME).units(testDeploymentUnits).build(),
-                        "a", 42
+                        "a"
                 ),
                 willBe("remoteResponse")
         );
@@ -206,7 +205,8 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
         respondWhenExecutingSimpleJobRemotely(ExecutionOptions.DEFAULT);
 
         CompletableFuture<Map<ClusterNode, String>> future = compute.executeBroadcastAsync(
-                Set.of(localNode, remoteNode), JobDescriptor.builder(JOB_CLASS_NAME).units(testDeploymentUnits).build(), "a", 42
+                Set.of(localNode, remoteNode), JobDescriptor.<String, String>builder(JOB_CLASS_NAME).units(testDeploymentUnits).build(),
+                "a"
         );
 
         assertThat(future, willBe(aMapWithSize(2)));
@@ -224,19 +224,19 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
     }
 
     private void respondWhenExecutingSimpleJobLocally(ExecutionOptions executionOptions) {
-        when(computeComponent.executeLocally(executionOptions, testDeploymentUnits, JOB_CLASS_NAME, "a", 42))
+        when(computeComponent.executeLocally(eq(executionOptions), eq(testDeploymentUnits), eq(JOB_CLASS_NAME), eq("a")))
                 .thenReturn(completedExecution("jobResponse"));
     }
 
     private void respondWhenExecutingSimpleJobRemotely(ExecutionOptions options) {
         when(computeComponent.executeRemotelyWithFailover(
-                eq(remoteNode), any(), eq(testDeploymentUnits), eq(JOB_CLASS_NAME), eq(options), aryEq(new Object[]{"a", 42})
+                eq(remoteNode), any(), eq(testDeploymentUnits), eq(JOB_CLASS_NAME), eq(options), eq("a")
         )).thenReturn(completedExecution("remoteResponse"));
     }
 
     private void verifyExecuteRemotelyWithFailover(ExecutionOptions options) {
         verify(computeComponent).executeRemotelyWithFailover(
-                eq(remoteNode), any(), eq(testDeploymentUnits), eq(JOB_CLASS_NAME), eq(options), aryEq(new Object[]{"a", 42})
+                eq(remoteNode), any(), eq(testDeploymentUnits), eq(JOB_CLASS_NAME), eq(options), eq("a")
         );
     }
 

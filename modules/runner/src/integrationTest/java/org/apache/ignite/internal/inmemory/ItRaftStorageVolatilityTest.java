@@ -122,7 +122,7 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
         String nodeName = ignite.name();
         String tablePartitionPrefix = testTablePartitionPrefix(ignite);
 
-        node(0).close();
+        stopNode(0);
 
         Path logRocksDbDir = workDir.resolve(nodeName).resolve("log");
 
@@ -182,7 +182,7 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
         String nodeName = ignite.name();
         String tablePartitionPrefix = testTablePartitionPrefix(ignite);
 
-        node(0).close();
+        stopNode(0);
 
         Path logRocksDbDir = workDir.resolve(nodeName).resolve("log");
 

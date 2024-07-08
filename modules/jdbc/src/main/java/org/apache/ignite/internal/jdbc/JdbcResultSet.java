@@ -66,11 +66,9 @@ import org.apache.ignite.internal.jdbc.proto.JdbcQueryCursorHandler;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcColumnMeta;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcFetchQueryResultsRequest;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaColumnsResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryCloseRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryCloseResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryFetchResult;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryMetadataRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQuerySingleResult;
 import org.apache.ignite.internal.util.TransformingIterator;
 import org.apache.ignite.sql.ColumnType;
@@ -102,6 +100,9 @@ public class JdbcResultSet implements ResultSet {
     private final @Nullable Long cursorId;
     private final boolean hasResultSet;
     private final boolean hasNextResult;
+
+    /** Jdbc metadata. */
+    private final @Nullable JdbcResultSetMetadata jdbcMeta;
 
     /** Column order map. */
     private @Nullable Map<String, Integer> colOrder;
@@ -142,9 +143,6 @@ public class JdbcResultSet implements ResultSet {
     /** Query request handler. */
     private JdbcQueryCursorHandler cursorHandler;
 
-    /** Jdbc metadata. */
-    private @Nullable JdbcResultSetMetadata jdbcMeta;
-
     /** Count of columns in resultSet row. */
     private int columnCount;
 
@@ -174,6 +172,7 @@ public class JdbcResultSet implements ResultSet {
             int fetchSize,
             boolean finished,
             @Nullable List<BinaryTupleReader> rows,
+            @Nullable List<JdbcColumnMeta> meta,
             boolean hasResultSet,
             boolean hasNextResult,
             long updCnt,
@@ -197,10 +196,12 @@ public class JdbcResultSet implements ResultSet {
         if (this.hasResultSet) {
             this.transformer = Objects.requireNonNull(transformer);
             this.rows = Objects.requireNonNull(rows);
+            this.jdbcMeta = new JdbcResultSetMetadata(Objects.requireNonNull(meta));
 
             rowsIter = new TransformingIterator<>(rows.iterator(), transformer);
         } else {
             this.updCnt = updCnt;
+            this.jdbcMeta = null;
         }
 
         holdsResource = cursorId != null;
@@ -226,7 +227,7 @@ public class JdbcResultSet implements ResultSet {
         this.rowsIter = rows.iterator();
         this.jdbcMeta = new JdbcResultSetMetadata(meta);
 
-        initColumnOrder();
+        initColumnOrder(jdbcMeta);
     }
 
     boolean holdResults() {
@@ -251,17 +252,16 @@ public class JdbcResultSet implements ResultSet {
 
                 Long newCursorId = res.cursorId();
 
-                List<ColumnType> columnTypes = res.columnTypes();
-                int[] decimalScales = res.decimalScales();
+                List<JdbcColumnMeta> meta = res.meta();
 
                 rows = List.of();
 
-                Function<BinaryTupleReader, List<Object>> transformer = createTransformer(columnTypes, decimalScales);
+                Function<BinaryTupleReader, List<Object>> transformer = meta != null ? createTransformer(meta) : null;
 
-                int colCount = columnTypes == null ? 0 : columnTypes.size();
+                int colCount = meta != null ? meta.size() : 0;
 
                 return new JdbcResultSet(cursorHandler, stmt, newCursorId, fetchSize, !res.hasMoreData(), res.items(),
-                        res.hasResultSet(), res.hasNextResult(), res.updateCount(), closeStmt, colCount, transformer);
+                        meta, res.hasResultSet(), res.hasNextResult(), res.updateCount(), closeStmt, colCount, transformer);
             } else {
                 // cursor doesn't have next result, thus let's just close current one
                 close0(true);
@@ -957,11 +957,7 @@ public class JdbcResultSet implements ResultSet {
     public ResultSetMetaData getMetaData() throws SQLException {
         ensureNotClosed();
 
-        if (jdbcMeta == null) {
-            initMeta();
-        }
-
-        return jdbcMeta;
+        return metaOrThrow();
     }
 
     /** {@inheritDoc} */
@@ -2261,11 +2257,7 @@ public class JdbcResultSet implements ResultSet {
             return colOrder;
         }
 
-        if (jdbcMeta == null) {
-            initMeta();
-        }
-
-        initColumnOrder();
+        initColumnOrder(metaOrThrow());
 
         return colOrder;
     }
@@ -2273,7 +2265,7 @@ public class JdbcResultSet implements ResultSet {
     /**
      * Init column order map.
      */
-    private void initColumnOrder() throws SQLException {
+    private void initColumnOrder(JdbcResultSetMetadata jdbcMeta) throws SQLException {
         colOrder = new HashMap<>(jdbcMeta.getColumnCount());
 
         for (int i = 0; i < jdbcMeta.getColumnCount(); ++i) {
@@ -2285,47 +2277,28 @@ public class JdbcResultSet implements ResultSet {
         }
     }
 
-    /**
-     * Initialize metadata if it's not initialized yet.
-     *
-     * @throws SQLException On error.
-     */
-    private void initMeta() throws SQLException {
-        if (finished && !hasResultSet) {
-            throw new SQLException("Server cursor is already closed.", SqlStateCode.INVALID_CURSOR_STATE);
+    private JdbcResultSetMetadata metaOrThrow() throws SQLException {
+        if (jdbcMeta == null) {
+            throw new SQLException("Result doesn't have metadata");
         }
 
-        try {
-            if (jdbcMeta == null) {
-                assert cursorId != null : "Unable to call meta() method for non QUERY result set.";
-
-                JdbcMetaColumnsResult res = cursorHandler.queryMetadataAsync(new JdbcQueryMetadataRequest(cursorId)).get();
-
-                jdbcMeta = new JdbcResultSetMetadata(res.meta());
-            }
-        } catch (InterruptedException e) {
-            throw new SQLException("Thread was interrupted.", e);
-        } catch (ExecutionException e) {
-            throw new SQLException("Metadata request failed.", e);
-        } catch (CancellationException e) {
-            throw new SQLException("Metadata request canceled.", SqlStateCode.QUERY_CANCELLED);
-        }
+        return jdbcMeta;
     }
 
-    static Function<BinaryTupleReader, List<Object>> createTransformer(List<ColumnType> columnTypes, int[] decimalScales) {
+    static Function<BinaryTupleReader, List<Object>> createTransformer(List<JdbcColumnMeta> meta) {
         return (tuple) -> {
-            int columnCount = columnTypes.size();
+            int columnCount = meta.size();
             List<Object> row = new ArrayList<>(columnCount);
-            int decimalIdx = 0;
             int currentDecimalScale = -1;
 
-            for (int colIdx = 0; colIdx < columnCount; colIdx++) {
-                ColumnType type = columnTypes.get(colIdx);
+            int idx = 0;
+            for (JdbcColumnMeta columnMeta : meta) {
+                ColumnType type = columnMeta.columnType();
                 if (type == ColumnType.DECIMAL) {
-                    currentDecimalScale = decimalScales[decimalIdx++];
+                    currentDecimalScale = columnMeta.scale();
                 }
 
-                row.add(JdbcConverterUtils.deriveValueFromBinaryTuple(type, tuple, colIdx, currentDecimalScale));
+                row.add(JdbcConverterUtils.deriveValueFromBinaryTuple(type, tuple, idx++, currentDecimalScale));
             }
 
             return row;

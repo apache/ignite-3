@@ -54,9 +54,11 @@ import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.client.proto.ResponseFlags;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.util.ViewUtils;
 import org.apache.ignite.lang.ErrorGroups.Table;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.sql.SqlBatchException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -360,7 +362,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
             metrics.requestsActiveDecrement();
 
-            throw sneakyThrow(ClientUtils.ensurePublicException(t));
+            throw sneakyThrow(ViewUtils.ensurePublicException(t));
         }
     }
 
@@ -481,28 +483,35 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
         IgniteException causeWithStackTrace = unpacker.tryUnpackNil() ? null : new IgniteException(traceId, code, unpacker.unpackString());
 
-        if (code == Table.SCHEMA_VERSION_MISMATCH_ERR) {
-            int extSize;
-            extSize = unpacker.tryUnpackNil() ? 0 : unpacker.unpackInt();
-            int expectedSchemaVersion = -1;
+        int extSize = unpacker.tryUnpackNil() ? 0 : unpacker.unpackInt();
+        int expectedSchemaVersion = -1;
+        long[] sqlUpdateCounters = null;
 
-            for (int i = 0; i < extSize; i++) {
-                String key = unpacker.unpackString();
+        for (int i = 0; i < extSize; i++) {
+            String key = unpacker.unpackString();
 
-                if (key.equals(ErrorExtensions.EXPECTED_SCHEMA_VERSION)) {
-                    expectedSchemaVersion = unpacker.unpackInt();
-                } else {
-                    // Unknown extension - ignore.
-                    unpacker.skipValues(1);
-                }
+            if (key.equals(ErrorExtensions.EXPECTED_SCHEMA_VERSION)) {
+                expectedSchemaVersion = unpacker.unpackInt();
+            } else if (key.equals(ErrorExtensions.SQL_UPDATE_COUNTERS)) {
+                sqlUpdateCounters = unpacker.unpackLongArray();
+            } else {
+                // Unknown extension - ignore.
+                unpacker.skipValues(1);
             }
+        }
 
+        if (code == Table.SCHEMA_VERSION_MISMATCH_ERR) {
             if (expectedSchemaVersion == -1) {
                 return new IgniteException(
                         traceId, PROTOCOL_ERR, "Expected schema version is not specified in error extension map.", causeWithStackTrace);
             }
 
             return new ClientSchemaVersionMismatchException(traceId, code, errMsg, expectedSchemaVersion, causeWithStackTrace);
+        }
+
+        if (sqlUpdateCounters != null) {
+            errMsg = errMsg != null ? errMsg : "SQL batch execution error";
+            return new SqlBatchException(traceId, code, sqlUpdateCounters, errMsg, causeWithStackTrace);
         }
 
         try {

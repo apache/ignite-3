@@ -19,19 +19,17 @@ package org.apache.ignite.internal.sql.engine.prepare;
 
 import static java.util.Objects.requireNonNull;
 import static org.apache.calcite.sql.type.SqlTypeName.INTEGER;
-import static org.apache.calcite.sql.type.SqlTypeName.INT_TYPES;
 import static org.apache.calcite.sql.type.SqlTypeUtil.isNull;
 import static org.apache.calcite.util.Static.RESOURCE;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_PARSE_ERR;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectArrayMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.IntArraySet;
 import it.unimi.dsi.fastutil.ints.IntSet;
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.AbstractList;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumSet;
@@ -41,7 +39,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
-import java.util.regex.Pattern;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.prepare.CalciteCatalogReader;
 import org.apache.calcite.prepare.Prepare;
@@ -56,6 +53,7 @@ import org.apache.calcite.sql.SqlCallBinding;
 import org.apache.calcite.sql.SqlDelete;
 import org.apache.calcite.sql.SqlDynamicParam;
 import org.apache.calcite.sql.SqlExplain;
+import org.apache.calcite.sql.SqlFunction;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlInsert;
 import org.apache.calcite.sql.SqlJoin;
@@ -73,9 +71,7 @@ import org.apache.calcite.sql.dialect.CalciteSqlDialect;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.SqlTypeName;
-import org.apache.calcite.sql.type.SqlTypeName.Limit;
 import org.apache.calcite.sql.type.SqlTypeUtil;
-import org.apache.calcite.sql.util.SqlBasicVisitor;
 import org.apache.calcite.sql.util.SqlShuttle;
 import org.apache.calcite.sql.validate.SelectScope;
 import org.apache.calcite.sql.validate.SqlValidator;
@@ -84,10 +80,10 @@ import org.apache.calcite.sql.validate.SqlValidatorNamespace;
 import org.apache.calcite.sql.validate.SqlValidatorScope;
 import org.apache.calcite.sql.validate.SqlValidatorTable;
 import org.apache.calcite.sql.validate.SqlValidatorUtil;
-import org.apache.calcite.util.Util;
 import org.apache.ignite.internal.sql.engine.schema.IgniteDataSource;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSystemView;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
+import org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomTypeCoercionRules;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
@@ -95,7 +91,6 @@ import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.IgniteResource;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
-import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
 /** Validator. */
@@ -108,9 +103,6 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     private static final Set<SqlKind> HUMAN_READABLE_ALIASES_FOR;
 
     public static final String NUMERIC_FIELD_OVERFLOW_ERROR = "Numeric field overflow";
-
-    // Approximate and exact numeric types.
-    private static final Pattern NUMERIC = Pattern.compile("^\\s*\\d+(\\.{1}\\d*)\\s*$");
 
     static {
         EnumSet<SqlKind> kinds = EnumSet.noneOf(SqlKind.class);
@@ -137,9 +129,6 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
      * We store them to check that every i-th parameter has the same type.
      */
     private final IdentityHashMap<SqlDynamicParam, SqlDynamicParam> dynamicParamNodes = new IdentityHashMap<>();
-
-    /** Literal processing. */
-    private final LiteralExtractor litExtractor = new LiteralExtractor();
 
     /**
      * Creates a validator.
@@ -627,6 +616,10 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             RelDataType firstType;
             RelDataType returnType = super.deriveType(scope, ret);
 
+            if (returnType.isStruct()) {
+                throw newValidationError(expr, IgniteResource.INSTANCE.dataTypeIsNotSupported(returnType.getSqlTypeName().getName()));
+            }
+
             if (first instanceof SqlDynamicParam) {
                 SqlDynamicParam dynamicParam = (SqlDynamicParam) first;
                 firstType = deriveDynamicParamType(dynamicParam);
@@ -676,71 +669,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
                     String typeName = returnType.getSqlTypeName().getSpaceName();
                     throw newValidationError(expr, IgniteResource.INSTANCE.invalidStringLength(typeName));
                 }
-
-                literalCanFitType(expr, returnType);
             }
-        }
-    }
-
-    /** Check literal can fit to declared exact numeric type, work only for single literal. */
-    private void literalCanFitType(SqlNode expr, RelDataType toType) {
-        if (INT_TYPES.contains(toType.getSqlTypeName())) {
-            SqlLiteral literal = litExtractor.getLiteral(expr);
-
-            if (literal == null || literal.toValue() == null) {
-                return;
-            }
-
-            int precision = toType.getSqlTypeName().allowsPrec() ? toType.getPrecision() : -1;
-            int scale = toType.getSqlTypeName().allowsScale() ? toType.getScale() : -1;
-
-            BigDecimal max = (BigDecimal) toType.getSqlTypeName().getLimit(true, Limit.OVERFLOW, false, precision, scale);
-            BigDecimal min = (BigDecimal) toType.getSqlTypeName().getLimit(false, Limit.OVERFLOW, false, precision, scale);
-
-            String litValue = requireNonNull(literal.toValue());
-
-            BigDecimal litValueToDecimal = null;
-
-            try {
-                litValueToDecimal = new BigDecimal(litValue).setScale(0, RoundingMode.HALF_UP);
-            } catch (NumberFormatException e) {
-                if (!NUMERIC.matcher(litValue).matches()) {
-                    throw new SqlException(STMT_PARSE_ERR, e);
-                }
-            }
-
-            if (max.compareTo(litValueToDecimal) < 0 || min.compareTo(litValueToDecimal) > 0) {
-                throw new SqlException(STMT_PARSE_ERR, "Value '" + litValue + "'"
-                        + " out of range for type " + toType.getSqlTypeName());
-            }
-        }
-    }
-
-    private static class LiteralExtractor extends SqlBasicVisitor<SqlNode> {
-        private @Nullable SqlLiteral extracted;
-
-        private @Nullable SqlLiteral getLiteral(SqlNode expr) {
-            extracted = null;
-            try {
-                expr.accept(this);
-            } catch (Util.FoundOne e) {
-                Util.swallow(e, null);
-            }
-            return extracted;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public SqlNode visit(SqlLiteral literal) {
-            extracted = extracted != null ? null : literal;
-            return literal;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public SqlNode visit(SqlDynamicParam param) {
-            extracted = null;
-            throw Util.FoundOne.NULL;
         }
     }
 
@@ -949,6 +878,126 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
 
     private boolean isSystemFieldName(String alias) {
         return Commons.implicitPkEnabled() && Commons.IMPLICIT_PK_COL_NAME.equals(alias);
+    }
+
+    // We use these scopes to filter out valid usages of a ROW operator.
+    private final ArrayDeque<CallScope> callScopes = new ArrayDeque<>();
+
+    /** {@inheritDoc} */
+    @Override
+    protected void validateValues(SqlCall node, RelDataType targetRowType, SqlValidatorScope scope) {
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-22084: Sql. Add support for row data type.
+        // ROW operator is used in VALUES (row), (row1)
+        callScopes.push(CallScope.VALUES);
+        try {
+            super.validateValues(node, targetRowType, scope);
+        } finally {
+            callScopes.pop();
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    protected void validateGroupClause(SqlSelect select) {
+        // Calcite uses the ROW operator in the GROUP BY clause in the following cases:
+        // - GROUP BY GROUPING SET ((a, b), (c, d))
+        // - GROUP BY (a, b) (but GROUP BY a, b does not use the ROW operator)
+        //
+        // We need to make sure that the validator won't reject such clauses.
+        SqlNodeList group = select.getGroup() == null ? SqlNodeList.EMPTY : select.getGroup();
+        boolean rowInGroupScope = false;
+
+        for (SqlNode node : group) {
+            if (node.getKind() == SqlKind.GROUPING_SETS || node.getKind() == SqlKind.ROW) {
+                rowInGroupScope = true;
+                break;
+            }
+        }
+
+        if (!rowInGroupScope) {
+            super.validateGroupClause(select);
+        } else {
+            callScopes.push(CallScope.GROUP);
+
+            try {
+                super.validateGroupClause(select);
+            } finally {
+                callScopes.pop();
+            }
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void validateCall(SqlCall call, SqlValidatorScope scope) {
+        CallScope callScope = callScopes.peek();
+        boolean validatingRowOperator = call.getOperator() == SqlStdOperatorTable.ROW;
+        boolean insideValues = callScope == CallScope.VALUES;
+        boolean insideGroupClause = callScope == CallScope.GROUP;
+        boolean valuesCall = call.getOperator() == SqlStdOperatorTable.VALUES;
+
+        if (validatingRowOperator && !(insideValues || insideGroupClause)) {
+            throw newValidationError(call, IgniteResource.INSTANCE.dataTypeIsNotSupported(call.getOperator().getName()));
+        }
+
+        if (valuesCall) {
+            // VALUES in the WHERE clause in VALUES operator, which is not validated via validateValues method.
+            callScopes.push(CallScope.VALUES);
+        } else if (insideGroupClause) {
+            // Allow GROUPING SET ( (a,b), (c, d) ) and GROUP BY (a, b)
+            callScopes.push(CallScope.GROUP);
+        } else {
+            callScopes.push(CallScope.OTHER);
+        }
+
+        try {
+            super.validateCall(call, scope);
+
+            checkCallsWithCustomTypes(call, scope);
+        } finally {
+            callScopes.pop();
+        }
+    }
+
+    private void checkCallsWithCustomTypes(SqlCall call, SqlValidatorScope scope) {
+        SqlOperator operator = call.getOperator();
+
+        // IgniteCustomType:
+        // Since custom data types use ANY that is a catch all type for type checkers,
+        // if a function is called with custom data type argument does not belong to CUSTOM_TYPE_FUNCTIONS,
+        // then this should be considered a validation error.
+
+        if (call.getOperandList().isEmpty()
+                || !(operator instanceof SqlFunction)
+                || IgniteSqlOperatorTable.CUSTOM_TYPE_FUNCTIONS.contains(operator)) {
+            return;
+        }
+
+        for (SqlNode node : call.getOperandList()) {
+            RelDataType type = getValidatedNodeTypeIfKnown(node);
+            // Argument type is not known yet (alias) or it is not a custom data type.
+            if ((!(type instanceof IgniteCustomType))) {
+                continue;
+            }
+
+            String name = call.getOperator().getName();
+
+            // Call to getAllowedSignatures throws NPE, if operandTypeChecker is null.
+            if (operator.getOperandTypeChecker() != null) {
+                // If signatures are available, then return:
+                // Cannot apply 'F' to arguments of type 'F(<ARG_TYPE>)'. Supported form(s): 'F(<TYPE>)'
+                String allowedSignatures = operator.getAllowedSignatures();
+                throw newValidationError(call,
+                        RESOURCE.canNotApplyOp2Type(name,
+                                call.getCallSignature(this, scope),
+                                allowedSignatures));
+            } else {
+                // Otherwise return an error w/o supported forms:
+                // Cannot apply 'F' to arguments of type 'F(<ARG_TYPE>)'
+                throw newValidationError(call, IgniteResource.INSTANCE.canNotApplyOp2Type(name,
+                        call.getCallSignature(this, scope)));
+            }
+        }
     }
 
     /** {@inheritDoc} */
@@ -1190,5 +1239,15 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             this.value = null;
             this.hasValue = false;
         }
+    }
+
+    /**
+     * Scope to distinguish between different usages of the ROW operator.
+     */
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-22084: Sql. Add support for row data type. Remove after row type is supported.
+    private enum CallScope {
+        VALUES,
+        GROUP,
+        OTHER
     }
 }
