@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.call.recovery;
+package org.apache.ignite.internal.cli.call.recovery.states;
 
 import static java.util.stream.Collectors.toList;
 
