@@ -981,9 +981,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     MvTableStorage mvTableStorage = internalTbl.storage();
 
                     try {
-                        LOG.info("!!!! ["
-                                + "stable=" + stableAssignments
-                                + ", localName=" + localNode().name() + "]");
                         return replicaMgr.startReplica(
                                 raftGroupEventsListener,
                                 raftGroupListener,
@@ -1808,10 +1805,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             long revision,
             boolean isRecovery
     ) {
-        LOG.info("!!! ["
-                + "stable=" + stableAssignments
-                + ", pending=" + pendingAssignments
-                + ", localName=" + localNode().name() + "]");
         boolean pendingAssignmentsAreForced = pendingAssignments.force();
         Set<Assignment> pendingAssignmentsNodes = pendingAssignments.nodes();
 
