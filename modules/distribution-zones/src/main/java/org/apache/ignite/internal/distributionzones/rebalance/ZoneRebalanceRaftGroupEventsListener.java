@@ -331,7 +331,7 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
                     )
             ).get();
 
-            // Safe to get the latest version until lwm mechanism is implemented for zone lifecycle.
+            // TODO: IGNITE-22680 Find a better way to retrieve the catalog version.
             int catalogVersion = catalogService.latestCatalogVersion();
 
             Set<Assignment> calculatedAssignments = calculateZoneAssignments(
