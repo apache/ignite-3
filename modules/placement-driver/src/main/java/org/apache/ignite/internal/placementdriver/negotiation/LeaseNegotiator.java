@@ -70,7 +70,11 @@ public class LeaseNegotiator {
 
         ReplicationGroupId groupId = lease.replicationGroupId();
 
-        leaseToNegotiate.put(groupId, new LeaseAgreement(lease, fut));
+        LeaseAgreement prevAgreement = leaseToNegotiate.put(groupId, new LeaseAgreement(lease, fut));
+
+        if (prevAgreement != null) {
+            LOG.warn("There was a previous agreement that is removed [groupId={}, ready={}, accepted={}, lease=]", groupId, prevAgreement.ready(), prevAgreement.isAccepted(), prevAgreement.getLease());
+        }
 
         long leaseInterval = lease.getExpirationTime().getPhysical() - lease.getStartTime().getPhysical();
 
