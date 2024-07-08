@@ -1826,7 +1826,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         // are excluded. It is calculated precisely as an intersection between forced assignments and (old) stable assignments.
         Assignments computedStableAssignments;
 
-        if (stableAssignments == null) {
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-22600 remove the second condition
+        //  when we will have a proper handling of empty stable assignments
+        if (stableAssignments == null || stableAssignments.nodes().isEmpty()) {
             // This condition can only pass if all stable nodes are dead, and we start new raft group from scratch.
             // In this case new initial configuration must match new forced assignments.
             computedStableAssignments = Assignments.forced(pendingAssignmentsNodes);
@@ -1876,7 +1878,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     }), ioExecutor);
         } else if (pendingAssignmentsAreForced && localMemberAssignment != null) {
             localServicesStartFuture = runAsync(() -> {
-                replicaMgr.resetPeers(replicaGrpId, fromAssignments(computedStableAssignments.nodes()));
+                inBusyLock(busyLock, () -> replicaMgr.resetPeers(replicaGrpId, fromAssignments(computedStableAssignments.nodes())));
             }, ioExecutor);
         } else {
             localServicesStartFuture = nullCompletedFuture();
