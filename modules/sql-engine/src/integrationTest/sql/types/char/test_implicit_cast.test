@@ -65,16 +65,10 @@ create table tiny(v TINYINT);
 statement ok
 insert into tiny values('127');
 
-skipif ignite3
-# https://issues.apache.org/jira/browse/IGNITE-22444
-#Values of either the CHARACTER or CHARACTER VARYING data type can be assigned to the other type, subject to truncation conditions
 query T
 SELECT * FROM tiny WHERE v = '300';
 ----
 
-skipif ignite3
-# https://issues.apache.org/jira/browse/IGNITE-22444
-#Values of either the CHARACTER or CHARACTER VARYING data type can be assigned to the other type, subject to truncation conditions
 query T
 SELECT * FROM tiny WHERE v < '300';
 ----
