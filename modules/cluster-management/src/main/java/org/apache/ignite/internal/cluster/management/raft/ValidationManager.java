@@ -41,12 +41,12 @@ import org.jetbrains.annotations.Nullable;
  * token and the received token match, the node will be added to the logical topology and the token will be invalidated.
  */
 public class ValidationManager {
-    protected final ClusterStateStorageManager clusterStateStorageMgr;
+    protected final ClusterStateStorageManager storageManager;
 
     protected final LogicalTopology logicalTopology;
 
-    public ValidationManager(ClusterStateStorageManager clusterStateStorageMgr, LogicalTopology logicalTopology) {
-        this.clusterStateStorageMgr = clusterStateStorageMgr;
+    public ValidationManager(ClusterStateStorageManager storageManager, LogicalTopology logicalTopology) {
+        this.storageManager = storageManager;
         this.logicalTopology = logicalTopology;
     }
 
@@ -124,17 +124,17 @@ public class ValidationManager {
     }
 
     boolean isNodeValidated(LogicalNode node) {
-        return clusterStateStorageMgr.isNodeValidated(node) || logicalTopology.isNodeInLogicalTopology(node);
+        return storageManager.isNodeValidated(node) || logicalTopology.isNodeInLogicalTopology(node);
     }
 
     void putValidatedNode(LogicalNode node) {
-        clusterStateStorageMgr.putValidatedNode(node);
+        storageManager.putValidatedNode(node);
 
         logicalTopology.onNodeValidated(node);
     }
 
     void removeValidatedNodes(Collection<LogicalNode> nodes) {
-        Set<String> validatedNodeIds = clusterStateStorageMgr.getValidatedNodes().stream()
+        Set<String> validatedNodeIds = storageManager.getValidatedNodes().stream()
                 .map(ClusterNode::id)
                 .collect(toSet());
 
@@ -143,7 +143,7 @@ public class ValidationManager {
                 .filter(node -> validatedNodeIds.contains(node.id()))
                 .sorted(Comparator.comparing(ClusterNode::id))
                 .forEach(node -> {
-                    clusterStateStorageMgr.removeValidatedNode(node);
+                    storageManager.removeValidatedNode(node);
 
                     logicalTopology.onNodeInvalidated(node);
                 });
@@ -157,16 +157,16 @@ public class ValidationManager {
      */
     protected ValidationResult completeValidation(LogicalNode node) {
         // Remove all other versions of this node, if they were validated at some point, but not removed from the physical topology.
-        clusterStateStorageMgr.getValidatedNodes().stream()
+        storageManager.getValidatedNodes().stream()
                 .filter(n -> n.name().equals(node.name()) && !n.id().equals(node.id()))
                 .sorted(Comparator.comparing(ClusterNode::id))
                 .forEach(nodeVersion -> {
-                    clusterStateStorageMgr.removeValidatedNode(nodeVersion);
+                    storageManager.removeValidatedNode(nodeVersion);
 
                     logicalTopology.onNodeInvalidated(nodeVersion);
                 });
 
-        clusterStateStorageMgr.removeValidatedNode(node);
+        storageManager.removeValidatedNode(node);
 
         return ValidationResult.successfulResult();
     }
