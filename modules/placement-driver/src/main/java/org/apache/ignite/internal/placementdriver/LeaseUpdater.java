@@ -371,6 +371,8 @@ public class LeaseUpdater {
                     agreement.checkValid(grpId, topologyTracker.currentTopologySnapshot(), assignments);
 
                     if (agreement.isAccepted()) {
+                        LOG.info("Publishing lease [groupId={}, startTime={}, leaseholderId={}, agreementLease={}]", grpId, lease.getStartTime(), lease.getLeaseholderId(), agreement.getLease());
+
                         publishLease(grpId, lease, renewedLeases);
 
                         continue;
@@ -487,6 +489,8 @@ public class LeaseUpdater {
 
             renewedLeases.put(grpId, renewedLease);
 
+            LOG.info("Writing new lease [groupId={}, startTime={}, leaseholderId={}]", grpId, renewedLease.getStartTime(), renewedLease.getLeaseholderId());
+
             leaseUpdateStatistics.onLeaseCreate();
         }
 
@@ -519,8 +523,6 @@ public class LeaseUpdater {
             Lease renewedLease = lease.acceptLease(newTs);
 
             renewedLeases.put(grpId, renewedLease);
-
-            LOG.info("Publishing lease [groupId={}, startTime={}, leaseholderId={}]", grpId, lease.getStartTime(), lease.getLeaseholderId());
 
             leaseUpdateStatistics.onLeasePublish();
         }
