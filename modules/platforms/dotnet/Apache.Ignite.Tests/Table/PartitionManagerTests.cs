@@ -17,8 +17,10 @@
 
 namespace Apache.Ignite.Tests.Table;
 
+using System.Linq;
 using System.Threading.Tasks;
 using Ignite.Table;
+using Internal.Table;
 using NUnit.Framework;
 
 /// <summary>
@@ -29,10 +31,17 @@ public class PartitionManagerTests : IgniteTestsBase
     [Test]
     public async Task TestGetPrimaryReplicas()
     {
-        var partitionManager = Table.PartitionManager;
-        var primaryReplicas = await partitionManager.GetPrimaryReplicasAsync();
+        var replicas = await Table.PartitionManager.GetPrimaryReplicasAsync();
+        var replicasNodes = replicas.Values.Distinct().OrderBy(x => x.Address.Port).ToList();
+        var replicasPartitions = replicas.Keys.Select(x => ((HashPartition)x).PartitionId).OrderBy(x => x).ToList();
 
-        Assert.IsNotNull(primaryReplicas);
-        Assert.IsNotEmpty(primaryReplicas);
+        var expectedNodes = (await Client.GetClusterNodesAsync()).OrderBy(x => x.Address.Port).ToList();
+
+        CollectionAssert.AreEqual(expectedNodes, replicasNodes, "Primary replicas should be distributed among all nodes");
+
+        CollectionAssert.AreEqual(
+            Enumerable.Range(0, TablePartitionCount),
+            replicasPartitions,
+            "Primary replicas map should have all partitions");
     }
 }
