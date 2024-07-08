@@ -307,9 +307,11 @@ public class SqlTestUtils {
             case INT64:
                 return rexBuilder.makeLiteral(value, typeFactory.createSqlType(SqlTypeName.BIGINT));
             case FLOAT:
-                return rexBuilder.makeLiteral(value, typeFactory.createSqlType(SqlTypeName.REAL));
+                BigDecimal valueValue = new BigDecimal(value.toString());
+                return rexBuilder.makeLiteral(valueValue, typeFactory.createSqlType(SqlTypeName.REAL));
             case DOUBLE:
-                return rexBuilder.makeLiteral(value, typeFactory.createSqlType(SqlTypeName.DOUBLE));
+                BigDecimal doubleValue = new BigDecimal(value.toString());
+                return rexBuilder.makeLiteral(doubleValue, typeFactory.createSqlType(SqlTypeName.DOUBLE));
             case DECIMAL:
                 return rexBuilder.makeLiteral(value, typeFactory.createSqlType(SqlTypeName.DECIMAL));
             case DATE:
