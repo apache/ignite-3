@@ -55,18 +55,18 @@ class ItCatalogCompactionCoordinatorChoosingTest extends ClusterPerClassIntegrat
     void coordinatorIsChosenAfterStartAndReelectedAfterNodeCrash() throws Exception {
         Set<String> coordinators = new HashSet<>();
 
-        int coordinatorHasNotBeanUpdatedCount = 0;
+        int coordinatorHasNotBeenUpdatedCount = 0;
         for (IgniteImpl node : runningNodes()) {
             String coordinatorNodeId = ((CatalogManagerImpl) node.catalogManager()).compactionCoordinator();
 
             if (coordinatorNodeId == null) {
-                coordinatorHasNotBeanUpdatedCount++;
+                coordinatorHasNotBeenUpdatedCount++;
             } else {
                 coordinators.add(coordinatorNodeId);
             }
         }
 
-        assertThat(coordinatorHasNotBeanUpdatedCount, lessOrEqualTo(MINORITY_SIZE));
+        assertThat(coordinatorHasNotBeenUpdatedCount, lessOrEqualTo(MINORITY_SIZE));
         assertThat(coordinators, hasSize(1));
 
         String coordinatorNodeName = coordinators.iterator().next();
