@@ -866,8 +866,7 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
 
                 // DECIMAL
                 Arguments.of(makeLit.apply(new BigDecimal("1"), decimal5), decimal5, new BigDecimal("1"), false),
-                // Preserve input scale
-                Arguments.of(makeLit.apply(new BigDecimal("1.0"), decimal52), decimal52, new BigDecimal("1.0"), false)
+                Arguments.of(makeLit.apply(new BigDecimal("1.0"), decimal52), decimal52, new BigDecimal("1.00"), false)
         );
     }
 

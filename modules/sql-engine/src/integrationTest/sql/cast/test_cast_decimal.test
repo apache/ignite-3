@@ -69,8 +69,6 @@ SELECT CAST(100.1::DOUBLE AS DECIMAL);
 ----
 100.1
 
-# https://issues.apache.org/jira/browse/IGNITE-20889
-skipif ignite3
 query T
 SELECT CAST(100.1234::DOUBLE AS DECIMAL(7, 2));
 ----

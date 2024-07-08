@@ -366,7 +366,7 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
                 .returns(new BigDecimal("1.00")).check();
 
         assertQuery("SELECT CASE WHEN false THEN DECIMAL '1.00' ELSE DECIMAL '0.0' END")
-                .returns(new BigDecimal("0.0")).check();
+                .returns(new BigDecimal("0.00")).check();
 
         assertQuery(
                 "SELECT DECIMAL '0.09'  BETWEEN DECIMAL '0.06' AND DECIMAL '0.07'")

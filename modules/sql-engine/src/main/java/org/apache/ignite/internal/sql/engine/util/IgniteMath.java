@@ -41,11 +41,13 @@ public class IgniteMath {
     private static final Float UPPER_LONG_FLOAT = (float) Long.MAX_VALUE;
     private static final Float LOWER_LONG_FLOAT = (float) Long.MIN_VALUE;
 
-    private static final BigDecimal MAX_DOUBLE = new BigDecimal(String.valueOf(Double.MAX_VALUE));
-    private static final BigDecimal MIN_DOUBLE = MAX_DOUBLE.negate();
+    private static final BigDecimal UPPER_DOUBLE_BIG_DECIMAL = new BigDecimal(String.valueOf(Double.MAX_VALUE));
+    private static final BigDecimal LOWER_DOUBLE_BIG_DECIMAL = UPPER_DOUBLE_BIG_DECIMAL.negate();
+    private static final BigDecimal UPPER_FLOAT_BIG_DECIMAL = new BigDecimal(String.valueOf(Float.MAX_VALUE));
+    private static final BigDecimal LOWER_FLOAT_BIG_DECIMAL = UPPER_FLOAT_BIG_DECIMAL.negate();
 
-    private static final BigDecimal MAX_FLOAT = new BigDecimal(String.valueOf(Float.MAX_VALUE));
-    private static final BigDecimal MIN_FLOAT = MAX_FLOAT.negate();
+    private static final double UPPER_FLOAT_DOUBLE = Float.MAX_VALUE;
+    private static final double LOWER_FLOAT_DOUBLE = -Float.MAX_VALUE;
 
     /** Returns the sum of its arguments, throwing an exception if the result overflows an {@code long}. */
     public static long addExact(long x, long y) {
@@ -428,17 +430,17 @@ public class IgniteMath {
         if (x instanceof BigDecimal) {
             BigDecimal value = (BigDecimal) x;
 
-            if (value.compareTo(MAX_FLOAT) > 0) {
+            if (value.compareTo(UPPER_FLOAT_BIG_DECIMAL) > 0) {
                 throw new SqlException(RUNTIME_ERR, "REAL out of range");
             }
-            if (value.compareTo(MIN_FLOAT) < 0) {
+            if (value.compareTo(LOWER_FLOAT_BIG_DECIMAL) < 0) {
                 throw new SqlException(RUNTIME_ERR, "REAL out of range");
             }
 
             return value.floatValue();
         } else {
             double v = x.doubleValue();
-            if (v > Float.MAX_VALUE || v < Float.MIN_VALUE) {
+            if (v > UPPER_FLOAT_DOUBLE || v < LOWER_FLOAT_DOUBLE) {
                 throw new SqlException(RUNTIME_ERR, "REAL out of range");
             }
 
@@ -450,11 +452,11 @@ public class IgniteMath {
     public static double convertToDoubleExact(Number x) {
         if (x instanceof BigDecimal) {
             BigDecimal value = (BigDecimal) x;
-            if (value.compareTo(MAX_DOUBLE) > 0) {
+            if (value.compareTo(UPPER_DOUBLE_BIG_DECIMAL) > 0) {
                 throw new SqlException(RUNTIME_ERR, "DOUBLE out of range");
             }
 
-            if (value.compareTo(MIN_DOUBLE) < 0) {
+            if (value.compareTo(LOWER_DOUBLE_BIG_DECIMAL) < 0) {
                 throw new SqlException(RUNTIME_ERR, "DOUBLE out of range");
             }
 

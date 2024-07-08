@@ -1231,28 +1231,28 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
             case TINYINT:
                 byte b = IgniteMath.convertToByteExact(value);
                 if (primitive != null) {
-                    return convertToTargetNumeric(primitive, b);
+                    return Primitives.convertPrimitiveExact(primitive, b);
                 } else {
                     return new BigDecimal(b);
                 }
             case SMALLINT:
                 short s = IgniteMath.convertToShortExact(value);
                 if (primitive != null) {
-                    return convertToTargetNumeric(primitive, s);
+                    return Primitives.convertPrimitiveExact(primitive, s);
                 } else {
                     return new BigDecimal(s);
                 }
             case INTEGER:
                 int i = IgniteMath.convertToIntExact(value);
                 if (primitive != null) {
-                    return convertToTargetNumeric(primitive, i);
+                    return Primitives.convertPrimitiveExact(primitive, i);
                 } else {
                     return new BigDecimal(i);
                 }
             case BIGINT:
                 long l = IgniteMath.convertToLongExact(value);
                 if (primitive != null) {
-                    return convertToTargetNumeric(primitive, l);
+                    return Primitives.convertPrimitiveExact(primitive, l);
                 } else {
                     return new BigDecimal(l);
                 }
@@ -1260,7 +1260,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
             case FLOAT:
                 float r = IgniteMath.convertToFloatExact(value);
                 if (primitive != null) {
-                    return convertToTargetNumeric(primitive, r);
+                    return Primitives.convertPrimitiveExact(primitive, r);
                 } else {
                     // Preserve the exact form of a float value.
                     return new BigDecimal(Float.toString(r));
@@ -1268,25 +1268,22 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
             case DOUBLE:
                 double d = IgniteMath.convertToDoubleExact(value);
                 if (primitive != null) {
-                    return convertToTargetNumeric(primitive, d);
+                    return Primitives.convertPrimitiveExact(primitive, d);
                 } else {
                     // Preserve the exact form of a double value.
                     return new BigDecimal(Double.toString(d));
                 }
             case DECIMAL:
+                BigDecimal bd = IgniteSqlFunctions.toBigDecimal(value, dataType.getPrecision(), dataType.getScale());
+                assert bd != null;
+
                 if (primitive != null) {
-                    return Primitives.convertPrimitiveExact(primitive, value);
+                    return Primitives.convertPrimitiveExact(primitive, bd);
                 } else {
-                    return value;
+                    return bd;
                 }
             default:
                 throw new IllegalStateException("Unexpected numeric type: " + dataType);
         }
-    }
-
-    private static Object convertToTargetNumeric(Primitive primitive, Number num) {
-        Object rs = primitive.numberValue(num);
-        assert rs != null;
-        return rs;
     }
 }
