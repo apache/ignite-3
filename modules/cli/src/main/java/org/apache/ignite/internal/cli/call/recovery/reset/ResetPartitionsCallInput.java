@@ -64,10 +64,6 @@ public class ResetPartitionsCallInput implements CallInput {
         this.partitionIds = partitionIds == null ? List.of() : List.copyOf(partitionIds);
     }
 
-    public static ResetPartitionsCallInput of(ResetPartitionsMixin statesArgs) {
-        return of(statesArgs, statesArgs.clusterUrl());
-    }
-
     /** Returns {@link ResetPartitionsCallInput} with specified arguments. */
     public static ResetPartitionsCallInput of(ResetPartitionsMixin statesArgs, String clusterUrl) {
         return builder()

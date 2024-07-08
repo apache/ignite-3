@@ -227,23 +227,22 @@ public class StripeAwareLogManager extends LogManagerImpl {
                 appendBatcher.appendToStorage();
             }
 
-            if (!appendBatchers.isEmpty()) {
-                // Since the storage is shared, any batcher can flush it.
-                // This is a little confusing and hacky, but it doesn't require explicit access to the log storage factory,
-                // which makes it far easier to use in current jraft code.
-                // The reason why we don't call this method on log factory, for example, is because the factory doesn't have proper access
-                // to the RAFT configuration, and can't say, whether it should use "fsync" or not, for example.
-                try {
-                    appendBatchers.iterator().next().commitWriteBatch();
-                } catch (Exception e) {
-                    LOG.error("**Critical error**, failed to appendEntries.", e);
-
-                    for (StripeAwareAppendBatcher appendBatcher : appendBatchers) {
-                        appendBatcher.reportError(RaftError.EIO.getNumber(), "Fail to append log entries");
-                    }
-
-                    return;
+            // Calling "commitWriteBatch" on StripeAwareAppendBatcher is confusing and hacky, but it doesn't require explicit access
+            // to the log storage factory, which makes it far easier to use in current jraft code.
+            // The reason why we don't call this method on log factory, for example, is because the factory doesn't have proper access
+            // to the RAFT configuration, and can't say, whether it should use "fsync" or not, for example.
+            try {
+                for (StripeAwareAppendBatcher appendBatcher : appendBatchers) {
+                    appendBatcher.commitWriteBatch();
                 }
+            } catch (Exception e) {
+                LOG.error("**Critical error**, failed to appendEntries.", e);
+
+                for (StripeAwareAppendBatcher appendBatcher : appendBatchers) {
+                    appendBatcher.reportError(RaftError.EIO.getNumber(), "Fail to append log entries");
+                }
+
+                return;
             }
 
             // When data is committed, we can notify all stable closures and send response messages.

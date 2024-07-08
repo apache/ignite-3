@@ -407,7 +407,12 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                     )
             ).get();
 
-            Set<Assignment> calculatedAssignments = calculateAssignments(tablePartitionId, catalogService, distributionZoneManager).get();
+            // TODO: IGNITE-22661 Potentially unsafe to use the latest catalog version, as the tables might not already present
+            //  in the catalog. Better to take the version from Assignments.
+            int catalogVersion = catalogService.latestCatalogVersion();
+
+            Set<Assignment> calculatedAssignments =
+                    calculateAssignments(tablePartitionId, catalogService, distributionZoneManager, catalogVersion).get();
 
             Entry stableEntry = values.get(stablePartAssignmentsKey);
             Entry pendingEntry = values.get(pendingPartAssignmentsKey);
