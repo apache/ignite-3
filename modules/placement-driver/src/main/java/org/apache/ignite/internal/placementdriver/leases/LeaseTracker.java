@@ -196,7 +196,7 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
                                     .update(lease.getExpirationTime(), lease);
 
                             if (needFireEventReplicaBecomePrimary(previousLeasesMap.get(grpId), lease)) {
-                                fireEventFutures.add(fireEventReplicaBecomePrimary(event.revision(), lease));
+                                fireEventFutures.add(fireEventPrimaryReplicaElected(event.revision(), lease));
                             }
                         }
 
@@ -218,7 +218,7 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
                     leases = new Leases(unmodifiableMap(leasesMap), leasesBytes);
 
                     for (Lease expiredLease : expiredLeases) {
-                        firePrimaryReplicaExpiredEvent(event.revision(), expiredLease);
+                        fireEventPrimaryReplicaExpired(event.revision(), expiredLease);
                     }
                 }
 
@@ -380,7 +380,7 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
      * @param causalityToken Causality token.
      * @param expiredLease Expired lease.
      */
-    private void firePrimaryReplicaExpiredEvent(long causalityToken, Lease expiredLease) {
+    private void fireEventPrimaryReplicaExpired(long causalityToken, Lease expiredLease) {
         ReplicationGroupId grpId = expiredLease.replicationGroupId();
 
         CompletableFuture<Void> prev = expirationFutureByGroup.put(grpId, fireEvent(
@@ -397,10 +397,12 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
         assert prev == null || prev.isDone() : "Previous lease expiration process has not completed yet [grpId=" + grpId + ']';
     }
 
-    private CompletableFuture<Void> fireEventReplicaBecomePrimary(long causalityToken, Lease lease) {
+    private CompletableFuture<Void> fireEventPrimaryReplicaElected(long causalityToken, Lease lease) {
         String leaseholderId = lease.getLeaseholderId();
 
         assert leaseholderId != null : lease;
+
+        LOG.info("Fire event primary elected [groupId={}, startTime={}, lease={}].", lease.replicationGroupId(), lease.getStartTime(), lease);
 
         return fireEvent(
                 PRIMARY_REPLICA_ELECTED,

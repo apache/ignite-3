@@ -520,6 +520,8 @@ public class LeaseUpdater {
 
             renewedLeases.put(grpId, renewedLease);
 
+            LOG.info("Publishing lease [groupId={}, startTime={}, leaseholderId={}]", grpId, lease.getStartTime(), lease.getLeaseholderId());
+
             leaseUpdateStatistics.onLeasePublish();
         }
 
