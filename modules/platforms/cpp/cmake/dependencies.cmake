@@ -22,6 +22,11 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 add_compile_definitions(MBEDTLS_USER_CONFIG_FILE="${CMAKE_CURRENT_SOURCE_DIR}/ignite/common/detail/ignite_mbedtls_config.h")
 
+if (CMAKE_VERSION VERSION_GREATER_EQUAL "3.30.0")
+    # Avoid warning about FetchContent_Populate:
+    cmake_policy(SET CMP0169 OLD)
+endif()
+
 function(fetch_dependency NAME URL MD5)
     message(STATUS "Download dependency: ${NAME}")
     FetchContent_Declare(
