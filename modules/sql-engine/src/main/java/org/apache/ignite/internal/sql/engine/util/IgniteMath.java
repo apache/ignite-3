@@ -27,7 +27,6 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
 import org.apache.calcite.sql.type.SqlTypeName;
-import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.sql.SqlException;
 
 /** Math operations with overflow checking. */
@@ -283,6 +282,13 @@ public class IgniteMath {
         if (x.compareTo(UPPER_LONG) > 0 || x.compareTo(LOWER_LONG) < 0) {
             throw new SqlException(RUNTIME_ERR, BIGINT.getName() + " out of range");
         }
+        return x.longValue();
+    }
+
+    /** Cast value to {@code long}, throwing an exception if the result overflows an {@code long}. */
+    public static long convertToLongExact(Number x) {
+        checkNumberLongBounds(BIGINT, x);
+
         return x.longValue();
     }
 

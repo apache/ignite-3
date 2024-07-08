@@ -29,20 +29,20 @@ SELECT val FROM integers GROUP BY ALL GROUPING SETS ((val), (val))
 4
 
 query R rowsort
-SELECT val FROM ( VALUES (1), (1.0::REAL), (1.0::REAL), (2::DOUBLE), (1.1::REAL), (2::DECIMAL(2)) ) t(val) GROUP BY ALL GROUPING SETS ((val), (val))
+SELECT val FROM ( VALUES (1), (1.0::REAL), (1.0::REAL), (2::DOUBLE), (1.5::REAL), (2::DECIMAL(2)) ) t(val) GROUP BY ALL GROUPING SETS ((val), (val))
 ----
 1.0
 1.0
-1.1
-1.1
+1.5
+1.5
 2.0
 2.0
 
 query R rowsort
-SELECT val FROM ( VALUES (1), (1.0::REAL), (2::DOUBLE), (1.1::REAL), (2::DECIMAL(2)) ) t(val) GROUP BY DISTINCT GROUPING SETS ((val), (val))
+SELECT val FROM ( VALUES (1), (1.0::REAL), (2::DOUBLE), (1.5::REAL), (2::DECIMAL(2)) ) t(val) GROUP BY DISTINCT GROUPING SETS ((val), (val))
 ----
 1.0
-1.1
+1.5
 2.0
 
 # NOTE: Results include trailing whitespace

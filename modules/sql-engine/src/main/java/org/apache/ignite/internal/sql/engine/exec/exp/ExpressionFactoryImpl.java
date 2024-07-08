@@ -290,7 +290,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
             literalValues.add((RexLiteral) values.get(i));
         }
 
-        return new ValuesImpl(scalar(values, null), ctx.rowHandler().factory(rowSchema));
+        return new ConstantValuesImpl(literalValues, typeList, ctx.rowHandler().factory(rowSchema));
     }
 
     /** {@inheritDoc} */
@@ -352,18 +352,13 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
     private @Nullable Object literalValue(RexLiteral literal, Class<?> type) {
         RelDataType dataType = literal.getType();
 
-        // Perform numeric cast, if necessary.
         if (SqlTypeUtil.isNumeric(dataType)) {
             BigDecimal value = (BigDecimal) literal.getValue();
             if (value == null) {
                 return null;
             }
 
-            Object val = convertNumericLiteral(dataType, value, type);
-
-            System.err.println("LIT " + literal + " " + literal.getTypeName() + " " + dataType + " " + type + " val: " + val + " " + val.getClass());
-
-            return val;
+            return convertNumericLiteral(dataType, value, type);
         } else {
             Object val = literal.getValueAs(type);
 
@@ -1229,30 +1224,69 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
     }
 
     private static Object convertNumericLiteral(RelDataType dataType, BigDecimal value, Class<?> type) {
+        Primitive primitive = Primitive.ofBoxOr(type);
+        assert primitive != null || type == BigDecimal.class : "Neither primitive nor BigDecimal: " + type;
+
         switch (dataType.getSqlTypeName()) {
             case TINYINT:
                 byte b = IgniteMath.convertToByteExact(value);
-
-
-                return Primitive.BYTE.numberValue(value);
+                if (primitive != null) {
+                    return convertToTargetNumeric(primitive, b);
+                } else {
+                    return new BigDecimal(b);
+                }
             case SMALLINT:
-                return IgniteMath.convertToShortExact(value);
+                short s = IgniteMath.convertToShortExact(value);
+                if (primitive != null) {
+                    return convertToTargetNumeric(primitive, s);
+                } else {
+                    return new BigDecimal(s);
+                }
             case INTEGER:
-                return IgniteMath.convertToIntExact(value);
+                int i = IgniteMath.convertToIntExact(value);
+                if (primitive != null) {
+                    return convertToTargetNumeric(primitive, i);
+                } else {
+                    return new BigDecimal(i);
+                }
             case BIGINT:
-                return IgniteMath.convertToLongExact(value);
+                long l = IgniteMath.convertToLongExact(value);
+                if (primitive != null) {
+                    return convertToTargetNumeric(primitive, l);
+                } else {
+                    return new BigDecimal(l);
+                }
             case REAL:
             case FLOAT:
-                return IgniteMath.convertToFloatExact(value);
+                float r = IgniteMath.convertToFloatExact(value);
+                if (primitive != null) {
+                    return convertToTargetNumeric(primitive, r);
+                } else {
+                    // Preserve the exact form of a float value.
+                    return new BigDecimal(Float.toString(r));
+                }
             case DOUBLE:
-                return IgniteMath.convertToDoubleExact(value);
+                double d = IgniteMath.convertToDoubleExact(value);
+                if (primitive != null) {
+                    return convertToTargetNumeric(primitive, d);
+                } else {
+                    // Preserve the exact form of a double value.
+                    return new BigDecimal(Double.toString(d));
+                }
             case DECIMAL:
-                // perform overflow checks and discard the result, because it can perform unnecessary precision/scale conversions
-                BigDecimal rs = IgniteSqlFunctions.toBigDecimal(value, dataType.getPrecision(), dataType.getScale());
-                assert rs != null;
-                return rs;
+                if (primitive != null) {
+                    return Primitives.convertPrimitiveExact(primitive, value);
+                } else {
+                    return value;
+                }
             default:
                 throw new IllegalStateException("Unexpected numeric type: " + dataType);
         }
+    }
+
+    private static Object convertToTargetNumeric(Primitive primitive, Number num) {
+        Object rs = primitive.numberValue(num);
+        assert rs != null;
+        return rs;
     }
 }

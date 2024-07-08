@@ -12,11 +12,11 @@ SELECT CAST('100' AS REAL);
 100.0
 
 # overflow
-statement error: Overflow
+statement error: REAL out of range
 SELECT CAST(1e39 AS REAL);
 
 # overflow
-statement error: Overflow
+statement error: REAL out of range
 SELECT CAST(-1e39 AS REAL);
 
 query T

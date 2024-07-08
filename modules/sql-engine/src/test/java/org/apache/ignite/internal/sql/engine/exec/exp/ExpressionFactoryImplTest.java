@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.exec.exp;
 
-import static java.util.Collections.min;
 import static java.util.Collections.singletonList;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -37,7 +36,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.EnumSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Random;
@@ -53,7 +51,6 @@ import org.apache.calcite.rel.RelFieldCollation;
 import org.apache.calcite.rel.RelFieldCollation.Direction;
 import org.apache.calcite.rel.RelFieldCollation.NullDirection;
 import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeFactory.Builder;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.rel.type.RelDataTypeFieldImpl;
@@ -92,7 +89,6 @@ import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -783,10 +779,12 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
             Object[] litValues = expFactory.values(List.of(lit), rowType).iterator().next();
             assertArrayEquals(new Object[]{expected}, litValues, "values");
         } else {
-            Supplier<Object[]> rowExpr = expFactory.rowSource(List.of(lit));
-            assertThrowsSqlException(Sql.RUNTIME_ERR, "", rowExpr::get);
+            String errorMessage = "out of range";
 
-            assertThrowsSqlException(Sql.RUNTIME_ERR, "", () -> {
+            Supplier<Object[]> rowExpr = expFactory.rowSource(List.of(lit));
+            assertThrowsSqlException(Sql.RUNTIME_ERR, errorMessage, rowExpr::get);
+
+            assertThrowsSqlException(Sql.RUNTIME_ERR, errorMessage, () -> {
                 expFactory.values(List.of(lit), rowType).iterator().next();
             });
         }
@@ -817,6 +815,10 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
         BigDecimal realMax = new BigDecimal(String.valueOf(Float.MAX_VALUE)).add(BigDecimal.ONE);
         Object realMin = realMax.negate();
 
+        RelDataType floatType = Commons.typeFactory().createSqlType(SqlTypeName.FLOAT);
+        BigDecimal floatMax = new BigDecimal(String.valueOf(Float.MAX_VALUE)).add(BigDecimal.ONE);
+        Object floatMin = realMax.negate();
+
         RelDataType doubleType = Commons.typeFactory().createSqlType(SqlTypeName.DOUBLE);
         BigDecimal doubleMax = new BigDecimal(String.valueOf(Double.MAX_VALUE)).add(BigDecimal.ONE);
         Object doubleMin = doubleMax.negate();
@@ -824,7 +826,7 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
         // makeLiteral for decimal validates precision/scale, so it is not possible to create a decimal literal
         // that lies outside of the range
         RelDataType decimal5 = Commons.typeFactory().createSqlType(SqlTypeName.DECIMAL, 5);
-        RelDataType decimal5_2 = Commons.typeFactory().createSqlType(SqlTypeName.DECIMAL, 5, 2);
+        RelDataType decimal52 = Commons.typeFactory().createSqlType(SqlTypeName.DECIMAL, 5, 2);
 
         return Stream.of(
                 // TINYINT
@@ -852,6 +854,11 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
                 Arguments.of(makeLit.apply(realMax, realType), realType, null, true),
                 Arguments.of(makeLit.apply(realMin, realType), realType, null, true),
 
+                // FLOAT
+                Arguments.of(makeLit.apply(BigDecimal.ONE, floatType), floatType, 1.0f, false),
+                Arguments.of(makeLit.apply(floatMax, floatType), floatType, null, true),
+                Arguments.of(makeLit.apply(floatMin, floatType), floatType, null, true),
+
                 // DOUBLE
                 Arguments.of(makeLit.apply(BigDecimal.ONE, doubleType), doubleType, 1.0d, false),
                 Arguments.of(makeLit.apply(doubleMax, doubleType), doubleType, null, true),
@@ -860,7 +867,7 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
                 // DECIMAL
                 Arguments.of(makeLit.apply(new BigDecimal("1"), decimal5), decimal5, new BigDecimal("1"), false),
                 // Preserve input scale
-                Arguments.of(makeLit.apply(new BigDecimal("1.0"), decimal5_2), decimal5_2, new BigDecimal("1.0"), false)
+                Arguments.of(makeLit.apply(new BigDecimal("1.0"), decimal52), decimal52, new BigDecimal("1.0"), false)
         );
     }
 
