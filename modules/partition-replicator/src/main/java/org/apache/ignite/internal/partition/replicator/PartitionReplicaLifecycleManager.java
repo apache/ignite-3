@@ -526,6 +526,7 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
                     ZonePartitionId replicaGrpId = new ZonePartitionId(zoneId, partitionId);
 
                     // It is safe to get the latest version of the catalog as we are in the metastore thread.
+                    // TODO: IGNITE-22661 Potentially unsafe to use the latest catalog version. Better to take the version from Assignments.
                     int catalogVersion = catalogMgr.latestCatalogVersion();
 
                     CatalogZoneDescriptor zoneDescriptor = catalogMgr.zone(zoneId, catalogVersion);
