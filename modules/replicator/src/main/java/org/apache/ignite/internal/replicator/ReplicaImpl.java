@@ -196,7 +196,7 @@ public class ReplicaImpl implements Replica {
      * @return Future that contains a result.
      */
     private CompletableFuture<LeaseGrantedMessageResponse> processLeaseGrantedMessage(LeaseGrantedMessage msg) {
-        LOG.info("Received LeaseGrantedMessage for replica belonging to group=" + groupId() + ", force=" + msg.force());
+        LOG.info("Received LeaseGrantedMessage for replica belonging to group=" + groupId() + ", startTime=" + msg.leaseStartTime() + ", force=" + msg.force());
 
         return placementDriver.previousPrimaryExpired(groupId()).thenCompose(unused -> leaderFuture().thenCompose(leader -> {
             HybridTimestamp leaseExpirationTime = this.leaseExpirationTime;
