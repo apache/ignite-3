@@ -282,6 +282,7 @@ public class ReplicaImpl implements Replica {
         LOG.info("Waiting for actual storage state, group=" + groupId());
 
         if (!replicaReservationClosure.apply(groupId(), startTime)) {
+            LOG.error("Replica reservation failed [groupId={}, startTime={}].", groupId(), startTime);
             throw new IllegalStateException("Replica reservation failed [groupId=" + groupId() + "].");
         }
 

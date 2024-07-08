@@ -1284,13 +1284,19 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     assert context.replicaState != ReplicaState.STOPPED : "Unexpected primary replica state STOPPED [groupId="
                             + groupId + "].";
 
-                    context.assertReservation(groupId);
+                    try {
+                        context.assertReservation(groupId);
+                    } catch (AssertionError e) {
+                        LOG.error("Assertion [nodeId={}, groupId={}, startTime={}, state=].", e, localNodeId, groupId, parameters.startTime(), context.replicaState);
+                    }
                 } else if (context.reservedForPrimary) {
                     context.assertReservation(groupId);
 
                     // Unreserve if another replica was elected as primary, only if its lease start time is greater,
                     // otherwise it means that event is too late relatively to lease negotiation start and should be ignored.
                     if (parameters.startTime().compareTo(context.leaseStartTime) > 0) {
+
+                        LOG.info("Replica unreserved [nodeId={}, groupId={}, startTime={}].", localNodeId, parameters.groupId(), parameters.startTime());
                         context.unreserve();
 
                         if (context.replicaState == ReplicaState.PRIMARY_ONLY) {
@@ -1313,6 +1319,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                         // Unreserve if primary replica expired, only if its lease start time is greater,
                         // otherwise it means that event is too late relatively to lease negotiation start and should be ignored.
                         if (parameters.startTime().equals(context.leaseStartTime)) {
+                            LOG.info("Replica unreserved [nodeId={}, groupId={}, startTime={}].", localNodeId, parameters.groupId(), parameters.startTime());
                             context.unreserve();
                         }
                     }
@@ -1497,10 +1504,12 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     }
 
                     if (context.reservedForPrimary) {
+                        LOG.error("Unexpected replica reservation with " + state + " state [groupId=" + groupId + ", startTime={}, nodeId={}].", leaseStartTime, localNodeId);
                         throw new AssertionError("Unexpected replica reservation with " + state + " state [groupId=" + groupId + "].");
                     }
                 } else {
                     context.reserve(leaseStartTime);
+                    LOG.info("Replica reserved [nodeId={}, groupId={}, startTime={}].", localNodeId, groupId, leaseStartTime);
                 }
 
                 return context.reservedForPrimary;
