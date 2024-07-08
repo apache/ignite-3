@@ -17,8 +17,10 @@
 
 namespace Apache.Ignite.Internal.Table;
 
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Common;
 using Ignite.Network;
 using Ignite.Table;
 using Network;
@@ -34,7 +36,11 @@ internal sealed class PartitionManager : IPartitionManager
 
     private readonly object _partitionsLock = new();
 
+    private readonly object _primaryReplicasLock = new();
+
     private volatile HashPartition[]? _partitions; // Cached partition objects.
+
+    private volatile ClusterNode[]? _primaryReplicas; // Cached primary replicas.
 
     /// <summary>
     /// Initializes a new instance of the <see cref="PartitionManager"/> class.
@@ -46,8 +52,9 @@ internal sealed class PartitionManager : IPartitionManager
     }
 
     /// <inheritdoc/>
-    public async Task<IDictionary<IPartition, IClusterNode>> GetPrimaryReplicasAsync()
+    public async ValueTask<IDictionary<IPartition, IClusterNode>> GetPrimaryReplicasAsync()
     {
+        // TODO: Check cached assignment.
         using var bufferWriter = ProtoCommon.GetMessageWriter();
         bufferWriter.MessageWriter.Write(_table.Id);
 
@@ -60,12 +67,22 @@ internal sealed class PartitionManager : IPartitionManager
             var parts = GetPartitionArray(count);
             var res = new Dictionary<IPartition, IClusterNode>(count);
 
-            for (var i = 0; i < count; i++)
+            lock (_primaryReplicasLock)
             {
-                var id = r.ReadInt32();
-                var node = ClusterNode.Read(r);
+                var primaryReplicas = _primaryReplicas != null && _primaryReplicas.Length == count
+                    ? _primaryReplicas
+                    : new ClusterNode[count];
 
-                res.Add(parts[id], node);
+                for (var i = 0; i < count; i++)
+                {
+                    var id = r.ReadInt32();
+                    var node = ClusterNode.Read(r);
+
+                    res.Add(parts[id], node);
+                    primaryReplicas[id] = node;
+                }
+
+                _primaryReplicas = primaryReplicas;
             }
 
             return res;
@@ -73,19 +90,33 @@ internal sealed class PartitionManager : IPartitionManager
     }
 
     /// <inheritdoc/>
-    public Task<IClusterNode> GetPrimaryReplicaAsync(IPartition partition)
+    public async ValueTask<IClusterNode> GetPrimaryReplicaAsync(IPartition partition)
+    {
+        IgniteArgumentCheck.NotNull(partition);
+
+        if (partition is not HashPartition hashPartition)
+        {
+            throw new ArgumentException("Unsupported partition type: " + partition.GetType());
+        }
+
+        // TODO: Use cached array.
+        var replicas = await GetPrimaryReplicasAsync().ConfigureAwait(false);
+        if (!replicas.TryGetValue(hashPartition, out var node))
+        {
+            throw new ArgumentException("Primary replica not found for partition: " + partition);
+        }
+
+        return node;
+    }
+
+    /// <inheritdoc/>
+    public ValueTask<IPartition> GetPartitionAsync(IIgniteTuple tuple)
     {
         throw new System.NotImplementedException();
     }
 
     /// <inheritdoc/>
-    public Task<IPartition> GetPartitionAsync(IIgniteTuple tuple)
-    {
-        throw new System.NotImplementedException();
-    }
-
-    /// <inheritdoc/>
-    public Task<IPartition> GetPartitionAsync<TK>(TK key)
+    public ValueTask<IPartition> GetPartitionAsync<TK>(TK key)
         where TK : notnull
     {
         throw new System.NotImplementedException();

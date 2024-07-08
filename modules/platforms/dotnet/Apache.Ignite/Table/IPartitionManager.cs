@@ -30,21 +30,21 @@ public interface IPartitionManager
     /// Gets the primary replicas for all partitions.
     /// </summary>
     /// <returns>Map of partition to primary replica node.</returns>
-    Task<IDictionary<IPartition, IClusterNode>> GetPrimaryReplicasAsync();
+    ValueTask<IDictionary<IPartition, IClusterNode>> GetPrimaryReplicasAsync();
 
     /// <summary>
     /// Gets the primary replica for the specified partition.
     /// </summary>
     /// <param name="partition">Partition.</param>
     /// <returns>Primary replica.</returns>
-    Task<IClusterNode> GetPrimaryReplicaAsync(IPartition partition);
+    ValueTask<IClusterNode> GetPrimaryReplicaAsync(IPartition partition);
 
     /// <summary>
     /// Gets the partition for the specified table key.
     /// </summary>
     /// <param name="tuple">Table key tuple.</param>
     /// <returns>Partition that contains the specified key.</returns>
-    Task<IPartition> GetPartitionAsync(IIgniteTuple tuple);
+    ValueTask<IPartition> GetPartitionAsync(IIgniteTuple tuple);
 
     /// <summary>
     /// Gets the partition for the specified table key.
@@ -52,6 +52,6 @@ public interface IPartitionManager
     /// <param name="key">Table key.</param>
     /// <returns>Partition that contains the specified key.</returns>
     /// <typeparam name="TK">Key type.</typeparam>
-    Task<IPartition> GetPartitionAsync<TK>(TK key)
+    ValueTask<IPartition> GetPartitionAsync<TK>(TK key)
         where TK : notnull;
 }
