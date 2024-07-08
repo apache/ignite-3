@@ -161,6 +161,9 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     /** On-heap-cached lease start time value. */
     private volatile long leaseStartTime;
 
+    /** On-heap-cached lease node id. */
+    private volatile String primaryReplicaNodeId;
+
     /** On-heap-cached last committed group configuration. */
     private volatile byte @Nullable [] lastGroupConfig;
 
@@ -207,6 +210,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                     : ByteBuffer.wrap(leaseStartTimeBytes).order(ByteOrder.LITTLE_ENDIAN);
 
             leaseStartTime = leaseStartTimeBuf == null ? HybridTimestamp.MIN_VALUE.longValue() : leaseStartTimeBuf.getLong();
+            // TODO restore primary replica node id.
         } catch (RocksDBException e) {
             throw new StorageException(e);
         }
@@ -977,7 +981,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
-    public void updateLease(long leaseStartTime) {
+    public void updateLease(long leaseStartTime, String primaryReplicaNodeId) {
         busy(() -> {
             if (leaseStartTime <= this.leaseStartTime) {
                 return null;
@@ -991,8 +995,10 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                 putLongToBytes(leaseStartTime, leaseBytes, 0);
 
                 writeBatch.put(meta, leaseKey, leaseBytes);
+                // TODO sanpwc write primaryReplica node Id
 
                 this.leaseStartTime = leaseStartTime;
+                this.primaryReplicaNodeId = primaryReplicaNodeId;
             } catch (RocksDBException e) {
                 throw new StorageException(e);
             }
@@ -1004,6 +1010,11 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     @Override
     public long leaseStartTime() {
         return busy(() -> leaseStartTime);
+    }
+
+    @Override
+    public String primaryReplicaNodeId() {
+        return busy(() -> primaryReplicaNodeId);
     }
 
     /**

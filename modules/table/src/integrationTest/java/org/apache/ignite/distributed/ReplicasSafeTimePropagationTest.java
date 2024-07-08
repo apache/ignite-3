@@ -288,7 +288,8 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
                                     mock(CatalogService.class),
                                     mock(SchemaRegistry.class),
                                     clockService,
-                                    mock(IndexMetaStorage.class)
+                                    mock(IndexMetaStorage.class),
+                                    clusterService.topologyService().localMember().id()
                             ),
                             RaftGroupEventsListener.noopLsnr,
                             RaftGroupOptions.defaults()

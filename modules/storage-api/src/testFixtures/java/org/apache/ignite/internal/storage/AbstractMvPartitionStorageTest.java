@@ -1357,20 +1357,25 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
     public void testLease() {
         storage.runConsistently(locker -> {
             long lst0 = 1000;
+            String nodeId0 = UUID.randomUUID().toString();
 
             long lst1 = 2000;
+            String nodeId1 = UUID.randomUUID().toString();
 
-            storage.updateLease(lst0);
+            storage.updateLease(lst0, nodeId0);
 
             assertEquals(lst0, storage.leaseStartTime());
+            assertEquals(nodeId0, storage.primaryReplicaNodeId());
 
-            storage.updateLease(lst1);
-
-            assertEquals(lst1, storage.leaseStartTime());
-
-            storage.updateLease(0);
+            storage.updateLease(lst1, nodeId1);
 
             assertEquals(lst1, storage.leaseStartTime());
+            assertEquals(nodeId1, storage.primaryReplicaNodeId());
+
+            storage.updateLease(0, UUID.randomUUID().toString());
+
+            assertEquals(lst1, storage.leaseStartTime());
+            assertEquals(nodeId1, storage.primaryReplicaNodeId());
 
             return null;
         });

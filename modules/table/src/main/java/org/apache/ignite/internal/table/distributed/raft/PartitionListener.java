@@ -127,6 +127,8 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
     private final IndexMetaStorage indexMetaStorage;
 
+    private final String localNodeId;
+
     /** Constructor. */
     public PartitionListener(
             TxManager txManager,
@@ -138,7 +140,8 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
             CatalogService catalogService,
             SchemaRegistry schemaRegistry,
             ClockService clockService,
-            IndexMetaStorage indexMetaStorage
+            IndexMetaStorage indexMetaStorage,
+            String localNodeId
     ) {
         this.txManager = txManager;
         this.storage = partitionDataStorage;
@@ -150,6 +153,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         this.schemaRegistry = schemaRegistry;
         this.clockService = clockService;
         this.indexMetaStorage = indexMetaStorage;
+        this.localNodeId = localNodeId;
     }
 
     @Override
@@ -249,9 +253,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
                 assert safeTimePropagatingCommand.safeTime() != null;
 
-                synchronized (safeTime) {
-                    updateTrackerIgnoringTrackerClosedException(safeTime, safeTimePropagatingCommand.safeTime());
-                }
+                updateTrackerIgnoringTrackerClosedException(safeTime, safeTimePropagatingCommand.safeTime());
             }
 
             updateTrackerIgnoringTrackerClosedException(storageIndexTracker, commandIndex);
@@ -283,27 +285,22 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
         UUID txId = cmd.txId();
 
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Proper storage/raft index handling is required.
-        synchronized (safeTime) {
-            if (cmd.safeTime().compareTo(safeTime.current()) > 0) {
-                storageUpdateHandler.handleUpdate(
-                        txId,
-                        cmd.rowUuid(),
-                        cmd.tablePartitionId().asTablePartitionId(),
-                        cmd.rowToUpdate(),
-                        !cmd.full(),
-                        () -> storage.lastApplied(commandIndex, commandTerm),
-                        cmd.full() ? cmd.safeTime() : null,
-                        cmd.lastCommitTimestamp(),
-                        indexIdsAtRwTxBeginTs(catalogService, txId, storage.tableId())
-                );
-
-                updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
-            } else {
-                // We MUST bump information about last updated index+term.
-                // See a comment in #onWrite() for explanation.
-                advanceLastAppliedIndexConsistently(commandIndex, commandTerm);
-            }
+        if (cmd.full() || (!cmd.full() && !localNodeId.equals(storage.primaryReplicaNodeId()))) {
+            storageUpdateHandler.handleUpdate(
+                    txId,
+                    cmd.rowUuid(),
+                    cmd.tablePartitionId().asTablePartitionId(),
+                    cmd.rowToUpdate(),
+                    !cmd.full(),
+                    () -> storage.lastApplied(commandIndex, commandTerm),
+                    cmd.full() ? cmd.safeTime() : null,
+                    cmd.lastCommitTimestamp(),
+                    indexIdsAtRwTxBeginTs(catalogService, txId, storage.tableId())
+            );
+        } else {
+            // We MUST bump information about last updated index+term.
+            // See a comment in #onWrite() for explanation.
+            advanceLastAppliedIndexConsistently(commandIndex, commandTerm);
         }
 
         replicaTouch(txId, cmd.txCoordinatorId(), cmd.full() ? cmd.safeTime() : null, cmd.full());
@@ -336,25 +333,20 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
         UUID txId = cmd.txId();
 
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Proper storage/raft index handling is required.
-        synchronized (safeTime) {
-            if (cmd.safeTime().compareTo(safeTime.current()) > 0) {
-                storageUpdateHandler.handleUpdateAll(
-                        txId,
-                        cmd.rowsToUpdate(),
-                        cmd.tablePartitionId().asTablePartitionId(),
-                        !cmd.full(),
-                        () -> storage.lastApplied(commandIndex, commandTerm),
-                        cmd.full() ? cmd.safeTime() : null,
-                        indexIdsAtRwTxBeginTs(catalogService, txId, storage.tableId())
-                );
-
-                updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
-            } else {
-                // We MUST bump information about last updated index+term.
-                // See a comment in #onWrite() for explanation.
-                advanceLastAppliedIndexConsistently(commandIndex, commandTerm);
-            }
+        if (cmd.full() || (!cmd.full() && !localNodeId.equals(storage.primaryReplicaNodeId()))) {
+            storageUpdateHandler.handleUpdateAll(
+                    txId,
+                    cmd.rowsToUpdate(),
+                    cmd.tablePartitionId().asTablePartitionId(),
+                    !cmd.full(),
+                    () -> storage.lastApplied(commandIndex, commandTerm),
+                    cmd.full() ? cmd.safeTime() : null,
+                    indexIdsAtRwTxBeginTs(catalogService, txId, storage.tableId())
+            );
+        } else {
+            // We MUST bump information about last updated index+term.
+            // See a comment in #onWrite() for explanation.
+            advanceLastAppliedIndexConsistently(commandIndex, commandTerm);
         }
 
         replicaTouch(txId, cmd.txCoordinatorId(), cmd.full() ? cmd.safeTime() : null, cmd.full());
@@ -642,7 +634,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         }
 
         storage.runConsistently(locker -> {
-            storage.updateLease(cmd.leaseStartTime());
+            storage.updateLease(cmd.leaseStartTime(), cmd.primaryReplicaNodeId());
 
             storage.lastApplied(commandIndex, commandTerm);
 

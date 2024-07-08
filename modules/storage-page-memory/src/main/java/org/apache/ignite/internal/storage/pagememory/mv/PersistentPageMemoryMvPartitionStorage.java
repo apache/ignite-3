@@ -296,11 +296,11 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     }
 
     @Override
-    public void updateLease(long leaseStartTime) {
+    public void updateLease(long leaseStartTime, String primaryReplicaNodeId) {
         busy(() -> {
             throwExceptionIfStorageNotInRunnableState();
 
-            updateMeta((lastCheckpointId, meta) -> meta.updateLease(lastCheckpointId, leaseStartTime));
+            updateMeta((lastCheckpointId, meta) -> meta.updateLease(lastCheckpointId, leaseStartTime, primaryReplicaNodeId));
 
             return null;
         });
@@ -312,6 +312,15 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
             throwExceptionIfStorageNotInRunnableState();
 
             return meta.leaseStartTime();
+        });
+    }
+
+    @Override
+    public String primaryReplicaNodeId() {
+        return busy(() -> {
+            throwExceptionIfStorageNotInRunnableState();
+
+            return meta.primaryReplicaNodeId();
         });
     }
 

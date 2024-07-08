@@ -72,6 +72,8 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     private volatile long leaseStartTime = HybridTimestamp.MIN_VALUE.longValue();
 
+    private volatile String primaryReplicaNodeId;
+
     private volatile long estimatedSize;
 
     private volatile byte @Nullable [] groupConfig;
@@ -634,7 +636,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
-    public synchronized void updateLease(long leaseStartTime) {
+    public synchronized void updateLease(long leaseStartTime, String primaryReplicaNodeId) {
         checkStorageClosed();
 
         if (leaseStartTime <= this.leaseStartTime) {
@@ -642,6 +644,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         }
 
         this.leaseStartTime = leaseStartTime;
+        this.primaryReplicaNodeId = primaryReplicaNodeId;
     }
 
     @Override
@@ -649,6 +652,13 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         checkStorageClosed();
 
         return leaseStartTime;
+    }
+
+    @Override
+    public String primaryReplicaNodeId() {
+        checkStorageClosed();
+
+        return primaryReplicaNodeId;
     }
 
     @Override
