@@ -32,7 +32,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
-import org.apache.ignite.Ignite;
 import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.Test;
 
@@ -149,7 +148,7 @@ public class ConfigurationTest extends AbstractClientTest {
                 .addresses("127.0.0.1:" + serverPort)
                 .asyncContinuationExecutor(Runnable::run);
 
-        try (Ignite ignite = builder.build()) {
+        try (IgniteClient ignite = builder.build()) {
             String threadName = ignite.tables().tablesAsync().thenApply(unused -> Thread.currentThread().getName()).join();
 
             // Current thread is used when future completes quickly.

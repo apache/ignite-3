@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.compute.message;
 
 import java.io.Serializable;
-import org.apache.ignite.compute.DeploymentUnit;
+import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.compute.ComputeMessageTypes;
 import org.apache.ignite.internal.compute.ComputeMessagesFactory;
 import org.apache.ignite.internal.network.NetworkMessage;

@@ -27,18 +27,16 @@ import org.apache.ignite.internal.failure.FailureType;
  */
 public interface FailureHandler {
     /**
-     * Handles failure occurred on {@code ignite} instance.
-     * Failure details is contained in {@code failureCtx}.
-     * Returns {@code true} if Ignite node must be invalidated by {@link FailureProcessor} after calling this method.
+     * Handles failure occurred on {@code ignite} instance. Failure details is contained in {@code failureCtx}. Returns {@code true} if
+     * Ignite node must be invalidated by {@link FailureProcessor} after calling this method.
      *
-     * @param nodeName Node name.
      * @param failureCtx Failure context.
      * @return Whether Ignite node must be invalidated or not.
      */
-    boolean onFailure(String nodeName, FailureContext failureCtx);
+    boolean onFailure(FailureContext failureCtx);
 
     /**
      * Returns unmodifiable set of ignored failure types.
      */
-    public Set<FailureType> ignoredFailureTypes();
+    Set<FailureType> ignoredFailureTypes();
 }

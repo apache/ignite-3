@@ -40,7 +40,7 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.failure.FailureProcessor;
-import org.apache.ignite.internal.failure.handlers.StopNodeFailureHandler;
+import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
 import org.apache.ignite.internal.lang.InternalTuple;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
@@ -74,7 +74,7 @@ public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
 
     @BeforeEach
     public void beforeTest() {
-        var failureProcessor = new FailureProcessor("no_node", new StopNodeFailureHandler());
+        var failureProcessor = new FailureProcessor(new NoOpFailureHandler());
         taskExecutor = new QueryTaskExecutorImpl("no_node", 4, failureProcessor);
         taskExecutor.start();
     }
@@ -125,7 +125,8 @@ public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
                 rowHandler(),
                 Map.of(),
                 TxAttributes.fromTx(new NoOpTransaction("fake-test-node")),
-                SqlQueryProcessor.DEFAULT_TIME_ZONE_ID
+                SqlQueryProcessor.DEFAULT_TIME_ZONE_ID,
+                null
         );
     }
 

@@ -79,6 +79,7 @@ import org.apache.calcite.util.Util;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.sql.SqlCommon;
+import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.SqlOperationContext;
 import org.apache.ignite.internal.sql.engine.exec.mapping.IdGenerator;
 import org.apache.ignite.internal.sql.engine.exec.mapping.QuerySplitter;
@@ -306,6 +307,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
                 .timeZoneId(ZoneId.systemDefault())
                 .operationTime(new HybridClockImpl().now())
                 .defaultSchemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
+                .cancel(new QueryCancel())
                 .parameters(params)
                 .build();
     }

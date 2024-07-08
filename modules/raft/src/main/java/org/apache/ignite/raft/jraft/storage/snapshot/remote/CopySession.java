@@ -16,6 +16,7 @@
  */
 package org.apache.ignite.raft.jraft.storage.snapshot.remote;
 
+import static org.apache.ignite.raft.jraft.util.BytesUtil.writeTo;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
@@ -242,7 +243,7 @@ public class CopySession implements Session {
             }
             if (this.outputStream != null) {
                 try {
-                    response.data().writeTo(this.outputStream);
+                    writeTo(this.outputStream, response.data());
                 }
                 catch (final IOException e) {
                     LOG.error("Fail to write into file {}", this.destPath, e);
@@ -252,7 +253,7 @@ public class CopySession implements Session {
                 }
             }
             else {
-                this.destBuf.put(response.data().asReadOnlyByteBuffer());
+                this.destBuf.put(response.data().asReadOnlyBuffer());
             }
             if (response.eof()) {
                 onFinished();

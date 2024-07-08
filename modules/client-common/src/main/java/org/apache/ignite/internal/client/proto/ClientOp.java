@@ -105,9 +105,6 @@ public class ClientOp {
     /** Get primary key metadata. */
     public static final int JDBC_PK_META = 41;
 
-    /** Get query metadata. */
-    public static final int JDBC_QUERY_META = 42;
-
     /** Begin transaction. */
     public static final int TX_BEGIN = 43;
 
@@ -179,4 +176,7 @@ public class ClientOp {
 
     /** Send streamer batch with receiver. */
     public static final int STREAMER_WITH_RECEIVER_BATCH_SEND = 66;
+
+    /** Check if all tuples with the given keys collection exist. */
+    public static final int TUPLE_CONTAINS_ALL_KEYS = 67;
 }

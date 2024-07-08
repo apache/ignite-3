@@ -61,9 +61,7 @@ public class ClusterConfigShowCommand extends BaseCommand implements Callable<In
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
                 .decorator(new JsonDecorator(isHighlightEnabled()))
-                .exceptionHandler(new ClusterNotInitializedExceptionHandler(
-                        "Cannot show cluster config", "ignite cluster init"
-                ))
+                .exceptionHandler(ClusterNotInitializedExceptionHandler.createHandler("Cannot show cluster config"))
                 .verbose(verbose)
                 .build()
                 .runPipeline();

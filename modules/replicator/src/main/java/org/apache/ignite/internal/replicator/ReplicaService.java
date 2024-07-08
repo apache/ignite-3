@@ -144,7 +144,9 @@ public class ReplicaService {
 
                 if (throwable instanceof TimeoutException) {
                     // As a timeout has happened, we are probably on the system delayer thread, we should leave it.
-                    partitionOperationsExecutor.execute(() -> res.completeExceptionally(new ReplicationTimeoutException(req.groupId())));
+                    partitionOperationsExecutor.execute(
+                            () -> res.completeExceptionally(new ReplicationTimeoutException(req.groupId().asReplicationGroupId()))
+                    );
                 } else {
                     res.completeExceptionally(withCause(
                             ReplicationException::new,

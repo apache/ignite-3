@@ -148,5 +148,15 @@ public class CaffeineCacheFactory implements CacheFactory {
         public void removeIfValue(Predicate<? super V> valueFilter) {
             cache.asMap().values().removeIf(valueFilter);
         }
+
+        @Override
+        public void invalidate(K key) {
+            cache.invalidate(key);
+        }
+
+        @Override
+        public int size() {
+            return cache.asMap().size();
+        }
     }
 }

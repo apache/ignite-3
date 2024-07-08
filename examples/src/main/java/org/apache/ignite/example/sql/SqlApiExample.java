@@ -27,9 +27,13 @@ import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.table.mapper.Mapper;
+import org.apache.ignite.tx.Transaction;
+import org.apache.ignite.tx.TransactionOptions;
 
 /**
  * Examples of using SQL API.
+ *
+ * <p>Find instructions on how to run the example in the README.md file located in the "examples" directory root.
  */
 public class SqlApiExample {
     /**
@@ -57,22 +61,28 @@ public class SqlApiExample {
             //
             //--------------------------------------------------------------------------------------
 
-            client.sql().execute(
-                    null,
+            client.sql().executeScript(
                     "CREATE TABLE CITIES ("
                             + "ID   INT PRIMARY KEY,"
-                            + "NAME VARCHAR)"
-            ).close(); // Ignore result.
+                            + "NAME VARCHAR);"
 
-            client.sql().execute(
-                    null,
-                    "CREATE TABLE ACCOUNTS ("
+                            + "CREATE TABLE ACCOUNTS ("
                             + "    ACCOUNT_ID INT PRIMARY KEY,"
                             + "    CITY_ID    INT,"
                             + "    FIRST_NAME VARCHAR,"
                             + "    LAST_NAME  VARCHAR,"
                             + "    BALANCE    DOUBLE)"
-            ).close();
+            );
+
+            //--------------------------------------------------------------------------------------
+            //
+            // Starting transaction.
+            //
+            //--------------------------------------------------------------------------------------
+
+            System.out.println("\nStarting read-write transaction...");
+
+            Transaction tx = client.transactions().begin(new TransactionOptions().readOnly(false));
 
             //--------------------------------------------------------------------------------------
             //
@@ -80,41 +90,56 @@ public class SqlApiExample {
             //
             //--------------------------------------------------------------------------------------
 
-            System.out.println("\nPopulating 'CITIES' table...");
+            try {
+                System.out.println("\nPopulating 'CITIES' table...");
 
-            try (Statement stmt = client.sql().createStatement("INSERT INTO CITIES (ID, NAME) VALUES (?, ?)")) {
+                Statement stmt = client.sql().createStatement("INSERT INTO CITIES (ID, NAME) VALUES (?, ?)");
                 long rowsAdded = 0;
 
-                try (ResultSet rs = client.sql().execute(null, stmt, 1, "Forest Hill")) {
+                try (ResultSet<?> rs = client.sql().execute(tx, stmt, 1, "Forest Hill")) {
                     rowsAdded += rs.affectedRows();
                 }
-                try (ResultSet rs = client.sql().execute(null, stmt, 2, "Denver")) {
+                try (ResultSet<?> rs = client.sql().execute(tx, stmt, 2, "Denver")) {
                     rowsAdded += rs.affectedRows();
                 }
-                try (ResultSet rs = client.sql().execute(null, stmt, 3, "St. Petersburg")) {
+                try (ResultSet<?> rs = client.sql().execute(tx, stmt, 3, "St. Petersburg")) {
                     rowsAdded += rs.affectedRows();
                 }
 
                 System.out.println("\nAdded cities: " + rowsAdded);
+
+                //--------------------------------------------------------------------------------------
+                //
+                // Populating 'ACCOUNTS' table.
+                //
+                //--------------------------------------------------------------------------------------
+
+                System.out.println("\nPopulating 'ACCOUNTS' table...");
+
+                rowsAdded = Arrays.stream(client.sql().executeBatch(tx,
+                                "INSERT INTO ACCOUNTS (ACCOUNT_ID, CITY_ID, FIRST_NAME, LAST_NAME, BALANCE) values (?, ?, ?, ?, ?)",
+                                BatchedArguments.of(1, 1, "John", "Doe", 1000.0d)
+                                        .add(2, 1, "Jane", "Roe", 2000.0d)
+                                        .add(3, 2, "Mary", "Major", 1500.0d)
+                                        .add(4, 3, "Richard", "Miles", 1450.0d)))
+                        .sum();
+
+                System.out.println("\nAdded accounts: " + rowsAdded);
+
+                //--------------------------------------------------------------------------------------
+                //
+                // Committing transaction.
+                //
+                //--------------------------------------------------------------------------------------
+
+                System.out.println("\nCommitting transaction...");
+
+                tx.commit();
+            } catch (Exception e) {
+                tx.rollback();
+
+                throw e;
             }
-
-            //--------------------------------------------------------------------------------------
-            //
-            // Populating 'ACCOUNTS' table.
-            //
-            //--------------------------------------------------------------------------------------
-
-            System.out.println("\nPopulating 'ACCOUNTS' table...");
-
-            long rowsAdded = Arrays.stream(client.sql().executeBatch(null,
-                            "INSERT INTO ACCOUNTS (ACCOUNT_ID, CITY_ID, FIRST_NAME, LAST_NAME, BALANCE) values (?, ?, ?, ?, ?)",
-                            BatchedArguments.of(1, 1, "John", "Doe", 1000.0d)
-                                    .add(2, 1, "Jane", "Roe", 2000.0d)
-                                    .add(3, 1, "Mary", "Major", 1500.0d)
-                                    .add(4, 1, "Richard", "Miles", 1450.0d)))
-                    .sum();
-
-            System.out.println("\nAdded accounts: " + rowsAdded);
 
             //--------------------------------------------------------------------------------------
             //
@@ -131,9 +156,9 @@ public class SqlApiExample {
                     SqlRow row = rs.next();
 
                     System.out.println("    "
+                            + row.stringValue(0) + ", "
                             + row.stringValue(1) + ", "
-                            + row.stringValue(2) + ", "
-                            + row.stringValue(3));
+                            + row.stringValue(2));
                 }
             }
 
@@ -195,12 +220,12 @@ public class SqlApiExample {
                     .thenCompose(SqlApiExample::fetchAllRowsInto)
                     .get();
 
-            stmt.close();
-
             System.out.println("\nDropping the tables...");
 
-            client.sql().execute(null, "DROP TABLE ACCOUNTS").close();
-            client.sql().execute(null, "DROP TABLE CITIES").close();
+            client.sql().executeScript(
+                    "DROP TABLE ACCOUNTS;"
+                    + "DROP TABLE CITIES"
+            );
         }
     }
 
@@ -216,9 +241,9 @@ public class SqlApiExample {
         //
         for (var row : resultSet.currentPage()) {
             System.out.println("    "
+                    + row.stringValue(0) + ", "
                     + row.stringValue(1) + ", "
-                    + row.stringValue(2) + ", "
-                    + row.stringValue(3));
+                    + row.stringValue(2));
         }
 
         //

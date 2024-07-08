@@ -366,7 +366,7 @@ namespace Apache.Ignite.Tests
                         reader.ReadBoolean(); // returnResults.
 
                         var payloadTupleSize = reader.ReadInt32();
-                        var payloadItemCount = payloadTupleSize - 4; // NOTE: Ignores args.
+                        var payloadItemCount = payloadTupleSize - 6; // NOTE: Ignores args.
                         StreamerRowCount += payloadItemCount;
 
                         if (MultiRowOperationDelayPerRow > TimeSpan.Zero)
@@ -383,7 +383,7 @@ namespace Apache.Ignite.Tests
                 using var errWriter = new PooledArrayBuffer();
                 var w = new MsgPackWriter(errWriter);
                 w.Write(Guid.Empty);
-                w.Write(262150);
+                w.Write(262148);
                 w.Write("org.foo.bar.BazException");
                 w.Write(Err);
                 w.WriteNil(); // Stack trace.

@@ -183,6 +183,34 @@ public class ClientKeyValueBinaryViewTest extends AbstractClientTableTest {
     }
 
     @Test
+    public void testContainsAll() {
+        KeyValueView<Tuple, Tuple> kvView = defaultTable().keyValueView();
+
+        Tuple firstKeyTuple = tupleKey(101L);
+        Tuple secondKeyTuple = tupleKey(102L);
+        Tuple thirdKeyTuple = tupleKey(103L);
+
+        Map<Tuple, Tuple> kvs = Map.of(
+                firstKeyTuple, tupleVal("201"),
+                secondKeyTuple, tupleVal("202"),
+                thirdKeyTuple, tupleVal("203")
+        );
+
+        kvView.putAll(null, kvs);
+
+        assertThrows(NullPointerException.class, () -> kvView.containsAll(null, null));
+        assertThrows(NullPointerException.class, () -> kvView.containsAll(null, List.of(firstKeyTuple, null, thirdKeyTuple)));
+
+        assertTrue(kvView.containsAll(null, List.of()));
+        assertTrue(kvView.containsAll(null, List.of(firstKeyTuple)));
+        assertTrue(kvView.containsAll(null, List.of(firstKeyTuple, secondKeyTuple, thirdKeyTuple)));
+
+        Tuple zeroKeyTuple = tupleKey(0L);
+        assertFalse(kvView.containsAll(null, List.of(zeroKeyTuple)));
+        assertFalse(kvView.containsAll(null, List.of(firstKeyTuple, secondKeyTuple, zeroKeyTuple)));
+    }
+
+    @Test
     public void testPutAll() {
         KeyValueView<Tuple, Tuple> kvView = defaultTable().keyValueView();
         kvView.putAll(null, Map.of(tupleKey(1L), tupleVal("1"), tupleKey(2L), tupleVal("2")));

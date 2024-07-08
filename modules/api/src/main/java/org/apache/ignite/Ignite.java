@@ -30,7 +30,7 @@ import org.apache.ignite.tx.IgniteTransactions;
 /**
  * Ignite API entry point.
  */
-public interface Ignite extends AutoCloseable {
+public interface Ignite {
     /**
      * Returns the unique name (consistent ID) of the Ignite node in the cluster.
      *

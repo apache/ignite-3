@@ -16,6 +16,7 @@
  */
 package org.apache.ignite.raft.jraft.storage;
 
+import static org.apache.ignite.internal.util.ArrayUtils.EMPTY_BYTE_BUFFER;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.concurrent.ConcurrentHashMap;
@@ -34,7 +35,6 @@ import org.apache.ignite.raft.jraft.rpc.RpcRequestClosure;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.GetFileRequest;
 import org.apache.ignite.raft.jraft.storage.io.FileReader;
 import org.apache.ignite.raft.jraft.util.ByteBufferCollector;
-import org.apache.ignite.raft.jraft.util.ByteString;
 import org.apache.ignite.raft.jraft.util.OnlyForTest;
 import org.apache.ignite.raft.jraft.util.Utils;
 
@@ -110,11 +110,11 @@ public final class FileService {
             buf.flip();
             if (!buf.hasRemaining()) {
                 // skip empty data
-                responseBuilder.data(ByteString.EMPTY);
+                responseBuilder.data(EMPTY_BYTE_BUFFER);
             }
             else {
                 // TODO check hole https://issues.apache.org/jira/browse/IGNITE-14832
-                responseBuilder.data(new ByteString(buf));
+                responseBuilder.data(buf);
             }
             return responseBuilder.build();
         }

@@ -31,6 +31,7 @@ import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -115,13 +116,22 @@ public class DefaultMessagingService extends AbstractMessagingService {
     private volatile BiPredicate<String, NetworkMessage> dropMessagesPredicate;
 
     /**
+     * Cache of {@link InetSocketAddress} of recipient nodes ({@link ClusterNode}) that are in the topology and not stale.
+     *
+     * <p>Introduced for optimization - reducing the number of address resolving for the same nodes.</p>
+     */
+    private final Map<String, InetSocketAddress> recipientInetAddrByNodeId = new ConcurrentHashMap<>();
+
+    /**
      * Constructor.
      *
+     * @param nodeName Consistent ID (aka name) of the local node associated with the service to create.
      * @param factory Network messages factory.
      * @param topologyService Topology service.
      * @param staleIdDetector Used to detect stale node IDs.
      * @param classDescriptorRegistry Descriptor registry.
      * @param marshaller Marshaller.
+     * @param criticalWorkerRegistry Used to register critical threads managed by the new service and its components.
      */
     public DefaultMessagingService(
             String nodeName,
@@ -566,6 +576,13 @@ public class DefaultMessagingService extends AbstractMessagingService {
      */
     public void start() {
         criticalWorkerRegistry.register(outboundExecutor);
+
+        topologyService.addEventHandler(new TopologyEventHandler() {
+            @Override
+            public void onDisappeared(ClusterNode member) {
+                recipientInetAddrByNodeId.remove(member.id());
+            }
+        });
     }
 
     /**
@@ -579,6 +596,8 @@ public class DefaultMessagingService extends AbstractMessagingService {
         requestsMap.clear();
 
         criticalWorkerRegistry.unregister(outboundExecutor);
+
+        recipientInetAddrByNodeId.clear();
 
         inboundExecutors.close();
         IgniteUtils.shutdownAndAwaitTermination(outboundExecutor, 10, TimeUnit.SECONDS);
@@ -674,14 +693,14 @@ public class DefaultMessagingService extends AbstractMessagingService {
      * @param recipientNode Target cluster node.
      */
     private @Nullable InetSocketAddress resolveRecipientAddress(ClusterNode recipientNode) {
-        NetworkAddress recipientAddress = recipientNode.address();
-
         // Node name is {@code null} if the node has not been added to the topology.
         if (recipientNode.name() != null) {
-            return connectionManager.consistentId().equals(recipientNode.name()) ? null : createResolved(recipientAddress);
+            return connectionManager.consistentId().equals(recipientNode.name()) ? null : getFromCacheOrCreateResolved(recipientNode);
         }
 
         InetSocketAddress localAddress = connectionManager.localAddress();
+
+        NetworkAddress recipientAddress = recipientNode.address();
 
         if (localAddress.getPort() != recipientAddress.port()) {
             return createResolved(recipientAddress);
@@ -704,5 +723,19 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
     private static InetSocketAddress createResolved(NetworkAddress address) {
         return new InetSocketAddress(address.host(), address.port());
+    }
+
+    private InetSocketAddress getFromCacheOrCreateResolved(ClusterNode recipientNode) {
+        assert recipientNode.name() != null : "Node has not been added to the topology: " + recipientNode.id();
+
+        InetSocketAddress address = recipientInetAddrByNodeId.compute(recipientNode.id(), (nodeId, inetSocketAddress) -> {
+            if (staleIdDetector.isIdStale(nodeId)) {
+                return null;
+            }
+
+            return inetSocketAddress != null ? inetSocketAddress : createResolved(recipientNode.address());
+        });
+
+        return address != null ? address : createResolved(recipientNode.address());
     }
 }

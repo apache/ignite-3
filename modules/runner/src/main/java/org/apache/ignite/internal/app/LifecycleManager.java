@@ -71,9 +71,10 @@ class LifecycleManager implements StateProvider {
      *
      * @param component Ignite component to start.
      * @param componentContext Component context.
+     * @return Future that will be completed when the asynchronous part of the start is processed.
      * @throws NodeStoppingException If node stopping intention was detected.
      */
-    void startComponent(IgniteComponent component, ComponentContext componentContext)
+    CompletableFuture<Void> startComponentAsync(IgniteComponent component, ComponentContext componentContext)
             throws NodeStoppingException {
         if (status.get() == State.STOPPING) {
             throw new NodeStoppingException("Node=[" + nodeName + "] was stopped");
@@ -82,21 +83,27 @@ class LifecycleManager implements StateProvider {
         synchronized (this) {
             startedComponents.add(component);
 
-            allComponentsStartFuture.add(component.startAsync(componentContext));
+            CompletableFuture<Void> future = component.startAsync(componentContext);
+            allComponentsStartFuture.add(future);
+            return future;
         }
     }
 
     /**
-     * Similar to {@link #startComponent} but allows to start multiple components at once.
+     * Similar to {@link #startComponentAsync} but allows to start multiple components at once.
      *
      * @param componentContext Component context.
      * @param components Ignite components to start.
+     * @return Future that will be completed when all the components are started.
      * @throws NodeStoppingException If node stopping intention was detected.
      */
-    void startComponents(ComponentContext componentContext, IgniteComponent... components) throws NodeStoppingException {
-        for (IgniteComponent component : components) {
-            startComponent(component, componentContext);
+    CompletableFuture<Void> startComponentsAsync(ComponentContext componentContext, IgniteComponent... components)
+            throws NodeStoppingException {
+        CompletableFuture<?>[] futures = new CompletableFuture[components.length];
+        for (int i = 0; i < components.length; i++) {
+            futures[i] = startComponentAsync(components[i], componentContext);
         }
+        return allOf(futures);
     }
 
     /**

@@ -132,17 +132,15 @@ public final class InteractiveTasks {
     /**
      * If any of the args are strings, convert them to signals and offer them to the job.
      *
-     * @param args Job args.
+     * @param arg Job args.
      */
-    private static void offerArgsAsSignals(Object... args) {
-        for (Object arg : args) {
-            if (arg instanceof String) {
-                String signal = (String) arg;
-                try {
-                    GLOBAL_SIGNALS.offer(Signal.valueOf(signal));
-                } catch (IllegalArgumentException ignored) {
-                    // Ignore non-signal strings
-                }
+    private static void offerArgsAsSignals(Object arg) {
+        if (arg instanceof String) {
+            String signal = (String) arg;
+            try {
+                GLOBAL_SIGNALS.offer(Signal.valueOf(signal));
+            } catch (IllegalArgumentException ignored) {
+                // Ignore non-signal strings
             }
         }
     }
@@ -150,7 +148,7 @@ public final class InteractiveTasks {
     /**
      * Interactive map reduce task that communicates via {@link #GLOBAL_CHANNEL} and {@link #GLOBAL_SIGNALS}.
      */
-    private static class GlobalInteractiveMapReduceTask implements MapReduceTask<List<String>> {
+    private static class GlobalInteractiveMapReduceTask implements MapReduceTask<String, Object, Object, List<String>> {
         // When listening for signal is interrupted, if this flag is true, then corresponding method will throw exception,
         // otherwise it will clean the interrupted status.
         private boolean throwExceptionOnInterruption = true;
@@ -171,15 +169,12 @@ public final class InteractiveTasks {
         }
 
         @Override
-        public CompletableFuture<List<MapReduceJob>> splitAsync(TaskExecutionContext context, Object... args) {
+        public CompletableFuture<List<MapReduceJob<Object, Object>>> splitAsync(TaskExecutionContext context, String args) {
             RUNNING_GLOBAL_SPLIT_CNT.incrementAndGet();
 
             offerArgsAsSignals(args);
-            for (Object arg : args) {
-                if (NO_INTERRUPT_ARG_NAME.equals(arg)) {
-                    throwExceptionOnInterruption = false;
-                    break;
-                }
+            if (NO_INTERRUPT_ARG_NAME.equals(args)) {
+                throwExceptionOnInterruption = false;
             }
 
             try {
@@ -213,7 +208,7 @@ public final class InteractiveTasks {
         }
 
         @Override
-        public CompletableFuture<List<String>> reduceAsync(TaskExecutionContext context, Map<UUID, ?> results) {
+        public CompletableFuture<List<String>> reduceAsync(TaskExecutionContext context, Map<UUID, Object> results) {
             RUNNING_GLOBAL_REDUCE_CNT.incrementAndGet();
             try {
                 while (true) {

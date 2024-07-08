@@ -21,6 +21,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteServer;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 
@@ -55,9 +56,10 @@ public class PlatformBenchmarkNodeRunner {
     public static void main(String[] args) throws Exception {
         System.out.println("Starting benchmark node runner...");
 
-        List<Ignite> startedNodes = PlatformTestNodeRunner.startNodes(BASE_PATH, nodesBootstrapCfg);
+        List<IgniteServer> startedNodes = PlatformTestNodeRunner.startNodes(BASE_PATH, nodesBootstrapCfg);
 
-        Object clientHandlerModule = IgniteTestUtils.getFieldValue(startedNodes.get(0), "clientHandlerModule");
+        Ignite ignite = startedNodes.get(0).api();
+        Object clientHandlerModule = IgniteTestUtils.getFieldValue(ignite, "clientHandlerModule");
         ClientHandlerMetricSource metrics = IgniteTestUtils.getFieldValue(clientHandlerModule, "metrics");
         metrics.enable();
 

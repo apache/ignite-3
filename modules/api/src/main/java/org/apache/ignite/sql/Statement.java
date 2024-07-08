@@ -29,7 +29,7 @@ import java.util.concurrent.TimeUnit;
  * If the server-side state does not exist due to any reason - the very first run, current client node reconnect, cache
  * invalidation, etc. - this state is restored automatically. This may cause the user to experience a slightly increased latency.
  */
-public interface Statement extends AutoCloseable {
+public interface Statement {
     /**
      * Returns a string representation of an SQL statement.
      *

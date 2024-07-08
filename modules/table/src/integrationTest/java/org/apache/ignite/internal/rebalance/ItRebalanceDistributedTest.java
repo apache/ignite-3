@@ -731,7 +731,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         assertTrue(waitForCondition(
                 () -> nodes.stream()
                         .filter(isNodeOutsideReplicationGroup)
-                        .noneMatch(n -> hasNodeStartedGroupService(n, replGrpId)),
+                        .noneMatch(n -> isReplicationGroupStarted(n, replGrpId)),
                 (long) AWAIT_TIMEOUT_MILLIS * nodes.size()
         ));
     }
@@ -793,7 +793,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         assertTrue(waitForCondition(
                 () -> nodes.stream()
                         .filter(isNodeOutsideReplicationGroup)
-                        .noneMatch(n -> hasNodeStartedGroupService(n, partId)),
+                        .noneMatch(n -> isReplicationGroupStarted(n, partId)),
                 (long) AWAIT_TIMEOUT_MILLIS * nodes.size()
         ));
 
@@ -813,8 +813,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                 .anyMatch(id -> id.equals(node.clusterService.nodeName()));
     }
 
-    private static boolean hasNodeStartedGroupService(Node node, ReplicationGroupId replicationGroupId) {
-        return node.replicaManager.isReplicaTouched(replicationGroupId);
+    private static boolean isReplicationGroupStarted(Node node, ReplicationGroupId replicationGroupId) {
+        return node.replicaManager.isReplicaStarted(replicationGroupId);
     }
 
     private static boolean isNodeUpdatesPeersOnGroupService(Node node, Set<Peer> desiredPeers) {
@@ -1110,7 +1110,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     new TestConfigurationValidator()
             );
 
-            failureProcessor = new NoOpFailureProcessor(name);
+            failureProcessor = new NoOpFailureProcessor();
 
             cmgManager = new ClusterManagementGroupManager(
                     vaultManager,

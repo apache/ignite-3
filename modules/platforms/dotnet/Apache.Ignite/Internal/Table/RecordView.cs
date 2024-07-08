@@ -308,13 +308,12 @@ namespace Apache.Ignite.Internal.Table
                 cancellationToken).ConfigureAwait(false);
 
         /// <inheritdoc/>
-        public async IAsyncEnumerable<TResult> StreamDataAsync<TSource, TPayload, TResult>(
+        public async IAsyncEnumerable<TResult> StreamDataAsync<TSource, TPayload, TArg, TResult>(
             IAsyncEnumerable<TSource> data,
             Func<TSource, T> keySelector,
             Func<TSource, TPayload> payloadSelector,
-            IEnumerable<DeploymentUnit> units,
-            string receiverClassName,
-            ICollection<object>? receiverArgs,
+            ReceiverDescriptor<TArg, TResult> receiver,
+            TArg receiverArg,
             DataStreamerOptions? options,
             [EnumeratorCancellation] CancellationToken cancellationToken = default)
             where TPayload : notnull
@@ -380,9 +379,9 @@ namespace Apache.Ignite.Internal.Table
                         keyWriter: _ser.Handler,
                         options,
                         resultChannel,
-                        units,
-                        receiverClassName,
-                        receiverArgs,
+                        receiver.DeploymentUnits ?? Array.Empty<DeploymentUnit>(),
+                        receiver.ReceiverClassName,
+                        receiverArg,
                         cancellationToken).ConfigureAwait(false);
 
                     resultChannel.Writer.Complete();
@@ -395,18 +394,17 @@ namespace Apache.Ignite.Internal.Table
         }
 
         /// <inheritdoc/>
-        public async Task StreamDataAsync<TSource, TPayload>(
+        public async Task StreamDataAsync<TSource, TPayload, TArg>(
             IAsyncEnumerable<TSource> data,
             Func<TSource, T> keySelector,
             Func<TSource, TPayload> payloadSelector,
-            IEnumerable<DeploymentUnit> units,
-            string receiverClassName,
-            ICollection<object>? receiverArgs,
+            ReceiverDescriptor<TArg> receiver,
+            TArg receiverArg,
             DataStreamerOptions? options,
             CancellationToken cancellationToken = default)
             where TPayload : notnull
         {
-            await DataStreamerWithReceiver.StreamDataAsync<TSource, T, TPayload, object>(
+            await DataStreamerWithReceiver.StreamDataAsync<TSource, T, TPayload, TArg, object>(
                 data,
                 _table,
                 keySelector,
@@ -414,9 +412,9 @@ namespace Apache.Ignite.Internal.Table
                 keyWriter: _ser.Handler,
                 options ?? DataStreamerOptions.Default,
                 resultChannel: null,
-                units,
-                receiverClassName,
-                receiverArgs,
+                receiver.DeploymentUnits ?? Array.Empty<DeploymentUnit>(),
+                receiver.ReceiverClassName,
+                receiverArg,
                 cancellationToken).ConfigureAwait(false);
         }
 
