@@ -654,7 +654,8 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
 
                 Node node = nodes.get(0);
 
-                node.metaStorageManager.put(stablePartAssignmentsKey(partId), Assignments.of(Assignment.forPeer(node.name)).toBytes());
+                node.metaStorageManager.put(stablePartAssignmentsKey(partId),
+                        Assignments.of(node.catalogManager.latestCatalogVersion(), Assignment.forPeer(node.name)).toBytes());
             }
 
             return null;

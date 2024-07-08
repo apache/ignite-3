@@ -397,11 +397,11 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
             Update successCase;
             Update failCase;
 
-            byte[] stableFromRaftByteArray = Assignments.toBytes(stableFromRaft);
-            byte[] additionByteArray = Assignments.toBytes(calculatedPendingAddition);
-            byte[] reductionByteArray = Assignments.toBytes(calculatedPendingReduction);
-            byte[] switchReduceByteArray = Assignments.toBytes(calculatedSwitchReduce);
-            byte[] switchAppendByteArray = Assignments.toBytes(calculatedSwitchAppend);
+            byte[] stableFromRaftByteArray = Assignments.toBytes(catalogVersion, stableFromRaft);
+            byte[] additionByteArray = Assignments.toBytes(catalogVersion, calculatedPendingAddition);
+            byte[] reductionByteArray = Assignments.toBytes(catalogVersion, calculatedPendingReduction);
+            byte[] switchReduceByteArray = Assignments.toBytes(catalogVersion, calculatedSwitchReduce);
+            byte[] switchAppendByteArray = Assignments.toBytes(catalogVersion, calculatedSwitchAppend);
 
             if (!calculatedSwitchAppend.isEmpty()) {
                 successCase = ops(
@@ -554,10 +554,17 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
      * @param replicas Replicas count.
      * @param partId Partition's raft group id.
      * @param event Assignments switch reduce change event.
+     * @param catalogVersion Catalog version.
      * @return Completable future that signifies the completion of this operation.
      */
-    public static CompletableFuture<Void> handleReduceChanged(MetaStorageManager metaStorageMgr, Collection<String> dataNodes,
-            int replicas, ZonePartitionId partId, WatchEvent event) {
+    public static CompletableFuture<Void> handleReduceChanged(
+            MetaStorageManager metaStorageMgr,
+            Collection<String> dataNodes,
+            int replicas,
+            ZonePartitionId partId,
+            WatchEvent event,
+            int catalogVersion
+    ) {
         Entry entry = event.entryEvent().newEntry();
         byte[] eventData = entry.value();
 
@@ -575,8 +582,8 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
 
         Set<Assignment> pendingAssignments = difference(assignments, switchReduce.nodes());
 
-        byte[] pendingByteArray = Assignments.toBytes(pendingAssignments);
-        byte[] assignmentsByteArray = Assignments.toBytes(assignments);
+        byte[] pendingByteArray = Assignments.toBytes(catalogVersion, pendingAssignments);
+        byte[] assignmentsByteArray = Assignments.toBytes(catalogVersion, assignments);
 
         ByteArray changeTriggerKey = ZoneRebalanceUtil.pendingChangeTriggerKey(partId);
         byte[] rev = ByteUtils.longToBytesKeepingOrder(entry.revision());

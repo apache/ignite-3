@@ -160,7 +160,8 @@ class ManualGroupUpdateRequest implements DisasterRecoveryRequest {
                     nodeConsistentIds,
                     msRevision,
                     disasterRecoveryManager.metaStorageManager,
-                    localStatesMap
+                    localStatesMap,
+                    catalogVersion
             );
 
             return allOf(futures);
@@ -179,6 +180,7 @@ class ManualGroupUpdateRequest implements DisasterRecoveryRequest {
      * @param revision Meta-storage revision to be associated with reassignment.
      * @param metaStorageManager Meta-storage manager.
      * @param localStatesMap Local partition states retrieved by {@link DisasterRecoveryManager#localPartitionStates(Set, Set, Set)}.
+     * @param catalogVersion Catalog version.
      * @return A future that will be completed when reassignments data is written into a meta-storage, if that's required.
      */
     private CompletableFuture<?>[] forceAssignmentsUpdate(
@@ -188,7 +190,8 @@ class ManualGroupUpdateRequest implements DisasterRecoveryRequest {
             Set<String> aliveNodesConsistentIds,
             long revision,
             MetaStorageManager metaStorageManager,
-            Map<TablePartitionId, LocalPartitionStateMessageByNode> localStatesMap
+            Map<TablePartitionId, LocalPartitionStateMessageByNode> localStatesMap,
+            int catalogVersion
     ) {
         CompletableFuture<Map<Integer, Assignments>> tableAssignmentsFut = tableAssignments(
                 metaStorageManager,
@@ -217,7 +220,8 @@ class ManualGroupUpdateRequest implements DisasterRecoveryRequest {
                             revision,
                             metaStorageManager,
                             tableAssignments.get(replicaGrpId.partitionId()).nodes(),
-                            localStatesMap.get(replicaGrpId)
+                            localStatesMap.get(replicaGrpId),
+                            catalogVersion
                     )).thenAccept(res -> {
                         DisasterRecoveryManager.LOG.info(
                                 "Partition {} returned {} status on reset attempt", replicaGrpId, UpdateStatus.valueOf(res)
@@ -237,7 +241,8 @@ class ManualGroupUpdateRequest implements DisasterRecoveryRequest {
             long revision,
             MetaStorageManager metaStorageMgr,
             Set<Assignment> currentAssignments,
-            LocalPartitionStateMessageByNode localPartitionStateMessageByNode
+            LocalPartitionStateMessageByNode localPartitionStateMessageByNode,
+            int catalogVersion
     ) {
         Set<Assignment> partAssignments = getAliveNodesWithData(aliveNodesConsistentIds, localPartitionStateMessageByNode);
         Set<Assignment> aliveStableNodes = CollectionUtils.intersect(currentAssignments, partAssignments);
@@ -256,7 +261,7 @@ class ManualGroupUpdateRequest implements DisasterRecoveryRequest {
             invokeClosure = prepareMsInvokeClosure(
                     partId,
                     longToBytesKeepingOrder(revision),
-                    Assignments.forced(partAssignments).toBytes(),
+                    Assignments.forced(catalogVersion, partAssignments).toBytes(),
                     null
             );
         } else {
@@ -268,8 +273,8 @@ class ManualGroupUpdateRequest implements DisasterRecoveryRequest {
             invokeClosure = prepareMsInvokeClosure(
                     partId,
                     longToBytesKeepingOrder(revision),
-                    Assignments.forced(stableAssignments).toBytes(),
-                    Assignments.toBytes(partAssignments)
+                    Assignments.forced(catalogVersion, stableAssignments).toBytes(),
+                    Assignments.toBytes(catalogVersion, partAssignments)
             );
         }
 

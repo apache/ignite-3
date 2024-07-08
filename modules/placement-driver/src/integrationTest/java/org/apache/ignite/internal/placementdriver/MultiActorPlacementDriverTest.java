@@ -575,6 +575,6 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
      * @return Replication group id.
      */
     private TablePartitionId createTableAssignment() {
-        return createTableAssignment(metaStorageManager, nextTableId.get(), nodeNames);
+        return createTableAssignment(metaStorageManager, nextTableId.get(), nodeNames, 1);
     }
 }

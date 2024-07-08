@@ -60,12 +60,14 @@ public class RebalanceUtilEx {
      * @param partId Partition's raft group id.
      * @param peerAssignment Assignment of the peer to be removed.
      * @param metaStorageMgr MetaStorage manager.
+     * @param catalogVersion Catalog version.
      * @return Completable future that signifies the completion of this operation.
      */
     public static CompletableFuture<Void> startPeerRemoval(
             TablePartitionId partId,
             Assignment peerAssignment,
-            MetaStorageManager metaStorageMgr
+            MetaStorageManager metaStorageMgr,
+            int catalogVersion
     ) {
         ByteArray key = switchReduceKey(partId);
 
@@ -84,7 +86,7 @@ public class RebalanceUtilEx {
                                 Operations.noop()
                         );
                     } else {
-                        var newValue = Assignments.of(new HashSet<>());
+                        var newValue = Assignments.of(catalogVersion, new HashSet<>());
 
                         newValue.add(peerAssignment);
 
@@ -96,7 +98,7 @@ public class RebalanceUtilEx {
                     }
                 }).thenCompose(res -> {
                     if (!res) {
-                        return startPeerRemoval(partId, peerAssignment, metaStorageMgr);
+                        return startPeerRemoval(partId, peerAssignment, metaStorageMgr, catalogVersion);
                     }
 
                     return nullCompletedFuture();
@@ -112,10 +114,17 @@ public class RebalanceUtilEx {
      * @param replicas Replicas count.
      * @param partId Partition's raft group id.
      * @param event Assignments switch reduce change event.
+     * @param catalogVersion Catalog version.
      * @return Completable future that signifies the completion of this operation.
      */
-    public static CompletableFuture<Void> handleReduceChanged(MetaStorageManager metaStorageMgr, Collection<String> dataNodes,
-            int replicas, TablePartitionId partId, WatchEvent event) {
+    public static CompletableFuture<Void> handleReduceChanged(
+            MetaStorageManager metaStorageMgr,
+            Collection<String> dataNodes,
+            int replicas,
+            TablePartitionId partId,
+            WatchEvent event,
+            int catalogVersion
+    ) {
         Entry entry = event.entryEvent().newEntry();
         byte[] eventData = entry.value();
 
@@ -133,8 +142,8 @@ public class RebalanceUtilEx {
 
         Set<Assignment> pendingAssignments = difference(assignments, switchReduce.nodes());
 
-        byte[] pendingByteArray = Assignments.toBytes(pendingAssignments);
-        byte[] assignmentsByteArray = Assignments.toBytes(assignments);
+        byte[] pendingByteArray = Assignments.toBytes(catalogVersion, pendingAssignments);
+        byte[] assignmentsByteArray = Assignments.toBytes(catalogVersion, assignments);
 
         ByteArray changeTriggerKey = pendingChangeTriggerKey(partId);
         byte[] rev = longToBytesKeepingOrder(entry.revision());

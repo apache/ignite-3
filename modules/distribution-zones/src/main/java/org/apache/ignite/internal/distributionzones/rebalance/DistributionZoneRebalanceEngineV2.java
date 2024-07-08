@@ -173,7 +173,8 @@ public class DistributionZoneRebalanceEngineV2 {
                             filteredDataNodes,
                             evt.entryEvent().newEntry().revision(),
                             metaStorageManager,
-                            busyLock
+                            busyLock,
+                            catalogVersion
                     );
                 });
             }
@@ -219,7 +220,8 @@ public class DistributionZoneRebalanceEngineV2 {
                             dataNodes,
                             causalityToken,
                             metaStorageManager,
-                            busyLock
+                            busyLock,
+                            catalogVersion
                     );
                 }));
     }

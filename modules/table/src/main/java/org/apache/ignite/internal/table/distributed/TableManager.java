@@ -910,12 +910,15 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 .tableRaftService()
                 .updateInternalTableRaftGroupService(partId, raftClient);
 
+        int catalogVersion = stableAssignments.catalogVersion();
+
         CompletableFuture<Boolean> shouldStartGroupFut = isRecovery
                 ? partitionReplicatorNodeRecovery.initiateGroupReentryIfNeeded(
                         replicaGrpId,
                         internalTbl,
                         stablePeersAndLearners,
-                        localMemberAssignment
+                        localMemberAssignment,
+                        catalogVersion
                 )
                 : trueCompletedFuture();
 
@@ -1371,7 +1374,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             dataNodes,
                             zoneDescriptor.partitions(),
                             zoneDescriptor.replicas()
-                    ).stream().map(Assignments::of).collect(toList()));
+                    ).stream().map(assignments -> Assignments.of(catalogVersion, assignments)).collect(toList()));
 
             assignmentsFuture.thenAccept(assignmentsList -> LOG.info(
                     "Assignments calculated from data nodes [table={}, tableId={}, assignments={}, revision={}]",
@@ -1768,8 +1771,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                     stringKey, partId, table.name(), localNode().address(), pendingAssignments, revision);
                         }
 
-                        // TODO: IGNITE-22661 should come from the assignments. The version valid at the time of assignment creation.
-                        int catalogVersion = catalogService.latestCatalogVersion();
+                        int catalogVersion = pendingAssignments.catalogVersion();
 
                         return setTablesPartitionCountersForRebalance(replicaGrpId, revision, pendingAssignments.force(), catalogVersion)
                                 .thenCompose(v -> handleChangePendingAssignmentEvent(
@@ -1831,7 +1833,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         if (stableAssignments == null || stableAssignments.nodes().isEmpty()) {
             // This condition can only pass if all stable nodes are dead, and we start new raft group from scratch.
             // In this case new initial configuration must match new forced assignments.
-            computedStableAssignments = Assignments.forced(pendingAssignmentsNodes);
+            computedStableAssignments = Assignments.forced(catalogVersion, pendingAssignmentsNodes);
         } else if (pendingAssignmentsAreForced) {
             // In case of forced assignments we need to remove nodes that are present in the stable set but are missing from the
             // pending set. Such operation removes dead stable nodes from the resulting stable set, which guarantees that we will
@@ -2124,10 +2126,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                     TablePartitionId replicaGrpId = new TablePartitionId(tableId, partitionId);
 
-                    // It is safe to get the latest version of the catalog as we are in the metastore thread.
-                    // TODO: IGNITE-22661 Potentially unsafe to use the latest catalog version, as the tables might not already present
-                    //  in the catalog. Better to take the version from Assignments.
-                    int catalogVersion = catalogService.latestCatalogVersion();
+                    Assignments assignments = Assignments.fromBytes(evt.entryEvent().newEntry().value());
+
+                    int catalogVersion = assignments.catalogVersion();
 
                     return tablesById(evt.revision())
                             .thenCompose(tables -> inBusyLockAsync(busyLock, () -> {
@@ -2143,7 +2144,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                                 dataNodes,
                                                 zoneDescriptor.replicas(),
                                                 replicaGrpId,
-                                                evt
+                                                evt,
+                                                catalogVersion
                                         ));
                             }));
                 });
@@ -2612,9 +2614,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      *
      * @param tablePartitionId Table partition that needs to be restarted.
      * @param revision Metastore revision.
+     * @param catalogVersion Catalog version.
      * @return Operation future.
      */
-    public CompletableFuture<Void> restartPartition(TablePartitionId tablePartitionId, long revision) {
+    public CompletableFuture<Void> restartPartition(TablePartitionId tablePartitionId, long revision, int catalogVersion) {
         return inBusyLockAsync(busyLock, () -> tablesVv.get(revision).thenComposeAsync(unused -> inBusyLockAsync(busyLock, () -> {
             TableImpl table = tables.get(tablePartitionId.tableId());
 
@@ -2622,10 +2625,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 Assignments stableAssignments = stableAssignments(tablePartitionId, revision);
 
                 assert stableAssignments != null : "tablePartitionId=" + tablePartitionId + ", revision=" + revision;
-
-                // TODO: IGNITE-22661 Potentially unsafe to use the latest catalog version, as the tables might not already present
-                //  in the catalog. Better to store this version in ManualGroupRestartRequest.
-                int catalogVersion = catalogService.latestCatalogVersion();
 
                 int zoneId = getTableDescriptor(tablePartitionId.tableId(), catalogVersion).zoneId();
 

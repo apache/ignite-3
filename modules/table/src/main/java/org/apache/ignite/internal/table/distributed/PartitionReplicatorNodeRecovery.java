@@ -161,18 +161,20 @@ class PartitionReplicatorNodeRecovery {
      * @param internalTable Table we are working with.
      * @param newConfiguration New configuration that is going to be applied if we'll start the group.
      * @param localMemberAssignment Assignment of this node in this group.
+     * @param catalogVersion Catalog version.
      * @return A future that completes with a decision: should we start the corresponding group locally or not.
      */
     CompletableFuture<Boolean> initiateGroupReentryIfNeeded(
             TablePartitionId tablePartitionId,
             InternalTable internalTable,
             PeersAndLearners newConfiguration,
-            Assignment localMemberAssignment
+            Assignment localMemberAssignment,
+            int catalogVersion
     ) {
         // If Raft is running in in-memory mode or the PDS has been cleared, we need to remove the current node
         // from the Raft group in order to avoid the double vote problem.
         if (mightNeedGroupRecovery(internalTable)) {
-            return performGroupRecovery(tablePartitionId, newConfiguration, localMemberAssignment);
+            return performGroupRecovery(tablePartitionId, newConfiguration, localMemberAssignment, catalogVersion);
         }
 
         return trueCompletedFuture();
@@ -187,7 +189,8 @@ class PartitionReplicatorNodeRecovery {
     private CompletableFuture<Boolean> performGroupRecovery(
             TablePartitionId tablePartitionId,
             PeersAndLearners newConfiguration,
-            Assignment localMemberAssignment
+            Assignment localMemberAssignment,
+            int catalogVersion
     ) {
         int tableId = tablePartitionId.tableId();
         int partId = tablePartitionId.partitionId();
@@ -205,7 +208,7 @@ class PartitionReplicatorNodeRecovery {
                     boolean majorityAvailable = dataNodesCounts.nonEmptyNodes >= (newConfiguration.peers().size() / 2) + 1;
 
                     if (majorityAvailable) {
-                        RebalanceUtilEx.startPeerRemoval(tablePartitionId, localMemberAssignment, metaStorageManager);
+                        RebalanceUtilEx.startPeerRemoval(tablePartitionId, localMemberAssignment, metaStorageManager, catalogVersion);
 
                         return false;
                     } else {
