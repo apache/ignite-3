@@ -289,7 +289,16 @@ public class DistributionZoneRebalanceEngine {
 
                         int partId = extractPartitionNumber(event.entryEvent().newEntry().key());
 
-                        int catalogVersion = getCatalogVersionForCounter(zoneId, partId, event.revision());
+                        int catalogVersion;
+
+                        try {
+                            catalogVersion = getCatalogVersionForCounter(zoneId, partId, event.revision());
+                        } catch (ExecutionException | InterruptedException e) {
+                            LOG.error("Failed to get catalog version for [zoneId={}, partitionId={}]", e, zoneId, partId);
+
+                            busyLock.leaveBusy();
+                            return;
+                        }
 
                         List<CatalogTableDescriptor> tables = findTablesByZoneId(zoneId, catalogVersion, catalogService);
 
