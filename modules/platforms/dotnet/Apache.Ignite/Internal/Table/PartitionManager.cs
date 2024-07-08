@@ -32,6 +32,10 @@ internal sealed class PartitionManager : IPartitionManager
 {
     private readonly Table _table;
 
+    private readonly object _partitionsLock = new();
+
+    private volatile HashPartition[]? _partitions; // Cached partition objects.
+
     /// <summary>
     /// Initializes a new instance of the <see cref="PartitionManager"/> class.
     /// </summary>
@@ -53,14 +57,15 @@ internal sealed class PartitionManager : IPartitionManager
         IDictionary<IPartition, IClusterNode> Read(MsgPackReader r)
         {
             var count = r.ReadInt32();
+            var parts = GetPartitionArray(count);
             var res = new Dictionary<IPartition, IClusterNode>(count);
 
             for (var i = 0; i < count; i++)
             {
-                var partition = r.ReadInt32();
+                var id = r.ReadInt32();
                 var node = ClusterNode.Read(r);
 
-                res.Add(new HashPartition(partition), node);
+                res.Add(parts[id], node);
             }
 
             return res;
@@ -84,5 +89,32 @@ internal sealed class PartitionManager : IPartitionManager
         where TK : notnull
     {
         throw new System.NotImplementedException();
+    }
+
+    private HashPartition[] GetPartitionArray(int count)
+    {
+        var parts = _partitions;
+        if (parts != null && parts.Length >= count)
+        {
+            return parts;
+        }
+
+        lock (_partitionsLock)
+        {
+            parts = _partitions;
+            if (parts != null && parts.Length >= count)
+            {
+                return parts;
+            }
+
+            parts = new HashPartition[count];
+            for (var i = 0; i < count; i++)
+            {
+                parts[i] = new HashPartition(i);
+            }
+
+            _partitions = parts;
+            return parts;
+        }
     }
 }
