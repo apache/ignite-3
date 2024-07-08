@@ -269,14 +269,13 @@ public class DistributionZoneManager implements IgniteComponent {
 
             restoreGlobalStateFromLocalMetastorage(recoveryRevision);
 
-            // Safe to get the latest version until lwm mechanism is implemented for zone lifecycle
             // TODO: IGNITE-22679 CatalogManagerImpl initializes versions in a separate thread, not safe to make this call directly.
             int catalogVersion = catalogManager.latestCatalogVersion();
 
             return allOf(
                     createOrRestoreZonesStates(recoveryRevision, catalogVersion),
                     restoreLogicalTopologyChangeEventAndStartTimers(recoveryRevision, catalogVersion)
-            ).thenComposeAsync((notUsed) -> rebalanceEngine.startAsync(), componentContext.executor());
+            ).thenComposeAsync((notUsed) -> rebalanceEngine.startAsync(catalogVersion), componentContext.executor());
         });
     }
 

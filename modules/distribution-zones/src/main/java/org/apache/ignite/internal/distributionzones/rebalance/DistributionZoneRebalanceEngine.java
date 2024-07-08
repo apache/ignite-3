@@ -141,7 +141,7 @@ public class DistributionZoneRebalanceEngine {
     /**
      * Starts the rebalance engine by registering corresponding meta storage and configuration listeners.
      */
-    public CompletableFuture<Void> startAsync() {
+    public CompletableFuture<Void> startAsync(int catalogVersion) {
         return IgniteUtils.inBusyLockAsync(busyLock, () -> {
             catalogService.listen(ZONE_ALTER, new CatalogAlterZoneEventListener(catalogService) {
                 @Override
@@ -161,9 +161,6 @@ public class DistributionZoneRebalanceEngine {
             assert recoveryFinishFuture.isDone();
 
             long recoveryRevision = recoveryFinishFuture.join();
-
-            // Safe to get the latest version until lwm mechanism is implemented for zone lifecycle.
-            int catalogVersion = catalogService.latestCatalogVersion();
 
             return rebalanceTriggersRecovery(recoveryRevision, catalogVersion)
                     .thenCompose(v -> distributionZoneRebalanceEngineV2.startAsync());
