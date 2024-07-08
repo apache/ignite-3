@@ -26,6 +26,7 @@ using Ignite.Table;
 using Network;
 using Proto;
 using Proto.MsgPack;
+using Serialization;
 
 /// <summary>
 /// Table partition manager.
@@ -110,9 +111,16 @@ internal sealed class PartitionManager : IPartitionManager
     }
 
     /// <inheritdoc/>
-    public ValueTask<IPartition> GetPartitionAsync(IIgniteTuple tuple)
+    public async ValueTask<IPartition> GetPartitionAsync(IIgniteTuple tuple)
     {
-        throw new System.NotImplementedException();
+        var schema = await _table.GetSchemaAsync(null).ConfigureAwait(false);
+        var colocationHash = TupleSerializerHandler.Instance.GetKeyColocationHash(schema, tuple);
+
+        // TODO: Use cached.
+        var partitions = await GetPrimaryReplicasAsync().ConfigureAwait(false);
+
+        var partitionId = Math.Abs(colocationHash % partitions.Count);
+        return GetPartitionArray(partitions.Count)[partitionId];
     }
 
     /// <inheritdoc/>
