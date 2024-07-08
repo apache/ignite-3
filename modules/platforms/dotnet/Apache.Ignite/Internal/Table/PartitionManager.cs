@@ -111,23 +111,24 @@ internal sealed class PartitionManager : IPartitionManager
     }
 
     /// <inheritdoc/>
-    public async ValueTask<IPartition> GetPartitionAsync(IIgniteTuple tuple)
+    public ValueTask<IPartition> GetPartitionAsync(IIgniteTuple tuple) =>
+        GetPartitionInternal(tuple, TupleSerializerHandler.Instance);
+
+    /// <inheritdoc/>
+    public ValueTask<IPartition> GetPartitionAsync<TK>(TK key)
+        where TK : notnull =>
+        GetPartitionInternal(key, _table.GetRecordViewInternal<TK>().RecordSerializer.Handler);
+
+    private async ValueTask<IPartition> GetPartitionInternal<TK>(TK key, IRecordSerializerHandler<TK> serializerHandler)
     {
         var schema = await _table.GetSchemaAsync(null).ConfigureAwait(false);
-        var colocationHash = TupleSerializerHandler.Instance.GetKeyColocationHash(schema, tuple);
+        var colocationHash = serializerHandler.GetKeyColocationHash(schema, key);
 
         // TODO: Use cached.
         var partitions = await GetPrimaryReplicasAsync().ConfigureAwait(false);
 
         var partitionId = Math.Abs(colocationHash % partitions.Count);
         return GetPartitionArray(partitions.Count)[partitionId];
-    }
-
-    /// <inheritdoc/>
-    public ValueTask<IPartition> GetPartitionAsync<TK>(TK key)
-        where TK : notnull
-    {
-        throw new System.NotImplementedException();
     }
 
     private HashPartition[] GetPartitionArray(int count)
