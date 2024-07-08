@@ -73,10 +73,6 @@ public class RestartPartitionsCallInput implements CallInput {
         this.nodeNames = nodeNames == null ? List.of() : List.copyOf(nodeNames);
     }
 
-    public static RestartPartitionsCallInput of(RestartPartitionsMixin statesArgs) {
-        return of(statesArgs, statesArgs.clusterUrl());
-    }
-
     /** Returns {@link RestartPartitionsCallInput} with specified arguments. */
     public static RestartPartitionsCallInput of(RestartPartitionsMixin restartArgs, String clusterUrl) {
         return builder()
