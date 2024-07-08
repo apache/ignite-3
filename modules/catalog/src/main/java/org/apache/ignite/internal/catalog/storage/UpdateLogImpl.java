@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToInt;
+import static org.apache.ignite.internal.util.ByteUtils.bytesToIntKeepingOrder;
 import static org.apache.ignite.internal.util.ByteUtils.intToBytes;
 import static org.apache.ignite.internal.util.ByteUtils.intToBytesKeepingOrder;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
@@ -244,7 +245,7 @@ public class UpdateLogImpl implements UpdateLog {
 
         Entry earliestVersion = metastore.getLocally(CatalogKey.snapshotVersion(), recoveryRevision);
 
-        int ver = earliestVersion.empty() ? 1 : bytesToInt(Objects.requireNonNull(earliestVersion.value()));
+        int ver = earliestVersion.empty() ? 1 : bytesToIntKeepingOrder(Objects.requireNonNull(earliestVersion.value()));
 
         recoverUpdates(handler, recoveryRevision, ver);
     }
