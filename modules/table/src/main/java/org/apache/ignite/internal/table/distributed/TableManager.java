@@ -1772,7 +1772,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                         return nullCompletedFuture();
                                     }
 
-                                    return changePeersOnRebalance(table, replicaGrpId, pendingAssignments.nodes(), revision);
+                                    return changePeersOnRebalance(replicaGrpId, pendingAssignments.nodes(), revision);
                                 });
                     } finally {
                         busyLock.leaveBusy();
@@ -1979,8 +1979,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private CompletableFuture<Void> changePeersOnRebalance(
-            // TODO: remove excessive argument (used to get raft-client) https://issues.apache.org/jira/browse/IGNITE-22218
-            TableImpl table,
             TablePartitionId replicaGrpId,
             Set<Assignment> pendingAssignments,
             long revision
@@ -1991,38 +1989,45 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         .exceptionally(throwable -> {
                             throwable = unwrapCause(throwable);
 
-                    if (throwable instanceof TimeoutException) {
-                        LOG.info("Node couldn't get the leader within timeout so the changing peers is skipped [grp={}].", replicaGrpId);
+                            if (throwable instanceof TimeoutException) {
+                                LOG.info(
+                                        "Node couldn't get the leader within timeout so the changing peers is skipped [grp={}].",
+                                        replicaGrpId
+                                );
 
-                        return LeaderWithTerm.NO_LEADER;
-                    }
+                                return LeaderWithTerm.NO_LEADER;
+                            }
 
-                    throw new IgniteInternalException(
-                            INTERNAL_ERR,
-                            "Failed to get a leader for the RAFT replication group [get=" + replicaGrpId + "].",
-                            throwable
-                    );
-                })
-                .thenCompose(leaderWithTerm -> {
-                    if (leaderWithTerm.isEmpty() || !isLocalPeer(leaderWithTerm.leader())) {
-                        return nullCompletedFuture();
-                    }
+                            throw new IgniteInternalException(
+                                    INTERNAL_ERR,
+                                    "Failed to get a leader for the RAFT replication group [get=" + replicaGrpId + "].",
+                                    throwable
+                            );
+                        })
+                        .thenCompose(leaderWithTerm -> {
+                            if (leaderWithTerm.isEmpty() || !isLocalPeer(leaderWithTerm.leader())) {
+                                return nullCompletedFuture();
+                            }
 
                             // run update of raft configuration if this node is a leader
                             LOG.info("Current node={} is the leader of partition raft group={}. "
                                             + "Initiate rebalance process for partition={}, table={}",
-                                    leaderWithTerm.leader(), replicaGrpId, replicaGrpId.partitionId(), tables.get(replicaGrpId.tableId()).name());
+                                    leaderWithTerm.leader(),
+                                    replicaGrpId,
+                                    replicaGrpId.partitionId(),
+                                    tables.get(replicaGrpId.tableId()).name()
+                            );
 
-                    return metaStorageMgr.get(pendingPartAssignmentsKey(replicaGrpId))
-                            .thenCompose(latestPendingAssignmentsEntry -> {
-                                // Do not change peers of the raft group if this is a stale event.
-                                // Note that we start raft node before for the sake of the consistency in a
-                                // starting and stopping raft nodes.
-                                if (revision < latestPendingAssignmentsEntry.revision()) {
-                                    return nullCompletedFuture();
-                                }
+                            return metaStorageMgr.get(pendingPartAssignmentsKey(replicaGrpId))
+                                    .thenCompose(latestPendingAssignmentsEntry -> {
+                                        // Do not change peers of the raft group if this is a stale event.
+                                        // Note that we start raft node before for the sake of the consistency in a
+                                        // starting and stopping raft nodes.
+                                        if (revision < latestPendingAssignmentsEntry.revision()) {
+                                            return nullCompletedFuture();
+                                        }
 
-                                PeersAndLearners newConfiguration = fromAssignments(pendingAssignments);
+                                        PeersAndLearners newConfiguration = fromAssignments(pendingAssignments);
 
                                         return raftClient.changePeersAsync(newConfiguration, leaderWithTerm.term());
                                     });
