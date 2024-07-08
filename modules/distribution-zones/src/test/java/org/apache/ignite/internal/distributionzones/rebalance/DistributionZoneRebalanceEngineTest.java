@@ -307,7 +307,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         createRebalanceEngine();
 
-        rebalanceEngine.start();
+        rebalanceEngine.startAsync();
 
         Set<String> nodes = Set.of("node0", "node1", "node2");
 
@@ -330,7 +330,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         createRebalanceEngine();
 
-        rebalanceEngine.start();
+        rebalanceEngine.startAsync();
 
         Set<String> nodes = Set.of("node0", "node1", "node2");
 
@@ -364,7 +364,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         createRebalanceEngine();
 
-        rebalanceEngine.start();
+        rebalanceEngine.startAsync();
 
         int zoneId = getZoneId(ZONE_NAME_0);
 
@@ -400,7 +400,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         createRebalanceEngine();
 
-        rebalanceEngine.start();
+        rebalanceEngine.startAsync();
 
         Set<String> nodes = Set.of("node0", "node1", "node2");
 
@@ -449,7 +449,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
         try {
             createRebalanceEngine(realMetaStorageManager);
 
-            rebalanceEngine.start();
+            rebalanceEngine.startAsync();
 
             alterZone(ZONE_NAME_0, 2);
 
@@ -481,7 +481,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
         try {
             createRebalanceEngine(realMetaStorageManager);
 
-            rebalanceEngine.start();
+            rebalanceEngine.startAsync();
 
             alterZone(getDefaultZone(catalogManager, clock.nowLong()).name(), 2);
 

@@ -42,6 +42,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -140,7 +141,7 @@ public class DistributionZoneRebalanceEngine {
     /**
      * Starts the rebalance engine by registering corresponding meta storage and configuration listeners.
      */
-    public CompletableFuture<Void> start() {
+    public CompletableFuture<Void> startAsync() {
         return IgniteUtils.inBusyLockAsync(busyLock, () -> {
             catalogService.listen(ZONE_ALTER, new CatalogAlterZoneEventListener(catalogService) {
                 @Override
@@ -161,7 +162,11 @@ public class DistributionZoneRebalanceEngine {
 
             long recoveryRevision = recoveryFinishFuture.join();
 
-            return rebalanceTriggersRecovery(recoveryRevision).thenCompose(v -> distributionZoneRebalanceEngineV2.start());
+            // Safe to get the latest version until lwm mechanism is implemented for zone lifecycle.
+            int catalogVersion = catalogService.latestCatalogVersion();
+
+            return rebalanceTriggersRecovery(recoveryRevision, catalogVersion)
+                    .thenCompose(v -> distributionZoneRebalanceEngineV2.startAsync());
         });
     }
 
@@ -173,11 +178,8 @@ public class DistributionZoneRebalanceEngine {
     // TODO: https://issues.apache.org/jira/browse/IGNITE-21058 At the moment this method produce many metastore multi-invokes
     // TODO: which can be avoided by the local logic, which mirror the logic of metastore invokes.
     // TODO: And then run the remote invoke, only if needed.
-    private CompletableFuture<Void> rebalanceTriggersRecovery(long recoveryRevision) {
+    private CompletableFuture<Void> rebalanceTriggersRecovery(long recoveryRevision, int catalogVersion) {
         if (recoveryRevision > 0) {
-            // Safe to get the latest version until lwm mechanism is implemented for zone lifecycle.
-            int catalogVersion = catalogService.latestCatalogVersion();
-
             List<CompletableFuture<Void>> zonesRecoveryFutures = catalogService.zones(catalogVersion)
                     .stream()
                     .map(zoneDesc ->
@@ -342,6 +344,7 @@ public class DistributionZoneRebalanceEngine {
         };
     }
 
+    @Deprecated // Will be removed when IGNITE-22115 is merged.
     private int getCatalogVersionForCounter(int zoneId, int partId, long revision) {
         try {
             return metaStorageManager.get(catalogVersionKey(zoneId, partId), revision)
@@ -353,7 +356,7 @@ public class DistributionZoneRebalanceEngine {
                     .thenCompose(storedCatalogVersion ->
                             catalogService.catalogReadyFuture(storedCatalogVersion).thenApply(unused -> storedCatalogVersion)
                     ).get();
-        } catch (Exception e) {
+        } catch (InterruptedException | ExecutionException e) {
             LOG.error("Failed to get catalog version for [zoneId={}, partitionId={}]", e, zoneId, partId);
         }
 

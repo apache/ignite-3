@@ -96,7 +96,7 @@ public class DistributionZoneRebalanceEngineV2 {
     /**
      * Starts the rebalance engine by registering corresponding meta storage and catalog listeners.
      */
-    public CompletableFuture<Void> start() {
+    public CompletableFuture<Void> startAsync() {
         return IgniteUtils.inBusyLockAsync(busyLock, () -> {
             catalogService.listen(ZONE_ALTER, new CatalogAlterZoneEventListener(catalogService) {
                 @Override
