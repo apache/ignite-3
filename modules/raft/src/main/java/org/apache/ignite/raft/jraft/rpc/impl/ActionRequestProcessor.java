@@ -16,6 +16,7 @@
  */
 package org.apache.ignite.raft.jraft.rpc.impl;
 
+import static org.apache.ignite.internal.tracing.Instrumentation.measure;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.util.List;
@@ -43,7 +44,7 @@ import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.entity.Task;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.rpc.ActionRequest;
-import org.apache.ignite.raft.jraft.rpc.Message;
+import org.apache.ignite.raft.jraft.rpc.ActionResponse;import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.rpc.RaftRpcFactory;
 import org.apache.ignite.raft.jraft.rpc.ReadActionRequest;
 import org.apache.ignite.raft.jraft.rpc.RpcContext;
@@ -189,7 +190,9 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
                             return;
                         }
 
-                        rpcCtx.sendResponse(factory.actionResponse().result(res).build());
+                        ActionResponse resp = measure(() -> factory.actionResponse().result(res).build(), "createCmdResponse");
+
+                        rpcCtx.sendResponse(resp);
                     }
 
                     @Override

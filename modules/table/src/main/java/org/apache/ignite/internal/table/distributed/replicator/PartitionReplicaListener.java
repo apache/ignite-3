@@ -460,7 +460,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     @Override
     public CompletableFuture<ReplicaResult> invoke(ReplicaRequest request, String senderId) {
-        return ensureReplicaIsPrimary(request)
+        return measure(() -> ensureReplicaIsPrimary(request), "ensureReplicaIsPrimary")
                 .thenCompose(res -> processRequest(request, res.get1(), senderId, res.get2()))
                 .thenApply(res -> {
                     if (res instanceof ReplicaResult) {
@@ -510,9 +510,9 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         HybridTimestamp opTsIfDirectRo = (request instanceof ReadOnlyDirectReplicaRequest) ? clockService.now() : null;
 
-        return validateTableExistence(request, opTsIfDirectRo)
-                .thenCompose(unused -> validateSchemaMatch(request, opTsIfDirectRo))
-                .thenCompose(unused -> waitForSchemasBeforeReading(request, opTsIfDirectRo))
+        return measure(() -> validateTableExistence(request, opTsIfDirectRo), "validateTableExistence")
+                .thenCompose(unused -> measure(() -> validateSchemaMatch(request, opTsIfDirectRo), "validateSchemaMatch"))
+                .thenCompose(unused -> measure(() -> waitForSchemasBeforeReading(request, opTsIfDirectRo), "waitForSchemasBeforeReading"))
                 .thenCompose(unused ->
                         processOperationRequestWithTxRwCounter(senderId, request, isPrimary, opTsIfDirectRo, leaseStartTime));
     }
@@ -1975,14 +1975,13 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         assert pkLocker != null;
 
-        return pkLocker.locksForLookupByKey(txId, pk)
+        return measure(() -> pkLocker.locksForLookupByKey(txId, pk), "locksForLookupByKey")
                 .thenCompose(ignored -> {
-
                     boolean cursorClosureSetUp = false;
                     Cursor<RowId> cursor = null;
 
                     try {
-                        cursor = getFromPkIndex(pk);
+                        cursor = measure(() -> getFromPkIndex(pk), "getFromPkIndex");
 
                         Cursor<RowId> finalCursor = cursor;
                         CompletableFuture<T> resolvingFuture = continueResolvingByPk(cursor, txId, action)
@@ -2004,7 +2003,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             UUID txId,
             IgniteTriFunction<@Nullable RowId, @Nullable BinaryRow, @Nullable HybridTimestamp, CompletableFuture<T>> action
     ) {
-        if (!cursor.hasNext()) {
+        if (!measure(() -> cursor.hasNext(), "pkIndexCursorNext")) {
             return action.apply(null, null, null);
         }
 

@@ -28,6 +28,7 @@ import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.thread.ThreadOperation.TX_STATE_STORAGE_ACCESS;
+import static org.apache.ignite.internal.tracing.Instrumentation.measure;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.isCompletedSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -426,7 +427,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             }
 
             if (requestTimestamp != null) {
-                clockService.updateClock(requestTimestamp);
+                measure(() -> clockService.updateClock(requestTimestamp), "updateHybridClock");
             }
 
             boolean sendTimestamp = request instanceof TimestampAware || request instanceof ReadOnlyDirectReplicaRequest;
@@ -442,7 +443,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 NetworkMessage msg;
 
                 if (ex == null) {
-                    msg = prepareReplicaResponse(sendTimestamp, res.result());
+                    msg = measure(() -> prepareReplicaResponse(sendTimestamp, res.result()), "prepareReplicaResponse");
                 } else {
                     if (indicatesUnexpectedProblem(ex)) {
                         LOG.warn("Failed to process replica request [request={}].", ex, request);

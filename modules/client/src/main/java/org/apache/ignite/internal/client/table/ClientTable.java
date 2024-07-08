@@ -462,12 +462,14 @@ public class ClientTable implements Table {
                                 // All operations for a given explicit transaction should go to the same node (tx coordinator).
                                 String opPreferredNodeName = getPreferredNodeName(provider, partitionsFut.getNow(null), schema);
 
-                                return measure(() -> ch.serviceAsync(opCode,
+                                return ch.serviceAsync(
+                                        opCode,
                                         w -> writer.accept(schema, w),
                                         r -> readSchemaAndReadData(schema, r, reader, defaultValue, responseSchemaRequired),
                                         opPreferredNodeName,
                                         retryPolicyOverride,
-                                        expectNotifications), "serviceAsync");
+                                        expectNotifications
+                                );
                             }
                     );
                 })
