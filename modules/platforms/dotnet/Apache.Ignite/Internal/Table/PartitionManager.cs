@@ -21,6 +21,9 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Ignite.Network;
 using Ignite.Table;
+using Network;
+using Proto;
+using Proto.MsgPack;
 
 /// <summary>
 /// Table partition manager.
@@ -39,9 +42,29 @@ internal sealed class PartitionManager : IPartitionManager
     }
 
     /// <inheritdoc/>
-    public Task<IDictionary<IPartition, IClusterNode>> GetPrimaryReplicasAsync()
+    public async Task<IDictionary<IPartition, IClusterNode>> GetPrimaryReplicasAsync()
     {
-        throw new System.NotImplementedException();
+        using var bufferWriter = ProtoCommon.GetMessageWriter();
+        bufferWriter.MessageWriter.Write(_table.Id);
+
+        using var resBuf = await _table.Socket.DoOutInOpAsync(ClientOp.PrimaryReplicasGet, bufferWriter).ConfigureAwait(false);
+        return Read(resBuf.GetReader());
+
+        IDictionary<IPartition, IClusterNode> Read(MsgPackReader r)
+        {
+            var count = r.ReadInt32();
+            var res = new Dictionary<IPartition, IClusterNode>(count);
+
+            for (var i = 0; i < count; i++)
+            {
+                var partition = r.ReadInt32();
+                var node = ClusterNode.Read(r);
+
+                res.Add(new HashPartition(partition), node);
+            }
+
+            return res;
+        }
     }
 
     /// <inheritdoc/>

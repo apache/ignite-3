@@ -85,11 +85,6 @@ public class ClientPartitionManager implements PartitionManager {
                 w -> w.out().packInt(tbl.tableId()),
                 r -> {
                     ClientMessageUnpacker in = r.in();
-
-                    if (in.tryUnpackNil()) {
-                        return Collections.<Partition, ClusterNode>emptyMap();
-                    }
-
                     int size = in.unpackInt();
 
                     Map<Partition, ClusterNode> res = new HashMap<>(size);
