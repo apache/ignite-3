@@ -11,16 +11,12 @@ SELECT CAST('100' AS REAL);
 ----
 100.0
 
-# https://issues.apache.org/jira/browse/IGNITE-22519
 # overflow
-skipif ignite3
-statement error
+statement error: Overflow
 SELECT CAST(1e39 AS REAL);
 
-# https://issues.apache.org/jira/browse/IGNITE-22519
 # overflow
-skipif ignite3
-statement error
+statement error: Overflow
 SELECT CAST(-1e39 AS REAL);
 
 query T

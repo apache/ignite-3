@@ -80,6 +80,7 @@ import org.apache.calcite.rex.RexTableInputRef;
 import org.apache.calcite.rex.RexUtil;
 import org.apache.calcite.rex.RexVisitor;
 import org.apache.calcite.runtime.SpatialTypeFunctions;
+import org.apache.calcite.runtime.SqlFunctions;
 import org.apache.calcite.schema.FunctionContext;
 import org.apache.calcite.sql.SqlIntervalQualifier;
 import org.apache.calcite.sql.SqlOperator;
@@ -92,6 +93,7 @@ import org.apache.calcite.util.BuiltInMethod;
 import org.apache.calcite.util.ControlFlowException;
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.apache.ignite.internal.sql.engine.util.IgniteMath;
 import org.apache.ignite.internal.sql.engine.util.IgniteMethod;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.locationtech.jts.geom.Geometry;
@@ -912,7 +914,8 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
                 final Primitive primitive = Primitive.ofBoxOr(javaClass);
                 final Comparable value = literal.getValueAs(Comparable.class);
                 if (primitive != null && value instanceof Number) {
-                    value2 = primitive.number((Number) value);
+                    return Expressions.call(IgniteMath.class, "convertTo"
+                            + SqlFunctions.initcap(primitive.primitiveName) + "Exact", Expressions.constant(value));
                 } else {
                     value2 = value;
                 }

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.prepare;
 
 import static java.util.Objects.requireNonNull;
+import static org.apache.calcite.sql.type.SqlTypeName.FLOAT;
 import static org.apache.calcite.sql.type.SqlTypeName.INTEGER;
 import static org.apache.calcite.sql.type.SqlTypeUtil.isNull;
 import static org.apache.calcite.util.Static.RESOURCE;
@@ -48,8 +49,10 @@ import org.apache.calcite.schema.impl.ModifiableViewTable;
 import org.apache.calcite.sql.JoinConditionType;
 import org.apache.calcite.sql.SqlAggFunction;
 import org.apache.calcite.sql.SqlBasicCall;
+import org.apache.calcite.sql.SqlBasicTypeNameSpec;
 import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlCallBinding;
+import org.apache.calcite.sql.SqlDataTypeSpec;
 import org.apache.calcite.sql.SqlDelete;
 import org.apache.calcite.sql.SqlDynamicParam;
 import org.apache.calcite.sql.SqlExplain;
@@ -65,6 +68,7 @@ import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.sql.SqlOperator;
 import org.apache.calcite.sql.SqlOperatorTable;
 import org.apache.calcite.sql.SqlSelect;
+import org.apache.calcite.sql.SqlTypeNameSpec;
 import org.apache.calcite.sql.SqlUpdate;
 import org.apache.calcite.sql.SqlUtil;
 import org.apache.calcite.sql.dialect.CalciteSqlDialect;
@@ -532,6 +536,28 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     /** {@inheritDoc} */
     @Override
     public RelDataType deriveType(SqlValidatorScope scope, SqlNode expr) {
+
+        // Rewrite a cast to FLOAT to a cast to a REAL, because calcite treats FLOATs as DOUBLEs.
+        // And ignite defines FLOAT as an alias for REAL.
+        if (expr.getKind() == SqlKind.CAST || expr.getKind() == SqlKind.SAFE_CAST) {
+//            SqlCall call = (SqlCall) expr;
+//            SqlNode typeSpec = call.getOperandList().get(1);
+//            RelDataType dataTypeSpec = super.deriveType(scope, typeSpec);
+//
+//            if (dataTypeSpec.getSqlTypeName() == FLOAT) {
+//                SqlTypeNameSpec typeNameSpec = new SqlBasicTypeNameSpec(SqlTypeName.REAL, typeSpec.getParserPosition());
+//                SqlDataTypeSpec newTypeSpec = new SqlDataTypeSpec(typeNameSpec, typeSpec.getParserPosition());
+//                if (dataTypeSpec.isNullable()) {
+//                    newTypeSpec = newTypeSpec.withNullable(true);
+//                }
+//
+//                // Throw away returned type, we do not need it.
+//                super.deriveType(scope, newTypeSpec);
+//
+//                call.setOperand(1, newTypeSpec);
+//            }
+        }
+
         if (expr instanceof SqlDynamicParam) {
             return deriveDynamicParamType((SqlDynamicParam) expr);
         }

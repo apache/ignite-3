@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Type;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -65,6 +66,7 @@ import org.apache.calcite.rex.RexProgramBuilder;
 import org.apache.calcite.rex.RexShuttle;
 import org.apache.calcite.rex.RexUtil;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.calcite.sql.validate.SqlConformance;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
@@ -83,6 +85,7 @@ import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.rex.IgniteRexBuilder;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.util.IgniteMath;
 import org.apache.ignite.internal.sql.engine.util.IgniteMethod;
 import org.apache.ignite.internal.sql.engine.util.Primitives;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
@@ -287,6 +290,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         }
 
         return new ConstantValuesImpl(literalValues, typeList, ctx.rowHandler().factory(rowSchema));
+//        return new ValuesImpl(scalar(values, null), ctx.rowHandler().factory(rowSchema));
     }
 
     /** {@inheritDoc} */
@@ -346,14 +350,26 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
     }
 
     private @Nullable Object literalValue(RexLiteral literal, Class<?> type) {
-        Object val = literal.getValueAs(type);
+        RelDataType dataType = literal.getType();
 
-        // Literal was parsed as UTC timestamp, now we need to adjust it to the client's time zone.
-        if (val != null && literal.getTypeName() == SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE) {
-            return IgniteSqlFunctions.subtractTimeZoneOffset((long) val, (TimeZone) ctx.get(Variable.TIME_ZONE.camelName));
+        // Perform numeric cast, if necessary.
+        if (SqlTypeUtil.isNumeric(dataType)) {
+            BigDecimal value = (BigDecimal) literal.getValue();
+            if (value == null) {
+                return null;
+            }
+
+            return convertNumericLiteral(dataType, value);
+        } else {
+            Object val = literal.getValueAs(type);
+
+            // Literal was parsed as UTC timestamp, now we need to adjust it to the client's time zone.
+            if (val != null && literal.getTypeName() == SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE) {
+                return IgniteSqlFunctions.subtractTimeZoneOffset((long) val, (TimeZone) ctx.get(Variable.TIME_ZONE.camelName));
+            }
+
+            return val;
         }
-
-        return val;
     }
 
     /** {@inheritDoc} */
@@ -1205,6 +1221,30 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
             correlates.put(variable.getName(), new FieldGetter(hnd, corr, variable.getType()));
 
             return variable;
+        }
+    }
+
+    private static Object convertNumericLiteral(RelDataType dataType, BigDecimal value) {
+        switch (dataType.getSqlTypeName()) {
+            case TINYINT:
+                return IgniteMath.convertToByteExact(value);
+            case SMALLINT:
+                return IgniteMath.convertToShortExact(value);
+            case INTEGER:
+                return IgniteMath.convertToIntExact(value);
+            case BIGINT:
+                return IgniteMath.convertToLongExact(value);
+            case REAL:
+            case FLOAT:
+                return IgniteMath.convertToFloatExact(value);
+            case DOUBLE:
+                return IgniteMath.convertToDoubleExact(value);
+            case DECIMAL:
+                // Precision/scale of decimal literals is checked in rexBuilder::makeLiteral,
+                // so they won't overflow
+                return value;
+            default:
+                throw new IllegalStateException("Unexpected numeric type: " + dataType);
         }
     }
 }
