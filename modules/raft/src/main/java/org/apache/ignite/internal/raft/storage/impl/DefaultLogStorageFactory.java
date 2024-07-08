@@ -41,6 +41,7 @@ import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.jraft.util.Platform;
+import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 import org.rocksdb.AbstractNativeReference;
 import org.rocksdb.ColumnFamilyDescriptor;
@@ -205,7 +206,8 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
     }
 
     /**
-     * Returns a thread-local {@link WriteBatch} instance, attached to current factory, append data from multiple storages at the same time.
+     * Returns or creates a thread-local {@link WriteBatch} instance, attached to current factory, for appending data
+     * from multiple storages at the same time.
      */
     WriteBatch getOrCreateThreadLocalWriteBatch() {
         WriteBatch writeBatch = threadLocalWriteBatch.get();
@@ -220,16 +222,23 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
     }
 
     /**
+     * Returns a thread-local {@link WriteBatch} instance, attached to current factory, for appending append data from multiple storages
+     * at the same time.
+     *
+     * @return {@link WriteBatch} instance or {@code null} if it was never created.
+     */
+    @Nullable
+    WriteBatch getThreadLocalWriteBatch() {
+        return threadLocalWriteBatch.get();
+    }
+
+    /**
      * Clears {@link WriteBatch} returned by {@link #getOrCreateThreadLocalWriteBatch()}.
      */
-    void clearThreadLocalWriteBatch() {
-        WriteBatch writeBatch = threadLocalWriteBatch.get();
+    void clearThreadLocalWriteBatch(WriteBatch writeBatch) {
+        writeBatch.close();
 
-        if (writeBatch != null) {
-            writeBatch.close();
-
-            threadLocalWriteBatch.set(null);
-        }
+        threadLocalWriteBatch.remove();
     }
 
     /**
