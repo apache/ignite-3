@@ -346,22 +346,20 @@ public class DistributionZoneRebalanceEngine {
 
     @Deprecated // Will be removed when IGNITE-22115 is merged.
     private int getCatalogVersionForCounter(int zoneId, int partId, long revision) {
-        try {
-            return metaStorageManager.get(catalogVersionKey(zoneId, partId), revision)
-                    .thenApply(entry -> {
-                        assert entry.value() != null : "Failed to find catalog version for table counters.";
+        Entry entry = metaStorageManager.getLocally(catalogVersionKey(zoneId, partId), revision);
 
-                        return bytesToInt(entry.value());
-                    })
-                    .thenCompose(storedCatalogVersion ->
-                            catalogService.catalogReadyFuture(storedCatalogVersion).thenApply(unused -> storedCatalogVersion)
-                    ).get();
+        assert entry.value() != null : "Failed to find catalog version for table counters.";
+
+        int storedCatalogVersion = bytesToInt(entry.value());
+
+        try {
+            // Wait for the catalog to catch up.
+            catalogService.catalogReadyFuture(storedCatalogVersion).get();
         } catch (InterruptedException | ExecutionException e) {
             LOG.error("Failed to get catalog version for [zoneId={}, partitionId={}]", e, zoneId, partId);
         }
 
-        // Fallback to the latest catalog version.
-        return catalogService.latestCatalogVersion();
+        return storedCatalogVersion;
     }
 
     private CompletableFuture<Void> onUpdateReplicas(AlterZoneEventParameters parameters) {
