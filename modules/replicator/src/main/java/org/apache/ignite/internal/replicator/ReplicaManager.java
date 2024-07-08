@@ -1287,7 +1287,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     try {
                         context.assertReservation(groupId);
                     } catch (AssertionError e) {
-                        LOG.error("Assertion [nodeId={}, groupId={}, startTime={}, state=].", e, localNodeId, groupId, parameters.startTime(), context.replicaState);
+                        LOG.error("Assertion [nodeId={}, groupId={}, startTime={}, state={}].", e, localNodeId, groupId, parameters.startTime(), context.replicaState);
                     }
                 } else if (context.reservedForPrimary) {
                     context.assertReservation(groupId);
