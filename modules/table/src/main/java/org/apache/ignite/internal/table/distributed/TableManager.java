@@ -37,7 +37,6 @@ import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUt
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.catalogVersionKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractPartitionNumber;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractTableId;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.intersect;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionAssignmentsGetLocally;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
@@ -672,7 +671,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     .map(entry -> {
                         if (LOG.isInfoEnabled()) {
                             LOG.info(
-                                    "Missed {} assignments for key '{}' discovered, performing recovery",
+                                    "Non handled {} assignments for key '{}' discovered, performing recovery",
                                     assignmentsType,
                                     new String(entry.key(), UTF_8)
                             );
@@ -1827,7 +1826,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         // are excluded. It is calculated precisely as an intersection between forced assignments and (old) stable assignments.
         Assignments computedStableAssignments;
 
-        if (stableAssignments == null) {
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-22600 remove the second condition
+        //  when we will have a proper handling of empty stable assignments
+        if (stableAssignments == null || stableAssignments.nodes().isEmpty()) {
             // This condition can only pass if all stable nodes are dead, and we start new raft group from scratch.
             // In this case new initial configuration must match new forced assignments.
             computedStableAssignments = Assignments.forced(pendingAssignmentsNodes);
@@ -1835,9 +1836,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             // In case of forced assignments we need to remove nodes that are present in the stable set but are missing from the
             // pending set. Such operation removes dead stable nodes from the resulting stable set, which guarantees that we will
             // have a live majority.
-            Set<Assignment> intersection = intersect(stableAssignments.nodes(), pendingAssignmentsNodes);
-
-            computedStableAssignments = intersection.isEmpty() ? pendingAssignments : Assignments.forced(intersection);
+            computedStableAssignments = pendingAssignments;
         } else {
             computedStableAssignments = stableAssignments;
         }
@@ -1877,18 +1876,14 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                 isRecovery
                         );
                     }), ioExecutor);
+        } else if (pendingAssignmentsAreForced && localMemberAssignment != null) {
+            localServicesStartFuture = runAsync(() -> inBusyLock(busyLock, () -> {
+                assert replicaMgr.isReplicaStarted(replicaGrpId) : "The local node is outside of the replication group: " + replicaGrpId;
+
+                replicaMgr.resetPeers(replicaGrpId, fromAssignments(computedStableAssignments.nodes()));
+            }), ioExecutor);
         } else {
-            localServicesStartFuture = runAsync(() -> {
-                if (pendingAssignmentsAreForced && localMemberAssignment != null) {
-
-                    assert replicaMgr.isReplicaStarted(replicaGrpId) : "The local node is outside of the replication group";
-
-                    replicaMgr.resetPeers(replicaGrpId, fromAssignments(computedStableAssignments.nodes()));
-                } else if (pendingAssignmentsAreForced && localMemberAssignment == null) {
-                    assert !replicaMgr.isReplicaStarted(replicaGrpId)
-                            : "The local node is inside of the replication group";
-                }
-            }, ioExecutor);
+            localServicesStartFuture = nullCompletedFuture();
         }
 
         return localServicesStartFuture
