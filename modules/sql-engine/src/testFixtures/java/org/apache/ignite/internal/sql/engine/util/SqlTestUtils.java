@@ -388,7 +388,7 @@ public class SqlTestUtils {
                 return SqlTypeName.TIMESTAMP;
             case UUID:
             case BITMASK:
-                return SqlTypeName.OTHER;
+                return SqlTypeName.ANY;
             case STRING:
                 return SqlTypeName.VARCHAR;
             case BYTE_ARRAY:

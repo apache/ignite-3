@@ -125,7 +125,7 @@ public class PartitionPruningPredicateSelfTest extends BaseIgniteAbstractTest {
         int precision = IgniteTypeSystem.INSTANCE.getMaxPrecision(sqlTypeName);
         int scale = IgniteTypeSystem.INSTANCE.getMaxScale(sqlTypeName);
 
-        return TypeUtils.columnType2NativeType(columnType, precision, scale, 4);
+        return TypeUtils.columnType2NativeType(columnType, precision, scale, precision);
     }
 
     @ParameterizedTest
