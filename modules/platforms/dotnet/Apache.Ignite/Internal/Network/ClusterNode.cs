@@ -92,7 +92,10 @@ namespace Apache.Ignite.Internal.Network
             var addr = r.ReadString();
             var port = r.ReadInt32();
 
-            return new ClusterNode(id, name, new IPEndPoint(IPAddress.Parse(addr), port));
+            // TODO IGNITE-22695 .NET: ClusterNode.Address does not support host names
+            var endPoint = new IPEndPoint(IPAddress.Parse(addr), port);
+
+            return new ClusterNode(id, name, endPoint);
         }
     }
 }

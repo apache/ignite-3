@@ -146,7 +146,7 @@ public class PartitionManagerTests : IgniteTestsBase
 
         using var client = await server.ConnectClientAsync();
 
-        var table = await client.Tables.GetTableAsync(TableName);
+        var table = await client.Tables.GetTableAsync(FakeServer.ExistingTableName);
         var replicas = await table!.PartitionManager.GetPrimaryReplicasAsync();
     }
 

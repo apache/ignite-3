@@ -393,7 +393,7 @@ namespace Apache.Ignite.Tests
                             writer.Write(4); // Prop count.
                             writer.Write(nodeId); // Id.
                             writer.Write(nodeId); // Name.
-                            writer.Write("localhost"); // Host.
+                            writer.Write("127.0.0.1"); // Host.
                             writer.Write(10900 + index); // Port.
                         }
 
