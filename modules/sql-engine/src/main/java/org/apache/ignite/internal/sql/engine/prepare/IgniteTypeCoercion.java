@@ -24,6 +24,7 @@ import static org.apache.calcite.sql.type.SqlTypeName.CHAR_TYPES;
 import static org.apache.calcite.sql.type.SqlTypeName.VARCHAR;
 import static org.apache.calcite.util.Static.RESOURCE;
 import static org.apache.ignite.internal.sql.engine.prepare.IgniteSqlValidator.checkStringContainDigitsOnly;
+import static org.apache.ignite.internal.sql.engine.prepare.IgniteSqlValidator.extractLiteral;
 
 import java.nio.charset.Charset;
 import java.util.ArrayDeque;
@@ -38,7 +39,6 @@ import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeFactoryImpl;
 import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlCallBinding;
-import org.apache.calcite.sql.SqlCharStringLiteral;
 import org.apache.calcite.sql.SqlCollation;
 import org.apache.calcite.sql.SqlDataTypeSpec;
 import org.apache.calcite.sql.SqlDynamicParam;
@@ -49,7 +49,6 @@ import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
-import org.apache.calcite.sql.SqlNumericLiteral;
 import org.apache.calcite.sql.SqlOperator;
 import org.apache.calcite.sql.SqlSelect;
 import org.apache.calcite.sql.SqlUpdate;
@@ -93,34 +92,6 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
         } finally {
             ctxStack.pop(ctx);
         }
-    }
-
-    static @Nullable SqlLiteral extractLiteral(SqlCall call, SqlValidator validator) {
-        if (call.getOperator().getKind() == SqlKind.CAST) {
-            SqlNode lit = call.getOperandList().get(0);
-            SqlDataTypeSpec type = (SqlDataTypeSpec) call.getOperandList().get(1);
-            RelDataType derived = type.deriveType(validator);
-            if (lit instanceof SqlNumericLiteral && SqlTypeUtil.isCharacter(derived)) {
-                return (SqlNumericLiteral) lit;
-            } else {
-                return null;
-            }
-        }
-
-        if (SqlKind.BINARY_COMPARISON.contains(call.getOperator().getKind()) && call.getOperandList().size() == 2) {
-            for (SqlNode node : call.getOperandList()) {
-                if (node instanceof SqlCharStringLiteral) {
-                    return (SqlCharStringLiteral) node;
-                } else if (node.getKind() == SqlKind.CAST) {
-                    SqlNode lit = ((SqlCall) node).getOperandList().get(0);
-                    if (lit instanceof SqlNumericLiteral) {
-                        return (SqlNumericLiteral) lit;
-                    }
-                }
-            }
-        }
-
-        return null;
     }
 
     private boolean doBinaryComparisonCoercion(SqlCallBinding binding) {
