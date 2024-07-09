@@ -19,6 +19,7 @@ namespace Apache.Ignite.Internal.Network
 {
     using System;
     using System.Diagnostics;
+    using System.Linq;
     using System.Net;
     using Ignite.Network;
     using Proto.MsgPack;
@@ -93,7 +94,11 @@ namespace Apache.Ignite.Internal.Network
             var port = r.ReadInt32();
 
             // TODO IGNITE-22695 .NET: ClusterNode.Address does not support host names
-            var endPoint = new IPEndPoint(IPAddress.Parse(addr), port);
+            var ipAddress = IPAddress.TryParse(addr, out var ip)
+                ? ip
+                : Dns.GetHostEntry(addr).AddressList.FirstOrDefault() ?? IPAddress.Loopback;
+
+            var endPoint = new IPEndPoint(ipAddress, port);
 
             return new ClusterNode(id, name, endPoint);
         }
