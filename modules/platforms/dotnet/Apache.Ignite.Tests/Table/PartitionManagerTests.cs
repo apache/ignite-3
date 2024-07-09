@@ -78,6 +78,29 @@ public class PartitionManagerTests : IgniteTestsBase
         Assert.AreEqual($"Unsupported partition type: {typeof(MyPartition)}", ex.Message);
     }
 
+    [Test]
+    [TestCase(0, 5)]
+    [TestCase(1, 5)]
+    [TestCase(2, 2)]
+    [TestCase(3, 9)]
+    [TestCase(4, 4)]
+    [TestCase(5, 3)]
+    [TestCase(7, 1)]
+    [TestCase(8, 8)]
+    [TestCase(9, 2)]
+    public async Task TesGetPartitionForTupleKey(int id, int expectedPartition)
+    {
+        var partition = await Table.PartitionManager.GetPartitionAsync(GetTuple(id));
+
+        Assert.AreEqual(expectedPartition, ((HashPartition)partition).PartitionId);
+    }
+
+    [Test]
+    public async Task TesGetPartitionForPocoKey()
+    {
+        await Task.Delay(1);
+    }
+
     private class MyPartition : IPartition
     {
         // No-op.
