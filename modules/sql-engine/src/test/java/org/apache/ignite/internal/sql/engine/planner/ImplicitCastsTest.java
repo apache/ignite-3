@@ -411,8 +411,7 @@ public class ImplicitCastsTest extends AbstractPlannerTest {
                 checkStatement()
                         .table("t", "int_col", NativeTypes.INT32, "str_col", NativeTypes.stringOf(4), "bigint_col", NativeTypes.INT64)
                         .sql("SELECT str_col IN (1, bigint_col) FROM t")
-                        .project("OR(=(CAST($t0):DECIMAL(32767, 16383), 1), "
-                                + "=(CAST($t0):DECIMAL(32767, 16383), CAST($t1):DECIMAL(32767, 16383)))")
+                        .project("OR(=(CAST($t0):BIGINT, 1), =(CAST($t0):BIGINT, $t1))")
         );
     }
 

@@ -590,11 +590,6 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
             return null;
         }
 
-        if ((SqlTypeUtil.isIntType(type1) && SqlTypeUtil.isCharacter(type2))
-                || (SqlTypeUtil.isIntType(type2) && SqlTypeUtil.isCharacter(type1))) {
-            return SqlTypeUtil.getMaxPrecisionScaleDecimal(factory);
-        }
-
         // IgniteCustomType: If one of the arguments is a custom data type,
         // check whether it is possible to convert another type to it.
         // Returns not null to indicate that a CAST operation can be added
