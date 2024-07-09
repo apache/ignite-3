@@ -21,6 +21,16 @@ project(pyignite3 VERSION 3 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Dealing with Python native libraries
+set(Python_FIND_VIRTUALENV FIRST)
+find_package(Python3 COMPONENTS Interpreter Development)
+
+message("Python3_FOUND:${Python3_FOUND}")
+message("Python3_VERSION:${Python3_VERSION}")
+message("Python3_Development_FOUND:${Python3_Development_FOUND}")
+message("Python3_LIBRARIES:${Python3_LIBRARIES}")
+
+# Dealing with Ignite C++ libraries
 set(ENABLE_ODBC ON)
 set(ENABLE_CLIENT OFF)
 set(ENABLE_TESTS OFF)
@@ -40,3 +50,4 @@ list(APPEND CMAKE_PREFIX_PATH ${CMAKE_BINARY_DIR})
 include_directories(${IGNITE_DIR})
 
 add_subdirectory(${IGNITE_DIR} ${IGNITE_BIN_DIR}/ignite)
+add_subdirectory(cpp_module)
