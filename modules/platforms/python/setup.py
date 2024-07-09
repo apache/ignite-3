@@ -84,13 +84,6 @@ class CMakeBuild(build_ext):
             cfg = 'Release'
 
             cmake_args = [
-                '-DENABLE_ODBC=ON',
-                '-DENABLE_CLIENT=OFF',
-                '-DENABLE_TESTS=OFF',
-                '-DINSTALL_IGNITE_FILES=OFF',
-                '-DENABLE_ADDRESS_SANITIZER=OFF',
-                '-DENABLE_UB_SANITIZER=OFF',
-                '-DWARNINGS_AS_ERRORS=OFF',
                 '-DCMAKE_BUILD_TYPE=%s' % cfg,
                 '-DCMAKE_LIBRARY_OUTPUT_DIRECTORY_{}={}'.format(cfg.upper(), ext_dir),
                 '-DCMAKE_ARCHIVE_OUTPUT_DIRECTORY_{}={}'.format(cfg.upper(), self.build_temp),
