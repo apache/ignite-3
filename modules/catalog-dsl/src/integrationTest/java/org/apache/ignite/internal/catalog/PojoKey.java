@@ -38,5 +38,4 @@ class PojoKey {
         this.id = id;
         this.idStr = idStr;
     }
-
 }

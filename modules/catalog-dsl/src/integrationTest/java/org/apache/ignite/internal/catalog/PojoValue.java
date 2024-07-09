@@ -65,9 +65,11 @@ class PojoValue {
         if (this == o) {
             return true;
         }
+
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
+
         PojoValue pojoValue = (PojoValue) o;
         return Objects.equals(firstName, pojoValue.firstName) && Objects.equals(lastName, pojoValue.lastName)
                 && Objects.equals(str, pojoValue.str);
