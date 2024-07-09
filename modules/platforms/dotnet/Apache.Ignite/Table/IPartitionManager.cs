@@ -32,7 +32,7 @@ public interface IPartitionManager
     /// NOTE: Prefer <see cref="GetPrimaryReplicaAsync"/> for performance-critical code.
     /// </summary>
     /// <returns>Map of partition to primary replica node.</returns>
-    ValueTask<IDictionary<IPartition, IClusterNode>> GetPrimaryReplicasAsync();
+    ValueTask<IReadOnlyDictionary<IPartition, IClusterNode>> GetPrimaryReplicasAsync();
 
     /// <summary>
     /// Gets the primary replica for the specified partition.

@@ -19,6 +19,7 @@ namespace Apache.Ignite.Internal.Table;
 
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
 using Common;
@@ -57,40 +58,50 @@ internal sealed class PartitionManager : IPartitionManager
     }
 
     /// <inheritdoc/>
-    public async ValueTask<IDictionary<IPartition, IClusterNode>> GetPrimaryReplicasAsync()
+    public async ValueTask<IReadOnlyDictionary<IPartition, IClusterNode>> GetPrimaryReplicasAsync()
     {
-        // TODO: Check cached assignment.
+        var timestamp = _table.Socket.PartitionAssignmentTimestamp;
+        var cached = _primaryReplicas;
+
+        if (cached != null && cached.Timestamp >= timestamp)
+        {
+            return cached.GetDictionary();
+        }
+
         using var bufferWriter = ProtoCommon.GetMessageWriter();
         bufferWriter.MessageWriter.Write(_table.Id);
 
         using var resBuf = await _table.Socket.DoOutInOpAsync(ClientOp.PrimaryReplicasGet, bufferWriter).ConfigureAwait(false);
         return Read(resBuf.GetReader());
 
-        IDictionary<IPartition, IClusterNode> Read(MsgPackReader r)
+        IReadOnlyDictionary<IPartition, IClusterNode> Read(MsgPackReader r)
         {
             var count = r.ReadInt32();
-            var parts = GetPartitionArray(count);
-            var res = new Dictionary<IPartition, IClusterNode>(count);
+            var primaryReplicas = new ClusterNode[count];
+
+            for (var i = 0; i < count; i++)
+            {
+                var id = r.ReadInt32();
+                var node = ClusterNode.Read(ref r);
+
+                primaryReplicas[id] = node;
+            }
+
+            PrimaryReplicas? replicas;
 
             lock (_primaryReplicasLock)
             {
-                var primaryReplicas = _primaryReplicas != null && _primaryReplicas.Length == count
-                    ? _primaryReplicas
-                    : new ClusterNode[count];
+                replicas = _primaryReplicas;
 
-                for (var i = 0; i < count; i++)
+                if (replicas == null || replicas.Timestamp < timestamp)
                 {
-                    var id = r.ReadInt32();
-                    var node = ClusterNode.Read(ref r);
-
-                    res.Add(parts[id], node);
-                    primaryReplicas[id] = node;
+                    // Got newer data - update cached replicas.
+                    replicas = new PrimaryReplicas(primaryReplicas, timestamp);
+                    _primaryReplicas = replicas;
                 }
-
-                _primaryReplicas = primaryReplicas;
             }
 
-            return res;
+            return replicas.GetDictionary();
         }
     }
 
@@ -123,7 +134,7 @@ internal sealed class PartitionManager : IPartitionManager
         where TK : notnull =>
         GetPartitionInternal(key, _table.GetRecordViewInternal<TK>().RecordSerializer.Handler);
 
-    private static HashPartition[] GetPartitionArray(int count)
+    private static HashPartition[] GetCachedPartitionArray(int count)
     {
         var parts = _partitions;
         if (parts != null && parts.Length >= count)
@@ -159,9 +170,30 @@ internal sealed class PartitionManager : IPartitionManager
         var partitions = await GetPrimaryReplicasAsync().ConfigureAwait(false);
 
         var partitionId = Math.Abs(colocationHash % partitions.Count);
-        return GetPartitionArray(partitions.Count)[partitionId];
+        return GetCachedPartitionArray(partitions.Count)[partitionId];
     }
 
     [SuppressMessage("Performance", "CA1819:Properties should not return arrays", Justification = "Private record.")]
-    private record PrimaryReplicas(HashPartition[] Partitions, ClusterNode[] Nodes);
+    private record PrimaryReplicas(ClusterNode[] Nodes, long Timestamp)
+    {
+        private ReadOnlyDictionary<IPartition, IClusterNode>? _dict;
+
+        public ReadOnlyDictionary<IPartition, IClusterNode> GetDictionary()
+        {
+            if (_dict == null)
+            {
+                var res = new Dictionary<IPartition, IClusterNode>();
+                var parts = GetCachedPartitionArray(Nodes.Length);
+
+                for (var i = 0; i < Nodes.Length; i++)
+                {
+                    res.Add(parts[i], Nodes[i]);
+                }
+
+                _dict = new ReadOnlyDictionary<IPartition, IClusterNode>(res);
+            }
+
+            return _dict;
+        }
+    }
 }
