@@ -28,7 +28,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.raft.jraft.Closure;
+import org.apache.ignite.internal.tracing.Instrumentation;import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.FSMCaller;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.StateMachine;
@@ -128,6 +128,8 @@ public class FSMCallerImpl implements FSMCaller {
 
         @Override
         public void onEvent(final ApplyTask event, final long sequence, final boolean endOfBatch) throws Exception {
+            Instrumentation.mark("FSMCallerOnEvent");
+
             this.maxCommittedIndex = runApplyTask(event, this.maxCommittedIndex, endOfBatch);
         }
     }

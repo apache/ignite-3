@@ -222,10 +222,7 @@ public final class ReliableChannel implements AutoCloseable {
             boolean expectNotifications
     ) {
         return ClientFutureUtils.doWithRetryAsync(() -> measure(() -> getChannelAsync(preferredNodeName), "getChannelAsync")
-                        .thenCompose(ch -> measure(
-                                () -> serviceAsyncInternal(opCode, payloadWriter, payloadReader, expectNotifications, ch),
-                                "serviceAsyncInternal"
-                        )),
+                        .thenCompose(ch -> serviceAsyncInternal(opCode, payloadWriter, payloadReader, expectNotifications, ch)),
                 null,
                 ctx -> shouldRetry(opCode, ctx, retryPolicyOverride)
         );

@@ -64,6 +64,7 @@ import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.tracing.Instrumentation;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
@@ -464,7 +465,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         Function<Peer, ActionRequest> requestFactory;
 
         if (cmd instanceof WriteCommand) {
-            byte[] commandBytes = commandsMarshaller.marshall(cmd);
+            byte[] commandBytes = Instrumentation.measure(() -> commandsMarshaller.marshall(cmd), "marshallCommand");
 
             requestFactory = targetPeer -> factory.writeActionRequest()
                     .groupId(groupId)
@@ -554,7 +555,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
             NetworkMessage request = requestFactory.apply(peer);
 
-            resolvePeer(peer)
+            Instrumentation.measure(() -> resolvePeer(peer), "resolvePeer")
                     .thenCompose(node -> cluster.messagingService().invoke(node, request, configuration.responseTimeout().value()))
                     .whenComplete((resp, err) -> {
                         if (LOG.isTraceEnabled()) {

@@ -502,6 +502,8 @@ public class LogManagerImpl implements LogManager {
         @Override
         public void onEvent(final StableClosureEvent event, final long sequence, final boolean endOfBatch)
             throws Exception {
+            Instrumentation.mark("LogManagerOnEvent");
+
             if (event.type == EventType.SHUTDOWN) {
                 this.lastId = this.ab.flush();
                 setDiskId(this.lastId);

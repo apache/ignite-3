@@ -103,10 +103,12 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
         if (request instanceof WriteActionRequest) {
             WriteActionRequest writeRequest = (WriteActionRequest)request;
 
-            WriteCommand command = writeRequest.deserializedCommand();
+            WriteActionRequest finalWriteRequest = writeRequest;
+
+            WriteCommand command = measure(() -> finalWriteRequest.deserializedCommand(), "deserializedCommand");
 
             if (command == null) {
-                command = commandsMarshaller.unmarshall(writeRequest.command());
+                command = measure(() -> commandsMarshaller.<WriteCommand>unmarshall(finalWriteRequest.command()), "unmarshallCommand");
             }
 
             if (fsm.getListener() instanceof BeforeApplyHandler) {
