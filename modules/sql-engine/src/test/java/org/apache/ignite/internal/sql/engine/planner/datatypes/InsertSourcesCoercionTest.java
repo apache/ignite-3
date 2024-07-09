@@ -68,7 +68,7 @@ public class InsertSourcesCoercionTest extends BaseTypeCoercionTest {
             TypePair pair,
             Matcher<RexNode> operandMatcher
     ) throws Exception {
-        // ToDo: remove during implement IGNITE-22283
+        // TODO: remove during implement IGNITE-22283
         if (pair.first().spec() == NativeTypeSpec.NUMBER || pair.second().spec() == NativeTypeSpec.NUMBER) {
             return;
         }
