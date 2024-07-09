@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog.sql;
+package org.apache.ignite.internal.threading;
 
 import static org.apache.ignite.internal.thread.PublicApiThreading.execUserAsyncOperation;
 import static org.apache.ignite.internal.thread.PublicApiThreading.execUserSyncOperation;
