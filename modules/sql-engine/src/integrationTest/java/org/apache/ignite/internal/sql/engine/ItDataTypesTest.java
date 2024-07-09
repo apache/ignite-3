@@ -181,18 +181,16 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
                 () -> sql(format("SELECT * FROM tbl WHERE v != ' {} '", moreThanUpperBoundApprox)));
 
         assertThrowsSqlException(
-                STMT_VALIDATION_ERR,
-                "Invalid character for cast",
+                RUNTIME_ERR, "",
                 () -> sql(format("SELECT * FROM tbl WHERE v NOT IN ('1', '{}')", moreThanUpperBoundApprox)));
 
         assertThrowsSqlException(
-                STMT_VALIDATION_ERR,
-                "Invalid character for cast",
+                RUNTIME_ERR, "",
                 () -> sql(format("SELECT * FROM tbl WHERE v NOT IN ('1', {}::VARCHAR)", moreThanUpperBoundApprox)));
 
         assertThrowsSqlException(
-                STMT_VALIDATION_ERR,
-                "Invalid character for cast",
+                RUNTIME_ERR,
+                "out of range",
                 () -> sql(format("SELECT * FROM tbl WHERE v IN ('1', (SELECT {}))", moreThanUpperBoundApprox)));
     }
 

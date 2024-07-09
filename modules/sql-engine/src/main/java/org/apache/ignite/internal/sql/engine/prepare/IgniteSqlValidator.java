@@ -637,46 +637,6 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     private void checkTypesInteroperability(SqlValidatorScope scope, SqlNode expr) {
         boolean castOp = expr.getKind() == SqlKind.CAST;
 
-        if (expr.getKind() == SqlKind.IN || expr.getKind() == SqlKind.NOT_IN) {
-            SqlBasicCall expr0 = (SqlBasicCall) expr;
-            SqlNode first = expr0.getOperandList().get(0);
-            RelDataType type1 = super.deriveType(scope, first);
-
-            if (SqlTypeUtil.isIntType(type1)) {
-                assert expr0.getOperandList().size() > 1;
-                if (expr0.getOperandList().get(1) instanceof SqlNodeList) {
-                    SqlNodeList in = (SqlNodeList) expr0.getOperandList().get(1);
-
-                    for (SqlNode node : in) {
-                        SqlLiteral lit = null;
-                        if (node instanceof SqlCharStringLiteral) {
-                            lit = (SqlCharStringLiteral) node;
-                        } else if (node.getKind() == SqlKind.SCALAR_QUERY) {
-                            RelDataType type0 = super.deriveType(scope, ((SqlBasicCall) node).getOperandList().get(0));
-
-                            if (type0.isStruct() && !type0.getFieldList().isEmpty()) {
-                                for (RelDataTypeField fld : type0.getFieldList()) {
-                                    int scale = fld.getType().getScale();
-
-                                    if (scale != 0) {
-                                        var ex = RESOURCE.invalidCharacterForCast(node.toString());
-                                        throw SqlUtil.newContextException(expr.getParserPosition(), ex);
-                                    }
-                                }
-                            }
-                        } else if (node instanceof SqlCall) {
-                            lit = extractLiteral((SqlCall) node, this);
-                        }
-
-                        if (lit != null) {
-                            String strVal = lit.toValue();
-                            checkStringContainDigitsOnly(strVal, expr.getParserPosition());
-                        }
-                    }
-                }
-            }
-        }
-
         if (castOp || SqlKind.BINARY_COMPARISON.contains(expr.getKind())) {
             SqlBasicCall expr0 = (SqlBasicCall) expr;
             SqlNode first = expr0.getOperandList().get(0);
