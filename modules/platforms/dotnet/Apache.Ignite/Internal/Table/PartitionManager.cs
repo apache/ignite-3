@@ -83,7 +83,7 @@ internal sealed class PartitionManager : IPartitionManager
         var replicas = await GetPrimaryReplicasInternalAsync().ConfigureAwait(false);
         var nodes = replicas.Nodes;
 
-        if (hashPartition.PartitionId < 0 || hashPartition.PartitionId >= nodes.Length)
+        if (hashPartition.PartitionId >= nodes.Length)
         {
             throw new ArgumentException($"Partition id can't be greater than {nodes.Length - 1}: {partition}");
         }

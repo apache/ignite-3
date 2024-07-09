@@ -94,9 +94,9 @@ public class PartitionManagerTests : IgniteTestsBase
     public void TestGetPrimaryReplicaPartitionIdOutOfRangeThrows()
     {
         var ex = Assert.ThrowsAsync<ArgumentException>(
-            async () => await Table.PartitionManager.GetPrimaryReplicaAsync(new HashPartition(1234)));
+            async () => await Table.PartitionManager.GetPrimaryReplicaAsync(new HashPartition(10)));
 
-        Assert.AreEqual("Partition id can't be greater than 9: HashPartition { PartitionId = 1234 }", ex.Message);
+        Assert.AreEqual("Partition id can't be greater than 9: HashPartition { PartitionId = 10 }", ex.Message);
     }
 
     [Test]
