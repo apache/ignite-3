@@ -386,14 +386,11 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
         assertQuery("SELECT id FROM tbl WHERE val = DECIMAL '10.20'").returns(1).check();
     }
 
-
     /** decimal casts - cast literal to decimal. */
     @ParameterizedTest(name = "{2}:{1} AS {3} = {4}")
     @MethodSource("decimalCastFromLiterals")
-    public void testDecimalCastsNumericLiterals(CaseStatus status, RelDataType inputType, Object input,
+    public void testDecimalCastsNumericLiterals(RelDataType inputType, Object input,
             RelDataType targetType, Result<BigDecimal> result) {
-
-        Assumptions.assumeTrue(status == CaseStatus.RUN);
 
         String literal = asLiteral(input, inputType);
         String query = format("SELECT CAST({} AS {})", literal, targetType);
@@ -410,31 +407,28 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
         // TODO Align test datasets https://issues.apache.org/jira/browse/IGNITE-20130
         return Stream.of(
                 // String
-                arguments(CaseStatus.RUN, varcharType, "100", decimalType(3), bigDecimalVal("100")),
-                arguments(CaseStatus.RUN, varcharType, "100.12", decimalType(5, 1), bigDecimalVal("100.1")),
-                arguments(CaseStatus.RUN, varcharType, "lame", decimalType(5, 1), error(NUMERIC_FORMAT_ERROR)),
-                arguments(CaseStatus.RUN, varcharType, "12345", decimalType(5, 1), error(NUMERIC_OVERFLOW_ERROR)),
-                arguments(CaseStatus.RUN, varcharType, "1234", decimalType(5, 1), bigDecimalVal("1234.0")),
-                // TODO Uncomment these test cases after https://issues.apache.org/jira/browse/IGNITE-19822 is fixed.
-                arguments(CaseStatus.SKIP, varcharType, "100.12", decimalType(1, 0), error(NUMERIC_OVERFLOW_ERROR)),
+                arguments(varcharType, "100", decimalType(3), bigDecimalVal("100")),
+                arguments(varcharType, "100.12", decimalType(5, 1), bigDecimalVal("100.1")),
+                arguments(varcharType, "lame", decimalType(5, 1), error(NUMERIC_FORMAT_ERROR)),
+                arguments(varcharType, "12345", decimalType(5, 1), error(NUMERIC_OVERFLOW_ERROR)),
+                arguments(varcharType, "1234", decimalType(5, 1), bigDecimalVal("1234.0")),
+                arguments(varcharType, "100.12", decimalType(1, 0), error(NUMERIC_OVERFLOW_ERROR)),
 
                 // Numeric
-                arguments(CaseStatus.RUN, numeric, "100", decimalType(3), bigDecimalVal("100")),
-                arguments(CaseStatus.RUN, numeric, "100", decimalType(3, 0), bigDecimalVal("100")),
-                // TODO Uncomment these test cases after https://issues.apache.org/jira/browse/IGNITE-19822 is fixed.
-                arguments(CaseStatus.SKIP, numeric, "100.12", decimalType(5, 1), bigDecimalVal("100.1")),
-                arguments(CaseStatus.SKIP, numeric, "100.12", decimalType(5, 0), bigDecimalVal("100")),
-                arguments(CaseStatus.SKIP, numeric, "100", decimalType(2, 0), error(NUMERIC_OVERFLOW_ERROR)),
-                arguments(CaseStatus.SKIP, numeric, "100.12", decimalType(5, 2), bigDecimalVal("100.12"))
+                arguments(numeric, "100", decimalType(3), bigDecimalVal("100")),
+                arguments(numeric, "100", decimalType(3, 0), bigDecimalVal("100")),
+                arguments(numeric, "100.12", decimalType(5, 1), bigDecimalVal("100.1")),
+                arguments(numeric, "100.12", decimalType(5, 0), bigDecimalVal("100")),
+                arguments(numeric, "100", decimalType(2, 0), error(NUMERIC_OVERFLOW_ERROR)),
+                arguments(numeric, "100.12", decimalType(5, 2), bigDecimalVal("100.12"))
         );
     }
 
     /** decimal casts - cast dynamic param to decimal. */
     @ParameterizedTest(name = "{2}:?{1} AS {3} = {4}")
     @MethodSource("decimalCasts")
-    public void testDecimalCastsDynamicParams(CaseStatus ignore, RelDataType inputType, Object input,
+    public void testDecimalCastsDynamicParams(RelDataType inputType, Object input,
             RelDataType targetType, Result<BigDecimal> result) {
-        // We ignore status because every case should work for dynamic parameter.
 
         String query = format("SELECT CAST(? AS {})", targetType);
 
@@ -445,10 +439,8 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
     /** decimals casts - cast numeric literal to specific type then cast the result to decimal. */
     @ParameterizedTest(name = "{1}: {2}::{1} AS {3} = {4}")
     @MethodSource("decimalCasts")
-    public void testDecimalCastsFromNumeric(CaseStatus status, RelDataType inputType, Object input,
+    public void testDecimalCastsFromNumeric(RelDataType inputType, Object input,
             RelDataType targetType, Result<BigDecimal> result) {
-
-        Assumptions.assumeTrue(status == CaseStatus.RUN);
 
         String literal = asLiteral(input, inputType);
         String query = format("SELECT CAST({}::{} AS {})", literal, inputType, targetType);
@@ -755,20 +747,6 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
         }
     }
 
-    /**
-     * Indicates whether a test case should run or should be skipped.
-     * We need this because the set of test cases is the same for both dynamic params
-     * and numeric values.
-     *
-     * <p>TODO Should be removed after https://issues.apache.org/jira/browse/IGNITE-19822 is fixed.
-     */
-    enum CaseStatus {
-        /** Case should run. */
-        RUN,
-        /** Case should be skipped. */
-        SKIP
-    }
-
     private static Stream<Arguments> decimalCasts() {
         RelDataType varcharType = varcharType();
         RelDataType tinyIntType = sqlType(SqlTypeName.TINYINT);
@@ -780,75 +758,68 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
 
         return Stream.of(
                 // String
-                arguments(CaseStatus.RUN, varcharType, "100", decimalType(3), bigDecimalVal("100")),
-                arguments(CaseStatus.RUN, varcharType, "100", decimalType(3), bigDecimalVal("100")),
-                arguments(CaseStatus.RUN, varcharType, "100", decimalType(3, 0), bigDecimalVal("100")),
-                arguments(CaseStatus.RUN, varcharType, "100", decimalType(4, 1), bigDecimalVal("100.0")),
-                arguments(CaseStatus.RUN, varcharType, "100", decimalType(2, 0), error(NUMERIC_OVERFLOW_ERROR)),
+                arguments(varcharType, "100", decimalType(3), bigDecimalVal("100")),
+                arguments(varcharType, "100", decimalType(3), bigDecimalVal("100")),
+                arguments(varcharType, "100", decimalType(3, 0), bigDecimalVal("100")),
+                arguments(varcharType, "100", decimalType(4, 1), bigDecimalVal("100.0")),
+                arguments(varcharType, "100", decimalType(2, 0), error(NUMERIC_OVERFLOW_ERROR)),
 
                 // Tinyint
-                arguments(CaseStatus.RUN, tinyIntType, (byte) 100, decimalType(3), bigDecimalVal("100")),
-                arguments(CaseStatus.RUN, tinyIntType, (byte) 100, decimalType(3, 0), bigDecimalVal("100")),
-                // TODO Uncomment these test cases after https://issues.apache.org/jira/browse/IGNITE-19822 is fixed.
-                arguments(CaseStatus.SKIP, tinyIntType, (byte) 100, decimalType(4, 1), bigDecimalVal("100.0")),
-                arguments(CaseStatus.RUN, tinyIntType, (byte) 100, decimalType(2, 0), error(NUMERIC_OVERFLOW_ERROR)),
+                arguments(tinyIntType, (byte) 100, decimalType(3), bigDecimalVal("100")),
+                arguments(tinyIntType, (byte) 100, decimalType(3, 0), bigDecimalVal("100")),
+                arguments(tinyIntType, (byte) 100, decimalType(4, 1), bigDecimalVal("100.0")),
+                arguments(tinyIntType, (byte) 100, decimalType(2, 0), error(NUMERIC_OVERFLOW_ERROR)),
 
                 // Smallint
-                arguments(CaseStatus.RUN, smallIntType, (short) 100, decimalType(3), bigDecimalVal("100")),
-                arguments(CaseStatus.RUN, smallIntType, (short) 100, decimalType(3, 0), bigDecimalVal("100")),
-                // TODO Uncomment these test cases after https://issues.apache.org/jira/browse/IGNITE-19822 is fixed.
-                arguments(CaseStatus.SKIP, smallIntType, (short) 100, decimalType(4, 1), bigDecimalVal("100.0")),
-                arguments(CaseStatus.RUN, smallIntType, (short) 100, decimalType(2, 0), error(NUMERIC_OVERFLOW_ERROR)),
+                arguments(smallIntType, (short) 100, decimalType(3), bigDecimalVal("100")),
+                arguments(smallIntType, (short) 100, decimalType(3, 0), bigDecimalVal("100")),
+                arguments(smallIntType, (short) 100, decimalType(4, 1), bigDecimalVal("100.0")),
+                arguments(smallIntType, (short) 100, decimalType(2, 0), error(NUMERIC_OVERFLOW_ERROR)),
 
                 // Integer
-                arguments(CaseStatus.RUN, integerType, 100, decimalType(3), bigDecimalVal("100")),
-                arguments(CaseStatus.RUN, integerType, 100, decimalType(3, 0), bigDecimalVal("100")),
-                // TODO Uncomment these test cases after https://issues.apache.org/jira/browse/IGNITE-19822 is fixed.
-                arguments(CaseStatus.SKIP, integerType, 100, decimalType(4, 1), bigDecimalVal("100.0")),
-                arguments(CaseStatus.RUN, integerType, 100, decimalType(2, 0), error(NUMERIC_OVERFLOW_ERROR)),
+                arguments(integerType, 100, decimalType(3), bigDecimalVal("100")),
+                arguments(integerType, 100, decimalType(3, 0), bigDecimalVal("100")),
+                arguments(integerType, 100, decimalType(4, 1), bigDecimalVal("100.0")),
+                arguments(integerType, 100, decimalType(2, 0), error(NUMERIC_OVERFLOW_ERROR)),
 
                 // Bigint
-                arguments(CaseStatus.RUN, bigintType, 100L, decimalType(3), bigDecimalVal("100")),
-                arguments(CaseStatus.RUN, bigintType, 100L, decimalType(3, 0), bigDecimalVal("100")),
-                // TODO Uncomment these test cases after https://issues.apache.org/jira/browse/IGNITE-19822 is fixed.
-                arguments(CaseStatus.SKIP, bigintType, 100L, decimalType(4, 1), bigDecimalVal("100.0")),
-                arguments(CaseStatus.RUN, bigintType, 100L, decimalType(2, 0), error(NUMERIC_OVERFLOW_ERROR)),
+                arguments(bigintType, 100L, decimalType(3), bigDecimalVal("100")),
+                arguments(bigintType, 100L, decimalType(3, 0), bigDecimalVal("100")),
+                arguments(bigintType, 100L, decimalType(4, 1), bigDecimalVal("100.0")),
+                arguments(bigintType, 100L, decimalType(2, 0), error(NUMERIC_OVERFLOW_ERROR)),
 
                 // Real
-                // TODO Uncomment these test cases after https://issues.apache.org/jira/browse/IGNITE-19822 is fixed.
-                arguments(CaseStatus.SKIP, realType, 100.0f, decimalType(3), bigDecimalVal("100")),
-                arguments(CaseStatus.SKIP, realType, 100.0f, decimalType(3, 0), bigDecimalVal("100")),
-                arguments(CaseStatus.SKIP, realType, 100.0f, decimalType(4, 1), bigDecimalVal("100.0")),
-                arguments(CaseStatus.RUN, realType, 100.0f, decimalType(2, 0), error(NUMERIC_OVERFLOW_ERROR)),
-                arguments(CaseStatus.SKIP, realType, 0.1f, decimalType(1, 1), bigDecimalVal("0.1")),
-                arguments(CaseStatus.SKIP, realType, 0.1f, decimalType(2, 2), bigDecimalVal("0.10")),
-                arguments(CaseStatus.RUN, realType, 10.12f, decimalType(2, 1), error(NUMERIC_OVERFLOW_ERROR)),
-                arguments(CaseStatus.RUN, realType, 0.12f, decimalType(1, 2), error(NUMERIC_OVERFLOW_ERROR)),
+                arguments(realType, 100.0f, decimalType(3), bigDecimalVal("100")),
+                arguments(realType, 100.0f, decimalType(3, 0), bigDecimalVal("100")),
+                arguments(realType, 100.0f, decimalType(4, 1), bigDecimalVal("100.0")),
+                arguments(realType, 100.0f, decimalType(2, 0), error(NUMERIC_OVERFLOW_ERROR)),
+                arguments(realType, 0.1f, decimalType(1, 1), bigDecimalVal("0.1")),
+                arguments(realType, 0.1f, decimalType(2, 2), bigDecimalVal("0.10")),
+                arguments(realType, 10.12f, decimalType(2, 1), error(NUMERIC_OVERFLOW_ERROR)),
+                arguments(realType, 0.12f, decimalType(1, 2), error(NUMERIC_OVERFLOW_ERROR)),
 
                 // Double
-                // TODO Uncomment these test cases after https://issues.apache.org/jira/browse/IGNITE-19822 is fixed.
-                arguments(CaseStatus.SKIP, doubleType, 100.0d, decimalType(3), bigDecimalVal("100")),
-                arguments(CaseStatus.SKIP, doubleType, 100.0d, decimalType(3, 0), bigDecimalVal("100")),
-                arguments(CaseStatus.SKIP, doubleType, 100.0d, decimalType(4, 1), bigDecimalVal("100.0")),
-                arguments(CaseStatus.RUN, doubleType, 100.0d, decimalType(2, 0), error(NUMERIC_OVERFLOW_ERROR)),
-                arguments(CaseStatus.SKIP, doubleType, 0.1d, decimalType(1, 1), bigDecimalVal("0.1")),
-                arguments(CaseStatus.SKIP, doubleType, 0.1d, decimalType(2, 2), bigDecimalVal("0.10")),
-                arguments(CaseStatus.RUN, doubleType, 10.12d, decimalType(2, 1), error(NUMERIC_OVERFLOW_ERROR)),
-                arguments(CaseStatus.RUN, doubleType, 0.12d, decimalType(1, 2), error(NUMERIC_OVERFLOW_ERROR)),
+                arguments(doubleType, 100.0d, decimalType(3), bigDecimalVal("100")),
+                arguments(doubleType, 100.0d, decimalType(3, 0), bigDecimalVal("100")),
+                arguments(doubleType, 100.0d, decimalType(4, 1), bigDecimalVal("100.0")),
+                arguments(doubleType, 100.0d, decimalType(2, 0), error(NUMERIC_OVERFLOW_ERROR)),
+                arguments(doubleType, 0.1d, decimalType(1, 1), bigDecimalVal("0.1")),
+                arguments(doubleType, 0.1d, decimalType(2, 2), bigDecimalVal("0.10")),
+                arguments(doubleType, 10.12d, decimalType(2, 1), error(NUMERIC_OVERFLOW_ERROR)),
+                arguments(doubleType, 0.12d, decimalType(1, 2), error(NUMERIC_OVERFLOW_ERROR)),
 
                 // Decimal
-                arguments(CaseStatus.RUN, decimalType(1, 1), new BigDecimal("0.1"), decimalType(1, 1), bigDecimalVal("0.1")),
-                arguments(CaseStatus.RUN, decimalType(3), new BigDecimal("100"), decimalType(3), bigDecimalVal("100")),
+                arguments(decimalType(1, 1), new BigDecimal("0.1"), decimalType(1, 1), bigDecimalVal("0.1")),
+                arguments(decimalType(3), new BigDecimal("100"), decimalType(3), bigDecimalVal("100")),
                 // passed with runtime call and failed with parsing substitution
-                arguments(CaseStatus.SKIP, decimalType(5, 2), new BigDecimal("100.16"), decimalType(4, 1), bigDecimalVal("100.2")),
-                arguments(CaseStatus.RUN, decimalType(3), new BigDecimal("100"), decimalType(3, 0), bigDecimalVal("100")),
-                // TODO Uncomment these test cases after https://issues.apache.org/jira/browse/IGNITE-19822 is fixed.
-                arguments(CaseStatus.SKIP, decimalType(3), new BigDecimal("100"), decimalType(4, 1), bigDecimalVal("100.0")),
-                arguments(CaseStatus.RUN, decimalType(3), new BigDecimal("100"), decimalType(2, 0), error(NUMERIC_OVERFLOW_ERROR)),
-                arguments(CaseStatus.SKIP, decimalType(1, 1), new BigDecimal("0.1"), decimalType(2, 2), bigDecimalVal("0.10")),
-                arguments(CaseStatus.RUN, decimalType(4, 2), new BigDecimal("10.12"), decimalType(2, 1), error(NUMERIC_OVERFLOW_ERROR)),
-                arguments(CaseStatus.RUN, decimalType(2, 2), new BigDecimal("0.12"), decimalType(1, 2), error(NUMERIC_OVERFLOW_ERROR)),
-                arguments(CaseStatus.SKIP, decimalType(1, 1), new BigDecimal("0.1"), decimalType(1, 1), bigDecimalVal("0.1"))
+                arguments(decimalType(5, 2), new BigDecimal("100.16"), decimalType(4, 1), bigDecimalVal("100.2")),
+                arguments(decimalType(3), new BigDecimal("100"), decimalType(3, 0), bigDecimalVal("100")),
+                arguments(decimalType(3), new BigDecimal("100"), decimalType(4, 1), bigDecimalVal("100.0")),
+                arguments(decimalType(3), new BigDecimal("100"), decimalType(2, 0), error(NUMERIC_OVERFLOW_ERROR)),
+                arguments(decimalType(1, 1), new BigDecimal("0.1"), decimalType(2, 2), bigDecimalVal("0.10")),
+                arguments(decimalType(4, 2), new BigDecimal("10.12"), decimalType(2, 1), error(NUMERIC_OVERFLOW_ERROR)),
+                arguments(decimalType(2, 2), new BigDecimal("0.12"), decimalType(1, 2), error(NUMERIC_OVERFLOW_ERROR)),
+                arguments(decimalType(1, 1), new BigDecimal("0.1"), decimalType(1, 1), bigDecimalVal("0.1"))
         );
     }
 
