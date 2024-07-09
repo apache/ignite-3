@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Tests.Table;
 
+using System;
 using System.Linq;
 using System.Threading.Tasks;
 using Ignite.Table;
@@ -43,5 +44,28 @@ public class PartitionManagerTests : IgniteTestsBase
             Enumerable.Range(0, TablePartitionCount),
             replicasPartitions,
             "Primary replicas map should have all partitions");
+    }
+
+    [Test]
+    public void TestGetPrimaryReplicaUnknownPartitionIdThrows()
+    {
+        var ex = Assert.ThrowsAsync<ArgumentException>(
+            async () => await Table.PartitionManager.GetPrimaryReplicaAsync(new HashPartition(-1)));
+
+        Assert.AreEqual("Primary replica not found for partition: HashPartition { PartitionId = -1 }", ex.Message);
+    }
+
+    [Test]
+    public void TestGetPrimaryReplicaUnknownPartitionClassThrows()
+    {
+        var ex = Assert.ThrowsAsync<ArgumentException>(
+            async () => await Table.PartitionManager.GetPrimaryReplicaAsync(new MyPartition()));
+
+        Assert.AreEqual($"Unsupported partition type: {typeof(MyPartition)}", ex.Message);
+    }
+
+    private class MyPartition : IPartition
+    {
+        // No-op.
     }
 }
