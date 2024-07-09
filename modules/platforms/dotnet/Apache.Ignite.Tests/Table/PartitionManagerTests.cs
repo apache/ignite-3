@@ -82,12 +82,21 @@ public class PartitionManagerTests : IgniteTestsBase
     }
 
     [Test]
-    public void TestGetPrimaryReplicaUnknownPartitionIdThrows()
+    public void TestGetPrimaryReplicaNegativePartitionIdThrows()
     {
         var ex = Assert.ThrowsAsync<ArgumentException>(
             async () => await Table.PartitionManager.GetPrimaryReplicaAsync(new HashPartition(-1)));
 
-        Assert.AreEqual("Primary replica not found for partition: HashPartition { PartitionId = -1 }", ex.Message);
+        Assert.AreEqual("Partition id can't be negative: HashPartition { PartitionId = -1 }", ex.Message);
+    }
+
+    [Test]
+    public void TestGetPrimaryReplicaPartitionIdOutOfRangeThrows()
+    {
+        var ex = Assert.ThrowsAsync<ArgumentException>(
+            async () => await Table.PartitionManager.GetPrimaryReplicaAsync(new HashPartition(1234)));
+
+        Assert.AreEqual("Partition id can't be greater than 9: HashPartition { PartitionId = 1234 }", ex.Message);
     }
 
     [Test]

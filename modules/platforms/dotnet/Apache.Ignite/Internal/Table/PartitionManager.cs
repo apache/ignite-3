@@ -77,7 +77,7 @@ internal sealed class PartitionManager : IPartitionManager
 
         if (hashPartition.PartitionId < 0)
         {
-            throw new ArgumentOutOfRangeException("Partition id can't be negative: " + partition);
+            throw new ArgumentException("Partition id can't be negative: " + partition);
         }
 
         var replicas = await GetPrimaryReplicasInternalAsync().ConfigureAwait(false);
