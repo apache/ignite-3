@@ -47,6 +47,20 @@ public class PartitionManagerTests : IgniteTestsBase
     }
 
     [Test]
+    public async Task TestGetPrimaryReplica()
+    {
+        var nodes = await Client.GetClusterNodesAsync();
+
+        for (int partId = 0; partId < TablePartitionCount; partId++)
+        {
+            var partition = new HashPartition(partId);
+            var replica = await Table.PartitionManager.GetPrimaryReplicaAsync(partition);
+
+            CollectionAssert.Contains(nodes, replica);
+        }
+    }
+
+    [Test]
     public void TestGetPrimaryReplicaUnknownPartitionIdThrows()
     {
         var ex = Assert.ThrowsAsync<ArgumentException>(
