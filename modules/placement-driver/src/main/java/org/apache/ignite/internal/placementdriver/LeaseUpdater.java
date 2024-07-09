@@ -388,6 +388,7 @@ public class LeaseUpdater {
 
                         // New lease is granted.
                         writeNewLease(grpId, candidate, renewedLeases, "1");
+                        LOG.info("After write new lease 1 [groupId={}, oldLease={}, agreementUndefined={}]", grpId, lease, agreement == LeaseAgreement.UNDEFINED_AGREEMENT);
 
                         boolean force = Objects.equals(lease.getLeaseholder(), candidate.name());
 
@@ -490,7 +491,7 @@ public class LeaseUpdater {
 
             renewedLeases.put(grpId, renewedLease);
 
-            LOG.info("Writing new lease {} [groupId={}, startTime={}, leaseholderId={}, lease=]", cmnt, grpId, renewedLease.getStartTime(), renewedLease.getLeaseholderId(), renewedLease);
+            LOG.info("Writing new lease {} [groupId={}, startTime={}, leaseholderId={}, lease={}]", cmnt, grpId, renewedLease.getStartTime(), renewedLease.getLeaseholderId(), renewedLease);
 
             leaseUpdateStatistics.onLeaseCreate();
         }
