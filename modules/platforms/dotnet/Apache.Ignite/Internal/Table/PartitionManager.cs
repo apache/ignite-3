@@ -100,6 +100,12 @@ internal sealed class PartitionManager : IPartitionManager
         where TK : notnull =>
         GetPartitionInternalAsync(key, _table.GetRecordViewInternal<TK>().RecordSerializer.Handler);
 
+    /// <inheritdoc/>
+    public override string ToString() =>
+        new IgniteToStringBuilder(GetType())
+            .Append(_table, "Table")
+            .Build();
+
     private static HashPartition[] GetCachedPartitionArray(int count)
     {
         var parts = _partitions;
