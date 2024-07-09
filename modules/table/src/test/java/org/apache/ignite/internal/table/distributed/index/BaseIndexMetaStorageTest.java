@@ -138,7 +138,7 @@ abstract class BaseIndexMetaStorageTest extends BaseIgniteAbstractTest {
 
         assertNotNull(versionBytes, "indexId=" + indexId);
 
-        int catalogVersion = ByteUtils.bytesToInt(versionBytes);
+        int catalogVersion = ByteUtils.bytesToIntKeepingOrder(versionBytes);
         IndexMeta indexMeta = ByteUtils.fromBytes(valueBytes);
 
         assertEquals(indexMeta.catalogVersion(), catalogVersion, "indexId=" + indexId);

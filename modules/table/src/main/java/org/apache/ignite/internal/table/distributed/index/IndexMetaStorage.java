@@ -38,7 +38,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.READ_ONLY;
 import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.REMOVED;
 import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.statusOnRemoveIndex;
-import static org.apache.ignite.internal.util.ByteUtils.intToBytes;
+import static org.apache.ignite.internal.util.ByteUtils.intToBytesKeepingOrder;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.apache.ignite.internal.util.CollectionUtils.difference;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
@@ -440,11 +440,13 @@ public class IndexMetaStorage implements IgniteComponent {
 
     private CompletableFuture<?> saveToMetastore(IndexMeta newMeta) {
         ByteArray versionKey = indexMetaVersionKey(newMeta);
+        // We need to keep order for the comparison to work correctly.
+        byte[] versionValue = intToBytesKeepingOrder(newMeta.catalogVersion());
 
         return metaStorageManager.invoke(
-                value(versionKey).lt(intToBytes(newMeta.catalogVersion())),
+                value(versionKey).lt(versionValue),
                 List.of(
-                        put(versionKey, intToBytes(newMeta.catalogVersion())),
+                        put(versionKey, versionValue),
                         put(indexMetaValueKey(newMeta), toBytes(newMeta))
                 ),
                 List.of(noop())
