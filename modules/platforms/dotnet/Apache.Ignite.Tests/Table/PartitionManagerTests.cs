@@ -136,7 +136,7 @@ public class PartitionManagerTests : IgniteTestsBase
     }
 
     [Test]
-    public async Task TestPrimaryReplicasCacheInvalidation()
+    public async Task TestPrimaryReplicaCacheInvalidation()
     {
         using var server = new FakeServer
         {
@@ -145,9 +145,19 @@ public class PartitionManagerTests : IgniteTestsBase
         };
 
         using var client = await server.ConnectClientAsync();
-
         var table = await client.Tables.GetTableAsync(FakeServer.ExistingTableName);
-        var replicas = await table!.PartitionManager.GetPrimaryReplicasAsync();
+        var partition = new HashPartition(0);
+
+        var replica1 = await table!.PartitionManager.GetPrimaryReplicaAsync(partition);
+        Assert.AreEqual("n1", replica1.Name);
+
+        server.PartitionAssignmentTimestamp = 124;
+        server.PartitionAssignment = new[] { "n2", "n1" };
+
+        await client.Tables.GetTablesAsync(); // Trigger cache invalidation with any response.
+
+        var replica2 = await table.PartitionManager.GetPrimaryReplicaAsync(partition);
+        Assert.AreEqual("n2", replica2.Name);
     }
 
     private class MyPartition : IPartition
