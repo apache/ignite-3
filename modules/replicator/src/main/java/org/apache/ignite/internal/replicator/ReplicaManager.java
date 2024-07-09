@@ -605,7 +605,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 newConfiguration,
                 createListener,
                 storageIndexTracker,
-                newRaftClientFut);
+                newRaftClientFut
+        );
     }
 
     /**
@@ -671,7 +672,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             SnapshotStorageFactory snapshotStorageFactory,
             PeersAndLearners newConfiguration,
             RaftGroupListener raftGroupListener,
-            RaftGroupEventsListener raftGroupEventsListener
+            RaftGroupEventsListener raftGroupEventsListener,
+            IgniteSpinBusyLock busyLock
     ) throws NodeStoppingException {
         RaftGroupOptions groupOptions = groupOptionsForPartition(
                 false,
@@ -1333,6 +1335,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     return trueCompletedFuture();
                 } else if (state == ReplicaState.PRIMARY_ONLY) {
                     context.replicaState = ReplicaState.ASSIGNED;
+
+                    LOG.debug("Weak replica start complete [state={}].", context.replicaState);
 
                     return trueCompletedFuture();
                 } // else no-op.

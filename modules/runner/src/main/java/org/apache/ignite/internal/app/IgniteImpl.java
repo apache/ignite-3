@@ -213,6 +213,7 @@ import org.apache.ignite.internal.table.distributed.schema.SchemaSyncServiceImpl
 import org.apache.ignite.internal.table.distributed.schema.ThreadLocalPartitionCommandsMarshaller;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.threading.PublicApiThreadingIgniteCatalog;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
@@ -706,6 +707,8 @@ public class IgniteImpl implements Ignite {
                 partitionIdleSafeTimePropagationPeriodMsSupplier
         );
 
+        metaStorageMgr.addElectionListener(catalogManager::updateCompactionCoordinator);
+
         systemViewManager = new SystemViewManagerImpl(name, catalogManager);
         nodeAttributesCollector.register(systemViewManager);
         logicalTopology.addEventListener(systemViewManager);
@@ -746,6 +749,7 @@ public class IgniteImpl implements Ignite {
                 distributionZoneManager,
                 metaStorageMgr,
                 clusterSvc.topologyService(),
+                lowWatermark,
                 threadPoolsManager.tableIoExecutor(),
                 rebalanceScheduler
         );
@@ -1367,7 +1371,7 @@ public class IgniteImpl implements Ignite {
 
     @Override
     public IgniteCatalog catalog() {
-        return new IgniteCatalogSqlImpl(sql, distributedTblMgr);
+        return new PublicApiThreadingIgniteCatalog(new IgniteCatalogSqlImpl(sql, distributedTblMgr), asyncContinuationExecutor);
     }
 
     /**

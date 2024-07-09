@@ -18,10 +18,8 @@
 package org.apache.ignite.internal.runner.app;
 
 import static java.util.Collections.emptySet;
-import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.table.NodeUtils.transferPrimary;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -53,6 +51,19 @@ import org.junit.jupiter.api.Test;
  * Test for replica lifecycle.
  */
 public class ItReplicaStateManagerTest extends BaseIgniteRestartTest {
+    private static final String[] ATTRIBUTES = {
+            "{region:{attribute:\"REG0\"}}",
+            "{region:{attribute:\"REG1\"}}",
+            "{region:{attribute:\"REG2\"}}"
+    };
+
+    private static final String ZONE_NAME = "TEST_ZONE";
+
+    @Override
+    protected String configurationString(int idx) {
+        return configurationString(idx, ATTRIBUTES[idx]);
+    }
+
     @Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-22629")
     public void testReplicaStatesManagement() throws InterruptedException {
@@ -61,15 +72,17 @@ public class ItReplicaStateManagerTest extends BaseIgniteRestartTest {
 
         IgniteImpl node0 = nodes.get(0);
 
-        String zone = "TEST_ZONE";
         String tableName = "TEST";
 
         node0.sql().execute(null,
                 String.format("CREATE ZONE IF NOT EXISTS %s WITH REPLICAS=%d, PARTITIONS=%d, STORAGE_PROFILES='%s'",
-                        zone, 3, 1, DEFAULT_STORAGE_PROFILE));
+                        ZONE_NAME, 3, 1, DEFAULT_STORAGE_PROFILE));
 
         node0.sql().execute(null,
-                String.format("CREATE TABLE IF NOT EXISTS %s (id INT PRIMARY KEY, name VARCHAR) WITH PRIMARY_ZONE='%s'", tableName, zone));
+                String.format("CREATE TABLE IF NOT EXISTS %s (id INT PRIMARY KEY, name VARCHAR) WITH PRIMARY_ZONE='%s'", tableName,
+                        ZONE_NAME
+                )
+        );
 
         TableImpl tbl = unwrapTableImpl(node0.tables().table("TEST"));
         int tableId = tbl.tableId();
@@ -84,18 +97,10 @@ public class ItReplicaStateManagerTest extends BaseIgniteRestartTest {
 
         log.info("Test: primary replica is " + replicaMeta);
 
-        // This will be the pending assignments excluding the primary replica node.
-        Set<Assignment> newPendingAssignments = nodes.stream()
-                .filter(n -> !n.id().equals(replicaMeta.getLeaseholderId()))
-                .map(n -> Assignment.forPeer(n.name()))
-                .collect(toSet());
-
-        ByteArray pendingAssignmentsKey = pendingPartAssignmentsKey(partId);
-
         log.info("Test: Excluding the current primary from assignments. The replica should stay alive.");
 
         // Excluding the current primary from assignments. The replica should stay alive.
-        node0.metaStorageManager().put(pendingAssignmentsKey, Assignments.toBytes(newPendingAssignments));
+        node0.sql().execute(null, alterZoneSql(filterForNodes(nodes, replicaMeta.getLeaseholderId())));
 
         ByteArray stableAssignmentsKey = stablePartAssignmentsKey(partId);
 
@@ -106,11 +111,7 @@ public class ItReplicaStateManagerTest extends BaseIgniteRestartTest {
         log.info("Test: Including it back.");
 
         // Including it back.
-        Set<Assignment> pendingAssignmentsAllNodes = nodes.stream()
-                .map(n -> Assignment.forPeer(n.name()))
-                .collect(toSet());
-
-        node0.metaStorageManager().put(pendingAssignmentsKey, Assignments.toBytes(pendingAssignmentsAllNodes));
+        node0.sql().execute(null, alterZoneSql(filterForNodes(nodes, null)));
 
         waitForStableAssignments(node0.metaStorageManager(), stableAssignmentsKey.bytes(), nodesCount);
 
@@ -119,7 +120,7 @@ public class ItReplicaStateManagerTest extends BaseIgniteRestartTest {
         log.info("Test: Excluding again.");
 
         // Excluding again.
-        node0.metaStorageManager().put(pendingAssignmentsKey, Assignments.toBytes(newPendingAssignments));
+        node0.sql().execute(null, alterZoneSql(filterForNodes(nodes, replicaMeta.getLeaseholderId())));
 
         waitForStableAssignments(node0.metaStorageManager(), stableAssignmentsKey.bytes(), nodesCount - 1);
 
@@ -147,6 +148,30 @@ public class ItReplicaStateManagerTest extends BaseIgniteRestartTest {
         }
 
         assertTrue(success);
+    }
+
+    private static String alterZoneSql(String filter) {
+        return String.format("ALTER ZONE \"%s\" SET \"DATA_NODES_FILTER\" = '%s'", ZONE_NAME, filter);
+    }
+
+    private static String filterForNodes(List<IgniteImpl> nodes, @Nullable String excludeId) {
+        StringBuilder attrs = new StringBuilder();
+
+        for (int idx = 0; idx < nodes.size(); idx++) {
+            IgniteImpl node = nodes.get(idx);
+
+            if (excludeId != null && node.id().equals(excludeId)) {
+                continue;
+            }
+
+            if (!attrs.toString().isEmpty()) {
+                attrs.append(" || ");
+            }
+
+            attrs.append("@.region == \"REG" + idx + "\"");
+        }
+
+        return "$[?(" + attrs + ")]";
     }
 
     @Nullable
