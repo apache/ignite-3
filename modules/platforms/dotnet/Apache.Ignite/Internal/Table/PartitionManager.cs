@@ -173,11 +173,11 @@ internal sealed class PartitionManager : IPartitionManager
         var schema = await _table.GetSchemaAsync(null).ConfigureAwait(false);
         var colocationHash = serializerHandler.GetKeyColocationHash(schema, key);
 
-        // TODO: Use cached.
-        var partitions = await GetPrimaryReplicasAsync().ConfigureAwait(false);
+        var partitions = await GetPrimaryReplicasInternalAsync().ConfigureAwait(false);
+        var partitionsCount = partitions.Nodes.Length;
 
-        var partitionId = Math.Abs(colocationHash % partitions.Count);
-        return GetCachedPartitionArray(partitions.Count)[partitionId];
+        var partitionId = Math.Abs(colocationHash % partitionsCount);
+        return GetCachedPartitionArray(partitionsCount)[partitionId];
     }
 
     [SuppressMessage("Performance", "CA1819:Properties should not return arrays", Justification = "Private record.")]
