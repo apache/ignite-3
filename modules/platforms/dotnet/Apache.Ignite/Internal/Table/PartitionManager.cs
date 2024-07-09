@@ -75,24 +75,30 @@ internal sealed class PartitionManager : IPartitionManager
             throw new ArgumentException("Unsupported partition type: " + partition.GetType());
         }
 
-        // TODO: Use cached array.
-        var replicas = await GetPrimaryReplicasAsync().ConfigureAwait(false);
-        if (!replicas.TryGetValue(hashPartition, out var node))
+        if (hashPartition.PartitionId < 0)
         {
-            throw new ArgumentException("Primary replica not found for partition: " + partition);
+            throw new ArgumentOutOfRangeException("Partition id can't be negative: " + partition);
         }
 
-        return node;
+        var replicas = await GetPrimaryReplicasInternalAsync().ConfigureAwait(false);
+        var nodes = replicas.Nodes;
+
+        if (hashPartition.PartitionId < 0 || hashPartition.PartitionId >= nodes.Length)
+        {
+            throw new ArgumentException($"Partition id can't be greater than {nodes.Length - 1}: {partition}");
+        }
+
+        return nodes[hashPartition.PartitionId];
     }
 
     /// <inheritdoc/>
     public ValueTask<IPartition> GetPartitionAsync(IIgniteTuple tuple) =>
-        GetPartitionInternal(tuple, TupleSerializerHandler.Instance);
+        GetPartitionInternalAsync(tuple, TupleSerializerHandler.Instance);
 
     /// <inheritdoc/>
     public ValueTask<IPartition> GetPartitionAsync<TK>(TK key)
         where TK : notnull =>
-        GetPartitionInternal(key, _table.GetRecordViewInternal<TK>().RecordSerializer.Handler);
+        GetPartitionInternalAsync(key, _table.GetRecordViewInternal<TK>().RecordSerializer.Handler);
 
     private static HashPartition[] GetCachedPartitionArray(int count)
     {
@@ -168,7 +174,7 @@ internal sealed class PartitionManager : IPartitionManager
         }
     }
 
-    private async ValueTask<IPartition> GetPartitionInternal<TK>(TK key, IRecordSerializerHandler<TK> serializerHandler)
+    private async ValueTask<IPartition> GetPartitionInternalAsync<TK>(TK key, IRecordSerializerHandler<TK> serializerHandler)
     {
         var schema = await _table.GetSchemaAsync(null).ConfigureAwait(false);
         var colocationHash = serializerHandler.GetKeyColocationHash(schema, key);
