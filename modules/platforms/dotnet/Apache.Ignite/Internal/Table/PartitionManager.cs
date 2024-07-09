@@ -129,6 +129,8 @@ internal sealed class PartitionManager : IPartitionManager
 
     private async ValueTask<PrimaryReplicas> GetPrimaryReplicasInternalAsync()
     {
+        // Socket.PartitionAssignmentTimestamp is updated on every response, including heartbeats,
+        // so the cache can't be stale for very long.
         var timestamp = _table.Socket.PartitionAssignmentTimestamp;
         var cached = _primaryReplicas;
 
