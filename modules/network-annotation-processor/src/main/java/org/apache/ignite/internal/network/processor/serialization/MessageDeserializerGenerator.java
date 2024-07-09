@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.network.processor.serialization;
 
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.network.processor.messages.MessageImplGenerator.getByteArrayFieldName;
+import static org.apache.ignite.internal.network.processor.MessageGeneratorUtils.addByteArrayPostfix;
 
 import com.squareup.javapoet.ArrayTypeName;
 import com.squareup.javapoet.ClassName;
@@ -139,7 +139,7 @@ public class MessageDeserializerGenerator {
                 String name = getter.getSimpleName().toString();
 
                 if (getter.getAnnotation(Marshallable.class) != null) {
-                    name = getByteArrayFieldName(name);
+                    name = addByteArrayPostfix(name);
                 }
 
                 method

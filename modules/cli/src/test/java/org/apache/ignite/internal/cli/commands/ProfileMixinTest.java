@@ -24,8 +24,12 @@ import java.util.function.Function;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.cli.call.cluster.ClusterInitCall;
 import org.apache.ignite.internal.cli.call.cluster.ClusterInitCallInput;
+import org.apache.ignite.internal.cli.call.cluster.status.ClusterStatusCall;
 import org.apache.ignite.internal.cli.call.cluster.topology.LogicalTopologyCall;
 import org.apache.ignite.internal.cli.call.cluster.topology.PhysicalTopologyCall;
+import org.apache.ignite.internal.cli.call.cluster.unit.ClusterListUnitCall;
+import org.apache.ignite.internal.cli.call.cluster.unit.UndeployUnitCall;
+import org.apache.ignite.internal.cli.call.cluster.unit.UndeployUnitCallInput;
 import org.apache.ignite.internal.cli.call.configuration.ClusterConfigShowCall;
 import org.apache.ignite.internal.cli.call.configuration.ClusterConfigShowCallInput;
 import org.apache.ignite.internal.cli.call.configuration.ClusterConfigUpdateCall;
@@ -35,6 +39,14 @@ import org.apache.ignite.internal.cli.call.configuration.NodeConfigShowCallInput
 import org.apache.ignite.internal.cli.call.configuration.NodeConfigUpdateCall;
 import org.apache.ignite.internal.cli.call.configuration.NodeConfigUpdateCallInput;
 import org.apache.ignite.internal.cli.call.node.status.NodeStatusCall;
+import org.apache.ignite.internal.cli.call.node.unit.NodeListUnitCall;
+import org.apache.ignite.internal.cli.call.recovery.reset.ResetPartitionsCall;
+import org.apache.ignite.internal.cli.call.recovery.reset.ResetPartitionsCallInput;
+import org.apache.ignite.internal.cli.call.recovery.restart.RestartPartitionsCall;
+import org.apache.ignite.internal.cli.call.recovery.restart.RestartPartitionsCallInput;
+import org.apache.ignite.internal.cli.call.recovery.states.PartitionStatesCall;
+import org.apache.ignite.internal.cli.call.recovery.states.PartitionStatesCallInput;
+import org.apache.ignite.internal.cli.call.unit.ListUnitCallInput;
 import org.apache.ignite.internal.cli.core.call.Call;
 import org.apache.ignite.internal.cli.core.call.CallInput;
 import org.apache.ignite.internal.cli.core.call.UrlCallInput;
@@ -165,6 +177,12 @@ public class ProfileMixinTest extends CliCommandTestBase {
                         NodeStatusCall.class,
                         UrlCallInput.class,
                         (Function<UrlCallInput, String>) UrlCallInput::getUrl
+                ),
+                arguments(
+                        "node unit list",
+                        NodeListUnitCall.class,
+                        ListUnitCallInput.class,
+                        (Function<ListUnitCallInput, String>) ListUnitCallInput::url
                 )
         );
     }
@@ -200,6 +218,49 @@ public class ProfileMixinTest extends CliCommandTestBase {
                         LogicalTopologyCall.class,
                         UrlCallInput.class,
                         (Function<UrlCallInput, String>) UrlCallInput::getUrl
+                ),
+                arguments(
+                        "cluster status",
+                        ClusterStatusCall.class,
+                        UrlCallInput.class,
+                        (Function<UrlCallInput, String>) UrlCallInput::getUrl
+                ),
+                // Doesn't work because this command is special - it uses AsyncCall and call factory
+                // arguments(
+                //         "cluster unit deploy",
+                //         DeployUnitCall.class,
+                //         DeployUnitCallInput.class,
+                //         (Function<DeployUnitCallInput, String>) DeployUnitCallInput::clusterUrl
+                // ),
+                arguments(
+                        "cluster unit list",
+                        ClusterListUnitCall.class,
+                        ListUnitCallInput.class,
+                        (Function<ListUnitCallInput, String>) ListUnitCallInput::url
+                ),
+                arguments(
+                        "cluster unit undeploy id --version=1.0.0",
+                        UndeployUnitCall.class,
+                        UndeployUnitCallInput.class,
+                        (Function<UndeployUnitCallInput, String>) UndeployUnitCallInput::clusterUrl
+                ),
+                arguments(
+                        "recovery partitions states --global",
+                        PartitionStatesCall.class,
+                        PartitionStatesCallInput.class,
+                        (Function<PartitionStatesCallInput, String>) PartitionStatesCallInput::clusterUrl
+                ),
+                arguments(
+                        "recovery partitions reset --table test --zone test",
+                        ResetPartitionsCall.class,
+                        ResetPartitionsCallInput.class,
+                        (Function<ResetPartitionsCallInput, String>) ResetPartitionsCallInput::clusterUrl
+                ),
+                arguments(
+                        "recovery partitions restart --table test --zone test",
+                        RestartPartitionsCall.class,
+                        RestartPartitionsCallInput.class,
+                        (Function<RestartPartitionsCallInput, String>) RestartPartitionsCallInput::clusterUrl
                 )
         );
     }

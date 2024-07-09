@@ -526,6 +526,7 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
                     ZonePartitionId replicaGrpId = new ZonePartitionId(zoneId, partitionId);
 
                     // It is safe to get the latest version of the catalog as we are in the metastore thread.
+                    // TODO: IGNITE-22661 Potentially unsafe to use the latest catalog version. Better to take the version from Assignments.
                     int catalogVersion = catalogMgr.latestCatalogVersion();
 
                     CatalogZoneDescriptor zoneDescriptor = catalogMgr.zone(zoneId, catalogVersion);
@@ -630,7 +631,7 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
     ) {
         // Update raft client peers and learners according to the actual assignments.
         if (replicaMgr.isReplicaStarted(zonePartitionId)) {
-            replicaMgr.getReplica(zonePartitionId).join()
+            replicaMgr.replica(zonePartitionId).join()
                     .raftClient().updateConfiguration(fromAssignments(stableAssignments));
         }
 
@@ -782,7 +783,7 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
                     ? pendingAssignmentsNodes
                     : RebalanceUtil.union(pendingAssignmentsNodes, stableAssignments.nodes());
 
-            replicaMgr.getReplica(replicaGrpId).join().raftClient().updateConfiguration(fromAssignments(newAssignments));
+            replicaMgr.replica(replicaGrpId).join().raftClient().updateConfiguration(fromAssignments(newAssignments));
         }, ioExecutor);
     }
 

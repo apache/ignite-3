@@ -36,13 +36,11 @@ import org.apache.ignite.internal.test.WatchListenerInhibitor;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
  * Tests about basic Schema Synchronization properties that should be tested using a few Ignite node.
  */
-@SuppressWarnings("resource")
 class ItSchemaSyncMultiNodeTest extends ClusterPerTestIntegrationTest {
     private static final int NODES_TO_START = 2;
 
@@ -81,7 +79,6 @@ class ItSchemaSyncMultiNodeTest extends ClusterPerTestIntegrationTest {
      * <p>This particular scenario uses metastorage inhibiting to make sure that schema sync is not missed.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21512")
     void sqlDmlAfterDdlOnAnotherNodeSeesDdlResultsWithInhibitor() {
         WatchListenerInhibitor inhibitorOnNode1 = metastorageEventsInhibitor(node(NODE_1_INDEX));
         inhibitorOnNode1.startInhibit();
