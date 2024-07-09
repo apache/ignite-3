@@ -21,6 +21,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import org.apache.ignite.internal.table.PublicApiThreadingKeyValueView;
 import org.apache.ignite.internal.table.PublicApiThreadingRecordView;
+import org.apache.ignite.internal.table.partition.PublicApiThreadingPartitionManager;
 import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.internal.wrapper.Wrapper;
 import org.apache.ignite.table.KeyValueView;
@@ -56,7 +57,7 @@ class PublicApiThreadingTable implements Table, Wrapper {
 
     @Override
     public PartitionManager partitionManager() {
-        return table.partitionManager();
+        return new PublicApiThreadingPartitionManager(table.partitionManager(), asyncContinuationExecutor);
     }
 
     @Override
