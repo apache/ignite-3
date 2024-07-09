@@ -747,9 +747,7 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
             // In case of forced assignments we need to remove nodes that are present in the stable set but are missing from the
             // pending set. Such operation removes dead stable nodes from the resulting stable set, which guarantees that we will
             // have a live majority.
-            Set<Assignment> intersection = RebalanceUtil.intersect(stableAssignments.nodes(), pendingAssignmentsNodes);
-
-            computedStableAssignments = intersection.isEmpty() ? pendingAssignments : Assignments.forced(intersection);
+            computedStableAssignments = pendingAssignments;
         } else {
             computedStableAssignments = stableAssignments;
         }
@@ -766,12 +764,12 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
                     localMemberAssignment,
                     computedStableAssignments
             );
-        } else {
+        } else if (pendingAssignmentsAreForced && localMemberAssignment != null) {
             localServicesStartFuture = runAsync(() -> {
-                if (pendingAssignmentsAreForced && replicaMgr.isReplicaStarted(replicaGrpId)) {
-                    replicaMgr.resetPeers(replicaGrpId, fromAssignments(computedStableAssignments.nodes()));
-                }
+                inBusyLock(busyLock, () -> replicaMgr.resetPeers(replicaGrpId, fromAssignments(computedStableAssignments.nodes())));
             }, ioExecutor);
+        } else {
+            localServicesStartFuture = nullCompletedFuture();
         }
 
         return localServicesStartFuture.thenRunAsync(() -> {
