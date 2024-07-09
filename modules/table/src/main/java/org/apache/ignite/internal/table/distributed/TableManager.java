@@ -671,7 +671,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     .map(entry -> {
                         if (LOG.isInfoEnabled()) {
                             LOG.info(
-                                    "Missed {} assignments for key '{}' discovered, performing recovery",
+                                    "Non handled {} assignments for key '{}' discovered, performing recovery",
                                     assignmentsType,
                                     new String(entry.key(), UTF_8)
                             );
