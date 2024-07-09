@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Tests.Table;
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Compute;
@@ -46,6 +47,24 @@ public class PartitionManagerTests : IgniteTestsBase
             Enumerable.Range(0, TablePartitionCount),
             replicasPartitions,
             "Primary replicas map should have all partitions");
+    }
+
+    [Test]
+    public async Task TestGetPrimaryReplicasReturnsCachedPartitionInstances()
+    {
+        var partitions1 = await GetPartitions();
+        var partitions2 = await GetPartitions();
+
+        for (int i = 0; i < partitions1.Count; i++)
+        {
+            Assert.AreSame(partitions1[i], partitions2[i]);
+        }
+
+        async Task<List<HashPartition>> GetPartitions()
+        {
+            var replicas = await Table.PartitionManager.GetPrimaryReplicasAsync();
+            return replicas.Keys.Cast<HashPartition>().OrderBy(x => x.PartitionId).ToList();
+        }
     }
 
     [Test]
@@ -96,6 +115,15 @@ public class PartitionManagerTests : IgniteTestsBase
 
             Assert.AreEqual(expectedPartition, ((HashPartition)partition).PartitionId);
         }
+    }
+
+    [Test]
+    public async Task TestGetPartitionReturnsCachedInstance()
+    {
+        var partition1 = await Table.PartitionManager.GetPartitionAsync(GetTuple(1));
+        var partition2 = await Table.PartitionManager.GetPartitionAsync(GetTuple(1));
+
+        Assert.AreSame(partition1, partition2);
     }
 
     private class MyPartition : IPartition
