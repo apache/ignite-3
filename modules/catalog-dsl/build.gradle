@@ -26,11 +26,14 @@ dependencies {
     implementation libs.jetbrains.annotations
     implementation project(':ignite-api')
     implementation project(':ignite-core')
+    implementation project(':ignite-table')
 
     testImplementation libs.hamcrest.core
     testImplementation testFixtures(project(':ignite-core'))
 
     integrationTestImplementation project(':ignite-api')
+    integrationTestImplementation project(':ignite-catalog')
+    integrationTestImplementation project(':ignite-system-view-api')
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-runner'))
     integrationTestImplementation libs.hamcrest.core
