@@ -19,6 +19,7 @@ namespace Apache.Ignite.Internal.Table;
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
 using Common;
 using Ignite.Network;
@@ -33,15 +34,18 @@ using Serialization;
 /// </summary>
 internal sealed class PartitionManager : IPartitionManager
 {
-    private readonly Table _table;
+    private static readonly object PartitionsLock = new();
 
-    private readonly object _partitionsLock = new();
+    // Cached partition objects (HashPartition is just a wrapper around a number).
+    // Those wrappers implement IPartition interface and can't be structs.
+    private static volatile HashPartition[]? _partitions;
+
+    private readonly Table _table;
 
     private readonly object _primaryReplicasLock = new();
 
-    private volatile HashPartition[]? _partitions; // Cached partition objects.
-
-    private volatile ClusterNode[]? _primaryReplicas; // Cached primary replicas.
+    // Cached primary replicas.
+    private volatile PrimaryReplicas? _primaryReplicas;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="PartitionManager"/> class.
@@ -119,19 +123,7 @@ internal sealed class PartitionManager : IPartitionManager
         where TK : notnull =>
         GetPartitionInternal(key, _table.GetRecordViewInternal<TK>().RecordSerializer.Handler);
 
-    private async ValueTask<IPartition> GetPartitionInternal<TK>(TK key, IRecordSerializerHandler<TK> serializerHandler)
-    {
-        var schema = await _table.GetSchemaAsync(null).ConfigureAwait(false);
-        var colocationHash = serializerHandler.GetKeyColocationHash(schema, key);
-
-        // TODO: Use cached.
-        var partitions = await GetPrimaryReplicasAsync().ConfigureAwait(false);
-
-        var partitionId = Math.Abs(colocationHash % partitions.Count);
-        return GetPartitionArray(partitions.Count)[partitionId];
-    }
-
-    private HashPartition[] GetPartitionArray(int count)
+    private static HashPartition[] GetPartitionArray(int count)
     {
         var parts = _partitions;
         if (parts != null && parts.Length >= count)
@@ -139,7 +131,7 @@ internal sealed class PartitionManager : IPartitionManager
             return parts;
         }
 
-        lock (_partitionsLock)
+        lock (PartitionsLock)
         {
             parts = _partitions;
             if (parts != null && parts.Length >= count)
@@ -157,4 +149,19 @@ internal sealed class PartitionManager : IPartitionManager
             return parts;
         }
     }
+
+    private async ValueTask<IPartition> GetPartitionInternal<TK>(TK key, IRecordSerializerHandler<TK> serializerHandler)
+    {
+        var schema = await _table.GetSchemaAsync(null).ConfigureAwait(false);
+        var colocationHash = serializerHandler.GetKeyColocationHash(schema, key);
+
+        // TODO: Use cached.
+        var partitions = await GetPrimaryReplicasAsync().ConfigureAwait(false);
+
+        var partitionId = Math.Abs(colocationHash % partitions.Count);
+        return GetPartitionArray(partitions.Count)[partitionId];
+    }
+
+    [SuppressMessage("Performance", "CA1819:Properties should not return arrays", Justification = "Private record.")]
+    private record PrimaryReplicas(HashPartition[] Partitions, ClusterNode[] Nodes);
 }
