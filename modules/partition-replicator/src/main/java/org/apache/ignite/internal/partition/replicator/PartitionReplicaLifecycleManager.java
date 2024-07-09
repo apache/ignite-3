@@ -210,9 +210,8 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
 
         cleanUpResourcesForDroppedZonesOnRecovery();
 
-        CompletableFuture<Void> processZonesOnStart = processZonesOnStart(recoveryRevision, lowWatermark.getLowWatermark());
-
-        CompletableFuture<Void> processAssignmentsFuture = processAssignmentsOnRecovery(recoveryRevision);
+        CompletableFuture<Void> processZonesAndAssignmentsOnStart = processZonesOnStart(recoveryRevision, lowWatermark.getLowWatermark())
+                .thenCompose(ignored -> processAssignmentsOnRecovery(recoveryRevision));
 
         metaStorageMgr.registerPrefixWatch(ByteArray.fromString(PENDING_ASSIGNMENTS_PREFIX), pendingAssignmentsRebalanceListener);
 
@@ -225,11 +224,12 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
                         inBusyLock(busyLock, () -> onCreateZone(parameters).thenApply((ignored) -> false))
         );
 
-        return allOf(processZonesOnStart, processAssignmentsFuture);
+        return processZonesAndAssignmentsOnStart;
     }
 
     private CompletableFuture<Void> processZonesOnStart(long recoveryRevision, @Nullable HybridTimestamp lwm) {
         int earliestCatalogVersion = catalogMgr.activeCatalogVersion(hybridTimestampToLong(lwm));
+        // TODO https://issues.apache.org/jira/browse/IGNITE-22679
         int latestCatalogVersion = catalogMgr.latestCatalogVersion();
 
         var startedZones = new IntOpenHashSet();
@@ -238,7 +238,7 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
         for (int ver = latestCatalogVersion; ver >= earliestCatalogVersion; ver--) {
             int ver0 = ver;
             catalogMgr.zones(ver).stream()
-                    .filter(tbl -> startedZones.add(tbl.id()))
+                    .filter(zone -> startedZones.add(zone.id()))
                     .forEach(zoneDescriptor -> startZoneFutures.add(
                             calculateZoneAssignmentsAndCreateReplicationNodes(recoveryRevision, ver0, zoneDescriptor)));
         }
@@ -248,7 +248,12 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
                     if (throwable != null) {
                         LOG.error("Error starting zones", throwable);
                     } else {
-                        LOG.debug("Zones started successfully");
+                        LOG.debug(
+                                "Zones started successfully [earliestCatalogVersion={}, latestCatalogVersion={}, startedZoneIds={}]",
+                                earliestCatalogVersion,
+                                latestCatalogVersion,
+                                startedZones
+                        );
                     }
                 });
     }
@@ -257,6 +262,7 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
         var stableAssignmentsPrefix = new ByteArray(STABLE_ASSIGNMENTS_PREFIX);
         var pendingAssignmentsPrefix = new ByteArray(PENDING_ASSIGNMENTS_PREFIX);
 
+        // It's required to handle stable assignments changes on recovery in order to cleanup obsolete resources.
         CompletableFuture<Void> stableFuture = handleAssignmentsOnRecovery(
                 stableAssignmentsPrefix,
                 recoveryRevision,
@@ -285,7 +291,7 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
                     .map(entry -> {
                         if (LOG.isInfoEnabled()) {
                             LOG.info(
-                                    "Missed {} assignments for key '{}' discovered, performing recovery",
+                                    "Non handled {} assignments for key '{}' discovered, performing recovery",
                                     assignmentsType,
                                     new String(entry.key(), UTF_8)
                             );
@@ -296,11 +302,10 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
                     .toArray(CompletableFuture[]::new);
 
             return allOf(futures)
-                    // Simply log any errors, we don't want to block watch processing.
-                    .exceptionally(e -> {
-                        LOG.error("Error when performing assignments recovery", e);
-
-                        return null;
+                    .whenComplete((res, e) -> {
+                        if (e != null) {
+                            LOG.error("Error when performing assignments recovery", e);
+                        }
                     });
         }
     }
