@@ -1350,6 +1350,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 } else if (state == ReplicaState.PRIMARY_ONLY) {
                     context.replicaState = ReplicaState.ASSIGNED;
 
+                    LOG.debug("Weak replica start complete [state={}].", context.replicaState);
+
                     return trueCompletedFuture();
                 } // else no-op.
 
