@@ -81,24 +81,21 @@ public class PartitionManagerTests : IgniteTestsBase
     }
 
     [Test]
-    public async Task TestGetPartitionForTupleKey()
+    public async Task TestGetPartitionForKey([Values(true, false)] bool poco)
     {
         var jobTarget = JobTarget.AnyNode(await Client.GetClusterNodesAsync());
 
         for (int id = 0; id < 30; id++)
         {
-            var partition = await Table.PartitionManager.GetPartitionAsync(GetTuple(id));
+            var partition = poco
+                ? await Table.PartitionManager.GetPartitionAsync(GetPoco(id))
+                : await Table.PartitionManager.GetPartitionAsync(GetTuple(id));
+
             var partitionJobExec = await Client.Compute.SubmitAsync(jobTarget, ComputeTests.PartitionJob, id);
             var expectedPartition = await partitionJobExec.GetResultAsync();
 
             Assert.AreEqual(expectedPartition, ((HashPartition)partition).PartitionId);
         }
-    }
-
-    [Test]
-    public async Task TesGetPartitionForPocoKey()
-    {
-        await Task.Delay(1);
     }
 
     private class MyPartition : IPartition
