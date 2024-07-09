@@ -425,7 +425,7 @@ public class IgniteMath {
         }
     }
 
-    /** Cast value to {@code float}, throwing an exception if the result overflows a {@code float}. */
+    /** Cast value to {@code float}, throwing an exception if the result overflows. */
     public static float convertToFloatExact(Number x) {
         if (x instanceof BigDecimal) {
             BigDecimal value = (BigDecimal) x;
@@ -448,7 +448,7 @@ public class IgniteMath {
         }
     }
 
-    /** Cast value to {@code double}, throwing an exception if the result overflows a {@code double}. */
+    /** Cast value to {@code double}, throwing an exception if the result overflows. */
     public static double convertToDoubleExact(Number x) {
         if (x instanceof BigDecimal) {
             BigDecimal value = (BigDecimal) x;
