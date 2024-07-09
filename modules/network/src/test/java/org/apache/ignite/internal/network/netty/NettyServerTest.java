@@ -269,6 +269,18 @@ public class NettyServerTest extends BaseIgniteAbstractTest {
         order.verify(handshakeManager, timeout()).onMessage(any());
     }
 
+    @Test
+    void testCrazy() {
+        for (int i = 0; i < 15_000; i++) {
+            if (i % 100 == 0) {
+                log.info(">>>>> iteration=" + i);
+            }
+
+            assertThat(getServer(true).stop(), willCompleteSuccessfully());
+            assertThat(bootstrapFactory.stopAsync(new ComponentContext()), willCompleteSuccessfully());
+        }
+    }
+
     private HandshakeManager mockHandshakeManager() {
         HandshakeManager handshakeManager = mock(HandshakeManager.class);
 
