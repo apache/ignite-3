@@ -135,6 +135,21 @@ public class PartitionManagerTests : IgniteTestsBase
         Assert.AreSame(partition1, partition2);
     }
 
+    [Test]
+    public async Task TestPrimaryReplicasCacheInvalidation()
+    {
+        using var server = new FakeServer
+        {
+            PartitionAssignmentTimestamp = 123,
+            PartitionAssignment = new[] { "n1", "n2" }
+        };
+
+        using var client = await server.ConnectClientAsync();
+
+        var table = await client.Tables.GetTableAsync(TableName);
+        var replicas = await table!.PartitionManager.GetPrimaryReplicasAsync();
+    }
+
     private class MyPartition : IPartition
     {
         // No-op.
