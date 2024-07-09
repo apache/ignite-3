@@ -21,12 +21,11 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributeView;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
-import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
-import org.apache.ignite.internal.storage.configurations.StorageProfileView;
 
 /**
  * This class is responsible for retrieving local node attributes
@@ -37,14 +36,14 @@ public class NodeAttributesCollector implements NodeAttributes {
 
     private final NodeAttributesConfiguration nodeAttributesConfiguration;
 
-    private final StorageConfiguration storageProfilesConfiguration;
+    private final Supplier<List<String>> storageProfiles;
 
     public NodeAttributesCollector(
             NodeAttributesConfiguration nodeAttributesConfiguration,
-            StorageConfiguration storageProfilesConfiguration
+            Supplier<List<String>> storageProfiles
     ) {
         this.nodeAttributesConfiguration = nodeAttributesConfiguration;
-        this.storageProfilesConfiguration = storageProfilesConfiguration;
+        this.storageProfiles = storageProfiles;
     }
 
     /**
@@ -66,11 +65,7 @@ public class NodeAttributesCollector implements NodeAttributes {
     /** {@inheritDoc} */
     @Override
     public List<String> storageProfiles() {
-        NamedListView<StorageProfileView> storageProfiles = storageProfilesConfiguration.profiles().value();
-
-        return storageProfiles.stream()
-                .map(StorageProfileView::name)
-                .collect(Collectors.toList());
+        return storageProfiles.get();
     }
 
     /** {@inheritDoc} */

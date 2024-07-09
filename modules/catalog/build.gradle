@@ -23,12 +23,16 @@ apply from: "$rootDir/buildscripts/java-integration-test.gradle"
 
 dependencies {
     annotationProcessor project(':ignite-configuration-annotation-processor')
+    annotationProcessor project(':ignite-network-annotation-processor')
     annotationProcessor libs.auto.service
 
     implementation project(':ignite-api')
     implementation project(':ignite-core')
     implementation project(':ignite-configuration')
     implementation project(':ignite-metastorage-api')
+    implementation project(':ignite-cluster-management')
+    implementation project(':ignite-placement-driver-api')
+    implementation project(':ignite-affinity')
     implementation project(':ignite-vault')
     implementation project(':ignite-system-view-api')
 
@@ -53,6 +57,7 @@ dependencies {
     testFixturesImplementation libs.mockito.junit
     testFixturesImplementation libs.hamcrest.core
     testFixturesImplementation project(':ignite-system-view-api')
+    testFixturesImplementation project(':ignite-cluster-management')
     testFixturesImplementation(testFixtures(project(':ignite-core')))
     testFixturesImplementation(testFixtures(project(':ignite-vault')))
     testFixturesImplementation(testFixtures(project(':ignite-metastorage')))

@@ -42,7 +42,9 @@ import org.apache.ignite.internal.catalog.commands.DropTableCommand;
 import org.apache.ignite.internal.catalog.commands.StorageProfileParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.storage.ObjectIdGenUpdateEntry;
 import org.apache.ignite.internal.catalog.storage.SnapshotEntry;
+import org.apache.ignite.internal.catalog.storage.UpdateEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateLog;
 import org.apache.ignite.internal.catalog.storage.UpdateLog.OnUpdateHandler;
 import org.apache.ignite.internal.catalog.storage.UpdateLogEvent;
@@ -303,11 +305,11 @@ public class CatalogTestUtils {
         }
     }
 
-    static ColumnParams columnParams(String name, ColumnType type) {
+    public static ColumnParams columnParams(String name, ColumnType type) {
         return columnParams(name, type, DEFAULT_NULLABLE);
     }
 
-    static ColumnParams columnParams(String name, ColumnType type, boolean nullable) {
+    public static ColumnParams columnParams(String name, ColumnType type, boolean nullable) {
         return columnParamsBuilder(name, type, nullable).build();
     }
 
@@ -541,5 +543,36 @@ public class CatalogTestUtils {
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    /** Test command that does nothing but increments object id counter of a catalog. */
+    public static class TestCommand implements CatalogCommand {
+
+        private final boolean successful;
+
+        private TestCommand(boolean successful) {
+            this.successful = successful;
+        }
+
+        public static TestCommand ok() {
+            return new TestCommand(true);
+        }
+
+        public static TestCommand fail() {
+            return new TestCommand(false);
+        }
+
+        @Override
+        public List<UpdateEntry> get(Catalog catalog) {
+            if (!successful) {
+                throw new TestCommandFailure();
+            }
+            return List.of(new ObjectIdGenUpdateEntry(1));
+        }
+    }
+
+    /** Test command failure. */
+    public static class TestCommandFailure extends RuntimeException {
+        private static final long serialVersionUID = -6123535862914825943L;
     }
 }

@@ -73,7 +73,6 @@ import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
-import org.jetbrains.annotations.TestOnly;
 
 /**
  * Catalog service implementation.
@@ -162,7 +161,6 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     }
 
     /** Returns local view of the node on who is currently compaction coordinator. For test purposes only.*/
-    @TestOnly
     public @Nullable String compactionCoordinator() {
         return compactionCoordinatorNodeName;
     }

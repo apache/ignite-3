@@ -51,6 +51,7 @@ import java.util.function.Consumer;
 import java.util.function.LongFunction;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteServer;
 import org.apache.ignite.catalog.IgniteCatalog;
@@ -62,6 +63,8 @@ import org.apache.ignite.configuration.ConfigurationDynamicDefaultsPatcher;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
+import org.apache.ignite.internal.catalog.compaction.CatalogCompactionRunner;
+import org.apache.ignite.internal.catalog.compaction.CatalogCompactionRunnerImpl;
 import org.apache.ignite.internal.catalog.configuration.SchemaSynchronizationConfiguration;
 import org.apache.ignite.internal.catalog.sql.IgniteCatalogSqlImpl;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
@@ -121,6 +124,7 @@ import org.apache.ignite.internal.hlc.ClockServiceImpl;
 import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.index.IndexBuildingManager;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.index.IndexNodeFinishedRwTransactionsChecker;
@@ -129,6 +133,8 @@ import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.lowwatermark.LowWatermarkImpl;
+import org.apache.ignite.internal.lowwatermark.event.ChangeLowWatermarkEventParameters;
+import org.apache.ignite.internal.lowwatermark.event.LowWatermarkEvent;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
@@ -197,6 +203,7 @@ import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
+import org.apache.ignite.internal.storage.configurations.StorageProfileView;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.ThreadAssertingStorageEngine;
 import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
@@ -387,6 +394,8 @@ public class IgniteImpl implements Ignite {
 
     private final CatalogManager catalogManager;
 
+    private final CatalogCompactionRunner catalogCompactionRunner;
+
     private final AuthenticationManager authenticationManager;
 
     /** Timestamp tracker for embedded transactions. */
@@ -555,7 +564,9 @@ public class IgniteImpl implements Ignite {
         NodeAttributesCollector nodeAttributesCollector =
                 new NodeAttributesCollector(
                         nodeConfigRegistry.getConfiguration(NodeAttributesConfiguration.KEY),
-                        nodeConfigRegistry.getConfiguration(StorageConfiguration.KEY)
+                        () -> nodeConfigRegistry.getConfiguration(StorageConfiguration.KEY).profiles().value().stream()
+                                .map(StorageProfileView::name)
+                                .collect(Collectors.toList())
                 );
 
         var clusterStateStorageMgr =  new ClusterStateStorageManager(clusterStateStorage);
@@ -709,12 +720,24 @@ public class IgniteImpl implements Ignite {
 
         metaStorageMgr.addElectionListener(catalogManager::updateCompactionCoordinator);
 
+        CatalogCompactionRunnerImpl catalogCompaction = new CatalogCompactionRunnerImpl(
+                clusterSvc.topologyService(),
+                clusterSvc.messagingService(),
+                logicalTopologyService,
+                clockService,
+                placementDriverMgr.placementDriver(),
+                catalogManager,
+                () -> HybridTimestamp.MAX_VALUE,
+                threadPoolsManager.commonScheduler()
+        );
+
         systemViewManager = new SystemViewManagerImpl(name, catalogManager);
         nodeAttributesCollector.register(systemViewManager);
         logicalTopology.addEventListener(systemViewManager);
         systemViewManager.register(catalogManager);
 
         this.catalogManager = catalogManager;
+        this.catalogCompactionRunner = catalogCompaction;
 
         lowWatermark = new LowWatermarkImpl(
                 name,
@@ -724,6 +747,9 @@ public class IgniteImpl implements Ignite {
                 failureProcessor,
                 clusterSvc.messagingService()
         );
+
+        lowWatermark.listen(LowWatermarkEvent.LOW_WATERMARK_CHANGED,
+                params -> catalogCompaction.onLowWatermarkChanged(((ChangeLowWatermarkEventParameters) params).newLowWatermark()));
 
         this.indexMetaStorage = new IndexMetaStorage(catalogManager, lowWatermark, metaStorageMgr);
 
@@ -1141,6 +1167,7 @@ public class IgniteImpl implements Ignite {
                         lifecycleManager.startComponentsAsync(
                                 componentContext,
                                 catalogManager,
+                                catalogCompactionRunner,
                                 indexMetaStorage,
                                 clusterCfgMgr,
                                 authenticationManager,
