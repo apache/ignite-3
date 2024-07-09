@@ -20,6 +20,8 @@ namespace Apache.Ignite.Tests.Table;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using Compute;
+using Ignite.Compute;
 using Ignite.Table;
 using Internal.Table;
 using NUnit.Framework;
@@ -79,20 +81,18 @@ public class PartitionManagerTests : IgniteTestsBase
     }
 
     [Test]
-    [TestCase(0, 5)]
-    [TestCase(1, 5)]
-    [TestCase(2, 2)]
-    [TestCase(3, 9)]
-    [TestCase(4, 4)]
-    [TestCase(5, 3)]
-    [TestCase(7, 1)]
-    [TestCase(8, 8)]
-    [TestCase(9, 2)]
-    public async Task TesGetPartitionForTupleKey(int id, int expectedPartition)
+    public async Task TestGetPartitionForTupleKey()
     {
-        var partition = await Table.PartitionManager.GetPartitionAsync(GetTuple(id));
+        var jobTarget = JobTarget.AnyNode(await Client.GetClusterNodesAsync());
 
-        Assert.AreEqual(expectedPartition, ((HashPartition)partition).PartitionId);
+        for (int id = 0; id < 30; id++)
+        {
+            var partition = await Table.PartitionManager.GetPartitionAsync(GetTuple(id));
+            var partitionJobExec = await Client.Compute.SubmitAsync(jobTarget, ComputeTests.PartitionJob, id);
+            var expectedPartition = await partitionJobExec.GetResultAsync();
+
+            Assert.AreEqual(expectedPartition, ((HashPartition)partition).PartitionId);
+        }
     }
 
     [Test]
