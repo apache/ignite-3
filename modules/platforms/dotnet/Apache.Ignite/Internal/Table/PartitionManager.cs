@@ -60,49 +60,9 @@ internal sealed class PartitionManager : IPartitionManager
     /// <inheritdoc/>
     public async ValueTask<IReadOnlyDictionary<IPartition, IClusterNode>> GetPrimaryReplicasAsync()
     {
-        var timestamp = _table.Socket.PartitionAssignmentTimestamp;
-        var cached = _primaryReplicas;
+        var replicas = await GetPrimaryReplicasInternalAsync().ConfigureAwait(false);
 
-        if (cached != null && cached.Timestamp >= timestamp)
-        {
-            return cached.GetDictionary();
-        }
-
-        using var bufferWriter = ProtoCommon.GetMessageWriter();
-        bufferWriter.MessageWriter.Write(_table.Id);
-
-        using var resBuf = await _table.Socket.DoOutInOpAsync(ClientOp.PrimaryReplicasGet, bufferWriter).ConfigureAwait(false);
-        return Read(resBuf.GetReader());
-
-        IReadOnlyDictionary<IPartition, IClusterNode> Read(MsgPackReader r)
-        {
-            var count = r.ReadInt32();
-            var primaryReplicas = new ClusterNode[count];
-
-            for (var i = 0; i < count; i++)
-            {
-                var id = r.ReadInt32();
-                var node = ClusterNode.Read(ref r);
-
-                primaryReplicas[id] = node;
-            }
-
-            PrimaryReplicas? replicas;
-
-            lock (_primaryReplicasLock)
-            {
-                replicas = _primaryReplicas;
-
-                if (replicas == null || replicas.Timestamp < timestamp)
-                {
-                    // Got newer data - update cached replicas.
-                    replicas = new PrimaryReplicas(primaryReplicas, timestamp);
-                    _primaryReplicas = replicas;
-                }
-            }
-
-            return replicas.GetDictionary();
-        }
+        return replicas.GetDictionary();
     }
 
     /// <inheritdoc/>
@@ -161,6 +121,53 @@ internal sealed class PartitionManager : IPartitionManager
         }
     }
 
+    private async ValueTask<PrimaryReplicas> GetPrimaryReplicasInternalAsync()
+    {
+        var timestamp = _table.Socket.PartitionAssignmentTimestamp;
+        var cached = _primaryReplicas;
+
+        if (cached != null && cached.Timestamp >= timestamp)
+        {
+            return cached;
+        }
+
+        using var bufferWriter = ProtoCommon.GetMessageWriter();
+        bufferWriter.MessageWriter.Write(_table.Id);
+
+        using var resBuf = await _table.Socket.DoOutInOpAsync(ClientOp.PrimaryReplicasGet, bufferWriter).ConfigureAwait(false);
+        return Read(resBuf.GetReader());
+
+        PrimaryReplicas Read(MsgPackReader r)
+        {
+            var count = r.ReadInt32();
+            var primaryReplicas = new ClusterNode[count];
+
+            for (var i = 0; i < count; i++)
+            {
+                var id = r.ReadInt32();
+                var node = ClusterNode.Read(ref r);
+
+                primaryReplicas[id] = node;
+            }
+
+            PrimaryReplicas? replicas;
+
+            lock (_primaryReplicasLock)
+            {
+                replicas = _primaryReplicas;
+
+                if (replicas == null || replicas.Timestamp < timestamp)
+                {
+                    // Got newer data - update cached replicas.
+                    replicas = new PrimaryReplicas(primaryReplicas, timestamp);
+                    _primaryReplicas = replicas;
+                }
+            }
+
+            return replicas;
+        }
+    }
+
     private async ValueTask<IPartition> GetPartitionInternal<TK>(TK key, IRecordSerializerHandler<TK> serializerHandler)
     {
         var schema = await _table.GetSchemaAsync(null).ConfigureAwait(false);
@@ -176,11 +183,14 @@ internal sealed class PartitionManager : IPartitionManager
     [SuppressMessage("Performance", "CA1819:Properties should not return arrays", Justification = "Private record.")]
     private record PrimaryReplicas(ClusterNode[] Nodes, long Timestamp)
     {
-        private ReadOnlyDictionary<IPartition, IClusterNode>? _dict;
+        private volatile ReadOnlyDictionary<IPartition, IClusterNode>? _dict;
 
         public ReadOnlyDictionary<IPartition, IClusterNode> GetDictionary()
         {
-            if (_dict == null)
+            var dict = _dict;
+
+            // Race condition here is ok, one of the threads will just overwrite the other's result with the same data.
+            if (dict == null)
             {
                 var res = new Dictionary<IPartition, IClusterNode>();
                 var parts = GetCachedPartitionArray(Nodes.Length);
@@ -190,10 +200,11 @@ internal sealed class PartitionManager : IPartitionManager
                     res.Add(parts[i], Nodes[i]);
                 }
 
-                _dict = new ReadOnlyDictionary<IPartition, IClusterNode>(res);
+                dict = new ReadOnlyDictionary<IPartition, IClusterNode>(res);
+                _dict = dict;
             }
 
-            return _dict;
+            return dict;
         }
     }
 }
