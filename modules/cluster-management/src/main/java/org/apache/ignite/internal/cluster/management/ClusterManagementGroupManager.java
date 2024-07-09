@@ -52,10 +52,12 @@ import org.apache.ignite.internal.cluster.management.network.messages.CmgInitMes
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessageGroup;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
+import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorageManager;
 import org.apache.ignite.internal.cluster.management.raft.CmgRaftGroupListener;
 import org.apache.ignite.internal.cluster.management.raft.CmgRaftService;
 import org.apache.ignite.internal.cluster.management.raft.IllegalInitArgumentException;
 import org.apache.ignite.internal.cluster.management.raft.JoinDeniedException;
+import org.apache.ignite.internal.cluster.management.raft.ValidationManager;
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinReadyCommand;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
@@ -127,9 +129,11 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
 
     private final RaftManager raftManager;
 
-    private final ClusterStateStorage clusterStateStorage;
+    private final ClusterStateStorageManager clusterStateStorageMgr;
 
     private final LogicalTopology logicalTopology;
+
+    private final ValidationManager validationManager;
 
     private final ClusterManagementConfiguration configuration;
 
@@ -154,8 +158,9 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
             ClusterService clusterService,
             ClusterInitializer clusterInitializer,
             RaftManager raftManager,
-            ClusterStateStorage clusterStateStorage,
+            ClusterStateStorageManager clusterStateStorageMgr,
             LogicalTopology logicalTopology,
+            ValidationManager validationManager,
             ClusterManagementConfiguration configuration,
             NodeAttributes nodeAttributes,
             FailureProcessor failureProcessor
@@ -163,8 +168,9 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
         this.clusterService = clusterService;
         this.clusterInitializer = clusterInitializer;
         this.raftManager = raftManager;
-        this.clusterStateStorage = clusterStateStorage;
+        this.clusterStateStorageMgr = clusterStateStorageMgr;
         this.logicalTopology = logicalTopology;
+        this.validationManager = validationManager;
         this.configuration = configuration;
         this.localStateStorage = new LocalStateStorage(vault);
         this.nodeAttributes = nodeAttributes;
@@ -172,6 +178,33 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
 
         scheduledExecutor = Executors.newSingleThreadScheduledExecutor(
                 NamedThreadFactory.create(clusterService.nodeName(), "cmg-manager", LOG)
+        );
+    }
+
+    /** Constructor. */
+    @TestOnly
+    public ClusterManagementGroupManager(
+            VaultManager vault,
+            ClusterService clusterService,
+            ClusterInitializer clusterInitializer,
+            RaftManager raftManager,
+            ClusterStateStorage clusterStateStorage,
+            LogicalTopology logicalTopology,
+            ClusterManagementConfiguration configuration,
+            NodeAttributes nodeAttributes,
+            FailureProcessor failureProcessor
+    ) {
+        this(
+                vault,
+                clusterService,
+                clusterInitializer,
+                raftManager,
+                new ClusterStateStorageManager(clusterStateStorage),
+                logicalTopology,
+                new ValidationManager(new ClusterStateStorageManager(clusterStateStorage), logicalTopology),
+                configuration,
+                nodeAttributes,
+                failureProcessor
         );
     }
 
@@ -634,7 +667,8 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                     .startRaftGroupNodeAndWaitNodeReadyFuture(
                             new RaftNodeId(CmgGroupId.INSTANCE, serverPeer),
                             raftConfiguration,
-                            new CmgRaftGroupListener(clusterStateStorage, logicalTopology, this::onLogicalTopologyChanged),
+                            new CmgRaftGroupListener(clusterStateStorageMgr, logicalTopology, validationManager,
+                                    this::onLogicalTopologyChanged),
                             this::onElectedAsLeader
                     )
                     .thenApply(service -> new CmgRaftService(service, clusterService, logicalTopology));

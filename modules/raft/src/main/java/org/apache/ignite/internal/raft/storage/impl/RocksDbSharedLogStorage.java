@@ -487,19 +487,23 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
 
     /**
      * Writes batch, previously filled by {@link #appendEntriesToBatch(List)} calls, into a rocksdb storage and clears the batch by calling
-     * {@link DefaultLogStorageFactory#clearThreadLocalWriteBatch()}.
+     * {@link DefaultLogStorageFactory#clearThreadLocalWriteBatch}.
      */
     void commitWriteBatch() {
-        try {
-            WriteBatch writeBatch = logStorageFactory.getOrCreateThreadLocalWriteBatch();
+        WriteBatch writeBatch = logStorageFactory.getThreadLocalWriteBatch();
 
+        if (writeBatch == null) {
+            return;
+        }
+
+        try {
             if (writeBatch.count() > 0) {
                 db.write(this.writeOptions, writeBatch);
             }
         } catch (RocksDBException e) {
             LOG.error("Execute batch failed with rocksdb exception.", e);
         } finally {
-            logStorageFactory.clearThreadLocalWriteBatch();
+            logStorageFactory.clearThreadLocalWriteBatch(writeBatch);
         }
     }
 

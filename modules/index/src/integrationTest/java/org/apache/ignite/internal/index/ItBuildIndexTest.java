@@ -50,6 +50,7 @@ import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommand;
@@ -324,7 +325,14 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
                 assertNotNull(indexDescriptor);
 
                 for (int partitionId = 0; partitionId < internalTable.partitions(); partitionId++) {
-                    RaftGroupService raftGroupService = internalTable.tableRaftService().partitionRaftGroupService(partitionId);
+                    // Excluding partitions on the node outside of replication group
+                    // TODO: will be replaced with replica usage in https://issues.apache.org/jira/browse/IGNITE-22218
+                    RaftGroupService raftGroupService;
+                    try {
+                        raftGroupService = internalTable.tableRaftService().partitionRaftGroupService(partitionId);
+                    } catch (IgniteInternalException e) {
+                        continue;
+                    }
 
                     List<Peer> allPeers = raftGroupService.peers();
 

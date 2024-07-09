@@ -130,6 +130,11 @@ public enum ClientOperationType {
     TUPLE_CONTAINS_KEY,
 
     /**
+     * Contains All Keys ({@link org.apache.ignite.table.KeyValueView#containsAll(Transaction, Collection)}).
+     */
+    TUPLE_CONTAINS_ALL_KEYS,
+
+    /**
      * Compute Execute ({@link org.apache.ignite.compute.IgniteCompute#submit(JobTarget, JobDescriptor, Object)}).
      */
     COMPUTE_EXECUTE,

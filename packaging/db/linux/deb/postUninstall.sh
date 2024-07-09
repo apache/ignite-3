@@ -17,8 +17,11 @@
 #
 
 case "$1" in
-  remove|purge)
+  remove)
     post_uninstall_remove
+  ;;
+  purge)
+    post_uninstall_purge
   ;;
   upgrade)
     post_uninstall_upgrade
