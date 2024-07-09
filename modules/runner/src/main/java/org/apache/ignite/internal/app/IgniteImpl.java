@@ -706,6 +706,8 @@ public class IgniteImpl implements Ignite {
                 partitionIdleSafeTimePropagationPeriodMsSupplier
         );
 
+        metaStorageMgr.addElectionListener(catalogManager::updateCompactionCoordinator);
+
         systemViewManager = new SystemViewManagerImpl(name, catalogManager);
         nodeAttributesCollector.register(systemViewManager);
         logicalTopology.addEventListener(systemViewManager);
