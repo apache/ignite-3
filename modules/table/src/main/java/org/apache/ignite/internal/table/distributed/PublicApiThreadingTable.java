@@ -38,14 +38,14 @@ import org.apache.ignite.table.partition.PartitionManager;
  *
  * @see PublicApiThreading#preventThreadHijack(CompletableFuture, Executor)
  */
-class PublicApiThreadingTable implements Table, Wrapper {
+public class PublicApiThreadingTable implements Table, Wrapper {
     private final Table table;
     private final Executor asyncContinuationExecutor;
 
     /**
      * Constructor.
      */
-    PublicApiThreadingTable(Table table, Executor asyncContinuationExecutor) {
+    public PublicApiThreadingTable(Table table, Executor asyncContinuationExecutor) {
         this.table = table;
         this.asyncContinuationExecutor = asyncContinuationExecutor;
     }

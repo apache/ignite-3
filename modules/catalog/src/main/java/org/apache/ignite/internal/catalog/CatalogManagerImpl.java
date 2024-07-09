@@ -80,7 +80,8 @@ import org.jetbrains.annotations.TestOnly;
  */
 public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, CatalogEventParameters>
         implements CatalogManager, SystemViewProvider {
-    static String DEFAULT_ZONE_NAME = "Default";
+    /** Default zone name. */
+    public static final String DEFAULT_ZONE_NAME = "Default";
 
     private static final int MAX_RETRY_COUNT = 10;
 

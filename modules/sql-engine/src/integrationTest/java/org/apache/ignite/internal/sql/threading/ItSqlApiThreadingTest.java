@@ -47,7 +47,6 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
-@SuppressWarnings("resource")
 class ItSqlApiThreadingTest extends ClusterPerClassIntegrationTest {
     private static final String TABLE_NAME = "test";
 
