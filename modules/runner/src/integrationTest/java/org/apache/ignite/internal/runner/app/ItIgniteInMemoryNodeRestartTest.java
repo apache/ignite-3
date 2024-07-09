@@ -219,7 +219,9 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
 
         List<String> partitionAssignments = assignments.get(0);
 
-        return partitionAssignments.contains(restartingNodeConsistentId);
+        return !assignments.isEmpty()
+                && partitionAssignments != null
+                && partitionAssignments.contains(restartingNodeConsistentId);
     }
 
     private static boolean isRaftNodeStarted(TableViewInternal table, Loza loza) {
