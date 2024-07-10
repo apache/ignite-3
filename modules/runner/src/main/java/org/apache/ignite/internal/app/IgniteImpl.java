@@ -64,7 +64,6 @@ import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.compaction.CatalogCompactionRunner;
-import org.apache.ignite.internal.catalog.compaction.CatalogCompactionRunnerImpl;
 import org.apache.ignite.internal.catalog.configuration.SchemaSynchronizationConfiguration;
 import org.apache.ignite.internal.catalog.sql.IgniteCatalogSqlImpl;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
@@ -720,7 +719,7 @@ public class IgniteImpl implements Ignite {
 
         metaStorageMgr.addElectionListener(catalogManager::updateCompactionCoordinator);
 
-        CatalogCompactionRunnerImpl catalogCompaction = new CatalogCompactionRunnerImpl(
+        CatalogCompactionRunner catalogCompaction = new CatalogCompactionRunner(
                 clusterSvc.topologyService(),
                 clusterSvc.messagingService(),
                 logicalTopologyService,

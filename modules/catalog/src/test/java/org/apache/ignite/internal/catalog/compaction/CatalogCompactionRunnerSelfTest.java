@@ -76,7 +76,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * Tests for class {@link CatalogCompactionRunnerImpl}.
+ * Tests for class {@link CatalogCompactionRunner}.
  */
 public class CatalogCompactionRunnerSelfTest extends BaseIgniteAbstractTest {
     private static final LogicalNode NODE1 = new LogicalNode("1", "node1", new NetworkAddress("localhost", 123));
@@ -100,12 +100,12 @@ public class CatalogCompactionRunnerSelfTest extends BaseIgniteAbstractTest {
 
     @Test
     public void lwmChangeOnNonCoordinatorNodeDoesNothing() {
-        CatalogCompactionRunnerImpl compactor = createCompactor(NODE1, NODE3, ignore -> 0L);
+        CatalogCompactionRunner compactor = createCompactor(NODE1, NODE3, ignore -> 0L);
 
-        CompletableFuture<Boolean> opFut = compactor.operationStateFuture();
+        CompletableFuture<Boolean> opFut = compactor.lastRunFuture();
 
         assertThat(compactor.onLowWatermarkChanged(clockService.now()), willBe(false));
-        assertThat(compactor.operationStateFuture(), is(opFut));
+        assertThat(compactor.lastRunFuture(), is(opFut));
     }
 
     @Test
@@ -119,10 +119,10 @@ public class CatalogCompactionRunnerSelfTest extends BaseIgniteAbstractTest {
 
         AtomicLong timeCounter = new AtomicLong(catalog.time());
 
-        CatalogCompactionRunnerImpl compactor = createCompactor(NODE1, NODE1, (n) -> timeCounter.getAndIncrement());
+        CatalogCompactionRunner compactor = createCompactor(NODE1, NODE1, (n) -> timeCounter.getAndIncrement());
 
         assertThat(compactor.onLowWatermarkChanged(clockService.now()), willBe(false));
-        assertThat(compactor.operationStateFuture(), willBe(true));
+        assertThat(compactor.lastRunFuture(), willBe(true));
 
         int expectedEarliestCatalogVersion = catalog.version() - 1;
 
@@ -143,7 +143,7 @@ public class CatalogCompactionRunnerSelfTest extends BaseIgniteAbstractTest {
         Catalog earliestCatalog = catalogManager.catalog(catalogManager.earliestCatalogVersion());
         assertNotNull(earliestCatalog);
 
-        CatalogCompactionRunnerImpl compactor =
+        CatalogCompactionRunner compactor =
                 createCompactor(NODE1, NODE1, (n) -> earliestCatalog.time() - 1, logicalNodes, logicalNodes);
 
         assertThat(compactor.startCompaction(clockService.now()), willBe(false));
@@ -170,7 +170,7 @@ public class CatalogCompactionRunnerSelfTest extends BaseIgniteAbstractTest {
 
         // Node NODE3 from the assignment is missing in logical topology snapshot.
         {
-            CatalogCompactionRunnerImpl compactor = createCompactor(
+            CatalogCompactionRunner compactor = createCompactor(
                     NODE1,
                     NODE1,
                     (n) -> catalog.time(),
@@ -183,7 +183,7 @@ public class CatalogCompactionRunnerSelfTest extends BaseIgniteAbstractTest {
 
         // All nodes from the assignments are present in logical topology.
         {
-            CatalogCompactionRunnerImpl compactor = createCompactor(
+            CatalogCompactionRunner compactor = createCompactor(
                     NODE1,
                     NODE1,
                     (n) -> catalog.time(),
@@ -195,7 +195,7 @@ public class CatalogCompactionRunnerSelfTest extends BaseIgniteAbstractTest {
         }
     }
 
-    private CatalogCompactionRunnerImpl createCompactor(
+    private CatalogCompactionRunner createCompactor(
             ClusterNode localNode,
             ClusterNode coordinator,
             Function<String, Long> timeSupplier
@@ -203,7 +203,7 @@ public class CatalogCompactionRunnerSelfTest extends BaseIgniteAbstractTest {
         return createCompactor(localNode, coordinator, timeSupplier, logicalNodes, logicalNodes);
     }
 
-    private CatalogCompactionRunnerImpl createCompactor(
+    private CatalogCompactionRunner createCompactor(
             ClusterNode localNode,
             ClusterNode coordinator,
             Function<String, Long> timeSupplier,
@@ -238,7 +238,7 @@ public class CatalogCompactionRunnerSelfTest extends BaseIgniteAbstractTest {
 
         catalogManager.updateCompactionCoordinator(coordinator);
 
-        return new CatalogCompactionRunnerImpl(
+        return new CatalogCompactionRunner(
                 topologyService,
                 messagingService,
                 logicalTopologyService,

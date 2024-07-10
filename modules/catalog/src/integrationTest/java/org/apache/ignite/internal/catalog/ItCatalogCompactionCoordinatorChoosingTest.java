@@ -36,7 +36,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Tests to verify choosing of coordinator for catalog compaction.
  */
-class ItCatalogCompactionRunnerCoordinatorChoosingTest extends ClusterPerClassIntegrationTest {
+class ItCatalogCompactionCoordinatorChoosingTest extends ClusterPerClassIntegrationTest {
     private static final int CLUSTER_SIZE = 5;
     private static final int MINORITY_SIZE = (CLUSTER_SIZE - 1) / 2;
 

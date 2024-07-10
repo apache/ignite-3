@@ -22,6 +22,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 /**
  * Minimum required time local provider for performing catalog compaction.
  */
+@SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
 public interface CatalogCompactionRequiredTimeProvider {
     /** Returns minimum required time catalog for local node. */
     HybridTimestamp timestamp();
