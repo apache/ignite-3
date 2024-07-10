@@ -79,6 +79,7 @@ public class BallotBox implements Lifecycle<BallotBoxOptions>, Describer {
         }
         this.waiter = opts.getWaiter();
         this.closureQueue = opts.getClosureQueue();
+        this.lastCommittedIndex = opts.getLastCommittedIndex();
         return true;
     }
 

@@ -61,6 +61,7 @@ public class BallotBoxTest extends BaseIgniteAbstractTest {
         this.closureQueue = new ClosureQueueImpl(options);
         opts.setClosureQueue(this.closureQueue);
         opts.setWaiter(this.waiter);
+        opts.setLastCommittedIndex(0);
         box = new BallotBox();
         assertTrue(box.init(opts));
     }
@@ -69,6 +70,22 @@ public class BallotBoxTest extends BaseIgniteAbstractTest {
     public void teardown() {
         box.shutdown();
         ExecutorServiceHelper.shutdownAndAwaitTermination(executor);
+    }
+
+    @Test
+    public void initWithLastCommittedIndex() {
+        BallotBoxOptions opts = new BallotBoxOptions();
+        NodeOptions options = new NodeOptions();
+        executor = JRaftUtils.createExecutor("test-executor-", Utils.cpus());
+        options.setCommonExecutor(executor);
+        this.closureQueue = new ClosureQueueImpl(options);
+        opts.setClosureQueue(this.closureQueue);
+        opts.setWaiter(this.waiter);
+        opts.setLastCommittedIndex(9);
+        box = new BallotBox();
+        assertTrue(box.init(opts));
+
+        assertEquals(box.getLastCommittedIndex(), 9);
     }
 
     @ParameterizedTest
