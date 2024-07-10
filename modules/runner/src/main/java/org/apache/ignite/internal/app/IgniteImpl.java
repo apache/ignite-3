@@ -751,7 +751,9 @@ public class IgniteImpl implements Ignite {
                 clusterSvc.topologyService(),
                 lowWatermark,
                 threadPoolsManager.tableIoExecutor(),
-                rebalanceScheduler
+                rebalanceScheduler,
+                clockService,
+                placementDriverMgr.placementDriver()
         );
 
         TransactionConfiguration txConfig = clusterConfigRegistry.getConfiguration(TransactionConfiguration.KEY);

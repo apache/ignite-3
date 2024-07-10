@@ -1080,6 +1080,17 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         return assignments.stream().anyMatch(isLocalNodeAssignment);
     }
 
+    private CompletableFuture<Boolean> isLocalNodeLeaseholder(ReplicationGroupId replicationGroupId) {
+        HybridTimestamp previousMetastoreSafeTime = metaStorageMgr.clusterTime()
+                .currentSafeTime()
+                .addPhysicalTime(-clockService.maxClockSkewMillis());
+
+        return executorInclinedPlacementDriver.getPrimaryReplica(replicationGroupId, previousMetastoreSafeTime)
+                .thenApply(replicaMeta -> replicaMeta != null
+                        && replicaMeta.getLeaseholderId() != null
+                        && replicaMeta.getLeaseholderId().equals(localNode().name()));
+    }
+
     private PartitionDataStorage partitionDataStorage(MvPartitionStorage partitionStorage, InternalTable internalTbl, int partId) {
         return new SnapshotAwarePartitionDataStorage(
                 partitionStorage,
@@ -2271,21 +2282,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         }, ioExecutor).thenCompose(identity());
     }
 
-    private CompletableFuture<Boolean> isLocalNodeLeaseholder(ReplicationGroupId replicationGroupId) {
-        HybridTimestamp previousMetastoreSafeTime = metaStorageMgr.clusterTime()
-                .currentSafeTime()
-                .addPhysicalTime(-clockService.maxClockSkewMillis());
-
-        return executorInclinedPlacementDriver.getPrimaryReplica(replicationGroupId, previousMetastoreSafeTime)
-                .thenApply(replicaMeta -> replicaMeta != null
-                    && replicaMeta.getLeaseholderId() != null
-                    && replicaMeta.getLeaseholderId().equals(localNode().name()));
-    }
-
     private CompletableFuture<Void> updatePartitionClients(
             TablePartitionId tablePartitionId,
-            Set<Assignment> stableAssignments,
-            long revision
+            Set<Assignment> stableAssignments
     ) {
         return isLocalNodeLeaseholder(tablePartitionId).thenCompose(isLeaseholder -> inBusyLock(busyLock, () -> {
             boolean isLocalInStable = isLocalNodeInAssignments(stableAssignments);
@@ -2315,7 +2314,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         CompletableFuture<Void> clientUpdateFuture = isRecovery
                 // Updating clients is not needed on recovery.
                 ? nullCompletedFuture()
-                : updatePartitionClients(tablePartitionId, stableAssignments, revision);
+                : updatePartitionClients(tablePartitionId, stableAssignments);
 
         boolean shouldStopLocalServices = (pendingAssignments.force()
                         ? pendingAssignments.nodes().stream()
