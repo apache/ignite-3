@@ -45,8 +45,9 @@ def tokens = [
         TMP_DIR : "/tmp/ignite3-odbc"
 ]
 
+File odbcDll = configurations.odbc.files.find { it.name == "ignite3-odbc.dll" }
 def tokensWin = [
-        DLL_SRC : configurations.odbc.files.find { it.name == "ignite3-odbc.dll"}
+        DLL_SRC : odbcDll != null ? odbcDll.path : ''
 ]
 
 tasks.register('replacePackageScriptVars', Copy) {

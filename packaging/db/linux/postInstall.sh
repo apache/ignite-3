@@ -21,10 +21,10 @@ GROUPNAME='@GROUPNAME@'
 
 setup_directories() {
 #  echo "setup directories"
-  [ -d '@CONF_DIR@' ] ||  install -d '@CONF_DIR@' --owner="${USERNAME}" --group="${GROUPNAME}" --mode=0775
-  [ -d '@PID_DIR@' ] ||  install -d '@PID_DIR@' --owner="${USERNAME}" --group="${GROUPNAME}"
-  [ -d '@LOG_DIR@' ] ||  install -d '@LOG_DIR@' --owner="${USERNAME}" --group="${GROUPNAME}"
-  [ -d '@IGNITE_WORK_DIR@' ] ||  install -d '@IGNITE_WORK_DIR@' --owner="${USERNAME}" --group="${GROUPNAME}"
+  [ -d '@CONF_DIR@' ] ||  install -d '@CONF_DIR@' --owner="${USERNAME}" --group="${GROUPNAME}" --mode=0770
+  [ -d '@PID_DIR@' ] ||  install -d '@PID_DIR@' --owner="${USERNAME}" --group="${GROUPNAME}" --mode=0770
+  [ -d '@LOG_DIR@' ] ||  install -d '@LOG_DIR@' --owner="${USERNAME}" --group="${GROUPNAME}" --mode=0770
+  [ -d '@IGNITE_WORK_DIR@' ] ||  install -d '@IGNITE_WORK_DIR@' --owner="${USERNAME}" --group="${GROUPNAME}" --mode=0770
 
   /bin/chown -R "${USERNAME}:${GROUPNAME}" '@INSTALL_DIR@'
   /bin/chown -R "${USERNAME}:${GROUPNAME}" '@LOG_DIR@'
@@ -48,8 +48,15 @@ setup_service_files() {
   fi
 }
 
+setup_host_name() {
+  if command -v hostname >/dev/null && command -v sed >/dev/null; then
+    sed -i "s/NODE_NAME=node1/NODE_NAME=$(hostname)/" @CONF_DIR@/vars.env
+  fi
+}
+
 setup_directories
 setup_service_files
+setup_host_name
 
 echo
 echo "  @PRODUCT_DISPLAY_NAME@ installed successfully."

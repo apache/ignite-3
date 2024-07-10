@@ -206,15 +206,15 @@ tasks.register('signDbZip', Sign) {
 // RPM/DEB packaging
 
 def packageTokens = tokens + tokensLin + [
-        USERNAME            : 'ignite3',
-        GROUPNAME           : 'ignite3',
-        INSTALL_DIR         : '/usr/share/ignite3db',
-        CONF_DIR            : '/usr/share/ignite3db/etc',
+        USERNAME            : 'ignite',
+        GROUPNAME           : 'ignite',
+        INSTALL_DIR         : '/usr/lib/ignite3db',
+        CONF_DIR            : '/etc/ignite3db',
         LOG_DIR             : '/var/log/ignite3db',
         APP_LOG_DIR         : '/var/log/ignite3db',
         PID_DIR             : '/var/run/ignite3db',
-        LIB_DIR             : '/usr/share/ignite3db/lib',
-        IGNITE_WORK_DIR     : '/usr/share/ignite3db/work',
+        LIB_DIR             : '/usr/lib/ignite3db/lib',
+        IGNITE_WORK_DIR     : '/var/lib/ignite3db',
         IGNITE_CONF_FILE    : 'ignite-config.conf'
 ]
 
@@ -229,7 +229,6 @@ task replacePackageScriptVars(type: Copy) {
 
 buildRpm {
     dependsOn replacePackageScriptVars
-    configurationFile = "/etc/ignite3/vars.env"
 
     installUtils file("$buildDir/linux/service/vars.env")
     installUtils file("$buildDir/linux/common.sh")
@@ -244,7 +243,6 @@ buildDeb {
     signingKeyPassphrase = project.findProperty("signing.password")
     signingKeyRingFile = project.hasProperty("signing.secretKeyRingFile") ? file(project.property("signing.secretKeyRingFile")) : null
     dependsOn replacePackageScriptVars
-    configurationFile = "/etc/ignite3/vars.env"
 
     installUtils file("$buildDir/linux/service/vars.env")
     installUtils file("$buildDir/linux/common.sh")
@@ -263,6 +261,24 @@ ospackage {
     packageDescription "This package will install Apache Ignite"
     os LINUX
 
+    into(packageTokens.CONF_DIR) {
+        from("$buildDir/linux/service/vars.env")
+        from "$buildDir/linux/ignite.java.util.logging.properties"
+        from generateConfigDefaults
+        from createVersionFile
+        from sourceSets.main.resources
+
+        fileMode 0660
+
+        eachFile {
+            def configFile = "${packageTokens.CONF_DIR}/${it.getName()}"
+
+            if (!configurationFiles.contains(configFile)) {
+                configurationFile(configFile)
+            }
+        }
+    }
+
     into(packageTokens.INSTALL_DIR) {
         into('') {
             from "$buildDir/linux/service/ignite3db.service"
@@ -277,21 +293,7 @@ ospackage {
             from "$buildDir/linux/${tokensLin.BOOTSTRAP_FILE_NAME}"
             from "$buildDir/linux/${tokensLin.SETUP_JAVA_FILE_NAME}"
         }
-
-        into('etc') {
-            fileType CONFIG
-            from "$buildDir/linux/service/vars.env"
-            from "$buildDir/linux/ignite.java.util.logging.properties"
-            from generateConfigDefaults
-            from createVersionFile
-        }
-
-        into('etc') {
-            from sourceSets.main.resources
-        }
     }
-    link "/etc/ignite3db", "${packageTokens.INSTALL_DIR}/etc/"
-    link "/opt/ignite3db", "${packageTokens.INSTALL_DIR}"
 }
 
 if (project.hasProperty('prepareRelease')) {

@@ -31,6 +31,8 @@ dependencies {
     testImplementation testFixtures(project(':ignite-core'))
 
     integrationTestImplementation project(':ignite-api')
+    integrationTestImplementation project(':ignite-catalog')
+    integrationTestImplementation project(':ignite-system-view-api')
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-runner'))
     integrationTestImplementation libs.hamcrest.core

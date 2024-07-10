@@ -28,15 +28,10 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY
 
 import java.util.List;
 import javax.annotation.Nullable;
-import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlMixin;
-import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Option;
 
 /** Arguments for recovery restart partitions command. */
 public class RestartPartitionsMixin {
-    @Mixin
-    private ClusterUrlMixin clusterUrl;
-
     @Option(names = RECOVERY_PARTITION_IDS_OPTION, description = RECOVERY_PARTITION_IDS_OPTION_DESC, split = ",")
     private List<Integer> partitionIds;
 
@@ -69,10 +64,5 @@ public class RestartPartitionsMixin {
     @Nullable
     public List<String> nodeNames() {
         return nodeNames;
-    }
-
-    /** Returns cluster endpoint URL. */
-    public String clusterUrl() {
-        return clusterUrl.getClusterUrl();
     }
 }
