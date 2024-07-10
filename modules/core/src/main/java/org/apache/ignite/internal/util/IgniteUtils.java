@@ -1190,7 +1190,7 @@ public class IgniteUtils {
      * @param components Array of ignite components to start.
      * @return CompletableFuture that will be completed when all components are started.
      */
-    public static CompletableFuture<Void> startAsync(ComponentContext componentContext, IgniteComponent... components) {
+    public static CompletableFuture<Void> startAsync(ComponentContext componentContext, @Nullable IgniteComponent... components) {
         return startAsync(componentContext, Stream.of(components));
     }
 
@@ -1246,7 +1246,7 @@ public class IgniteUtils {
      * @param components Array of ignite components to stop.
      * @return CompletableFuture that will be completed when all components are stopped.
      */
-    public static CompletableFuture<Void> stopAsync(ComponentContext componentContext, IgniteComponent... components) {
+    public static CompletableFuture<Void> stopAsync(ComponentContext componentContext, @Nullable IgniteComponent... components) {
         return stopAsync(componentContext, Stream.of(components));
     }
 

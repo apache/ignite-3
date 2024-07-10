@@ -574,7 +574,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 TX_STATE_STORAGE_FLUSH_DELAY_SUPPLIER
         );
 
-        fullStateTransferIndexChooser = new FullStateTransferIndexChooser(catalogService, lowWatermark);
+        fullStateTransferIndexChooser = new FullStateTransferIndexChooser(catalogService, lowWatermark, indexMetaStorage);
     }
 
     @Override

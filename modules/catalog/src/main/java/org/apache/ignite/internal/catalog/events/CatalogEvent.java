@@ -70,9 +70,9 @@ public enum CatalogEvent implements Event {
     INDEX_STOPPING,
 
     /**
-     *  Fired when an index is removed from the Catalog. This happens when an index that never was {@link CatalogIndexStatus#AVAILABLE}
-     *  gets dropped, or when an index that is {@link CatalogIndexStatus#STOPPING} is finished with and we don't need to keep it in
-     *  the Catalog anymore, or when an index gets dropped because its table gets dropped.
+     * Fired when an index is removed from the Catalog. This happens when an index that never was {@link CatalogIndexStatus#AVAILABLE}
+     * gets dropped, or when an index that is {@link CatalogIndexStatus#STOPPING} is finished with and we don't need to keep it in
+     * the Catalog anymore, or when an index gets dropped because its table gets dropped.
      *
      * @see RemoveIndexEventParameters
      */
