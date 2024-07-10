@@ -476,7 +476,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 TIMEOUT_MILLIS
         );
 
-        metastore = findComponent(node.startedComponents(), MetaStorageManager.class);
+//        metastore = findComponent(node.startedComponents(), MetaStorageManager.class);
 
         startGlobalStateUpdateBlocking = true;
         startScaleUpBlocking = true;
@@ -526,7 +526,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         assertValueInStorage(metastore, zonesLastHandledTopology(), (v) -> v, null, TIMEOUT_MILLIS);
 
-        metastore = findComponent(node.startedComponents(), MetaStorageManager.class);
+//        metastore = findComponent(node.startedComponents(), MetaStorageManager.class);
 
         awaitDefaultZoneCreation(node);
 
@@ -597,7 +597,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 TIMEOUT_MILLIS
         );
 
-        metastore = findComponent(node.startedComponents(), MetaStorageManager.class);
+//        metastore = findComponent(node.startedComponents(), MetaStorageManager.class);
 
         byte[][] dataNodeKey = new byte[1][1];
 
@@ -729,7 +729,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         assertDataNodesFromManager(distributionZoneManager, metastore::appliedRevision, catalogManager::latestCatalogVersion, zoneId,
                 Set.of(A, B, C), TIMEOUT_MILLIS);
 
-        metastore = findComponent(node.startedComponents(), MetaStorageManager.class);
+//        metastore = findComponent(node.startedComponents(), MetaStorageManager.class);
 
         assertValueInStorage(
                 metastore,
@@ -790,7 +790,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 TIMEOUT_MILLIS
         );
 
-        metastore = findComponent(node.startedComponents(), MetaStorageManager.class);
+//        metastore = findComponent(node.startedComponents(), MetaStorageManager.class);
 
         assertValueInStorage(
                 metastore,
