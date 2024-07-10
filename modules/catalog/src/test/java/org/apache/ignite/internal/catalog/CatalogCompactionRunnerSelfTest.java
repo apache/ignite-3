@@ -233,12 +233,12 @@ public class CatalogCompactionRunnerSelfTest extends BaseIgniteAbstractTest {
         catalogManager.updateCompactionCoordinator(coordinator);
 
         return new CatalogCompactionRunner(
-                topologyService,
-                messagingService,
-                logicalTopologyService,
-                clockService,
-                placementDriver,
                 catalogManager,
+                messagingService,
+                topologyService,
+                logicalTopologyService,
+                placementDriver,
+                clockService,
                 ForkJoinPool.commonPool()
         );
     }

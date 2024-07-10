@@ -719,12 +719,12 @@ public class IgniteImpl implements Ignite {
         metaStorageMgr.addElectionListener(catalogManager::updateCompactionCoordinator);
 
         CatalogCompactionRunner catalogCompaction = new CatalogCompactionRunner(
-                clusterSvc.topologyService(),
-                clusterSvc.messagingService(),
-                logicalTopologyService,
-                clockService,
-                placementDriverMgr.placementDriver(),
                 catalogManager,
+                clusterSvc.messagingService(),
+                clusterSvc.topologyService(),
+                logicalTopologyService,
+                placementDriverMgr.placementDriver(),
+                clockService,
                 threadPoolsManager.commonScheduler()
         );
 

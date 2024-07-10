@@ -57,7 +57,6 @@ import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -70,7 +69,7 @@ import org.jetbrains.annotations.TestOnly;
  * <p>Overall process consists of the following steps:
  * <ol>
  *     <li>Routine is triggered after receiving local notification that the low watermark
- *     has been updated metastorage leader (catalog compaction coordinator)</li>
+ *     has been updated on catalog compaction coordinator (metastorage group leader).</li>
  *     <li>Coordinator calculates the minimum required time in the cluster
  *     by sending {@link CatalogMinimumRequiredTimeRequest} to all cluster members.</li>
  *     <li>If it is considered safe to trim the history up to calculated catalog version
@@ -101,15 +100,15 @@ public class CatalogCompactionRunner implements IgniteComponent {
     private volatile CompletableFuture<Boolean> lastRunFuture = CompletableFutures.nullCompletedFuture();
 
     /**
-     * Constructs catalog compaction service.
+     * Constructs catalog compaction runner.
      */
     public CatalogCompactionRunner(
-            TopologyService topologyService,
-            MessagingService messagingService,
-            LogicalTopologyService logicalTopologyService,
-            ClockService clockService,
-            PlacementDriver placementDriver,
             CatalogManagerImpl catalogManager,
+            MessagingService messagingService,
+            TopologyService topologyService,
+            LogicalTopologyService logicalTopologyService,
+            PlacementDriver placementDriver,
+            ClockService clockService,
             Executor executor
     ) {
         this.messagingService = messagingService;
@@ -128,7 +127,14 @@ public class CatalogCompactionRunner implements IgniteComponent {
             assert message.messageType() == CatalogMessageGroup.MINIMUM_REQUIRED_TIME_REQUEST : message.messageType();
             assert correlationId != null;
 
-            onMessage(sender, correlationId);
+            long minimumRequiredTime = determineLocalMinimumRequiredTime();
+
+            CatalogMinimumRequiredTimeResponse response =
+                    CatalogMinimumRequiredTimeResponseImpl.builder()
+                            .timestamp(minimumRequiredTime)
+                            .build();
+
+            messagingService.respond(sender, response, correlationId);
         });
 
         return CompletableFutures.nullCompletedFuture();
@@ -185,7 +191,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
     }
 
     private CompletableFuture<Boolean> startCompaction() {
-        return resolveMinimumRequiredTimeInCluster()
+        return determineGlobalMinimumRequiredTime()
                 .thenComposeAsync(ts -> {
                     Catalog catalog = catalogByTsNullable(ts);
 
@@ -217,7 +223,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
         }
     }
 
-    private CompletableFuture<Long> resolveMinimumRequiredTimeInCluster() {
+    private CompletableFuture<Long> determineGlobalMinimumRequiredTime() {
         CatalogMinimumRequiredTimeRequest request = CatalogMinimumRequiredTimeRequestImpl.builder().build();
         LogicalTopologySnapshot logicalTopology = logicalTopologyService.localLogicalTopology();
         List<CompletableFuture<?>> ackFutures = new ArrayList<>(logicalTopology.nodes().size());
@@ -242,16 +248,9 @@ public class CatalogCompactionRunner implements IgniteComponent {
                 .thenApply(ignore -> minimumRequiredTimeHolder.get());
     }
 
-    private void onMessage(ClusterNode sender, long correlationId) {
+    private long determineLocalMinimumRequiredTime() {
         // TODO https://issues.apache.org/jira/browse/IGNITE-22637 Provide actual minimum required time.
-        long minimumRequiredTime = HybridTimestamp.MAX_VALUE.longValue();
-
-        CatalogMinimumRequiredTimeResponse response =
-                CatalogMinimumRequiredTimeResponseImpl.builder()
-                        .timestamp(minimumRequiredTime)
-                        .build();
-
-        messagingService.respond(sender, response, correlationId);
+        return HybridTimestamp.MAX_VALUE.longValue();
     }
 
     private Set<String> requiredNodes(Catalog catalog) {
