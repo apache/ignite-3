@@ -18,9 +18,10 @@
 package org.apache.ignite.internal.cli.commands.recovery.partitions.states;
 
 import jakarta.inject.Inject;
-import org.apache.ignite.internal.cli.call.recovery.PartitionStatesCall;
-import org.apache.ignite.internal.cli.call.recovery.PartitionStatesCallInput;
+import org.apache.ignite.internal.cli.call.recovery.states.PartitionStatesCall;
+import org.apache.ignite.internal.cli.call.recovery.states.PartitionStatesCallInput;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
+import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlMixin;
 import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
 import org.apache.ignite.internal.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
 import org.apache.ignite.internal.cli.core.flow.builder.Flows;
@@ -31,6 +32,10 @@ import picocli.CommandLine.Mixin;
 /** Command to get partition states. */
 @Command(name = "states", description = "Returns partition states.")
 public class PartitionStatesReplCommand extends BaseCommand implements Runnable {
+    /** Cluster endpoint URL option. */
+    @Mixin
+    private ClusterUrlMixin clusterUrl;
+
     @Mixin
     private PartitionStatesMixin options;
 
@@ -42,7 +47,7 @@ public class PartitionStatesReplCommand extends BaseCommand implements Runnable 
 
     @Override
     public void run() {
-        question.askQuestionIfNotConnected(options.clusterUrl())
+        question.askQuestionIfNotConnected(clusterUrl.getClusterUrl())
                 .map(url -> PartitionStatesCallInput.of(options, url))
                 .then(Flows.fromCall(call))
                 .print(new TableDecorator(options.plain()))

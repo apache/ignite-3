@@ -38,7 +38,6 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.jetbrains.annotations.Nullable;
-import org.jetbrains.annotations.TestOnly;
 
 /**
  * Cluster time implementation with additional methods to adjust time and update safe time.
@@ -139,6 +138,11 @@ public class ClusterTimeImpl implements ClusterTime, MetaStorageMetrics, Manuall
     }
 
     @Override
+    public HybridTimestamp currentSafeTime() {
+        return this.safeTime.current();
+    }
+
+    @Override
     public CompletableFuture<Void> waitFor(HybridTimestamp time) {
         return safeTime.waitFor(time);
     }
@@ -233,10 +237,6 @@ public class ClusterTimeImpl implements ClusterTime, MetaStorageMetrics, Manuall
 
             IgniteUtils.shutdownAndAwaitTermination(executorService, 10, TimeUnit.SECONDS);
         }
-    }
 
-    @TestOnly
-    public HybridTimestamp currentSafeTime() {
-        return this.safeTime.current();
     }
 }

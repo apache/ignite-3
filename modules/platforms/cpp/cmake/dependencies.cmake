@@ -22,6 +22,25 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 add_compile_definitions(MBEDTLS_USER_CONFIG_FILE="${CMAKE_CURRENT_SOURCE_DIR}/ignite/common/detail/ignite_mbedtls_config.h")
 
+if (CMAKE_VERSION VERSION_GREATER_EQUAL "3.30.0")
+    # Avoid warning about FetchContent_Populate:
+    cmake_policy(SET CMP0169 OLD)
+endif()
+
+function(fetch_dependency NAME URL MD5)
+    message(STATUS "Download dependency: ${NAME}")
+    FetchContent_Declare(
+        ${NAME}
+        URL ${URL}
+        URL_HASH MD5=${MD5}
+    )
+    FetchContent_GetProperties(${NAME})
+    if(NOT ${NAME}_POPULATED)
+        FetchContent_Populate(${NAME})
+        add_subdirectory(${${NAME}_SOURCE_DIR} ${${NAME}_BINARY_DIR} EXCLUDE_FROM_ALL)
+    endif()
+endfunction()
+
 if (${USE_LOCAL_DEPS})
     find_package(msgpack REQUIRED)
     if (${msgpack_FOUND})
@@ -49,42 +68,10 @@ if (${USE_LOCAL_DEPS})
     endif()
 else()
     include(FetchContent)
-    message(STATUS "DOWNLOAD MSGPACK")
-    FetchContent_Declare(
-            msgpack-c
-            URL https://github.com/msgpack/msgpack-c/releases/download/c-6.0.1/msgpack-c-6.0.1.tar.gz
-            URL_HASH MD5=090df53a59b845767fcfc48221b30ee9
-    )
-    FetchContent_GetProperties(msgpack-c)
-    if(NOT msgpack-c_POPULATED)
-        FetchContent_Populate(msgpack-c)
-        add_subdirectory(${msgpack-c_SOURCE_DIR} ${msgpack-c_BINARY_DIR} EXCLUDE_FROM_ALL)
-    endif()
-
-    message(STATUS "DOWNLOAD MBEDTLS")
-    FetchContent_Declare(
-            mbedtls
-            URL https://github.com/Mbed-TLS/mbedtls/releases/download/v3.6.0/mbedtls-3.6.0.tar.bz2
-            URL_HASH MD5=6b5a45b10e7d1c768ecec69ecf8e7abd
-    )
-    FetchContent_GetProperties(mbedtls)
-    if(NOT mbedtls_POPULATED)
-        FetchContent_Populate(mbedtls)
-        add_subdirectory(${mbedtls_SOURCE_DIR} ${mbedtls_BINARY_DIR} EXCLUDE_FROM_ALL)
-    endif()
-
+    fetch_dependency(msgpack-c https://github.com/msgpack/msgpack-c/releases/download/c-6.0.1/msgpack-c-6.0.1.tar.gz 090df53a59b845767fcfc48221b30ee9)
+    fetch_dependency(mbedtls https://github.com/Mbed-TLS/mbedtls/releases/download/v3.6.0/mbedtls-3.6.0.tar.bz2 6b5a45b10e7d1c768ecec69ecf8e7abd)
     if (${ENABLE_TESTS})
-        message(STATUS "DOWNLOAD GTEST")
-        FetchContent_Declare(
-                googletest
-                URL https://github.com/google/googletest/archive/refs/tags/v1.14.0.tar.gz
-                URL_HASH MD5=c8340a482851ef6a3fe618a082304cfc
-        )
-        FetchContent_GetProperties(googletest)
-        if(NOT googletest_POPULATED)
-            FetchContent_Populate(googletest)
-            add_subdirectory(${googletest_SOURCE_DIR} ${googletest_BINARY_DIR} EXCLUDE_FROM_ALL)
-        endif()
+        fetch_dependency(googletest https://github.com/google/googletest/archive/refs/tags/v1.14.0.tar.gz c8340a482851ef6a3fe618a082304cfc)
     endif()
 endif()
 

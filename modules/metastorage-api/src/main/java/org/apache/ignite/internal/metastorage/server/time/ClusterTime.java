@@ -35,6 +35,11 @@ public interface ClusterTime {
     long nowLong();
 
     /**
+     * Returns current safe time.
+     */
+    HybridTimestamp currentSafeTime();
+
+    /**
      * Provides the future that is completed when cluster time reaches given one. If the time is greater or equal
      * then the given one, returns completed future.
      *

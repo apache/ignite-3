@@ -225,7 +225,7 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
      * @param idx Node index.
      * @return Configuration string.
      */
-    protected static String configurationString(int idx) {
+    protected String configurationString(int idx) {
         return configurationString(idx, "{}");
     }
 
