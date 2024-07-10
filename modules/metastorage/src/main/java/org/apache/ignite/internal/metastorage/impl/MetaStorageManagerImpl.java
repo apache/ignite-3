@@ -623,7 +623,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         }
 
         try {
-            return metaStorageSvcFut.thenCompose(svc -> svc.getAll(keys));
+            return metaStorageSvcFut.thenCompose(svc -> inBusyLock(busyLock, () -> svc.getAll(keys)));
         } finally {
             busyLock.leaveBusy();
         }
