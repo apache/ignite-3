@@ -127,6 +127,7 @@ import org.apache.ignite.internal.worker.fixtures.NoOpCriticalWorkerRegistry;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -514,7 +515,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         );
     }
 
-    @Test
+    @RepeatedTest(1000)
     public void testFirstLogicalTopologyUpdateInterruptedEventRestoredAfterRestart() throws Exception {
         PartialNode node = startPartialNode(0);
 
@@ -568,7 +569,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         );
     }
 
-    @Test
+    @RepeatedTest(100)
     public void testCreationZoneWhenDataNodesAreDeletedIsNotSuccessful() throws Exception {
         PartialNode node = startPartialNode(0);
 

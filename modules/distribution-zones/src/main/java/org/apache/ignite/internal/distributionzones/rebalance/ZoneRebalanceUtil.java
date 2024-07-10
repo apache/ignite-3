@@ -584,8 +584,10 @@ public class ZoneRebalanceUtil {
             partitionKeysToPartitionNumber.put(stablePartAssignmentsKey(new ZonePartitionId(zoneId, partId)), partId);
         }
 
-        return metaStorageManager.getAll(partitionKeysToPartitionNumber.keySet())
-                .thenApply(entries -> {
+        var f = metaStorageManager.getAll(partitionKeysToPartitionNumber.keySet());
+        assert f != null : "getAll future is null";
+        return f.thenApply(entries -> {
+            assert entries != null: "Entries are null";
                     if (entries.isEmpty()) {
                         return Map.of();
                     }
