@@ -1081,9 +1081,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private CompletableFuture<Boolean> isLocalNodeLeaseholder(ReplicationGroupId replicationGroupId) {
-        HybridTimestamp previousMetastoreSafeTime = metaStorageMgr.clusterTime()
-                .currentSafeTime()
-                .addPhysicalTime(-clockService.maxClockSkewMillis());
+        HybridTimestamp currentSafeTime = metaStorageMgr.clusterTime().currentSafeTime();
+        long skew = clockService.maxClockSkewMillis();
+
+        assert currentSafeTime.longValue() - skew > 0 : "!!! oops";
+
+        HybridTimestamp previousMetastoreSafeTime = currentSafeTime.addPhysicalTime(-skew);
 
         return executorInclinedPlacementDriver.getPrimaryReplica(replicationGroupId, previousMetastoreSafeTime)
                 .thenApply(replicaMeta -> replicaMeta != null
