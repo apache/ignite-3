@@ -1094,10 +1094,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             && replicaMeta.getLeaseholderId() != null
                             && replicaMeta.getLeaseholderId().equals(localNode().name()));
         } catch (IllegalStateException e) {
-            LOG.info("!!! [currentSafeTimeMs=" + currentSafeTimeMs
+            throw new AssertionError("!!! [currentSafeTimeMs=" + currentSafeTimeMs
                     + ", skewMs=" + skewMs
-                    + ", internal=" + (currentSafeTimeMs + ((-skewMs) << LOGICAL_TIME_BITS_SIZE)) + "]");
-            throw e;
+                    + ", internal=" + (currentSafeTimeMs + ((-skewMs) << LOGICAL_TIME_BITS_SIZE)) + "]", e);
         }
     }
 
