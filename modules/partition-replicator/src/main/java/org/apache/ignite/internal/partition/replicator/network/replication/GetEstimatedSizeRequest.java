@@ -19,11 +19,11 @@ package org.apache.ignite.internal.partition.replicator.network.replication;
 
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
-import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.apache.ignite.internal.replicator.message.PrimaryReplicaRequest;
 
 /**
  * Request for getting an estimated size of a partition.
  */
 @Transferable(PartitionReplicationMessageGroup.GET_ESTIMATED_SIZE_MESSAGE)
-public interface GetEstimatedSizeRequest extends ReplicaRequest {
+public interface GetEstimatedSizeRequest extends PrimaryReplicaRequest {
 }
