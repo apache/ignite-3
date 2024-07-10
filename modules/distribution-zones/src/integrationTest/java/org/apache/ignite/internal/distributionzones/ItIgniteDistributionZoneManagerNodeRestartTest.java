@@ -161,7 +161,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
     private static final String ZONE_NAME = "zone1";
 
-    private MetaStorageManager metastore;
+    private volatile MetaStorageManager metastore;
 
     private volatile boolean startScaleUpBlocking;
 
