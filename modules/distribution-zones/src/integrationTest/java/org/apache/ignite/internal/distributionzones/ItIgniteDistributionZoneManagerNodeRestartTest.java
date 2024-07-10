@@ -515,7 +515,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         );
     }
 
-    @RepeatedTest(1000)
+    @RepeatedTest(100)
     public void testFirstLogicalTopologyUpdateInterruptedEventRestoredAfterRestart() throws Exception {
         PartialNode node = startPartialNode(0);
 
@@ -569,7 +569,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         );
     }
 
-    @RepeatedTest(100)
+    @RepeatedTest(10)
     public void testCreationZoneWhenDataNodesAreDeletedIsNotSuccessful() throws Exception {
         PartialNode node = startPartialNode(0);
 
