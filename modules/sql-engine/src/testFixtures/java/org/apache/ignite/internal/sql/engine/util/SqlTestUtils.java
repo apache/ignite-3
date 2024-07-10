@@ -383,9 +383,9 @@ public class SqlTestUtils {
             case TIME:
                 return SqlTypeName.TIME;
             case DATETIME:
-                return SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE;
-            case TIMESTAMP:
                 return SqlTypeName.TIMESTAMP;
+            case TIMESTAMP:
+                return SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE;
             case UUID:
             case BITMASK:
                 return SqlTypeName.ANY;

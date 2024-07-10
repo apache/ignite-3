@@ -53,8 +53,8 @@ import org.junit.jupiter.params.provider.MethodSource;
 public class MergeSourcesCoercionTest extends BaseTypeCoercionTest {
 
     @ParameterizedTest
-    @MethodSource("args1")
-    public void merge1(
+    @MethodSource("argsForMergeWithColumnAsValue")
+    public void mergeWithColumnAsValue(
             TypePair pair,
             Matcher<RexNode> matcher
     ) throws Exception {
@@ -70,8 +70,8 @@ public class MergeSourcesCoercionTest extends BaseTypeCoercionTest {
     }
 
     @ParameterizedTest
-    @MethodSource("args2")
-    public void merge2(
+    @MethodSource("argsForMergeWithLiteralValue")
+    public void mergeWithLiteralValue(
             TypePair pair,
             Matcher<RexNode> matcher
     ) throws Exception {
@@ -108,17 +108,17 @@ public class MergeSourcesCoercionTest extends BaseTypeCoercionTest {
     }
 
     /**
-     * This test ensures that {@link #args1()}, {@link #args2()} and {@link #argsDyn()} doesn't miss any type pair from {@link NumericPair}.
+     * This test ensures that {@link #argsForMergeWithColumnAsValue()}, {@link #argsForMergeWithLiteralValue()} and {@link #argsDyn()} doesn't miss any type pair from {@link NumericPair}.
      */
     @Test
     void updateArgsIncludesAllTypePairs() {
-        checkIncludesAllTypePairs(args1());
-        checkIncludesAllTypePairs(args2());
-        checkIncludesAllTypePairs(argsDyn());
+        checkIncludesAllNumericTypePairs(argsForMergeWithColumnAsValue());
+        checkIncludesAllNumericTypePairs(argsForMergeWithLiteralValue());
+        checkIncludesAllNumericTypePairs(argsDyn());
     }
 
 
-    private static Stream<Arguments> args1() {
+    private static Stream<Arguments> argsForMergeWithColumnAsValue() {
         return Stream.of(
                 forTypePair(NumericPair.TINYINT_TINYINT)
                         .opMatches(ofTypeWithoutCast(NativeTypes.INT8)),
@@ -635,7 +635,7 @@ public class MergeSourcesCoercionTest extends BaseTypeCoercionTest {
         );
     }
 
-    private static Stream<Arguments> args2() {
+    private static Stream<Arguments> argsForMergeWithLiteralValue() {
         // Difference between the original parameters.
         Map<NumericPair, Arguments> diff = Map.of(
                 NumericPair.DECIMAL_1_0_DECIMAL_1_0, forTypePair(NumericPair.DECIMAL_1_0_DECIMAL_1_0).opMatches(castTo(Types.DECIMAL_1_0)),
@@ -650,7 +650,7 @@ public class MergeSourcesCoercionTest extends BaseTypeCoercionTest {
                 NumericPair.REAL_DOUBLE, forTypePair(NumericPair.REAL_DOUBLE).opMatches(ofTypeWithoutCast(NativeTypes.FLOAT))
         );
 
-        return args1().map(v -> diff.getOrDefault(v.get()[0], v));
+        return argsForMergeWithColumnAsValue().map(v -> diff.getOrDefault(v.get()[0], v));
     }
 
     private static Stream<Arguments> argsDyn() {
@@ -667,7 +667,7 @@ public class MergeSourcesCoercionTest extends BaseTypeCoercionTest {
                 NumericPair.DECIMAL_8_3_DECIMAL_8_3, forTypePair(NumericPair.DECIMAL_8_3_DECIMAL_8_3).opMatches(castTo(Types.DECIMAL_8_3))
         );
 
-        return args1().map(v -> diff.getOrDefault(v.get()[0], v));
+        return argsForMergeWithColumnAsValue().map(v -> diff.getOrDefault(v.get()[0], v));
     }
 
     private static Matcher<IgniteRel> mergeOperandMatcher(Matcher<RexNode> matcher) {

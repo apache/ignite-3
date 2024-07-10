@@ -56,7 +56,7 @@ import org.junit.jupiter.params.provider.MethodSource;
  *
  * <p>This tests aim to help to understand in which cases implicit cast will be added to which values.
  */
-public class SetOperatorCoercionTest extends BaseTypeCoercionTest {
+public class NumericSetOperatorCoercionTest extends BaseTypeCoercionTest {
     @ParameterizedTest
     @MethodSource("args")
     public void unionOperator(
@@ -107,7 +107,7 @@ public class SetOperatorCoercionTest extends BaseTypeCoercionTest {
      */
     @Test
     void argsIncludesAllTypePairs() {
-        checkIncludesAllTypePairs(args());
+        checkIncludesAllNumericTypePairs(args());
     }
 
 

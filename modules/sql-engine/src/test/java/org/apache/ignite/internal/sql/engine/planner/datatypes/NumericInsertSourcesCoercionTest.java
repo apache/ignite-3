@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine.planner.datatypes;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 
-import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
@@ -46,7 +45,7 @@ import org.junit.jupiter.params.provider.MethodSource;
  *
  * <p>This tests aim to help to understand in which cases implicit cast will be added to which values.
  */
-public class InsertSourcesCoercionTest extends BaseTypeCoercionTest {
+public class NumericInsertSourcesCoercionTest extends BaseTypeCoercionTest {
 
     @ParameterizedTest
     @MethodSource("args")
@@ -85,8 +84,8 @@ public class InsertSourcesCoercionTest extends BaseTypeCoercionTest {
      */
     @Test
     void insertArgsIncludesAllTypePairs() {
-        checkIncludesAllTypePairs(args());
-        checkIncludesAllTypePairs(argsDyn());
+        checkIncludesAllNumericTypePairs(args());
+        checkIncludesAllNumericTypePairs(argsDyn());
     }
 
     private static Matcher<IgniteRel> keyValOperandMatcher(Matcher<RexNode> matcher) {
@@ -630,35 +629,9 @@ public class InsertSourcesCoercionTest extends BaseTypeCoercionTest {
 
     private static Stream<Arguments> argsDyn() {
         // Difference between the original parameters.
-        Map<NumericPair, Arguments> diff = new EnumMap<>(NumericPair.class);
-        diff.put(NumericPair.INT_DECIMAL_1_0,
-                forTypePair(NumericPair.INT_DECIMAL_1_0).opMatches(castTo(NativeTypes.INT32)));
-        diff.put(NumericPair.INT_DECIMAL_2_1,
-                forTypePair(NumericPair.INT_DECIMAL_2_1).opMatches(castTo(NativeTypes.INT32)));
-        diff.put(NumericPair.INT_DECIMAL_4_3,
-                forTypePair(NumericPair.INT_DECIMAL_4_3).opMatches(castTo(NativeTypes.INT32)));
-        diff.put(NumericPair.INT_DECIMAL_2_0,
-                forTypePair(NumericPair.INT_DECIMAL_2_0).opMatches(castTo(NativeTypes.INT32)));
-        diff.put(NumericPair.INT_DECIMAL_3_1,
-                forTypePair(NumericPair.INT_DECIMAL_3_1).opMatches(castTo(NativeTypes.INT32)));
-        diff.put(NumericPair.INT_DECIMAL_5_3,
-                forTypePair(NumericPair.INT_DECIMAL_5_3).opMatches(castTo(NativeTypes.INT32)));
-        diff.put(NumericPair.INT_DECIMAL_5_0,
-                forTypePair(NumericPair.INT_DECIMAL_5_0).opMatches(castTo(NativeTypes.INT32)));
-        diff.put(NumericPair.INT_DECIMAL_6_1,
-                forTypePair(NumericPair.INT_DECIMAL_6_1).opMatches(castTo(NativeTypes.INT32)));
-        diff.put(NumericPair.INT_DECIMAL_8_3,
-                forTypePair(NumericPair.INT_DECIMAL_8_3).opMatches(castTo(NativeTypes.INT32)));
-        diff.put(NumericPair.BIGINT_DECIMAL_1_0, forTypePair(NumericPair.BIGINT_DECIMAL_1_0).opMatches(castTo(NativeTypes.INT64)));
-        diff.put(NumericPair.BIGINT_DECIMAL_2_1, forTypePair(NumericPair.BIGINT_DECIMAL_2_1).opMatches(castTo(NativeTypes.INT64)));
-        diff.put(NumericPair.BIGINT_DECIMAL_4_3, forTypePair(NumericPair.BIGINT_DECIMAL_4_3).opMatches(castTo(NativeTypes.INT64)));
-        diff.put(NumericPair.BIGINT_DECIMAL_2_0, forTypePair(NumericPair.BIGINT_DECIMAL_2_0).opMatches(castTo(NativeTypes.INT64)));
-        diff.put(NumericPair.BIGINT_DECIMAL_3_1, forTypePair(NumericPair.BIGINT_DECIMAL_3_1).opMatches(castTo(NativeTypes.INT64)));
-        diff.put(NumericPair.BIGINT_DECIMAL_5_3, forTypePair(NumericPair.BIGINT_DECIMAL_5_3).opMatches(castTo(NativeTypes.INT64)));
-        diff.put(NumericPair.BIGINT_DECIMAL_5_0, forTypePair(NumericPair.BIGINT_DECIMAL_5_0).opMatches(castTo(NativeTypes.INT64)));
-        diff.put(NumericPair.BIGINT_DECIMAL_6_1, forTypePair(NumericPair.BIGINT_DECIMAL_6_1).opMatches(castTo(NativeTypes.INT64)));
-        diff.put(NumericPair.BIGINT_DECIMAL_8_3, forTypePair(NumericPair.BIGINT_DECIMAL_8_3).opMatches(castTo(NativeTypes.INT64)));
-        diff.put(NumericPair.REAL_DOUBLE, forTypePair(NumericPair.REAL_DOUBLE).opMatches(castTo(NativeTypes.FLOAT)));
+        Map<NumericPair, Arguments> diff = Map.of(
+                NumericPair.REAL_DOUBLE, forTypePair(NumericPair.REAL_DOUBLE).opMatches(castTo(NativeTypes.FLOAT))
+        );
 
         return args().map(v -> diff.getOrDefault(v.get()[0], v));
     }

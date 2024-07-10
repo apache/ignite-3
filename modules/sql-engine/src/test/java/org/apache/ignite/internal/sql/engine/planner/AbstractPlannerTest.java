@@ -94,6 +94,7 @@ import org.apache.ignite.internal.sql.engine.prepare.PlannerHelper;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
+import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueGet;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueModify;
 import org.apache.ignite.internal.sql.engine.rel.IgniteProject;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
@@ -678,7 +679,8 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
     // Set of Relational operators that do not support serialization and shouldn't be sent between cluster nodes.
     private static final Set<Class> unsupportSerializationOperators = Set.of(
-            IgniteKeyValueModify.class
+            IgniteKeyValueModify.class,
+            IgniteKeyValueGet.class
     );
 
     protected void checkSplitAndSerialization(IgniteRel rel, Collection<IgniteSchema> schemas) {

@@ -112,7 +112,7 @@ public class NumericBinaryOperationsTypeCoercionTest extends BaseTypeCoercionTes
      */
     @Test
     void moduloArgsIncludesAllTypePairs() {
-        checkIncludesAllTypePairs(moduloArgs());
+        checkIncludesAllNumericTypePairs(moduloArgs());
     }
 
     private static Stream<Arguments> moduloArgs() {

@@ -47,11 +47,11 @@ import org.junit.jupiter.params.provider.MethodSource;
  *
  * <p>This tests aim to help to understand in which cases implicit cast will be added to which values.
  */
-public class UpdateSourcesCoercionTest extends BaseTypeCoercionTest {
+public class NumericUpdateSourcesCoercionTest extends BaseTypeCoercionTest {
 
     @ParameterizedTest
-    @MethodSource("args1")
-    public void update1(
+    @MethodSource("argsForUpdateWithLiteralValue")
+    public void updateWithLiteralValue(
             TypePair pair,
             Matcher<RexNode> operandMatcher
     ) throws Exception {
@@ -86,8 +86,8 @@ public class UpdateSourcesCoercionTest extends BaseTypeCoercionTest {
     }
 
     @ParameterizedTest
-    @MethodSource("args2")
-    public void update2(
+    @MethodSource("argsForUpdateWithColumnAsValue")
+    public void updateWithColumnAsValue(
             TypePair pair,
             Matcher<RexNode> operandMatcher
     ) throws Exception {
@@ -102,14 +102,14 @@ public class UpdateSourcesCoercionTest extends BaseTypeCoercionTest {
     }
 
     /**
-     * This test ensures that {@link #args1()}, {@link #args2()} and {@link #argsDyn()} doesn't miss any type pair from
+     * This test ensures that {@link #argsForUpdateWithLiteralValue()}, {@link #argsForUpdateWithColumnAsValue()} and {@link #argsDyn()} doesn't miss any type pair from
      * {@link NumericPair}.
      */
     @Test
     void argsIncludesAllTypePairs() {
-        checkIncludesAllTypePairs(args1());
-        checkIncludesAllTypePairs(args2());
-        checkIncludesAllTypePairs(argsDyn());
+        checkIncludesAllNumericTypePairs(argsForUpdateWithLiteralValue());
+        checkIncludesAllNumericTypePairs(argsForUpdateWithColumnAsValue());
+        checkIncludesAllNumericTypePairs(argsDyn());
     }
 
     private static Matcher<IgniteRel> modifyOperandMatcher(Matcher<RexNode> matcher) {
@@ -131,7 +131,7 @@ public class UpdateSourcesCoercionTest extends BaseTypeCoercionTest {
     }
 
 
-    private static Stream<Arguments> args1() {
+    private static Stream<Arguments> argsForUpdateWithLiteralValue() {
         return Stream.of(
                 forTypePair(NumericPair.TINYINT_TINYINT)
                         .opMatches(ofTypeWithoutCast(NativeTypes.INT8)),
@@ -648,7 +648,7 @@ public class UpdateSourcesCoercionTest extends BaseTypeCoercionTest {
         );
     }
 
-    private static Stream<Arguments> args2() {
+    private static Stream<Arguments> argsForUpdateWithColumnAsValue() {
         // Difference between the original parameters.
         Map<NumericPair, Arguments> map = new EnumMap<>(NumericPair.class);
         map.put(NumericPair.DECIMAL_1_0_DECIMAL_1_0,
@@ -672,7 +672,7 @@ public class UpdateSourcesCoercionTest extends BaseTypeCoercionTest {
         map.put(NumericPair.BIGINT_BIGINT, forTypePair(NumericPair.BIGINT_BIGINT).opMatches(ofTypeWithoutCast(NativeTypes.INT64)));
         map.put(NumericPair.REAL_DOUBLE, forTypePair(NumericPair.REAL_DOUBLE).opMatches(castTo(NativeTypes.FLOAT)));
 
-        return args1().map(v -> map.getOrDefault(v.get()[0], v));
+        return argsForUpdateWithLiteralValue().map(v -> map.getOrDefault(v.get()[0], v));
     }
 
     private static Stream<Arguments> argsDyn() {
@@ -682,6 +682,6 @@ public class UpdateSourcesCoercionTest extends BaseTypeCoercionTest {
                 NumericPair.REAL_DOUBLE, forTypePair(NumericPair.REAL_DOUBLE).opMatches(castTo(NativeTypes.FLOAT))
         );
 
-        return args1().map(v -> diff.getOrDefault(v.get()[0], v));
+        return argsForUpdateWithLiteralValue().map(v -> diff.getOrDefault(v.get()[0], v));
     }
 }

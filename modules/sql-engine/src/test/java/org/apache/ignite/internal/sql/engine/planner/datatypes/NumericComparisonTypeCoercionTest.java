@@ -812,6 +812,6 @@ public class NumericComparisonTypeCoercionTest extends BaseTypeCoercionTest {
      */
     @Test
     void argsIncludesAllTypePairs() {
-        checkIncludesAllTypePairs(args());
+        checkIncludesAllNumericTypePairs(args());
     }
 }
