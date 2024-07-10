@@ -27,10 +27,10 @@ import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import org.apache.ignite.IncompatibleSchemaException;
 import org.apache.ignite.internal.Cluster;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.table.distributed.replicator.IncompatibleSchemaException;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.util.ExceptionUtils;
@@ -40,8 +40,8 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.tx.StaleSchemaRollbackException;
 import org.apache.ignite.tx.Transaction;
-import org.apache.ignite.tx.TransactionException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
@@ -100,13 +100,10 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
 
         alterTable(TABLE_NAME);
 
-        int errorCode;
-
-        int tableId = unwrapTableViewInternal(table).tableId();
+        IgniteException ex;
 
         if (operation.sql()) {
-            IgniteException ex = assertThrows(IgniteException.class, () -> operation.execute(table, tx, cluster));
-            errorCode = ex.code();
+            ex = assertThrows(IgniteException.class, () -> operation.execute(table, tx, cluster));
 
             assertThat(
                     ex.getMessage(),
@@ -116,8 +113,7 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
                     ))
             );
         } else {
-            IncompatibleSchemaException ex = assertThrows(IncompatibleSchemaException.class, () -> operation.execute(table, tx, cluster));
-            errorCode = ex.code();
+            ex = assertThrows(IncompatibleSchemaException.class, () -> operation.execute(table, tx, cluster));
 
             assertThat(
                     ex.getMessage(),
@@ -128,7 +124,7 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
             );
         }
 
-        assertThat(errorCode, is(Transactions.TX_INCOMPATIBLE_SCHEMA_ERR));
+        assertThat(ex.code(), is(Transactions.TX_INCOMPATIBLE_SCHEMA_ERR));
 
         assertThat(tx.state(), is(TxState.ABORTED));
     }
@@ -296,19 +292,16 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
 
         dropTable(TABLE_NAME);
 
-        int tableId = unwrapTableViewInternal(table).tableId();
-
         Throwable ex = assertThrows(Throwable.class, () -> operation.executeOn(tx));
         ex = ExceptionUtils.unwrapCause(ex);
 
-        assertThat(ex, is(instanceOf(TransactionException.class)));
+        assertThat(ex, is(instanceOf(StaleSchemaRollbackException.class)));
         assertThat(
                 ex.getMessage(),
                 containsString(String.format("Commit failed because a table was already dropped [table=%s]", table.name()))
         );
 
-        // TODO: IGNITE-20415 - assert that the failure is because of a changed schema.
-        assertThat(((TransactionException) ex).code(), is(Transactions.TX_COMMIT_ERR));
+        assertThat(((StaleSchemaRollbackException) ex).code(), is(Transactions.TX_INCOMPATIBLE_SCHEMA_ERR));
 
         assertThat(tx.state(), is(TxState.ABORTED));
     }
@@ -355,8 +348,6 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
 
         Tuple keyTuple = Tuple.create().set("id", KEY);
         kvView.put(null, keyTuple, Tuple.create().set("val", "put-in-tx2"));
-
-        int tableId = unwrapTableViewInternal(table).tableId();
 
         Executable task = scan ? () -> consumeCursor(kvView.query(tx1, null)) : () -> kvView.get(tx1, keyTuple);
 

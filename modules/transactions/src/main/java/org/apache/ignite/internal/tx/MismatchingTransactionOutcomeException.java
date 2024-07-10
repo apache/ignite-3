@@ -19,6 +19,8 @@ package org.apache.ignite.internal.tx;
 
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_UNEXPECTED_STATE_ERR;
 
+import org.jetbrains.annotations.Nullable;
+
 /**
  * The exception is thrown when the transaction result differs from the intended one.
  *
@@ -36,7 +38,12 @@ public class MismatchingTransactionOutcomeException extends TransactionInternalE
     /**
      * Constructor.
      */
-    public MismatchingTransactionOutcomeException(int errorCode, String message, TransactionResult transactionResult, Throwable cause) {
+    public MismatchingTransactionOutcomeException(
+            int errorCode,
+            String message,
+            TransactionResult transactionResult,
+            @Nullable Throwable cause
+    ) {
         super(errorCode, message, cause);
 
         this.transactionResult = transactionResult;

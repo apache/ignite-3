@@ -191,7 +191,7 @@ import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.index.MetaIndexStatus;
 import org.apache.ignite.internal.table.distributed.index.MetaIndexStatusChange;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
-import org.apache.ignite.internal.table.distributed.replicator.IncompatibleSchemaException;
+import org.apache.ignite.internal.table.distributed.replicator.IncompatibleSchemaVersionException;
 import org.apache.ignite.internal.table.distributed.replicator.InternalSchemaVersionMismatchException;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.StaleTransactionOperationException;
@@ -205,8 +205,8 @@ import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.tx.IncompatibleSchemaAbortException;
 import org.apache.ignite.internal.tx.LockManager;
-import org.apache.ignite.internal.tx.MismatchingTransactionOutcomeException;
 import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TransactionResult;
 import org.apache.ignite.internal.tx.TxManager;
@@ -1809,8 +1809,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         CompletableFuture<?> future = beginAndCommitTx();
 
-        MismatchingTransactionOutcomeException ex = assertWillThrowFast(future,
-                MismatchingTransactionOutcomeException.class);
+        IncompatibleSchemaAbortException ex = assertWillThrowFast(future, IncompatibleSchemaAbortException.class);
 
         assertThat(ex.getMessage(), containsString("Commit failed because schema is not forward-compatible [fromSchemaVersion=1, "
                 + "toSchemaVersion=2, table=test, details=Column default value changed]"));
@@ -1902,8 +1901,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
             CompletableFuture<?> future,
             AtomicReference<Boolean> committed
     ) {
-        IncompatibleSchemaException ex = assertWillThrowFast(future,
-                IncompatibleSchemaException.class);
+        IncompatibleSchemaVersionException ex = assertWillThrowFast(future,
+                IncompatibleSchemaVersionException.class);
         assertThat(ex.code(), is(Transactions.TX_INCOMPATIBLE_SCHEMA_ERR));
         assertThat(ex.getMessage(), containsString(
                 "Operation failed because it tried to access a row with newer schema version than transaction's [table=test, "
@@ -2240,7 +2239,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         }
 
         if (expectValidationFailure) {
-            IncompatibleSchemaException ex = assertWillThrowFast(future, IncompatibleSchemaException.class);
+            IncompatibleSchemaVersionException ex = assertWillThrowFast(future, IncompatibleSchemaVersionException.class);
             assertThat(ex.code(), is(Transactions.TX_INCOMPATIBLE_SCHEMA_ERR));
             assertThat(
                     ex.getMessage(),
@@ -2360,7 +2359,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         CompletableFuture<?> future = listenerInvocation.invoke(txId, key);
 
-        IncompatibleSchemaException ex = assertWillThrowFast(future, IncompatibleSchemaException.class);
+        IncompatibleSchemaVersionException ex = assertWillThrowFast(future, IncompatibleSchemaVersionException.class);
         assertThat(ex.code(), is(Transactions.TX_INCOMPATIBLE_SCHEMA_ERR));
         assertThat(ex.getMessage(), is("Table was dropped [tableId=1]"));
     }
@@ -2458,7 +2457,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         CompletableFuture<?> future = listenerInvocation.invoke(txId, readTs, key);
 
-        IncompatibleSchemaException ex = assertWillThrowFast(future, IncompatibleSchemaException.class);
+        IncompatibleSchemaVersionException ex = assertWillThrowFast(future, IncompatibleSchemaVersionException.class);
         assertThat(ex.code(), is(Transactions.TX_INCOMPATIBLE_SCHEMA_ERR));
         assertThat(ex.getMessage(), is("Table was dropped [tableId=1]"));
     }
@@ -2529,7 +2528,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 localNode.id()
         );
 
-        MismatchingTransactionOutcomeException ex = assertWillThrowFast(future, MismatchingTransactionOutcomeException.class);
+        IncompatibleSchemaAbortException ex = assertWillThrowFast(future, IncompatibleSchemaAbortException.class);
 
         assertThat(ex.getMessage(), is("Commit failed because a table was already dropped [table=" + tableNameToBeDropped + "]"));
 
