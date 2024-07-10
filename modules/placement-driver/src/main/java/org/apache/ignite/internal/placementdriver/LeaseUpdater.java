@@ -380,7 +380,7 @@ public class LeaseUpdater {
                                 : format("Can't publish the lease that was not negotiated [groupId={}, startTime={}, "
                                     + "agreementLeaseStartTime={}].", grpId, lease.getStartTime(), agreement.getLease().getStartTime());
 
-                        publishLease(grpId, lease, renewedLeases);
+                        publishLease(grpId, negotiatedLease, renewedLeases);
 
                         continue;
                     } else if (agreement.isDeclined()) {
