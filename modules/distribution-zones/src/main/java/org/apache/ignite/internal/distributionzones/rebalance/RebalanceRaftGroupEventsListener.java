@@ -259,7 +259,16 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
 
             Entry counterEntry = metaStorageMgr.get(tablesCounterKey(zoneId, partId)).get();
 
-            assert counterEntry.value() != null;
+            if (counterEntry.value() == null) {
+                // There is a race at the start. onNewPeersConfigurationApplied that follows the chain of calls originated in
+                // the handler of onLeaderElected might be called prior to TableManager.setTablesPartitionCountersForRebalance that
+                // sets the counters, hence no value. In this case just skip it.
+
+                // It is safe as later at the completion of setTablesPartitionCountersForRebalance we'll call
+                // changePeersOnRebalance that should notify all relevant tables.
+                LOG.warn("Counter is not set [zone={}, part={}].", counterEntry.value(), zoneId, partId);
+                return;
+            }
 
             Set<Integer> counter = fromBytes(counterEntry.value());
 
@@ -319,10 +328,10 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             rebalanceAttempts.set(0);
         } catch (InterruptedException | ExecutionException e) {
             // TODO: IGNITE-14693
-            LOG.warn("Unable to count down partitions counter in metastore: " + tablePartitionId, e);
+            LOG.warn("Unable to count down partitions counter in metastore: " + tablePartitionId + ", zoneId=" + zoneId, e);
         } catch (Throwable e) {
             // TODO: IGNITE-14693
-            LOG.error("Unable to count down partitions counter in metastore: " + tablePartitionId, e);
+            LOG.error("Unable to count down partitions counter in metastore: " + tablePartitionId + ", zoneId=" + zoneId, e);
 
             throw e;
         }
