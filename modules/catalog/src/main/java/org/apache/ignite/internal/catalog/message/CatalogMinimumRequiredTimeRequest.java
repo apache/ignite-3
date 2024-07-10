@@ -22,7 +22,8 @@ import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
- * TODO Describe it.
+ * Request to obtain the minimum timestamp to which, from the local
+ * node's perspective, the catalog history can be safely truncated.
  */
 @Transferable(CatalogMessageGroup.MINIMUM_REQUIRED_TIME_REQUEST)
 public interface CatalogMinimumRequiredTimeRequest extends NetworkMessage, Serializable {

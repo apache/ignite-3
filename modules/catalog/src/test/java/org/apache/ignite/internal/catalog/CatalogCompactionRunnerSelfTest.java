@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog.compaction;
+package org.apache.ignite.internal.catalog;
 
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.awaitDefaultZoneCreation;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParams;
@@ -31,7 +31,6 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
@@ -44,9 +43,6 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.affinity.TokenizedAssignmentsImpl;
-import org.apache.ignite.internal.catalog.Catalog;
-import org.apache.ignite.internal.catalog.CatalogCommand;
-import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.CatalogTestUtils.TestCommand;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
 import org.apache.ignite.internal.catalog.commands.TableHashPrimaryKey;
@@ -61,7 +57,6 @@ import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
@@ -99,17 +94,7 @@ public class CatalogCompactionRunnerSelfTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void lwmChangeOnNonCoordinatorNodeDoesNothing() {
-        CatalogCompactionRunner compactor = createCompactor(NODE1, NODE3, ignore -> 0L);
-
-        CompletableFuture<Boolean> opFut = compactor.lastRunFuture();
-
-        assertThat(compactor.onLowWatermarkChanged(clockService.now()), willBe(false));
-        assertThat(compactor.lastRunFuture(), is(opFut));
-    }
-
-    @Test
-    public void compactionSucceedOnCoordinator() throws InterruptedException {
+    public void routineSucceedOnCoordinator() throws InterruptedException {
         assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
         assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
         assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
@@ -119,10 +104,10 @@ public class CatalogCompactionRunnerSelfTest extends BaseIgniteAbstractTest {
 
         AtomicLong timeCounter = new AtomicLong(catalog.time());
 
-        CatalogCompactionRunner compactor = createCompactor(NODE1, NODE1, (n) -> timeCounter.getAndIncrement());
+        CatalogCompactionRunner compactionRunner = createRunner(NODE1, NODE1, (n) -> timeCounter.getAndIncrement());
 
-        assertThat(compactor.onLowWatermarkChanged(clockService.now()), willBe(false));
-        assertThat(compactor.lastRunFuture(), willBe(true));
+        assertThat(compactionRunner.onLowWatermarkChanged(clockService.now()), willBe(false));
+        assertThat(compactionRunner.lastRunFuture(), willBe(true));
 
         int expectedEarliestCatalogVersion = catalog.version() - 1;
 
@@ -130,30 +115,38 @@ public class CatalogCompactionRunnerSelfTest extends BaseIgniteAbstractTest {
         assertEquals(expectedEarliestCatalogVersion, catalogManager.earliestCatalogVersion());
 
         // Nothing should be changed if catalog already compacted for previous timestamp.
-        assertThat(compactor.startCompaction(clockService.now()), willBe(false));
+        assertThat(compactionRunner.startCompaction(clockService.now()), willBe(false));
 
         // Nothing should be changed if previous catalog doesn't exists.
         Catalog earliestCatalog = Objects.requireNonNull(catalogManager.catalog(catalogManager.earliestCatalogVersion()));
-        compactor = createCompactor(NODE1, NODE1, (n) -> earliestCatalog.time());
-        assertThat(compactor.startCompaction(clockService.now()), willBe(false));
+        compactionRunner = createRunner(NODE1, NODE1, (n) -> earliestCatalog.time());
+        assertThat(compactionRunner.startCompaction(clockService.now()), willBe(false));
     }
 
     @Test
-    public void compactionDoesNotProduceErrorsWhenHistoryIsMissing() {
+    public void mustNotStartOnNonCoordinator() {
+        CatalogCompactionRunner compactor = createRunner(NODE1, NODE3, ignore -> 0L);
+
+        CompletableFuture<Boolean> lastRunFuture = compactor.lastRunFuture();
+
+        assertThat(compactor.onLowWatermarkChanged(clockService.now()), willBe(false));
+        assertThat(compactor.lastRunFuture(), is(lastRunFuture));
+    }
+
+    @Test
+    public void mustNotProduceErrorsWhenHistoryIsMissing() {
         Catalog earliestCatalog = catalogManager.catalog(catalogManager.earliestCatalogVersion());
         assertNotNull(earliestCatalog);
 
         CatalogCompactionRunner compactor =
-                createCompactor(NODE1, NODE1, (n) -> earliestCatalog.time() - 1, logicalNodes, logicalNodes);
+                createRunner(NODE1, NODE1, (n) -> earliestCatalog.time() - 1, logicalNodes, logicalNodes);
 
         assertThat(compactor.startCompaction(clockService.now()), willBe(false));
     }
 
     @Test
-    public void compactionIsNotPerformedWhenAnyAssignmentNodeIsMissing() {
-        assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
-
-        CatalogCommand command = CreateTableCommand.builder()
+    public void mustNotPerformWhenAssignmentNodeIsMissing() {
+        CatalogCommand createTableCommand = CreateTableCommand.builder()
                 .tableName("test")
                 .schemaName("PUBLIC")
                 .columns(List.of(columnParams("key1", INT32), columnParams("key2", INT32), columnParams("val", INT32, true)))
@@ -161,16 +154,17 @@ public class CatalogCompactionRunnerSelfTest extends BaseIgniteAbstractTest {
                 .colocationColumns(List.of("key2"))
                 .build();
 
-        assertThat(catalogManager.execute(command), willCompleteSuccessfully());
+        assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
+        assertThat(catalogManager.execute(createTableCommand), willCompleteSuccessfully());
         assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
 
         Catalog catalog = catalogManager.catalog(catalogManager.activeCatalogVersion(clockService.nowLong()));
 
         assertNotNull(catalog);
 
-        // Node NODE3 from the assignment is missing in logical topology snapshot.
+        // Node NODE3 from the assignment is missing in logical topology.
         {
-            CatalogCompactionRunner compactor = createCompactor(
+            CatalogCompactionRunner compactor = createRunner(
                     NODE1,
                     NODE1,
                     (n) -> catalog.time(),
@@ -183,7 +177,7 @@ public class CatalogCompactionRunnerSelfTest extends BaseIgniteAbstractTest {
 
         // All nodes from the assignments are present in logical topology.
         {
-            CatalogCompactionRunner compactor = createCompactor(
+            CatalogCompactionRunner compactor = createRunner(
                     NODE1,
                     NODE1,
                     (n) -> catalog.time(),
@@ -195,15 +189,15 @@ public class CatalogCompactionRunnerSelfTest extends BaseIgniteAbstractTest {
         }
     }
 
-    private CatalogCompactionRunner createCompactor(
+    private CatalogCompactionRunner createRunner(
             ClusterNode localNode,
             ClusterNode coordinator,
             Function<String, Long> timeSupplier
     ) {
-        return createCompactor(localNode, coordinator, timeSupplier, logicalNodes, logicalNodes);
+        return createRunner(localNode, coordinator, timeSupplier, logicalNodes, logicalNodes);
     }
 
-    private CatalogCompactionRunner createCompactor(
+    private CatalogCompactionRunner createRunner(
             ClusterNode localNode,
             ClusterNode coordinator,
             Function<String, Long> timeSupplier,
@@ -245,27 +239,21 @@ public class CatalogCompactionRunnerSelfTest extends BaseIgniteAbstractTest {
                 clockService,
                 placementDriver,
                 catalogManager,
-                () -> HybridTimestamp.MIN_VALUE,
                 ForkJoinPool.commonPool()
         );
     }
 
-    private CatalogManagerImpl createCatalogManager(HybridClock clock) {
+    private static CatalogManagerImpl createCatalogManager(HybridClock clock) {
         StandaloneMetaStorageManager metastore = StandaloneMetaStorageManager.create(new SimpleInMemoryKeyValueStorage(NODE1.name()));
-
-        UpdateLogImpl updateLog = spy(new UpdateLogImpl(metastore));
-        ClockWaiter clockWaiter = spy(new ClockWaiter(NODE1.name(), clock));
-
+        ClockWaiter clockWaiter = new ClockWaiter(NODE1.name(), clock);
         TestClockService clockService = new TestClockService(clock, clockWaiter);
 
-        catalogManager = new CatalogManagerImpl(updateLog, clockService);
+        CatalogManagerImpl manager = new CatalogManagerImpl(new UpdateLogImpl(metastore), clockService);
 
-        assertThat(startAsync(new ComponentContext(), metastore, clockWaiter, catalogManager), willCompleteSuccessfully());
-
+        assertThat(startAsync(new ComponentContext(), metastore, clockWaiter, manager), willCompleteSuccessfully());
         assertThat("Watches were not deployed", metastore.deployWatches(), willCompleteSuccessfully());
+        awaitDefaultZoneCreation(manager);
 
-        awaitDefaultZoneCreation(catalogManager);
-
-        return catalogManager;
+        return manager;
     }
 }

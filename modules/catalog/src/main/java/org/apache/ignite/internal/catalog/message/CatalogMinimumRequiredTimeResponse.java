@@ -22,9 +22,11 @@ import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
- * TODO Describe it.
+ * Response message containing the low watermark required for the local node.
+ * This watermark is used to safely truncate catalog history.
  */
 @Transferable(CatalogMessageGroup.MINIMUM_REQUIRED_TIME_RESPONSE)
 public interface CatalogMinimumRequiredTimeResponse extends NetworkMessage, Serializable {
+    /** Returns node's minimum required time. */
     long timestamp();
 }

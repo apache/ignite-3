@@ -30,11 +30,11 @@ dependencies {
     implementation project(':ignite-core')
     implementation project(':ignite-configuration')
     implementation project(':ignite-metastorage-api')
+    implementation project(':ignite-vault')
+    implementation project(':ignite-system-view-api')
     implementation project(':ignite-cluster-management')
     implementation project(':ignite-placement-driver-api')
     implementation project(':ignite-affinity')
-    implementation project(':ignite-vault')
-    implementation project(':ignite-system-view-api')
 
     implementation libs.jetbrains.annotations
     implementation libs.auto.service.annotations
