@@ -23,6 +23,8 @@ import static org.apache.calcite.sql.type.NonNullableAccessors.getCollation;
 import static org.apache.calcite.sql.type.SqlTypeName.CHAR_TYPES;
 import static org.apache.calcite.sql.type.SqlTypeName.VARCHAR;
 import static org.apache.calcite.util.Static.RESOURCE;
+import static org.apache.ignite.internal.sql.engine.prepare.IgniteSqlValidator.checkStringContainDigitsOnly;
+import static org.apache.ignite.internal.sql.engine.prepare.IgniteSqlValidator.extractLiteral;
 
 import java.nio.charset.Charset;
 import java.util.ArrayDeque;
@@ -44,6 +46,7 @@ import org.apache.calcite.sql.SqlFunction;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlInsert;
 import org.apache.calcite.sql.SqlKind;
+import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.sql.SqlOperator;
@@ -102,6 +105,17 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
         SqlValidatorScope scope = binding.getScope();
         RelDataType leftType = binding.getOperandType(0);
         RelDataType rightType = binding.getOperandType(1);
+
+        if (SqlTypeUtil.isIntType(leftType) && SqlTypeUtil.isCharacter(rightType)
+                || SqlTypeUtil.isIntType(rightType) && SqlTypeUtil.isCharacter(leftType)) {
+
+            SqlLiteral lit = extractLiteral(call, validator);
+
+            if (lit != null) {
+                String strVal = lit.toValue();
+                checkStringContainDigitsOnly(strVal, binding.getCall().getParserPosition());
+            }
+        }
 
         //
         // binaryComparisonCoercion that makes '1' > 1 work, may introduce some inconsistent results

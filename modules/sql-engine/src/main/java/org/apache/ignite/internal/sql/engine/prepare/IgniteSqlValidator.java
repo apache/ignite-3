@@ -39,17 +39,22 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.prepare.CalciteCatalogReader;
 import org.apache.calcite.prepare.Prepare;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeField;
+import org.apache.calcite.runtime.CalciteException;
 import org.apache.calcite.schema.impl.ModifiableViewTable;
 import org.apache.calcite.sql.JoinConditionType;
 import org.apache.calcite.sql.SqlAggFunction;
 import org.apache.calcite.sql.SqlBasicCall;
 import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlCallBinding;
+import org.apache.calcite.sql.SqlCharStringLiteral;
+import org.apache.calcite.sql.SqlDataTypeSpec;
 import org.apache.calcite.sql.SqlDelete;
 import org.apache.calcite.sql.SqlDynamicParam;
 import org.apache.calcite.sql.SqlExplain;
@@ -62,6 +67,7 @@ import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlMerge;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
+import org.apache.calcite.sql.SqlNumericLiteral;
 import org.apache.calcite.sql.SqlOperator;
 import org.apache.calcite.sql.SqlOperatorTable;
 import org.apache.calcite.sql.SqlSelect;
@@ -103,6 +109,8 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     private static final Set<SqlKind> HUMAN_READABLE_ALIASES_FOR;
 
     public static final String NUMERIC_FIELD_OVERFLOW_ERROR = "Numeric field overflow";
+
+    private static final Pattern DIGITS_REG = Pattern.compile("^\\s*\\d+\\s*$");
 
     static {
         EnumSet<SqlKind> kinds = EnumSet.noneOf(SqlKind.class);
@@ -604,6 +612,27 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
                 });
     }
 
+    /** Check string contain only digit characters.
+     *
+     * @param strVal String representation.
+     * @param pos Current validator position.
+     *
+     * @throws CalciteException if unexpected input string found.
+     **/
+    static void checkStringContainDigitsOnly(@Nullable String strVal, SqlParserPos pos) throws CalciteException {
+        if (strVal == null) {
+            return;
+        }
+
+        Matcher matcher = DIGITS_REG.matcher(strVal);
+        boolean ret = matcher.find();
+
+        if (!ret) {
+            var ex = RESOURCE.invalidCharacterForCast(strVal);
+            throw SqlUtil.newContextException(pos, ex);
+        }
+    }
+
     /** Check appropriate type cast availability. */
     private void checkTypesInteroperability(SqlValidatorScope scope, SqlNode expr) {
         boolean castOp = expr.getKind() == SqlKind.CAST;
@@ -671,6 +700,40 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
                 }
             }
         }
+    }
+
+    /** Extracts literal from CAST or COMPARISON operations if applicable. */
+    static @Nullable SqlLiteral extractLiteral(SqlCall call, SqlValidator validator) {
+        if (call.getOperator().getKind() == SqlKind.CAST) {
+            return extractLiteralFromCast(call, validator);
+        }
+
+        if (SqlKind.BINARY_COMPARISON.contains(call.getOperator().getKind()) && call.getOperandList().size() == 2) {
+            for (SqlNode node : call.getOperandList()) {
+                if (node instanceof SqlCharStringLiteral) {
+                    return (SqlCharStringLiteral) node;
+                } else if (node.getKind() == SqlKind.CAST) {
+                    return extractLiteralFromCast((SqlCall) node, validator);
+                }
+            }
+        }
+
+        return null;
+    }
+
+    static @Nullable SqlLiteral extractLiteralFromCast(SqlCall call, SqlValidator validator) {
+        if (call.getOperator().getKind() == SqlKind.CAST) {
+            SqlNode lit = call.getOperandList().get(0);
+            SqlDataTypeSpec type = (SqlDataTypeSpec) call.getOperandList().get(1);
+            RelDataType derived = type.deriveType(validator);
+            if (lit instanceof SqlNumericLiteral && SqlTypeUtil.isCharacter(derived)) {
+                return (SqlNumericLiteral) lit;
+            } else {
+                return null;
+            }
+        }
+
+        return null;
     }
 
     @Override
