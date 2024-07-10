@@ -12,7 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import distutils.extension
 import os
 import platform
 import re
@@ -24,7 +23,7 @@ from setuptools.command.build_ext import build_ext
 from setuptools.extension import Extension
 
 PACKAGE_NAME = 'pyignite3'
-EXTENSION_NAME = '_pyignite3'
+EXTENSION_NAME = 'pyignite3._pyignite3_extension'
 
 
 def is_a_requirement(req_line):
@@ -45,13 +44,12 @@ with open('requirements/install.txt', 'r', encoding='utf-8') as requirements_fil
 with open('README.md', 'r', encoding='utf-8') as readme_file:
     long_description = readme_file.read()
 
-version = ''
+version = None
 with open(PACKAGE_NAME + '/__init__.py', 'r') as fd:
     version = re.search(r'^__version__\s*=\s*[\'"]([^\'"]*)[\'"]',
                         fd.read(), re.MULTILINE).group(1)
-
-if not version:
-    raise RuntimeError('Cannot find version information')
+    if not version:
+        raise RuntimeError('Cannot find version information')
 
 
 def _get_env_variable(name, default='OFF'):

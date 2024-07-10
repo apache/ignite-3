@@ -24,9 +24,12 @@ typedef unsigned __int32 uint32_t;
 typedef __int64 int64_t;
 typedef unsigned __int64 uint64_t;
 
+#include <iostream>
+
 #else
 #include <stdint.h>
 #endif
+
 
 PyObject* connect(PyObject* self, PyObject *args, PyObject* kwargs);
 
@@ -42,7 +45,7 @@ static PyMethodDef methods[] = {
 
 static struct PyModuleDef moduledef = {
     PyModuleDef_HEAD_INIT,
-    "_pyignite3",
+    "_pyignite3_extension",
     NULL,                 /* m_doc */
     -1,                   /* m_size */
     methods,              /* m_methods */
@@ -53,7 +56,8 @@ static struct PyModuleDef moduledef = {
 };
 
 
-PyMODINIT_FUNC PyInit__pyignite3(void) {
+PyMODINIT_FUNC PyInit__pyignite3_extension(void) {
+    std::cout << "====================================== Test" << std::endl;
 	return PyModule_Create(&moduledef);
 }
 

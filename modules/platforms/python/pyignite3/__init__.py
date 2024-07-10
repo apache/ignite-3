@@ -13,7 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from pyignite3 import _pyignite3_extension
+
 __version__ = '3.0.0-beta2'
+
+
+def connect(**kwargs):
+    _pyignite3_extension.connect(**kwargs)
 
 
 class Error(Exception):

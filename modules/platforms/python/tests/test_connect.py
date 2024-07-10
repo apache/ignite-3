@@ -14,16 +14,18 @@
 # limitations under the License.
 import pytest
 
+import pyignite3
 from tests.util import start_cluster_gen
 
 
-@pytest.fixture(autouse=True)
-def cluster():
-    yield from start_cluster_gen()
+# @pytest.fixture(autouse=True)
+# def cluster():
+#     yield from start_cluster_gen()
 
 
-def check_connection_success(caplog):
+def test_check_connection_success():
     # TODO: Move cluster addresses in const
     conn = pyignite3.connect(address='127.0.0.1:10942')
+    assert conn is not None
 
 
