@@ -17,12 +17,13 @@
 
 namespace Apache.Ignite.Table;
 
+using System;
 using System.Diagnostics.CodeAnalysis;
 
 /// <summary>
 /// Table partition.
 /// </summary>
 [SuppressMessage("Design", "CA1040:Avoid empty interfaces", Justification = "Reviewed.")]
-public interface IPartition
+public interface IPartition : IEquatable<IPartition>
 {
 }

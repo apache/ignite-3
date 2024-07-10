@@ -162,6 +162,6 @@ public class PartitionManagerTests : IgniteTestsBase
 
     private class MyPartition : IPartition
     {
-        // No-op.
+        public bool Equals(IPartition? other) => false;
     }
 }
