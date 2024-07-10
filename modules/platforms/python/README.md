@@ -42,6 +42,7 @@ $ pip install -r requirements/install.txt -r requirements/tests.txt
 ```
 
 ### Run basic tests
+Running tests themselves:
 ```bash
 $ pytest
 ```

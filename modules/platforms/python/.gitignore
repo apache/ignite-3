@@ -2,6 +2,7 @@
 .benchmarks
 .vscode
 .eggs
+*.egg-info
 .pytest_cache
 *.so
 *.pyd
