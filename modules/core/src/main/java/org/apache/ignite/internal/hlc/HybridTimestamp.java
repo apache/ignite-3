@@ -201,7 +201,7 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
      */
     public HybridTimestamp addPhysicalTime(long millis) {
         if (millis >= (1L << PHYSICAL_TIME_BITS_SIZE)) {
-            throw new IllegalArgumentException("Physical time is out of bounds: " + millis);
+            throw new AssertionError("Physical time is out of bounds: " + millis);
         }
 
         return new HybridTimestamp(time + (millis << LOGICAL_TIME_BITS_SIZE));
