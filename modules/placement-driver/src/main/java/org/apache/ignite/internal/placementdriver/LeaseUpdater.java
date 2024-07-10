@@ -459,11 +459,15 @@ public class LeaseUpdater {
                 if (e != null) {
                     LOG.error("Lease update invocation failed", e);
 
+                    cancelAgreements(toBeNegotiated.keySet());
+
                     return;
                 }
 
                 if (!success) {
                     LOG.debug("Lease update invocation failed");
+
+                    cancelAgreements(toBeNegotiated.keySet());
 
                     return;
                 }
@@ -475,6 +479,12 @@ public class LeaseUpdater {
                     leaseNegotiator.negotiate(lease, force);
                 }
             });
+        }
+
+        private void cancelAgreements(Collection<ReplicationGroupId> groupIds) {
+            for (ReplicationGroupId groupId : groupIds) {
+                leaseNegotiator.cancelAgreement(groupId);
+            }
         }
 
         /**
@@ -499,6 +509,8 @@ public class LeaseUpdater {
             renewedLeases.put(grpId, renewedLease);
 
             LOG.info("Writing new lease {} [groupId={}, startTime={}, leaseholderId={}, lease={}]", cmnt, grpId, renewedLease.getStartTime(), renewedLease.getLeaseholderId(), renewedLease);
+
+            leaseNegotiator.createAgreement(grpId, renewedLease);
 
             leaseUpdateStatistics.onLeaseCreate();
         }

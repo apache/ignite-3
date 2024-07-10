@@ -158,4 +158,8 @@ public class LeaseAgreement {
             }
         }
     }
+
+    public CompletableFuture<LeaseGrantedMessageResponse> responseFut() {
+        return responseFut;
+    }
 }

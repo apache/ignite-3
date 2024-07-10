@@ -66,15 +66,11 @@ public class LeaseNegotiator {
      * @param force If the flag is true, the process tries to insist of apply the lease.
      */
     public void negotiate(Lease lease, boolean force) {
-        var fut = new CompletableFuture<LeaseGrantedMessageResponse>();
-
         ReplicationGroupId groupId = lease.replicationGroupId();
 
-        LeaseAgreement prevAgreement = leaseToNegotiate.put(groupId, new LeaseAgreement(lease, fut));
+        LeaseAgreement agreement = leaseToNegotiate.get(groupId);
 
-        if (prevAgreement != null) {
-            LOG.warn("There was a previous agreement that is removed [groupId={}, ready={}, accepted={}, lease=]", groupId, prevAgreement.ready(), prevAgreement.isAccepted(), prevAgreement.getLease());
-        }
+        CompletableFuture<LeaseGrantedMessageResponse> fut = agreement.responseFut();
 
         long leaseInterval = lease.getExpirationTime().getPhysical() - lease.getStartTime().getPhysical();
 
@@ -133,5 +129,16 @@ public class LeaseNegotiator {
      */
     public void onLeaseRemoved(ReplicationGroupId groupId) {
         leaseToNegotiate.remove(groupId);
+    }
+
+    public void createAgreement(ReplicationGroupId groupId, Lease lease) {
+        leaseToNegotiate.put(groupId, new LeaseAgreement(lease, new CompletableFuture<>()));
+    }
+
+    public void cancelAgreement(ReplicationGroupId groupId) {
+        LeaseAgreement agreement = leaseToNegotiate.remove(groupId);
+        if (agreement != null) {
+            agreement.responseFut().completeExceptionally(new Exception("Cancelled."));
+        }
     }
 }
