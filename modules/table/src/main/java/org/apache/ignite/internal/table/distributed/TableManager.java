@@ -1087,9 +1087,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         long skewMs = clockService.maxClockSkewMillis();
 
         try {
-            HybridTimestamp previousMetastoreSafeTime = currentSafeTimeMs - skewMs > 0L
-                    ? currentSafeTime.addPhysicalTime(-skewMs)
-                    : currentSafeTime;
+            HybridTimestamp previousMetastoreSafeTime = currentSafeTime.subtractPhysicalTime(skewMs);
 
             return executorInclinedPlacementDriver.getPrimaryReplica(replicationGroupId, previousMetastoreSafeTime)
                     .thenApply(replicaMeta -> replicaMeta != null
