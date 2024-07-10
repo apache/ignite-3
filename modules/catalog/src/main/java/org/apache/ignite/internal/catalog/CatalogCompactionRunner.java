@@ -21,7 +21,6 @@ import static java.util.function.Predicate.not;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
@@ -85,13 +84,13 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
     private final MessagingService messagingService;
 
+    private final TopologyService topologyService;
+
     private final LogicalTopologyService logicalTopologyService;
 
     private final PlacementDriver placementDriver;
 
     private final ClockService clockService;
-
-    private final TopologyService topologyService;
 
     private final Executor executor;
 
@@ -255,12 +254,9 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
     private Set<String> requiredNodes(Catalog catalog) {
         HybridTimestamp nowTs = clockService.now();
-
         Set<String> required = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
-        Collection<CatalogTableDescriptor> tables = catalog.tables();
-
-        for (CatalogTableDescriptor table : tables) {
+        for (CatalogTableDescriptor table : catalog.tables()) {
             CatalogZoneDescriptor zone = catalog.zone(table.zoneId());
 
             assert zone != null : table.zoneId();

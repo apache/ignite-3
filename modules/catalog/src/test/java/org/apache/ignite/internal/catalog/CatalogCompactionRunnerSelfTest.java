@@ -34,11 +34,11 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.affinity.Assignment;
@@ -97,19 +97,31 @@ public class CatalogCompactionRunnerSelfTest extends BaseIgniteAbstractTest {
     public void routineSucceedOnCoordinator() throws InterruptedException {
         assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
         assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
+
         assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
+        Catalog catalog1 = catalogManager.catalog(catalogManager.latestCatalogVersion());
+        assertNotNull(catalog1);
 
-        Catalog catalog = catalogManager.catalog(catalogManager.activeCatalogVersion(clockService.nowLong()));
-        assertNotNull(catalog);
+        assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
+        Catalog catalog2 = catalogManager.catalog(catalogManager.latestCatalogVersion() - 1);
+        assertNotNull(catalog2);
 
-        AtomicLong timeCounter = new AtomicLong(catalog.time());
+        assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
+        Catalog catalog3 = catalogManager.catalog(catalogManager.latestCatalogVersion());
+        assertNotNull(catalog3);
 
-        CatalogCompactionRunner compactionRunner = createRunner(NODE1, NODE1, (n) -> timeCounter.getAndIncrement());
+        Map<String, Long> nodeToTime = Map.of(
+                NODE3.name(), catalog1.time(),
+                NODE2.name(), catalog2.time(),
+                NODE1.name(), catalog3.time()
+        );
+
+        CatalogCompactionRunner compactionRunner = createRunner(NODE1, NODE1, nodeToTime::get);
 
         assertThat(compactionRunner.onLowWatermarkChanged(clockService.now()), willBe(false));
         assertThat(compactionRunner.lastRunFuture(), willBe(true));
 
-        int expectedEarliestCatalogVersion = catalog.version() - 1;
+        int expectedEarliestCatalogVersion = catalog1.version() - 1;
 
         waitForCondition(() -> expectedEarliestCatalogVersion == catalogManager.earliestCatalogVersion(), 3_000);
         assertEquals(expectedEarliestCatalogVersion, catalogManager.earliestCatalogVersion());
