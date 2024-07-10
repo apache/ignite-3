@@ -201,7 +201,7 @@ public class DistributionZoneRebalanceEngine {
         if (!stopGuard.compareAndSet(false, true)) {
             return;
         }
-
+        distributionZoneRebalanceEngineV2.stop();
         metaStorageManager.unregisterWatch(dataNodesListener);
     }
 
