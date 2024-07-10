@@ -122,8 +122,8 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
     @SuppressWarnings("ThrowableNotThrown")
     public void exactWithApproxComparison() {
         assertThrowsSqlException(
-                STMT_VALIDATION_ERR,
-                "Invalid character for cast",
+                RUNTIME_ERR,
+                "Invalid input syntax for type INTEGER",
                 () -> sql("SELECT '1.1' > 2"));
 
         assertThrowsSqlException(
@@ -152,42 +152,46 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
 
         BigDecimal moreThanUpperBoundApprox = new BigDecimal(strUpper).add(new BigDecimal(1.1));
 
+        String errMsg = typeName == SqlTypeName.BIGINT ? "BIGINT out of range" : "Invalid input syntax for type " + typeName;
+
         assertThrowsSqlException(
-                STMT_VALIDATION_ERR,
-                "Invalid character for cast",
+                RUNTIME_ERR,
+                errMsg,
                 () -> sql(format("SELECT * FROM tbl WHERE v = '{}'", moreThanUpperBoundApprox)));
 
         assertThrowsSqlException(
-                STMT_VALIDATION_ERR,
-                "Invalid character for cast",
+                RUNTIME_ERR,
+                errMsg,
                 () -> sql(format("SELECT * FROM tbl WHERE v = {}::VARCHAR", moreThanUpperBoundApprox)));
 
         assertThrowsSqlException(
-                STMT_VALIDATION_ERR,
-                "Invalid character for cast",
+                RUNTIME_ERR,
+                errMsg,
                 () -> sql(format("SELECT * FROM tbl WHERE v < '{}'", moreThanUpperBoundApprox)));
 
         assertThrowsSqlException(
-                STMT_VALIDATION_ERR,
-                "Invalid character for cast",
+                RUNTIME_ERR,
+                errMsg,
                 () -> sql(format("SELECT * FROM tbl WHERE v > '{}'", moreThanUpperBoundApprox)));
 
         assertThrowsSqlException(
-                STMT_VALIDATION_ERR,
-                "Invalid character for cast",
+                RUNTIME_ERR,
+                errMsg,
                 () -> sql(format("SELECT * FROM tbl WHERE v <> '{}'", moreThanUpperBoundApprox)));
 
         assertThrowsSqlException(
-                STMT_VALIDATION_ERR,
-                "Invalid character for cast",
+                RUNTIME_ERR,
+                errMsg,
                 () -> sql(format("SELECT * FROM tbl WHERE v != ' {} '", moreThanUpperBoundApprox)));
 
         assertThrowsSqlException(
-                RUNTIME_ERR, "",
+                RUNTIME_ERR,
+                errMsg,
                 () -> sql(format("SELECT * FROM tbl WHERE v NOT IN ('1', '{}')", moreThanUpperBoundApprox)));
 
         assertThrowsSqlException(
-                RUNTIME_ERR, "",
+                RUNTIME_ERR,
+                errMsg,
                 () -> sql(format("SELECT * FROM tbl WHERE v NOT IN ('1', {}::VARCHAR)", moreThanUpperBoundApprox)));
 
         assertThrowsSqlException(

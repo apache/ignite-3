@@ -39,14 +39,11 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.prepare.CalciteCatalogReader;
 import org.apache.calcite.prepare.Prepare;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeField;
-import org.apache.calcite.runtime.CalciteException;
 import org.apache.calcite.schema.impl.ModifiableViewTable;
 import org.apache.calcite.sql.JoinConditionType;
 import org.apache.calcite.sql.SqlAggFunction;
@@ -106,8 +103,6 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     private static final Set<SqlKind> HUMAN_READABLE_ALIASES_FOR;
 
     public static final String NUMERIC_FIELD_OVERFLOW_ERROR = "Numeric field overflow";
-
-    private static final Pattern DIGITS_REG = Pattern.compile("^\\s*\\d+\\s*$");
 
     static {
         EnumSet<SqlKind> kinds = EnumSet.noneOf(SqlKind.class);
@@ -607,27 +602,6 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
                         return types.size();
                     }
                 });
-    }
-
-    /** Check string contain only digit characters.
-     *
-     * @param strVal String representation.
-     * @param pos Current validator position.
-     *
-     * @throws CalciteException if unexpected input string found.
-     **/
-    static void checkStringContainDigitsOnly(@Nullable String strVal, SqlParserPos pos) throws CalciteException {
-        if (strVal == null) {
-            return;
-        }
-
-        Matcher matcher = DIGITS_REG.matcher(strVal);
-        boolean ret = matcher.find();
-
-        if (!ret) {
-            var ex = RESOURCE.invalidCharacterForCast(strVal);
-            throw SqlUtil.newContextException(pos, ex);
-        }
     }
 
     /** Check appropriate type cast availability. */
