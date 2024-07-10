@@ -90,7 +90,7 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
         // Negative time breaks comparison, we don't allow overflow of the physical time.
         // "0" is a reserved value for "NULL_HYBRID_TIMESTAMP".
         if (time <= 0) {
-            throw new AssertionError("Time is out of bounds: " + time);
+            throw new IllegalStateException("Time is out of bounds: " + time);
         }
     }
 

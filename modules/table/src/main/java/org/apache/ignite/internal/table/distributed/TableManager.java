@@ -45,6 +45,7 @@ import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUt
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.tablesCounterKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.union;
 import static org.apache.ignite.internal.event.EventListener.fromConsumer;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.LOGICAL_TIME_BITS_SIZE;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.or;
@@ -1085,14 +1086,21 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         long currentSafeTimeMs = currentSafeTime.longValue();
         long skewMs = clockService.maxClockSkewMillis();
 
-        HybridTimestamp previousMetastoreSafeTime = currentSafeTimeMs - skewMs > 0L
-                ? currentSafeTime.addPhysicalTime(-skewMs)
-                : currentSafeTime;
+        try {
+            HybridTimestamp previousMetastoreSafeTime = currentSafeTimeMs - skewMs > 0L
+                    ? currentSafeTime.addPhysicalTime(-skewMs)
+                    : currentSafeTime;
 
-        return executorInclinedPlacementDriver.getPrimaryReplica(replicationGroupId, previousMetastoreSafeTime)
-                .thenApply(replicaMeta -> replicaMeta != null
-                        && replicaMeta.getLeaseholderId() != null
-                        && replicaMeta.getLeaseholderId().equals(localNode().name()));
+            return executorInclinedPlacementDriver.getPrimaryReplica(replicationGroupId, previousMetastoreSafeTime)
+                    .thenApply(replicaMeta -> replicaMeta != null
+                            && replicaMeta.getLeaseholderId() != null
+                            && replicaMeta.getLeaseholderId().equals(localNode().name()));
+        } catch (IllegalStateException e) {
+            LOG.info("!!! [currentSafeTimeMs=" + currentSafeTimeMs
+                    + ", skewMs=" + skewMs
+                    + ", internal=" + (currentSafeTimeMs + ((-skewMs) << LOGICAL_TIME_BITS_SIZE)) + "]");
+            throw e;
+        }
     }
 
     private PartitionDataStorage partitionDataStorage(MvPartitionStorage partitionStorage, InternalTable internalTbl, int partId) {
