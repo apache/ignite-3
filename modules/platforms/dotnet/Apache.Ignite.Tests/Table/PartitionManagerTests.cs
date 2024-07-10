@@ -160,6 +160,19 @@ public class PartitionManagerTests : IgniteTestsBase
         Assert.AreEqual("n2", replica2.Name);
     }
 
+    [Test]
+    public void TestPartitionEquality()
+    {
+        IPartition part1 = new HashPartition(1);
+        IPartition part1Copy = new HashPartition(1);
+        IPartition part2 = new HashPartition(2);
+        IPartition customPart = new MyPartition();
+
+        Assert.IsTrue(part1.Equals(part1Copy));
+        Assert.IsFalse(part1.Equals(part2));
+        Assert.IsFalse(part1.Equals(customPart));
+    }
+
     private class MyPartition : IPartition
     {
         public bool Equals(IPartition? other) => false;
