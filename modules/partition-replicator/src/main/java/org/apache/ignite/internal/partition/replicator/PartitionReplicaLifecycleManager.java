@@ -748,7 +748,6 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
                 ? emptySet()
                 : Assignments.fromBytes(stableAssignmentsWatchEvent.value()).nodes();
 
-
         return supplyAsync(() -> {
             Entry pendingAssignmentsEntry = metaStorageMgr.getLocally(pendingPartAssignmentsKey(zonePartitionId), revision);
 
