@@ -372,9 +372,11 @@ public class LeaseUpdater {
                     agreement.checkValid(grpId, topologyTracker.currentTopologySnapshot(), assignments);
 
                     if (agreement.isAccepted()) {
-                        LOG.info("Publishing lease [groupId={}, startTime={}, leaseholderId={}, agreementLease={}]", grpId, lease.getStartTime(), lease.getLeaseholderId(), agreement.getLease());
+                        Lease negotiatedLease = agreement.getLease();
 
-                        assert lease.getStartTime().equals(agreement.getLease().getStartTime())
+                        LOG.info("Publishing lease [groupId={}, startTime={}, leaseholderId={}, agreementLease={}]", grpId, lease.getStartTime(), lease.getLeaseholderId(), negotiatedLease);
+
+                        assert negotiatedLease.getStartTime().longValue() >= lease.getStartTime().longValue()
                                 : format("Can't publish the lease that was not negotiated [groupId={}, startTime={}, "
                                     + "agreementLeaseStartTime={}].", grpId, lease.getStartTime(), agreement.getLease().getStartTime());
 
