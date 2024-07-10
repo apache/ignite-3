@@ -1085,7 +1085,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         long currentSafeTimeMs = currentSafeTime.longValue();
         long skewMs = clockService.maxClockSkewMillis();
 
-        HybridTimestamp previousMetastoreSafeTime = currentSafeTimeMs - skewMs < 0L
+        HybridTimestamp previousMetastoreSafeTime = currentSafeTimeMs - skewMs > 0L
                 ? currentSafeTime.addPhysicalTime(-skewMs)
                 : currentSafeTime;
 

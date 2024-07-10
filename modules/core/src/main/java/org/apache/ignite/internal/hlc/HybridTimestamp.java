@@ -90,7 +90,7 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
         // Negative time breaks comparison, we don't allow overflow of the physical time.
         // "0" is a reserved value for "NULL_HYBRID_TIMESTAMP".
         if (time <= 0) {
-            throw new IllegalArgumentException("Time is out of bounds: " + time);
+            throw new AssertionError("Time is out of bounds: " + time);
         }
     }
 
@@ -201,7 +201,7 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
      */
     public HybridTimestamp addPhysicalTime(long millis) {
         if (millis >= (1L << PHYSICAL_TIME_BITS_SIZE)) {
-            throw new AssertionError("Physical time is out of bounds: " + millis);
+            throw new IllegalStateException("Physical time is out of bounds: " + millis);
         }
 
         return new HybridTimestamp(time + (millis << LOGICAL_TIME_BITS_SIZE));
