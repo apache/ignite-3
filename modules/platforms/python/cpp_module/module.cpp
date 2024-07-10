@@ -15,20 +15,13 @@
  * limitations under the License.
  */
 
+#include <ignite/odbc/sql_environment.h>
+#include <ignite/odbc/sql_connection.h>
+
+#include <memory>
+#include <cmath>
+
 #include <Python.h>
-
-#ifdef _MSC_VER
-
-typedef __int32 int32_t;
-typedef unsigned __int32 uint32_t;
-typedef __int64 int64_t;
-typedef unsigned __int64 uint64_t;
-
-#include <iostream>
-
-#else
-#include <stdint.h>
-#endif
 
 
 PyObject* connect(PyObject* self, PyObject *args, PyObject* kwargs);
@@ -57,8 +50,34 @@ static struct PyModuleDef moduledef = {
 
 
 PyMODINIT_FUNC PyInit__pyignite3_extension(void) {
-    std::cout << "====================================== Test" << std::endl;
 	return PyModule_Create(&moduledef);
+}
+
+bool check_errors(ignite::diagnosable& diag) {
+    auto &records = diag.get_diagnostic_records();
+    if (records.is_successful())
+        return true;
+
+    std::string err_msg;
+    switch (records.get_return_code()) {
+        case SQL_INVALID_HANDLE:
+            err_msg = "Invalid object handle";
+            break;
+
+        case SQL_NO_DATA:
+            err_msg = "No data available";
+            break;
+
+        case SQL_ERROR:
+            auto record = records.get_status_record(1);
+            err_msg = record.get_message_text();
+            break;
+    }
+
+    // TODO: Set a proper error here, not a standard one.
+    PyErr_SetString(PyExc_RuntimeError, err_msg.c_str());
+
+    return false;
 }
 
 static PyObject* connect(PyObject* self, PyObject* args, PyObject* kwargs) {
@@ -85,6 +104,46 @@ static PyObject* connect(PyObject* self, PyObject* args, PyObject* kwargs) {
         args, kwargs, "s|ssssdi", kwlist, &address, &identity, &secret, &schema, &timezone, &timeout, &page_size);
 
     if (!parsed)
+        return NULL;
+
+    using namespace ignite;
+
+    auto sql_env = std::make_unique<sql_environment>();
+
+    std::unique_ptr<sql_connection> sql_conn{sql_env->create_connection()};
+    if (!check_errors(*sql_env))
+        return NULL;
+
+    configuration cfg;
+    cfg.set_address(address);
+
+    if (schema)
+        cfg.set_schema(schema);
+
+    if (identity)
+        cfg.set_auth_identity(identity);
+
+    if (secret)
+        cfg.set_auth_secret(secret);
+
+    if (page_size)
+        cfg.set_page_size(std::int32_t(page_size));
+
+    std::int32_t ms_timeout = std::lround(timeout * 1000.0);
+    if (ms_timeout)
+    {
+        void* ptr_timeout = (void*)(ptrdiff_t(ms_timeout));
+        sql_conn->set_attribute(SQL_ATTR_CONNECTION_TIMEOUT, ptr_timeout, 0);
+        if (!check_errors(*sql_conn))
+            return NULL;
+
+        sql_conn->set_attribute(SQL_ATTR_LOGIN_TIMEOUT, ptr_timeout, 0);
+        if (!check_errors(*sql_conn))
+            return NULL;
+    }
+
+    sql_conn->establish(cfg);
+    if (!check_errors(*sql_conn))
         return NULL;
 
     return NULL;
