@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.metastorage.impl;
 
 import static org.apache.ignite.internal.metastorage.command.GetAllCommand.getAllCommand;
+import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -74,6 +75,8 @@ public class MetaStorageServiceImpl implements MetaStorageService {
 
     private final CommandIdGenerator commandIdGenerator;
 
+    private final IgniteSpinBusyLock busyLock;
+
     /**
      * Constructor.
      *
@@ -96,6 +99,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
 
         this.clusterTime = clusterTime;
         this.commandIdGenerator = new CommandIdGenerator(nodeIdSupplier);
+        this.busyLock = busyLock;
     }
 
     public RaftGroupService raftGroupService() {
@@ -124,7 +128,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         GetAllCommand getAllCommand = getAllCommand(context.commandsFactory(), keys, revUpperBound);
 
         return context.raftService().<List<Entry>>run(getAllCommand)
-                .thenApply(MetaStorageServiceImpl::multipleEntryResult);
+                .thenApply(inBusyLock(busyLock, () -> MetaStorageServiceImpl::multipleEntryResult));
     }
 
     @Override
