@@ -3,7 +3,6 @@
 .vscode
 .eggs
 .pytest_cache
-.tox
 *.so
 *.pyd
 build

@@ -29,6 +29,7 @@ message("Python3_FOUND:${Python3_FOUND}")
 message("Python3_VERSION:${Python3_VERSION}")
 message("Python3_Development_FOUND:${Python3_Development_FOUND}")
 message("Python3_LIBRARIES:${Python3_LIBRARIES}")
+message("EXTENSION_FILENAME:${EXTENSION_FILENAME}")
 
 # Dealing with Ignite C++ libraries
 set(ENABLE_ODBC ON)

@@ -12,6 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import distutils.extension
 import os
 import platform
 import re
@@ -82,23 +83,25 @@ class CMakeBuild(build_ext):
         for ext in self.extensions:
             ext_dir = os.path.abspath(os.path.dirname(self.get_ext_fullpath(ext.name)))
             cfg = 'Release'
+            ext_file = os.path.splitext(self.get_ext_filename(self.get_ext_fullname(ext.name)))[0]
 
             cmake_args = [
-                '-DCMAKE_BUILD_TYPE=%s' % cfg,
-                '-DCMAKE_LIBRARY_OUTPUT_DIRECTORY_{}={}'.format(cfg.upper(), ext_dir),
-                '-DCMAKE_ARCHIVE_OUTPUT_DIRECTORY_{}={}'.format(cfg.upper(), self.build_temp),
-                '-DPYTHON_EXECUTABLE={}'.format(sys.executable),
+                f'-DCMAKE_BUILD_TYPE={cfg}',
+                f'-DCMAKE_LIBRARY_OUTPUT_DIRECTORY_{cfg.upper()}={ext_dir}',
+                f'-DCMAKE_ARCHIVE_OUTPUT_DIRECTORY_{cfg.upper()}={self.build_temp}',
+                f'-DPYTHON_EXECUTABLE={sys.executable}',
+                f'-DEXTENSION_FILENAME={ext_file}',
             ]
 
             if platform.system() == 'Windows':
                 plat = ('x64' if platform.architecture()[0] == '64bit' else 'Win32')
                 cmake_args += [
                     '-DCMAKE_WINDOWS_EXPORT_ALL_SYMBOLS=TRUE',
-                    '-DCMAKE_RUNTIME_OUTPUT_DIRECTORY_{}={}'.format(cfg.upper(), ext_dir),
+                    f'-DCMAKE_RUNTIME_OUTPUT_DIRECTORY_{cfg.upper()}={ext_dir}',
                 ]
                 if self.compiler.compiler_type == 'msvc':
                     cmake_args += [
-                        '-DCMAKE_GENERATOR_PLATFORM=%s' % plat,
+                        f'-DCMAKE_GENERATOR_PLATFORM={plat}',
                     ]
                 else:
                     raise RuntimeError('Only MSVC is supported for Windows currently')

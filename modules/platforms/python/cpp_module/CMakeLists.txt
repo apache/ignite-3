@@ -26,8 +26,11 @@ set(SOURCES
 )
 
 set(LIBRARIES
+    ignite-common
+    ignite-tuple
+    ignite-network
+    ignite-protocol
     ignite3-odbc-obj
-    ${Python3_LIBRARIES}
 )
 
 add_library(${TARGET} SHARED ${SOURCES})
@@ -37,10 +40,15 @@ target_include_directories(${TARGET} PUBLIC
     ${ODBC_INCLUDE_DIRS}
 )
 
+if(NOT DEFINED EXTENSION_FILENAME)
+    set(EXTENSION_FILENAME ${TARGET})
+endif()
+
 target_link_libraries(${TARGET} ${LIBRARIES})
+set_target_properties(${TARGET} PROPERTIES OUTPUT_NAME ${EXTENSION_FILENAME})
 
 if (WIN32)
     set_target_properties(${TARGET} PROPERTIES SUFFIX ".pyd")
-    target_link_libraries(${TARGET} ${PYTHON_LIBRARIES})
+    target_link_libraries(${TARGET} ${Python3_LIBRARIES})
     remove_definitions(-DUNICODE=1)
 endif()

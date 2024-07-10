@@ -2,7 +2,6 @@ graft requirements
 graft tests
 global-exclude *.py[cod]
 global-exclude *__pycache__*
-include tox.ini
 include README.md
 include LICENSE
 include NOTICE
