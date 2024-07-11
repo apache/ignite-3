@@ -230,7 +230,11 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
         for (LogicalNode node : logicalTopology.nodes()) {
             CompletableFuture<NetworkMessage> fut = messagingService.invoke(node, request, ANSWER_TIMEOUT)
-                    .whenComplete((msg, e) -> {
+                    .whenComplete((msg, ex) -> {
+                        if (ex != null) {
+                            return;
+                        }
+
                         long time = ((CatalogMinimumRequiredTimeResponse) msg).timestamp();
                         long prevTime;
 
