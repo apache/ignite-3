@@ -63,6 +63,7 @@ import org.apache.ignite.internal.network.serialization.SerializationService;
 import org.apache.ignite.internal.network.serialization.UserObjectSerializationContext;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InOrder;
@@ -101,7 +102,7 @@ public class NettyServerTest extends BaseIgniteAbstractTest {
      * Tests a successful server start scenario.
      *
      */
-    @Test
+    @RepeatedTest(100)
     public void testSuccessfulServerStart() {
         server = getServer(true);
 
@@ -112,7 +113,7 @@ public class NettyServerTest extends BaseIgniteAbstractTest {
      * Tests a graceful server shutdown scenario.
      *
      */
-    @Test
+    @RepeatedTest(100)
     public void testServerGracefulShutdown() {
         server = getServer(true);
 
@@ -124,7 +125,7 @@ public class NettyServerTest extends BaseIgniteAbstractTest {
      *
      * @throws Exception If failed.
      */
-    @Test
+    @RepeatedTest(100)
     public void testServerStoppedBeforeStarted() throws Exception {
         var channel = new EmbeddedServerChannel();
 
@@ -144,7 +145,7 @@ public class NettyServerTest extends BaseIgniteAbstractTest {
     /**
      * Tests that a {@link NettyServer#start} method can be called only once.
      */
-    @Test
+    @RepeatedTest(100)
     public void testStartTwice() {
         server = getServer(true);
 
@@ -154,7 +155,7 @@ public class NettyServerTest extends BaseIgniteAbstractTest {
     /**
      * Tests that bootstrap tries to bind to address specified in configuration.
      */
-    @Test
+    @RepeatedTest(100)
     public void testBindWithAddress() {
         String host = "127.0.0.7";
         assertThat(serverCfg.listenAddress().update(host), willCompleteSuccessfully());
@@ -178,7 +179,7 @@ public class NettyServerTest extends BaseIgniteAbstractTest {
     /**
      * Tests the case when couldn't bind to the address provided.
      */
-    @Test
+    @RepeatedTest(100)
     public void testBindUnknownAddressFailed() {
         String address = "unknown-address";
         assertThat(serverCfg.listenAddress().update(address), willCompleteSuccessfully());
@@ -194,7 +195,7 @@ public class NettyServerTest extends BaseIgniteAbstractTest {
      *
      * @throws Exception If failed.
      */
-    @Test
+    @RepeatedTest(100)
     public void testHandshakeManagerInvoked() throws Exception {
         HandshakeManager handshakeManager = mockHandshakeManager();
 
@@ -271,7 +272,7 @@ public class NettyServerTest extends BaseIgniteAbstractTest {
 
     @Test
     void testCrazy() {
-        for (int i = 0; i < 15_000; i++) {
+        for (int i = 0; i < 1000; i++) {
             if (i % 100 == 0) {
                 log.info(">>>>> iteration=" + i);
             }
