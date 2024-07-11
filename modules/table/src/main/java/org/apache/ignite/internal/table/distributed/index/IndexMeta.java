@@ -188,7 +188,7 @@ public class IndexMeta implements Serializable {
     }
 
     /**
-     * Returns the index status change, {@code null} if absent.
+     * Returns the index status change.
      *
      * @param status Index status of interest.
      * @throws IllegalArgumentException If there is no index status change.
