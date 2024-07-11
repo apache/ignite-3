@@ -87,7 +87,6 @@ import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
-import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -343,7 +342,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         TransactionException transactionException = assertThrows(TransactionException.class, tx::commit);
 
-        assertInstanceOf(MismatchingTransactionOutcomeException.class, ExceptionUtils.unwrapCause(transactionException.getCause()));
+        assertInstanceOf(MismatchingTransactionOutcomeException.class, transactionException);
 
         tx.commitAsync().get(3, TimeUnit.SECONDS);
         tx.rollbackAsync().get(3, TimeUnit.SECONDS);
@@ -371,7 +370,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         TransactionException transactionException = assertThrows(TransactionException.class, tx::rollback);
 
-        assertInstanceOf(MismatchingTransactionOutcomeException.class, ExceptionUtils.unwrapCause(transactionException.getCause()));
+        assertInstanceOf(MismatchingTransactionOutcomeException.class, transactionException);
 
         tx.commitAsync().get(3, TimeUnit.SECONDS);
         tx.rollbackAsync().get(3, TimeUnit.SECONDS);

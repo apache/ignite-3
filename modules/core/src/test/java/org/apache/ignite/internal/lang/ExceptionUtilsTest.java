@@ -22,11 +22,16 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.isA;
 
+import java.util.UUID;
 import java.util.concurrent.CompletionException;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.lang.ErrorGroups.Common;
+import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.lang.IgniteCheckedException;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.TraceableException;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
@@ -88,6 +93,39 @@ public class ExceptionUtilsTest {
                 new TestCheckedExceptionWithCodeAndCause(NODE_STOPPING_ERR, new TestException()),
                 new TestCheckedExceptionWithCodeMessageAndCause(NODE_STOPPING_ERR, "test message", new IllegalArgumentException())
         );
+    }
+
+    @Test
+    void withCauseDoesNotApplyDefaultCodeWhenConcreteCodeIsThere() {
+        TraceableException translated = ExceptionUtils.withCause(
+                TestUncheckedExceptionWithTraceCodeAndCause::new,
+                Transactions.TX_COMMIT_ERR,
+                new IgniteException(Transactions.TX_INCOMPATIBLE_SCHEMA_ERR)
+        );
+
+        assertThat(translated.code(), is(Transactions.TX_INCOMPATIBLE_SCHEMA_ERR));
+    }
+
+    @Test
+    void withCauseAppliesDefaultCodeWhenThereIsNonSpecificErrorCode() {
+        TraceableException translated = ExceptionUtils.withCause(
+                TestUncheckedExceptionWithTraceCodeAndCause::new,
+                Transactions.TX_COMMIT_ERR,
+                new IgniteException(Common.INTERNAL_ERR)
+        );
+
+        assertThat(translated.code(), is(Transactions.TX_COMMIT_ERR));
+    }
+
+    @Test
+    void withCauseAppliesDefaultCodeWhenHandlingNonIgniteException() {
+        TraceableException translated = ExceptionUtils.withCause(
+                TestUncheckedExceptionWithTraceCodeAndCause::new,
+                Transactions.TX_COMMIT_ERR,
+                new RuntimeException()
+        );
+
+        assertThat(translated.code(), is(Transactions.TX_COMMIT_ERR));
     }
 
     /** Test exception class. */
@@ -185,6 +223,13 @@ public class ExceptionUtilsTest {
     public static class TestCheckedExceptionWithCodeMessageAndCause extends IgniteCheckedException {
         public TestCheckedExceptionWithCodeMessageAndCause(int code, String message, Throwable cause) {
             super(code, message, cause);
+        }
+    }
+
+    /** Test exception class. */
+    public static class TestUncheckedExceptionWithTraceCodeAndCause extends IgniteException {
+        public TestUncheckedExceptionWithTraceCodeAndCause(UUID traceId, int code, Throwable cause) {
+            super(traceId, code, cause);
         }
     }
 }

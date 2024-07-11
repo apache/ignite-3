@@ -443,7 +443,9 @@ public final class ExceptionUtils {
         if (unwrapped instanceof TraceableException) {
             TraceableException traceable = (TraceableException) unwrapped;
 
-            return supplier.apply(traceable.traceId(), traceable.code(), unwrapped.getMessage(), t);
+            int resultCode = traceable.code() == INTERNAL_ERR ? defaultCode : traceable.code();
+
+            return supplier.apply(traceable.traceId(), resultCode, unwrapped.getMessage(), t);
         }
 
         return supplier.apply(UUID.randomUUID(), defaultCode, t.getMessage(), t);

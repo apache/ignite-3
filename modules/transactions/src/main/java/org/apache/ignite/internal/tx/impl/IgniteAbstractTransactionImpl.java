@@ -17,12 +17,14 @@
 
 package org.apache.ignite.internal.tx.impl;
 
+import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.convertToPublicFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_COMMIT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ROLLBACK_ERR;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
@@ -88,14 +90,22 @@ public abstract class IgniteAbstractTransactionImpl implements InternalTransacti
         try {
             commitAsync().get();
         } catch (Exception e) {
-            throw withCause(TransactionException::new, TX_COMMIT_ERR, e);
+            throw asTransactionException(e, TX_COMMIT_ERR);
+        }
+    }
+
+    private static TransactionException asTransactionException(Exception e, int errorCode) {
+        if (e instanceof ExecutionException && e.getCause() instanceof TransactionException) {
+            return (TransactionException) e.getCause();
+        } else {
+            return withCause(TransactionException::new, errorCode, e);
         }
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> commitAsync() {
-        return finish(true);
+        return convertToPublicFuture(finish(true));
     }
 
     /** {@inheritDoc} */
@@ -104,14 +114,14 @@ public abstract class IgniteAbstractTransactionImpl implements InternalTransacti
         try {
             rollbackAsync().get();
         } catch (Exception e) {
-            throw withCause(TransactionException::new, TX_ROLLBACK_ERR, e);
+            throw asTransactionException(e, TX_ROLLBACK_ERR);
         }
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> rollbackAsync() {
-        return finish(false);
+        return convertToPublicFuture(finish(false));
     }
 
     /**
