@@ -198,18 +198,20 @@ public class CatalogCompactionRunner implements IgniteComponent {
                         return CompletableFutures.falseCompletedFuture();
                     }
 
-                    Set<String> requiredNodes = requiredNodes(catalog);
-                    List<String> missingNodes = missingNodes(requiredNodes);
+                    return requiredNodes(catalog)
+                            .thenCompose(requiredNodes -> {
+                                List<String> missingNodes = missingNodes(requiredNodes);
 
-                    if (!missingNodes.isEmpty()) {
-                        if (LOG.isDebugEnabled()) {
-                            LOG.debug("Catalog compaction aborted due to missing cluster members (nodes={})", missingNodes);
-                        }
+                                if (!missingNodes.isEmpty()) {
+                                    if (LOG.isDebugEnabled()) {
+                                        LOG.debug("Catalog compaction aborted due to missing cluster members (nodes={})", missingNodes);
+                                    }
 
-                        return CompletableFutures.falseCompletedFuture();
-                    }
+                                    return CompletableFutures.falseCompletedFuture();
+                                }
 
-                    return catalogManager.compactCatalog(catalog.time());
+                                return catalogManager.compactCatalog(catalog.time());
+                            });
                 }, executor);
     }
 
@@ -256,16 +258,15 @@ public class CatalogCompactionRunner implements IgniteComponent {
         return HybridTimestamp.MAX_VALUE.longValue();
     }
 
-    private Set<String> requiredNodes(Catalog catalog) {
+    private CompletableFuture<Set<String>> requiredNodes(Catalog catalog) {
         HybridTimestamp nowTs = clockService.now();
+        List<CompletableFuture<?>> partitionFutures = new ArrayList<>();
         Set<String> required = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
         for (CatalogTableDescriptor table : catalog.tables()) {
             CatalogZoneDescriptor zone = catalog.zone(table.zoneId());
 
             assert zone != null : table.zoneId();
-
-            List<CompletableFuture<?>> partitionFutures = new ArrayList<>(zone.partitions());
 
             for (int p = 0; p < zone.partitions(); p++) {
                 ReplicationGroupId replicationGroupId = new TablePartitionId(table.id(), p);
@@ -283,11 +284,9 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
                 partitionFutures.add(assignmentsFut);
             }
-
-            CompletableFutures.allOf(partitionFutures).join();
         }
 
-        return required;
+        return CompletableFutures.allOf(partitionFutures).thenApply(ignore -> required);
     }
 
     private List<String> missingNodes(Set<String> requiredNodes) {
