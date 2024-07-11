@@ -214,6 +214,11 @@ public class RetryPolicyTest extends BaseIgniteAbstractTest {
 
         for (var field : ClientOp.class.getDeclaredFields()) {
             var opCode = (int) field.get(null);
+
+            if (opCode == ClientOp.RESERVED_EXTENSION_RANGE_START || opCode == ClientOp.RESERVED_EXTENSION_RANGE_END) {
+                continue;
+            }
+
             var publicOp = ClientUtils.opCodeToClientOperationType(opCode);
 
             if (publicOp == null) {
