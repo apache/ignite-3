@@ -66,6 +66,8 @@ namespace Apache.Ignite.Tests.Compute
 
         public static readonly JobDescriptor<string, object> CheckedExceptionJob = new(PlatformTestNodeRunner + "$CheckedExceptionJob");
 
+        public static readonly JobDescriptor<long, int> PartitionJob = new(PlatformTestNodeRunner + "$PartitionJob");
+
         [Test]
         public async Task TestGetClusterNodes()
         {

@@ -79,6 +79,7 @@ import org.apache.ignite.internal.security.configuration.SecurityChange;
 import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.table.RecordBinaryViewImpl;
+import org.apache.ignite.internal.table.partition.HashPartition;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -90,6 +91,7 @@ import org.apache.ignite.table.DataStreamerReceiverContext;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.table.partition.Partition;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -850,6 +852,18 @@ public class PlatformTestNodeRunner {
         @Override
         public CompletableFuture<List<Object>> receive(List<Object> page, DataStreamerReceiverContext ctx, Object arg) {
             return CompletableFuture.completedFuture(page);
+        }
+    }
+
+    @SuppressWarnings("unused") // Used by platform tests.
+    private static class PartitionJob implements ComputeJob<Long, Integer> {
+        @Override
+        public CompletableFuture<Integer> executeAsync(JobExecutionContext context, Long id) {
+            Table table = context.ignite().tables().table(TABLE_NAME);
+            Tuple key = Tuple.create().set("key", id);
+            Partition partition = table.partitionManager().partitionAsync(key).join();
+
+            return completedFuture(((HashPartition) partition).partitionId());
         }
     }
 }

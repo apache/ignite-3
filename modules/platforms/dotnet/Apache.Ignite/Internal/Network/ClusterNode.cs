@@ -18,8 +18,11 @@
 namespace Apache.Ignite.Internal.Network
 {
     using System;
+    using System.Diagnostics;
+    using System.Linq;
     using System.Net;
     using Ignite.Network;
+    using Proto.MsgPack;
 
     /// <summary>
     /// Cluster node.
@@ -74,5 +77,30 @@ namespace Apache.Ignite.Internal.Network
 
         /// <inheritdoc/>
         public override int GetHashCode() => HashCode.Combine(Id, Name, Address);
+
+        /// <summary>
+        /// Read node from reader.
+        /// </summary>
+        /// <param name="r">Reader.</param>
+        /// <returns>Cluster node.</returns>
+        internal static ClusterNode Read(ref MsgPackReader r)
+        {
+            var fieldCount = r.ReadInt32();
+            Debug.Assert(fieldCount == 4, "fieldCount == 4");
+
+            var id = r.ReadString();
+            var name = r.ReadString();
+            var addr = r.ReadString();
+            var port = r.ReadInt32();
+
+            // TODO IGNITE-22695 .NET: ClusterNode.Address does not support host names
+            var ipAddress = IPAddress.TryParse(addr, out var ip)
+                ? ip
+                : Dns.GetHostEntry(addr).AddressList.FirstOrDefault() ?? IPAddress.Loopback;
+
+            var endPoint = new IPEndPoint(ipAddress, port);
+
+            return new ClusterNode(id, name, endPoint);
+        }
     }
 }

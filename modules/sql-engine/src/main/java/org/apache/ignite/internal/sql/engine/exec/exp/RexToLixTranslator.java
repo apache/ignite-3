@@ -93,6 +93,7 @@ import org.apache.calcite.util.ControlFlowException;
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.IgniteMethod;
+import org.apache.ignite.internal.sql.engine.util.Primitives;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.locationtech.jts.geom.Geometry;
 
@@ -105,7 +106,7 @@ import org.locationtech.jts.geom.Geometry;
  * 3. RexToLixTranslator#translateCast() BYTESTRING_TO_STRING, STRING_TO_BYTESTRING special case converters.
  * 4. RexToLixTranslator#translateCast() case INTERVAL_SECOND -> case CHARACTER special case converters.
  * 5. RexToLixTranslator#translateCast() case TIMESTAMP -> case CHAR  special case converters.
- * 6. RexToLixTranslator#translateLiteral() case DECIMAL special case converters.
+ * 6. RexToLixTranslator#translateLiteral() case DECIMAL special case converters. Primitive float/double conversion.
  * 7. RexToLixTranslator#translateCast() ANY branch
  * 8. EnumUtils.convert -> ConverterUtils.convert
  */
@@ -912,7 +913,7 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
                 final Primitive primitive = Primitive.ofBoxOr(javaClass);
                 final Comparable value = literal.getValueAs(Comparable.class);
                 if (primitive != null && value instanceof Number) {
-                    value2 = primitive.number((Number) value);
+                    value2 = Primitives.convertPrimitiveExact(primitive, (Number) value);
                 } else {
                     value2 = value;
                 }
