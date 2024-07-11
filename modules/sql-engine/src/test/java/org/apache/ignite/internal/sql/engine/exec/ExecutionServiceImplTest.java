@@ -206,8 +206,6 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     public void init() {
-        HybridClock clock = new HybridClockImpl();
-
         DdlSqlToCommandConverter converter = new DdlSqlToCommandConverter();
 
         testCluster = new TestCluster();
