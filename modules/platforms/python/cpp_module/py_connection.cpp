@@ -40,7 +40,29 @@ void py_connection_dealloc(py_connection *self)
 {
     delete self->m_conn;
     delete self->m_env;
+
+    self->m_conn = nullptr;
+    self->m_env = nullptr;
+
     Py_TYPE(self)->tp_free(self);
+}
+
+static PyObject* py_connection_close(py_connection* self, PyObject*)
+{
+    if (self->m_conn) {
+        self->m_conn->release();
+        if (!check_errors(*self->m_conn))
+            return nullptr;
+
+        delete self->m_conn;
+        self->m_conn = nullptr;
+
+        delete self->m_env;
+        self->m_env = nullptr;
+    }
+
+    Py_INCREF(Py_None);
+    return Py_None;
 }
 
 static PyTypeObject py_connection_type = {
@@ -48,11 +70,17 @@ static PyTypeObject py_connection_type = {
     MODULE_NAME "." PY_CONNECTION_CLASS_NAME
 };
 
+static struct PyMethodDef py_connection_methods[] = {
+    {"close", (PyCFunction)py_connection_close, METH_NOARGS, nullptr},
+    {nullptr, nullptr, 0, nullptr}
+};
+
 int prepare_py_connection_type() {
     py_connection_type.tp_new = PyType_GenericNew;
     py_connection_type.tp_basicsize=sizeof(py_connection);
     py_connection_type.tp_dealloc=(destructor)py_connection_dealloc;
     py_connection_type.tp_flags=Py_TPFLAGS_DEFAULT;
+    py_connection_type.tp_methods=py_connection_methods;
     py_connection_type.tp_init=(initproc)py_connection_init;
 
     return PyType_Ready(&py_connection_type);
@@ -63,7 +91,7 @@ int register_py_connection_type(PyObject* mod) {
 }
 
 py_connection *make_py_connection(std::unique_ptr<ignite::sql_environment> env,
-                                  std::unique_ptr<ignite::sql_connection> conn) {
+    std::unique_ptr<ignite::sql_connection> conn) {
     auto args = PyTuple_New(0);
     auto kwargs = Py_BuildValue("{}");
     PyObject* py_conn_obj  = PyObject_Call((PyObject*)&py_connection_type, args, kwargs);

@@ -16,3 +16,9 @@
  */
 
 #define MODULE_NAME "_pyignite3_extension"
+
+namespace ignite {
+class diagnosable;
+}
+
+bool check_errors(ignite::diagnosable& diag);

@@ -27,5 +27,6 @@ def test_check_connection_success():
     # TODO: Move cluster addresses in const
     conn = pyignite3.connect(address='127.0.0.1:10942')
     assert conn is not None
+    conn.close()
 
 

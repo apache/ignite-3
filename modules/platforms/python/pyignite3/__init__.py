@@ -17,12 +17,81 @@ from pyignite3 import _pyignite3_extension
 
 __version__ = '3.0.0-beta2'
 
+# PEP 249 is supported
+apilevel = '2.0'
+
+# Threads may share the module, but not connections.
+threadsafety = 1
+
+# Parameter style is a question mark, e.g. '...WHERE name=?'
+paramstyle = 'qmark'
+
+
+class Cursor:
+    def callproc(self, *args):
+        raise NotSupportedError('Stored procedures are not supported')
+
+    def close(self):
+        raise NotSupportedError('Operation is not supported')
+
+    def execute(self, *args):
+        raise NotSupportedError('Operation is not supported')
+
+    def executemany(self, *args):
+        raise NotSupportedError('Operation is not supported')
+
+    def fetchone(self):
+        raise NotSupportedError('Operation is not supported')
+
+    def fetchmany(self):
+        raise NotSupportedError('Operation is not supported')
+
+    def fetchall(self):
+        raise NotSupportedError('Operation is not supported')
+
+    def nextset(self):
+        raise NotSupportedError('Operation is not supported')
+
+    def arraysize(self) -> int:
+        raise NotSupportedError('Operation is not supported')
+
+    def setinputsizes(self, *args):
+        raise NotSupportedError('Operation is not supported')
+
+    def setoutputsize(self, *args):
+        raise NotSupportedError('Operation is not supported')
+
 
 class Connection:
-    pass
+    """
+    Connection class. Represents a single connection to the Ignite cluster.
+    """
+    def __init__(self):
+        self._py_connection = None
+
+    def close(self):
+        """
+        Close active connection.
+        Completes without errors on successfully closed connections.
+        """
+        if self._py_connection is not None:
+            self._py_connection.close()
+            self._py_connection = None
+
+    def commit(self):
+        raise NotSupportedError('Transactions are not supported')
+
+    def rollback(self):
+        raise NotSupportedError('Transactions are not supported')
+
+    def cursor(self) -> Cursor:
+        raise NotSupportedError('Operation is not supported')
 
 
 def connect(**kwargs) -> Connection:
+    """
+    Establish connection with the Ignite cluster.
+    """
     return _pyignite3_extension.connect(**kwargs)
 
 
