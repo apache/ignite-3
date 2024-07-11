@@ -181,8 +181,10 @@ public class ClientOp {
     public static final int TUPLE_CONTAINS_ALL_KEYS = 67;
 
     /** Reserved for extensions: min. */
+    @SuppressWarnings("unused")
     public static final int RESERVED_EXTENSION_RANGE_START = 1000;
 
     /** Reserved for extensions: max. */
+    @SuppressWarnings("unused")
     public static final int RESERVED_EXTENSION_RANGE_END = 2000;
 }
