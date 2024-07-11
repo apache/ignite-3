@@ -29,36 +29,47 @@ paramstyle = 'qmark'
 
 class Cursor:
     def callproc(self, *args):
+        # TODO: IGNITE-22226 Implement cursor support
         raise NotSupportedError('Stored procedures are not supported')
 
     def close(self):
+        # TODO: IGNITE-22226 Implement cursor support
         raise NotSupportedError('Operation is not supported')
 
     def execute(self, *args):
+        # TODO: IGNITE-22226 Implement cursor support
         raise NotSupportedError('Operation is not supported')
 
     def executemany(self, *args):
+        # TODO: IGNITE-22226 Implement cursor support
         raise NotSupportedError('Operation is not supported')
 
     def fetchone(self):
+        # TODO: IGNITE-22226 Implement cursor support
         raise NotSupportedError('Operation is not supported')
 
     def fetchmany(self):
+        # TODO: IGNITE-22226 Implement cursor support
         raise NotSupportedError('Operation is not supported')
 
     def fetchall(self):
+        # TODO: IGNITE-22226 Implement cursor support
         raise NotSupportedError('Operation is not supported')
 
     def nextset(self):
+        # TODO: IGNITE-22226 Implement cursor support
         raise NotSupportedError('Operation is not supported')
 
     def arraysize(self) -> int:
+        # TODO: IGNITE-22226 Implement cursor support
         raise NotSupportedError('Operation is not supported')
 
     def setinputsizes(self, *args):
+        # TODO: IGNITE-22226 Implement cursor support
         raise NotSupportedError('Operation is not supported')
 
     def setoutputsize(self, *args):
+        # TODO: IGNITE-22226 Implement cursor support
         raise NotSupportedError('Operation is not supported')
 
 
@@ -79,12 +90,15 @@ class Connection:
             self._py_connection = None
 
     def commit(self):
+        # TODO: IGNITE-22226 Implement transaction support
         raise NotSupportedError('Transactions are not supported')
 
     def rollback(self):
+        # TODO: IGNITE-22226 Implement transaction support
         raise NotSupportedError('Transactions are not supported')
 
     def cursor(self) -> Cursor:
+        # TODO: IGNITE-22226 Implement cursor support
         raise NotSupportedError('Operation is not supported')
 
 

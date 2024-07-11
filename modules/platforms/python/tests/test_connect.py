@@ -15,17 +15,18 @@
 import pytest
 
 import pyignite3
-from tests.util import start_cluster_gen
+from tests.util import start_cluster_gen, check_cluster_started, server_addresses_basic
 
 
-# @pytest.fixture(autouse=True)
-# def cluster():
-#     yield from start_cluster_gen()
+@pytest.fixture(autouse=True)
+def cluster():
+    if not check_cluster_started():
+        yield from start_cluster_gen()
 
 
 def test_check_connection_success():
     # TODO: Move cluster addresses in const
-    conn = pyignite3.connect(address='127.0.0.1:10942')
+    conn = pyignite3.connect(address=server_addresses_basic[0])
     assert conn is not None
     conn.close()
 

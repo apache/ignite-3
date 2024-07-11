@@ -172,10 +172,10 @@ static PyObject* connect(PyObject* self, PyObject* args, PyObject* kwargs) {
     if (page_size)
         cfg.set_page_size(std::int32_t(page_size));
 
-    std::int32_t ms_timeout = std::lround(timeout * 1000.0);
-    if (ms_timeout)
+    std::int32_t s_timeout = std::lround(timeout);
+    if (s_timeout)
     {
-        void* ptr_timeout = (void*)(ptrdiff_t(ms_timeout));
+        void* ptr_timeout = (void*)(ptrdiff_t(s_timeout));
         sql_conn->set_attribute(SQL_ATTR_CONNECTION_TIMEOUT, ptr_timeout, 0);
         if (!check_errors(*sql_conn))
             return nullptr;

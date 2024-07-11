@@ -21,6 +21,13 @@ import signal
 import subprocess
 import time
 
+import pyignite3
+
+server_addresses_basic = ['127.0.0.1:10942', '127.0.0.1:10943']
+server_addresses_ssl_basic = ['127.0.0.1:10944']
+server_addresses_ssl_client_auth = ['127.0.0.1:10945']
+server_addresses_all = server_addresses_basic + server_addresses_ssl_basic + server_addresses_ssl_client_auth
+
 
 @contextlib.contextmanager
 def get_or_create_cache(client, settings):
@@ -90,38 +97,54 @@ def kill_process_tree(pid):
         os.kill(pid, signal.SIGKILL)
 
 
-def start_cluster(debug=False, jvm_opts=''):
+# noinspection PyBroadException
+def check_server_started(addr: str) -> bool:
+    try:
+        conn = pyignite3.connect(address=addr, timeout=1)
+    except:
+        return False
+
+    conn.close()
+    return True
+
+
+def check_cluster_started() -> bool:
+    for addr in server_addresses_basic:
+        if not check_server_started(addr):
+            return False
+    return True
+
+
+def start_cluster(debug=False, jvm_opts='') -> subprocess.Popen:
     runner = get_ignite_runner()
 
     env = os.environ.copy()
 
-    env["JVM_OPTS"] = env.get("JVM_OPTS", '') + jvm_opts
+    env['JVM_OPTS'] = env.get('JVM_OPTS', '') + jvm_opts
 
     if debug:
-        env["JVM_OPTS"] = env.get("JVM_OPTS", '') + \
-                          "-Djava.net.preferIPv4Stack=true -Xdebug -Xnoagent -Djava.compiler=NONE " \
-                          "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5005 "
+        env['JVM_OPTS'] = env.get('JVM_OPTS', '') + \
+                          '-Djava.net.preferIPv4Stack=true -Xdebug -Xnoagent -Djava.compiler=NONE ' \
+                          '-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5005 '
 
-    ignite_cmd = [runner, " :ignite-runner:runnerPlatformTest"
-                          " --no-daemon"
-                          " -x compileJava"
-                          " -x compileTestFixturesJava"
-                          " -x compileIntegrationTestJava"
-                          " -x compileTestJava"]
+    ignite_cmd = [runner, ':ignite-runner:runnerPlatformTest', '--no-daemon', '-x', 'compileJava', '-x',
+                  'compileTestFixturesJava', '-x', 'compileIntegrationTestJava', '-x',  'compileTestJava']
 
-    print("Starting Ignite runner:", ignite_cmd)
+    print('Starting Ignite runner:', ignite_cmd)
 
-    srv = subprocess.Popen(ignite_cmd, env=env, cwd=get_test_dir())
-    time.sleep(60)
-    return srv
+    ignite_dir = next(get_ignite_dirs())
+    if ignite_dir is None:
+        raise Exception('Can not resolve an Ignite project directory')
 
-    # TODO: Implement checking for server startup
-    # started = wait_for_condition(lambda: check_server_started(idx), timeout=60)
-    # if started:
-    #    return srv
+    cluster = subprocess.Popen(ignite_cmd, env=env, cwd=ignite_dir)
 
-    # kill_process_tree(srv.pid)
-    # raise Exception("Failed to start Ignite: timeout while trying to connect")
+    for addr in server_addresses_basic:
+        started = wait_for_condition(lambda: check_server_started(addr), timeout=180)
+        if not started:
+            kill_process_tree(cluster.pid)
+            raise Exception('Failed to start Ignite Cluster: timeout while trying to connect')
+
+    return cluster
 
 
 def start_cluster_gen(debug=False):
