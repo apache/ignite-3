@@ -15,10 +15,16 @@
  * limitations under the License.
  */
 
-#include <ignite/odbc/sql_environment.h>
-#include <ignite/odbc/sql_connection.h>
+#include <memory>
 
 #include <Python.h>
+
+#define PY_CONNECTION_CLASS_NAME "PyConnection"
+
+namespace ignite {
+class sql_environment;
+class sql_connection;
+}
 
 /**
  * Connection Python object.
@@ -34,7 +40,18 @@ struct py_connection {
 };
 
 /**
+ * Connection init function.
+ */
+int py_connection_init(py_connection *self, PyObject *args, PyObject *kwds);
+
+/**
+ * Connection dealloc function.
+ */
+void py_connection_dealloc(py_connection *self);
+
+/**
  * Create a new instance of py_connection python class.
+ *
  * @param env Environment.
  * @param conn Connection.
  * @return A new class instance.
@@ -42,3 +59,12 @@ struct py_connection {
 py_connection* make_py_connection(std::unique_ptr<ignite::sql_environment> env,
     std::unique_ptr<ignite::sql_connection> conn);
 
+/**
+ * Prepare PyConnection type for registration.
+ */
+int prepare_py_connection_type();
+
+/**
+ * Register PyConnection type within module.
+ */
+int register_py_connection_type(PyObject* mod);

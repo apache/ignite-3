@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+#include "module.h"
 #include "py_connection.h"
 
 #include <ignite/odbc/sql_environment.h>
@@ -35,7 +36,7 @@ static PyMethodDef methods[] = {
 
 static struct PyModuleDef module_def = {
     PyModuleDef_HEAD_INIT,
-    "_pyignite3_extension",
+    MODULE_NAME,
     nullptr,                /* m_doc */
     -1,                     /* m_size */
     methods,                /* m_methods */
@@ -45,9 +46,20 @@ static struct PyModuleDef module_def = {
     nullptr,                /* m_free */
 };
 
-
 PyMODINIT_FUNC PyInit__pyignite3_extension(void) { // NOLINT(*-reserved-identifier)
-    return PyModule_Create(&module_def);
+    PyObject* mod;
+
+    mod = PyModule_Create(&module_def);
+    if (mod == nullptr)
+        return nullptr;
+
+    if (prepare_py_connection_type())
+        return nullptr;
+
+    if (register_py_connection_type(mod))
+        return nullptr;
+
+    return mod;
 }
 
 bool check_errors(ignite::diagnosable& diag) {
@@ -79,7 +91,7 @@ bool check_errors(ignite::diagnosable& diag) {
 
 static PyObject* make_connection(std::unique_ptr<ignite::sql_environment> env,
     std::unique_ptr<ignite::sql_connection> conn) {
-    auto pyignite3_mod = PyImport_ImportModule("pyignite3");
+        auto pyignite3_mod = PyImport_ImportModule("pyignite3");
 
     if (!pyignite3_mod)
         return nullptr;
@@ -101,6 +113,8 @@ static PyObject* make_connection(std::unique_ptr<ignite::sql_environment> env,
         return nullptr;
 
     auto py_conn = make_py_connection(std::move(env), std::move(conn));
+    if (!py_conn)
+        return nullptr;
 
     auto res = PyObject_SetAttrString(conn_obj, "_py_connection", (PyObject*)py_conn);
     if (res)
