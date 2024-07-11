@@ -22,6 +22,7 @@ set(TARGET ${PROJECT_NAME})
 find_package(ODBC REQUIRED)
 
 set(SOURCES
+    py_connection.cpp
     module.cpp
 )
 
@@ -48,6 +49,7 @@ target_link_libraries(${TARGET} ${LIBRARIES})
 set_target_properties(${TARGET} PROPERTIES OUTPUT_NAME ${EXTENSION_FILENAME})
 
 if (WIN32)
+    add_compile_definitions(NOMINMAX)
     set_target_properties(${TARGET} PROPERTIES SUFFIX ".pyd")
     target_link_libraries(${TARGET} ${Python3_LIBRARIES})
     remove_definitions(-DUNICODE=1)

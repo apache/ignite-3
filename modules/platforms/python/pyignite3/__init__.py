@@ -18,8 +18,12 @@ from pyignite3 import _pyignite3_extension
 __version__ = '3.0.0-beta2'
 
 
-def connect(**kwargs):
-    _pyignite3_extension.connect(**kwargs)
+class Connection:
+    pass
+
+
+def connect(**kwargs) -> Connection:
+    return _pyignite3_extension.connect(**kwargs)
 
 
 class Error(Exception):

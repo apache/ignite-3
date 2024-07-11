@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+#include "py_connection.h"
+
 #include <ignite/odbc/sql_environment.h>
 #include <ignite/odbc/sql_connection.h>
 
@@ -26,31 +28,26 @@
 
 PyObject* connect(PyObject* self, PyObject *args, PyObject* kwargs);
 
-PyDoc_STRVAR(connect_doc,
-"connect(address[, timeout, identity, secret, page_size, schema, timezone])\n"
-"\n"
-"Opens a connection to the Ignite Cluster.");
-
 static PyMethodDef methods[] = {
-    {"connect", (PyCFunction) connect, METH_VARARGS | METH_KEYWORDS, connect_doc},
-    {NULL, NULL, 0, NULL}       /* Sentinel */
+    {"connect", (PyCFunction) connect, METH_VARARGS | METH_KEYWORDS, nullptr},
+    {nullptr, nullptr, 0, nullptr}       /* Sentinel */
 };
 
-static struct PyModuleDef moduledef = {
+static struct PyModuleDef module_def = {
     PyModuleDef_HEAD_INIT,
     "_pyignite3_extension",
-    NULL,                 /* m_doc */
-    -1,                   /* m_size */
-    methods,              /* m_methods */
-    NULL,                 /* m_slots */
-    NULL,                 /* m_traverse */
-    NULL,                 /* m_clear */
-    NULL,                 /* m_free */
+    nullptr,                /* m_doc */
+    -1,                     /* m_size */
+    methods,                /* m_methods */
+    nullptr,                /* m_slots */
+    nullptr,                /* m_traverse */
+    nullptr,                /* m_clear */
+    nullptr,                /* m_free */
 };
 
 
-PyMODINIT_FUNC PyInit__pyignite3_extension(void) {
-	return PyModule_Create(&moduledef);
+PyMODINIT_FUNC PyInit__pyignite3_extension(void) { // NOLINT(*-reserved-identifier)
+    return PyModule_Create(&module_def);
 }
 
 bool check_errors(ignite::diagnosable& diag) {
@@ -74,10 +71,42 @@ bool check_errors(ignite::diagnosable& diag) {
             break;
     }
 
-    // TODO: Set a proper error here, not a standard one.
+    // TODO: IGNITE-22226 Set a proper error here, not a standard one.
     PyErr_SetString(PyExc_RuntimeError, err_msg.c_str());
 
     return false;
+}
+
+static PyObject* make_connection(std::unique_ptr<ignite::sql_environment> env,
+    std::unique_ptr<ignite::sql_connection> conn) {
+    auto pyignite3_mod = PyImport_ImportModule("pyignite3");
+
+    if (!pyignite3_mod)
+        return nullptr;
+
+    auto conn_class = PyObject_GetAttrString(pyignite3_mod, "Connection");
+    Py_DECREF(pyignite3_mod);
+
+    if (!conn_class)
+        return nullptr;
+
+    auto args = PyTuple_New(0);
+    auto kwargs = Py_BuildValue("{}");
+    PyObject* conn_obj  = PyObject_Call(conn_class, args, kwargs);
+    Py_DECREF(conn_class);
+    Py_DECREF(args);
+    Py_DECREF(kwargs);
+
+    if (!conn_obj)
+        return nullptr;
+
+    auto py_conn = make_py_connection(std::move(env), std::move(conn));
+
+    auto res = PyObject_SetAttrString(conn_obj, "_py_connection", (PyObject*)py_conn);
+    if (res)
+        return nullptr;
+
+    return conn_obj;
 }
 
 static PyObject* connect(PyObject* self, PyObject* args, PyObject* kwargs) {
@@ -89,14 +118,14 @@ static PyObject* connect(PyObject* self, PyObject* args, PyObject* kwargs) {
         "timezone",
         "page_size",
         "timeout",
-        NULL
+        nullptr
     };
 
-    const char* address = NULL;
-    const char* identity = NULL;
-    const char* secret = NULL;
-    const char* schema = NULL;
-    const char* timezone = NULL;
+    const char* address = nullptr;
+    const char* identity = nullptr;
+    const char* secret = nullptr;
+    const char* schema = nullptr;
+    const char* timezone = nullptr;
     double timeout = 0.0;
     int page_size = 0;
 
@@ -104,7 +133,7 @@ static PyObject* connect(PyObject* self, PyObject* args, PyObject* kwargs) {
         args, kwargs, "s|ssssdi", kwlist, &address, &identity, &secret, &schema, &timezone, &timeout, &page_size);
 
     if (!parsed)
-        return NULL;
+        return nullptr;
 
     using namespace ignite;
 
@@ -112,7 +141,7 @@ static PyObject* connect(PyObject* self, PyObject* args, PyObject* kwargs) {
 
     std::unique_ptr<sql_connection> sql_conn{sql_env->create_connection()};
     if (!check_errors(*sql_env))
-        return NULL;
+        return nullptr;
 
     configuration cfg;
     cfg.set_address(address);
@@ -135,18 +164,18 @@ static PyObject* connect(PyObject* self, PyObject* args, PyObject* kwargs) {
         void* ptr_timeout = (void*)(ptrdiff_t(ms_timeout));
         sql_conn->set_attribute(SQL_ATTR_CONNECTION_TIMEOUT, ptr_timeout, 0);
         if (!check_errors(*sql_conn))
-            return NULL;
+            return nullptr;
 
         sql_conn->set_attribute(SQL_ATTR_LOGIN_TIMEOUT, ptr_timeout, 0);
         if (!check_errors(*sql_conn))
-            return NULL;
+            return nullptr;
     }
 
     sql_conn->establish(cfg);
     if (!check_errors(*sql_conn))
-        return NULL;
+        return nullptr;
 
-    return NULL;
+    return make_connection(std::move(sql_env), std::move(sql_conn));
 }
 
 

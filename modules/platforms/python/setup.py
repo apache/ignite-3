@@ -18,6 +18,7 @@ import re
 import subprocess
 import setuptools
 import sys
+import multiprocessing
 from pprint import pprint
 from setuptools.command.build_ext import build_ext
 from setuptools.extension import Extension
@@ -111,9 +112,12 @@ class CMakeBuild(build_ext):
             if not os.path.exists(self.build_temp):
                 os.makedirs(self.build_temp)
 
+            cpu_count = multiprocessing.cpu_count()
+
             # Config and build the extension
             subprocess.check_call(['cmake', ext.cmake_lists_dir] + cmake_args, cwd=self.build_temp)
-            subprocess.check_call(['cmake', '--build', '.', '--config', cfg], cwd=self.build_temp)
+            subprocess.check_call(['cmake', '--build', '.', '-j', f'{cpu_count}', '--config', cfg],
+                                  cwd=self.build_temp)
 
 
 def run_setup():
