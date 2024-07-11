@@ -470,6 +470,8 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
                     log.error("Error during close", e);
                 }
             });
+
+            log.info("Partial node stopped");
         }
 
         public List<IgniteComponent> startedComponents() {

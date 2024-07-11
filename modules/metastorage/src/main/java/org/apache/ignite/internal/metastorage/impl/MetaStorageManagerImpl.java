@@ -618,11 +618,14 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
 
     @Override
     public CompletableFuture<Map<ByteArray, Entry>> getAll(Set<ByteArray> keys) {
+        LOG.info("in getAll 0");
         if (!busyLock.enterBusy()) {
+            LOG.info("in getAll 1");
             return failedFuture(new NodeStoppingException());
         }
 
         try {
+            LOG.info("in getAll 2");
             return metaStorageSvcFut.thenCompose(svc -> inBusyLock(busyLock, () -> svc.getAll(keys)));
         } finally {
             busyLock.leaveBusy();
