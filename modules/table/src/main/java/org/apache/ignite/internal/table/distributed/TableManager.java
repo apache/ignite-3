@@ -1083,7 +1083,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private CompletableFuture<Boolean> isLocalNodeLeaseholder(ReplicationGroupId replicationGroupId) {
         HybridTimestamp currentSafeTime = metaStorageMgr.clusterTime().currentSafeTime();
-        long currentSafeTimeMs = currentSafeTime.longValue();
+
+        if (HybridTimestamp.MIN_VALUE.equals(currentSafeTime)) {
+            return falseCompletedFuture();
+        }
+
         long skewMs = clockService.maxClockSkewMillis();
 
         try {
@@ -1094,6 +1098,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             && replicaMeta.getLeaseholderId() != null
                             && replicaMeta.getLeaseholderId().equals(localNode().name()));
         } catch (IllegalArgumentException e) {
+            long currentSafeTimeMs = currentSafeTime.longValue();
+
             throw new AssertionError("!!! [currentSafeTime=" + currentSafeTime
                     + ", currentSafeTimeMs=" + currentSafeTimeMs
                     + ", skewMs=" + skewMs
