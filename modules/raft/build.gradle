@@ -98,4 +98,5 @@ dependencies {
     integrationTestImplementation project(':ignite-failure-handler')
     integrationTestImplementation libs.jetbrains.annotations
     integrationTestImplementation libs.dropwizard.metrics
+    integrationTestImplementation libs.disruptor
 }
