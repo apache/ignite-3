@@ -24,8 +24,11 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
 import static org.apache.ignite.sql.ColumnType.INT32;
+import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.emptyArray;
+import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
@@ -38,7 +41,9 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.affinity.Assignment;
@@ -67,6 +72,7 @@ import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -201,10 +207,31 @@ public class CatalogCompactionRunnerSelfTest extends BaseIgniteAbstractTest {
         }
     }
 
+    @Test
+    public void messageTimeoutDoesNotProduceAdditionalExceptions() {
+        Exception expected = new TimeoutException("Expected exception");
+        Function<String, Object> timeSupplier = (node) -> {
+            if (node.equals(NODE2.name())) {
+                return expected;
+            }
+
+            return Long.MAX_VALUE;
+        };
+
+        CatalogCompactionRunner compactor = createRunner(NODE1, NODE1, timeSupplier);
+
+        ExecutionException ex = Assertions.assertThrows(ExecutionException.class,
+                () -> compactor.startCompaction(clockService.now()).get());
+
+        assertThat(ex.getCause(), instanceOf(expected.getClass()));
+        assertThat(ex.getCause().getMessage(), equalTo(expected.getMessage()));
+        assertThat(ex.getCause().getSuppressed(), emptyArray());
+    }
+
     private CatalogCompactionRunner createRunner(
             ClusterNode localNode,
             ClusterNode coordinator,
-            Function<String, Long> timeSupplier
+            Function<String, Object> timeSupplier
     ) {
         return createRunner(localNode, coordinator, timeSupplier, logicalNodes, logicalNodes);
     }
@@ -212,7 +239,7 @@ public class CatalogCompactionRunnerSelfTest extends BaseIgniteAbstractTest {
     private CatalogCompactionRunner createRunner(
             ClusterNode localNode,
             ClusterNode coordinator,
-            Function<String, Long> timeSupplier,
+            Function<String, Object> timeSupplier,
             List<LogicalNode> topology,
             List<LogicalNode> assignmentNodes
     ) {
@@ -225,8 +252,15 @@ public class CatalogCompactionRunnerSelfTest extends BaseIgniteAbstractTest {
 
         when(messagingService.invoke(any(ClusterNode.class), any(CatalogMinimumRequiredTimeRequest.class), anyLong()))
                 .thenAnswer(invocation -> {
+                    Object obj = timeSupplier.apply(((ClusterNode) invocation.getArgument(0)).name());
+
+                    // Simulate an exception when exchanging messages.
+                    if (obj instanceof Exception) {
+                        return CompletableFuture.failedFuture((Exception) obj);
+                    }
+
                     CatalogMinimumRequiredTimeResponse msg = CatalogMinimumRequiredTimeResponseImpl.builder()
-                            .timestamp(timeSupplier.apply(((ClusterNode) invocation.getArgument(0)).name())).build();
+                            .timestamp(((Long) obj)).build();
 
                     return CompletableFuture.completedFuture(msg);
                 });
