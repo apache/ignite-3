@@ -125,6 +125,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
 
     @Override
     public CompletableFuture<Map<ByteArray, Entry>> getAll(Set<ByteArray> keys, long revUpperBound) {
+        LOG.info("In service get all.");
         GetAllCommand getAllCommand = getAllCommand(context.commandsFactory(), keys, revUpperBound);
 
         return context.raftService().<List<Entry>>run(getAllCommand)
@@ -278,6 +279,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     }
 
     private static Map<ByteArray, Entry> multipleEntryResult(List<Entry> entries) {
+        LOG.info("multipleEntryResult.");
         Map<ByteArray, Entry> res = IgniteUtils.newHashMap(entries.size());
 
         for (Entry e : entries) {

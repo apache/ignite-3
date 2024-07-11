@@ -584,6 +584,7 @@ public class ZoneRebalanceUtil {
             partitionKeysToPartitionNumber.put(stablePartAssignmentsKey(new ZonePartitionId(zoneId, partId)), partId);
         }
 
+        LOG.info("Metastorage retrieved.");
         var f = metaStorageManager.getAll(partitionKeysToPartitionNumber.keySet());
         assert f != null : "getAll future is null";
         return f.thenApply(entries -> {

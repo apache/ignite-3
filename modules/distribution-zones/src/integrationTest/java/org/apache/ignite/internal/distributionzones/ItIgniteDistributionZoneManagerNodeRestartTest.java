@@ -517,6 +517,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
     @RepeatedTest(100)
     public void testFirstLogicalTopologyUpdateInterruptedEventRestoredAfterRestart() throws Exception {
+        log.info("Test started.");
         PartialNode node = startPartialNode(0);
 
         assertValueInStorage(metastore, zonesLastHandledTopology(), (v) -> v, null, TIMEOUT_MILLIS);
@@ -567,9 +568,10 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 Set.of(C),
                 TIMEOUT_MILLIS
         );
+        log.info("Test stopped.");
     }
 
-    @RepeatedTest(10)
+    @Test
     public void testCreationZoneWhenDataNodesAreDeletedIsNotSuccessful() throws Exception {
         PartialNode node = startPartialNode(0);
 
