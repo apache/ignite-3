@@ -140,7 +140,11 @@ public class IndexBuildingManager implements IgniteComponent {
 
             long recoveryRevision = recoveryFinishedFuture.join();
 
-            indexAvailabilityController.recover(recoveryRevision);
+            indexAvailabilityController.start(recoveryRevision);
+
+            changeIndexStatusTaskController.start();
+
+            indexBuildController.start();
 
             return nullCompletedFuture();
         });
