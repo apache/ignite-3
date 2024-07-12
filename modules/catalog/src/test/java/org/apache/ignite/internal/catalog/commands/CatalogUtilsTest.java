@@ -176,7 +176,7 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
                 .addPhysicalTime(TEST_MAX_CLOCK_SKEW_MILLIS)
                 .roundUpToPhysicalTick();
 
-        assertEquals(expClusterWideActivationTs, clusterWideEnsuredActivationTimestamp(catalog, TEST_MAX_CLOCK_SKEW_MILLIS));
+        assertEquals(expClusterWideActivationTs, clusterWideEnsuredActivationTimestamp(catalog.time(), TEST_MAX_CLOCK_SKEW_MILLIS));
     }
 
     private void createTable(String tableName) {
