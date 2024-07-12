@@ -35,7 +35,6 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.InternalSqlRowImpl;
-import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.QueryPrefetchCallback;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.exec.ExecutablePlan;
@@ -206,15 +205,7 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
             result.whenCompleteAsync((res, err) -> firstPageReadyCallback.onPrefetchComplete(err), executor);
         }
 
-        CompletableFuture<Void> timeoutFut = ctx.timeoutFuture();
-        if (timeoutFut != null) {
-            Executor executor = task -> ctx.execute(task::run, (err) -> {});
-
-            timeoutFut.thenAcceptAsync(
-                    (r) -> result.completeExceptionally(new QueryCancelledException(QueryCancelledException.TIMEOUT_MSG)),
-                    executor
-            );
-        }
+        ctx.scheduleTimeout(result);
 
         return new AsyncWrapper<>(result, Runnable::run);
     }
