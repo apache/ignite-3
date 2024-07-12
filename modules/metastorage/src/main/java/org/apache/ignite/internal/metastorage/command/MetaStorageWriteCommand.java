@@ -19,9 +19,11 @@ package org.apache.ignite.internal.metastorage.command;
 
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.network.annotations.WithSetter;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.BeforeApplyHandler;
+import org.jetbrains.annotations.Nullable;
 
 /** Base meta storage write command. */
 public interface MetaStorageWriteCommand extends WriteCommand {
@@ -34,12 +36,13 @@ public interface MetaStorageWriteCommand extends WriteCommand {
      * and sets safeTime as {@link HybridClock#now()} as safeTime here. This must be done before
      * command is saved into the Raft log (see {@link BeforeApplyHandler#onBeforeApply(Command)}.
      */
-    HybridTimestamp safeTime();
+    @WithSetter
+    @Nullable HybridTimestamp safeTime();
 
     /**
      * Setter for the safeTime field.
      */
-    default void safeTimeLong(long safeTime) {
+    default void safeTime(HybridTimestamp safeTime) {
         // No-op.
     }
 }
