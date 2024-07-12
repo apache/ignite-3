@@ -245,7 +245,8 @@ abstract class ChangeIndexStatusTask {
                             Throwable cause = unwrapCause(throwable);
 
                             if (cause instanceof PrimaryReplicaAwaitTimeoutException) {
-                                return awaitPrimaryReplica();
+                                return
+                                        awaitPrimaryReplica();
                             }
 
                             return CompletableFuture.<ReplicaMeta>failedFuture(cause);
@@ -346,7 +347,7 @@ abstract class ChangeIndexStatusTask {
         IndexMeta indexMeta = indexMetaStorage.indexMeta(indexDescriptor.id());
 
         if (indexMeta == null) {
-            // Index was destroyed under a low watermark, well, we need to build it.
+            // Index was destroyed under a low watermark, well, we not need to build it.
             throw new IndexTaskStoppingException();
         }
 
