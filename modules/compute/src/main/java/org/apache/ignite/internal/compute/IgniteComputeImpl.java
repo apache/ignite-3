@@ -58,6 +58,7 @@ import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
+import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.ExceptionUtils;
@@ -74,7 +75,7 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Implementation of {@link IgniteCompute}.
  */
-public class IgniteComputeImpl implements IgniteComputeInternal {
+public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceiverRunner {
     private final TopologyService topologyService;
 
     private final IgniteTablesInternal tables;
@@ -96,6 +97,8 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
         this.tables = tables;
         this.computeComponent = computeComponent;
         this.clock = clock;
+
+        tables.setStreamerReceiverRunner(this);
     }
 
     @Override
@@ -359,6 +362,12 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
     @Override
     public CompletableFuture<@Nullable Boolean> changePriorityAsync(UUID jobId, int newPriority) {
         return computeComponent.changePriorityAsync(jobId, newPriority);
+    }
+
+    @Override
+    public @Nullable CompletableFuture<List<Object>> runReceiverAsync(byte[] payload) {
+        // TODO
+        return null;
     }
 
     @TestOnly

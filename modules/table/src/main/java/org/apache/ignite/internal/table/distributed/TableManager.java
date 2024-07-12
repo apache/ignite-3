@@ -80,6 +80,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -176,6 +177,7 @@ import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.LongPriorityQueue;
+import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
@@ -415,6 +417,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     private final IndexMetaStorage indexMetaStorage;
 
     private final Predicate<Assignment> isLocalNodeAssignment = assignment -> assignment.consistentId().equals(localNode().name());
+
+    @Nullable
+    private StreamerReceiverRunner streamerReceiverRunner;
 
     /**
      * Creates a new table manager.
@@ -1283,7 +1288,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 transactionInflights,
                 implicitTransactionTimeout,
                 attemptsObtainLock,
-                this::streamerFlushExecutor
+                this::streamerFlushExecutor,
+                Objects.requireNonNull(streamerReceiverRunner)
         );
 
         var table = new TableImpl(
@@ -2645,5 +2651,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         Entry entry = metaStorageMgr.getLocally(stablePartAssignmentsKey(tablePartitionId), revision);
 
         return Assignments.fromBytes(entry.value());
+    }
+
+    @Override
+    public void setStreamerReceiverRunner(StreamerReceiverRunner runner) {
+        this.streamerReceiverRunner = runner;
     }
 }
