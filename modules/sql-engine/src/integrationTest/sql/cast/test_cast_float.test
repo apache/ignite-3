@@ -11,16 +11,12 @@ SELECT CAST('100' AS FLOAT);
 ----
 100.0
 
-# https://issues.apache.org/jira/browse/IGNITE-22519
 # overflow
-skipif ignite3
-statement error
+statement error: REAL out of range
 SELECT CAST(1e39 AS FLOAT);
 
-# https://issues.apache.org/jira/browse/IGNITE-22519
 # overflow
-skipif ignite3
-statement error
+statement error: REAL out of range
 SELECT CAST(-1e39 AS FLOAT);
 
 query T

@@ -35,6 +35,7 @@ namespace Apache.Ignite.Tests
     public class IgniteTestsBase
     {
         protected const string TableName = "TBL1";
+        protected const int TablePartitionCount = 10;
 
         protected const string TableAllColumnsName = "TBL_ALL_COLUMNS";
         protected const string TableAllColumnsNotNullName = "TBL_ALL_COLUMNS_NOT_NULL";

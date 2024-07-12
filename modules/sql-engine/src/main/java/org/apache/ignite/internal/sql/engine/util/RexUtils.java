@@ -114,13 +114,13 @@ public class RexUtils {
     /** Hash index permitted search operations. */
     private static final EnumSet<SqlKind> HASH_SEARCH_OPS = EnumSet.of(EQUALS, IS_NOT_DISTINCT_FROM);
 
-    private static final BigDecimal MIN_DOUBLE_VALUE = BigDecimal.valueOf(Double.MIN_VALUE);
-
     private static final BigDecimal MAX_DOUBLE_VALUE = BigDecimal.valueOf(Double.MAX_VALUE);
 
-    private static final BigDecimal MIN_FLOAT_VALUE = BigDecimal.valueOf(Float.MIN_VALUE);
+    private static final BigDecimal MIN_DOUBLE_VALUE = MAX_DOUBLE_VALUE.negate();
 
     private static final BigDecimal MAX_FLOAT_VALUE = BigDecimal.valueOf(Float.MAX_VALUE);
+
+    private static final BigDecimal MIN_FLOAT_VALUE = MAX_FLOAT_VALUE.negate();
 
     /**
      * Builder.
