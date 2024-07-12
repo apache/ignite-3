@@ -806,10 +806,8 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
                 .noneMatch(assignment -> assignment.consistentId().equals(localNode().name()));
 
         if (shouldStopLocalServices) {
-            return allOf(
-                    clientUpdateFuture,
-                    stopAndDestroyPartition(zonePartitionId)
-            );
+            return clientUpdateFuture.thenCompose(v -> stopAndDestroyPartition(zonePartitionId))
+                    .thenAccept(v -> { });
         } else {
             return clientUpdateFuture;
         }
