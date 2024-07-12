@@ -179,11 +179,7 @@ public final class RpcRequests {
 
         @Nullable ByteBuffer data();
 
-        long timestampLong();
-
-        default HybridTimestamp timestamp() {
-            return hybridTimestamp(timestampLong());
-        }
+        HybridTimestamp timestamp();
     }
 
     @Transferable(value = RaftMessageGroup.RpcRequestsMessageGroup.APPEND_ENTRIES_RESPONSE)
@@ -194,11 +190,7 @@ public final class RpcRequests {
 
         long lastLogIndex();
 
-        long timestampLong();
-
-        default @Nullable HybridTimestamp timestamp() {
-            return nullableHybridTimestamp(timestampLong());
-        }
+        @Nullable HybridTimestamp timestamp();
     }
 
     @Transferable(value = RaftMessageGroup.RpcRequestsMessageGroup.GET_FILE_REQUEST)

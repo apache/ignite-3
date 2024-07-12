@@ -254,7 +254,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
             MultiInvokeCommand multiInvokeCommand = commandsFactory.multiInvokeCommand()
                     .iif(iif)
                     .id(commandIdGenerator.newId())
-                    .initiatorTimeLong(clusterTime.nowLong())
+                    .initiatorTime(clusterTime.now())
                     .build();
 
             return metaStorageService.run(multiInvokeCommand);

@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.tx.message;
 
-import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
-
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.tx.TransactionMeta;
@@ -30,8 +28,8 @@ public interface TransactionMetaMessage extends NetworkMessage {
     /** Ordinal of {@link TxState} value. */
     int txStateInt();
 
-    /** Commit timestamp in primitive representation, {@link HybridTimestamp#NULL_HYBRID_TIMESTAMP} as {@code null}. */
-    long commitTimestampLong();
+    /** Commit timestamp. */
+    @Nullable HybridTimestamp commitTimestamp();
 
     /** Transaction state. */
     default TxState txState() {
@@ -40,11 +38,6 @@ public interface TransactionMetaMessage extends NetworkMessage {
         assert state != null : txStateInt();
 
         return state;
-    }
-
-    /** Commit timestamp. */
-    default @Nullable HybridTimestamp commitTimestamp() {
-        return nullableHybridTimestamp(commitTimestampLong());
     }
 
     /** Converts to {@link TransactionMeta}. */
