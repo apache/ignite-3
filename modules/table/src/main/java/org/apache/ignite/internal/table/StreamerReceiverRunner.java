@@ -5,5 +5,5 @@ import java.util.concurrent.CompletableFuture;
 import org.jetbrains.annotations.Nullable;
 
 public interface StreamerReceiverRunner {
-    public @Nullable CompletableFuture<List<Object>> runAsync(byte[] payload);
+    public @Nullable CompletableFuture<List<Object>> runReceiverAsync(byte[] payload);
 }

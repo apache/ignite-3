@@ -572,6 +572,8 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
 
                     // TODO: Reuse ReceiverRunnerJob from ClientStreamerWithReceiverBatchSendRequest via dependency inversion?
                     // How do we access compute from here at all?
+                    // TODO: Inject StreamerReceiverRunner into tables.
+                    this.tbl.runReceiverAsync(null);
                     return null;
                 });
 
