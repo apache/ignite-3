@@ -159,7 +159,11 @@ public class LeaseAgreement {
         }
     }
 
-    public CompletableFuture<LeaseGrantedMessageResponse> responseFut() {
-        return responseFut;
+    void onResponse(LeaseGrantedMessageResponse response) {
+        responseFut.complete(response);
+    }
+
+    void cancel() {
+        responseFut.complete(null);
     }
 }

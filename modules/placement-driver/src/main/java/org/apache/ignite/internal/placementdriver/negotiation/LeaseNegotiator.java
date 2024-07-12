@@ -72,8 +72,6 @@ public class LeaseNegotiator {
 
         assert agreement != null : "Lease agreement should exist when negotiation begins [groupId=" + groupId + "].";
 
-        CompletableFuture<LeaseGrantedMessageResponse> fut = agreement.responseFut();
-
         long leaseInterval = lease.getExpirationTime().getPhysical() - lease.getStartTime().getPhysical();
 
         clusterService.messagingService().invoke(
@@ -92,13 +90,13 @@ public class LeaseNegotiator {
 
                         LeaseGrantedMessageResponse response = (LeaseGrantedMessageResponse) msg;
 
-                        fut.complete(response);
+                        agreement.onResponse(response);
                     } else {
                         if (!(unwrapCause(throwable) instanceof NodeStoppingException)) {
                             LOG.warn("Lease was not negotiated due to exception [lease={}]", throwable, lease);
                         }
 
-                        fut.complete(null);
+                        agreement.cancel();
                     }
                 });
     }
@@ -141,7 +139,7 @@ public class LeaseNegotiator {
         LeaseAgreement agreement = leaseToNegotiate.remove(groupId);
 
         if (agreement != null) {
-            agreement.responseFut().completeExceptionally(new Exception("Agreement cancelled."));
+            agreement.cancel();
         }
     }
 }
