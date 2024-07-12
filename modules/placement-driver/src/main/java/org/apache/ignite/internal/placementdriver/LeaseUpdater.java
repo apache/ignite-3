@@ -376,7 +376,7 @@ public class LeaseUpdater {
 
                         LOG.info("Publishing lease [groupId={}, startTime={}, leaseholderId={}, agreementLease={}]", grpId, lease.getStartTime(), lease.getLeaseholderId(), negotiatedLease);
 
-                        assert negotiatedLease.getStartTime().longValue() >= lease.getStartTime().longValue()
+                        assert negotiatedLease.getStartTime().longValue() == lease.getStartTime().longValue()
                                 : format("Can't publish the lease that was not negotiated [groupId={}, startTime={}, "
                                     + "agreementLeaseStartTime={}].", grpId, lease.getStartTime(), agreement.getLease().getStartTime());
 
