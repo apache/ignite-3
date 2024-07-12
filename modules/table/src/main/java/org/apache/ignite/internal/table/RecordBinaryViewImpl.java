@@ -559,8 +559,28 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
             @Nullable Flow.Subscriber<R> resultSubscriber,
             @Nullable DataStreamerOptions options,
             A receiverArg) {
-        // TODO: IGNITE-22285 Embedded Data Streamer with Receiver.
-        throw new UnsupportedOperationException("Not implemented yet");
+        Objects.requireNonNull(publisher);
+
+        var partitioner = new TupleStreamerPartitionAwarenessProvider(rowConverter.registry(), tbl.partitions());
+
+        @SuppressWarnings({"rawtypes", "unchecked"})
+        StreamerBatchSender<Tuple, Integer, Void> batchSender = (partitionId, rows, deleted) ->
+                PublicApiThreading.execUserAsyncOperation(() -> (CompletableFuture) withSchemaSync(null,
+                        schemaVersion -> this.tbl.updateAll(mapToBinary(rows, schemaVersion, deleted), deleted, partitionId)
+                ));
+
+        CompletableFuture<Void> future = DataStreamer.<Tuple, E, V, R>streamData(
+                publisher,
+                keyFunc,
+                payloadFunc,
+                x -> false,
+                options,
+                batchSender,
+                resultSubscriber,
+                partitioner,
+                tbl.streamerFlushExecutor());
+
+        return convertToPublicFuture(future);
     }
 
     /**
