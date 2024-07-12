@@ -716,8 +716,6 @@ public class IgniteImpl implements Ignite {
                 partitionIdleSafeTimePropagationPeriodMsSupplier
         );
 
-        metaStorageMgr.addElectionListener(catalogManager::updateCompactionCoordinator);
-
         CatalogCompactionRunner catalogCompaction = new CatalogCompactionRunner(
                 catalogManager,
                 clusterSvc.messagingService(),
@@ -727,6 +725,8 @@ public class IgniteImpl implements Ignite {
                 clockService,
                 threadPoolsManager.commonScheduler()
         );
+
+        metaStorageMgr.addElectionListener(catalogCompaction::updateCoordinator);
 
         systemViewManager = new SystemViewManagerImpl(name, catalogManager);
         nodeAttributesCollector.register(systemViewManager);
@@ -1648,6 +1648,12 @@ public class IgniteImpl implements Ignite {
     @TestOnly
     public CatalogManager catalogManager() {
         return catalogManager;
+    }
+
+    /** Returns the node's catalog compaction runner. */
+    @TestOnly
+    public CatalogCompactionRunner catalogCompactionRunner() {
+        return catalogCompactionRunner;
     }
 
     /** Returns {@link NettyBootstrapFactory}. */

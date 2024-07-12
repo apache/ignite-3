@@ -71,7 +71,6 @@ import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.lang.ErrorGroups.Common;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -126,13 +125,6 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     /**
-     * Node that is considered to be a coordinator of compaction process.
-     *
-     * <p>May be not set. Node should act as coordinator only in case this field is set and value is equal to name of the local node.
-     */
-    private volatile @Nullable String compactionCoordinatorNodeName;
-
-    /**
      * Constructor.
      */
     public CatalogManagerImpl(UpdateLog updateLog, ClockService clockService) {
@@ -153,16 +145,6 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
         this.delayDurationMsSupplier = delayDurationMsSupplier;
         this.partitionIdleSafeTimePropagationPeriodMsSupplier = partitionIdleSafeTimePropagationPeriodMsSupplier;
         this.catalogSystemViewProvider = new CatalogSystemViewRegistry(() -> catalogAt(clockService.nowLong()));
-    }
-
-    /** Updates the local view of the node with new compaction coordinator. */
-    public void updateCompactionCoordinator(ClusterNode newCoordinator) {
-        compactionCoordinatorNodeName = newCoordinator.name();
-    }
-
-    /** Returns local view of the node on who is currently compaction coordinator. For test purposes only.*/
-    public @Nullable String compactionCoordinator() {
-        return compactionCoordinatorNodeName;
     }
 
     @Override

@@ -57,6 +57,7 @@ import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -98,6 +99,15 @@ public class CatalogCompactionRunner implements IgniteComponent {
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     private volatile CompletableFuture<Boolean> lastRunFuture = CompletableFutures.nullCompletedFuture();
+
+    /**
+     * Node that is considered to be a coordinator of compaction process.
+     *
+     * <p>May be not set. Node should act as coordinator only in case this field is set and value is equal to name of the local node.
+     */
+    private volatile @Nullable String compactionCoordinatorNodeName;
+
+    private volatile HybridTimestamp lowWatermark;
 
     /**
      * Constructs catalog compaction runner.
@@ -147,11 +157,24 @@ public class CatalogCompactionRunner implements IgniteComponent {
         return CompletableFutures.nullCompletedFuture();
     }
 
+    /** Updates the local view of the node with new compaction coordinator. */
+    public void updateCoordinator(ClusterNode newCoordinator) {
+        compactionCoordinatorNodeName = newCoordinator.name();
+
+        triggerCompaction(lowWatermark);
+    }
+
+    /** Returns local view of the node on who is currently compaction coordinator. For test purposes only.*/
+    @TestOnly
+    public @Nullable String coordinator() {
+        return compactionCoordinatorNodeName;
+    }
+
     /** Called when the low watermark has been changed. */
     public CompletableFuture<Boolean> onLowWatermarkChanged(HybridTimestamp newLowWatermark) {
-        if (topologyService.localMember().name().equals(catalogManager.compactionCoordinator())) {
-            startCompaction(newLowWatermark);
-        }
+        lowWatermark = newLowWatermark;
+
+        triggerCompaction(newLowWatermark);
 
         return CompletableFutures.falseCompletedFuture();
     }
@@ -162,24 +185,28 @@ public class CatalogCompactionRunner implements IgniteComponent {
     }
 
     /** Starts the catalog compaction routine. */
-    CompletableFuture<Boolean> startCompaction(HybridTimestamp newLowWatermark) {
+    CompletableFuture<Boolean> triggerCompaction(@Nullable HybridTimestamp lwm) {
+        if (lwm == null || !topologyService.localMember().name().equals(compactionCoordinatorNodeName)) {
+            return CompletableFutures.falseCompletedFuture();
+        }
+
         return inBusyLock(busyLock, () -> {
             CompletableFuture<Boolean> fut = lastRunFuture;
 
             if (!fut.isDone()) {
-                LOG.info("Catalog compaction is already in progress, skipping (timestamp={})", newLowWatermark.longValue());
+                LOG.info("Catalog compaction is already in progress, skipping (timestamp={})", lwm.longValue());
 
                 return CompletableFutures.falseCompletedFuture();
             }
 
             fut = startCompaction().whenComplete((res, ex) -> {
                 if (ex != null) {
-                    LOG.warn("Catalog compaction has failed (timestamp={})", ex, newLowWatermark.longValue());
+                    LOG.warn("Catalog compaction has failed (timestamp={})", ex, lwm.longValue());
                 } else if (LOG.isDebugEnabled()) {
                     if (res) {
-                        LOG.debug("Catalog compaction completed successfully (timestamp={})", newLowWatermark.longValue());
+                        LOG.debug("Catalog compaction completed successfully (timestamp={})", lwm.longValue());
                     } else {
-                        LOG.debug("Catalog compaction skipped (timestamp={})", newLowWatermark.longValue());
+                        LOG.debug("Catalog compaction skipped (timestamp={})", lwm.longValue());
                     }
                 }
             });

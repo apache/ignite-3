@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.emptyArray;
 import static org.hamcrest.Matchers.instanceOf;
@@ -134,12 +135,12 @@ public class CatalogCompactionRunnerSelfTest extends BaseIgniteAbstractTest {
         assertEquals(expectedEarliestCatalogVersion, catalogManager.earliestCatalogVersion());
 
         // Nothing should be changed if catalog already compacted for previous timestamp.
-        assertThat(compactionRunner.startCompaction(clockService.now()), willBe(false));
+        assertThat(compactionRunner.triggerCompaction(clockService.now()), willBe(false));
 
         // Nothing should be changed if previous catalog doesn't exists.
         Catalog earliestCatalog = Objects.requireNonNull(catalogManager.catalog(catalogManager.earliestCatalogVersion()));
         compactionRunner = createRunner(NODE1, NODE1, (n) -> earliestCatalog.time());
-        assertThat(compactionRunner.startCompaction(clockService.now()), willBe(false));
+        assertThat(compactionRunner.triggerCompaction(clockService.now()), willBe(false));
     }
 
     @Test
@@ -150,6 +151,10 @@ public class CatalogCompactionRunnerSelfTest extends BaseIgniteAbstractTest {
 
         assertThat(compactor.onLowWatermarkChanged(clockService.now()), willBe(false));
         assertThat(compactor.lastRunFuture(), is(lastRunFuture));
+
+        // Changing the coordinator should trigger compaction.
+        compactor.updateCoordinator(NODE1);
+        assertThat(compactor.lastRunFuture(), is(not(lastRunFuture)));
     }
 
     @Test
@@ -160,7 +165,7 @@ public class CatalogCompactionRunnerSelfTest extends BaseIgniteAbstractTest {
         CatalogCompactionRunner compactor =
                 createRunner(NODE1, NODE1, (n) -> earliestCatalog.time() - 1, logicalNodes, logicalNodes);
 
-        assertThat(compactor.startCompaction(clockService.now()), willBe(false));
+        assertThat(compactor.triggerCompaction(clockService.now()), willBe(false));
     }
 
     @Test
@@ -192,7 +197,7 @@ public class CatalogCompactionRunnerSelfTest extends BaseIgniteAbstractTest {
                     List.of(NODE1, NODE2, NODE3)
             );
 
-            assertThat(compactor.startCompaction(clockService.now()), willBe(false));
+            assertThat(compactor.triggerCompaction(clockService.now()), willBe(false));
         }
 
         // All nodes from the assignments are present in logical topology.
@@ -205,7 +210,7 @@ public class CatalogCompactionRunnerSelfTest extends BaseIgniteAbstractTest {
                     logicalNodes
             );
 
-            assertThat(compactor.startCompaction(clockService.now()), willBe(true));
+            assertThat(compactor.triggerCompaction(clockService.now()), willBe(true));
         }
     }
 
@@ -223,7 +228,7 @@ public class CatalogCompactionRunnerSelfTest extends BaseIgniteAbstractTest {
         CatalogCompactionRunner compactor = createRunner(NODE1, NODE1, timeSupplier);
 
         ExecutionException ex = Assertions.assertThrows(ExecutionException.class,
-                () -> compactor.startCompaction(clockService.now()).get());
+                () -> compactor.triggerCompaction(clockService.now()).get());
 
         assertThat(ex.getCause(), instanceOf(expected.getClass()));
         assertThat(ex.getCause().getMessage(), equalTo(expected.getMessage()));
@@ -278,9 +283,7 @@ public class CatalogCompactionRunnerSelfTest extends BaseIgniteAbstractTest {
 
         when(logicalTopologyService.localLogicalTopology()).thenReturn(logicalTop);
 
-        catalogManager.updateCompactionCoordinator(coordinator);
-
-        return new CatalogCompactionRunner(
+        CatalogCompactionRunner runner = new CatalogCompactionRunner(
                 catalogManager,
                 messagingService,
                 topologyService,
@@ -289,6 +292,10 @@ public class CatalogCompactionRunnerSelfTest extends BaseIgniteAbstractTest {
                 clockService,
                 ForkJoinPool.commonPool()
         );
+
+        runner.updateCoordinator(coordinator);
+
+        return runner;
     }
 
     private static CatalogManagerImpl createCatalogManager(HybridClock clock) {
