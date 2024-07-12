@@ -141,7 +141,6 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
                 fooIndex.tableId(),
                 fooIndex.unique(),
                 fooIndex.status(),
-                fooIndex.txWaitCatalogVersion(),
                 fooIndex.columns()
         );
 
