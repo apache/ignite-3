@@ -65,14 +65,6 @@ public abstract class CatalogIndexDescriptor extends CatalogObjectDescriptor {
         return status;
     }
 
-    /**
-     * Returns the Catalog version used in special index status updates to wait for RW transactions, started before
-     * this version, to finish.
-     */
-    public int txWaitCatalogVersion() {
-        return 0;
-    }
-
     /** Returns catalog index descriptor type. */
     public CatalogIndexDescriptorType indexType() {
         return indexType;
