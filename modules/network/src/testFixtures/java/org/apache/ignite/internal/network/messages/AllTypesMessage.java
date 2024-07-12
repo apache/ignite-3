@@ -126,21 +126,5 @@ public interface AllTypesMessage extends NetworkMessage, Serializable {
     @Nullable
     String sensitiveString();
 
-    String [] stringArray();
-
-    HybridTimestamp hybridTs();
-
-    @Nullable HybridTimestamp hybridTsNullable();
-
-    HybridTimestamp[] hybridTsArray();
-
-    HybridTimestamp @Nullable [] hybridTsArrayNullable();
-
-    List<HybridTimestamp> hybridTsList();
-
-    @Nullable List<HybridTimestamp> hybridTsListNullable();
-
-    Map<HybridTimestamp, HybridTimestamp> hybridTsMap();
-
-    @Nullable Map<HybridTimestamp, HybridTimestamp> hybridTsMapNullable();
+    @Nullable HybridTimestamp hybridTs();
 }
