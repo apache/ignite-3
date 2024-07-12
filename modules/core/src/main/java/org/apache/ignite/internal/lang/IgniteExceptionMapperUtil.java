@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.ServiceLoader;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.function.Function;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteCheckedException;
 import org.apache.ignite.lang.IgniteException;
@@ -84,9 +85,29 @@ public class IgniteExceptionMapperUtil {
      * @return Public exception.
      */
     public static Throwable mapToPublicException(Throwable origin) {
+        return mapToPublicException(origin, ex -> new IgniteException(INTERNAL_ERR, ex));
+    }
+
+    /**
+     * This method provides a mapping from internal exception to Ignite public ones.
+     *
+     * <p>The rules of mapping are the following:</p>
+     * <ul>
+     *     <li>any instance of {@link Error} is returned as is, except {@link AssertionError}
+     *     that will always be mapped to {@link IgniteException} with the {@link Common#INTERNAL_ERR} error code.</li>
+     *     <li>any instance of {@link IgniteException} or {@link IgniteCheckedException} is returned as is.</li>
+     *     <li>if there are no any mappers that can do a mapping from the given error to a public exception,
+     *     then unknownProblemMapper is used to map the exception.</li>
+     * </ul>
+     *
+     * @param origin Exception to be mapped.
+     * @param unknownProblemMapper Mapper used to map an unknown exception.
+     * @return Public exception.
+     */
+    public static Throwable mapToPublicException(Throwable origin, Function<Throwable, Throwable> unknownProblemMapper) {
         if (origin instanceof Error) {
             if (origin instanceof AssertionError) {
-                return new IgniteException(INTERNAL_ERR, origin);
+                return unknownProblemMapper.apply(origin);
             }
             return origin;
         }
@@ -115,7 +136,7 @@ public class IgniteExceptionMapperUtil {
         }
 
         // There are no exception mappings for the given exception. This case should be considered as internal error.
-        return new IgniteException(INTERNAL_ERR, origin);
+        return unknownProblemMapper.apply(origin);
     }
 
     /**

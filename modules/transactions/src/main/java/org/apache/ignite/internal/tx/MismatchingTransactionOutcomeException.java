@@ -19,15 +19,13 @@ package org.apache.ignite.internal.tx;
 
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_UNEXPECTED_STATE_ERR;
 
-import org.apache.ignite.tx.TransactionException;
-
 /**
  * The exception is thrown when the transaction result differs from the intended one.
  *
  * <p>For example, {@code tx.commit()} is called for a transaction, but the verification logic decided to abort it instead. The transaction
  * will be finished with {@link TxState#ABORTED} and the call to {@code tx.commit()} will throw this exception.
  */
-public class MismatchingTransactionOutcomeException extends TransactionException {
+public class MismatchingTransactionOutcomeException extends TransactionInternalException {
 
     private static final long serialVersionUID = -7953057695915339651L;
 

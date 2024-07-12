@@ -18,14 +18,14 @@
 package org.apache.ignite.internal.table.distributed.replicator;
 
 import org.apache.ignite.internal.replicator.exception.ExpectedReplicationException;
+import org.apache.ignite.internal.tx.TransactionInternalException;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
-import org.apache.ignite.tx.TransactionException;
 
 /**
  * Thrown when, during an attempt to execute a transactional operation, it turns out that the operation cannot be executed
  * because an incompatible schema change has happened.
  */
-public class IncompatibleSchemaException extends TransactionException implements ExpectedReplicationException {
+public class IncompatibleSchemaException extends TransactionInternalException implements ExpectedReplicationException {
     private static final String SCHEMA_CHANGED_MESSAGE = "Table schema was updated after the transaction was started "
             + "[table=%s, startSchema=%d, operationSchema=%d]";
 

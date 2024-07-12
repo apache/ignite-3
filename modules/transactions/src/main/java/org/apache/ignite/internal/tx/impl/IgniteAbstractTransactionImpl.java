@@ -17,8 +17,10 @@
 
 package org.apache.ignite.internal.tx.impl;
 
-import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.convertToPublicFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.copyExceptionWithCause;
+import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_COMMIT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ROLLBACK_ERR;
 
@@ -89,23 +91,19 @@ public abstract class IgniteAbstractTransactionImpl implements InternalTransacti
     public void commit() throws TransactionException {
         try {
             commitAsync().get();
-        } catch (Exception e) {
-            throw asTransactionException(e, TX_COMMIT_ERR);
-        }
-    }
+        } catch (ExecutionException e) {
+            throw sneakyThrow(tryToCopyExceptionWithCause(e));
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
 
-    private static TransactionException asTransactionException(Exception e, int errorCode) {
-        if (e instanceof ExecutionException && e.getCause() instanceof TransactionException) {
-            return (TransactionException) e.getCause();
-        } else {
-            return withCause(TransactionException::new, errorCode, e);
+            throw withCause(TransactionException::new, TX_COMMIT_ERR, e);
         }
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> commitAsync() {
-        return convertToPublicFuture(finish(true));
+        return TransactionsExceptionMapperUtil.convertToPublicFuture(finish(true), TX_COMMIT_ERR);
     }
 
     /** {@inheritDoc} */
@@ -113,15 +111,19 @@ public abstract class IgniteAbstractTransactionImpl implements InternalTransacti
     public void rollback() throws TransactionException {
         try {
             rollbackAsync().get();
-        } catch (Exception e) {
-            throw asTransactionException(e, TX_ROLLBACK_ERR);
+        } catch (ExecutionException e) {
+            throw sneakyThrow(tryToCopyExceptionWithCause(e));
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+
+            throw withCause(TransactionException::new, TX_ROLLBACK_ERR, e);
         }
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> rollbackAsync() {
-        return convertToPublicFuture(finish(false));
+        return TransactionsExceptionMapperUtil.convertToPublicFuture(finish(false), TX_ROLLBACK_ERR);
     }
 
     /**
@@ -132,4 +134,15 @@ public abstract class IgniteAbstractTransactionImpl implements InternalTransacti
      * @return The future.
      */
     protected abstract CompletableFuture<Void> finish(boolean commit);
+
+    // TODO: remove after IGNITE-22721 gets resolved.
+    private static Throwable tryToCopyExceptionWithCause(ExecutionException exception) {
+        Throwable copy = copyExceptionWithCause(exception);
+
+        if (copy == null) {
+            return new TransactionException(INTERNAL_ERR, "Cannot make a proper copy of " + exception.getCause().getClass(), exception);
+        }
+
+        return copy;
+    }
 }
