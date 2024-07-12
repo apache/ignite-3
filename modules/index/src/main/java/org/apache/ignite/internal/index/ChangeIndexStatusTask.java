@@ -245,8 +245,7 @@ abstract class ChangeIndexStatusTask {
                             Throwable cause = unwrapCause(throwable);
 
                             if (cause instanceof PrimaryReplicaAwaitTimeoutException) {
-                                return
-                                        awaitPrimaryReplica();
+                                return awaitPrimaryReplica();
                             }
 
                             return CompletableFuture.<ReplicaMeta>failedFuture(cause);
