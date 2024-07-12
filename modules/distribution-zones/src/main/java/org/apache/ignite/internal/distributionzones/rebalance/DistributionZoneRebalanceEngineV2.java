@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.distributionzones.rebalance;
 
+import static java.util.concurrent.CompletableFuture.allOf;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_ALTER;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.filterDataNodes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.parseDataNodes;
@@ -25,9 +27,11 @@ import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalan
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.triggerZonePartitionsRebalance;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
@@ -96,7 +100,7 @@ public class DistributionZoneRebalanceEngineV2 {
     /**
      * Starts the rebalance engine by registering corresponding meta storage and catalog listeners.
      */
-    public CompletableFuture<Void> start() {
+    public CompletableFuture<Void> startAsync() {
         return IgniteUtils.inBusyLockAsync(busyLock, () -> {
             catalogService.listen(ZONE_ALTER, new CatalogAlterZoneEventListener(catalogService) {
                 @Override
@@ -108,7 +112,14 @@ public class DistributionZoneRebalanceEngineV2 {
             // TODO: IGNITE-18694 - Recovery for the case when zones watch listener processed event but assignments were not updated.
             metaStorageManager.registerPrefixWatch(zoneDataNodesKey(), dataNodesListener);
 
-            return nullCompletedFuture();
+            CompletableFuture<Long> recoveryFinishFuture = metaStorageManager.recoveryFinishedFuture();
+
+            // At the moment of the start of this manager, it is guaranteed that Meta Storage has been recovered.
+            assert recoveryFinishFuture.isDone();
+
+            long recoveryRevision = recoveryFinishFuture.join();
+
+            return rebalanceTriggersRecovery(recoveryRevision);
         });
     }
 
@@ -161,7 +172,8 @@ public class DistributionZoneRebalanceEngineV2 {
                             zoneDescriptor,
                             filteredDataNodes,
                             evt.entryEvent().newEntry().revision(),
-                            metaStorageManager
+                            metaStorageManager,
+                            busyLock
                     );
                 });
             }
@@ -206,8 +218,36 @@ public class DistributionZoneRebalanceEngineV2 {
                             zoneDescriptor,
                             dataNodes,
                             causalityToken,
-                            metaStorageManager
+                            metaStorageManager,
+                            busyLock
                     );
                 }));
+    }
+
+    /**
+     * Run the update of rebalance metastore's state.
+     *
+     * @param recoveryRevision Recovery revision.
+     */
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-21058 At the moment this method produce many metastore multi-invokes
+    // TODO: which can be avoided by the local logic, which mirror the logic of metastore invokes.
+    // TODO: And then run the remote invoke, only if needed.
+    private CompletableFuture<Void> rebalanceTriggersRecovery(long recoveryRevision) {
+        if (recoveryRevision > 0) {
+            List<CompletableFuture<Void>> zonesRecoveryFutures = catalogService.zones(catalogService.latestCatalogVersion())
+                    .stream()
+                    .map(zoneDesc ->
+                            recalculateAssignmentsAndTriggerZonePartitionsRebalance(
+                                    zoneDesc,
+                                    recoveryRevision,
+                                    catalogService.latestCatalogVersion()
+                            )
+                    )
+                    .collect(Collectors.toUnmodifiableList());
+
+            return allOf(zonesRecoveryFutures.toArray(new CompletableFuture[0]));
+        } else {
+            return completedFuture(null);
+        }
     }
 }

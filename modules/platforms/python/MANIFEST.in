@@ -1,0 +1,7 @@
+graft requirements
+graft tests
+global-exclude *.py[cod]
+global-exclude *__pycache__*
+include README.md
+include LICENSE
+include NOTICE

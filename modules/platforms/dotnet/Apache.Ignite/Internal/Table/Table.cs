@@ -110,6 +110,8 @@ namespace Apache.Ignite.Internal.Table
 
             KeyValueBinaryView = new KeyValueView<IIgniteTuple, IIgniteTuple>(
                 new RecordView<KvPair<IIgniteTuple, IIgniteTuple>>(this, pairSerializer, _sql));
+
+            PartitionManager = new PartitionManager(this);
         }
 
         /// <inheritdoc/>
@@ -120,6 +122,9 @@ namespace Apache.Ignite.Internal.Table
 
         /// <inheritdoc/>
         public IKeyValueView<IIgniteTuple, IIgniteTuple> KeyValueBinaryView { get; }
+
+        /// <inheritdoc/>
+        public IPartitionManager PartitionManager { get; }
 
         /// <summary>
         /// Gets the associated socket.

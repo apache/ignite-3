@@ -155,7 +155,7 @@ abstract class BaseIndexMetaStorageTest extends BaseIgniteAbstractTest {
     }
 
     List<String> allIndexNamesFromSnapshotIndexMetas() {
-        return indexMetaStorage.indexMetasSnapshot().stream()
+        return indexMetaStorage.indexMetas().stream()
                 .map(IndexMeta::indexName)
                 .collect(toList());
     }

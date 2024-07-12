@@ -512,13 +512,11 @@ public class CatalogUtils {
      * Returns the timestamp at which the catalog version is guaranteed to be activated on every node of the cluster. This takes into
      * account possible clock skew between nodes.
      *
-     * @param catalog Catalog version of interest.
+     * @param activationTs Catalog version activation timestamp of interest.
      * @param maxClockSkewMillis Max clock skew in milliseconds.
      */
-    public static HybridTimestamp clusterWideEnsuredActivationTimestamp(Catalog catalog, long maxClockSkewMillis) {
-        HybridTimestamp activationTs = HybridTimestamp.hybridTimestamp(catalog.time());
-
-        return activationTs.addPhysicalTime(maxClockSkewMillis)
+    public static HybridTimestamp clusterWideEnsuredActivationTimestamp(long activationTs, long maxClockSkewMillis) {
+        return HybridTimestamp.hybridTimestamp(activationTs).addPhysicalTime(maxClockSkewMillis)
                 // Rounding up to the closest millisecond to account for possibility of HLC.now() having different
                 // logical parts on different nodes of the cluster (see IGNITE-21084).
                 .roundUpToPhysicalTick();
@@ -536,7 +534,7 @@ public class CatalogUtils {
             LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier,
             long maxClockSkewMillis
     ) {
-        HybridTimestamp clusterWideEnsuredActivationTs = clusterWideEnsuredActivationTimestamp(catalog, maxClockSkewMillis);
+        HybridTimestamp clusterWideEnsuredActivationTs = clusterWideEnsuredActivationTimestamp(catalog.time(), maxClockSkewMillis);
         // TODO: this addition has to be removed when IGNITE-20378 is implemented.
         return clusterWideEnsuredActivationTs.addPhysicalTime(
                 partitionIdleSafeTimePropagationPeriodMsSupplier.getAsLong() + maxClockSkewMillis
