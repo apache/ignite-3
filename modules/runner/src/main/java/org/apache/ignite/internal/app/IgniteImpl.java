@@ -860,6 +860,7 @@ public class IgniteImpl implements Ignite {
                 catalogManager,
                 metaStorageMgr,
                 indexManager,
+                indexMetaStorage,
                 placementDriverMgr.placementDriver(),
                 clusterSvc,
                 logicalTopologyService,
