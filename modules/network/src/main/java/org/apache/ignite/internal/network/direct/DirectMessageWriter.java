@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteUuid;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.direct.state.DirectMessageState;
@@ -393,6 +394,15 @@ public class DirectMessageWriter implements MessageWriter {
         DirectByteBufferStream stream = this.stream;
 
         stream.writeIgniteUuid(val);
+
+        return stream.lastFinished();
+    }
+
+    @Override
+    public boolean writeHybridTimestamp(String name, @Nullable HybridTimestamp val) {
+        DirectByteBufferStream stream = this.stream;
+
+        stream.writeBoxedLong(val == null ? null : val.longValue());
 
         return stream.lastFinished();
     }
