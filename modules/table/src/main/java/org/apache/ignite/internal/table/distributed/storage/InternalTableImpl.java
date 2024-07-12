@@ -2271,9 +2271,9 @@ public class InternalTableImpl implements InternalTable {
                                 // 1. Primary Replica has changed between the "awaitPrimaryReplica" and "invoke" calls;
                                 // 2. Primary Replica has died and is no longer available.
                                 // In both cases, we need to wait for the lease to expire and to get a new Primary Replica.
-                                if (e instanceof PrimaryReplicaMissException ||
-                                        e instanceof UnresolvableConsistentIdException ||
-                                        e instanceof ReplicationTimeoutException) {
+                                if (e instanceof PrimaryReplicaMissException
+                                        || e instanceof UnresolvableConsistentIdException
+                                        || e instanceof ReplicationTimeoutException) {
                                     if (numRetries == 0) {
                                         throw new IgniteException(REPLICA_MISS_ERR, e);
                                     }
