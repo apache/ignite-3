@@ -19,9 +19,12 @@ package org.apache.ignite.internal.network;
 
 import static org.apache.ignite.internal.tostring.IgniteToStringBuilder.includeSensitive;
 
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.thread.IgniteThread;
+import org.apache.ignite.internal.thread.ThreadOperation;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
@@ -48,7 +51,21 @@ public class TrackableNetworkMessageHandler implements NetworkMessageHandler {
 
         targetHandler.onReceived(message, sender, correlationId);
 
-        maybeLogLongProcessing(message, startTimeNanos);
+        if (!storageThread()) {
+            maybeLogLongProcessing(message, startTimeNanos);
+        }
+    }
+
+    private static boolean storageThread() {
+        IgniteThread current = IgniteThread.current();
+
+        if (current == null) {
+            return false;
+        }
+
+        Set<ThreadOperation> allowedOperations = current.allowedOperations();
+
+        return allowedOperations.contains(ThreadOperation.STORAGE_READ) || allowedOperations.contains(ThreadOperation.STORAGE_WRITE);
     }
 
     private static void maybeLogLongProcessing(NetworkMessage message, long startTimeNanos) {
