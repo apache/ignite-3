@@ -223,7 +223,7 @@ public class LeaseUpdater {
     private CompletableFuture<Boolean> denyLease(ReplicationGroupId grpId, Lease lease, String redirectProposal) {
         Lease deniedLease = lease.denyLease(redirectProposal);
 
-        leaseNegotiator.onLeaseRemoved(grpId);
+        leaseNegotiator.cancelAgreement(grpId);
 
         Leases leasesCurrent = leaseTracker.leasesCurrent();
 
@@ -376,6 +376,10 @@ public class LeaseUpdater {
 
                         LOG.info("Publishing lease [groupId={}, startTime={}, leaseholderId={}, agreementLease={}]", grpId, lease.getStartTime(), lease.getLeaseholderId(), negotiatedLease);
 
+                        // Lease information is taken from lease tracker, where it appears on meta storage watch updates, so it can contain
+                        // stale leases, if watch processing was delayed for some reason. It is ok: negotiated lease is guaranteed to be
+                        // already written to meta storage before negotiation begins, and in this case its start time would be
+                        // greater than lease's.
                         assert negotiatedLease.getStartTime().longValue() >= lease.getStartTime().longValue()
                                 : format("Can't publish the lease that was not negotiated [groupId={}, startTime={}, "
                                     + "agreementLeaseStartTime={}].", grpId, lease.getStartTime(), agreement.getLease().getStartTime());
@@ -481,6 +485,12 @@ public class LeaseUpdater {
             });
         }
 
+        /**
+         * Cancel all the given agreements. This should be done if the new leases that were to be negotiated had been not written to meta
+         * storage.
+         *
+         * @param groupIds Group ids.
+         */
         private void cancelAgreements(Collection<ReplicationGroupId> groupIds) {
             for (ReplicationGroupId groupId : groupIds) {
                 leaseNegotiator.cancelAgreement(groupId);
@@ -510,6 +520,7 @@ public class LeaseUpdater {
 
             LOG.info("Writing new lease {} [groupId={}, startTime={}, leaseholderId={}, lease={}]", cmnt, grpId, renewedLease.getStartTime(), renewedLease.getLeaseholderId(), renewedLease);
 
+            // Lease agreement should be created synchronously before negotiation begins.
             leaseNegotiator.createAgreement(grpId, renewedLease);
 
             leaseUpdateStatistics.onLeaseCreate();

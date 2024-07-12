@@ -70,6 +70,8 @@ public class LeaseNegotiator {
 
         LeaseAgreement agreement = leaseToNegotiate.get(groupId);
 
+        assert agreement != null : "Lease agreement should exist when negotiation begins [groupId=" + groupId + "].";
+
         CompletableFuture<LeaseGrantedMessageResponse> fut = agreement.responseFut();
 
         long leaseInterval = lease.getExpirationTime().getPhysical() - lease.getStartTime().getPhysical();
@@ -123,22 +125,25 @@ public class LeaseNegotiator {
     }
 
     /**
-     * Removes lease from list to negotiate.
+     * Creates an agreement.
      *
-     * @param groupId Lease to expire.
+     * @param groupId Group id.
+     * @param lease Lease to negotiate.
      */
-    public void onLeaseRemoved(ReplicationGroupId groupId) {
-        leaseToNegotiate.remove(groupId);
-    }
-
     public void createAgreement(ReplicationGroupId groupId, Lease lease) {
         leaseToNegotiate.put(groupId, new LeaseAgreement(lease, new CompletableFuture<>()));
     }
 
+    /**
+     * Removes lease from list to negotiate.
+     *
+     * @param groupId Lease to expire.
+     */
     public void cancelAgreement(ReplicationGroupId groupId) {
         LeaseAgreement agreement = leaseToNegotiate.remove(groupId);
+
         if (agreement != null) {
-            agreement.responseFut().completeExceptionally(new Exception("Cancelled."));
+            agreement.responseFut().completeExceptionally(new Exception("Agreement cancelled."));
         }
     }
 }
