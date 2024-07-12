@@ -1562,10 +1562,10 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         }
 
         void assertReservation(ReplicationGroupId groupId, HybridTimestamp leaseStartTime) {
-            assert reservedForPrimary : "Replica is elected as primary but not reserved [groupId=" +
-                    groupId + ", leaseStartTime=" + leaseStartTime + "].";
-            assert leaseStartTime != null : "Replica is reserved but lease start time is null [groupId=" +
-                    groupId + ", leaseStartTime=" + leaseStartTime + "].";
+            assert reservedForPrimary : "Replica is elected as primary but not reserved [groupId="
+                    + groupId + ", leaseStartTime=" + leaseStartTime + "].";
+            assert leaseStartTime != null : "Replica is reserved but lease start time is null [groupId="
+                    + groupId + ", leaseStartTime=" + leaseStartTime + "].";
         }
     }
 
