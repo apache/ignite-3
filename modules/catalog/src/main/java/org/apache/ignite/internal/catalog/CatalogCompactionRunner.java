@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -260,33 +261,47 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
     private CompletableFuture<Set<String>> requiredNodes(Catalog catalog) {
         HybridTimestamp nowTs = clockService.now();
-        List<CompletableFuture<?>> partitionFutures = new ArrayList<>();
         Set<String> required = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
-        for (CatalogTableDescriptor table : catalog.tables()) {
-            CatalogZoneDescriptor zone = catalog.zone(table.zoneId());
+        return collectRequiredNodes(catalog, new ArrayList<>(catalog.tables()).iterator(), required, nowTs);
+    }
 
-            assert zone != null : table.zoneId();
-
-            for (int p = 0; p < zone.partitions(); p++) {
-                ReplicationGroupId replicationGroupId = new TablePartitionId(table.id(), p);
-
-                CompletableFuture<TokenizedAssignments> assignmentsFut = placementDriver.getAssignments(replicationGroupId, nowTs)
-                        .whenComplete((tokenizedAssignments, ex) -> {
-                            if (tokenizedAssignments != null) {
-                                List<String> assignments = tokenizedAssignments.nodes().stream()
-                                        .map(Assignment::consistentId)
-                                        .collect(Collectors.toList());
-
-                                required.addAll(assignments);
-                            }
-                        });
-
-                partitionFutures.add(assignmentsFut);
-            }
+    private CompletableFuture<Set<String>> collectRequiredNodes(
+            Catalog catalog,
+            Iterator<CatalogTableDescriptor> tabItr,
+            Set<String> required,
+            HybridTimestamp nowTs
+    ) {
+        if (!tabItr.hasNext()) {
+            return CompletableFuture.completedFuture(required);
         }
 
-        return CompletableFutures.allOf(partitionFutures).thenApply(ignore -> required);
+        CatalogTableDescriptor table = tabItr.next();
+        CatalogZoneDescriptor zone = catalog.zone(table.zoneId());
+
+        assert zone != null : table.zoneId();
+
+        List<CompletableFuture<?>> partitionFutures = new ArrayList<>(zone.partitions());
+
+        for (int p = 0; p < zone.partitions(); p++) {
+            ReplicationGroupId replicationGroupId = new TablePartitionId(table.id(), p);
+
+            CompletableFuture<TokenizedAssignments> assignmentsFut = placementDriver.getAssignments(replicationGroupId, nowTs)
+                    .whenComplete((tokenizedAssignments, ex) -> {
+                        if (tokenizedAssignments != null) {
+                            List<String> assignments = tokenizedAssignments.nodes().stream()
+                                    .map(Assignment::consistentId)
+                                    .collect(Collectors.toList());
+
+                            required.addAll(assignments);
+                        }
+                    });
+
+            partitionFutures.add(assignmentsFut);
+        }
+
+        return CompletableFutures.allOf(partitionFutures)
+                .thenCompose(ignore -> collectRequiredNodes(catalog, tabItr, required, nowTs));
     }
 
     private List<String> missingNodes(Set<String> requiredNodes) {

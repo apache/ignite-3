@@ -50,6 +50,7 @@ import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.affinity.TokenizedAssignmentsImpl;
 import org.apache.ignite.internal.catalog.CatalogTestUtils.TestCommand;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
+import org.apache.ignite.internal.catalog.commands.CreateTableCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.TableHashPrimaryKey;
 import org.apache.ignite.internal.catalog.message.CatalogMinimumRequiredTimeRequest;
 import org.apache.ignite.internal.catalog.message.CatalogMinimumRequiredTimeResponse;
@@ -164,16 +165,17 @@ public class CatalogCompactionRunnerSelfTest extends BaseIgniteAbstractTest {
 
     @Test
     public void mustNotPerformWhenAssignmentNodeIsMissing() {
-        CatalogCommand createTableCommand = CreateTableCommand.builder()
+        CreateTableCommandBuilder tabBuilder = CreateTableCommand.builder()
                 .tableName("test")
                 .schemaName("PUBLIC")
                 .columns(List.of(columnParams("key1", INT32), columnParams("key2", INT32), columnParams("val", INT32, true)))
                 .primaryKey(TableHashPrimaryKey.builder().columns(List.of("key1", "key2")).build())
-                .colocationColumns(List.of("key2"))
-                .build();
+                .colocationColumns(List.of("key2"));
 
         assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
-        assertThat(catalogManager.execute(createTableCommand), willCompleteSuccessfully());
+        assertThat(catalogManager.execute(tabBuilder.tableName("test1").build()), willCompleteSuccessfully());
+        assertThat(catalogManager.execute(tabBuilder.tableName("test2").build()), willCompleteSuccessfully());
+        assertThat(catalogManager.execute(tabBuilder.tableName("test3").build()), willCompleteSuccessfully());
         assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
 
         Catalog catalog = catalogManager.catalog(catalogManager.activeCatalogVersion(clockService.nowLong()));
