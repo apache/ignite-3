@@ -217,10 +217,6 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
 
                     leases = new Leases(unmodifiableMap(leasesMap), leasesBytes);
 
-                    /*for (Map.Entry<ReplicationGroupId, Lease> entry1 : leases.leaseByGroupId().entrySet()) {
-                        LOG.info("Written lease to tracker [groupId={}, lease={}]. ", entry1.getKey(), entry1.getValue());
-                    }*/
-
                     for (Lease expiredLease : expiredLeases) {
                         fireEventPrimaryReplicaExpired(event.revision(), expiredLease);
                     }
@@ -405,8 +401,6 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
         String leaseholderId = lease.getLeaseholderId();
 
         assert leaseholderId != null : lease;
-
-        LOG.info("Fire event primary elected [groupId={}, startTime={}, lease={}].", lease.replicationGroupId(), lease.getStartTime(), lease);
 
         return fireEvent(
                 PRIMARY_REPLICA_ELECTED,

@@ -374,8 +374,6 @@ public class LeaseUpdater {
                     if (agreement.isAccepted()) {
                         Lease negotiatedLease = agreement.getLease();
 
-                        LOG.info("Publishing lease [groupId={}, startTime={}, leaseholderId={}, agreementLease={}]", grpId, lease.getStartTime(), lease.getLeaseholderId(), negotiatedLease);
-
                         // Lease information is taken from lease tracker, where it appears on meta storage watch updates, so it can contain
                         // stale leases, if watch processing was delayed for some reason. It is ok: negotiated lease is guaranteed to be
                         // already written to meta storage before negotiation begins, and in this case its start time would be
@@ -398,8 +396,7 @@ public class LeaseUpdater {
                         }
 
                         // New lease is granted.
-                        writeNewLease(grpId, candidate, renewedLeases, "1");
-                        LOG.info("After write new lease 1 [groupId={}, oldLease={}, agreementUndefined={}]", grpId, lease, agreement == LeaseAgreement.UNDEFINED_AGREEMENT);
+                        writeNewLease(grpId, candidate, renewedLeases);
 
                         boolean force = Objects.equals(lease.getLeaseholder(), candidate.name());
 
@@ -428,7 +425,7 @@ public class LeaseUpdater {
                     // leaseholders at all.
                     if (isLeaseOutdated(lease)) {
                         // New lease is granted.
-                        writeNewLease(grpId, candidate, renewedLeases, "2");
+                        writeNewLease(grpId, candidate, renewedLeases);
 
                         boolean force = !lease.isProlongable() && lease.proposedCandidate() != null;
 
@@ -507,8 +504,7 @@ public class LeaseUpdater {
         private void writeNewLease(
                 ReplicationGroupId grpId,
                 ClusterNode candidate,
-                Map<ReplicationGroupId, Lease> renewedLeases,
-                String cmnt
+                Map<ReplicationGroupId, Lease> renewedLeases
         ) {
             HybridTimestamp startTs = clockService.now();
 
@@ -517,8 +513,6 @@ public class LeaseUpdater {
             Lease renewedLease = new Lease(candidate.name(), candidate.id(), startTs, expirationTs, grpId);
 
             renewedLeases.put(grpId, renewedLease);
-
-            LOG.info("Writing new lease {} [groupId={}, startTime={}, leaseholderId={}, lease={}]", cmnt, grpId, renewedLease.getStartTime(), renewedLease.getLeaseholderId(), renewedLease);
 
             // Lease agreement should be created synchronously before negotiation begins.
             leaseNegotiator.createAgreement(grpId, renewedLease);

@@ -69,7 +69,6 @@ import org.hamcrest.Matcher;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.AssertionFailureBuilder;
-import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -544,7 +543,6 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         checkDml(ROW_COUNT, sql, "DELETE FROM TEST WHERE VAL0 >= 0");
     }
 
-    //@RepeatedTest(100)
     @Test
     public void select() {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");

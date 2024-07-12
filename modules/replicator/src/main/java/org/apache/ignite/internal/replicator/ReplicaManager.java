@@ -1282,21 +1282,13 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             synchronized (context) {
                 if (localNodeId.equals(parameters.leaseholderId())) {
                     assert context.replicaState != ReplicaState.STOPPED : "Unexpected primary replica state STOPPED [groupId="
-                            + groupId + "].";
-
-                    try {
-                        context.assertReservation(groupId);
-                    } catch (AssertionError e) {
-                        LOG.error("Assertion [groupId={}, startTime={}, nodeId={}, state={}].", e, groupId, parameters.startTime(), localNodeId, context.replicaState);
-                    }
+                            + groupId + ", leaseStartTime=" + parameters.startTime() + "].";
                 } else if (context.reservedForPrimary) {
-                    context.assertReservation(groupId);
+                    context.assertReservation(groupId, parameters.startTime());
 
                     // Unreserve if another replica was elected as primary, only if its lease start time is greater,
                     // otherwise it means that event is too late relatively to lease negotiation start and should be ignored.
                     if (parameters.startTime().compareTo(context.leaseStartTime) > 0) {
-
-                        LOG.info("Replica unreserved 1 [groupId={}, startTime={}, nodeId={}].", parameters.groupId(), parameters.startTime(), localNodeId);
                         context.unreserve();
 
                         if (context.replicaState == ReplicaState.PRIMARY_ONLY) {
@@ -1315,11 +1307,10 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
                 if (context != null) {
                     synchronized (context) {
-                        context.assertReservation(parameters.groupId());
+                        context.assertReservation(parameters.groupId(), parameters.startTime());
                         // Unreserve if primary replica expired, only if its lease start time is greater,
                         // otherwise it means that event is too late relatively to lease negotiation start and should be ignored.
                         if (parameters.startTime().equals(context.leaseStartTime)) {
-                            LOG.info("Replica unreserved 2 [groupId={}, startTime={}, nodeId={}].", parameters.groupId(), parameters.startTime(), localNodeId);
                             context.unreserve();
                         }
                     }
@@ -1504,12 +1495,10 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     }
 
                     if (context.reservedForPrimary) {
-                        LOG.error("Unexpected replica reservation with " + state + " state [groupId=" + groupId + ", startTime={}, nodeId={}].", leaseStartTime, localNodeId);
                         throw new AssertionError("Unexpected replica reservation with " + state + " state [groupId=" + groupId + "].");
                     }
                 } else {
                     context.reserve(leaseStartTime);
-                    LOG.info("Replica reserved [groupId={}, startTime={}, nodeId={}].", groupId, leaseStartTime, localNodeId);
                 }
 
                 return context.reservedForPrimary;
@@ -1572,9 +1561,11 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             leaseStartTime = null;
         }
 
-        void assertReservation(ReplicationGroupId groupId) {
-            assert reservedForPrimary : "Replica is elected as primary but not reserved [groupId=" + groupId + "].";
-            assert leaseStartTime != null : "Replica is reserved but lease start time is null [groupId=" + groupId + "].";
+        void assertReservation(ReplicationGroupId groupId, HybridTimestamp leaseStartTime) {
+            assert reservedForPrimary : "Replica is elected as primary but not reserved [groupId=" +
+                    groupId + ", leaseStartTime=" + leaseStartTime + "].";
+            assert leaseStartTime != null : "Replica is reserved but lease start time is null [groupId=" +
+                    groupId + ", leaseStartTime=" + leaseStartTime + "].";
         }
     }
 
