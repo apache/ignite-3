@@ -65,7 +65,9 @@ public class TrackableNetworkMessageHandler implements NetworkMessageHandler {
 
         Set<ThreadOperation> allowedOperations = current.allowedOperations();
 
-        return allowedOperations.contains(ThreadOperation.STORAGE_READ) || allowedOperations.contains(ThreadOperation.STORAGE_WRITE);
+        return allowedOperations.contains(ThreadOperation.STORAGE_READ)
+                || allowedOperations.contains(ThreadOperation.STORAGE_WRITE)
+                || allowedOperations.contains(ThreadOperation.TX_STATE_STORAGE_ACCESS);
     }
 
     private static void maybeLogLongProcessing(NetworkMessage message, long startTimeNanos) {
