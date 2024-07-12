@@ -23,7 +23,6 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.thread.IgniteThread;
 import org.apache.ignite.internal.thread.ThreadAttributes;
 import org.apache.ignite.internal.thread.ThreadOperation;
 import org.apache.ignite.network.ClusterNode;
