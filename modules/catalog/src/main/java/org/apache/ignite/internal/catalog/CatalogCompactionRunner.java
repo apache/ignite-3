@@ -290,6 +290,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
         HybridTimestamp nowTs = clockService.now();
         Set<String> required = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
+        // TODO https://issues.apache.org/jira/browse/IGNITE-22722 This method needs to be simplified.
         return collectRequiredNodes(catalog, new ArrayList<>(catalog.tables()).iterator(), required, nowTs);
     }
 
