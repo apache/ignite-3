@@ -26,7 +26,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletionException;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.util.ExceptionUtils;
-import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.lang.IgniteCheckedException;
 import org.apache.ignite.lang.IgniteException;
@@ -96,7 +95,7 @@ public class ExceptionUtilsTest {
     }
 
     @Test
-    void withCauseDoesNotApplyDefaultCodeWhenConcreteCodeIsThere() {
+    void withCauseDoesNotApplyDefaultCodeWhenCodeIsThere() {
         TraceableException translated = ExceptionUtils.withCause(
                 TestUncheckedExceptionWithTraceCodeAndCause::new,
                 Transactions.TX_COMMIT_ERR,
@@ -104,17 +103,6 @@ public class ExceptionUtilsTest {
         );
 
         assertThat(translated.code(), is(Transactions.TX_INCOMPATIBLE_SCHEMA_ERR));
-    }
-
-    @Test
-    void withCauseAppliesDefaultCodeWhenThereIsNonSpecificErrorCode() {
-        TraceableException translated = ExceptionUtils.withCause(
-                TestUncheckedExceptionWithTraceCodeAndCause::new,
-                Transactions.TX_COMMIT_ERR,
-                new IgniteException(Common.INTERNAL_ERR)
-        );
-
-        assertThat(translated.code(), is(Transactions.TX_COMMIT_ERR));
     }
 
     @Test

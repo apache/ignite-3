@@ -106,7 +106,7 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
 
         if (operation.sql()) {
             IgniteException ex = assertThrows(IgniteException.class, () -> operation.execute(table, tx, cluster));
-            errorCode = ex.errorCode();
+            errorCode = ex.code();
 
             assertThat(
                     ex.getMessage(),
@@ -117,7 +117,7 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
             );
         } else {
             IncompatibleSchemaException ex = assertThrows(IncompatibleSchemaException.class, () -> operation.execute(table, tx, cluster));
-            errorCode = ex.errorCode();
+            errorCode = ex.code();
 
             assertThat(
                     ex.getMessage(),
@@ -254,7 +254,7 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
 
         if (operation.sql()) {
             IgniteException ex = assertThrows(IgniteException.class, () -> operation.execute(table, tx, cluster));
-            errorCode = ex.errorCode();
+            errorCode = ex.code();
 
             assertThat(
                     ex.getMessage(),
@@ -263,7 +263,7 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
             );
         } else {
             IncompatibleSchemaException ex = assertThrows(IncompatibleSchemaException.class, () -> operation.execute(table, tx, cluster));
-            errorCode = ex.errorCode();
+            errorCode = ex.code();
 
             assertThat(
                     ex.getMessage(),
@@ -307,7 +307,8 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
                 containsString(String.format("Commit failed because a table was already dropped [table=%s]", table.name()))
         );
 
-        assertThat(((TransactionException) ex).code(), is(Transactions.TX_UNEXPECTED_STATE_ERR));
+        // TODO: IGNITE-20415 - assert that the failure is because of a changed schema.
+        assertThat(((TransactionException) ex).code(), is(Transactions.TX_COMMIT_ERR));
 
         assertThat(tx.state(), is(TxState.ABORTED));
     }

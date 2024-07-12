@@ -60,6 +60,7 @@ import org.apache.ignite.internal.tx.message.TxCleanupMessageErrorResponse;
 import org.apache.ignite.internal.tx.message.TxCleanupMessageResponse;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.TransactionException;
@@ -307,7 +308,9 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
         // Tx.commit should throw MismatchingTransactionOutcomeException.
         TransactionException transactionException = assertThrows(TransactionException.class, context.tx::commit);
 
-        assertInstanceOf(MismatchingTransactionOutcomeException.class, transactionException);
+        Throwable cause = ExceptionUtils.unwrapCause(transactionException.getCause());
+
+        assertInstanceOf(MismatchingTransactionOutcomeException.class, cause.getCause());
     }
 
     private void markTxAbortedInTxStateStorage(IgniteImpl primaryNode, InternalTransaction tx, Table publicTable) {
