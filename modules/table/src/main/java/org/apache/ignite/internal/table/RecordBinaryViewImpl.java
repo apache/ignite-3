@@ -570,7 +570,8 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
 //                            schemaVersion -> this.tbl.updateAll(mapToBinary(rows, schemaVersion, deleted), deleted, partitionId)
 //                    );
 
-                    // TODO: Reuse ReceiverRunnerJob from ClientStreamerWithReceiverBatchSendRequest?
+                    // TODO: Reuse ReceiverRunnerJob from ClientStreamerWithReceiverBatchSendRequest via dependency inversion?
+                    // How do we access compute from here at all?
                     return null;
                 });
 
