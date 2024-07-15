@@ -86,6 +86,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
     /** Empty leases. */
     private final Leases leases = new Leases(emptyMap(), BYTE_EMPTY_ARRAY);
+
+    private static final int CATALOG_VERSION = 1;
+
     /** Cluster node. */
     private final LogicalNode node = new LogicalNode("123", "test-node", NetworkAddress.from("127.0.0.1:10000"));
     @Mock
@@ -107,7 +110,7 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
     void setUp() {
         Entry entry = new EntryImpl(
                 stablePartAssignmentsKey(new TablePartitionId(1, 0)).bytes(),
-                Assignments.of(Assignment.forPeer(node.name())).toBytes(),
+                Assignments.of(CATALOG_VERSION, Assignment.forPeer(node.name())).toBytes(),
                 1,
                 0
         );

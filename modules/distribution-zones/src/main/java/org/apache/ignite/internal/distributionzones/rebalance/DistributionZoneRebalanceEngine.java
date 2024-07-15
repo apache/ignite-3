@@ -234,7 +234,7 @@ public class DistributionZoneRebalanceEngine {
                     int zoneId = extractZoneId(evt.entryEvent().newEntry().key(), DISTRIBUTION_ZONE_DATA_NODES_VALUE_PREFIX);
 
                     // It is safe to get the latest version of the catalog as we are in the metastore thread.
-                    // TODO: IGNITE-22661 Potentially unsafe to use the latest catalog version, as the tables might not already present
+                    // TODO: IGNITE-22723 Potentially unsafe to use the latest catalog version, as the tables might not already present
                     //  in the catalog. Better to store this version when writing datanodes.
                     int catalogVersion = catalogService.latestCatalogVersion();
 
@@ -261,7 +261,8 @@ public class DistributionZoneRebalanceEngine {
                             evt.entryEvent().newEntry().revision(),
                             zoneDescriptor,
                             filteredDataNodes,
-                            tableDescriptors
+                            tableDescriptors,
+                            catalogVersion
                     );
                 });
             }
@@ -435,7 +436,8 @@ public class DistributionZoneRebalanceEngine {
                             causalityToken,
                             zoneDescriptor,
                             dataNodes,
-                            tableDescriptors
+                            tableDescriptors,
+                            catalogVersion
                     );
                 });
     }
@@ -444,7 +446,8 @@ public class DistributionZoneRebalanceEngine {
             long revision,
             CatalogZoneDescriptor zoneDescriptor,
             Set<String> dataNodes,
-            List<CatalogTableDescriptor> tableDescriptors
+            List<CatalogTableDescriptor> tableDescriptors,
+            int catalogVersion
     ) {
         List<CompletableFuture<?>> tableFutures = new ArrayList<>(tableDescriptors.size());
 
@@ -454,7 +457,8 @@ public class DistributionZoneRebalanceEngine {
                     zoneDescriptor,
                     dataNodes,
                     revision,
-                    metaStorageManager
+                    metaStorageManager,
+                    catalogVersion
             );
 
             // This set is used to deduplicate exceptions (if there is an exception from upstream, for instance,

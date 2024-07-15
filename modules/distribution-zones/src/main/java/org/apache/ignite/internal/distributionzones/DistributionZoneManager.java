@@ -1419,6 +1419,7 @@ public class DistributionZoneManager implements IgniteComponent {
      * Also start scale up/scale down timers.
      *
      * @param recoveryRevision Revision of the Meta Storage after its recovery.
+     * @param catalogVersion Version of Catalog.
      * @return Future that represents the pending completion of the operations.
      */
     private CompletableFuture<Void> restoreLogicalTopologyChangeEventAndStartTimers(long recoveryRevision, int catalogVersion) {

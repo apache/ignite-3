@@ -82,6 +82,8 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
 
     private static final LogicalNode CLUSTER_NODE_1 = new LogicalNode(randomUUID().toString(), NODE_1_NAME, mock(NetworkAddress.class));
 
+    private static final int CATALOG_VERSION = 1;
+
     private LeaseUpdater leaseUpdater;
 
     private MetaStorageManager metaStorageManager;
@@ -182,11 +184,11 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
             return createLeaseGrantedMessageResponse(true);
         };
 
-        metaStorageManager.put(stablePartAssignmentsKey(GROUP_ID), Assignments.toBytes(Set.of(forPeer(NODE_0_NAME))));
+        metaStorageManager.put(stablePartAssignmentsKey(GROUP_ID), Assignments.toBytes(CATALOG_VERSION, Set.of(forPeer(NODE_0_NAME))));
 
         assertThat(lgmReceived, willCompleteSuccessfully());
 
-        metaStorageManager.put(stablePartAssignmentsKey(GROUP_ID), Assignments.toBytes(Set.of(forPeer(NODE_1_NAME))));
+        metaStorageManager.put(stablePartAssignmentsKey(GROUP_ID), Assignments.toBytes(CATALOG_VERSION, Set.of(forPeer(NODE_1_NAME))));
 
         waitForAcceptedLease();
 
@@ -209,7 +211,7 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
             return createLeaseGrantedMessageResponse(true);
         };
 
-        metaStorageManager.put(stablePartAssignmentsKey(GROUP_ID), Assignments.toBytes(Set.of(forPeer(NODE_0_NAME))));
+        metaStorageManager.put(stablePartAssignmentsKey(GROUP_ID), Assignments.toBytes(CATALOG_VERSION, Set.of(forPeer(NODE_0_NAME))));
 
         assertThat(lgmReceived, willCompleteSuccessfully());
 
@@ -233,7 +235,8 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
             return createLeaseGrantedMessageResponse(true);
         };
 
-        metaStorageManager.put(stablePartAssignmentsKey(GROUP_ID), Assignments.toBytes(Set.of(forPeer(NODE_0_NAME), forPeer(NODE_1_NAME))));
+        metaStorageManager.put(stablePartAssignmentsKey(GROUP_ID),
+                Assignments.toBytes(CATALOG_VERSION, Set.of(forPeer(NODE_0_NAME), forPeer(NODE_1_NAME))));
 
         assertThat(lgmReceived, willCompleteSuccessfully());
 
@@ -260,7 +263,7 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
             return createLeaseGrantedMessageResponse(true);
         };
 
-        metaStorageManager.put(stablePartAssignmentsKey(GROUP_ID), Assignments.toBytes(Set.of(forPeer(NODE_0_NAME))));
+        metaStorageManager.put(stablePartAssignmentsKey(GROUP_ID), Assignments.toBytes(CATALOG_VERSION, Set.of(forPeer(NODE_0_NAME))));
 
         assertThat(lgmReceived, willCompleteSuccessfully());
 

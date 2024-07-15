@@ -565,7 +565,7 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
                             dataNodes,
                             zoneDescriptor.partitions(),
                             zoneDescriptor.replicas()
-                    ).stream().map(Assignments::of).collect(toList()));
+                    ).stream().map(assignments -> Assignments.of(catalogVersion, assignments)).collect(toList()));
 
             assignmentsFuture.thenAccept(assignmentsList -> LOG.info(
                     "Assignments calculated from data nodes [zone={}, zoneId={}, assignments={}, revision={}]",
@@ -649,9 +649,9 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
 
                     ZonePartitionId replicaGrpId = new ZonePartitionId(zoneId, partitionId);
 
-                    // It is safe to get the latest version of the catalog as we are in the metastore thread.
-                    // TODO: IGNITE-22661 Potentially unsafe to use the latest catalog version. Better to take the version from Assignments.
-                    int catalogVersion = catalogMgr.latestCatalogVersion();
+                    Assignments assignments = Assignments.fromBytes(evt.entryEvent().newEntry().value());
+
+                    int catalogVersion = assignments.catalogVersion();
 
                     CatalogZoneDescriptor zoneDescriptor = catalogMgr.zone(zoneId, catalogVersion);
 
@@ -663,7 +663,8 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
                                     dataNodes,
                                     zoneDescriptor.replicas(),
                                     replicaGrpId,
-                                    evt
+                                    evt,
+                                    catalogVersion
                             ));
 
                 });
@@ -816,6 +817,8 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
             return CompletableFuture.<Void>failedFuture(new NodeStoppingException());
         }
 
+        int catalogVersion = pendingAssignments.catalogVersion();
+
         try {
             if (LOG.isInfoEnabled()) {
                 var stringKey = new String(pendingAssignmentsEntry.key(), UTF_8);
@@ -828,7 +831,8 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
             return handleChangePendingAssignmentEvent(
                     zonePartitionId,
                     stableAssignments,
-                    pendingAssignments
+                    pendingAssignments,
+                    catalogVersion
             ).thenCompose(v -> changePeersOnRebalance(
                     replicaMgr,
                     zonePartitionId,
@@ -844,7 +848,8 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
     private CompletableFuture<Void> handleChangePendingAssignmentEvent(
             ZonePartitionId replicaGrpId,
             @Nullable Assignments stableAssignments,
-            Assignments pendingAssignments
+            Assignments pendingAssignments,
+            int catalogVersion
     ) {
         boolean pendingAssignmentsAreForced = pendingAssignments.force();
         Set<Assignment> pendingAssignmentsNodes = pendingAssignments.nodes();
@@ -866,7 +871,7 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
         if (stableAssignments == null || stableAssignments.nodes().isEmpty()) {
             // This condition can only pass if all stable nodes are dead, and we start new raft group from scratch.
             // In this case new initial configuration must match new forced assignments.
-            computedStableAssignments = Assignments.forced(pendingAssignmentsNodes);
+            computedStableAssignments = Assignments.forced(catalogVersion, pendingAssignmentsNodes);
         } else if (pendingAssignmentsAreForced) {
             // In case of forced assignments we need to remove nodes that are present in the stable set but are missing from the
             // pending set. Such operation removes dead stable nodes from the resulting stable set, which guarantees that we will

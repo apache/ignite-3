@@ -90,6 +90,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
     public static final int BASE_PORT = 1234;
 
+    private static final int CATALOG_VERSION = 1;
+
     private static final PlacementDriverMessagesFactory PLACEMENT_DRIVER_MESSAGES_FACTORY = new PlacementDriverMessagesFactory();
 
     @InjectConfiguration
@@ -575,6 +577,6 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
      * @return Replication group id.
      */
     private TablePartitionId createTableAssignment() {
-        return createTableAssignment(metaStorageManager, nextTableId.get(), nodeNames);
+        return createTableAssignment(metaStorageManager, nextTableId.get(), nodeNames, CATALOG_VERSION);
     }
 }

@@ -137,6 +137,8 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
 
     private static final String NODE_C_CONSITIENT_ID = "C";
 
+    private static final int CATALOG_VERSION = 1;
+
     private static final Set<Assignment> ASSIGNMENTS_A = Set.of(forPeer(NODE_A_CONSITIENT_ID));
 
     private static final Set<Assignment> ASSIGNMENTS_AB = Set.of(forPeer(NODE_A_CONSITIENT_ID), forPeer(NODE_B_CONSITIENT_ID));
@@ -843,7 +845,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
 
         metastore.invoke(
                 Conditions.notExists(FAKE_KEY),
-                put(assignmentsKey, Assignments.toBytes(assignments)),
+                put(assignmentsKey, Assignments.toBytes(CATALOG_VERSION, assignments)),
                 noop()
         );
 

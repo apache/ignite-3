@@ -1503,7 +1503,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         // Populate the stable assignments before calling table create, if needed.
         if (populateStableAssignmentsBeforeTableCreation) {
-            node.metaStorageManager().put(stablePartAssignmentsKey(partId), Assignments.toBytes(Set.of(Assignment.forPeer(node.name()))));
+            node.metaStorageManager().put(stablePartAssignmentsKey(partId),
+                    Assignments.toBytes(node.catalogManager().latestCatalogVersion(), Set.of(Assignment.forPeer(node.name()))));
 
             waitForCondition(() -> lateChangeFlag.values().stream().allMatch(AtomicBoolean::get), 5_000);
 

@@ -132,6 +132,7 @@ public class ZoneRebalanceUtil {
      * @param metaStorageMgr Meta Storage manager.
      * @param partNum Partition id.
      * @param zoneCfgPartAssignments Zone configuration assignments.
+     * @param catalogVersion Catalog version.
      * @return Future representing result of updating keys in {@code metaStorageMgr}
      */
     public static CompletableFuture<Void> updatePendingAssignmentsKeys(
@@ -142,7 +143,8 @@ public class ZoneRebalanceUtil {
             long revision,
             MetaStorageManager metaStorageMgr,
             int partNum,
-            Set<Assignment> zoneCfgPartAssignments
+            Set<Assignment> zoneCfgPartAssignments,
+            int catalogVersion
     ) {
         ByteArray partChangeTriggerKey = pendingChangeTriggerKey(zonePartitionId);
 
@@ -156,7 +158,7 @@ public class ZoneRebalanceUtil {
 
         boolean isNewAssignments = !zoneCfgPartAssignments.equals(partAssignments);
 
-        byte[] partAssignmentsBytes = Assignments.toBytes(partAssignments);
+        byte[] partAssignmentsBytes = Assignments.toBytes(catalogVersion, partAssignments);
 
         //    if empty(partition.change.trigger.revision) || partition.change.trigger.revision < event.revision:
         //        if empty(partition.assignments.pending)
@@ -268,6 +270,7 @@ public class ZoneRebalanceUtil {
      * @param dataNodes Data nodes to use.
      * @param storageRevision MetaStorage revision corresponding to this request.
      * @param metaStorageManager MetaStorage manager used to read/write assignments.
+     * @param catalogVersion Catalog version.
      * @return Array of futures, one per partition of the zone; the futures complete when the described
      *     rebalance triggering completes.
      */
@@ -276,7 +279,8 @@ public class ZoneRebalanceUtil {
             Set<String> dataNodes,
             long storageRevision,
             MetaStorageManager metaStorageManager,
-            IgniteSpinBusyLock busyLock
+            IgniteSpinBusyLock busyLock,
+            int catalogVersion
     ) {
         CompletableFuture<Map<Integer, Assignments>> zoneAssignmentsFut = zoneAssignments(
                 metaStorageManager,
@@ -303,7 +307,8 @@ public class ZoneRebalanceUtil {
                         storageRevision,
                         metaStorageManager,
                         finalPartId,
-                        zoneAssignments.get(finalPartId).nodes()
+                        zoneAssignments.get(finalPartId).nodes(),
+                        catalogVersion
                 );
             }));
         }
