@@ -117,6 +117,8 @@ public class PersistentTxStateVacuumizer {
                                 }
                             }
 
+                            LOG.info("Sending tx vacuum request [txIds={}].", filteredTxIds);
+
                             VacuumTxStateReplicaRequest request = TX_MESSAGES_FACTORY.vacuumTxStateReplicaRequest()
                                     .enlistmentConsistencyToken(replicaMeta.getStartTime().longValue())
                                     .groupId(toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, commitPartitionId))
@@ -138,6 +140,8 @@ public class PersistentTxStateVacuumizer {
                             });
                         } else {
                             successful.addAll(txs.stream().map(v -> v.txId).collect(toSet()));
+
+                            LOG.info("No primary for commit partition, don't send tx ids [partId={}].", commitPartitionId);
 
                             return nullCompletedFuture();
                         }
