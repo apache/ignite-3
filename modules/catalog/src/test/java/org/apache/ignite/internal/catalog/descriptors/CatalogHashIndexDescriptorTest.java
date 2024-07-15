@@ -27,7 +27,7 @@ import org.junit.jupiter.api.Test;
 class CatalogHashIndexDescriptorTest {
     @Test
     void toStringContainsTypeAndFields() {
-        var descriptor = new CatalogHashIndexDescriptor(1, "index1", 2, false, 3, List.of("col"));
+        var descriptor = new CatalogHashIndexDescriptor(1, "index1", 2, false, List.of("col"));
 
         String toString = descriptor.toString();
 
