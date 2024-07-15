@@ -101,7 +101,7 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
  *     and watch prefix {@link IndexManagementUtils#PARTITION_BUILD_INDEX_KEY_PREFIX} is made by the whole cluster (and only one node makes
  *     a write to the metastore) as these events are global, but only one node (a primary replica owning a partition) handles
  *     {@link IndexBuildCompletionListener#onBuildCompletion} (form {@link IndexBuilder#listen}) event.</li>
- *     <li>Restoring index availability occurs in {@link #recover(long)}.</li>
+ *     <li>Restoring index availability occurs in {@link #start(long)}.</li>
  * </ul>
  *
  * <p>Approximate recovery algorithm:</p>
@@ -132,6 +132,8 @@ class IndexAvailabilityController implements ManuallyCloseable {
 
     private final MetaStorageManager metaStorageManager;
 
+    private final IndexBuilder indexBuilder;
+
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     private final AtomicBoolean stopGuard = new AtomicBoolean();
@@ -140,8 +142,7 @@ class IndexAvailabilityController implements ManuallyCloseable {
     IndexAvailabilityController(CatalogManager catalogManager, MetaStorageManager metaStorageManager, IndexBuilder indexBuilder) {
         this.catalogManager = catalogManager;
         this.metaStorageManager = metaStorageManager;
-
-        addListeners(catalogManager, metaStorageManager, indexBuilder);
+        this.indexBuilder = indexBuilder;
     }
 
     @Override
@@ -154,12 +155,14 @@ class IndexAvailabilityController implements ManuallyCloseable {
     }
 
     /**
-     * Recovers index availability on node recovery.
+     * Stars components and recovers index availability on node recovery.
      *
      * @param recoveryRevision Metastore revision on recovery.
      */
-    public void recover(long recoveryRevision) {
+    public void start(long recoveryRevision) {
         inBusyLock(busyLock, () -> {
+            addListeners(catalogManager, metaStorageManager, indexBuilder);
+
             // It is expected that the method will only be called on recovery, when the deploy of metastore watches has not yet occurred.
             // TODO: IGNITE-22656 Potentially dangerous to take the latest version as the tables and indexes might no longer present
             //  in the catalog.

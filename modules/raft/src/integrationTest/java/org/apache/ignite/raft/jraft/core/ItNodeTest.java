@@ -255,6 +255,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22261")
     public void testNodeTaskOverload() throws Exception {
         TestPeer peer = new TestPeer(testInfo, TestUtils.INIT_PORT);
 

@@ -65,7 +65,7 @@ public enum MetaIndexStatus {
     READ_ONLY;
 
     /** Converts {@link CatalogIndexStatus} to {@link MetaIndexStatus}. */
-    static MetaIndexStatus convert(CatalogIndexStatus catalogIndexStatus) {
+    public static MetaIndexStatus convert(CatalogIndexStatus catalogIndexStatus) {
         switch (catalogIndexStatus) {
             case REGISTERED:
                 return REGISTERED;

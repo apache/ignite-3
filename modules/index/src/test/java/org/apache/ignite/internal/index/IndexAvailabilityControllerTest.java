@@ -98,11 +98,13 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void setUp() {
-        assertThat(
-                startAsync(new ComponentContext(), metaStorageManager, catalogManager)
-                        .thenCompose(unused -> metaStorageManager.deployWatches()),
-                willCompleteSuccessfully()
-        );
+        assertThat(startAsync(new ComponentContext(), metaStorageManager, catalogManager), willCompleteSuccessfully());
+
+        assertThat(metaStorageManager.recoveryFinishedFuture(), willCompleteSuccessfully());
+
+        indexAvailabilityController.start(metaStorageManager.recoveryFinishedFuture().join());
+
+        assertThat(metaStorageManager.deployWatches(), willCompleteSuccessfully());
 
         awaitDefaultZoneCreation(catalogManager);
 

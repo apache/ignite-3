@@ -153,6 +153,23 @@ public class CatalogTestUtils {
      *
      * <p>NOTE: Uses {@link CatalogManagerImpl} under the hood and creates the internals it needs, may change in the future.
      *
+     * @param metastore Meta Storage.
+     * @param clockWaiter Clock waiter.
+     * @param clock Hybrid clock.
+     */
+    public static CatalogManager createTestCatalogManager(
+            MetaStorageManager metastore,
+            ClockWaiter clockWaiter,
+            HybridClock clock
+    ) {
+        return new CatalogManagerImpl(new UpdateLogImpl(metastore), new TestClockService(clock, clockWaiter));
+    }
+
+    /**
+     * Creates a test implementation of {@link CatalogManager}.
+     *
+     * <p>NOTE: Uses {@link CatalogManagerImpl} under the hood and creates the internals it needs, may change in the future.
+     *
      * @param nodeName Node name.
      * @param clock Hybrid clock.
      * @param metastore Meta storage manager.
