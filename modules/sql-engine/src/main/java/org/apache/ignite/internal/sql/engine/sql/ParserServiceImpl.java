@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.sql;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlWriterConfig;
@@ -55,12 +56,23 @@ public class ParserServiceImpl implements ParserService {
 
         assert queryType != null : normalizedQuery;
 
+        AtomicReference<SqlNode> holder = new AtomicReference<>(parsedTree);
+
+        @SuppressWarnings("UnnecessaryLocalVariable")
         ParsedResult result = new ParsedResultImpl(
                 queryType,
                 query,
                 normalizedQuery,
                 parsedStatement.dynamicParamsCount(),
-                () -> IgniteSqlParser.parse(query, StatementParseResult.MODE).statement()
+                () -> {
+                    SqlNode ast = holder.getAndSet(null);
+
+                    if (ast != null) {
+                        return ast;
+                    }
+
+                    return IgniteSqlParser.parse(query, StatementParseResult.MODE).statement();
+                }
         );
 
         return result;
