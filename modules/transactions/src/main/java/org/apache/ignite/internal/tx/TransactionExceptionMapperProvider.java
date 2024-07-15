@@ -26,7 +26,6 @@ import java.util.List;
 import org.apache.ignite.internal.lang.IgniteExceptionMapper;
 import org.apache.ignite.internal.lang.IgniteExceptionMappersProvider;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
-import org.apache.ignite.internal.tx.impl.PrimaryReplicaExpiredException;
 import org.apache.ignite.tx.TransactionException;
 
 /**
@@ -40,8 +39,6 @@ public class TransactionExceptionMapperProvider implements IgniteExceptionMapper
 
         mappers.add(unchecked(LockException.class, err -> new TransactionException(err.traceId(), err.code(), err.getMessage(), err)));
         mappers.add(unchecked(ReplicationException.class,
-                err -> new TransactionException(err.traceId(), err.code(), err.getMessage(), err)));
-        mappers.add(unchecked(PrimaryReplicaExpiredException.class,
                 err -> new TransactionException(err.traceId(), err.code(), err.getMessage(), err)));
 
         return mappers;
