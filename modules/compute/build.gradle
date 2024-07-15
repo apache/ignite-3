@@ -30,6 +30,7 @@ dependencies {
     implementation project(':ignite-code-deployment')
     implementation project(':ignite-cluster-management')
     implementation project(':ignite-placement-driver-api')
+    implementation project(':ignite-binary-tuple')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
     implementation libs.auto.service.annotations
