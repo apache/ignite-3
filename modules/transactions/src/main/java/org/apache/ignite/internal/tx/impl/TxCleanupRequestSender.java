@@ -32,6 +32,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
@@ -110,8 +112,12 @@ public class TxCleanupRequestSender {
         }
     }
 
+    private static final IgniteLogger LOG = Loggers.forClass(TxCleanupRequestSender.class);
+
     private void markTxnCleanupReplicated(UUID txId, TxState state, TablePartitionId commitPartitionId) {
         long cleanupCompletionTimestamp = System.currentTimeMillis();
+
+        var oldState = txStateVolatileStorage.state(txId);
 
         txStateVolatileStorage.updateMeta(txId, oldMeta ->
                 new TxStateMeta(oldMeta == null ? state : oldMeta.txState(),
@@ -121,6 +127,8 @@ public class TxCleanupRequestSender {
                         oldMeta == null ? null : oldMeta.initialVacuumObservationTimestamp(),
                         cleanupCompletionTimestamp)
         );
+
+        LOG.info("Test: markTxnCleanupReplicated [new={}, old={}]", txStateVolatileStorage.state(txId), oldState);
     }
 
     /**
