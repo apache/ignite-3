@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.tx;
 
 import static java.util.Collections.unmodifiableCollection;
-import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
 
 import java.util.ArrayList;
@@ -84,7 +83,7 @@ public class TxMeta implements TransactionMeta {
 
         return txMessagesFactory.txMetaMessage()
                 .txStateInt(txState.ordinal())
-                .commitTimestampLong(hybridTimestampToLong(commitTimestamp))
+                .commitTimestamp(commitTimestamp)
                 .enlistedPartitions(enlistedPartitionMessages)
                 .build();
     }

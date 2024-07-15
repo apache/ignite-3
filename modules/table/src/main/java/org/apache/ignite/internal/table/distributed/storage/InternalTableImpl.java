@@ -549,7 +549,7 @@ public class InternalTableImpl implements InternalTable {
         Function<Long, ReplicaRequest> mapFunc =
                 (enlistmentConsistencyToken) -> TABLE_MESSAGES_FACTORY.readWriteScanRetrieveBatchReplicaRequest()
                         .groupId(serializeTablePartitionId(partGroupId))
-                        .timestampLong(clock.nowLong())
+                        .timestamp(clock.now())
                         .transactionId(tx.id())
                         .scanId(scanId)
                         .indexToUse(indexId)
@@ -894,7 +894,7 @@ public class InternalTableImpl implements InternalTable {
                         .transactionId(txo.id())
                         .enlistmentConsistencyToken(enlistmentConsistencyToken)
                         .requestTypeInt(RW_GET.ordinal())
-                        .timestampLong(clock.nowLong())
+                        .timestamp(clock.now())
                         .full(false)
                         .coordinatorId(txo.coordinatorId())
                         .build(),
@@ -916,7 +916,7 @@ public class InternalTableImpl implements InternalTable {
                 .schemaVersion(keyRow.schemaVersion())
                 .primaryKey(keyRow.tupleSlice())
                 .requestTypeInt(RO_GET.ordinal())
-                .readTimestampLong(readTimestamp.longValue())
+                .readTimestamp(readTimestamp)
                 .build()
         );
     }
@@ -997,7 +997,7 @@ public class InternalTableImpl implements InternalTable {
                     .schemaVersion(partitionRowBatch.getValue().requestedRows.get(0).schemaVersion())
                     .primaryKeys(serializeBinaryTuples(partitionRowBatch.getValue().requestedRows))
                     .requestTypeInt(RO_GET_ALL.ordinal())
-                    .readTimestampLong(readTimestamp.longValue())
+                    .readTimestamp(readTimestamp)
                     .build();
 
             partitionRowBatch.getValue().resultFuture = replicaSvc.invoke(recipientNode, request);
@@ -1024,7 +1024,7 @@ public class InternalTableImpl implements InternalTable {
                 .transactionId(tx.id())
                 .enlistmentConsistencyToken(enlistmentConsistencyToken)
                 .requestTypeInt(requestType.ordinal())
-                .timestampLong(clock.nowLong())
+                .timestamp(clock.now())
                 .full(full)
                 .coordinatorId(tx.coordinatorId())
                 .build();
@@ -1092,7 +1092,7 @@ public class InternalTableImpl implements InternalTable {
                         .transactionId(txo.id())
                         .enlistmentConsistencyToken(enlistmentConsistencyToken)
                         .requestTypeInt(RW_UPSERT.ordinal())
-                        .timestampLong(clock.nowLong())
+                        .timestamp(clock.now())
                         .full(tx == null)
                         .coordinatorId(txo.coordinatorId())
                         .build(),
@@ -1176,7 +1176,7 @@ public class InternalTableImpl implements InternalTable {
                         .transactionId(txo.id())
                         .enlistmentConsistencyToken(enlistmentConsistencyToken)
                         .requestTypeInt(RW_GET_AND_UPSERT.ordinal())
-                        .timestampLong(clock.nowLong())
+                        .timestamp(clock.now())
                         .full(tx == null)
                         .coordinatorId(txo.coordinatorId())
                         .build(),
@@ -1198,7 +1198,7 @@ public class InternalTableImpl implements InternalTable {
                         .transactionId(txo.id())
                         .enlistmentConsistencyToken(enlistmentConsistencyToken)
                         .requestTypeInt(RW_INSERT.ordinal())
-                        .timestampLong(clock.nowLong())
+                        .timestamp(clock.now())
                         .full(tx == null)
                         .coordinatorId(txo.coordinatorId())
                         .build(),
@@ -1255,7 +1255,7 @@ public class InternalTableImpl implements InternalTable {
                 .transactionId(tx.id())
                 .enlistmentConsistencyToken(enlistmentConsistencyToken)
                 .requestTypeInt(requestType.ordinal())
-                .timestampLong(clock.nowLong())
+                .timestamp(clock.now())
                 .full(full)
                 .coordinatorId(tx.coordinatorId())
                 .build();
@@ -1275,7 +1275,7 @@ public class InternalTableImpl implements InternalTable {
                         .transactionId(txo.id())
                         .enlistmentConsistencyToken(enlistmentConsistencyToken)
                         .requestTypeInt(RW_REPLACE_IF_EXIST.ordinal())
-                        .timestampLong(clock.nowLong())
+                        .timestamp(clock.now())
                         .full(tx == null)
                         .coordinatorId(txo.coordinatorId())
                         .build(),
@@ -1301,7 +1301,7 @@ public class InternalTableImpl implements InternalTable {
                         .transactionId(txo.id())
                         .enlistmentConsistencyToken(enlistmentConsistencyToken)
                         .requestTypeInt(RW_REPLACE.ordinal())
-                        .timestampLong(clock.nowLong())
+                        .timestamp(clock.now())
                         .full(tx == null)
                         .coordinatorId(txo.coordinatorId())
                         .build(),
@@ -1323,7 +1323,7 @@ public class InternalTableImpl implements InternalTable {
                         .transactionId(txo.id())
                         .enlistmentConsistencyToken(enlistmentConsistencyToken)
                         .requestTypeInt(RW_GET_AND_REPLACE.ordinal())
-                        .timestampLong(clock.nowLong())
+                        .timestamp(clock.now())
                         .full(tx == null)
                         .coordinatorId(txo.coordinatorId())
                         .build(),
@@ -1345,7 +1345,7 @@ public class InternalTableImpl implements InternalTable {
                         .transactionId(txo.id())
                         .enlistmentConsistencyToken(enlistmentConsistencyToken)
                         .requestTypeInt(RW_DELETE.ordinal())
-                        .timestampLong(clock.nowLong())
+                        .timestamp(clock.now())
                         .full(tx == null)
                         .coordinatorId(txo.coordinatorId())
                         .build(),
@@ -1367,7 +1367,7 @@ public class InternalTableImpl implements InternalTable {
                         .transactionId(txo.id())
                         .enlistmentConsistencyToken(enlistmentConsistencyToken)
                         .requestTypeInt(RW_DELETE_EXACT.ordinal())
-                        .timestampLong(clock.nowLong())
+                        .timestamp(clock.now())
                         .full(tx == null)
                         .coordinatorId(txo.coordinatorId())
                         .build(),
@@ -1389,7 +1389,7 @@ public class InternalTableImpl implements InternalTable {
                         .transactionId(txo.id())
                         .enlistmentConsistencyToken(enlistmentConsistencyToken)
                         .requestTypeInt(RW_GET_AND_DELETE.ordinal())
-                        .timestampLong(clock.nowLong())
+                        .timestamp(clock.now())
                         .full(tx == null)
                         .coordinatorId(txo.coordinatorId())
                         .build(),
@@ -1582,7 +1582,7 @@ public class InternalTableImpl implements InternalTable {
                 (scanId, batchSize) -> {
                     ReadOnlyScanRetrieveBatchReplicaRequest request = TABLE_MESSAGES_FACTORY.readOnlyScanRetrieveBatchReplicaRequest()
                             .groupId(serializeTablePartitionId(tablePartitionId))
-                            .readTimestampLong(readTimestamp.longValue())
+                            .readTimestamp(readTimestamp)
                             .transactionId(txId)
                             .scanId(scanId)
                             .batchSize(batchSize)
@@ -1691,7 +1691,7 @@ public class InternalTableImpl implements InternalTable {
                 (scanId, batchSize) -> {
                     ReadWriteScanRetrieveBatchReplicaRequest request = TABLE_MESSAGES_FACTORY.readWriteScanRetrieveBatchReplicaRequest()
                             .groupId(serializeTablePartitionId(tablePartitionId))
-                            .timestampLong(clock.nowLong())
+                            .timestamp(clock.now())
                             .transactionId(txId)
                             .scanId(scanId)
                             .indexToUse(indexId)
