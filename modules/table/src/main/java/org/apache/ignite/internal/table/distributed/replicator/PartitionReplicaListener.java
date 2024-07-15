@@ -440,7 +440,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                     abortedCount++;
                 }
 
-                LOG.info("Running cleanup for tx during recovery [txId={}].", txId);
+                LOG.warn("Running cleanup for tx during recovery [txId={}, groupId={}, localNode={}].", new Exception("qqq"), txId,
+                        replicationGroupId, localNode);
 
                 txManager.cleanup(
                         replicationGroupId,

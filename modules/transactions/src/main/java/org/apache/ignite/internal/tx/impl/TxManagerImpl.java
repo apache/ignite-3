@@ -369,9 +369,12 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             if (localNodeId.equals(eventParameters.leaseholderId())) {
                 String localNodeName = topologyService.localMember().name();
 
-                LOG.info("Sending recovery cleanup [localNodeId={}, localNodeName={}, leaseholderId={}, groupId={}]",
-                        localNodeId, localNodeName,
-                        eventParameters.leaseholderId(), groupId);
+                LOG.info("Sending recovery cleanup [localNodeId={}, localNodeName={}, leaseholderId={}, groupId={}].",
+                        localNodeId,
+                        localNodeName,
+                        eventParameters.leaseholderId(),
+                        groupId
+                );
 
                 txMessageSender.sendRecoveryCleanup(localNodeName, groupId);
             }
