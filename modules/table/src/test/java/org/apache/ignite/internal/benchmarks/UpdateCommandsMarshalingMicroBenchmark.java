@@ -17,11 +17,14 @@
 
 package org.apache.ignite.internal.benchmarks;
 
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
+
 import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.MessageSerializationRegistryImpl;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
@@ -93,7 +96,7 @@ public class UpdateCommandsMarshalingMicroBenchmark {
         byte[] array = new byte[payloadSize];
 
         UUID uuid = UUID.randomUUID();
-        long timestamp = System.currentTimeMillis();
+        HybridTimestamp timestamp = hybridTimestamp(System.currentTimeMillis());
 
         TimedBinaryRowMessage timedBinaryRowMessage = PARTITION_REPLICATION_MESSAGES_FACTORY.timedBinaryRowMessage()
                 .timestamp(timestamp)
@@ -110,8 +113,8 @@ public class UpdateCommandsMarshalingMicroBenchmark {
             }
             message = PARTITION_REPLICATION_MESSAGES_FACTORY.updateAllCommand()
                     .txId(uuid)
-                    .leaseStartTime(timestamp)
-                    .safeTimeLong(timestamp)
+                    .leaseStartTime(timestamp.longValue())
+                    .safeTime(timestamp)
                     .requiredCatalogVersion(10_000)
                     .tablePartitionId(REPLICA_MESSAGES_FACTORY.tablePartitionIdMessage()
                             .partitionId(2048)
@@ -123,8 +126,8 @@ public class UpdateCommandsMarshalingMicroBenchmark {
         } else {
             message = PARTITION_REPLICATION_MESSAGES_FACTORY.updateCommand()
                     .txId(uuid)
-                    .leaseStartTime(timestamp)
-                    .safeTimeLong(timestamp)
+                    .leaseStartTime(timestamp.longValue())
+                    .safeTime(timestamp)
                     .rowUuid(uuid)
                     .requiredCatalogVersion(10_000)
                     .tablePartitionId(REPLICA_MESSAGES_FACTORY.tablePartitionIdMessage()

@@ -31,6 +31,7 @@ import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUt
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractZoneId;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.raftConfigurationAppliedKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.tablesCounterPrefixKey;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.getBoolean;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToInt;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -107,6 +108,11 @@ public class DistributionZoneRebalanceEngine {
     // TODO: after switching to zone-based replication
     private final DistributionZoneRebalanceEngineV2 distributionZoneRebalanceEngineV2;
 
+    public static final String FEATURE_FLAG_NAME = "IGNITE_ZONE_BASED_REPLICATION";
+    /* Feature flag for zone based collocation track */
+    // TODO IGNITE-22115 remove it
+    public static final boolean ENABLED = getBoolean(FEATURE_FLAG_NAME, false);
+
     /**
      * Constructor.
      *
@@ -162,8 +168,12 @@ public class DistributionZoneRebalanceEngine {
 
             long recoveryRevision = recoveryFinishFuture.join();
 
-            return rebalanceTriggersRecovery(recoveryRevision, catalogVersion)
-                    .thenCompose(v -> distributionZoneRebalanceEngineV2.startAsync());
+            if (ENABLED) {
+                return rebalanceTriggersRecovery(recoveryRevision, catalogVersion)
+                        .thenCompose(v -> distributionZoneRebalanceEngineV2.startAsync());
+            } else {
+                return rebalanceTriggersRecovery(recoveryRevision, catalogVersion);
+            }
         });
     }
 
@@ -200,6 +210,10 @@ public class DistributionZoneRebalanceEngine {
     public void stop() {
         if (!stopGuard.compareAndSet(false, true)) {
             return;
+        }
+
+        if (ENABLED) {
+            distributionZoneRebalanceEngineV2.stop();
         }
 
         metaStorageManager.unregisterWatch(dataNodesListener);

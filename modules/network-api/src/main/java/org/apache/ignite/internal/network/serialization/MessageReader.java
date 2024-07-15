@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteUuid;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.plugin.extensions.communication.MessageCollectionItemType;
@@ -303,6 +304,13 @@ public interface MessageReader {
      * @return {@link IgniteUuid}.
      */
     IgniteUuid readIgniteUuid(String name);
+
+    /**
+     * Reads an {@link HybridTimestamp}.
+     *
+     * @param name Field name.
+     */
+    @Nullable HybridTimestamp readHybridTimestamp(String name);
 
     /**
      * Reads a group type or a message type of the message. Unlike regular {@link #readShort(String)}, this method never accepts a field

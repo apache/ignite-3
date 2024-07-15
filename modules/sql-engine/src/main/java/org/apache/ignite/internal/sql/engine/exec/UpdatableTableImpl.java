@@ -154,7 +154,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
                     .transactionId(txAttributes.id())
                     .enlistmentConsistencyToken(nodeWithConsistencyToken.enlistmentConsistencyToken())
                     .requestTypeInt(RW_UPSERT_ALL.ordinal())
-                    .timestampLong(clockService.nowLong())
+                    .timestamp(clockService.now())
                     .skipDelayedAck(true)
                     .coordinatorId(txAttributes.coordinatorId())
                     .build();
@@ -259,7 +259,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
                     .transactionId(txAttributes.id())
                     .enlistmentConsistencyToken(nodeWithConsistencyToken.enlistmentConsistencyToken())
                     .requestTypeInt(RW_INSERT_ALL.ordinal())
-                    .timestampLong(clockService.nowLong())
+                    .timestamp(clockService.now())
                     .skipDelayedAck(true)
                     .coordinatorId(txAttributes.coordinatorId())
                     .build();
@@ -328,7 +328,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
                     .transactionId(txAttributes.id())
                     .enlistmentConsistencyToken(nodeWithConsistencyToken.enlistmentConsistencyToken())
                     .requestTypeInt(RW_DELETE_ALL.ordinal())
-                    .timestampLong(clockService.nowLong())
+                    .timestamp(clockService.now())
                     .skipDelayedAck(true)
                     .coordinatorId(txAttributes.coordinatorId())
                     .build();
