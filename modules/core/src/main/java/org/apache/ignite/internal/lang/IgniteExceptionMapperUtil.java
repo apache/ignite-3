@@ -107,7 +107,7 @@ public class IgniteExceptionMapperUtil {
     public static Throwable mapToPublicException(Throwable origin, Function<Throwable, Throwable> unknownProblemMapper) {
         if (origin instanceof Error) {
             if (origin instanceof AssertionError) {
-                return unknownProblemMapper.apply(origin);
+                return mapCheckingResultIsPublic(origin, unknownProblemMapper);
             }
             return origin;
         }
@@ -136,7 +136,16 @@ public class IgniteExceptionMapperUtil {
         }
 
         // There are no exception mappings for the given exception. This case should be considered as internal error.
-        return unknownProblemMapper.apply(origin);
+        return mapCheckingResultIsPublic(origin, unknownProblemMapper);
+    }
+
+    private static Throwable mapCheckingResultIsPublic(Throwable origin, Function<Throwable, Throwable> unknownProblemMapper) {
+        Throwable result = unknownProblemMapper.apply(origin);
+
+        assert result instanceof IgniteException || result instanceof IgniteCheckedException :
+                "Unexpected mapping of internal exception to a public one [origin=" + origin + ", mapped=" + result + ']';
+
+        return result;
     }
 
     /**
