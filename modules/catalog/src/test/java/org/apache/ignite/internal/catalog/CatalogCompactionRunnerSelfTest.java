@@ -31,6 +31,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.emptyArray;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -42,6 +43,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeoutException;
@@ -72,6 +74,7 @@ import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.Assertions;
@@ -91,6 +94,8 @@ public class CatalogCompactionRunnerSelfTest extends BaseIgniteAbstractTest {
     private static final List<LogicalNode> logicalNodes = List.of(NODE1, NODE2, NODE3);
 
     private CatalogManagerImpl catalogManager;
+
+    private LogicalTopologyService logicalTopologyService;
 
     private final ClockService clockService = new TestClockService(new HybridClockImpl());
 
@@ -169,7 +174,7 @@ public class CatalogCompactionRunnerSelfTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void mustNotPerformWhenAssignmentNodeIsMissing() {
+    public void mustNotPerformWhenAssignmentNodeIsMissing() throws InterruptedException {
         CreateTableCommandBuilder tabBuilder = CreateTableCommand.builder()
                 .tableName("test")
                 .schemaName("PUBLIC")
@@ -198,6 +203,50 @@ public class CatalogCompactionRunnerSelfTest extends BaseIgniteAbstractTest {
             );
 
             assertThat(compactor.triggerCompaction(clockService.now()), willBe(false));
+        }
+
+        // Node NODE3 from the assignment is missing in logical topology, but topology changes during messaging.
+        {
+            CountDownLatch messageBlockLatch = new CountDownLatch(1);
+            CountDownLatch topologyChangeLatch = new CountDownLatch(1);
+
+            CatalogCompactionRunner compactor = createRunner(
+                    NODE1,
+                    NODE1,
+                    (node) -> {
+                        try {
+                            messageBlockLatch.countDown();
+
+                            topologyChangeLatch.await();
+
+                            return catalog.time();
+                        } catch (InterruptedException e) {
+                            throw new RuntimeException(e);
+                        }
+                    },
+                    List.of(NODE1, NODE2),
+                    logicalNodes
+            );
+
+            CompletableFuture<CompletableFuture<Boolean>> fut = IgniteTestUtils.runAsync(
+                    () -> compactor.triggerCompaction(clockService.now()));
+
+            messageBlockLatch.await();
+
+            LogicalTopologySnapshot logicalTop = new LogicalTopologySnapshot(2, logicalNodes);
+
+            when(logicalTopologyService.localLogicalTopology()).thenReturn(logicalTop);
+
+            assertFalse(fut.isDone());
+
+            topologyChangeLatch.countDown();
+
+            assertThat(fut, willCompleteSuccessfully());
+
+            // Since we do not know the minimum required time by NODE3, despite the fact
+            // that all the necessary nodes are in the logical topology at the time
+            // assignments are collected, we cannot perform catalog compaction.
+            assertThat(fut.join(), willBe(false));
         }
 
         // All nodes from the assignments are present in logical topology.
@@ -251,7 +300,7 @@ public class CatalogCompactionRunnerSelfTest extends BaseIgniteAbstractTest {
             List<LogicalNode> assignmentNodes
     ) {
         MessagingService messagingService = mock(MessagingService.class);
-        LogicalTopologyService logicalTopologyService = mock(LogicalTopologyService.class);
+        logicalTopologyService = mock(LogicalTopologyService.class);
         PlacementDriver placementDriver = mock(PlacementDriver.class);
         TopologyService topologyService = mock(TopologyService.class);
 
