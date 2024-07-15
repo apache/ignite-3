@@ -77,6 +77,7 @@ import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.PrimaryReplicaExpiredException;
@@ -343,10 +344,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         TransactionException transactionException = assertThrows(TransactionException.class, tx::commit);
 
-        assertInstanceOf(
-                MismatchingTransactionOutcomeException.class,
-                ExceptionUtils.unwrapCause(transactionException.getCause().getCause().getCause())
-        );
+        assertTrue(IgniteTestUtils.hasCause(transactionException, MismatchingTransactionOutcomeException.class, null));
 
         tx.commitAsync().get(3, TimeUnit.SECONDS);
         tx.rollbackAsync().get(3, TimeUnit.SECONDS);
@@ -374,10 +372,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         TransactionException transactionException = assertThrows(TransactionException.class, tx::rollback);
 
-        assertInstanceOf(
-                MismatchingTransactionOutcomeException.class,
-                ExceptionUtils.unwrapCause(transactionException.getCause().getCause().getCause())
-        );
+        assertTrue(IgniteTestUtils.hasCause(transactionException, MismatchingTransactionOutcomeException.class, null));
 
         tx.commitAsync().get(3, TimeUnit.SECONDS);
         tx.rollbackAsync().get(3, TimeUnit.SECONDS);
