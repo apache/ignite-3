@@ -29,6 +29,8 @@ import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.compute.ComputeUtils;
 import org.apache.ignite.internal.compute.JobExecutionContextImpl;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.sql.ColumnType;
+import org.apache.ignite.internal.client.proto;
 import org.apache.ignite.table.DataStreamerReceiver;
 import org.apache.ignite.table.DataStreamerReceiverContext;
 import org.jetbrains.annotations.Nullable;
