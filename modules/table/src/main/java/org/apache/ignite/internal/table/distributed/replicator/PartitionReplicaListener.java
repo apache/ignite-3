@@ -439,6 +439,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                     abortedCount++;
                 }
 
+                LOG.info("Running cleanup for tx during recovery [txId={}].", txId);
+
                 txManager.cleanup(
                         replicationGroupId,
                         txMeta.enlistedPartitions(),

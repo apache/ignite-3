@@ -586,12 +586,12 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
         // Cleanup may be triggered by the primary replica reelection as well.
         runningNodes().filter(n -> commitPartNodes.contains(n.name())).forEach(nd -> nd.dropMessages((n, msg) -> {
             if (msg instanceof TxCleanupMessage) {
-                log.info("Test: perform cleanup on [node= {}, msg={}].", n, msg);
+                log.info("Test: perform cleanup on [node={}, msg={}].", n, msg);
 
                 cleanupStarted.complete(null);
 
                 if (!cleanupAllowed[0]) {
-                    log.info("Test: dropping cleanup on [node= {}].", n);
+                    log.info("Test: dropping cleanup on [node={}].", n);
 
                     return true;
                 }
