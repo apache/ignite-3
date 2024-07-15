@@ -141,7 +141,8 @@ public class PersistentTxStateVacuumizer {
                         } else {
                             successful.addAll(txs.stream().map(v -> v.txId).collect(toSet()));
 
-                            LOG.info("No primary for commit partition, don't send tx ids [partId={}].", commitPartitionId);
+                            LOG.info("No primary for commit partition or it is not local, don't send tx ids [partId={}, replicaMeta={}, "
+                                            + "localNode={}].", commitPartitionId, replicaMeta, localNode.id());
 
                             return nullCompletedFuture();
                         }
