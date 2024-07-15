@@ -179,7 +179,7 @@ public final class RpcRequests {
 
         @Nullable ByteBuffer data();
 
-        HybridTimestamp timestamp();
+        @Nullable HybridTimestamp timestamp();
     }
 
     @Transferable(value = RaftMessageGroup.RpcRequestsMessageGroup.APPEND_ENTRIES_RESPONSE)

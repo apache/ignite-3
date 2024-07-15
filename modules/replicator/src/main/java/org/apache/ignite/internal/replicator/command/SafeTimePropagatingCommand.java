@@ -20,6 +20,7 @@ package org.apache.ignite.internal.replicator.command;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.annotations.WithSetter;
 import org.apache.ignite.internal.raft.WriteCommand;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Common interface for commands carrying safe time.
@@ -27,7 +28,7 @@ import org.apache.ignite.internal.raft.WriteCommand;
 public interface SafeTimePropagatingCommand extends WriteCommand {
     /** Safe time. */
     @WithSetter
-    HybridTimestamp safeTime();
+    @Nullable HybridTimestamp safeTime();
 
     /**
      * Setter for the safeTime field.

@@ -19,11 +19,12 @@ package org.apache.ignite.internal.replicator.message;
 
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.NetworkMessage;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Message with a timestamp to adjust a hybrid logical clock.
  */
 public interface TimestampAware extends NetworkMessage {
     /** Hybrid timestamp. */
-    HybridTimestamp timestamp();
+    @Nullable HybridTimestamp timestamp();
 }
