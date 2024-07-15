@@ -100,7 +100,7 @@ public class ClientStreamerWithReceiverBatchSendRequest {
                                 ExceptionUtils.sneakyThrow(err);
                             }
 
-                            StreamerReceiverSerializer.serializeResults(out, returnResults ? res : null);
+                            StreamerReceiverSerializer.serializeReceiverJobResults(out, returnResults ? res : null);
                             return null;
                         });
             });

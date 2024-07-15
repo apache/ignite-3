@@ -20,6 +20,7 @@ package org.apache.ignite.internal.client.proto;
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
 
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.Collection;
 import java.util.List;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
@@ -85,20 +86,49 @@ public class StreamerReceiverSerializer {
      * Serializes receiver results.
      *
      * @param w Writer.
-     * @param receiverResults Receiver results.
+     * @param receiverJobResults Receiver results serialized by {@link #serializeReceiverJobResults}.
      */
-    public static void serializeResults(ClientMessagePacker w, @Nullable List<Object> receiverResults) {
-        if (receiverResults == null || receiverResults.isEmpty()) {
+    public static void serializeReceiverJobResultsForClient(ClientMessagePacker w, byte[] receiverJobResults) {
+        if (receiverJobResults == null || receiverJobResults.length == 0) {
             w.packNil();
             return;
+        }
+
+        int numElementsSize = 4;
+        int binaryTupleSize = receiverJobResults.length - numElementsSize;
+
+        ByteBuffer buf = ByteBuffer.wrap(receiverJobResults).order(ByteOrder.LITTLE_ENDIAN);
+        int numElements = buf.position(binaryTupleSize).getInt();
+
+        w.packInt(numElements);
+        w.packBinaryHeader(binaryTupleSize);
+        w.writePayload(receiverJobResults, numElementsSize, binaryTupleSize);
+    }
+
+    /**
+     * Serializes receiver results.
+     *
+     * @param receiverResults Receiver results.
+     */
+    public static byte @Nullable [] serializeReceiverJobResults(@Nullable List<Object> receiverResults) {
+        if (receiverResults == null || receiverResults.isEmpty()) {
+            return null;
         }
 
         int numElements = 2 + receiverResults.size();
         var builder = new BinaryTupleBuilder(numElements);
         ClientBinaryTupleUtils.appendCollectionToBinaryTuple(builder, receiverResults);
 
-        w.packInt(numElements);
-        w.packBinaryTuple(builder);
+        ByteBuffer res = builder.build();
+
+        // Append element count to the end.
+        var resWithCount = res.flip().putInt(numElements).flip();
+
+        // Copy to byte array.
+        byte[] resBytes = new byte[resWithCount.limit() - resWithCount.position()];
+        resWithCount.get(resBytes);
+
+        return resBytes;
     }
 
     /**

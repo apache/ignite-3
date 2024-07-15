@@ -17,20 +17,16 @@
 
 package org.apache.ignite.internal.compute.streamer;
 
-import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
-
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
-import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
+import org.apache.ignite.internal.client.proto.StreamerReceiverSerializer;
+import org.apache.ignite.internal.client.proto.StreamerReceiverSerializer.SteamerReceiverInfo;
 import org.apache.ignite.internal.compute.ComputeUtils;
 import org.apache.ignite.internal.compute.JobExecutionContextImpl;
-import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.sql.ColumnType;
-import org.apache.ignite.internal.client.proto;
 import org.apache.ignite.table.DataStreamerReceiver;
 import org.apache.ignite.table.DataStreamerReceiverContext;
 import org.jetbrains.annotations.Nullable;
@@ -46,36 +42,21 @@ public class StreamerReceiverJob implements ComputeJob<byte[], byte[]> {
         ByteBuffer buf = ByteBuffer.wrap(payload).order(ByteOrder.LITTLE_ENDIAN);
         int payloadElementCount = buf.getInt();
 
-        var reader = new BinaryTupleReader(payloadElementCount, buf.slice().order(ByteOrder.LITTLE_ENDIAN));
-
-        int readerIndex = 0;
-        String receiverClassName = reader.stringValue(readerIndex++);
-
-        if (receiverClassName == null) {
-            throw new IgniteException(PROTOCOL_ERR, "Receiver class name is null");
-        }
-
-        Object receiverArg = ClientBinaryTupleUtils.readObject(reader, readerIndex);
-
-        readerIndex += 3;
-
-        List<Object> items = ClientBinaryTupleUtils.readCollectionFromBinaryTuple(reader, readerIndex);
-
+        SteamerReceiverInfo receiverInfo = StreamerReceiverSerializer.deserialize(buf.slice().order(ByteOrder.LITTLE_ENDIAN), payloadElementCount);
 
         ClassLoader classLoader = ((JobExecutionContextImpl) context).classLoader();
         Class<DataStreamerReceiver<Object, Object, Object>> receiverClass = ComputeUtils.receiverClass(
-                classLoader, receiverClassName
+                classLoader, receiverInfo.className()
         );
         DataStreamerReceiver<Object, Object, Object> receiver = ComputeUtils.instantiateReceiver(receiverClass);
         DataStreamerReceiverContext receiverContext = context::ignite;
 
-        CompletableFuture<List<Object>> receiverRes = receiver.receive(items, receiverContext, receiverArg);
+        CompletableFuture<List<Object>> receiverRes = receiver.receive(receiverInfo.items(), receiverContext, receiverInfo.args());
 
         if (receiverRes == null) {
             return CompletableFuture.completedFuture(null);
         }
 
-        // TODO: Serialize here, avoid re-serializing before passing to the client.
-        return receiverRes.thenApply(r -> new byte[0]);
+        return receiverRes.thenApply(StreamerReceiverSerializer::serializeReceiverJobResults);
     }
 }
