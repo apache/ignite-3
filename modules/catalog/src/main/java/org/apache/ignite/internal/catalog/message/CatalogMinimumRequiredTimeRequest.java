@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.catalog.message;
 
-import java.io.Serializable;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
 
@@ -26,6 +25,6 @@ import org.apache.ignite.internal.network.annotations.Transferable;
  * node's perspective, the catalog history can be safely truncated.
  */
 @Transferable(CatalogMessageGroup.MINIMUM_REQUIRED_TIME_REQUEST)
-public interface CatalogMinimumRequiredTimeRequest extends NetworkMessage, Serializable {
+public interface CatalogMinimumRequiredTimeRequest extends NetworkMessage {
 
 }

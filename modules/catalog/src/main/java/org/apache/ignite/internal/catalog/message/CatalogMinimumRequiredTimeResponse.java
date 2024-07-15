@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.catalog.message;
 
-import java.io.Serializable;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
 
@@ -26,7 +25,7 @@ import org.apache.ignite.internal.network.annotations.Transferable;
  * This watermark is used to safely truncate catalog history.
  */
 @Transferable(CatalogMessageGroup.MINIMUM_REQUIRED_TIME_RESPONSE)
-public interface CatalogMinimumRequiredTimeResponse extends NetworkMessage, Serializable {
+public interface CatalogMinimumRequiredTimeResponse extends NetworkMessage {
     /** Returns node's minimum required time. */
     long timestamp();
 }

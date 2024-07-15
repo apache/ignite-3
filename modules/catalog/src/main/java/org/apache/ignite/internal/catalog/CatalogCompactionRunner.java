@@ -21,6 +21,7 @@ import static java.util.function.Predicate.not;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
@@ -35,10 +36,9 @@ import org.apache.ignite.internal.affinity.TokenizedAssignments;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.message.CatalogMessageGroup;
+import org.apache.ignite.internal.catalog.message.CatalogMessagesFactory;
 import org.apache.ignite.internal.catalog.message.CatalogMinimumRequiredTimeRequest;
-import org.apache.ignite.internal.catalog.message.CatalogMinimumRequiredTimeRequestImpl;
 import org.apache.ignite.internal.catalog.message.CatalogMinimumRequiredTimeResponse;
-import org.apache.ignite.internal.catalog.message.CatalogMinimumRequiredTimeResponseImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
@@ -48,7 +48,6 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.TopologyService;
@@ -79,6 +78,8 @@ import org.jetbrains.annotations.TestOnly;
  */
 public class CatalogCompactionRunner implements IgniteComponent {
     private static final IgniteLogger LOG = Loggers.forClass(CatalogCompactionRunner.class);
+
+    private static final CatalogMessagesFactory MESSAGES_FACTORY = new CatalogMessagesFactory();
 
     private static final long ANSWER_TIMEOUT = 5_000;
 
@@ -139,10 +140,9 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
             long minimumRequiredTime = determineLocalMinimumRequiredTime();
 
-            CatalogMinimumRequiredTimeResponse response =
-                    CatalogMinimumRequiredTimeResponseImpl.builder()
-                            .timestamp(minimumRequiredTime)
-                            .build();
+            CatalogMinimumRequiredTimeResponse response = MESSAGES_FACTORY.catalogMinimumRequiredTimeResponse()
+                    .timestamp(minimumRequiredTime)
+                    .build();
 
             messagingService.respond(sender, response, correlationId);
         });
@@ -199,17 +199,18 @@ public class CatalogCompactionRunner implements IgniteComponent {
                 return CompletableFutures.falseCompletedFuture();
             }
 
-            fut = startCompaction().whenComplete((res, ex) -> {
-                if (ex != null) {
-                    LOG.warn("Catalog compaction has failed (timestamp={})", ex, lwm.longValue());
-                } else if (LOG.isDebugEnabled()) {
-                    if (res) {
-                        LOG.debug("Catalog compaction completed successfully (timestamp={})", lwm.longValue());
-                    } else {
-                        LOG.debug("Catalog compaction skipped (timestamp={})", lwm.longValue());
-                    }
-                }
-            });
+            fut = startCompaction(logicalTopologyService.localLogicalTopology())
+                    .whenComplete((res, ex) -> {
+                        if (ex != null) {
+                            LOG.warn("Catalog compaction has failed (timestamp={})", ex, lwm.longValue());
+                        } else if (LOG.isDebugEnabled()) {
+                            if (res) {
+                                LOG.debug("Catalog compaction completed successfully (timestamp={})", lwm.longValue());
+                            } else {
+                                LOG.debug("Catalog compaction skipped (timestamp={})", lwm.longValue());
+                            }
+                        }
+                    });
 
             lastRunFuture = fut;
 
@@ -217,8 +218,8 @@ public class CatalogCompactionRunner implements IgniteComponent {
         });
     }
 
-    private CompletableFuture<Boolean> startCompaction() {
-        return determineGlobalMinimumRequiredTime()
+    private CompletableFuture<Boolean> startCompaction(LogicalTopologySnapshot topologySnapshot) {
+        return determineGlobalMinimumRequiredTime(topologySnapshot.nodes())
                 .thenComposeAsync(ts -> {
                     Catalog catalog = catalogByTsNullable(ts);
 
@@ -228,7 +229,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
                     return requiredNodes(catalog)
                             .thenCompose(requiredNodes -> {
-                                List<String> missingNodes = missingNodes(requiredNodes);
+                                List<String> missingNodes = missingNodes(requiredNodes, topologySnapshot.nodes());
 
                                 if (!missingNodes.isEmpty()) {
                                     if (LOG.isDebugEnabled()) {
@@ -252,13 +253,12 @@ public class CatalogCompactionRunner implements IgniteComponent {
         }
     }
 
-    private CompletableFuture<Long> determineGlobalMinimumRequiredTime() {
-        CatalogMinimumRequiredTimeRequest request = CatalogMinimumRequiredTimeRequestImpl.builder().build();
-        LogicalTopologySnapshot logicalTopology = logicalTopologyService.localLogicalTopology();
-        List<CompletableFuture<?>> ackFutures = new ArrayList<>(logicalTopology.nodes().size());
+    private CompletableFuture<Long> determineGlobalMinimumRequiredTime(Set<LogicalNode> logicalTopologyNodes) {
+        CatalogMinimumRequiredTimeRequest request = MESSAGES_FACTORY.catalogMinimumRequiredTimeRequest().build();
+        List<CompletableFuture<?>> ackFutures = new ArrayList<>(logicalTopologyNodes.size());
         AtomicLong minimumRequiredTimeHolder = new AtomicLong(Long.MAX_VALUE);
 
-        for (LogicalNode node : logicalTopology.nodes()) {
+        for (LogicalNode node : logicalTopologyNodes) {
             CompletableFuture<NetworkMessage> fut = messagingService.invoke(node, request, ANSWER_TIMEOUT)
                     .whenComplete((msg, ex) -> {
                         if (ex != null) {
@@ -283,7 +283,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
     private long determineLocalMinimumRequiredTime() {
         // TODO https://issues.apache.org/jira/browse/IGNITE-22637 Provide actual minimum required time.
-        return HybridTimestamp.MAX_VALUE.longValue();
+        return HybridTimestamp.MIN_VALUE.longValue();
     }
 
     private CompletableFuture<Set<String>> requiredNodes(Catalog catalog) {
@@ -332,10 +332,10 @@ public class CatalogCompactionRunner implements IgniteComponent {
                 .thenCompose(ignore -> collectRequiredNodes(catalog, tabItr, required, nowTs));
     }
 
-    private List<String> missingNodes(Set<String> requiredNodes) {
-        Set<String> logicalNodeIds = logicalTopologyService.localLogicalTopology().nodes()
+    private static List<String> missingNodes(Set<String> requiredNodes, Collection<LogicalNode> logicalTopologyNodes) {
+        Set<String> logicalNodeIds = logicalTopologyNodes
                 .stream()
-                .map(ClusterNodeImpl::name)
+                .map(ClusterNode::name)
                 .collect(Collectors.toSet());
 
         return requiredNodes.stream().filter(not(logicalNodeIds::contains)).collect(Collectors.toList());
