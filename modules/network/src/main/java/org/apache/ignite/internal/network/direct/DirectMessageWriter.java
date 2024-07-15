@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.network.direct;
 
+import static org.apache.ignite.internal.hlc.HybridTimestamp.NULL_HYBRID_TIMESTAMP;
 import static org.apache.ignite.internal.util.ArrayUtils.EMPTY_BYTE_BUFFER;
 
 import java.nio.ByteBuffer;
@@ -402,7 +403,7 @@ public class DirectMessageWriter implements MessageWriter {
     public boolean writeHybridTimestamp(String name, @Nullable HybridTimestamp val) {
         DirectByteBufferStream stream = this.stream;
 
-        stream.writeBoxedLong(val == null ? null : val.longValue());
+        stream.writeLong(val == null ? NULL_HYBRID_TIMESTAMP : val.longValue());
 
         return stream.lastFinished();
     }

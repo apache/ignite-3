@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.network.direct;
 
-import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
 
 import java.nio.ByteBuffer;
 import java.util.BitSet;
@@ -442,11 +442,15 @@ public class DirectMessageReader implements MessageReader {
     public @Nullable HybridTimestamp readHybridTimestamp(String name) {
         DirectByteBufferStream stream = state.item().stream;
 
-        Long val = stream.readBoxedLong();
+        long val = stream.readLong();
 
         lastRead = stream.lastFinished();
 
-        return val == null ? null : hybridTimestamp(val);
+        if (!lastRead) {
+            return null;
+        }
+
+        return nullableHybridTimestamp(val);
     }
 
     @Override
