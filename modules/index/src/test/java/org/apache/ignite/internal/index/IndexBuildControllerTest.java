@@ -121,6 +121,8 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 clockService
         );
 
+        indexBuildController.start();
+
         createTable(catalogManager, TABLE_NAME, COLUMN_NAME);
     }
 

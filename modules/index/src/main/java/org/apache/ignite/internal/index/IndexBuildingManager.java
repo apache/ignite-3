@@ -43,6 +43,7 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 
@@ -78,6 +79,7 @@ public class IndexBuildingManager implements IgniteComponent {
             CatalogManager catalogManager,
             MetaStorageManager metaStorageManager,
             IndexManager indexManager,
+            IndexMetaStorage indexMetaStorage,
             PlacementDriver placementDriver,
             ClusterService clusterService,
             LogicalTopologyService logicalTopologyService,
@@ -117,6 +119,7 @@ public class IndexBuildingManager implements IgniteComponent {
                 logicalTopologyService,
                 clockService,
                 placementDriver,
+                indexMetaStorage,
                 executor
         );
 
@@ -137,7 +140,11 @@ public class IndexBuildingManager implements IgniteComponent {
 
             long recoveryRevision = recoveryFinishedFuture.join();
 
-            indexAvailabilityController.recover(recoveryRevision);
+            indexAvailabilityController.start(recoveryRevision);
+
+            changeIndexStatusTaskController.start();
+
+            indexBuildController.start();
 
             return nullCompletedFuture();
         });

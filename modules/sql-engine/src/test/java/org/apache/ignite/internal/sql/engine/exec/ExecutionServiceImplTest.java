@@ -206,13 +206,15 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     public void init() {
+        DdlSqlToCommandConverter converter = new DdlSqlToCommandConverter();
+
         testCluster = new TestCluster();
         executionServices = nodeNames.stream().map(this::create).collect(Collectors.toList());
         prepareService = new PrepareServiceImpl(
                 "test",
                 0,
                 CaffeineCacheFactory.INSTANCE,
-                new DdlSqlToCommandConverter(),
+                converter,
                 PLANNING_TIMEOUT,
                 PLANNING_THREAD_COUNT,
                 new MetricManagerImpl(),
@@ -898,39 +900,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         SqlOperationContext planCtx = operationContext(null).build();
         QueryPlan plan = prepare("SELECT * FROM test_tbl", planCtx);
 
-        int attempts = 10;
-
-        for (int k = 0; k < attempts; k++) {
-            QueryCancel cancel = new QueryCancel();
-            CompletableFuture<Void> timeoutFut = cancel.setTimeout(scheduler, deadlineMillis);
-
-            SqlOperationContext execCtx = operationContext(null)
-                    .cancel(cancel)
-                    .build();
-
-            AsyncCursor<InternalSqlRow> cursor;
-            try {
-                cursor = execService.executePlan(plan, execCtx);
-            } catch (QueryCancelledException e) {
-                // This might happen when initialization took longer than a time out,
-                // Retry to get a proper error.
-                continue;
-            }
-
-            CompletableFuture<?> batchFut = cursor.requestNextAsync(1);
-
-            timeoutFut.join();
-
-            IgniteTestUtils.assertThrowsWithCause(
-                    batchFut::join,
-                    SqlException.class,
-                    "Query timeout"
-            );
-
-            return;
-        }
-
-        fail("Failed to get query timeout error");
+        awaitExecutionTimeout(execService, plan, deadlineMillis, SqlException.class);
     }
 
     @Test
@@ -974,37 +944,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         Duration delay = Duration.of(deadlineMillis * 2, ChronoUnit.MILLIS);
         tableRegistry.setGetTableDelay(delay);
 
-        int attempts = 10;
-
-        for (int k = 0; k < attempts; k++) {
-            QueryCancel queryCancel = new QueryCancel();
-            CompletableFuture<Void> timeoutFut = queryCancel.setTimeout(scheduler, deadlineMillis);
-
-            SqlOperationContext execCtx = operationContext(null)
-                    .cancel(queryCancel)
-                    .build();
-
-            AsyncCursor<InternalSqlRow> cursor;
-            try {
-                cursor = execService.executePlan(plan, execCtx);
-            } catch (QueryCancelledException e) {
-                continue;
-            }
-
-            CompletableFuture<?> batchFut = cursor.requestNextAsync(1);
-
-            timeoutFut.join();
-
-            IgniteTestUtils.assertThrowsWithCause(
-                    batchFut::join,
-                    SqlException.class,
-                    "Query timeout"
-            );
-
-            return;
-        }
-
-        fail("Failed to get query timeout error");
+        awaitExecutionTimeout(execService, plan, deadlineMillis, SqlException.class);
     }
 
     @Test
@@ -1023,37 +963,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         Duration delay = Duration.of(deadlineMillis * 2, ChronoUnit.MILLIS);
         tableRegistry.setGetTableDelay(delay);
 
-        int attempts = 10;
-
-        for (int k = 0; k < attempts; k++) {
-            QueryCancel queryCancel = new QueryCancel();
-            CompletableFuture<Void> timeoutFut = queryCancel.setTimeout(scheduler, deadlineMillis);
-
-            SqlOperationContext execCtx = operationContext(null)
-                    .cancel(queryCancel)
-                    .build();
-
-            AsyncCursor<InternalSqlRow> cursor;
-            try {
-                cursor = execService.executePlan(plan, execCtx);
-            } catch (QueryCancelledException e) {
-                continue;
-            }
-
-            CompletableFuture<?> batchFut = cursor.requestNextAsync(1);
-
-            timeoutFut.join();
-
-            IgniteTestUtils.assertThrowsWithCause(
-                    batchFut::join,
-                    SqlException.class,
-                    "Query timeout"
-            );
-
-            return;
-        }
-
-        fail("Failed to get query timeout error");
+        awaitExecutionTimeout(execService, plan, 500, SqlException.class);
     }
 
     @Test
@@ -1076,38 +986,8 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         DdlCommandHandler ddlCommandHandler = execService.ddlCommandHandler();
         when(ddlCommandHandler.handle(any(CatalogCommand.class))).thenReturn(new CompletableFuture<>());
 
-        int attempts = 10;
-
-        for (int k = 0; k < attempts; k++) {
-            QueryCancel queryCancel = new QueryCancel();
-            CompletableFuture<Void> timeoutFut = queryCancel.setTimeout(scheduler, deadlineMillis);
-
-            SqlOperationContext execCtx = operationContext(null)
-                    .cancel(queryCancel)
-                    .build();
-
-            AsyncCursor<InternalSqlRow> cursor;
-            try {
-                cursor = execService.executePlan(plan, execCtx);
-            } catch (QueryCancelledException e) {
-                continue;
-            }
-
-            CompletableFuture<?> batchFut = cursor.requestNextAsync(1);
-
-            timeoutFut.join();
-
-            // DDL handler does convert exceptions to SqlException, so we get QueryCancelledException here.
-            IgniteTestUtils.assertThrowsWithCause(
-                    batchFut::join,
-                    QueryCancelledException.class,
-                    "Query timeout"
-            );
-
-            return;
-        }
-
-        fail("Failed to get query timeout error");
+        // DDL handler does convert exceptions to SqlException, so we get QueryCancelledException here.
+        awaitExecutionTimeout(execService, plan, 500, QueryCancelledException.class);
     }
 
     /** Creates an execution service instance for the node with given consistent id. */
@@ -1260,6 +1140,47 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 );
             }
         }
+    }
+
+    private void awaitExecutionTimeout(
+            ExecutionService execService,
+            QueryPlan plan,
+            long deadlineMillis,
+            Class<? extends RuntimeException> errorClass
+    ) {
+        int attempts = 10;
+
+        for (int k = 0; k < attempts; k++) {
+            QueryCancel queryCancel = new QueryCancel();
+            CompletableFuture<Void> timeoutFut = queryCancel.setTimeout(scheduler, deadlineMillis);
+
+            SqlOperationContext execCtx = operationContext(null)
+                    .cancel(queryCancel)
+                    .build();
+
+            AsyncCursor<InternalSqlRow> cursor;
+            try {
+                cursor = execService.executePlan(plan, execCtx);
+            } catch (QueryCancelledException e) {
+                // This might happen when initialization took longer than a time out,
+                // Retry to get a proper error.
+                continue;
+            }
+
+            CompletableFuture<?> batchFut = cursor.requestNextAsync(1);
+
+            timeoutFut.join();
+
+            IgniteTestUtils.assertThrowsWithCause(
+                    batchFut::join,
+                    errorClass,
+                    "Query timeout"
+            );
+
+            return;
+        }
+
+        fail("Failed to get query timeout error");
     }
 
     static class TestCluster {

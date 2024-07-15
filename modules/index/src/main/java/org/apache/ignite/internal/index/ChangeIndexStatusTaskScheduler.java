@@ -37,6 +37,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 
 /** Component is responsible for starting and stopping {@link ChangeIndexStatusTask}. */
@@ -53,6 +54,8 @@ class ChangeIndexStatusTaskScheduler implements ManuallyCloseable {
 
     private final PlacementDriver placementDriver;
 
+    private final IndexMetaStorage indexMetaStorage;
+
     private final Executor executor;
 
     private final Map<ChangeIndexStatusTaskId, ChangeIndexStatusTask> taskById = new ConcurrentHashMap<>();
@@ -67,6 +70,7 @@ class ChangeIndexStatusTaskScheduler implements ManuallyCloseable {
             LogicalTopologyService logicalTopologyService,
             ClockService clockService,
             PlacementDriver placementDriver,
+            IndexMetaStorage indexMetaStorage,
             Executor executor
     ) {
         this.catalogManager = catalogManager;
@@ -74,6 +78,7 @@ class ChangeIndexStatusTaskScheduler implements ManuallyCloseable {
         this.logicalTopologyService = logicalTopologyService;
         this.clockService = clockService;
         this.placementDriver = placementDriver;
+        this.indexMetaStorage = indexMetaStorage;
         this.executor = executor;
     }
 
@@ -111,6 +116,7 @@ class ChangeIndexStatusTaskScheduler implements ManuallyCloseable {
                 clusterService,
                 logicalTopologyService,
                 clockService,
+                indexMetaStorage,
                 executor,
                 busyLock
         ) {
@@ -144,6 +150,7 @@ class ChangeIndexStatusTaskScheduler implements ManuallyCloseable {
                 clusterService,
                 logicalTopologyService,
                 clockService,
+                indexMetaStorage,
                 executor,
                 busyLock
         ) {
