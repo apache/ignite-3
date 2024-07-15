@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.call.recovery;
+package org.apache.ignite.internal.cli.call.recovery.states;
 
 import java.util.List;
 import org.apache.ignite.internal.cli.commands.recovery.partitions.states.PartitionStatesMixin;
@@ -71,10 +71,6 @@ public class PartitionStatesCallInput implements CallInput {
         this.nodeNames = nodeNames == null ? List.of() : List.copyOf(nodeNames);
         this.zoneNames = zoneNames == null ? List.of() : List.copyOf(zoneNames);
         this.partitionIds = partitionIds == null ? List.of() : List.copyOf(partitionIds);
-    }
-
-    public static PartitionStatesCallInput of(PartitionStatesMixin statesArgs) {
-        return of(statesArgs, statesArgs.clusterUrl());
     }
 
     /** Returns {@link PartitionStatesCallInput} with specified arguments. */

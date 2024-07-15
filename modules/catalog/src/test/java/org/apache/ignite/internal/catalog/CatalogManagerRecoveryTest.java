@@ -26,7 +26,6 @@ import static org.apache.ignite.internal.catalog.BaseCatalogManagerTest.dropInde
 import static org.apache.ignite.internal.catalog.BaseCatalogManagerTest.dropTableCommand;
 import static org.apache.ignite.internal.catalog.BaseCatalogManagerTest.simpleIndex;
 import static org.apache.ignite.internal.catalog.BaseCatalogManagerTest.simpleTable;
-import static org.apache.ignite.internal.catalog.BaseCatalogManagerTest.startBuildingIndexCommand;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -35,7 +34,6 @@ import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -185,28 +183,6 @@ public class CatalogManagerRecoveryTest extends BaseIgniteAbstractTest {
         assertThat(catalogManager.activeCatalogVersion(earliestVersionActivationTime), equalTo(earliestVersion));
         assertThat(catalogManager.activeCatalogVersion(snapshotTime), equalTo(earliestVersion));
         assertThat(catalogManager.activeCatalogVersion(latestVersionActivationTime), equalTo(latestVersion));
-    }
-
-    @Test
-    void testRecoveryIndexCreationCatalogVersion() throws InterruptedException {
-        createAndStartComponents();
-        awaitDefaultZoneCreation();
-
-        assertThat(catalogManager.execute(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
-        assertThat(catalogManager.execute(simpleIndex(TABLE_NAME, INDEX_NAME)), willCompleteSuccessfully());
-
-        int expCreationCatalogVersion = catalogManager.latestCatalogVersion();
-
-        int indexId = catalogManager.aliveIndex(INDEX_NAME, clock.nowLong()).id();
-
-        assertThat(catalogManager.execute(startBuildingIndexCommand(indexId)), willCompleteSuccessfully());
-        assertThat(catalogManager.execute(simpleTable(TABLE_NAME + 1)), willCompleteSuccessfully());
-
-        stopComponents();
-
-        createAndStartComponents();
-
-        assertEquals(expCreationCatalogVersion, catalogManager.aliveIndex(INDEX_NAME, clock.nowLong()).txWaitCatalogVersion());
     }
 
     private void createAndStartComponents() {

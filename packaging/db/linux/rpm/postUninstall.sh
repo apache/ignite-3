@@ -17,7 +17,7 @@
 #
 
 if [ "$1" -eq 0 ]; then
-    post_uninstall_remove
+    post_uninstall_purge
 elif [ "$1" -eq 1 ]; then
     post_uninstall_upgrade
 fi

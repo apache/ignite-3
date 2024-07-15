@@ -36,6 +36,8 @@ import static org.apache.ignite.internal.table.TableTestUtils.startBuildingIndex
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CollectionUtils.view;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAllManually;
+import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
+import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
@@ -55,8 +57,12 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
+import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.table.TableTestUtils;
+import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -66,6 +72,8 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 /** For {@link FullStateTransferIndexChooser} testing. */
 public class FullStateTransferIndexChooserTest extends BaseIgniteAbstractTest {
+    private static final String NODE_NAME = "test";
+
     private static final String REGISTERED_INDEX_NAME = INDEX_NAME + "_" + REGISTERED;
 
     private static final String BUILDING_INDEX_NAME = INDEX_NAME + "_" + BUILDING;
@@ -82,17 +90,27 @@ public class FullStateTransferIndexChooserTest extends BaseIgniteAbstractTest {
 
     private final TestLowWatermark lowWatermark = new TestLowWatermark();
 
+    private MetaStorageManager metaStorageManager;
+
+    private IndexMetaStorage indexMetaStorage;
+
     private FullStateTransferIndexChooser indexChooser;
 
     @BeforeEach
     void setUp() {
-        catalogManager = CatalogTestUtils.createCatalogManagerWithTestUpdateLog("test", clock);
+        metaStorageManager = StandaloneMetaStorageManager.create(new SimpleInMemoryKeyValueStorage(NODE_NAME), clock);
 
-        indexChooser = new FullStateTransferIndexChooser(catalogManager, lowWatermark);
+        catalogManager = CatalogTestUtils.createCatalogManagerWithTestUpdateLog(NODE_NAME, clock);
 
-        assertThat(catalogManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
+        indexMetaStorage = new IndexMetaStorage(catalogManager, lowWatermark, metaStorageManager);
+
+        indexChooser = new FullStateTransferIndexChooser(catalogManager, lowWatermark, indexMetaStorage);
+
+        assertThat(startAsync(new ComponentContext(), metaStorageManager, catalogManager, indexMetaStorage), willCompleteSuccessfully());
 
         indexChooser.start();
+
+        assertThat(metaStorageManager.deployWatches(), willCompleteSuccessfully());
 
         createSimpleTable(catalogManager, TABLE_NAME);
     }
@@ -101,8 +119,13 @@ public class FullStateTransferIndexChooserTest extends BaseIgniteAbstractTest {
     void tearDown() throws Exception {
         closeAllManually(
                 indexChooser,
-                catalogManager::beforeNodeStop,
-                () -> assertThat(catalogManager.stopAsync(new ComponentContext()), willCompleteSuccessfully())
+                indexMetaStorage == null ? null : indexMetaStorage::beforeNodeStop,
+                catalogManager == null ? null : catalogManager::beforeNodeStop,
+                metaStorageManager == null ? null : metaStorageManager::beforeNodeStop,
+                () -> assertThat(
+                        stopAsync(new ComponentContext(), indexMetaStorage, catalogManager, metaStorageManager),
+                        willCompleteSuccessfully()
+                )
         );
     }
 
@@ -444,7 +467,7 @@ public class FullStateTransferIndexChooserTest extends BaseIgniteAbstractTest {
     }
 
     private void dropIndex(String indexName) {
-        TableTestUtils.dropIndex(catalogManager, SqlCommon.DEFAULT_SCHEMA_NAME, indexName);
+        TableTestUtils.dropSimpleIndex(catalogManager, indexName);
     }
 
     private int latestCatalogVersion() {
@@ -471,7 +494,7 @@ public class FullStateTransferIndexChooserTest extends BaseIgniteAbstractTest {
 
     private void recoverIndexChooser() {
         indexChooser.close();
-        indexChooser = new FullStateTransferIndexChooser(catalogManager, lowWatermark);
+        indexChooser = new FullStateTransferIndexChooser(catalogManager, lowWatermark, indexMetaStorage);
         indexChooser.start();
     }
 

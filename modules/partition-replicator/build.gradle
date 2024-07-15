@@ -39,6 +39,7 @@ dependencies {
     implementation project(':ignite-schema')
     implementation project(':ignite-transactions')
     implementation project(':ignite-storage-api')
+    implementation project(':ignite-low-watermark')
 
     integrationTestImplementation testFixtures(project(':ignite-runner'))
     integrationTestImplementation testFixtures(project(':ignite-core'))

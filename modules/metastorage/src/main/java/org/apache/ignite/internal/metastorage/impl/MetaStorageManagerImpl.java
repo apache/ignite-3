@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
@@ -147,6 +148,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     // TODO: https://issues.apache.org/jira/browse/IGNITE-19417 Remove, cache eviction should be triggered by MS GC instead.
     private final ScheduledExecutorService idempotentCacheVacumizer;
 
+    private final List<ElectionListener> electionListeners = new CopyOnWriteArrayList<>(); 
+
     /**
      * The constructor.
      *
@@ -217,6 +220,11 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         );
 
         configure(configuration);
+    }
+
+    /** Adds new listener to notify with election events. */
+    public void addElectionListener(ElectionListener listener) {
+        electionListeners.add(listener);
     }
 
     private CompletableFuture<Long> recover(MetaStorageServiceImpl service) {
@@ -356,7 +364,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
                         // We use the "deployWatchesFuture" to guarantee that the Configuration Manager will be started
                         // when the underlying code tries to read Meta Storage configuration. This is a consequence of having a circular
                         // dependency between these two components.
-                        deployWatchesFuture.thenApply(v -> localMetaStorageConfiguration)
+                        deployWatchesFuture.thenApply(v -> localMetaStorageConfiguration),
+                        electionListeners
                 )))
                 .whenComplete((v, e) -> {
                     if (e != null) {

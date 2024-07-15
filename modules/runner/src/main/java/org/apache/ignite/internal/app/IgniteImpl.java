@@ -72,7 +72,9 @@ import org.apache.ignite.internal.cluster.management.NodeAttributesCollector;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
+import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorageManager;
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
+import org.apache.ignite.internal.cluster.management.raft.ValidationManager;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
@@ -211,6 +213,7 @@ import org.apache.ignite.internal.table.distributed.schema.SchemaSyncServiceImpl
 import org.apache.ignite.internal.table.distributed.schema.ThreadLocalPartitionCommandsMarshaller;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.threading.PublicApiThreadingIgniteCatalog;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
@@ -555,13 +558,17 @@ public class IgniteImpl implements Ignite {
                         nodeConfigRegistry.getConfiguration(StorageConfiguration.KEY)
                 );
 
+        var clusterStateStorageMgr =  new ClusterStateStorageManager(clusterStateStorage);
+        var validationManager = new ValidationManager(clusterStateStorageMgr, logicalTopology);
+
         cmgMgr = new ClusterManagementGroupManager(
                 vaultMgr,
                 clusterSvc,
                 clusterInitializer,
                 raftMgr,
-                clusterStateStorage,
+                clusterStateStorageMgr,
                 logicalTopology,
+                validationManager,
                 nodeConfigRegistry.getConfiguration(ClusterManagementConfiguration.KEY),
                 nodeAttributesCollector,
                 failureProcessor
@@ -700,6 +707,8 @@ public class IgniteImpl implements Ignite {
                 partitionIdleSafeTimePropagationPeriodMsSupplier
         );
 
+        metaStorageMgr.addElectionListener(catalogManager::updateCompactionCoordinator);
+
         systemViewManager = new SystemViewManagerImpl(name, catalogManager);
         nodeAttributesCollector.register(systemViewManager);
         logicalTopology.addEventListener(systemViewManager);
@@ -740,6 +749,7 @@ public class IgniteImpl implements Ignite {
                 distributionZoneManager,
                 metaStorageMgr,
                 clusterSvc.topologyService(),
+                lowWatermark,
                 threadPoolsManager.tableIoExecutor(),
                 rebalanceScheduler
         );
@@ -850,6 +860,7 @@ public class IgniteImpl implements Ignite {
                 catalogManager,
                 metaStorageMgr,
                 indexManager,
+                indexMetaStorage,
                 placementDriverMgr.placementDriver(),
                 clusterSvc,
                 logicalTopologyService,
@@ -1361,7 +1372,7 @@ public class IgniteImpl implements Ignite {
 
     @Override
     public IgniteCatalog catalog() {
-        return new IgniteCatalogSqlImpl(sql, distributedTblMgr);
+        return new PublicApiThreadingIgniteCatalog(new IgniteCatalogSqlImpl(sql, distributedTblMgr), asyncContinuationExecutor);
     }
 
     /**

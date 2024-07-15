@@ -31,6 +31,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
+import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.apache.ignite.sql.ColumnType.INT64;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -255,13 +256,16 @@ public class TableManagerTest extends IgniteAbstractTest {
 
     private TestLowWatermark lowWatermark;
 
+    private IndexMetaStorage indexMetaStorage;
+
     @BeforeEach
     void before() throws NodeStoppingException {
         lowWatermark = new TestLowWatermark();
         catalogMetastore = StandaloneMetaStorageManager.create(new SimpleInMemoryKeyValueStorage(NODE_NAME));
         catalogManager = CatalogTestUtils.createTestCatalogManager(NODE_NAME, clock, catalogMetastore);
+        indexMetaStorage = new IndexMetaStorage(catalogManager, lowWatermark, catalogMetastore);
 
-        assertThat(startAsync(new ComponentContext(), catalogMetastore, catalogManager), willCompleteSuccessfully());
+        assertThat(startAsync(new ComponentContext(), catalogMetastore, catalogManager, indexMetaStorage), willCompleteSuccessfully());
 
         revisionUpdater = (LongFunction<CompletableFuture<?>> function) -> catalogMetastore.registerRevisionUpdateListener(function::apply);
 
@@ -282,9 +286,6 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         when(replicaMgr.startReplica(any(), any(), anyBoolean(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(trueCompletedFuture());
-        // TODO: will be removed after https://issues.apache.org/jira/browse/IGNITE-22315
-        when(replicaMgr.startRaftClient(any(), any(), any()))
-                .thenReturn(completedFuture(mock(TopologyAwareRaftGroupService.class)));
         when(replicaMgr.stopReplica(any())).thenReturn(trueCompletedFuture());
         when(replicaMgr.weakStartReplica(any(), any(), any())).thenAnswer(inv -> {
             Supplier<CompletableFuture<Void>> startOperation = inv.getArgument(1);
@@ -309,7 +310,8 @@ public class TableManagerTest extends IgniteAbstractTest {
 
     @AfterEach
     void after() throws Exception {
-        ComponentContext componentContext = new ComponentContext();
+        var componentContext = new ComponentContext();
+
         closeAll(
                 () -> {
                     assertTrue(tblManagerFut.isDone());
@@ -317,12 +319,15 @@ public class TableManagerTest extends IgniteAbstractTest {
                     tblManagerFut.join().beforeNodeStop();
                     assertThat(tblManagerFut.join().stopAsync(componentContext), willCompleteSuccessfully());
                 },
-                dsm == null ? null : () -> assertThat(dsm.stopAsync(componentContext), willCompleteSuccessfully()),
-                sm == null ? null : () -> assertThat(sm.stopAsync(componentContext), willCompleteSuccessfully()),
-                catalogManager == null ? null :
-                        () -> assertThat(catalogManager.stopAsync(componentContext), willCompleteSuccessfully()),
-                catalogMetastore == null ? null :
-                        () -> assertThat(catalogMetastore.stopAsync(componentContext), willCompleteSuccessfully()),
+                dsm == null ? null : dsm::beforeNodeStop,
+                sm == null ? null : sm::beforeNodeStop,
+                indexMetaStorage == null ? null : indexMetaStorage::beforeNodeStop,
+                catalogManager == null ? null : catalogManager::beforeNodeStop,
+                catalogMetastore == null ? null : catalogMetastore::beforeNodeStop,
+                () -> assertThat(
+                        stopAsync(componentContext, dsm, sm, indexMetaStorage, catalogManager, catalogMetastore),
+                        willCompleteSuccessfully()
+                ),
                 partitionOperationsExecutor == null ? null
                         : () -> IgniteUtils.shutdownAndAwaitTermination(partitionOperationsExecutor, 10, TimeUnit.SECONDS)
         );
@@ -784,9 +789,12 @@ public class TableManagerTest extends IgniteAbstractTest {
      *
      * @return Table manager.
      */
-    private TableManager createTableManager(CompletableFuture<TableManager> tblManagerFut, Consumer<MvTableStorage> tableStorageDecorator,
-            Consumer<TxStateTableStorage> txStateTableStorageDecorator) {
-        TableManager tableManager = new TableManager(
+    private TableManager createTableManager(
+            CompletableFuture<TableManager> tblManagerFut,
+            Consumer<MvTableStorage> tableStorageDecorator,
+            Consumer<TxStateTableStorage> txStateTableStorageDecorator
+    ) {
+        var tableManager = new TableManager(
                 NODE_NAME,
                 revisionUpdater,
                 gcConfig,
@@ -818,7 +826,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                 new RemotelyTriggeredResourceRegistry(),
                 lowWatermark,
                 mock(TransactionInflights.class),
-                mock(IndexMetaStorage.class)
+                indexMetaStorage
         ) {
 
             @Override

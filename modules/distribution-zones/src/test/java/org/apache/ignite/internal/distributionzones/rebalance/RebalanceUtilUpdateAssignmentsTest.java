@@ -22,6 +22,7 @@ import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.affinity.AffinityUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.affinity.Assignments.toBytes;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.hlc.TestClockService.TEST_MAX_CLOCK_SKEW_MILLIS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -46,6 +47,8 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescript
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -68,6 +71,7 @@ import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -104,6 +108,8 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
             DEFAULT_STORAGE_PROFILE
     );
 
+    private final HybridClock clock = new HybridClockImpl();
+
     @InjectConfiguration
     private RaftConfiguration raftConfiguration;
 
@@ -130,9 +136,11 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
 
         keyValueStorage = spy(new SimpleInMemoryKeyValueStorage("test"));
 
+        ClusterTimeImpl clusterTime = new ClusterTimeImpl("node", new IgniteSpinBusyLock(), clock);
+
         MetaStorageListener metaStorageListener = new MetaStorageListener(
                 keyValueStorage,
-                mock(ClusterTimeImpl.class),
+                clusterTime,
                 raftConfiguration.retryTimeout(),
                 completedFuture(() -> TEST_MAX_CLOCK_SKEW_MILLIS)
         );
@@ -147,7 +155,7 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
                     long commandIndex = raftIndex.incrementAndGet();
 
                     if (cmd instanceof MetaStorageWriteCommand) {
-                        ((MetaStorageWriteCommand) cmd).safeTimeLong(10);
+                        ((MetaStorageWriteCommand) cmd).safeTime(hybridTimestamp(10));
                     }
 
                     CompletableFuture<Serializable> res = new CompletableFuture<>();
@@ -190,7 +198,11 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
         lenient().doAnswer(invocationClose -> {
             Iif iif = invocationClose.getArgument(0);
 
-            MultiInvokeCommand multiInvokeCommand = commandsFactory.multiInvokeCommand().iif(iif).id(commandIdGenerator.newId()).build();
+            MultiInvokeCommand multiInvokeCommand = commandsFactory.multiInvokeCommand()
+                    .iif(iif)
+                    .id(commandIdGenerator.newId())
+                    .initiatorTime(clusterTime.now())
+                    .build();
 
             return metaStorageService.run(multiInvokeCommand);
         }).when(metaStorageManager).invoke(any());

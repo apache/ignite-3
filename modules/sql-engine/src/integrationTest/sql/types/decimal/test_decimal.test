@@ -153,3 +153,25 @@ SELECT '0.1'::DECIMAL(1, 2, 3);
 
 statement error
 SELECT '1'::INTEGER(1000);
+
+query T
+SELECT CASE WHEN true THEN DECIMAL '1.00' ELSE DECIMAL '0' END
+----
+1.00
+
+# Same as above but won't constant fold
+query T
+SELECT CASE WHEN true THEN a ELSE b END FROM (VALUES (DECIMAL '1.00', DECIMAL '0.0')) t(a, b)
+----
+1.00
+
+query T
+SELECT CASE WHEN false THEN DECIMAL '1.00' ELSE DECIMAL '0.0' END
+----
+0.00
+
+# Same as above but won't constant fold
+query T
+SELECT CASE WHEN false THEN a ELSE b END FROM (VALUES (DECIMAL '1.00', DECIMAL '0.0')) t(a, b)
+----
+0.00

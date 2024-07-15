@@ -21,6 +21,7 @@ plugins {
     alias(libs.plugins.cmake)
 }
 
+import org.apache.tools.ant.taskdefs.condition.Os
 import org.gradle.crypto.checksum.Checksum
 
 configurations {
@@ -29,6 +30,10 @@ configurations {
     dotNet
     odbc
 }
+
+cmakeConfigure.enabled = false
+cmakeBuild.enabled = false
+cmakeClean.enabled = false
 
 task restoreTool(type: Exec) {
     workingDir "$rootDir/modules/platforms/dotnet"
@@ -75,25 +80,25 @@ cmake {
     getDef().CMAKE_CONFIGURATION_TYPES='Release'
 }
 
-task cmakeConfigureClient(type: net.freudasoft.CMakeConfigureTask) {
+task cmakeConfigureClient(type: dev.welbyseely.CMakeConfigureTask) {
     configureFromProject() // uses everything in the cmake { ... } section.
     getDef().put('ENABLE_CLIENT', 'ON')
     getDef().put('ENABLE_ODBC', 'OFF')
 }
 
-task cmakeBuildClient(type: net.freudasoft.CMakeBuildTask) {
+task cmakeBuildClient(type: dev.welbyseely.CMakeBuildTask) {
     configureFromProject() // uses everything in the cmake { ... } section.
 }
 
 cmakeBuildClient.dependsOn cmakeConfigureClient
 
-task cmakeConfigureOdbc(type: net.freudasoft.CMakeConfigureTask) {
+task cmakeConfigureOdbc(type: dev.welbyseely.CMakeConfigureTask) {
     configureFromProject() // uses everything in the cmake { ... } section.
     getDef().put('ENABLE_CLIENT', 'OFF')
     getDef().put('ENABLE_ODBC', 'ON')
 }
 
-task cmakeBuildOdbc(type: net.freudasoft.CMakeBuildTask) {
+task cmakeBuildOdbc(type: dev.welbyseely.CMakeBuildTask) {
     configureFromProject() // uses everything in the cmake { ... } section.
 }
 
@@ -185,11 +190,18 @@ artifacts {
         cppClient(file("$buildDir/cpp/lib/libignite3-client.so")) {
             builtBy cmakeBuildClient
         }
-        odbc(file("$buildDir/cpp/lib/libignite3-odbc.so")) {
-            builtBy cmakeBuildOdbc
-        }
-        odbc(file("$buildDir/cpp/lib/libignite3-odbc.so.3")) {
-            builtBy cmakeBuildOdbc
+
+        if (Os.isFamily(Os.FAMILY_WINDOWS)) {
+            odbc(file("$buildDir/cpp/Release/bin/ignite3-odbc.dll")) {
+                builtBy cmakeBuildOdbc
+            }
+        } else {
+            odbc(file("$buildDir/cpp/lib/libignite3-odbc.so")) {
+                builtBy cmakeBuildOdbc
+            }
+            odbc(file("$buildDir/cpp/lib/libignite3-odbc.so.3")) {
+                builtBy cmakeBuildOdbc
+            }
         }
     }
 }
