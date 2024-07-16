@@ -17,8 +17,12 @@
 
 package org.apache.ignite.internal.table;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.deployment.DeploymentUnit;
+import org.apache.ignite.network.ClusterNode;
 
+@FunctionalInterface
 public interface StreamerReceiverRunner {
-    CompletableFuture<byte[]> runReceiverAsync(byte[] payload);
+    CompletableFuture<byte[]> runReceiverAsync(byte[] payload, ClusterNode node, List<DeploymentUnit> deploymentUnits);
 }

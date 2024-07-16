@@ -365,7 +365,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
     }
 
     @Override
-    public @Nullable CompletableFuture<byte[]> runReceiverAsync(byte[] payload) {
+    public @Nullable CompletableFuture<byte[]> runReceiverAsync(byte[] payload, ClusterNode node, List<DeploymentUnit> deploymentUnits) {
         // TODO
         return null;
     }

@@ -79,6 +79,7 @@ import java.util.function.BiFunction;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -1966,8 +1967,8 @@ public class InternalTableImpl implements InternalTable {
     }
 
     @Override
-    public @Nullable CompletableFuture<byte[]> runReceiverAsync(byte[] payload) {
-        return streamerReceiverRunner.runReceiverAsync(payload);
+    public @Nullable CompletableFuture<byte[]> runReceiverAsync(byte[] payload, ClusterNode node, List<DeploymentUnit> deploymentUnits) {
+        return streamerReceiverRunner.runReceiverAsync(payload, node, deploymentUnits);
     }
 
     /**
