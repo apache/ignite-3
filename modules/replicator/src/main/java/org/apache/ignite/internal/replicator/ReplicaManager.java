@@ -59,7 +59,6 @@ import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.affinity.Assignments;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
-import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
@@ -854,12 +853,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     public void resetPeers(ReplicationGroupId replicaGrpId, PeersAndLearners peersAndLearners) {
         RaftNodeId raftNodeId = new RaftNodeId(replicaGrpId, new Peer(localNodeConsistentId));
         ((Loza) raftManager).resetPeers(raftNodeId, peersAndLearners);
-    }
-
-    /** Getter for wrapped write-ahead log syncer. */
-    // TODO: will be removed after https://issues.apache.org/jira/browse/IGNITE-22292
-    public LogSyncer getLogSyncer() {
-        return raftManager.getLogSyncer();
     }
 
     private RaftGroupOptions groupOptionsForPartition(boolean isVolatileStorage, SnapshotStorageFactory snapshotFactory) {

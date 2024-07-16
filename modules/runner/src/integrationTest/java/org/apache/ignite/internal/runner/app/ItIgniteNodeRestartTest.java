@@ -100,6 +100,7 @@ import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateSto
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
+import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
@@ -153,7 +154,9 @@ import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
+import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
+import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -351,6 +354,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         var hybridClock = new HybridClockImpl();
 
         var raftGroupEventsClientListener = new RaftGroupEventsClientListener();
+
+        LogStorageFactory logStorageFactory = SharedLogStorageFactoryUtils.create(clusterSvc.nodeName(), dir, raftConfiguration);
 
         var raftMgr = TestLozaFactory.create(
                 clusterSvc,
@@ -559,6 +564,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         Path storagePath = getPartitionsStorePath(dir);
 
+        LogSyncer logSyncer = logStorageFactory;
+
         DataStorageManager dataStorageManager = new DataStorageManager(
                 dataStorageModules.createStorageEngines(
                         name,
@@ -566,7 +573,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                         storagePath,
                         null,
                         failureProcessor,
-                        raftMgr.getLogSyncer()
+                        logStorageFactory
                 ),
                 nodeCfgMgr.configurationRegistry().getConfiguration(StorageConfiguration.KEY)
         );
@@ -642,7 +649,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 resourcesRegistry,
                 lowWatermark,
                 transactionInflights,
-                indexMetaStorage
+                indexMetaStorage,
+                logSyncer
         );
 
         var indexManager = new IndexManager(

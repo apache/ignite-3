@@ -1230,6 +1230,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             Path storagePath = dir.resolve("storage");
 
+            LogStorageFactory logSyncer = logStorageFactory;
+
             dataStorageMgr = new DataStorageManager(
                     dataStorageModules.createStorageEngines(
                             name,
@@ -1237,7 +1239,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                             dir.resolve("storage"),
                             null,
                             failureProcessor,
-                            raftManager.getLogSyncer()
+                            logSyncer
                     ),
                     storageConfiguration
             );
@@ -1346,7 +1348,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     resourcesRegistry,
                     lowWatermark,
                     transactionInflights,
-                    indexMetaStorage
+                    indexMetaStorage,
+                    logSyncer
             ) {
                 @Override
                 protected TxStateTableStorage createTxStateTableStorage(
