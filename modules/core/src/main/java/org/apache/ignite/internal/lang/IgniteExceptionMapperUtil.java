@@ -148,6 +148,11 @@ public class IgniteExceptionMapperUtil {
     private static void checkResultIsPublic(Throwable mappingResult, Throwable origin) {
         assert mappingResult instanceof IgniteException || mappingResult instanceof IgniteCheckedException :
                 "Unexpected mapping of internal exception to a public one [origin=" + origin + ", mapped=" + mappingResult + ']';
+        assert isPublicPackage(mappingResult.getClass().getPackage());
+    }
+
+    private static boolean isPublicPackage(Package aPackage) {
+        return !aPackage.getName().startsWith("org.apache.ignite.internal");
     }
 
     /**
