@@ -371,7 +371,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
     @Override
     public @Nullable CompletableFuture<byte[]> runReceiverAsync(byte[] payload, ClusterNode node, List<DeploymentUnit> deploymentUnits) {
         // Use Compute to execute receiver on the target node with failover, class loading, scheduling.
-        JobExecution<List<Object>> jobExecution = executeAsyncWithFailover(
+        JobExecution<byte[]> jobExecution = executeAsyncWithFailover(
                 Set.of(node),
                 deploymentUnits,
                 StreamerReceiverJob.class.getName(),
@@ -391,7 +391,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                         ExceptionUtils.sneakyThrow(err);
                     }
 
-                    return StreamerReceiverSerializer.serializeReceiverJobResults(res);
+                    return res;
                 });
     }
 
