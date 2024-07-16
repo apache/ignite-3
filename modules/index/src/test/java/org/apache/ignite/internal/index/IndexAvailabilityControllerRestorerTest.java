@@ -230,7 +230,7 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
 
         assertThat(metastoreRecoveryFuture, willBe(greaterThan(0L)));
 
-        controller.recover(metastoreRecoveryFuture.join());
+        controller.start(metastoreRecoveryFuture.join());
     }
 
     private void setLocalNodeToClusterService(ClusterNode clusterNode) {

@@ -22,6 +22,7 @@ import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.affinity.AffinityUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.affinity.Assignments.toBytes;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.hlc.TestClockService.TEST_MAX_CLOCK_SKEW_MILLIS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -154,7 +155,7 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
                     long commandIndex = raftIndex.incrementAndGet();
 
                     if (cmd instanceof MetaStorageWriteCommand) {
-                        ((MetaStorageWriteCommand) cmd).safeTimeLong(10);
+                        ((MetaStorageWriteCommand) cmd).safeTime(hybridTimestamp(10));
                     }
 
                     CompletableFuture<Serializable> res = new CompletableFuture<>();
@@ -200,7 +201,7 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
             MultiInvokeCommand multiInvokeCommand = commandsFactory.multiInvokeCommand()
                     .iif(iif)
                     .id(commandIdGenerator.newId())
-                    .initiatorTimeLong(clusterTime.nowLong())
+                    .initiatorTime(clusterTime.now())
                     .build();
 
             return metaStorageService.run(multiInvokeCommand);

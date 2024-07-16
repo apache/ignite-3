@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.partition.replicator.network.command;
 
-import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
-
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
@@ -34,15 +32,6 @@ public interface WriteIntentSwitchCommand extends PartitionCommand {
      */
     boolean commit();
 
-    /**
-     * Returns a transaction commit timestamp.
-     */
-    long commitTimestampLong();
-
-    /**
-     * Returns a transaction commit timestamp.
-     */
-    default @Nullable HybridTimestamp commitTimestamp() {
-        return nullableHybridTimestamp(commitTimestampLong());
-    }
+    /** Transaction commit timestamp. */
+    @Nullable HybridTimestamp commitTimestamp();
 }
