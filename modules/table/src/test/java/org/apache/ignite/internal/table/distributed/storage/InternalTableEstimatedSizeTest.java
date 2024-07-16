@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeN
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -244,8 +245,10 @@ public class InternalTableEstimatedSizeTest extends BaseIgniteAbstractTest {
     }
 
     @AfterEach
-    void tearDown() {
+    void tearDown() throws Exception {
         Collections.reverse(components);
+
+        closeAll(components.stream().map(c -> c::beforeNodeStop));
 
         assertThat(stopAsync(componentContext, components), willCompleteSuccessfully());
     }

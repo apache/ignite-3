@@ -1939,13 +1939,15 @@ public class InternalTableImpl implements InternalTable {
     }
 
     private ClusterNode getClusterNode(ReplicaMeta replicaMeta) {
-        String leaseHolder = replicaMeta.getLeaseholder();
+        String leaseHolderId = replicaMeta.getLeaseholderId();
 
-        ClusterNode node = leaseHolder == null ? null : clusterNodeResolver.getByConsistentId(leaseHolder);
+        ClusterNode node = leaseHolderId == null ? null : clusterNodeResolver.getById(leaseHolderId);
 
         if (node == null) {
-            throw new TransactionException(REPLICA_UNAVAILABLE_ERR, "Failed to resolve the primary replica node [consistentId="
-                    + leaseHolder + ']');
+            throw new TransactionException(
+                    REPLICA_UNAVAILABLE_ERR,
+                    String.format("Failed to resolve the primary replica node [id=%s]", leaseHolderId)
+            );
         }
 
         return node;
