@@ -18,21 +18,17 @@
 package org.apache.ignite.client.handler.requests.table;
 
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
-import static org.apache.ignite.lang.ErrorGroups.Compute.COMPUTE_JOB_FAILED_ERR;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.StreamerReceiverSerializer;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.table.partition.HashPartition;
-import org.apache.ignite.internal.util.ExceptionUtils;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.IgniteTables;
 
 /**
@@ -68,50 +64,10 @@ public class ClientStreamerWithReceiverBatchSendRequest {
             payloadBuf.putInt(payloadElementCount);
             in.readPayload(payloadBuf);
 
-            return table.partitionManager().primaryReplicaAsync(new HashPartition(partition)).thenCompose(primaryReplica ->
-                    table.internalTable().runReceiverAsync(payloadArr, primaryReplica, deploymentUnits).handle((res, err) -> {
-                        // TODO: Move this error handling to runReceiverAsync.
-                        if (err != null) {
-                            if (err.getCause() instanceof ComputeException) {
-                                ComputeException computeErr = (ComputeException) err.getCause();
-                                throw new IgniteException(
-                                        COMPUTE_JOB_FAILED_ERR,
-                                        "Streamer receiver failed: " + computeErr.getMessage(), computeErr);
-                            }
-
-                            ExceptionUtils.sneakyThrow(err);
-                        }
-
-                        StreamerReceiverSerializer.serializeReceiverJobResultsForClient(out, returnResults ? res : null);
-                        return null;
-                    }));
-
-//            return table.partitionManager().primaryReplicaAsync(new HashPartition(partition)).thenCompose(primaryReplica -> {
-//                // Use Compute to execute receiver on the target node with failover, class loading, scheduling.
-//                JobExecution<List<Object>> jobExecution = compute.executeAsyncWithFailover(
-//                        Set.of(primaryReplica),
-//                        deploymentUnits,
-//                        ReceiverRunnerJob.class.getName(),
-//                        JobExecutionOptions.DEFAULT,
-//                        payloadArr);
-//
-//                return jobExecution.resultAsync()
-//                        .handle((res, err) -> {
-//                            if (err != null) {
-//                                if (err.getCause() instanceof ComputeException) {
-//                                    ComputeException computeErr = (ComputeException) err.getCause();
-//                                    throw new IgniteException(
-//                                            COMPUTE_JOB_FAILED_ERR,
-//                                            "Streamer receiver failed: " + computeErr.getMessage(), computeErr);
-//                                }
-//
-//                                ExceptionUtils.sneakyThrow(err);
-//                            }
-//
-//                            StreamerReceiverSerializer.serializeReceiverJobResultsForClient(out, returnResults ? res : null);
-//                            return null;
-//                        });
-//            });
+            return table.partitionManager()
+                    .primaryReplicaAsync(new HashPartition(partition))
+                    .thenCompose(node -> table.internalTable().runReceiverAsync(payloadArr, node, deploymentUnits))
+                    .thenAccept(res -> StreamerReceiverSerializer.serializeReceiverJobResultsForClient(out, returnResults ? res : null));
         });
     }
 }

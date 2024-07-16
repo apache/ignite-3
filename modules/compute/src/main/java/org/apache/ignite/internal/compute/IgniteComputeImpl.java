@@ -23,6 +23,7 @@ import static java.util.stream.Collectors.toUnmodifiableMap;
 import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.mapToPublicException;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
+import static org.apache.ignite.lang.ErrorGroups.Compute.COMPUTE_JOB_FAILED_ERR;
 
 import java.util.Collection;
 import java.util.HashSet;
@@ -52,6 +53,8 @@ import org.apache.ignite.compute.NodeNotFoundException;
 import org.apache.ignite.compute.task.MapReduceJob;
 import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.deployment.DeploymentUnit;
+import org.apache.ignite.internal.client.proto.StreamerReceiverSerializer;
+import org.apache.ignite.internal.compute.streamer.StreamerReceiverJob;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
@@ -63,6 +66,7 @@ import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.ErrorGroups.Compute;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.marshaling.Marshaler;
@@ -366,8 +370,29 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
 
     @Override
     public @Nullable CompletableFuture<byte[]> runReceiverAsync(byte[] payload, ClusterNode node, List<DeploymentUnit> deploymentUnits) {
-        // TODO
-        return null;
+        // Use Compute to execute receiver on the target node with failover, class loading, scheduling.
+        JobExecution<List<Object>> jobExecution = executeAsyncWithFailover(
+                Set.of(node),
+                deploymentUnits,
+                StreamerReceiverJob.class.getName(),
+                JobExecutionOptions.DEFAULT,
+                payload);
+
+        return jobExecution.resultAsync()
+                .handle((res, err) -> {
+                    if (err != null) {
+                        if (err.getCause() instanceof ComputeException) {
+                            ComputeException computeErr = (ComputeException) err.getCause();
+                            throw new IgniteException(
+                                    COMPUTE_JOB_FAILED_ERR,
+                                    "Streamer receiver failed: " + computeErr.getMessage(), computeErr);
+                        }
+
+                        ExceptionUtils.sneakyThrow(err);
+                    }
+
+                    return StreamerReceiverSerializer.serializeReceiverJobResults(res);
+                });
     }
 
     @TestOnly
