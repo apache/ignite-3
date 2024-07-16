@@ -201,7 +201,7 @@ public class SqlTestUtils {
      * @return Generated value for given SQL type.
      */
     public static Object generateValueByType(ColumnType type) {
-        return generateValueByType(RND.nextInt(), type);
+        return generateValueByType(RND.nextInt(Short.MAX_VALUE), type);
     }
 
     /**
@@ -212,21 +212,23 @@ public class SqlTestUtils {
      * @return Generated value for given SQL type.
      */
     public static Object generateValueByType(int base, ColumnType type) {
+        base = Math.abs(base);
+
         switch (type) {
             case BOOLEAN:
                 return base % 2 == 0;
             case INT8:
                 return (byte) base;
             case INT16:
-                return (short) base;
+                return (short) (Short.MAX_VALUE - (byte) base);
             case INT32:
-                return base;
+                return Integer.MAX_VALUE - (short) base;
             case INT64:
-                return (long) base;
+                return Long.MAX_VALUE - base;
             case FLOAT:
-                return base + ((float) base / 1000);
+                return Float.MAX_VALUE - (short) base + ((float) base / 1000);
             case DOUBLE:
-                return base + ((double) base / 1000);
+                return Double.MAX_VALUE - base + ((double) base / 1000);
             case STRING:
                 return "str_" + base;
             case BYTE_ARRAY:
@@ -234,9 +236,9 @@ public class SqlTestUtils {
             case NULL:
                 return null;
             case DECIMAL:
-                return BigDecimal.valueOf(base + ((double) base / 1000));
+                return BigDecimal.valueOf(base + ((double) base / 1000)).add(BigDecimal.valueOf(Long.MAX_VALUE));
             case NUMBER:
-                return BigInteger.valueOf(base);
+                return BigInteger.valueOf(base).add(BigInteger.valueOf(Long.MAX_VALUE));
             case UUID:
                 return new UUID(base, base);
             case BITMASK:
@@ -305,9 +307,11 @@ public class SqlTestUtils {
             case INT64:
                 return rexBuilder.makeLiteral(value, typeFactory.createSqlType(SqlTypeName.BIGINT));
             case FLOAT:
-                return rexBuilder.makeLiteral(value, typeFactory.createSqlType(SqlTypeName.REAL));
+                BigDecimal valueValue = new BigDecimal(value.toString());
+                return rexBuilder.makeLiteral(valueValue, typeFactory.createSqlType(SqlTypeName.REAL));
             case DOUBLE:
-                return rexBuilder.makeLiteral(value, typeFactory.createSqlType(SqlTypeName.DOUBLE));
+                BigDecimal doubleValue = new BigDecimal(value.toString());
+                return rexBuilder.makeLiteral(doubleValue, typeFactory.createSqlType(SqlTypeName.DOUBLE));
             case DECIMAL:
                 return rexBuilder.makeLiteral(value, typeFactory.createSqlType(SqlTypeName.DECIMAL));
             case DATE:
@@ -349,6 +353,52 @@ public class SqlTestUtils {
                 throw new IllegalArgumentException("Not supported: " + type);
             default:
                 throw new IllegalArgumentException("Unexpected type: " + type);
+        }
+    }
+
+    /** Convert {@link ColumnType} to {@link SqlTypeName}. */
+    public static SqlTypeName columnType2SqlTypeName(ColumnType columnType) {
+        switch (columnType) {
+            case NULL:
+                return SqlTypeName.NULL;
+            case BOOLEAN:
+                return SqlTypeName.BOOLEAN;
+            case INT8:
+                return SqlTypeName.TINYINT;
+            case INT16:
+                return SqlTypeName.SMALLINT;
+            case INT32:
+                return SqlTypeName.INTEGER;
+            case INT64:
+                return SqlTypeName.BIGINT;
+            case FLOAT:
+                return SqlTypeName.REAL;
+            case DOUBLE:
+                return SqlTypeName.DOUBLE;
+            case DECIMAL:
+            case NUMBER:
+                return SqlTypeName.DECIMAL;
+            case DATE:
+                return SqlTypeName.DATE;
+            case TIME:
+                return SqlTypeName.TIME;
+            case DATETIME:
+                return SqlTypeName.TIMESTAMP;
+            case TIMESTAMP:
+                return SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE;
+            case UUID:
+            case BITMASK:
+                return SqlTypeName.ANY;
+            case STRING:
+                return SqlTypeName.VARCHAR;
+            case BYTE_ARRAY:
+                return SqlTypeName.VARBINARY;
+            case PERIOD:
+                return SqlTypeName.INTERVAL_YEAR_MONTH;
+            case DURATION:
+                return SqlTypeName.INTERVAL_SECOND;
+            default:
+                throw new IllegalArgumentException("Unknown type " + columnType);
         }
     }
 }
