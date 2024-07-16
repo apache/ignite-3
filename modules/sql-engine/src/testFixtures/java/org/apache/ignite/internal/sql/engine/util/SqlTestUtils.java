@@ -236,7 +236,7 @@ public class SqlTestUtils {
             case NULL:
                 return null;
             case DECIMAL:
-                return BigDecimal.valueOf(base + ((double) base / 1000)).add(BigDecimal.valueOf(Long.MAX_VALUE));
+                return BigDecimal.valueOf(base + ((double) base / 1000));
             case NUMBER:
                 return BigInteger.valueOf(base).add(BigInteger.valueOf(Long.MAX_VALUE));
             case UUID:

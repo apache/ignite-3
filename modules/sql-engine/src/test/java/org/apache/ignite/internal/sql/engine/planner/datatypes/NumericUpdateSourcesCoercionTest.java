@@ -102,8 +102,8 @@ public class NumericUpdateSourcesCoercionTest extends BaseTypeCoercionTest {
     }
 
     /**
-     * This test ensures that {@link #argsForUpdateWithLiteralValue()}, {@link #argsForUpdateWithColumnAsValue()} and {@link #argsDyn()} doesn't miss any type pair from
-     * {@link NumericPair}.
+     * This test ensures that {@link #argsForUpdateWithLiteralValue()}, {@link #argsForUpdateWithColumnAsValue()} and {@link #argsDyn()}
+     * doesn't miss any type pair from {@link NumericPair}.
      */
     @Test
     void argsIncludesAllTypePairs() {

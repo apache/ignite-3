@@ -108,7 +108,8 @@ public class MergeSourcesCoercionTest extends BaseTypeCoercionTest {
     }
 
     /**
-     * This test ensures that {@link #argsForMergeWithColumnAsValue()}, {@link #argsForMergeWithLiteralValue()} and {@link #argsDyn()} doesn't miss any type pair from {@link NumericPair}.
+     * This test ensures that {@link #argsForMergeWithColumnAsValue()}, {@link #argsForMergeWithLiteralValue()} and {@link #argsDyn()}
+     * doesn't miss any type pair from {@link NumericPair}.
      */
     @Test
     void updateArgsIncludesAllTypePairs() {
