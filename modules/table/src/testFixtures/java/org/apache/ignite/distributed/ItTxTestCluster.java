@@ -60,6 +60,7 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.affinity.AffinityUtils;
@@ -97,16 +98,17 @@ import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.RaftGroupServiceImpl;
-import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.raft.storage.SnapshotStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageFactoryCreator;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
+import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -162,7 +164,13 @@ import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
+import org.apache.ignite.raft.jraft.option.SnapshotCopierOptions;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
+import org.apache.ignite.raft.jraft.storage.SnapshotStorage;
+import org.apache.ignite.raft.jraft.storage.SnapshotThrottle;
+import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotCopier;
+import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
+import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.jetbrains.annotations.Nullable;
@@ -573,7 +581,7 @@ public class ItTxTestCluster {
 
         Int2ObjectOpenHashMap<RaftGroupService> clients = new Int2ObjectOpenHashMap<>();
 
-        List<CompletableFuture<Void>> partitionReadyFutures = new ArrayList<>();
+        List<CompletableFuture<Boolean>> partitionReadyFutures = new ArrayList<>();
 
         ThreadLocalPartitionCommandsMarshaller commandsMarshaller =
                 new ThreadLocalPartitionCommandsMarshaller(cluster.get(0).serializationRegistry());
@@ -584,6 +592,33 @@ public class ItTxTestCluster {
         when(pkCatalogIndexDescriptor.id()).thenReturn(indexId);
 
         when(catalogService.indexes(anyInt(), eq(tableId))).thenReturn(List.of(pkCatalogIndexDescriptor));
+
+        InternalTableImpl internalTable = new InternalTableImpl(
+                tableName,
+                tableId,
+                1,
+                nodeResolver,
+                clientTxManager,
+                mock(MvTableStorage.class),
+                mock(TxStateTableStorage.class),
+                startClient ? clientReplicaSvc : replicaServices.get(localNodeName),
+                startClient ? clientClock : clocks.get(localNodeName),
+                timestampTracker,
+                placementDriver,
+                clientTransactionInflights,
+                500,
+                0,
+                null
+        );
+
+        TableImpl table = new TableImpl(
+                internalTable,
+                new DummySchemaManagerImpl(schemaDescriptor),
+                clientTxManager.lockManager(),
+                new ConstantSchemaVersions(SCHEMA_VERSION),
+                mock(IgniteSql.class),
+                pkCatalogIndexDescriptor.id()
+        );
 
         for (int p = 0; p < assignments.size(); p++) {
             Set<String> partAssignments = assignments.get(p);
@@ -672,45 +707,86 @@ public class ItTxTestCluster {
                         mock(IndexMetaStorage.class)
                 );
 
-                CompletableFuture<Void> partitionReadyFuture = raftServers.get(assignment).startRaftGroupNode(
-                        new RaftNodeId(grpId, configuration.peer(assignment)),
-                        configuration,
-                        partitionListener,
-                        RaftGroupEventsListener.noopLsnr,
-                        topologyAwareRaftGroupServiceFactory
-                ).thenAccept(
-                        raftSvc -> {
-                                PartitionReplicaListener listener = newReplicaListener(
-                                        mvPartStorage,
-                                        raftSvc,
-                                        txManagers.get(assignment),
-                                        Runnable::run,
-                                        partId,
-                                        tableId,
-                                        () -> Map.of(pkLocker.id(), pkLocker),
-                                        pkStorage,
-                                        Map::of,
-                                        clockServices.get(assignment),
-                                        safeTime,
-                                        txStateStorage,
-                                        transactionStateResolver,
-                                        storageUpdateHandler,
-                                        new DummyValidationSchemasSource(schemaManager),
-                                        nodeResolver.getByConsistentId(assignment),
-                                        new AlwaysSyncedSchemaSyncService(),
-                                        catalogService,
-                                        placementDriver,
-                                        nodeResolver,
-                                        cursorRegistries.get(assignment),
-                                        schemaManager
-                                );
+                Function<RaftGroupService, ReplicaListener> createReplicaListener = raftClient -> newReplicaListener(
+                        mvPartStorage,
+                        raftClient,
+                        txManagers.get(assignment),
+                        Runnable::run,
+                        partId,
+                        tableId,
+                        () -> Map.of(pkLocker.id(), pkLocker),
+                        pkStorage,
+                        Map::of,
+                        clockServices.get(assignment),
+                        safeTime,
+                        txStateStorage,
+                        transactionStateResolver,
+                        storageUpdateHandler,
+                        new DummyValidationSchemasSource(schemaManager),
+                        nodeResolver.getByConsistentId(assignment),
+                        new AlwaysSyncedSchemaSyncService(),
+                        catalogService,
+                        placementDriver,
+                        nodeResolver,
+                        cursorRegistries.get(assignment),
+                        schemaManager
+                );
 
-                                replicaManagers.get(assignment).startReplica(
-                                        new TablePartitionId(tableId, partId),
-                                        storageIndexTracker,
-                                        completedFuture(listener)
-                                );
-                        }
+                // The reason to use such kind of implementation is that a honest implementation requires a metastore instance:
+                // PartitionSnapshotStorageFactory <- PartitionAccessImpl <- IndexMetaStorage <- FullStateTransferIndexChooser
+                // <- MetaStorageManager. But metastore module isn't accessible there. Moreover we don't need the honest instance there,
+                // because derived tests don't use snapshots' logic inside. Then, such skeleton instance is fine there.
+                SnapshotStorageFactory snapshotStorageFactory = (uri, raftOptions) -> new SnapshotStorage() {
+                    @Override
+                    public boolean setFilterBeforeCopyRemote() {
+                        throw new UnsupportedOperationException();
+                    }
+
+                    @Override
+                    public SnapshotWriter create() {
+                        throw new UnsupportedOperationException();
+                    }
+
+                    @Override
+                    public SnapshotReader open() {
+                        return null;
+                    }
+
+                    @Override
+                    public SnapshotReader copyFrom(String uri, SnapshotCopierOptions opts) {
+                        throw new UnsupportedOperationException();
+                    }
+
+                    @Override
+                    public SnapshotCopier startToCopyFrom(String uri, SnapshotCopierOptions opts) {
+                        throw new UnsupportedOperationException();
+                    }
+
+                    @Override
+                    public void setSnapshotThrottle(SnapshotThrottle snapshotThrottle) {
+                        throw new UnsupportedOperationException();
+                    }
+
+                    @Override
+                    public boolean init(Void opts) {
+                        return true;
+                    }
+
+                    @Override
+                    public void shutdown() {
+                        // no-op
+                    }
+                };
+
+                CompletableFuture<Boolean> partitionReadyFuture = replicaManagers.get(assignment).startReplica(
+                        RaftGroupEventsListener.noopLsnr,
+                        partitionListener,
+                        false,
+                        snapshotStorageFactory,
+                        createReplicaListener,
+                        storageIndexTracker,
+                        new TablePartitionId(tableId, partId),
+                        configuration
                 );
 
                 partitionReadyFutures.add(partitionReadyFuture);
@@ -753,30 +829,7 @@ public class ItTxTestCluster {
 
         raftClients.computeIfAbsent(tableName, t -> new ArrayList<>()).addAll(clients.values());
 
-        return new TableImpl(
-                new InternalTableImpl(
-                        tableName,
-                        tableId,
-                        1,
-                        nodeResolver,
-                        clientTxManager,
-                        mock(MvTableStorage.class),
-                        mock(TxStateTableStorage.class),
-                        startClient ? clientReplicaSvc : replicaServices.get(localNodeName),
-                        startClient ? clientClock : clocks.get(localNodeName),
-                        timestampTracker,
-                        placementDriver,
-                        clientTransactionInflights,
-                        500,
-                        0,
-                        null
-                ),
-                new DummySchemaManagerImpl(schemaDescriptor),
-                clientTxManager.lockManager(),
-                new ConstantSchemaVersions(SCHEMA_VERSION),
-                mock(IgniteSql.class),
-                pkCatalogIndexDescriptor.id()
-        );
+        return table;
     }
 
     protected PartitionReplicaListener newReplicaListener(

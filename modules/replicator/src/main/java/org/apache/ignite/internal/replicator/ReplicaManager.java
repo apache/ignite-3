@@ -765,16 +765,13 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
     /**
      * Creates and start new replica.
-     * TODO: must be deleted or be private after https://issues.apache.org/jira/browse/IGNITE-22373
      *
      * @param replicaGrpId Replication group id.
      * @param storageIndexTracker Storage index tracker.
      * @param newReplicaListenerFut Future that returns ready ReplicaListener for replica creation.
      * @return Future that promises ready new replica when done.
      */
-    @VisibleForTesting
-    @Deprecated
-    public CompletableFuture<Replica> startReplica(
+    private CompletableFuture<Replica> startReplica(
             ReplicationGroupId replicaGrpId,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker,
             CompletableFuture<ReplicaListener> newReplicaListenerFut
