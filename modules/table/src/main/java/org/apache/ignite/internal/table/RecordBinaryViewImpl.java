@@ -34,6 +34,7 @@ import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
 import org.apache.ignite.internal.marshaller.MarshallersProvider;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.SchemaRegistry;
@@ -563,20 +564,15 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
 
         var partitioner = new TupleStreamerPartitionAwarenessProvider(rowConverter.registry(), tbl.partitions());
 
-        @SuppressWarnings({"rawtypes", "unchecked"})
         StreamerBatchSender<V, Integer, R> batchSender = (partitionId, rows, deleted) ->
                 PublicApiThreading.execUserAsyncOperation(() -> {
-//                    return (CompletableFuture) withSchemaSync(null,
-//                            schemaVersion -> this.tbl.updateAll(mapToBinary(rows, schemaVersion, deleted), deleted, partitionId)
-//                    );
-
-                    // TODO: Reuse ReceiverRunnerJob from ClientStreamerWithReceiverBatchSendRequest via dependency inversion?
-                    // How do we access compute from here at all?
-                    // TODO: Inject StreamerReceiverRunner into tables.
-                    return this.tbl.runReceiverAsync(null, null, receiver.units()).thenApply(receiverRes -> {
-                        // TODO: Deserialize receiver results.
-                        return new ArrayList<>();
-                    });
+                    return this.tbl.partitionLocation(new TablePartitionId(tbl.tableId(), partitionId))
+                            .thenCompose(node ->
+                                    // TODO: Serialize receiver info.
+                                    this.tbl.runReceiverAsync(null, node, receiver.units()).thenApply(receiverRes -> {
+                                        // TODO: Deserialize receiver results.
+                                        return new ArrayList<>();
+                                    }));
                 });
 
         CompletableFuture<Void> future = DataStreamer.<Tuple, E, V, R>streamData(
