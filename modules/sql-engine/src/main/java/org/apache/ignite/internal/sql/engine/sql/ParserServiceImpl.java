@@ -65,6 +65,11 @@ public class ParserServiceImpl implements ParserService {
                 normalizedQuery,
                 parsedStatement.dynamicParamsCount(),
                 () -> {
+                    // Descendants of SqlNode class are mutable, thus we must use every
+                    // syntax node only once to avoid problem. But we already parsed the
+                    // query once to get normalized result. An `unparse` operation is known
+                    // to be safe, so let's reuse result of parsing for the first invocation
+                    // of `parsedTree` method to avoid double-parsing for one time queries.
                     SqlNode ast = holder.getAndSet(null);
 
                     if (ast != null) {

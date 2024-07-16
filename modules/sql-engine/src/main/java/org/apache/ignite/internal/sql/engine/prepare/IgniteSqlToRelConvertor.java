@@ -328,6 +328,7 @@ public class IgniteSqlToRelConvertor extends SqlToRelConverter {
     // =========================================================
     // =                  BEGIN OF COPY-PASTE                  =
     // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-22755 remove this section
 
     // Section below is copy-pasted from original SqlToRelConverter.
     // The only difference is that invocations of requireNonNull()
