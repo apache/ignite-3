@@ -1167,7 +1167,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      * checks that the table created before node stop, is not available when majority if lost.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20137")
     public void testOneNodeRestartWithGap() {
         IgniteImpl ignite = startNode(0);
 
@@ -1187,7 +1186,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         IgniteImpl ignite1 = startNode(1);
 
-        TableManager tableManager = (TableManager) ignite1.tables();
+        TableManager tableManager = unwrapTableManager(ignite1.tables());
 
         assertNotNull(tableManager);
 
