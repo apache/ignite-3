@@ -78,51 +78,48 @@ public class ClientStreamerWithReceiverBatchSendRequest {
             payloadBuf.putInt(payloadElementCount);
             in.readPayload(payloadBuf);
 
-            return table.partitionManager().primaryReplicaAsync(new HashPartition(partition)).thenCompose(primaryReplica -> {
-                // Use Compute to execute receiver on the target node with failover, class loading, scheduling.
-                JobExecution<List<Object>> jobExecution = compute.executeAsyncWithFailover(
-                        Set.of(primaryReplica),
-                        deploymentUnits,
-                        ReceiverRunnerJob.class.getName(),
-                        JobExecutionOptions.DEFAULT,
-                        payloadArr);
+            return table.internalTable().runReceiverAsync(payloadArr).handle((res, err) -> {
+                if (err != null) {
+                    if (err.getCause() instanceof ComputeException) {
+                        ComputeException computeErr = (ComputeException) err.getCause();
+                        throw new IgniteException(
+                                COMPUTE_JOB_FAILED_ERR,
+                                "Streamer receiver failed: " + computeErr.getMessage(), computeErr);
+                    }
 
-                return jobExecution.resultAsync()
-                        .handle((res, err) -> {
-                            if (err != null) {
-                                if (err.getCause() instanceof ComputeException) {
-                                    ComputeException computeErr = (ComputeException) err.getCause();
-                                    throw new IgniteException(
-                                            COMPUTE_JOB_FAILED_ERR,
-                                            "Streamer receiver failed: " + computeErr.getMessage(), computeErr);
-                                }
+                    ExceptionUtils.sneakyThrow(err);
+                }
 
-                                ExceptionUtils.sneakyThrow(err);
-                            }
-
-                            StreamerReceiverSerializer.serializeReceiverJobResults(out, returnResults ? res : null);
-                            return null;
-                        });
+                StreamerReceiverSerializer.serializeReceiverJobResultsForClient(out, returnResults ? res : null);
+                return null;
             });
+
+//            return table.partitionManager().primaryReplicaAsync(new HashPartition(partition)).thenCompose(primaryReplica -> {
+//                // Use Compute to execute receiver on the target node with failover, class loading, scheduling.
+//                JobExecution<List<Object>> jobExecution = compute.executeAsyncWithFailover(
+//                        Set.of(primaryReplica),
+//                        deploymentUnits,
+//                        ReceiverRunnerJob.class.getName(),
+//                        JobExecutionOptions.DEFAULT,
+//                        payloadArr);
+//
+//                return jobExecution.resultAsync()
+//                        .handle((res, err) -> {
+//                            if (err != null) {
+//                                if (err.getCause() instanceof ComputeException) {
+//                                    ComputeException computeErr = (ComputeException) err.getCause();
+//                                    throw new IgniteException(
+//                                            COMPUTE_JOB_FAILED_ERR,
+//                                            "Streamer receiver failed: " + computeErr.getMessage(), computeErr);
+//                                }
+//
+//                                ExceptionUtils.sneakyThrow(err);
+//                            }
+//
+//                            StreamerReceiverSerializer.serializeReceiverJobResultsForClient(out, returnResults ? res : null);
+//                            return null;
+//                        });
+//            });
         });
-    }
-
-    private static class ReceiverRunnerJob implements ComputeJob<byte[], List<Object>> {
-        @Override
-        public @Nullable CompletableFuture<List<Object>> executeAsync(JobExecutionContext context, byte[] payload) {
-            ByteBuffer buf = ByteBuffer.wrap(payload).order(ByteOrder.LITTLE_ENDIAN);
-            int payloadElementCount = buf.getInt();
-
-            var receiverInfo = StreamerReceiverSerializer.deserialize(buf.slice().order(ByteOrder.LITTLE_ENDIAN), payloadElementCount);
-
-            ClassLoader classLoader = ((JobExecutionContextImpl) context).classLoader();
-            Class<DataStreamerReceiver<Object, Object, Object>> receiverClass = ComputeUtils.receiverClass(
-                    classLoader, receiverInfo.className()
-            );
-            DataStreamerReceiver<Object, Object, Object> receiver = ComputeUtils.instantiateReceiver(receiverClass);
-            DataStreamerReceiverContext receiverContext = context::ignite;
-
-            return receiver.receive(receiverInfo.items(), receiverContext, receiverInfo.args());
-        }
     }
 }

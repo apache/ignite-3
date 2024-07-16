@@ -1966,7 +1966,7 @@ public class InternalTableImpl implements InternalTable {
     }
 
     @Override
-    public @Nullable CompletableFuture<List<Object>> runReceiverAsync(byte[] payload) {
+    public @Nullable CompletableFuture<byte[]> runReceiverAsync(byte[] payload) {
         return streamerReceiverRunner.runReceiverAsync(payload);
     }
 

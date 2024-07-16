@@ -88,7 +88,7 @@ public class StreamerReceiverSerializer {
      * @param w Writer.
      * @param receiverJobResults Receiver results serialized by {@link #serializeReceiverJobResults}.
      */
-    public static void serializeReceiverJobResultsForClient(ClientMessagePacker w, byte[] receiverJobResults) {
+    public static void serializeReceiverJobResultsForClient(ClientMessagePacker w, byte @Nullable [] receiverJobResults) {
         if (receiverJobResults == null || receiverJobResults.length == 0) {
             w.packNil();
             return;
