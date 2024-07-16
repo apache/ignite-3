@@ -25,6 +25,7 @@ import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_UNEXPECTED_STAT
  * <p>For example, {@code tx.commit()} is called for a transaction, but the verification logic decided to abort it instead. The transaction
  * will be finished with {@link TxState#ABORTED} and the call to {@code tx.commit()} will throw this exception.
  */
+// TODO: IGNITE-20415 - split this into public exception (in a public package) and internal exception (carrying internal state).
 public class MismatchingTransactionOutcomeException extends TransactionInternalException {
 
     private static final long serialVersionUID = -7953057695915339651L;
