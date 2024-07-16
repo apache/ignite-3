@@ -116,6 +116,7 @@ import org.apache.ignite.internal.sql.engine.util.IteratorToDataCursorAdapter;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.AsyncCursor;
+import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
@@ -776,6 +777,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         private final @Nullable CompletableFuture<Void> timeoutFut;
 
+        private final Object initMux = new Object();
+
         private volatile Long rootFragmentId = null;
 
         private DistributedQueryManager(
@@ -846,9 +849,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
                 if (rootFragmentId0 != null && fragmentId == rootFragmentId0) {
                     root.completeExceptionally(ex);
-                } else if (root == null) {
-                    // Non-root fragment received an error when attempted to submit a fragment.
-                    close(QueryCompletionReason.ERROR);
                 } else {
                     root.thenAccept(root -> {
                         root.onError(ex);
@@ -858,12 +858,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 }
             }
 
-            // Complete if fragment is registered.
-            // TODO https://issues.apache.org/jira/browse/IGNITE-22585
-            CompletableFuture<Void> f = remoteFragmentInitCompletion.get(new RemoteFragmentKey(nodeName, fragmentId));
-            if (f != null) {
-                f.complete(null);
-            }
+            remoteFragmentInitCompletion.get(new RemoteFragmentKey(nodeName, fragmentId)).complete(null);
         }
 
         private void onError(RemoteFragmentExecutionException ex) {
@@ -996,115 +991,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 }
 
                 try {
-                    // we rely on the fact that the very first fragment is a root. Otherwise we need to handle
-                    // the case when a non-root fragment will fail before the root is processed.
-                    assert !nullOrEmpty(mappedFragments) && mappedFragments.get(0).fragment().rootFragment()
-                            : mappedFragments;
-
-                    // first let's enlist all tables to the transaction.
-                    if (!tx.isReadOnly()) {
-                        for (MappedFragment mappedFragment : mappedFragments) {
-                            enlistPartitions(mappedFragment, tx);
-                        }
-                    }
-
-                    // then let's register all remote fragment's initialization futures. This need
-                    // to handle race when root fragment initialization failed and the query is cancelled
-                    // while sending is actually still in progress
-                    for (MappedFragment mappedFragment : mappedFragments) {
-                        for (String nodeName : mappedFragment.nodes()) {
-                            remoteFragmentInitCompletion.put(
-                                    new RemoteFragmentKey(nodeName, mappedFragment.fragment().fragmentId()),
-                                    new CompletableFuture<>()
-                            );
-                        }
-                    }
-
-                    // now transaction is initialized for sure including assignment
-                    // of the commit partition (if there is at least one table in the fragments)
-                    TxAttributes attributes = TxAttributes.fromTx(tx);
-
-                    List<CompletableFuture<?>> resultsOfFragmentSending = new ArrayList<>();
-
-                    // start remote execution
-                    for (MappedFragment mappedFragment : mappedFragments) {
-                        Fragment fragment = mappedFragment.fragment();
-
-                        if (fragment.rootFragment()) {
-                            assert rootFragmentId == null;
-
-                            rootFragmentId = fragment.fragmentId();
-                        }
-
-                        FragmentDescription fragmentDesc = new FragmentDescription(
-                                fragment.fragmentId(),
-                                !fragment.correlated(),
-                                mappedFragment.groupsBySourceId(),
-                                mappedFragment.target(),
-                                mappedFragment.sourcesByExchangeId(),
-                                mappedFragment.partitionPruningMetadata()
-                        );
-
-                        for (String nodeName : mappedFragment.nodes()) {
-                            CompletableFuture<Void> resultOfSending =
-                                    sendFragment(nodeName, fragment.serialized(), fragmentDesc, attributes, multiStepPlan.catalogVersion());
-
-                            resultsOfFragmentSending.add(
-                                    resultOfSending.handle((ignored, t) -> {
-                                        if (t == null) {
-                                            return null;
-                                        }
-
-                                        // if we were unable to send a request, then no need
-                                        // to wait for the remote node to complete initialization
-
-                                        CompletableFuture<?> completionFuture = remoteFragmentInitCompletion.get(
-                                                new RemoteFragmentKey(nodeName, fragment.fragmentId())
-                                        );
-
-                                        if (completionFuture != null) {
-                                            completionFuture.complete(null);
-                                        }
-
-                                        throw ExceptionUtils.withCause(
-                                                t instanceof NodeLeftException ? NodeLeftException::new : IgniteInternalException::new,
-                                                INTERNAL_ERR,
-                                                format("Unable to send fragment [targetNode={}, fragmentId={}, cause={}]",
-                                                        nodeName, fragment.fragmentId(), t.getMessage()), t
-                                        );
-                                    })
-                            );
-                        }
-                    }
-
-                    CompletableFuture.allOf(resultsOfFragmentSending.toArray(new CompletableFuture[0]))
-                            .handle((ignoredVal, ignoredTh) -> {
-                                if (ignoredTh == null) {
-                                    return null;
-                                }
-
-                                Throwable firstFoundError = null;
-
-                                for (CompletableFuture<?> fut : resultsOfFragmentSending) {
-                                    if (fut.isCompletedExceptionally()) {
-                                        // this is non blocking join() because we are inside of CompletableFuture.allOf call
-                                        Throwable fromFuture = fut.handle((ignored, ex) -> ex).join();
-
-                                        if (firstFoundError == null) {
-                                            firstFoundError = fromFuture;
-                                        } else {
-                                            firstFoundError.addSuppressed(fromFuture);
-                                        }
-                                    }
-                                }
-
-                                Throwable error = firstFoundError;
-                                if (!root.completeExceptionally(error)) {
-                                    root.thenAccept(root -> root.onError(error));
-                                }
-
-                                return null;
-                            });
+                    initializeAndSendFragments(tx, multiStepPlan, mappedFragments);
                 } catch (Throwable t) {
                     LOG.warn("Unexpected exception during query initialization", t);
 
@@ -1143,6 +1030,127 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     }).thenCompose(Function.identity());
                 }
             };
+        }
+
+        private void initializeAndSendFragments(InternalTransaction tx, MultiStepPlan multiStepPlan, List<MappedFragment> mappedFragments) {
+            // we rely on the fact that the very first fragment is a root. Otherwise we need to handle
+            // the case when a non-root fragment will fail before the root is processed.
+            assert !nullOrEmpty(mappedFragments) && mappedFragments.get(0).fragment().rootFragment()
+                    : mappedFragments;
+
+            // first let's enlist all tables to the transaction.
+            if (!tx.isReadOnly()) {
+                for (MappedFragment mappedFragment : mappedFragments) {
+                    enlistPartitions(mappedFragment, tx);
+                }
+            }
+
+            synchronized (initMux) {
+                QueryCancel queryCancel = ctx.cancel();
+
+                // Skip initialization if cancel has already been triggered.
+                if (queryCancel != null && queryCancel.cancelled()) {
+                    return;
+                }
+
+                // then let's register all remote fragment's initialization futures. This need
+                // to handle race when root fragment initialization failed and the query is cancelled
+                // while sending is actually still in progress
+                for (MappedFragment mappedFragment : mappedFragments) {
+                    if (mappedFragment.fragment().rootFragment()) {
+                        assert rootFragmentId == null;
+
+                        rootFragmentId = mappedFragment.fragment().fragmentId();
+                    }
+
+                    for (String nodeName : mappedFragment.nodes()) {
+                        remoteFragmentInitCompletion.put(
+                                new RemoteFragmentKey(nodeName, mappedFragment.fragment().fragmentId()),
+                                new CompletableFuture<>()
+                        );
+                    }
+                }
+            }
+
+            // now transaction is initialized for sure including assignment
+            // of the commit partition (if there is at least one table in the fragments)
+            TxAttributes attributes = TxAttributes.fromTx(tx);
+
+            List<CompletableFuture<?>> resultsOfFragmentSending = new ArrayList<>();
+
+            // start remote execution
+            for (MappedFragment mappedFragment : mappedFragments) {
+                Fragment fragment = mappedFragment.fragment();
+
+                FragmentDescription fragmentDesc = new FragmentDescription(
+                        fragment.fragmentId(),
+                        !fragment.correlated(),
+                        mappedFragment.groupsBySourceId(),
+                        mappedFragment.target(),
+                        mappedFragment.sourcesByExchangeId(),
+                        mappedFragment.partitionPruningMetadata()
+                );
+
+                for (String nodeName : mappedFragment.nodes()) {
+                    CompletableFuture<Void> resultOfSending =
+                            sendFragment(nodeName, fragment.serialized(), fragmentDesc, attributes, multiStepPlan.catalogVersion());
+
+                    resultsOfFragmentSending.add(
+                            resultOfSending.handle((ignored, t) -> {
+                                if (t == null) {
+                                    return null;
+                                }
+
+                                // if we were unable to send a request, then no need
+                                // to wait for the remote node to complete initialization
+
+                                CompletableFuture<?> completionFuture = remoteFragmentInitCompletion.get(
+                                        new RemoteFragmentKey(nodeName, fragment.fragmentId())
+                                );
+
+                                if (completionFuture != null) {
+                                    completionFuture.complete(null);
+                                }
+
+                                throw ExceptionUtils.withCause(
+                                        t instanceof NodeLeftException ? NodeLeftException::new : IgniteInternalException::new,
+                                        INTERNAL_ERR,
+                                        format("Unable to send fragment [targetNode={}, fragmentId={}, cause={}]",
+                                                nodeName, fragment.fragmentId(), t.getMessage()), t
+                                );
+                            })
+                    );
+                }
+            }
+
+            CompletableFutures.allOf(resultsOfFragmentSending)
+                    .handle((ignoredVal, ignoredTh) -> {
+                        if (ignoredTh == null) {
+                            return null;
+                        }
+
+                        Throwable firstFoundError = null;
+
+                        for (CompletableFuture<?> fut : resultsOfFragmentSending) {
+                            if (fut.isCompletedExceptionally()) {
+                                // this is non blocking join() because we are inside of CompletableFuture.allOf call
+                                Throwable fromFuture = fut.handle((ignored, ex) -> ex).join();
+
+                                if (firstFoundError == null) {
+                                    firstFoundError = fromFuture;
+                                } else {
+                                    firstFoundError.addSuppressed(fromFuture);
+                                }
+                            }
+                        }
+
+                        Throwable error = firstFoundError;
+                        if (!root.completeExceptionally(error)) {
+                            root.thenAccept(root -> root.onError(error));
+                        }
+
+                        return null;
+                    });
         }
 
         private void enlistPartitions(MappedFragment mappedFragment, InternalTransaction tx) {
@@ -1274,8 +1282,11 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         private CompletableFuture<Void> awaitFragmentInitialisationAndClose() {
             Map<String, List<CompletableFuture<?>>> requestsPerNode = new HashMap<>();
-            for (Map.Entry<RemoteFragmentKey, CompletableFuture<Void>> entry : remoteFragmentInitCompletion.entrySet()) {
-                requestsPerNode.computeIfAbsent(entry.getKey().nodeName(), key -> new ArrayList<>()).add(entry.getValue());
+
+            synchronized (initMux) {
+                for (Map.Entry<RemoteFragmentKey, CompletableFuture<Void>> entry : remoteFragmentInitCompletion.entrySet()) {
+                    requestsPerNode.computeIfAbsent(entry.getKey().nodeName(), key -> new ArrayList<>()).add(entry.getValue());
+                }
             }
 
             List<CompletableFuture<?>> cancelFuts = new ArrayList<>();
