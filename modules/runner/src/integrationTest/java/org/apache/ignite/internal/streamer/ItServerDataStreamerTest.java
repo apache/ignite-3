@@ -18,8 +18,6 @@
 package org.apache.ignite.internal.streamer;
 
 import org.apache.ignite.Ignite;
-import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.Test;
 
 /**
  * Integration test for server-side data streamer API.
