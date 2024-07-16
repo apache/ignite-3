@@ -132,7 +132,6 @@ import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.ExecutorInclinedRaftCommandRunner;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.replicator.ReplicaResult;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.command.SafeTimePropagatingCommand;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
@@ -439,9 +438,6 @@ public class PartitionReplicaListener implements ReplicaListener {
                 } else {
                     abortedCount++;
                 }
-
-                LOG.warn("Running cleanup for tx during recovery [txId={}, groupId={}, localNode={}].", new Exception("qqq"), txId,
-                        replicationGroupId, localNode);
 
                 txManager.cleanup(
                         replicationGroupId,

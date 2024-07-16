@@ -160,16 +160,6 @@ public class VolatileTxStateMetaStorage {
                 if (TxState.isFinalState(meta0.txState())) {
                     Long initialVacuumObservationTimestamp = meta0.initialVacuumObservationTimestamp();
 
-                    LOG.info("Trying to vacuum tx state [initialVacuumObservationTimestamp={}, txnResourceTtl={}, "
-                            + "cleanupCompletionTimestamp={}, vacuumObservationTimestamp={}, commitPartitionId={}, meta={}].",
-                            initialVacuumObservationTimestamp,
-                            txnResourceTtl,
-                            meta0.cleanupCompletionTimestamp(),
-                            vacuumObservationTimestamp,
-                            meta0.commitPartitionId(),
-                            meta0
-                    );
-
                     if (initialVacuumObservationTimestamp == null && txnResourceTtl > 0) {
                         markedAsInitiallyDetectedTxnsCount.incrementAndGet();
 
@@ -234,16 +224,14 @@ public class VolatileTxStateMetaStorage {
                                     + "vacuumizedPersistentTxnStatesCount={}, "
                                     + "markedAsInitiallyDetectedTxnsCount={}, "
                                     + "alreadyMarkedTxnsCount={}, "
-                                    + "skippedForFurtherProcessingUnfinishedTxnsCount={}, "
-                                    + "txIdsSize={}].",
+                                    + "skippedForFurtherProcessingUnfinishedTxnsCount={}].",
                             vacuumObservationTimestamp,
                             txnResourceTtl,
                             vacuumizedTxnsCount,
                             vacuumResult.vacuumizedPersistentTxnStatesCount,
                             markedAsInitiallyDetectedTxnsCount,
                             alreadyMarkedTxnsCount,
-                            skippedForFurtherProcessingUnfinishedTxnsCount,
-                            txIds.size()
+                            skippedForFurtherProcessingUnfinishedTxnsCount
                     );
                 });
     }
