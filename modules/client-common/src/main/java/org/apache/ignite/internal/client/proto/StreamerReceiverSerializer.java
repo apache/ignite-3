@@ -97,8 +97,7 @@ public class StreamerReceiverSerializer {
         int numElementsSize = 4;
         int binaryTupleSize = receiverJobResults.length - numElementsSize;
 
-        ByteBuffer buf = ByteBuffer.wrap(receiverJobResults).order(ByteOrder.LITTLE_ENDIAN);
-        int numElements = buf.position(binaryTupleSize).getInt();
+        int numElements = ByteBuffer.wrap(receiverJobResults).order(ByteOrder.LITTLE_ENDIAN).getInt();
 
         w.packInt(numElements);
         w.packBinaryHeader(binaryTupleSize);
@@ -121,12 +120,15 @@ public class StreamerReceiverSerializer {
 
         ByteBuffer res = builder.build();
 
-        // Append element count to the end.
-        var resWithCount = res.flip().putInt(numElements).flip();
+        // Resulting byte array.
+        int numElementsSize = 4;
+        byte[] resBytes = new byte[res.limit() - res.position() + numElementsSize];
 
-        // Copy to byte array.
-        byte[] resBytes = new byte[resWithCount.limit() - resWithCount.position()];
-        resWithCount.get(resBytes);
+        // Prepend count.
+        ByteBuffer.wrap(resBytes).order(ByteOrder.LITTLE_ENDIAN).putInt(numElements);
+
+        // Copy binary tuple.
+        res.get(resBytes, numElementsSize, resBytes.length - numElementsSize);
 
         return resBytes;
     }
