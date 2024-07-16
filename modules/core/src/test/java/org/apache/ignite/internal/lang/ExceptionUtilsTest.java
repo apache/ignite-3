@@ -24,6 +24,7 @@ import static org.hamcrest.Matchers.isA;
 
 import java.util.UUID;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutionException;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
@@ -100,6 +101,28 @@ public class ExceptionUtilsTest {
                 TestUncheckedExceptionWithTraceCodeAndCause::new,
                 Transactions.TX_COMMIT_ERR,
                 new IgniteException(Transactions.TX_INCOMPATIBLE_SCHEMA_ERR)
+        );
+
+        assertThat(translated.code(), is(Transactions.TX_INCOMPATIBLE_SCHEMA_ERR));
+    }
+
+    @Test
+    void withCauseDoesNotApplyDefaultCodeWhenCodeIsInExceptionWrappedInExecutionException() {
+        TraceableException translated = ExceptionUtils.withCause(
+                TestUncheckedExceptionWithTraceCodeAndCause::new,
+                Transactions.TX_COMMIT_ERR,
+                new ExecutionException(new IgniteException(Transactions.TX_INCOMPATIBLE_SCHEMA_ERR))
+        );
+
+        assertThat(translated.code(), is(Transactions.TX_INCOMPATIBLE_SCHEMA_ERR));
+    }
+
+    @Test
+    void withCauseDoesNotApplyDefaultCodeWhenCodeIsInExceptionWrappedInCompletionException() {
+        TraceableException translated = ExceptionUtils.withCause(
+                TestUncheckedExceptionWithTraceCodeAndCause::new,
+                Transactions.TX_COMMIT_ERR,
+                new CompletionException(new IgniteException(Transactions.TX_INCOMPATIBLE_SCHEMA_ERR))
         );
 
         assertThat(translated.code(), is(Transactions.TX_INCOMPATIBLE_SCHEMA_ERR));
