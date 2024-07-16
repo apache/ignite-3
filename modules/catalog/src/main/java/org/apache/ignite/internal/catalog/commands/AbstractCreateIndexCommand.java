@@ -67,7 +67,7 @@ public abstract class AbstractCreateIndexCommand extends AbstractIndexCommand {
         return ifNotExists;
     }
 
-    protected abstract CatalogIndexDescriptor createDescriptor(int indexId, int tableId, int creationCatalogVersion);
+    protected abstract CatalogIndexDescriptor createDescriptor(int indexId, int tableId);
 
     @Override
     public List<UpdateEntry> get(Catalog catalog) {
@@ -91,7 +91,7 @@ public abstract class AbstractCreateIndexCommand extends AbstractIndexCommand {
         }
 
         return List.of(
-                new NewIndexEntry(createDescriptor(catalog.objectIdGenState(), table.id(), catalog.version() + 1)),
+                new NewIndexEntry(createDescriptor(catalog.objectIdGenState(), table.id())),
                 new ObjectIdGenUpdateEntry(1)
         );
     }

@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.partition.replicator.network.command;
 
-import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
-
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -54,7 +52,7 @@ public interface UpdateAllCommand extends PartitionCommand {
 
         if (!CollectionUtils.nullOrEmpty(timedRowMap)) {
             timedRowMap.forEach(
-                    (uuid, trMsg) -> map.put(uuid, new TimedBinaryRow(trMsg.binaryRow(), nullableHybridTimestamp(trMsg.timestamp()))));
+                    (uuid, trMsg) -> map.put(uuid, new TimedBinaryRow(trMsg.binaryRow(), trMsg.timestamp())));
         }
 
         return map;

@@ -336,7 +336,7 @@ public class MetaStorageWriteHandler {
 
             clusterTime.adjust(writeCommand.initiatorTime());
 
-            writeCommand.safeTimeLong(clusterTime.nowLong());
+            writeCommand.safeTime(clusterTime.now());
 
             return true;
         }

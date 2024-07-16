@@ -17,6 +17,7 @@
 
 package org.apache.ignite.plugin.extensions.communication;
 
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -87,7 +88,10 @@ public enum MessageCollectionItemType {
     IGNITE_UUID,
 
     /** Message. */
-    MSG;
+    MSG,
+
+    /** {@link HybridTimestamp}. */
+    HYBRID_TIMESTAMP;
 
     /** Enum values. */
     private static final MessageCollectionItemType[] VALS = values();

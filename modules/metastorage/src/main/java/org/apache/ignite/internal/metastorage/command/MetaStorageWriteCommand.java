@@ -17,28 +17,18 @@
 
 package org.apache.ignite.internal.metastorage.command;
 
-import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
-
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.annotations.WithSetter;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.BeforeApplyHandler;
+import org.jetbrains.annotations.Nullable;
 
 /** Base meta storage write command. */
 public interface MetaStorageWriteCommand extends WriteCommand {
-    /**
-     * Returns time on the initiator node.
-     */
-    long initiatorTimeLong();
-
-    /**
-     * Returns time on the initiator node.
-     */
-    default HybridTimestamp initiatorTime() {
-        return hybridTimestamp(initiatorTimeLong());
-    }
+    /** Time on the initiator node. */
+    HybridTimestamp initiatorTime();
 
     /**
      * This is a dirty hack. This time is set by the leader node to disseminate new safe time across
@@ -47,19 +37,12 @@ public interface MetaStorageWriteCommand extends WriteCommand {
      * command is saved into the Raft log (see {@link BeforeApplyHandler#onBeforeApply(Command)}.
      */
     @WithSetter
-    long safeTimeLong();
+    @Nullable HybridTimestamp safeTime();
 
     /**
      * Setter for the safeTime field.
      */
-    default void safeTimeLong(long safeTime) {
+    default void safeTime(HybridTimestamp safeTime) {
         // No-op.
-    }
-
-    /**
-     * Convenient getter for {@link #safeTimeLong()}.
-     */
-    default HybridTimestamp safeTime() {
-        return hybridTimestamp(safeTimeLong());
     }
 }

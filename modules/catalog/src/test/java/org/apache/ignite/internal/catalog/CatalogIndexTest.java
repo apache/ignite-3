@@ -33,7 +33,6 @@ import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedF
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.hasItems;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
@@ -57,7 +56,6 @@ import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.commands.DropIndexCommand;
 import org.apache.ignite.internal.catalog.commands.MakeIndexAvailableCommand;
 import org.apache.ignite.internal.catalog.commands.RemoveIndexCommand;
@@ -82,11 +80,8 @@ import org.apache.ignite.internal.sql.SqlCommon;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.EnumSource.Mode;
-import org.junit.jupiter.params.provider.MethodSource;
-import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 
 /** Tests for index related commands. */
@@ -122,7 +117,6 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
         assertEquals(List.of("VAL", "ID"), index.columns());
         assertFalse(index.unique());
         assertEquals(REGISTERED, index.status());
-        assertEquals(manager.latestCatalogVersion(), index.txWaitCatalogVersion());
     }
 
     @Test
@@ -164,7 +158,6 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
         assertEquals(ASC_NULLS_LAST, index.columns().get(1).collation());
         assertTrue(index.unique());
         assertEquals(REGISTERED, index.status());
-        assertEquals(manager.latestCatalogVersion(), index.txWaitCatalogVersion());
     }
 
     @Test
@@ -464,58 +457,6 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
         );
 
         assertThat(fireEventFuture, willCompleteSuccessfully());
-    }
-
-    @ParameterizedTest
-    @ValueSource(booleans = {true, false})
-    public void testIndexCreationCatalogVersionAfterUpdateIndex(boolean hashIndex) {
-        createSomeTable(TABLE_NAME);
-
-        if (hashIndex) {
-            createSomeIndex(TABLE_NAME, INDEX_NAME);
-        } else {
-            createSomeSortedIndex(TABLE_NAME, INDEX_NAME);
-        }
-
-        int expCreationVersion = manager.latestCatalogVersion();
-
-        int indexId = indexId(INDEX_NAME);
-
-        assertThat(manager.execute(startBuildingIndexCommand(indexId)), willCompleteSuccessfully());
-
-        Catalog latestCatalog = manager.catalog(manager.activeCatalogVersion(clock.nowLong()));
-
-        assertThat(latestCatalog.version(), greaterThan(expCreationVersion));
-
-        assertEquals(expCreationVersion, latestCatalog.index(indexId).txWaitCatalogVersion());
-    }
-
-    @ParameterizedTest(name = "hashIndex={0}, updateIndex={1}")
-    @MethodSource("argumentsForCheckIndexCreationCatalogVersion")
-    public void testIndexCreationCatalogVersionAfterUpdateCatalog(boolean hashIndex, boolean updateIndex) {
-        createSomeTable(TABLE_NAME);
-
-        if (hashIndex) {
-            createSomeIndex(TABLE_NAME, INDEX_NAME);
-        } else {
-            createSomeSortedIndex(TABLE_NAME, INDEX_NAME);
-        }
-
-        int expCreationVersion = manager.latestCatalogVersion();
-
-        int indexId = indexId(INDEX_NAME);
-
-        if (updateIndex) {
-            assertThat(manager.execute(startBuildingIndexCommand(indexId)), willCompleteSuccessfully());
-        } else {
-            createSomeTable(TABLE_NAME + 1);
-        }
-
-        Catalog latestCatalog = manager.catalog(manager.activeCatalogVersion(clock.nowLong()));
-
-        assertThat(latestCatalog.version(), greaterThan(expCreationVersion));
-
-        assertEquals(expCreationVersion, latestCatalog.index(indexId).txWaitCatalogVersion());
     }
 
     @Test
@@ -858,15 +799,6 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
         assertThat(
                 manager.execute(createSortedIndexCommand(tableName, indexName, false, List.of("key1"), List.of(ASC_NULLS_LAST))),
                 willCompleteSuccessfully()
-        );
-    }
-
-    private static Stream<Arguments> argumentsForCheckIndexCreationCatalogVersion() {
-        return Stream.of(
-                Arguments.of(true, true), // Create hash index and update index status..
-                Arguments.of(true, false), // Create hash index and update catalog (create table).
-                Arguments.of(false, true), // Create sorted index and update index status..
-                Arguments.of(false, false) // Create sorted index and update catalog (create table).
         );
     }
 }

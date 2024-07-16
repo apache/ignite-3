@@ -833,8 +833,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     .txAttributes(txAttributes)
                     .catalogVersion(catalogVersion)
                     .timeZoneId(ctx.timeZoneId().getId())
-                    .operationTimeLong(ctx.operationTime().longValue())
-                    .timestampLong(clockService.nowLong())
+                    .operationTime(ctx.operationTime())
+                    .timestamp(clockService.now())
                     .build();
 
             return messageService.send(targetNodeName, request);

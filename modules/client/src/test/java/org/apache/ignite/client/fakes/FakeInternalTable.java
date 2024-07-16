@@ -506,4 +506,9 @@ public class FakeInternalTable implements InternalTable {
         return completedFuture(
                 new ClusterNodeImpl("server-1", "server-1", new NetworkAddress("localhost", 10800)));
     }
+
+    @Override
+    public CompletableFuture<Long> estimatedSize() {
+        throw new IgniteInternalException(new OperationNotSupportedException());
+    }
 }
