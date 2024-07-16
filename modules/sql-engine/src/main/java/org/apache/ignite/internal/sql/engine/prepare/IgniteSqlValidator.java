@@ -876,13 +876,9 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         return (IgniteTypeFactory) typeFactory;
     }
 
-    private static boolean isSystemFieldName(String alias) {
+    public static boolean isSystemFieldName(String alias) {
         return (Commons.implicitPkEnabled() && Commons.IMPLICIT_PK_COL_NAME.equals(alias))
                 || alias.equals(Commons.PART_COL_NAME);
-    }
-
-    public static boolean isReservedColumnName(String columnName) {
-        return Commons.IMPLICIT_PK_COL_NAME.equals(columnName) || Commons.PART_COL_NAME.equals(columnName);
     }
 
     // We use these scopes to filter out valid usages of a ROW operator.

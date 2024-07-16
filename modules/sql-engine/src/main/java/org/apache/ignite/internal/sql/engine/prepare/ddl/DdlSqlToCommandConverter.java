@@ -291,6 +291,17 @@ public class DdlSqlToCommandConverter {
                 .map(IgniteSqlPrimaryKeyConstraint.class::cast)
                 .collect(Collectors.toList());
 
+        for (SqlNode sqlNode : createTblNode.columnList().getList()) {
+            if (sqlNode instanceof SqlColumnDeclaration) {
+                String colName = ((SqlColumnDeclaration) sqlNode).name.getSimple();
+
+                if (IgniteSqlValidator.isSystemFieldName(colName)) {
+                    throw new SqlException(STMT_VALIDATION_ERR, "Failed to validate query. "
+                            + "Column '" + colName + "' is reserved name.");
+                }
+            }
+        }
+
         if (pkConstraints.isEmpty() && Commons.implicitPkEnabled()) {
             SqlIdentifier colName = new SqlIdentifier(Commons.IMPLICIT_PK_COL_NAME, SqlParserPos.ZERO);
 
@@ -367,13 +378,7 @@ public class DdlSqlToCommandConverter {
                         + "querySql=\"" + ctx.query() + "\"]");
             }
 
-            String colName = col.name.getSimple();
-            if (IgniteSqlValidator.isReservedColumnName(colName)) {
-                throw new SqlException(STMT_VALIDATION_ERR, "Failed to validate query. "
-                        + "Column '" + colName + "' is reserved name.");
-            }
-
-            columns.add(convertColumnDeclaration(col, ctx.planner(), !pkColumns.contains(colName)));
+            columns.add(convertColumnDeclaration(col, ctx.planner(), !pkColumns.contains(col.name.getSimple())));
         }
 
         return tblBuilder.schemaName(deriveSchemaName(createTblNode.name(), ctx))
@@ -452,7 +457,7 @@ public class DdlSqlToCommandConverter {
             Boolean nullable = col.dataType.getNullable();
 
             String colName = col.name.getSimple();
-            if (IgniteSqlValidator.isReservedColumnName(colName)) {
+            if (IgniteSqlValidator.isSystemFieldName(colName)) {
                 throw new SqlException(STMT_VALIDATION_ERR, "Failed to validate query. "
                         + "Column '" + colName + "' is reserved name.");
             }

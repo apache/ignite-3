@@ -42,6 +42,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.table.partition.HashPartition;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -198,6 +199,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
     }
 
     @Test
+    @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
     public void reservedColumnNames() {
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
