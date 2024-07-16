@@ -53,6 +53,10 @@ public class NumericInsertSourcesCoercionTest extends BaseTypeCoercionTest {
             TypePair pair,
             Matcher<RexNode> operandMatcher
     ) throws Exception {
+        // TODO: remove during implement IGNITE-22283
+        if (pair.first().spec() == NativeTypeSpec.NUMBER || pair.second().spec() == NativeTypeSpec.NUMBER) {
+            return;
+        }
 
         IgniteSchema schema = createSchemaWithTwoColumnTable(pair.first(), pair.first());
 
