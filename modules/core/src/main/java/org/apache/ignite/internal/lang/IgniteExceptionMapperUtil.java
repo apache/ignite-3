@@ -151,8 +151,8 @@ public class IgniteExceptionMapperUtil {
         assert isPublicPackage(mappingResult.getClass().getPackage());
     }
 
-    private static boolean isPublicPackage(Package aPackage) {
-        return !aPackage.getName().startsWith("org.apache.ignite.internal");
+    private static boolean isPublicPackage(Package somePackage) {
+        return !somePackage.getName().startsWith("org.apache.ignite.internal");
     }
 
     /**
