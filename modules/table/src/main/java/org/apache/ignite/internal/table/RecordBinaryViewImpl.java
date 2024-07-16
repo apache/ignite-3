@@ -568,7 +568,8 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
                 PublicApiThreading.execUserAsyncOperation(() -> {
                     return this.tbl.partitionLocation(new TablePartitionId(tbl.tableId(), partitionId))
                             .thenCompose(node ->
-                                    // TODO: Serialize receiver info.
+                                    // TODO: Serialize receiver info. Another overload for runReceiverAsync?
+                                    // StreamerReceiverSerializer.serializeReceiverInfo
                                     this.tbl.runReceiverAsync(null, node, receiver.units()).thenApply(receiverRes -> {
                                         // TODO: Deserialize receiver results.
                                         return new ArrayList<>();

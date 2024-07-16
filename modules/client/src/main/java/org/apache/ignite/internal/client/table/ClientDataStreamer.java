@@ -90,7 +90,8 @@ class ClientDataStreamer {
                                     w.packDeploymentUnits(deploymentUnits);
                                     w.packBoolean(resultSubscriber != null); // receiveResults
 
-                                    StreamerReceiverSerializer.serializeReceiverInfo(w, receiverClassName, receiverArgs, receiverArgsMarshaller, items);
+                                    StreamerReceiverSerializer.serializeReceiverInfoOnClient(
+                                            w, receiverClassName, receiverArgs, receiverArgsMarshaller, items);
                                 },
                                 in -> resultSubscriber != null
                                         ? StreamerReceiverSerializer.deserializeReceiverResultsOnClient(in.in())

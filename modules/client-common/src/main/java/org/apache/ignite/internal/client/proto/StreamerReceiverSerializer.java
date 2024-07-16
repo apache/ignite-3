@@ -41,7 +41,30 @@ public class StreamerReceiverSerializer {
      * @param receiverArgs Receiver arguments.
      * @param items Items.
      */
-    public static <A> void serializeReceiverInfo(ClientMessagePacker w, String receiverClassName, A receiverArgs,
+    public static <A> void serializeReceiverInfoOnClient(ClientMessagePacker w, String receiverClassName, A receiverArgs,
+            @Nullable Marshaler<A, byte[]> receiverArgsMarshaler, Collection<?> items) {
+        // className + arg + items size + item type + items.
+        int binaryTupleSize = 1 + 3 + 1 + 1 + items.size();
+        var builder = new BinaryTupleBuilder(binaryTupleSize);
+        builder.appendString(receiverClassName);
+
+        ClientBinaryTupleUtils.appendObject(builder, receiverArgs, receiverArgsMarshaler);
+
+        ClientBinaryTupleUtils.appendCollectionToBinaryTuple(builder, items);
+
+        w.packInt(binaryTupleSize);
+        w.packBinaryTuple(builder);
+    }
+
+    /**
+     * Serializes streamer receiver info.
+     *
+     * @param w Writer.
+     * @param receiverClassName Receiver class name.
+     * @param receiverArgs Receiver arguments.
+     * @param items Items.
+     */
+    public static <A> byte[] serializeReceiverInfoWithElementCount(String receiverClassName, A receiverArgs,
             @Nullable Marshaler<A, byte[]> receiverArgsMarshaler, Collection<?> items) {
         // className + arg + items size + item type + items.
         int binaryTupleSize = 1 + 3 + 1 + 1 + items.size();
