@@ -480,7 +480,7 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
                 .condition(notExists(testKey))
                 .success(List.of(put(testKey, testValue)))
                 .failure(List.of(put(testKey, anotherValue)))
-                .initiatorTimeLong(clock.nowLong())
+                .initiatorTime(clock.now())
                 .id(commandIdGenerator.newId())
                 .build();
     }
@@ -504,8 +504,8 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
         return CMD_FACTORY.multiInvokeCommand()
                 .id(commandIdGenerator.newId())
                 .iif(iif)
-                .safeTimeLong(clock.now().longValue())
-                .initiatorTimeLong(clock.now().longValue())
+                .safeTime(clock.now())
+                .initiatorTime(clock.now())
                 .build();
     }
 

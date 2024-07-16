@@ -64,6 +64,7 @@ dependencies {
     testImplementation project(':ignite-page-memory')
     testImplementation project(':ignite-storage-rocksdb')
     testImplementation project(':ignite-placement-driver-api')
+    testImplementation project(':ignite-placement-driver')
     testImplementation project(':ignite-system-view-api')
     testImplementation project(':ignite-failure-handler')
     testImplementation(testFixtures(project(':ignite-api')))

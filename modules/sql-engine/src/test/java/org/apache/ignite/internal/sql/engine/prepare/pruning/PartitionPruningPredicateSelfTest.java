@@ -33,6 +33,7 @@ import java.util.stream.Collectors;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.NodeWithConsistencyToken;
@@ -47,6 +48,7 @@ import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
@@ -95,7 +97,7 @@ public class PartitionPruningPredicateSelfTest extends BaseIgniteAbstractTest {
 
         IgniteDistribution distribution = IgniteDistributions.affinity(List.of(0), 1, 1);
 
-        NativeType nativeType = TypeUtils.columnType2NativeType(columnType, 4, 2, 4);
+        NativeType nativeType = getNativeType(columnType);
 
         IgniteTable table = TestBuilders.table()
                 .name("T")
@@ -118,12 +120,20 @@ public class PartitionPruningPredicateSelfTest extends BaseIgniteAbstractTest {
         expectPartitionsPruned(table, columns, new Object[0], group, val);
     }
 
+    private static NativeType getNativeType(ColumnType columnType) {
+        SqlTypeName sqlTypeName = SqlTestUtils.columnType2SqlTypeName(columnType);
+        int precision = IgniteTypeSystem.INSTANCE.getMaxPrecision(sqlTypeName);
+        int scale = IgniteTypeSystem.INSTANCE.getMaxScale(sqlTypeName);
+
+        return TypeUtils.columnType2NativeType(columnType, precision, scale, precision);
+    }
+
     @ParameterizedTest
     @MethodSource("columnTypes")
     public void testDynamicParam(ColumnType columnType) {
         IgniteDistribution distribution = IgniteDistributions.affinity(List.of(0), 1, 1);
 
-        NativeType nativeType = TypeUtils.columnType2NativeType(columnType, 4, 2, 4);
+        NativeType nativeType = getNativeType(columnType);
 
         IgniteTable table = TestBuilders.table()
                 .name("T")

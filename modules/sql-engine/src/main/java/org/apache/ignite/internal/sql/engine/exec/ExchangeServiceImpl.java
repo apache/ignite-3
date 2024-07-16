@@ -92,7 +92,7 @@ public class ExchangeServiceImpl implements ExchangeService {
                         .batchId(batchId)
                         .last(last)
                         .rows(rows)
-                        .timestampLong(clockService.nowLong())
+                        .timestamp(clockService.now())
                         .build()
         );
     }

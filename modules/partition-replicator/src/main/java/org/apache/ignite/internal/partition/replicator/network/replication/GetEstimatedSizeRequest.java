@@ -15,25 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.replicator.command;
+package org.apache.ignite.internal.partition.replicator.network.replication;
 
-import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.network.annotations.WithSetter;
-import org.apache.ignite.internal.raft.WriteCommand;
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.internal.network.annotations.Transferable;
+import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
+import org.apache.ignite.internal.replicator.message.PrimaryReplicaRequest;
 
 /**
- * Common interface for commands carrying safe time.
+ * Request for getting an estimated size of a partition.
  */
-public interface SafeTimePropagatingCommand extends WriteCommand {
-    /** Safe time. */
-    @WithSetter
-    @Nullable HybridTimestamp safeTime();
-
-    /**
-     * Setter for the safeTime field.
-     */
-    default void safeTime(HybridTimestamp safeTime) {
-        // No-op.
-    }
+@Transferable(PartitionReplicationMessageGroup.GET_ESTIMATED_SIZE_MESSAGE)
+public interface GetEstimatedSizeRequest extends PrimaryReplicaRequest {
 }
