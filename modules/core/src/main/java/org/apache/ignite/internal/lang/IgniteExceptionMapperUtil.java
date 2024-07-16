@@ -146,9 +146,12 @@ public class IgniteExceptionMapperUtil {
     }
 
     private static void checkResultIsPublic(Throwable mappingResult, Throwable origin) {
-        assert mappingResult instanceof IgniteException || mappingResult instanceof IgniteCheckedException :
-                "Unexpected mapping of internal exception to a public one [origin=" + origin + ", mapped=" + mappingResult + ']';
-        assert isPublicPackage(mappingResult.getClass().getPackage());
+        assert mappingResult instanceof IgniteException || mappingResult instanceof IgniteCheckedException
+                : "Unexpected mapping of internal exception to a public one [origin=" + origin + ", mapped=" + mappingResult
+                + "]: not a public exception";
+        assert isPublicPackage(mappingResult.getClass().getPackage())
+                : "Unexpected mapping of internal exception to a public one [origin=" + origin + ", mapped=" + mappingResult
+                + "]: exception is not defined in a public package";
     }
 
     private static boolean isPublicPackage(Package somePackage) {
