@@ -27,7 +27,7 @@ import org.junit.jupiter.api.Test;
 class CatalogSortedIndexDescriptorTest {
     @Test
     void toStringContainsTypeAndFields() {
-        var descriptor = new CatalogSortedIndexDescriptor(1, "index1", 2, false, 3, List.of());
+        var descriptor = new CatalogSortedIndexDescriptor(1, "index1", 2, false, List.of());
 
         String toString = descriptor.toString();
 

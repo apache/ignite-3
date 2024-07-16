@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.tx.message;
 
-import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
-
 import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -54,19 +52,6 @@ public interface TxCleanupMessage extends TimestampAware {
      */
     boolean commit();
 
-    /**
-     * Returns a transaction commit timestamp.
-     *
-     * @return Commit timestamp.
-     */
-    long commitTimestampLong();
-
-    /**
-     * Returns a transaction commit timestamp.
-     *
-     * @return Commit timestamp.
-     */
-    default @Nullable HybridTimestamp commitTimestamp() {
-        return nullableHybridTimestamp(commitTimestampLong());
-    }
+    /** Transaction commit timestamp. */
+    @Nullable HybridTimestamp commitTimestamp();
 }

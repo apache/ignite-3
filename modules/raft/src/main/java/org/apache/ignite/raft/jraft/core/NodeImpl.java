@@ -2160,7 +2160,7 @@ public class NodeImpl implements Node, RaftServerService {
                         .term(this.currTerm);
 
                 if (request.timestamp() != null) {
-                    rb.timestampLong(clock.update(request.timestamp()).longValue());
+                    rb.timestamp(clock.update(request.timestamp()));
                 }
 
                 return rb.build();
@@ -2181,7 +2181,7 @@ public class NodeImpl implements Node, RaftServerService {
                         .term(request.term() + 1);
 
                 if (request.timestamp() != null) {
-                    rb.timestampLong(clock.update(request.timestamp()).longValue());
+                    rb.timestamp(clock.update(request.timestamp()));
                 }
 
                 return rb.build();
@@ -2214,7 +2214,7 @@ public class NodeImpl implements Node, RaftServerService {
                         .lastLogIndex(lastLogIndex);
 
                 if (request.timestamp() != null) {
-                    rb.timestampLong(clock.update(request.timestamp()).longValue());
+                    rb.timestamp(clock.update(request.timestamp()));
                 }
 
                 return rb.build();
@@ -2228,7 +2228,7 @@ public class NodeImpl implements Node, RaftServerService {
                     .term(this.currTerm)
                     .lastLogIndex(this.logManager.getLastLogIndex());
                 if (request.timestamp() != null) {
-                    respBuilder.timestampLong(clock.update(request.timestamp()).longValue());
+                    respBuilder.timestamp(clock.update(request.timestamp()));
                 }
                 doUnlock = false;
                 this.writeLock.unlock();
@@ -2249,7 +2249,7 @@ public class NodeImpl implements Node, RaftServerService {
                         .term(this.currTerm);
 
                 if (request.timestamp() != null) {
-                    rb.timestampLong(clock.update(request.timestamp()).longValue());
+                    rb.timestamp(clock.update(request.timestamp()));
                 }
 
                 return rb.build();

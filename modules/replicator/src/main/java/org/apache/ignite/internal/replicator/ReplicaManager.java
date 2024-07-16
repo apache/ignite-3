@@ -1055,7 +1055,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                                             groupId,
                                             clusterNetSvc.topologyService().localMember())
                             )
-                            .timestampLong(clockService.updateClock(requestTimestamp).longValue())
+                            .timestamp(clockService.updateClock(requestTimestamp))
                             .build(),
                     correlationId);
         } else {
@@ -1093,7 +1093,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             return REPLICA_MESSAGES_FACTORY
                     .timestampAwareReplicaResponse()
                     .result(result)
-                    .timestampLong(clockService.nowLong())
+                    .timestamp(clockService.now())
                     .build();
         } else {
             return REPLICA_MESSAGES_FACTORY
@@ -1111,7 +1111,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             return REPLICA_MESSAGES_FACTORY
                     .errorTimestampAwareReplicaResponse()
                     .throwable(ex)
-                    .timestampLong(clockService.nowLong())
+                    .timestamp(clockService.now())
                     .build();
         } else {
             return REPLICA_MESSAGES_FACTORY

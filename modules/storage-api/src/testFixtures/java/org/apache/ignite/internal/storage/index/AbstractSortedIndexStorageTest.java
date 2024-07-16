@@ -187,7 +187,6 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
                 tableId,
                 false,
                 AVAILABLE,
-                catalogService.latestCatalogVersion(),
                 List.of(columns)
         );
 

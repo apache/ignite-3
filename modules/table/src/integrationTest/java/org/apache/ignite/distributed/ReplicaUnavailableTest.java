@@ -268,7 +268,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                 .groupId(toTablePartitionIdMessage(replicaMessageFactory, tablePartitionId))
                 .transactionId(TestTransactionIds.newTransactionId())
                 .commitPartitionId(tablePartitionId())
-                .timestampLong(clock.nowLong())
+                .timestamp(clock.now())
                 .schemaVersion(binaryRow.schemaVersion())
                 .binaryTuple(binaryRow.tupleSlice())
                 .requestTypeInt(RW_GET.ordinal())
