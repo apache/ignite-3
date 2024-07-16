@@ -111,6 +111,7 @@ import org.apache.ignite.internal.catalog.commands.TablePrimaryKey;
 import org.apache.ignite.internal.catalog.commands.TableSortedPrimaryKey;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.sql.engine.prepare.IgnitePlanner;
+import org.apache.ignite.internal.sql.engine.prepare.IgniteSqlValidator;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterColumn;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterTableAddColumn;
@@ -366,7 +367,13 @@ public class DdlSqlToCommandConverter {
                         + "querySql=\"" + ctx.query() + "\"]");
             }
 
-            columns.add(convertColumnDeclaration(col, ctx.planner(), !pkColumns.contains(col.name.getSimple())));
+            String colName = col.name.getSimple();
+            if (IgniteSqlValidator.isReservedColumnName(colName)) {
+                throw new SqlException(STMT_VALIDATION_ERR, "Failed to validate query. "
+                        + "Column '" + colName + "' is reserved name.");
+            }
+
+            columns.add(convertColumnDeclaration(col, ctx.planner(), !pkColumns.contains(colName)));
         }
 
         return tblBuilder.schemaName(deriveSchemaName(createTblNode.name(), ctx))
@@ -443,6 +450,12 @@ public class DdlSqlToCommandConverter {
             assert colNode instanceof SqlColumnDeclaration : colNode.getClass();
             SqlColumnDeclaration col = (SqlColumnDeclaration) colNode;
             Boolean nullable = col.dataType.getNullable();
+
+            String colName = col.name.getSimple();
+            if (IgniteSqlValidator.isReservedColumnName(colName)) {
+                throw new SqlException(STMT_VALIDATION_ERR, "Failed to validate query. "
+                        + "Column '" + colName + "' is reserved name.");
+            }
 
             columns.add(convertColumnDeclaration(col, ctx.planner(), nullable != null ? nullable : true));
         }

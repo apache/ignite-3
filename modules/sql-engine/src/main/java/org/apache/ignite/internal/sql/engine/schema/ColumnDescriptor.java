@@ -31,7 +31,12 @@ public interface ColumnDescriptor {
     boolean key();
 
     /** Returns {@code true} if this column should not be expanded in query until user explicitly specify it as part of the statement. */
-    boolean hidden();
+    boolean virtual();
+
+    /** Returns {@code true} if this column should not be stored. */
+    default boolean system() {
+        return false;
+    }
 
     /** Returns the strategy to follow when generating value for column not specified in the INSERT statement. */
     DefaultValueStrategy defaultStrategy();

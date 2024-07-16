@@ -463,6 +463,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
             return new ScanNode<>(ctx, Collections.emptyList());
         }
 
+        // TODO: fix required columns.
         RowSchema rowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rowType));
         RowFactory<RowT> rowFactory = ctx.rowHandler().factory(rowSchema);
 

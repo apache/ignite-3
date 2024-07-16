@@ -102,7 +102,7 @@ public final class CatalogColumnDescriptor implements ColumnDescriptor {
 
     /** {@inheritDoc} */
     @Override
-    public boolean hidden() {
+    public boolean virtual() {
         return false;
     }
 

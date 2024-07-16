@@ -123,7 +123,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
 
         validateNotNullConstraint(ectx.rowHandler(), rows);
 
-        RelDataType rowType = descriptor().rowType(ectx.getTypeFactory(), null);
+        RelDataType rowType = descriptor().insertRowType(ectx.getTypeFactory());
         Supplier<RowSchema> schemaSupplier = makeSchemaSupplier(ectx);
 
         rows = validateCharactersOverflowAndTrimIfPossible(rowType, ectx.rowHandler(), rows, schemaSupplier);
@@ -203,7 +203,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
     ) {
         validateNotNullConstraint(ectx.rowHandler(), row);
 
-        RelDataType rowType = descriptor().rowType(ectx.getTypeFactory(), null);
+        RelDataType rowType = descriptor().insertRowType(ectx.getTypeFactory());
         Supplier<RowSchema> schemaSupplier = makeSchemaSupplier(ectx);
 
         RowT validatedRow = TypeUtils.validateCharactersOverflowAndTrimIfPossible(rowType, ectx.rowHandler(), row, schemaSupplier);
@@ -234,7 +234,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
 
         validateNotNullConstraint(ectx.rowHandler(), rows);
 
-        RelDataType rowType = descriptor().rowType(ectx.getTypeFactory(), null);
+        RelDataType rowType = descriptor().insertRowType(ectx.getTypeFactory());
         Supplier<RowSchema> schemaSupplier = makeSchemaSupplier(ectx);
 
         rows = validateCharactersOverflowAndTrimIfPossible(rowType, ectx.rowHandler(), rows, schemaSupplier);
@@ -351,7 +351,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
 
                     RowHandler<RowT> handler = ectx.rowHandler();
                     IgniteTypeFactory typeFactory = ectx.getTypeFactory();
-                    RowSchema rowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(desc.rowType(typeFactory, null)));
+                    RowSchema rowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(desc.insertRowType(typeFactory)));
                     RowHandler.RowFactory<RowT> rowFactory = handler.factory(rowSchema);
 
                     ArrayList<String> conflictRows = new ArrayList<>(response.size());
@@ -417,7 +417,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
                 return rowSchema;
             }
 
-            RelDataType rowType = descriptor().rowType(ectx.getTypeFactory(), null);
+            RelDataType rowType = descriptor().insertRowType(ectx.getTypeFactory());
             rowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rowType));
             return rowSchema;
         };

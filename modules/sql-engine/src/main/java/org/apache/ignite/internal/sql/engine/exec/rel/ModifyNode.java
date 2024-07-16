@@ -22,7 +22,8 @@ import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.IntStream;
+import java.util.function.Predicate;
+import java.util.stream.StreamSupport;
 import org.apache.calcite.rel.core.TableModify;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
@@ -120,7 +121,11 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
         this.updateColumns = updateColumns;
 
         this.mapping = mapping(table.descriptor(), updateColumns);
-        this.insertRowMapping = IntStream.range(0, table.descriptor().columnsCount()).toArray();
+
+        this.insertRowMapping = StreamSupport.stream(table.descriptor().spliterator(), false)
+                        .filter(Predicate.not(ColumnDescriptor::system))
+                        .mapToInt(ColumnDescriptor::logicalIndex)
+                        .toArray();
     }
 
     /** {@inheritDoc} */
@@ -432,7 +437,7 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
             return null;
         }
 
-        int columnCount = descriptor.columnsCount();
+        int columnCount = descriptor.storedColumns();
 
         int[] mapping = new int[columnCount];
 
@@ -443,6 +448,8 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
         for (int i = 0; i < updateColumns.size(); i++) {
             String columnName = updateColumns.get(i);
             ColumnDescriptor columnDescriptor = descriptor.columnDescriptor(columnName);
+
+            assert !columnDescriptor.system() : "System column can't be updated";
 
             mapping[columnDescriptor.logicalIndex()] = columnCount + i;
         }

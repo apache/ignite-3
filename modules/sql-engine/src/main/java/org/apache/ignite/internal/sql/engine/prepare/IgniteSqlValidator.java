@@ -392,7 +392,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         SqlIdentifier alias = call.getAlias() != null ? call.getAlias() :
                 new SqlIdentifier(deriveAlias(targetTable, 0), SqlParserPos.ZERO);
 
-        igniteTable.getRowType(typeFactory)
+        igniteTable.rowTypeForUpdate((IgniteTypeFactory) typeFactory)
                 .getFieldNames().stream()
                 .map(name -> alias.plus(name, SqlParserPos.ZERO))
                 .forEach(selectList::add);
@@ -876,8 +876,13 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         return (IgniteTypeFactory) typeFactory;
     }
 
-    private boolean isSystemFieldName(String alias) {
-        return Commons.implicitPkEnabled() && Commons.IMPLICIT_PK_COL_NAME.equals(alias);
+    private static boolean isSystemFieldName(String alias) {
+        return (Commons.implicitPkEnabled() && Commons.IMPLICIT_PK_COL_NAME.equals(alias))
+                || alias.equals(Commons.PART_COL_NAME);
+    }
+
+    public static boolean isReservedColumnName(String columnName) {
+        return Commons.IMPLICIT_PK_COL_NAME.equals(columnName) || Commons.PART_COL_NAME.equals(columnName);
     }
 
     // We use these scopes to filter out valid usages of a ROW operator.
@@ -930,6 +935,14 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     /** {@inheritDoc} */
     @Override
     public void validateCall(SqlCall call, SqlValidatorScope scope) {
+        if (call.getKind() == SqlKind.AS) {
+            String alias = deriveAlias(call, 0);
+
+            if (isSystemFieldName(alias)) {
+                throw newValidationError(call, IgniteResource.INSTANCE.illegalAlias(alias));
+            }
+        }
+
         CallScope callScope = callScopes.peek();
         boolean validatingRowOperator = call.getOperator() == SqlStdOperatorTable.ROW;
         boolean insideValues = callScope == CallScope.VALUES;
