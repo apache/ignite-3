@@ -146,9 +146,8 @@ public class CreateTableCommand extends AbstractTableCommand {
         String indexName = pkIndexName(tableName);
 
         ensureNoTableIndexOrSysViewExistsWithGivenName(schema, indexName);
-        int txWaitCatalogVersion = catalog.version() + 1;
 
-        CatalogIndexDescriptor pkIndex = createIndexDescriptor(txWaitCatalogVersion, indexName, pkIndexId, tableId);
+        CatalogIndexDescriptor pkIndex = createIndexDescriptor(indexName, pkIndexId, tableId);
 
         return List.of(
                 new NewTableEntry(table),
@@ -204,7 +203,7 @@ public class CreateTableCommand extends AbstractTableCommand {
         }
     }
 
-    private CatalogIndexDescriptor createIndexDescriptor(int txWaitCatalogVersion, String indexName, int pkIndexId, int tableId) {
+    private CatalogIndexDescriptor createIndexDescriptor(String indexName, int pkIndexId, int tableId) {
         CatalogIndexDescriptor pkIndex;
 
         if (primaryKey instanceof TableSortedPrimaryKey) {
@@ -224,7 +223,6 @@ public class CreateTableCommand extends AbstractTableCommand {
                     tableId,
                     true,
                     AVAILABLE,
-                    txWaitCatalogVersion,
                     indexColumns
             );
         } else if (primaryKey instanceof TableHashPrimaryKey) {
@@ -235,7 +233,6 @@ public class CreateTableCommand extends AbstractTableCommand {
                     tableId,
                     true,
                     AVAILABLE,
-                    txWaitCatalogVersion,
                     hashPrimaryKey.columns()
             );
         } else {

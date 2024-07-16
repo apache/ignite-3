@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.partition.replicator.network.command;
 
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
@@ -36,12 +37,8 @@ public interface TimedBinaryRowMessage extends NetworkMessage {
      */
     @Nullable BinaryRowMessage binaryRowMessage();
 
-    /**
-     * Gets a timestamp.
-     *
-     * @return Timestamp as long.
-     */
-    long timestamp();
+    /** Timestamp. */
+    @Nullable HybridTimestamp timestamp();
 
     /**
      * Gets a binary row form this message or {@code null} if the binary row message is {@code null}.

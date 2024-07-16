@@ -366,7 +366,6 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                 catalogTableDescriptor.id(),
                 false,
                 AVAILABLE,
-                catalogService.latestCatalogVersion(),
                 List.of(new CatalogIndexColumnDescriptor("STRKEY", ASC_NULLS_LAST))
         );
 
@@ -376,7 +375,6 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                 catalogTableDescriptor.id(),
                 false,
                 AVAILABLE,
-                catalogService.latestCatalogVersion(),
                 List.of(new CatalogIndexColumnDescriptor("STRKEY", ASC_NULLS_LAST))
         );
 
@@ -419,7 +417,6 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                 catalogTableDescriptor.id(),
                 true,
                 AVAILABLE,
-                catalogService.latestCatalogVersion(),
                 List.of("STRKEY")
         );
 
@@ -429,7 +426,6 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                 catalogTableDescriptor.id(),
                 true,
                 AVAILABLE,
-                catalogService.latestCatalogVersion(),
                 List.of("STRKEY")
         );
 
@@ -1054,7 +1050,6 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                 tableId,
                 false,
                 AVAILABLE,
-                catalogService.latestCatalogVersion(),
                 List.of(new CatalogIndexColumnDescriptor("STRKEY", ASC_NULLS_LAST))
         );
 
@@ -1064,7 +1059,6 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                 tableId,
                 true,
                 AVAILABLE,
-                catalogService.latestCatalogVersion(),
                 List.of("STRKEY")
         );
 
@@ -1074,7 +1068,6 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                 tableId,
                 true,
                 AVAILABLE,
-                catalogService.latestCatalogVersion(),
                 List.of(pkColumnName)
         );
 

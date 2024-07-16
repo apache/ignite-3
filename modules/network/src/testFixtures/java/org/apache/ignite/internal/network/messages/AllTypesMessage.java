@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteUuid;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
@@ -124,4 +125,6 @@ public interface AllTypesMessage extends NetworkMessage, Serializable {
     @IgniteToStringInclude(sensitive = true)
     @Nullable
     String sensitiveString();
+
+    @Nullable HybridTimestamp hybridTs();
 }

@@ -30,6 +30,7 @@ import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.PrimitiveType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteUuid;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.processor.ProcessingException;
@@ -140,8 +141,10 @@ class BaseMethodNameResolver {
             return "Map";
         } else if (typeUtils.isSameType(parameterType, ByteBuffer.class)) {
             return "ByteBuffer";
-        } else {
-            throw new ProcessingException("Unsupported reference type for message (de-)serialization: " + parameterType);
+        } else if (typeUtils.isSameType(parameterType, HybridTimestamp.class)) {
+            return "HybridTimestamp";
         }
+
+        throw new ProcessingException("Unsupported reference type for message (de-)serialization: " + parameterType);
     }
 }
