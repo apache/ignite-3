@@ -771,6 +771,7 @@ public class ItTxTestCluster {
                         clientTransactionInflights,
                         500,
                         0,
+                        null,
                         null
                 ),
                 new DummySchemaManagerImpl(schemaDescriptor),

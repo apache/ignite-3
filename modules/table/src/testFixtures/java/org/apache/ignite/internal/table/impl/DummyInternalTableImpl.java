@@ -257,6 +257,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 transactionInflights,
                 3_000,
                 0,
+                null,
                 null
         );
 
