@@ -42,7 +42,7 @@ public class StreamerReceiverJob implements ComputeJob<byte[], byte[]> {
         ByteBuffer buf = ByteBuffer.wrap(payload).order(ByteOrder.LITTLE_ENDIAN);
         int payloadElementCount = buf.getInt();
 
-        SteamerReceiverInfo receiverInfo = StreamerReceiverSerializer.deserialize(buf.slice().order(ByteOrder.LITTLE_ENDIAN), payloadElementCount);
+        SteamerReceiverInfo receiverInfo = StreamerReceiverSerializer.deserializeReceiverInfo(buf.slice().order(ByteOrder.LITTLE_ENDIAN), payloadElementCount);
 
         ClassLoader classLoader = ((JobExecutionContextImpl) context).classLoader();
         Class<DataStreamerReceiver<Object, Object, Object>> receiverClass = ComputeUtils.receiverClass(

@@ -67,7 +67,7 @@ public class ClientStreamerWithReceiverBatchSendRequest {
             return table.partitionManager()
                     .primaryReplicaAsync(new HashPartition(partition))
                     .thenCompose(node -> table.internalTable().runReceiverAsync(payloadArr, node, deploymentUnits))
-                    .thenAccept(res -> StreamerReceiverSerializer.serializeReceiverJobResultsForClient(out, returnResults ? res : null));
+                    .thenAccept(res -> StreamerReceiverSerializer.serializeReceiverResultsForClient(out, returnResults ? res : null));
         });
     }
 }

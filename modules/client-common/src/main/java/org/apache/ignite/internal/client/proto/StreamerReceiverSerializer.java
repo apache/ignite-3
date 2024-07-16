@@ -41,7 +41,7 @@ public class StreamerReceiverSerializer {
      * @param receiverArgs Receiver arguments.
      * @param items Items.
      */
-    public static <A> void serialize(ClientMessagePacker w, String receiverClassName, A receiverArgs,
+    public static <A> void serializeReceiverInfo(ClientMessagePacker w, String receiverClassName, A receiverArgs,
             @Nullable Marshaler<A, byte[]> receiverArgsMarshaler, Collection<?> items) {
         // className + arg + items size + item type + items.
         int binaryTupleSize = 1 + 3 + 1 + 1 + items.size();
@@ -63,7 +63,7 @@ public class StreamerReceiverSerializer {
      * @param elementCount Number of elements in the binary tuple.
      * @return Streamer receiver info.
      */
-    public static SteamerReceiverInfo deserialize(ByteBuffer bytes, int elementCount) {
+    public static SteamerReceiverInfo deserializeReceiverInfo(ByteBuffer bytes, int elementCount) {
         var reader = new BinaryTupleReader(elementCount, bytes);
 
         int readerIndex = 0;
@@ -80,28 +80,6 @@ public class StreamerReceiverSerializer {
         List<Object> items = ClientBinaryTupleUtils.readCollectionFromBinaryTuple(reader, readerIndex);
 
         return new SteamerReceiverInfo(receiverClassName, receiverArgs, items);
-    }
-
-    /**
-     * Serializes receiver results.
-     *
-     * @param w Writer.
-     * @param receiverJobResults Receiver results serialized by {@link #serializeReceiverJobResults}.
-     */
-    public static void serializeReceiverJobResultsForClient(ClientMessagePacker w, byte @Nullable [] receiverJobResults) {
-        if (receiverJobResults == null || receiverJobResults.length == 0) {
-            w.packNil();
-            return;
-        }
-
-        int numElementsSize = 4;
-        int binaryTupleSize = receiverJobResults.length - numElementsSize;
-
-        int numElements = ByteBuffer.wrap(receiverJobResults).order(ByteOrder.LITTLE_ENDIAN).getInt();
-
-        w.packInt(numElements);
-        w.packBinaryHeader(binaryTupleSize);
-        w.writePayload(receiverJobResults, numElementsSize, binaryTupleSize);
     }
 
     /**
@@ -134,12 +112,34 @@ public class StreamerReceiverSerializer {
     }
 
     /**
-     * Deserializes receiver results.
+     * Serializes receiver results.
+     *
+     * @param w Writer.
+     * @param receiverJobResults Receiver results serialized by {@link #serializeReceiverJobResults}.
+     */
+    public static void serializeReceiverResultsForClient(ClientMessagePacker w, byte @Nullable [] receiverJobResults) {
+        if (receiverJobResults == null || receiverJobResults.length == 0) {
+            w.packNil();
+            return;
+        }
+
+        int numElementsSize = 4;
+        int binaryTupleSize = receiverJobResults.length - numElementsSize;
+
+        int numElements = ByteBuffer.wrap(receiverJobResults).order(ByteOrder.LITTLE_ENDIAN).getInt();
+
+        w.packInt(numElements);
+        w.packBinaryHeader(binaryTupleSize);
+        w.writePayload(receiverJobResults, numElementsSize, binaryTupleSize);
+    }
+
+    /**
+     * Deserializes receiver results from {@link #serializeReceiverResultsForClient} method.
      *
      * @param r Reader.
      * @return Receiver results.
      */
-    public static @Nullable <R> List<R> deserializeResults(ClientMessageUnpacker r) {
+    public static @Nullable <R> List<R> deserializeReceiverResultsOnClient(ClientMessageUnpacker r) {
         if (r.tryUnpackNil()) {
             return null;
         }
