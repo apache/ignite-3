@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.placementdriver.negotiation.LeaseAgreem
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -127,7 +126,7 @@ public class LeaseNegotiator {
      * @param lease Lease to negotiate.
      */
     public void createAgreement(ReplicationGroupId groupId, Lease lease) {
-        leaseToNegotiate.put(groupId, new LeaseAgreement(lease, new CompletableFuture<>()));
+        leaseToNegotiate.put(groupId, new LeaseAgreement(lease));
     }
 
     /**

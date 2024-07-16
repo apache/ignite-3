@@ -466,7 +466,7 @@ public class LeaseUpdater {
                 }
 
                 if (!success) {
-                    LOG.debug("Lease update invocation failed");
+                    LOG.warn("Lease update invocation failed because of concurrent update.");
 
                     cancelAgreements(toBeNegotiated.keySet());
 

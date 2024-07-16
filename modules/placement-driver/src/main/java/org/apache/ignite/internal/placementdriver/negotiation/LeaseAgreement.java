@@ -45,7 +45,7 @@ public class LeaseAgreement {
      * The agreement, which has not try negotiating yet. We assume that it is {@link #ready()} and not {@link #isAccepted()}
      * which allows both initiation and retries of negotiation.
      */
-    public static final LeaseAgreement UNDEFINED_AGREEMENT = new LeaseAgreement(null, nullCompletedFuture());
+    static final LeaseAgreement UNDEFINED_AGREEMENT = new LeaseAgreement(null, nullCompletedFuture());
 
     /** Lease. */
     private final Lease lease;
@@ -57,9 +57,18 @@ public class LeaseAgreement {
      * The constructor.
      *
      * @param lease Lease.
+     */
+    public LeaseAgreement(Lease lease) {
+        this(lease, new CompletableFuture<>());
+    }
+
+    /**
+     * The constructor for private use.
+     *
+     * @param lease Lease.
      * @param remoteNodeResponseFuture The future of response from the remote node which is negotiating the agreement.
      */
-    public LeaseAgreement(Lease lease, CompletableFuture<LeaseGrantedMessageResponse> remoteNodeResponseFuture) {
+    private LeaseAgreement(Lease lease, CompletableFuture<LeaseGrantedMessageResponse> remoteNodeResponseFuture) {
         this.lease = lease;
         this.responseFut = requireNonNull(remoteNodeResponseFuture);
     }
