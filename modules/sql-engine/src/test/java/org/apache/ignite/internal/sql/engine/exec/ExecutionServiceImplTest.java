@@ -24,7 +24,6 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -157,7 +156,6 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.sql.SqlException;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -933,40 +931,47 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     @Test
     @Tag(CUSTOM_CLUSTER_SETUP_TAG)
     public void timeoutFiredOnInitialization() throws Throwable {
-        CountDownLatch latch = new CountDownLatch(1);
+        CountDownLatch mappingsCacheAccessBlock = new CountDownLatch(1);
         AtomicReference<Throwable> exHolder = new AtomicReference<>();
 
-        setupCluster(new BlockingCacheFactory(latch), name -> new TestSingleThreadQueryExecutor(name, exHolder));
+        setupCluster(
+                new BlockingCacheFactory(mappingsCacheAccessBlock),
+                nodeName -> new TestSingleThreadQueryExecutor(nodeName, exHolder)
+        );
 
         QueryPlan plan = prepare("SELECT * FROM test_tbl", operationContext(null).build());
 
         QueryCancel queryCancel = new QueryCancel();
-        queryCancel.setTimeout(scheduler, 50);
-        CompletableFuture<Void> timeoutFut = queryCancel.timeoutFuture();
-        assertNotNull(timeoutFut);
+        CompletableFuture<Void> timeoutFut = queryCancel.setTimeout(scheduler, 50);
 
         SqlOperationContext ctx = operationContext(null)
                 .cancel(queryCancel)
                 .build();
 
-        CompletableFuture<AsyncDataCursor<InternalSqlRow>> execPlanFut = runAsync(() -> executionServices.get(0).executePlan(plan, ctx));
+        CompletableFuture<AsyncDataCursor<InternalSqlRow>> execPlanFut =
+                runAsync(() -> executionServices.get(0).executePlan(plan, ctx));
 
+        // Wait until timeout is fired and unblock mapping service.
         assertThat(timeoutFut, willCompleteSuccessfully());
 
-        latch.countDown();
+        mappingsCacheAccessBlock.countDown();
 
-        AsyncDataCursor<InternalSqlRow> cursor = execPlanFut.get();
+        AsyncDataCursor<InternalSqlRow> cursor = await(execPlanFut);
+        IgniteTestUtils.assertThrowsWithCause(
+                () -> await(cursor.requestNextAsync(9)),
+                SqlException.class,
+                "Query timeout"
+        );
 
-        assertThat(cursor.requestNextAsync(9), willThrowFast(SqlException.class));
-
+        // Wait until all tasks are processed.
         for (QueryTaskExecutor exec : executers) {
             TestSingleThreadQueryExecutor executor = (TestSingleThreadQueryExecutor) exec;
 
-            assertTrue(waitForCondition(executor.taskQueue::isEmpty, 5_000));
+            assertTrue(waitForCondition(executor.queue::isEmpty, 5_000));
         }
 
+        // Check for errors.
         Throwable err = exHolder.get();
-
         if (err != null) {
             throw err;
         }
@@ -1476,6 +1481,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         }
     }
 
+    /** A factory that creates a cache that may block when the {@link Cache#compute(Object, BiFunction)} method is called. */
     private static class BlockingCacheFactory implements CacheFactory {
         private final CountDownLatch waitLatch;
 
@@ -1513,23 +1519,28 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         }
     }
 
+    /** Test query tasks executor with a single thread and the ability to monitor the task queue. */
     private static class TestSingleThreadQueryExecutor implements QueryTaskExecutor {
-        private final ThreadPoolExecutor executor;
-        private final LinkedBlockingQueue<Runnable> taskQueue = new LinkedBlockingQueue<>();
+        private final LinkedBlockingQueue<Runnable> queue = new LinkedBlockingQueue<>();
         private final AtomicInteger threadCounter = new AtomicInteger();
-        private final AtomicReference<Throwable> exHolder;
+        private final AtomicReference<Throwable> errHolder;
+        private final ThreadPoolExecutor executor;
 
-        TestSingleThreadQueryExecutor(String threadPrefix, AtomicReference<Throwable> exHolder) {
-            executor = new ThreadPoolExecutor(1, 1, Long.MAX_VALUE,
-                    TimeUnit.MILLISECONDS, taskQueue, r -> new Thread(r, threadPrefix + '#' + "thread-" + threadCounter.getAndIncrement()));
-
-            this.exHolder = exHolder;
-
+        TestSingleThreadQueryExecutor(String nodeName, AtomicReference<Throwable> errHolder) {
+            executor = new ThreadPoolExecutor(
+                    1,
+                    1,
+                    0,
+                    TimeUnit.MILLISECONDS,
+                    queue, task -> new Thread(task, nodeName + "#thread-" + threadCounter.getAndIncrement())
+            );
             executor.allowCoreThreadTimeOut(false);
+
+            this.errHolder = errHolder;
         }
 
         @Override
-        public void execute(@NotNull Runnable command) {
+        public void execute(Runnable command) {
             executor.execute(wrapTask(command));
         }
 
@@ -1553,13 +1564,13 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
             executor.shutdownNow();
         }
 
-        Runnable wrapTask(Runnable task) {
+        private Runnable wrapTask(Runnable task) {
             return () -> {
                 try {
                     task.run();
                 } catch (Throwable t) {
-                    if (!exHolder.compareAndSet(null, t)) {
-                        exHolder.get().addSuppressed(t);
+                    if (!errHolder.compareAndSet(null, t)) {
+                        errHolder.get().addSuppressed(t);
                     }
                 }
             };

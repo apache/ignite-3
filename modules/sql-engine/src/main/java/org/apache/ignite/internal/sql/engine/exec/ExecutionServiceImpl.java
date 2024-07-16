@@ -769,7 +769,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         private final AtomicBoolean cancelled = new AtomicBoolean();
 
-        private final Map<RemoteFragmentKey, CompletableFuture<Void>> remoteFragmentInitCompletion = new ConcurrentHashMap<>();
+        private final Map<RemoteFragmentKey, CompletableFuture<Void>> remoteFragmentInitCompletion = new HashMap<>();
 
         private final Queue<AbstractNode<RowT>> localFragments = new ConcurrentLinkedQueue<>();
 
@@ -777,6 +777,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         private final @Nullable CompletableFuture<Void> timeoutFut;
 
+        /** Mutex for {@link #remoteFragmentInitCompletion} modifications. */
         private final Object initMux = new Object();
 
         private volatile Long rootFragmentId = null;
@@ -991,7 +992,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 }
 
                 try {
-                    initializeAndSendFragments(tx, multiStepPlan, mappedFragments);
+                    sendFragments(tx, multiStepPlan, mappedFragments);
                 } catch (Throwable t) {
                     LOG.warn("Unexpected exception during query initialization", t);
 
@@ -1032,7 +1033,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             };
         }
 
-        private void initializeAndSendFragments(InternalTransaction tx, MultiStepPlan multiStepPlan, List<MappedFragment> mappedFragments) {
+        private void sendFragments(InternalTransaction tx, MultiStepPlan multiStepPlan, List<MappedFragment> mappedFragments) {
             // we rely on the fact that the very first fragment is a root. Otherwise we need to handle
             // the case when a non-root fragment will fail before the root is processed.
             assert !nullOrEmpty(mappedFragments) && mappedFragments.get(0).fragment().rootFragment()
