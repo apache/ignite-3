@@ -44,7 +44,7 @@ import org.apache.ignite.network.ClusterNode;
  *
  * @param <R> the type of the result of the job.
  */
-class ComputeJobFailover<R> {
+class ComputeJobFailover {
     private static final IgniteLogger LOG = Loggers.forClass(ComputeJobFailover.class);
 
     /**
@@ -82,7 +82,7 @@ class ComputeJobFailover<R> {
     /**
      * Context of the called job. Captures deployment units, jobClassName and arguments.
      */
-    private final RemoteExecutionContext<?, R> jobContext;
+    private final RemoteExecutionContext<?, Object> jobContext;
 
     /**
      * Creates a per-job instance.
@@ -124,9 +124,9 @@ class ComputeJobFailover<R> {
      *
      * @return JobExecution with the result of the job and the status of the job.
      */
-    JobExecution<R> failSafeExecute() {
-        JobExecution<R> jobExecution = launchJobOn(runningWorkerNode.get());
-        jobContext.initJobExecution(new FailSafeJobExecution<>(jobExecution));
+    JobExecution<Object> failSafeExecute() {
+        JobExecution<Object> jobExecution = launchJobOn(runningWorkerNode.get());
+        jobContext.initJobExecution(new FailSafeJobExecution<Object>(jobExecution));
 
         LogicalTopologyEventListener nodeLeftEventListener = new OnNodeLeft();
         logicalTopologyService.addEventListener(nodeLeftEventListener);
@@ -135,7 +135,7 @@ class ComputeJobFailover<R> {
         return jobContext.failSafeJobExecution();
     }
 
-    private JobExecution<R> launchJobOn(ClusterNode runningWorkerNode) {
+    private JobExecution<Object> launchJobOn(ClusterNode runningWorkerNode) {
         if (runningWorkerNode.equals(topologyService.localMember())) {
             return computeComponent.executeLocally(
                     jobContext.executionOptions(), jobContext.units(), jobContext.jobClassName(), jobContext.arg()
@@ -181,7 +181,7 @@ class ComputeJobFailover<R> {
                         LOG.info("Restarting the job {} on node {}.", jobContext.jobClassName(), nextWorker.name());
 
                         runningWorkerNode.set(nextWorker);
-                        JobExecution<R> jobExecution = launchJobOn(runningWorkerNode.get());
+                        JobExecution<Object> jobExecution = launchJobOn(runningWorkerNode.get());
                         jobContext.updateJobExecution(jobExecution);
                     });
         }

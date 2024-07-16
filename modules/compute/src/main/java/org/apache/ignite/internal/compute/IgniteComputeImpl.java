@@ -111,13 +111,13 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
             if (nodes.size() == 1) {
                 ClusterNode node = nodes.iterator().next();
                 if (node.id().equals(topologyService.localMember().id())) {
-                    return executeAsyncWithFailover(
+                    return (JobExecution<R>) executeAsyncWithFailover(
                             nodes, descriptor.units(), descriptor.jobClassName(), descriptor.options(), args
                     );
                 }
             }
 
-            return executeAsyncWithFailover(
+            return (JobExecution<R>) executeAsyncWithFailover(
                     nodes, descriptor.units(), descriptor.jobClassName(), descriptor.options(),
                     argumentMarshaler == null ? args : argumentMarshaler.marshal(args)
             );
@@ -133,7 +133,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
             if (mapper != null) {
                 jobFut = requiredTable(tableName)
                         .thenCompose(table -> primaryReplicaForPartitionByMappedKey(table, key, mapper)
-                                .thenApply(primaryNode -> executeOnOneNodeWithFailover(
+                                .thenApply(primaryNode -> (JobExecution<R>) executeOnOneNodeWithFailover(
                                         primaryNode,
                                         new NextColocatedWorkerSelector<>(placementDriver, topologyService, clock, table, key, mapper),
                                         descriptor.units(),
@@ -165,7 +165,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
     }
 
     @Override
-    public <R> JobExecution<R> executeAsyncWithFailover(
+    public JobExecution<Object> executeAsyncWithFailover(
             Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,
@@ -188,15 +188,14 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
 
         NextWorkerSelector selector = new DeqNextWorkerSelector(new ConcurrentLinkedDeque<>(candidates));
 
-        return new JobExecutionWrapper<>(
-                executeOnOneNodeWithFailover(
-                        targetNode,
-                        selector,
-                        units,
-                        jobClassName,
-                        options,
-                        args
-                ));
+        return executeOnOneNodeWithFailover(
+                targetNode,
+                selector,
+                units,
+                jobClassName,
+                options,
+                args
+        );
     }
 
     private static ClusterNode randomNode(Set<ClusterNode> nodes) {
@@ -210,7 +209,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
         return iterator.next();
     }
 
-    private <T, R> JobExecution<R> executeOnOneNodeWithFailover(
+    private <T, R> JobExecution<Object> executeOnOneNodeWithFailover(
             ClusterNode targetNode,
             NextWorkerSelector nextWorkerSelector,
             List<DeploymentUnit> units,
@@ -256,7 +255,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
             JobExecutionOptions options,
             Object arg) {
         return primaryReplicaForPartitionByTupleKey(table, key)
-                .thenApply(primaryNode -> executeOnOneNodeWithFailover(
+                .thenApply(primaryNode -> (JobExecution<R>) executeOnOneNodeWithFailover(
                         primaryNode,
                         new NextColocatedWorkerSelector<>(placementDriver, topologyService, clock, table, key),
                         units, jobClassName, options, arg
@@ -318,7 +317,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
                             if (topologyService.getByConsistentId(node.name()) == null) {
                                 return new FailedExecution<>(new NodeNotFoundException(Set.of(node.name())));
                             }
-                            return new JobExecutionWrapper<>(executeOnOneNodeWithFailover(node, CompletableFutures::nullCompletedFuture,
+                            return new JobExecutionWrapper<>((JobExecution<R>) executeOnOneNodeWithFailover(node, CompletableFutures::nullCompletedFuture,
                                     descriptor.units(), descriptor.jobClassName(), descriptor.options(),
                                     argumentMarshaler == null ? args : argumentMarshaler.marshal(args)));
                         }));

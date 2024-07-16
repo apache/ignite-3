@@ -49,7 +49,7 @@ public interface IgniteComputeInternal extends IgniteCompute {
      * @param payload Arguments of the job.
      * @return CompletableFuture Job result.
      */
-    <R> JobExecution<R> executeAsyncWithFailover(
+    JobExecution<Object> executeAsyncWithFailover(
             Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,

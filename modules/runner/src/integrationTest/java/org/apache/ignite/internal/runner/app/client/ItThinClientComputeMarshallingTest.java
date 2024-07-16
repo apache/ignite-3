@@ -76,7 +76,28 @@ public class ItThinClientComputeMarshallingTest extends ItAbstractThinClientTest
         );
 
         // Then both client and server marshaler were called.
-        assertEquals("Input:marshalledOnClient:unmarshalledOnServer", result);
+        assertEquals("Input:marshalledOnClient:unmarshalledOnServer:processedOnServer", result);
+    }
+
+    @Test
+    void customResultMarshaller() {
+        // Given entry node that are not supposed to execute job.
+        var node = server(0);
+        // And another target node.
+        var targetNode = node(1);
+
+        // When run job with custom marshaller for string result.
+        var compute = computeClientOn(node);
+        String result = compute.execute(
+                JobTarget.node(targetNode),
+                JobDescriptor.builder(ResultMarshalingJob.class)
+                        .resultMarshaller(new ResultStringUnMarshaller())
+                        .build(),
+                "Input"
+        );
+
+        // Then both client and server marshaler were called.
+        assertEquals("Input:processedOnServer:marshalledOnServer:unmarshalledOnClient", result);
     }
 
     private IgniteCompute computeClientOn(Ignite node) {
@@ -96,7 +117,7 @@ public class ItThinClientComputeMarshallingTest extends ItAbstractThinClientTest
     static class ArgMarshalingJob implements ComputeJob<String, String> {
         @Override
         public CompletableFuture<String> executeAsync(JobExecutionContext context, @Nullable String arg) {
-            return completedFuture(arg);
+            return completedFuture(arg + ":processedOnServer");
         }
 
         @Override
@@ -110,8 +131,14 @@ public class ItThinClientComputeMarshallingTest extends ItAbstractThinClientTest
         }
     }
 
-    static class ResultMarshalingJob implements ComputeJob<String, String> {
+    static class ResultStringUnMarshaller implements ByteArrayMarshaler<String> {
+        @Override
+        public @Nullable String unmarshal(byte @Nullable [] raw) {
+            return ByteArrayMarshaler.super.unmarshal(raw) + ":unmarshalledOnClient";
+        }
+    }
 
+    static class ResultMarshalingJob implements ComputeJob<String, String> {
         @Override
         public CompletableFuture<String> executeAsync(JobExecutionContext context, @Nullable String arg) {
             return completedFuture(arg + ":processedOnServer");

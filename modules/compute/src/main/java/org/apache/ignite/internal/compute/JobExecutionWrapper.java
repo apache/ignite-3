@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.convertT
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobState;
+import org.apache.ignite.marshaling.Marshaler;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -30,11 +31,13 @@ import org.jetbrains.annotations.Nullable;
  *
  * @param <R> Result type.
  */
-class JobExecutionWrapper<R> implements JobExecution<R> {
+public class JobExecutionWrapper<R> implements JobExecution<R> {
     private final JobExecution<R> delegate;
+    private final Marshaler<R, byte[]> resultMarshaller;
 
     JobExecutionWrapper(JobExecution<R> delegate) {
         this.delegate = delegate;
+        this.resultMarshaller = null;
     }
 
     @Override
@@ -55,5 +58,9 @@ class JobExecutionWrapper<R> implements JobExecution<R> {
     @Override
     public CompletableFuture<@Nullable Boolean> changePriorityAsync(int newPriority) {
         return convertToPublicFuture(delegate.changePriorityAsync(newPriority));
+    }
+
+    public Marshaler<R, byte[]> resultMarshaller() {
+        return this.resultMarshaller;
     }
 }

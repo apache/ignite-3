@@ -17,28 +17,23 @@
 
 package org.apache.ignite.internal.compute;
 
-import java.util.List;
 import org.apache.ignite.compute.JobExecution;
-import org.apache.ignite.deployment.DeploymentUnit;
+import org.apache.ignite.marshaling.Marshaler;
 
-/**
- * Compute job starter interface.
- */
-public interface JobStarter {
-    /**
-     * Start compute job.
-     *
-     * @param options Compute job execution options.
-     * @param units Deployment units. Can be empty.
-     * @param jobClassName Name of the job class to execute.
-     * @param args Arguments of the job.
-     * @param <R> Job result type.
-     * @return CompletableFuture Job result.
-     */
-    JobExecution<Object> start(
-            ExecutionOptions options,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            Object args
-    );
+public class MarshalerAwareJobExecution<R> {
+    private final JobExecution<R> delegate;
+    private final Marshaler<R, byte[]> marshaler;
+
+    public MarshalerAwareJobExecution(JobExecution<R> delegate, Marshaler<R, byte[]> marshaler) {
+        this.delegate = delegate;
+        this.marshaler = marshaler;
+    }
+
+    public JobExecution<R> execution() {
+        return delegate;
+    }
+
+    public Marshaler<R, byte[]> marshaler() {
+        return marshaler;
+    }
 }

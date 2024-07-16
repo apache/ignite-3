@@ -75,7 +75,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
     }
 
     @Override
-    public <T, R> JobExecutionInternal<R> executeJob(
+    public <T, R> JobExecutionInternal<Object> executeJob(
             ExecutionOptions options,
             Class<? extends ComputeJob<T, R>> jobClass,
             JobClassLoader classLoader,
@@ -86,10 +86,13 @@ public class ComputeExecutorImpl implements ComputeExecutor {
         AtomicBoolean isInterrupted = new AtomicBoolean();
         JobExecutionContext context = new JobExecutionContextImpl(ignite, isInterrupted, classLoader);
         ComputeJob<T, R> jobInstance = ComputeUtils.instantiateJob(jobClass);
-        Marshaler<T, byte[]> marshaller = jobInstance.inputMarshaler();
+        Marshaler<T, byte[]> inputMarshaller = jobInstance.inputMarshaler();
+        Marshaler<R, byte[]> resultMarshaller = jobInstance.resultMarshaler();
 
-        QueueExecution<R> execution = executorService.submit(
-                () -> jobInstance.executeAsync(context, unmarshallOrNotIfNull(marshaller, input)),
+        QueueExecution<Object> execution = executorService.submit(
+                () -> jobInstance.executeAsync(context, unmarshallOrNotIfNull(inputMarshaller, input)).thenApply(res -> {
+                    return resultMarshaller.marshal(res);
+                }),
                 options.priority(),
                 options.maxRetries()
         );
@@ -97,13 +100,13 @@ public class ComputeExecutorImpl implements ComputeExecutor {
         return new JobExecutionInternal<>(execution, isInterrupted);
     }
 
-    private static <T> @Nullable T unmarshallOrNotIfNull(@Nullable Marshaler<T, byte[]> marshaller, Object input) {
-        if (marshaller == null) {
+    private static <T> @Nullable T unmarshallOrNotIfNull(@Nullable Marshaler<T, byte[]> marshaler, Object input) {
+        if (marshaler == null) {
             return (T) input;
         }
 
         if (input instanceof byte[]) {
-            return marshaller.unmarshal((byte[]) input);
+            return marshaler.unmarshal((byte[]) input);
         }
 
         return (T) input;

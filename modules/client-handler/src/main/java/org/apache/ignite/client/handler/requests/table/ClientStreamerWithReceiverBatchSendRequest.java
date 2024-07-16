@@ -80,7 +80,7 @@ public class ClientStreamerWithReceiverBatchSendRequest {
 
             return table.partitionManager().primaryReplicaAsync(new HashPartition(partition)).thenCompose(primaryReplica -> {
                 // Use Compute to execute receiver on the target node with failover, class loading, scheduling.
-                JobExecution<List<Object>> jobExecution = compute.executeAsyncWithFailover(
+                JobExecution<Object> jobExecution = compute.executeAsyncWithFailover(
                         Set.of(primaryReplica),
                         deploymentUnits,
                         ReceiverRunnerJob.class.getName(),
@@ -100,7 +100,7 @@ public class ClientStreamerWithReceiverBatchSendRequest {
                                 ExceptionUtils.sneakyThrow(err);
                             }
 
-                            StreamerReceiverSerializer.serializeResults(out, returnResults ? res : null);
+                            StreamerReceiverSerializer.serializeResults(out, returnResults ? (List<Object>) res : null);
                             return null;
                         });
             });

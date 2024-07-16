@@ -38,6 +38,7 @@ import org.jetbrains.annotations.Nullable;
  * <p>An instance of native type provides necessary indirection to read any field as an instance of {@code java.lang.Object} to avoid
  * switching inside the row methods.
  */
+
 public enum NativeTypeSpec {
     /**
      * Native type representing a single-byte signed value.
