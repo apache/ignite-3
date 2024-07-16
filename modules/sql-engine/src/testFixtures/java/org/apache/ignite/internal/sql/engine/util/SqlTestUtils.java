@@ -201,7 +201,7 @@ public class SqlTestUtils {
      * @return Generated value for given SQL type.
      */
     public static Object generateValueByType(ColumnType type) {
-        return generateValueByType(RND.nextInt(), type);
+        return generateValueByType(RND.nextInt(Short.MAX_VALUE), type);
     }
 
     /**
@@ -236,7 +236,7 @@ public class SqlTestUtils {
             case NULL:
                 return null;
             case DECIMAL:
-                return BigDecimal.valueOf(base + ((double) base / 1000));
+                return BigDecimal.valueOf(base + ((double) base / 1000)).add(BigDecimal.valueOf(Long.MAX_VALUE));
             case NUMBER:
                 return BigInteger.valueOf(base).add(BigInteger.valueOf(Long.MAX_VALUE));
             case UUID:
