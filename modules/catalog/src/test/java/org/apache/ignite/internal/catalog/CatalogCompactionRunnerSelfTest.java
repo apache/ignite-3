@@ -80,6 +80,7 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -311,7 +312,11 @@ public class CatalogCompactionRunnerSelfTest extends BaseIgniteAbstractTest {
 
         when(messagingService.invoke(any(ClusterNode.class), any(CatalogMinimumRequiredTimeRequest.class), anyLong()))
                 .thenAnswer(invocation -> {
-                    Object obj = timeSupplier.apply(((ClusterNode) invocation.getArgument(0)).name());
+                    String nodeName = ((ClusterNode) invocation.getArgument(0)).name();
+
+                    assertThat("Coordinator shouldn't send messages to himself", nodeName, not(Matchers.equalTo(coordinator.name())));
+
+                    Object obj = timeSupplier.apply(nodeName);
 
                     // Simulate an exception when exchanging messages.
                     if (obj instanceof Exception) {
