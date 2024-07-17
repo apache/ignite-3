@@ -23,11 +23,12 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.ReceiverDescriptor;
+import org.jetbrains.annotations.Nullable;
 
 public interface StreamerReceiverRunner {
     <A, I, R> CompletableFuture<Collection<R>> runReceiverAsync(
             ReceiverDescriptor<A> receiver,
-            A receiverArg,
+            @Nullable A receiverArg,
             Collection<I> items,
             ClusterNode node,
             List<DeploymentUnit> deploymentUnits);

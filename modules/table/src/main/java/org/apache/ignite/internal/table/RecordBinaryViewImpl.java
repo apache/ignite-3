@@ -559,8 +559,11 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
             ReceiverDescriptor<A> receiver,
             @Nullable Flow.Subscriber<R> resultSubscriber,
             @Nullable DataStreamerOptions options,
-            A receiverArg) {
+            @Nullable A receiverArg) {
         Objects.requireNonNull(publisher);
+        Objects.requireNonNull(keyFunc);
+        Objects.requireNonNull(payloadFunc);
+        Objects.requireNonNull(receiver);
 
         var partitioner = new TupleStreamerPartitionAwarenessProvider(rowConverter.registry(), tbl.partitions());
 

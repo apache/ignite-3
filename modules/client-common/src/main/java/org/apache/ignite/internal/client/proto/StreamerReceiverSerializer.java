@@ -66,7 +66,7 @@ public class StreamerReceiverSerializer {
      */
     public static <A> byte[] serializeReceiverInfoWithElementCount(
             ReceiverDescriptor<A> receiver,
-            A receiverArgs,
+            @Nullable A receiverArgs,
             Collection<?> items) {
         // className + arg + items size + item type + items.
         int binaryTupleSize = 1 + 3 + 1 + 1 + items.size();

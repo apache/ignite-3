@@ -370,8 +370,12 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
     }
 
     @Override
-    public <A, I, R> CompletableFuture<Collection<R>> runReceiverAsync(ReceiverDescriptor<A> receiver, A receiverArg, Collection<I> items,
-            ClusterNode node, List<DeploymentUnit> deploymentUnits) {
+    public <A, I, R> CompletableFuture<Collection<R>> runReceiverAsync(
+            ReceiverDescriptor<A> receiver,
+            @Nullable A receiverArg,
+            Collection<I> items,
+            ClusterNode node,
+            List<DeploymentUnit> deploymentUnits) {
         var payload = StreamerReceiverSerializer.serializeReceiverInfoWithElementCount(receiver, receiverArg, items);
 
         return runReceiverAsync(payload, node, deploymentUnits)
