@@ -60,7 +60,6 @@ import org.apache.ignite.table.ReceiverDescriptor;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -630,6 +629,16 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
         return convertToPublicFuture(future);
     }
 
+    private PojoStreamerPartitionAwarenessProvider<R> streamerPartitioner() {
+        // Taking latest schema version for marshaller here because it's only used to calculate colocation hash, and colocation
+        // columns never change (so they are the same for all schema versions of the table),
+        return new PojoStreamerPartitionAwarenessProvider<>(
+                rowConverter.registry(),
+                tbl.partitions(),
+                marshaller(rowConverter.registry().lastKnownSchemaVersion())
+        );
+    }
+
     /** {@inheritDoc} */
     @Override
     protected Function<SqlRow, R> queryMapper(ResultSetMetadata meta, SchemaDescriptor schema) {
@@ -638,15 +647,5 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
         List<Column> cols = schema.columns();
 
         return (row) -> (R) marsh.readObject(new TupleReader(new SqlRowProjection(row, meta, columnNames(cols))), null);
-    }
-
-    private @NotNull PojoStreamerPartitionAwarenessProvider<R> streamerPartitioner() {
-        // Taking latest schema version for marshaller here because it's only used to calculate colocation hash, and colocation
-        // columns never change (so they are the same for all schema versions of the table),
-        return new PojoStreamerPartitionAwarenessProvider<>(
-                rowConverter.registry(),
-                tbl.partitions(),
-                marshaller(rowConverter.registry().lastKnownSchemaVersion())
-        );
     }
 }
