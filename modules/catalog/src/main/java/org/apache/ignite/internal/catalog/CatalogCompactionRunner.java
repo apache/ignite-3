@@ -101,6 +101,8 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
     private volatile CompletableFuture<Boolean> lastRunFuture = CompletableFutures.nullCompletedFuture();
 
+    private volatile String localMemberName;
+
     /**
      * Node that is considered to be a coordinator of compaction process.
      *
@@ -147,6 +149,8 @@ public class CatalogCompactionRunner implements IgniteComponent {
             messagingService.respond(sender, response, correlationId);
         });
 
+        localMemberName = topologyService.localMember().name();
+
         return CompletableFutures.nullCompletedFuture();
     }
 
@@ -186,7 +190,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
     /** Starts the catalog compaction routine. */
     CompletableFuture<Boolean> triggerCompaction(@Nullable HybridTimestamp lwm) {
-        if (lwm == null || !topologyService.localMember().name().equals(compactionCoordinatorNodeName)) {
+        if (lwm == null || !localMemberName.equals(compactionCoordinatorNodeName)) {
             return CompletableFutures.falseCompletedFuture();
         }
 
@@ -219,7 +223,13 @@ public class CatalogCompactionRunner implements IgniteComponent {
     }
 
     private CompletableFuture<Boolean> startCompaction(LogicalTopologySnapshot topologySnapshot) {
-        return determineGlobalMinimumRequiredTime(topologySnapshot.nodes())
+        long localMinimum = determineLocalMinimumRequiredTime();
+
+        if (catalogByTsNullable(localMinimum) == null) {
+            return CompletableFutures.falseCompletedFuture();
+        }
+
+        return determineGlobalMinimumRequiredTime(topologySnapshot.nodes(), localMinimum)
                 .thenComposeAsync(ts -> {
                     Catalog catalog = catalogByTsNullable(ts);
 
@@ -253,12 +263,17 @@ public class CatalogCompactionRunner implements IgniteComponent {
         }
     }
 
-    private CompletableFuture<Long> determineGlobalMinimumRequiredTime(Set<LogicalNode> logicalTopologyNodes) {
+    private CompletableFuture<Long> determineGlobalMinimumRequiredTime(Set<LogicalNode> logicalTopologyNodes, long localMinimumTs) {
         CatalogMinimumRequiredTimeRequest request = MESSAGES_FACTORY.catalogMinimumRequiredTimeRequest().build();
         List<CompletableFuture<?>> ackFutures = new ArrayList<>(logicalTopologyNodes.size());
         AtomicLong minimumRequiredTimeHolder = new AtomicLong(Long.MAX_VALUE);
+        String localMemberName0 = localMemberName;
 
         for (LogicalNode node : logicalTopologyNodes) {
+            if (localMemberName0.equals(node.name())) {
+                continue;
+            }
+
             CompletableFuture<NetworkMessage> fut = messagingService.invoke(node, request, ANSWER_TIMEOUT)
                     .whenComplete((msg, ex) -> {
                         if (ex != null) {
@@ -278,7 +293,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
         }
 
         return CompletableFutures.allOf(ackFutures)
-                .thenApply(ignore -> minimumRequiredTimeHolder.get());
+                .thenApply(ignore -> Math.min(minimumRequiredTimeHolder.get(), localMinimumTs));
     }
 
     private long determineLocalMinimumRequiredTime() {

@@ -33,6 +33,7 @@ import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
@@ -46,6 +47,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -231,7 +233,7 @@ public class CatalogCompactionRunnerSelfTest extends BaseIgniteAbstractTest {
             CompletableFuture<CompletableFuture<Boolean>> fut = IgniteTestUtils.runAsync(
                     () -> compactor.triggerCompaction(clockService.now()));
 
-            messageBlockLatch.await();
+            assertTrue(messageBlockLatch.await(5, TimeUnit.SECONDS));
 
             LogicalTopologySnapshot logicalTop = new LogicalTopologySnapshot(2, logicalNodes);
 
