@@ -253,7 +253,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     }
 
     private static boolean lookingForLatestVersion(HybridTimestamp timestamp) {
-        return timestamp == HybridTimestamp.MAX_VALUE;
+        return HybridTimestamp.MAX_VALUE.equals(timestamp);
     }
 
     ReadResult findLatestRowVersion(VersionChain versionChain) {
