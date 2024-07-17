@@ -127,7 +127,7 @@ public class ReceiverDescriptor<A> {
             return this;
         }
 
-        public Builder<A> argumentsMarshaler(@Nullable Marshaler<A, byte[]> argumentsMarshaller) {
+        public Builder<A> argumentsMarshaller(@Nullable Marshaler<A, byte[]> argumentsMarshaller) {
             this.argumentsMarshaller = argumentsMarshaller;
             return this;
         }
