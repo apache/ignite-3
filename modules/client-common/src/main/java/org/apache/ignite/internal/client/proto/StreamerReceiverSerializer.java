@@ -75,8 +75,14 @@ public class StreamerReceiverSerializer {
 
         ClientBinaryTupleUtils.appendCollectionToBinaryTuple(builder, items);
 
-        w.packInt(binaryTupleSize);
-        w.packBinaryTuple(builder);
+        ByteBuffer buf = builder.build();
+        int bufSize = buf.limit() - buf.position();
+        byte[] res = new byte[bufSize + 4];
+
+        ByteBuffer.wrap(res).order(ByteOrder.LITTLE_ENDIAN).putInt(binaryTupleSize);
+        buf.get(res, 4, bufSize);
+
+        return res;
     }
 
     /**
