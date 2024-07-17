@@ -27,6 +27,7 @@ import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.marshaling.Marshaler;
+import org.apache.ignite.table.ReceiverDescriptor;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -59,19 +60,20 @@ public class StreamerReceiverSerializer {
     /**
      * Serializes streamer receiver info.
      *
-     * @param w Writer.
-     * @param receiverClassName Receiver class name.
+     * @param receiver Receiver descriptor.
      * @param receiverArgs Receiver arguments.
      * @param items Items.
      */
-    public static <A> byte[] serializeReceiverInfoWithElementCount(String receiverClassName, A receiverArgs,
-            @Nullable Marshaler<A, byte[]> receiverArgsMarshaler, Collection<?> items) {
+    public static <A> byte[] serializeReceiverInfoWithElementCount(
+            ReceiverDescriptor<A> receiver,
+            A receiverArgs,
+            Collection<?> items) {
         // className + arg + items size + item type + items.
         int binaryTupleSize = 1 + 3 + 1 + 1 + items.size();
         var builder = new BinaryTupleBuilder(binaryTupleSize);
-        builder.appendString(receiverClassName);
+        builder.appendString(receiver.receiverClassName());
 
-        ClientBinaryTupleUtils.appendObject(builder, receiverArgs, receiverArgsMarshaler);
+        ClientBinaryTupleUtils.appendObject(builder, receiverArgs, receiver.argumentsMarshaler());
 
         ClientBinaryTupleUtils.appendCollectionToBinaryTuple(builder, items);
 
