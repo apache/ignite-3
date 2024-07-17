@@ -53,7 +53,7 @@ public class StreamerReceiverJob implements ComputeJob<byte[], byte[]> {
         DataStreamerReceiver<Object, Object, Object> receiver = ComputeUtils.instantiateReceiver(receiverClass);
         DataStreamerReceiverContext receiverContext = context::ignite;
 
-        CompletableFuture<List<Object>> receiverRes = receiver.receive(receiverInfo.items(), receiverContext, receiverInfo.args());
+        CompletableFuture<List<Object>> receiverRes = receiver.receive(receiverInfo.items(), receiverContext, receiverInfo.arg());
 
         if (receiverRes == null) {
             return CompletableFuture.completedFuture(null);

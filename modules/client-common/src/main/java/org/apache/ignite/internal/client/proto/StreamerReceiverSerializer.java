@@ -104,13 +104,13 @@ public class StreamerReceiverSerializer {
             throw new IgniteException(PROTOCOL_ERR, "Receiver class name is null");
         }
 
-        Object receiverArgs = ClientBinaryTupleUtils.readObject(reader, readerIndex);
+        Object receiverArg = ClientBinaryTupleUtils.readObject(reader, readerIndex);
 
         readerIndex += 3;
 
         List<Object> items = ClientBinaryTupleUtils.readCollectionFromBinaryTuple(reader, readerIndex);
 
-        return new SteamerReceiverInfo(receiverClassName, receiverArgs, items);
+        return new SteamerReceiverInfo(receiverClassName, receiverArg, items);
     }
 
     /**
@@ -142,6 +142,12 @@ public class StreamerReceiverSerializer {
         return resBytes;
     }
 
+    /**
+     * Deserializes receiver job results produced by {@link #serializeReceiverJobResults} method.
+     *
+     * @param results Serialized results.
+     * @return Deserialized results.
+     */
     public static <R> List<R> deserializeReceiverJobResults(byte[] results) {
         if (results == null || results.length == 0) {
             return List.of();
@@ -200,12 +206,12 @@ public class StreamerReceiverSerializer {
      */
     public static class SteamerReceiverInfo {
         private final String className;
-        private final Object args;
+        private final @Nullable Object arg;
         private final List<Object> items;
 
-        private SteamerReceiverInfo(String className, Object args, List<Object> items) {
+        private SteamerReceiverInfo(String className, @Nullable Object arg, List<Object> items) {
             this.className = className;
-            this.args = args;
+            this.arg = arg;
             this.items = items;
         }
 
@@ -223,8 +229,8 @@ public class StreamerReceiverSerializer {
          *
          * @return Receiver args.
          */
-        public Object args() {
-            return args;
+        public @Nullable Object arg() {
+            return arg;
         }
 
         /**
