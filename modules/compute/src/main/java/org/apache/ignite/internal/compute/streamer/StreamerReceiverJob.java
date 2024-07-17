@@ -48,8 +48,8 @@ public class StreamerReceiverJob implements ComputeJob<byte[], byte[]> {
 
         ClassLoader classLoader = ((JobExecutionContextImpl) context).classLoader();
         Class<DataStreamerReceiver<Object, Object, Object>> receiverClass = ComputeUtils.receiverClass(
-                classLoader, receiverInfo.className()
-        );
+                classLoader, receiverInfo.className());
+
         DataStreamerReceiver<Object, Object, Object> receiver = ComputeUtils.instantiateReceiver(receiverClass);
         DataStreamerReceiverContext receiverContext = context::ignite;
 

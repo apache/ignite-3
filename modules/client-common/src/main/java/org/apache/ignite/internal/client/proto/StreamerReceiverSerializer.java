@@ -32,6 +32,12 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Streamer receiver serializer.
+ *
+ * <p>Client streamer: client -> handler -> job -> handler -> client:
+ * Avoid deserializing receiver payload and results on handler side and pass byte array as is.
+ *
+ * <p>Embedded streamer: node -> job -> node:
+ * No intermediate steps, trivial serialize/deserialize.
  */
 public class StreamerReceiverSerializer {
     /**
