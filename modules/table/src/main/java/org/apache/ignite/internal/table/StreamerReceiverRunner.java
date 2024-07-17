@@ -25,7 +25,23 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.ReceiverDescriptor;
 import org.jetbrains.annotations.Nullable;
 
+/**
+ * Runs data streamer receiver on specified node with failover, class loading, scheduling.
+ */
 public interface StreamerReceiverRunner {
+    /**
+     * Runs streamer receiver.
+     *
+     * @param receiver Receiver.
+     * @param receiverArg Argument.
+     * @param items Data items.
+     * @param node Target node.
+     * @param deploymentUnits Deployment units.
+     * @return Receiver results.
+     * @param <A> Argument type.
+     * @param <I> Data item type.
+     * @param <R> Result type.
+     */
     <A, I, R> CompletableFuture<Collection<R>> runReceiverAsync(
             ReceiverDescriptor<A> receiver,
             @Nullable A receiverArg,
@@ -33,5 +49,15 @@ public interface StreamerReceiverRunner {
             ClusterNode node,
             List<DeploymentUnit> deploymentUnits);
 
+    /**
+     * Runs streamer receiver in serialized mode (takes serialized payload, returns serialized results).
+     * This method avoids intermediate deserialization/serialization on the client request handler side
+     * and passes serialized data directly to/from client.
+     *
+     * @param payload Serialized payload.
+     * @param node Target node.
+     * @param deploymentUnits Deployment units.
+     * @return Serialized receiver results.
+     */
     CompletableFuture<byte[]> runReceiverAsync(byte[] payload, ClusterNode node, List<DeploymentUnit> deploymentUnits);
 }

@@ -46,6 +46,7 @@ import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.TableRaftService;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
@@ -510,5 +511,10 @@ public class FakeInternalTable implements InternalTable {
     @Override
     public CompletableFuture<Long> estimatedSize() {
         throw new IgniteInternalException(new OperationNotSupportedException());
+    }
+
+    @Override
+    public StreamerReceiverRunner streamerReceiverRunner() {
+        return null;
     }
 }
