@@ -99,6 +99,7 @@ import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.TransactionException;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.Timeout;
@@ -215,7 +216,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
      * Tests that in a situation from the test {@link #testInsertFailsIfMajorityIsLost()} it is possible to recover partition using a
      * disaster recovery API. In this test, assignments will be (0, 3, 4), according to {@link RendezvousAffinityFunction}.
      */
-    @Test
+    @RepeatedTest(50)
     @ZoneParams(nodes = 5, replicas = 3, partitions = 1)
     void testManualRebalanceIfMajorityIsLost() throws Exception {
         int partId = 0;
@@ -252,7 +253,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
      * using a disaster recovery API. In this test, assignments will be (0, 2, 4) and (1, 2, 4), according to
      * {@link RendezvousAffinityFunction}.
      */
-    @Test
+    @RepeatedTest(50)
     @ZoneParams(nodes = 5, replicas = 3, partitions = 2)
     void testManualRebalanceIfMajorityIsLostSpecifyPartitions() throws Exception {
         int fixingPartId = 1;
