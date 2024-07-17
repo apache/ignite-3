@@ -90,14 +90,21 @@ public class ComputeExecutorImpl implements ComputeExecutor {
         Marshaler<R, byte[]> resultMarshaller = jobInstance.resultMarshaler();
 
         QueueExecution<Object> execution = executorService.submit(
-                () -> jobInstance.executeAsync(context, unmarshallOrNotIfNull(inputMarshaller, input)).thenApply(res -> {
-                    return resultMarshaller.marshal(res);
-                }),
+                () -> jobInstance.executeAsync(context, unmarshallOrNotIfNull(inputMarshaller, input))
+                        .thenApply(res -> marshallOrNull(res, resultMarshaller)),
                 options.priority(),
                 options.maxRetries()
         );
 
         return new JobExecutionInternal<>(execution, isInterrupted);
+    }
+
+    private static <R> Object marshallOrNull(R res, @Nullable Marshaler<R, byte[]> marshaler) {
+        if (marshaler == null) {
+            return res;
+        }
+
+        return marshaler.marshal(res);
     }
 
     private static <T> @Nullable T unmarshallOrNotIfNull(@Nullable Marshaler<T, byte[]> marshaler, Object input) {

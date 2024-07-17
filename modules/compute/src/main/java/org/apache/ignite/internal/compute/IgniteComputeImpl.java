@@ -317,7 +317,8 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
                             if (topologyService.getByConsistentId(node.name()) == null) {
                                 return new FailedExecution<>(new NodeNotFoundException(Set.of(node.name())));
                             }
-                            return new JobExecutionWrapper<>((JobExecution<R>) executeOnOneNodeWithFailover(node, CompletableFutures::nullCompletedFuture,
+                            return new JobExecutionWrapper<>((JobExecution<R>) executeOnOneNodeWithFailover(
+                                    node, CompletableFutures::nullCompletedFuture,
                                     descriptor.units(), descriptor.jobClassName(), descriptor.options(),
                                     argumentMarshaler == null ? args : argumentMarshaler.marshal(args)));
                         }));

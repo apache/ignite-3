@@ -42,7 +42,6 @@ public interface ComputeComponent extends IgniteComponent {
      * @param units Deployment units which will be loaded for execution.
      * @param jobClassName Name of the job class.
      * @param arg Job args.
-     * @param <R> Job result type.
      * @return Job execution object.
      */
     <T> JobExecution<Object> executeLocally(
@@ -58,7 +57,6 @@ public interface ComputeComponent extends IgniteComponent {
      * @param units Deployment units which will be loaded for execution.
      * @param jobClassName Name of the job class.
      * @param arg Job args.
-     * @param <R> Job result type.
      * @return Job execution object.
      */
     default <T> JobExecution<Object> executeLocally(

@@ -88,7 +88,7 @@ public class FakeCompute implements IgniteComputeInternal {
     }
 
     @Override
-    public <R> JobExecution<R> executeAsyncWithFailover(
+    public JobExecution<Object> executeAsyncWithFailover(
             Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,
@@ -96,7 +96,7 @@ public class FakeCompute implements IgniteComputeInternal {
             Object args) {
         if (Objects.equals(jobClassName, GET_UNITS)) {
             String unitString = units.stream().map(DeploymentUnit::render).collect(Collectors.joining(","));
-            return completedExecution((R) unitString);
+            return completedExecution(unitString);
         }
 
         try {
@@ -111,16 +111,16 @@ public class FakeCompute implements IgniteComputeInternal {
         }
 
         if (jobClassName.startsWith("org.apache.ignite")) {
-            Class<ComputeJob<Object, R>> jobClass = ComputeUtils.jobClass(this.getClass().getClassLoader(), jobClassName);
-            ComputeJob<Object, R> job = ComputeUtils.instantiateJob(jobClass);
-            CompletableFuture<R> jobFut = job.executeAsync(
+            Class<ComputeJob<Object, Object>> jobClass = ComputeUtils.jobClass(this.getClass().getClassLoader(), jobClassName);
+            ComputeJob<Object, Object> job = ComputeUtils.instantiateJob(jobClass);
+            CompletableFuture<Object> jobFut = job.executeAsync(
                     new JobExecutionContextImpl(ignite, new AtomicBoolean(), this.getClass().getClassLoader()), args);
 
             return jobExecution(jobFut != null ? jobFut : nullCompletedFuture());
         }
 
         var future0 = future;
-        return jobExecution(future0 != null ? future0 : completedFuture((R) nodeName));
+        return jobExecution(future0 != null ? future0 : completedFuture((Object) nodeName));
     }
 
     /** {@inheritDoc} */
@@ -135,7 +135,9 @@ public class FakeCompute implements IgniteComputeInternal {
     public <T, R> JobExecution<R> submit(JobTarget target, JobDescriptor<T, R> descriptor, T args) {
         if (target instanceof AnyNodeJobTarget) {
             Set<ClusterNode> nodes = ((AnyNodeJobTarget) target).nodes();
-            return executeAsyncWithFailover(nodes, descriptor.units(), descriptor.jobClassName(), descriptor.options(), args);
+            return (JobExecution<R>) executeAsyncWithFailover(
+                    nodes, descriptor.units(), descriptor.jobClassName(), descriptor.options(), args
+            );
         } else if (target instanceof ColocatedJobTarget) {
             return jobExecution(future != null ? future : completedFuture((R) nodeName));
         } else {
