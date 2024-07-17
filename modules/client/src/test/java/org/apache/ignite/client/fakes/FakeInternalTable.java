@@ -35,6 +35,7 @@ import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.BiConsumer;
 import javax.naming.OperationNotSupportedException;
+import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -75,6 +76,8 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
     /** Table data. */
     private final ConcurrentHashMap<ByteBuffer, BinaryRow> data = new ConcurrentHashMap<>();
 
+    private final IgniteCompute compute;
+
     /** Data access listener. */
     private BiConsumer<String, Object> dataAccessListener;
 
@@ -85,10 +88,11 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
      * @param tableId Id.
      * @param keyExtractor Function which converts given binary row to an index key.
      */
-    public FakeInternalTable(String tableName, int tableId, ColumnsExtractor keyExtractor) {
+    FakeInternalTable(String tableName, int tableId, ColumnsExtractor keyExtractor, IgniteCompute compute) {
         this.tableName = tableName;
         this.tableId = tableId;
         this.keyExtractor = keyExtractor;
+        this.compute = compute;
     }
 
     @Override
@@ -528,6 +532,6 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
 
     @Override
     public CompletableFuture<byte[]> runReceiverAsync(byte[] payload, ClusterNode node, List<DeploymentUnit> deploymentUnits) {
-        return null;
+        return completedFuture(null);
     }
 }

@@ -26,6 +26,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
+import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.Column;
@@ -69,6 +70,12 @@ public class FakeIgniteTables implements IgniteTablesInternal {
     private final ConcurrentHashMap<Integer, TableViewInternal> tablesById = new ConcurrentHashMap<>();
 
     private final AtomicInteger nextTableId = new AtomicInteger(1);
+
+    private final IgniteCompute compute;
+
+    FakeIgniteTables(IgniteCompute compute) {
+        this.compute = compute;
+    }
 
     /**
      * Creates a table.
@@ -213,7 +220,7 @@ public class FakeIgniteTables implements IgniteTablesInternal {
         };
 
         return new TableImpl(
-                new FakeInternalTable(name, id, keyExtractor),
+                new FakeInternalTable(name, id, keyExtractor, compute),
                 schemaReg,
                 new HeapLockManager(),
                 new SchemaVersions() {
