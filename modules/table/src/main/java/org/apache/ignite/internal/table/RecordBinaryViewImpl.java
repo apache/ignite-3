@@ -573,7 +573,7 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
                                 .thenCompose(node -> tbl.streamerReceiverRunner().runReceiverAsync(
                                         receiver, receiverArg, rows, node, receiver.units())));
 
-        CompletableFuture<Void> future = DataStreamer.streamData(
+        CompletableFuture<Void> future = DataStreamer.<Tuple, E, V, R>streamData(
                 publisher,
                 keyFunc,
                 payloadFunc,
