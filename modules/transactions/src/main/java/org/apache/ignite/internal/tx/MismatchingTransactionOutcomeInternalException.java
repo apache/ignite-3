@@ -27,8 +27,7 @@ import org.jetbrains.annotations.Nullable;
  * <p>For example, {@code tx.commit()} is called for a transaction, but the verification logic decided to abort it instead. The transaction
  * will be finished with {@link TxState#ABORTED} and the call to {@code tx.commit()} will throw this exception.
  */
-// TODO: IGNITE-20415 - split this into public exception (in a public package) and internal exception (carrying internal state).
-public class MismatchingTransactionOutcomeException extends TransactionInternalException {
+public class MismatchingTransactionOutcomeInternalException extends TransactionInternalException {
 
     private static final long serialVersionUID = -7953057695915339651L;
 
@@ -38,7 +37,7 @@ public class MismatchingTransactionOutcomeException extends TransactionInternalE
     /**
      * Constructor.
      */
-    public MismatchingTransactionOutcomeException(
+    public MismatchingTransactionOutcomeInternalException(
             int errorCode,
             String message,
             TransactionResult transactionResult,
@@ -49,7 +48,7 @@ public class MismatchingTransactionOutcomeException extends TransactionInternalE
         this.transactionResult = transactionResult;
     }
 
-    public MismatchingTransactionOutcomeException(String message, TransactionResult transactionResult) {
+    public MismatchingTransactionOutcomeInternalException(String message, TransactionResult transactionResult) {
         this(TX_UNEXPECTED_STATE_ERR, message, transactionResult, null);
     }
 

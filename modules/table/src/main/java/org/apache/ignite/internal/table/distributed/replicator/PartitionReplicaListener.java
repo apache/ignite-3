@@ -179,7 +179,7 @@ import org.apache.ignite.internal.tx.Lock;
 import org.apache.ignite.internal.tx.LockKey;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.LockMode;
-import org.apache.ignite.internal.tx.MismatchingTransactionOutcomeException;
+import org.apache.ignite.internal.tx.MismatchingTransactionOutcomeInternalException;
 import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TransactionResult;
 import org.apache.ignite.internal.tx.TxManager;
@@ -1724,7 +1724,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         txMeta.txState()
                 );
 
-                throw new MismatchingTransactionOutcomeException(
+                throw new MismatchingTransactionOutcomeInternalException(
                         "Failed to change the outcome of a finished transaction [txId=" + txId + ", txState=" + txMeta.txState() + "].",
                         new TransactionResult(txMeta.txState(), txMeta.commitTimestamp())
                 );
@@ -1778,7 +1778,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                             markFinished(txId, result.transactionState(), result.commitTimestamp());
 
-                            throw new MismatchingTransactionOutcomeException(utse.getMessage(), utse.transactionResult());
+                            throw new MismatchingTransactionOutcomeInternalException(utse.getMessage(), utse.transactionResult());
                         }
                         // Otherwise we convert from the internal exception to the client one.
                         throw new TransactionException(commit ? TX_COMMIT_ERR : TX_ROLLBACK_ERR, ex);

@@ -23,7 +23,7 @@ import org.apache.ignite.lang.ErrorGroups.Transactions;
  * Thrown when a commit attempt fails due to incompatible schema change (that is, the transaction was started on some schema
  * V1, but at the commit timestamp another schema V2 is effective, and it's not forward-compatible with V1).
  */
-public class IncompatibleSchemaAbortException extends MismatchingTransactionOutcomeException {
+public class IncompatibleSchemaAbortException extends MismatchingTransactionOutcomeInternalException {
     public IncompatibleSchemaAbortException(String message, TransactionResult transactionResult) {
         super(Transactions.TX_INCOMPATIBLE_SCHEMA_ERR, message, transactionResult, null);
     }

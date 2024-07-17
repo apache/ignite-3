@@ -18,18 +18,19 @@
 package org.apache.ignite.tx;
 
 import java.util.UUID;
+import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Thrown when, during an attempt to execute a commit, it turns out that the schema at the moment of commit is not compatible
  * with the schema at the moment when the transaction was started and, hence, the transaction was aborted instead.
  */
-public class StaleSchemaRollbackException extends RollbackException {
+public class StaleSchemaRollbackException extends MismatchingTransactionOutcomeException {
     /**
      * Constructs a new instance of {@link StaleSchemaRollbackException}.
      *
      * @param traceId Trace ID.
-     * @param code Error code.
+     * @param code Full error code.
      * @param message Error message.
      * @param cause The Throwable that is the cause of this exception (can be {@code null}).
      */

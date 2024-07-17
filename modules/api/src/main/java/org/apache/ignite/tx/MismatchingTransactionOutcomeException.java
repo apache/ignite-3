@@ -21,19 +21,21 @@ import java.util.UUID;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Thrown when, during an attempt to execute a commit, it turns out that the transaction has been aborted (either because of
- * an rollback request, or because it has become rollback-only).
+ * The exception is thrown when the transaction result differs from the intended one.
+ *
+ * <p>For example, {@code tx.commit()} is called for a transaction, but the verification logic decided to abort it instead. The transaction
+ * will be aborted and the call to {@code tx.commit()} will throw this exception.</p>
  */
-public class RollbackException extends TransactionException {
+public class MismatchingTransactionOutcomeException extends TransactionException {
     /**
-     * Constructs a new instance of {@link RollbackException}.
+     * Constructs a new instance.
      *
      * @param traceId Trace ID.
-     * @param code Error code.
+     * @param code Full error code.
      * @param message Error message.
      * @param cause The Throwable that is the cause of this exception (can be {@code null}).
      */
-    public RollbackException(UUID traceId, int code, String message, @Nullable Throwable cause) {
+    public MismatchingTransactionOutcomeException(UUID traceId, int code, String message, @Nullable Throwable cause) {
         super(traceId, code, message, cause);
     }
 }
