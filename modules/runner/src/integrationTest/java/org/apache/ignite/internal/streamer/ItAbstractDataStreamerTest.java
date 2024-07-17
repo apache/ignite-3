@@ -377,7 +377,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
     public void testWithReceiverKvBinaryView(boolean returnResults) {
-        testWithReceiver(defaultTable().keyValueView(), t -> Map.entry(t, null), returnResults);
+        testWithReceiver(defaultTable().keyValueView(), t -> Map.entry(t, t), returnResults);
     }
 
     @ParameterizedTest
@@ -393,7 +393,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
     public void testWithReceiverKvPojoView(boolean returnResults) {
         KeyValueView<Integer, PersonValPojo> view = defaultTable().keyValueView(Mapper.of(Integer.class), Mapper.of(PersonValPojo.class));
 
-        testWithReceiver(view, t -> Map.entry(t.intValue(0), null), returnResults);
+        testWithReceiver(view, t -> Map.entry(t.intValue(0), new PersonValPojo()), returnResults);
     }
 
     private static <T> void testWithReceiver(DataStreamerTarget<T> target, Function<Tuple, T> keyFunc, boolean returnResults) {
