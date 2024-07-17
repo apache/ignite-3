@@ -100,15 +100,13 @@ public class CatalogCompactionRunnerSelfTest extends BaseIgniteAbstractTest {
 
     private static final List<LogicalNode> logicalNodes = List.of(NODE1, NODE2, NODE3);
 
+    private final ClockService clockService = new TestClockService(new HybridClockImpl());
+
     private CatalogManagerImpl catalogManager;
 
     private LogicalTopologyService logicalTopologyService;
 
     private MessagingService messagingService;
-
-    private PlacementDriver placementDriver;
-
-    private final ClockService clockService = new TestClockService(new HybridClockImpl());
 
     @BeforeEach
     void setup() {
@@ -149,9 +147,7 @@ public class CatalogCompactionRunnerSelfTest extends BaseIgniteAbstractTest {
 
         waitForCondition(() -> expectedEarliestCatalogVersion == catalogManager.earliestCatalogVersion(), 3_000);
         assertEquals(expectedEarliestCatalogVersion, catalogManager.earliestCatalogVersion());
-
-        int expectedMessageCalls = logicalNodes.size() - 1;
-        verify(messagingService, times(expectedMessageCalls)).invoke(any(ClusterNode.class), any(NetworkMessage.class), anyLong());
+        verify(messagingService, times(logicalNodes.size() - 1)).invoke(any(ClusterNode.class), any(NetworkMessage.class), anyLong());
 
         // Nothing should be changed if catalog already compacted for previous timestamp.
         assertThat(compactionRunner.triggerCompaction(clockService.now()), willBe(false));
@@ -316,7 +312,7 @@ public class CatalogCompactionRunnerSelfTest extends BaseIgniteAbstractTest {
     ) {
         messagingService = mock(MessagingService.class);
         logicalTopologyService = mock(LogicalTopologyService.class);
-        placementDriver = mock(PlacementDriver.class);
+        PlacementDriver placementDriver = mock(PlacementDriver.class);
         TopologyService topologyService = mock(TopologyService.class);
 
         when(topologyService.localMember()).thenReturn(localNode);
