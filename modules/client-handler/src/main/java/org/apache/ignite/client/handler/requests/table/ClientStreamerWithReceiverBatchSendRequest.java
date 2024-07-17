@@ -27,7 +27,6 @@ import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.StreamerReceiverSerializer;
-import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.table.partition.HashPartition;
 import org.apache.ignite.table.IgniteTables;
 
@@ -46,8 +45,7 @@ public class ClientStreamerWithReceiverBatchSendRequest {
     public static CompletableFuture<Void> process(
             ClientMessageUnpacker in,
             ClientMessagePacker out,
-            IgniteTables tables,
-            IgniteComputeInternal compute
+            IgniteTables tables
     ) {
         return readTableAsync(in, tables).thenCompose(table -> {
             int partition = in.unpackInt();

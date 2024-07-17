@@ -35,6 +35,7 @@ import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.BiConsumer;
 import javax.naming.OperationNotSupportedException;
+import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
@@ -54,12 +55,13 @@ import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.table.ReceiverDescriptor;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Fake internal table.
  */
-public class FakeInternalTable implements InternalTable {
+public class FakeInternalTable implements InternalTable, StreamerReceiverRunner {
     public static final int PARTITIONS = 4;
 
     /** Table name. */
@@ -515,6 +517,17 @@ public class FakeInternalTable implements InternalTable {
 
     @Override
     public StreamerReceiverRunner streamerReceiverRunner() {
+        return this;
+    }
+
+    @Override
+    public <A, I, R> CompletableFuture<Collection<R>> runReceiverAsync(ReceiverDescriptor<A> receiver, @Nullable A receiverArg,
+            Collection<I> items, ClusterNode node, List<DeploymentUnit> deploymentUnits) {
+        throw new UnsupportedOperationException("Not implemented");
+    }
+
+    @Override
+    public CompletableFuture<byte[]> runReceiverAsync(byte[] payload, ClusterNode node, List<DeploymentUnit> deploymentUnits) {
         return null;
     }
 }
